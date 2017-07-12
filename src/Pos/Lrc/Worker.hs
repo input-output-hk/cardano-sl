@@ -25,7 +25,7 @@ import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe,
+import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              rollbackBlocksUnsafe)
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
@@ -87,7 +87,7 @@ type LrcModeFull ssc ctx m =
     , SscHelpersClass ssc
     , MonadSscMem ssc ctx m
     , MonadSlots m
-    , BlockApplyMode ssc ctx m
+    , MonadBlockApply ssc ctx m
     , MonadReader ctx m
     , HasLens BlkSemaphore ctx BlkSemaphore
     , HasLens GenesisUtxo ctx GenesisUtxo

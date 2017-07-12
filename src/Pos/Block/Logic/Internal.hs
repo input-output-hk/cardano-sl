@@ -8,9 +8,9 @@
 module Pos.Block.Logic.Internal
        (
          -- * Constraints
-         BlockMode
-       , BlockVerifyMode
-       , BlockApplyMode
+         MonadBlockBase
+       , MonadBlockVerify
+       , MonadBlockApply
 
        , applyBlocksUnsafe
        , rollbackBlocksUnsafe
@@ -31,8 +31,8 @@ import           Serokell.Util.Text          (listJson)
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Core              (Block, GenesisBlock, MainBlock, mbTxPayload,
                                               mbUpdatePayload)
-import           Pos.Block.Slog              (SlogApplyMode, SlogMode, slogApplyBlocks,
-                                              slogRollbackBlocks)
+import           Pos.Block.Slog              (MonadSlogApply, MonadSlogBase,
+                                              slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types             (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epochIndexL,
                                               gbBody, gbHeader, headerHash)
@@ -69,31 +69,28 @@ import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst 
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- | Set of basic constraints used by high-level block processing.
-type BlockMode ssc ctx m
-     = ( SlogMode ssc m
+type MonadBlockBase ssc ctx m
+     = ( MonadSlogBase ssc m
        -- Needed because SSC state is fully stored in memory.
        , MonadSscMem ssc ctx m
        -- Needed to load blocks (at least delegation does it).
        , MonadBlockDB ssc m
        -- Needed by some components.
        , MonadGState m
-       -- LRC is really needed.
-       , HasLens LrcContext ctx LrcContext
        -- This constraints define block components' global logic.
        , HasLens TxpGlobalSettings ctx TxpGlobalSettings
+       , HasLens LrcContext ctx LrcContext
        , SscGStateClass ssc
-       -- And 'MonadIO' is needed as usual.
-       , MonadIO m
        , MonadReader ctx m
        )
 
 -- | Set of constraints necessary for high-level block verification.
-type BlockVerifyMode ssc ctx m = BlockMode ssc ctx m
+type MonadBlockVerify ssc ctx m = MonadBlockBase ssc ctx m
 
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
-type BlockApplyMode ssc ctx m
-     = ( BlockMode ssc ctx m
-       , SlogApplyMode ssc ctx m
+type MonadBlockApply ssc ctx m
+     = ( MonadBlockBase ssc ctx m
+       , MonadSlogApply ssc ctx m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
        -- Needed for iteration over DB.
@@ -118,7 +115,7 @@ type BlockApplyMode ssc ctx m
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ssc ctx m . BlockApplyMode ssc ctx m
+    :: forall ssc ctx m . MonadBlockApply ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds pModifier = reportingFatal $ do
     -- Check that all blunds have the same epoch.
@@ -146,7 +143,7 @@ applyBlocksUnsafe blunds pModifier = reportingFatal $ do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksUnsafeDo
-    :: forall ssc ctx m . BlockApplyMode ssc ctx m
+    :: forall ssc ctx m . MonadBlockApply ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to do 'slogApplyBlocks' first, because it
@@ -180,7 +177,7 @@ applyBlocksUnsafeDo blunds pModifier = do
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
-    :: forall ssc ctx m. (BlockApplyMode ssc ctx m)
+    :: forall ssc ctx m. (MonadBlockApply ssc ctx m)
     => NewestFirst NE (Blund ssc)
     -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal $ do

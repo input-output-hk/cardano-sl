@@ -21,7 +21,7 @@ import           Ether.Internal           (HasLens (..))
 import           System.Wlog              (logDebug)
 
 import           Pos.Block.Core           (Block)
-import           Pos.Block.Logic.Internal (BlockApplyMode, BlockVerifyMode,
+import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe,
                                            toTxpBlock, toUpdateBlock)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
@@ -54,7 +54,7 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..
 -- header, body, extra data, etc.
 verifyBlocksPrefix
     :: forall ssc ctx m.
-       BlockVerifyMode ssc ctx m
+       MonadBlockVerify ssc ctx m
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
@@ -87,7 +87,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
          , pModifier)
 
 -- | Union of constraints required by block processing and LRC.
-type BlockLrcMode ssc ctx m = (BlockApplyMode ssc ctx m, LrcModeFull ssc ctx m)
+type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFull ssc ctx m)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on

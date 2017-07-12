@@ -23,13 +23,13 @@ import           Data.Default               (Default (def))
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           System.Wlog                (logDebug, logError, logInfo)
+import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
                                              MainBlockchain, mkGenesisBlock, mkMainBlock)
 import qualified Pos.Block.Core             as BC
-import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe)
+import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe)
 import           Pos.Block.Logic.Util       (calcChainQualityM, withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Slog             (HasSlogContext (..))
@@ -44,31 +44,46 @@ import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
-import           Pos.Delegation.Logic       (clearDlgMemPool, getDlgMempool)
-import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), ProxySKBlockInfo,
-                                             mkDlgPayload)
+import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPayload),
+                                             ProxySKBlockInfo, clearDlgMemPool,
+                                             getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
+import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)
-import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload))
-import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal)
+import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
+                                             SscLocalDataClass)
+import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
+                                             sscResetLocal)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload,
                                              topsortTxs)
-import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxs)
+import           Pos.Txp.MemState           (MonadTxpMem, clearTxpMemPool, getLocalTxs)
+import           Pos.Update                 (UpdateContext)
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)
 import           Pos.Util                   (maybeThrow, _neHead)
 import           Pos.Util.Util              (leftToPanic)
+import           Pos.WorkMode.Class         (TxpExtra_TMP)
 
-type CreationMode ssc ctx m
-     = ( BlockApplyMode ssc ctx m
-       , MonadReader ctx m
+-- | A set of constraints necessary to create a block from mempool.
+type MonadCreateBlock ssc ctx m
+     = ( MonadReader ctx m
        , HasPrimaryKey ctx
-       , HasLens BlkSemaphore ctx BlkSemaphore
-       , HasSlogContext ctx
+       , HasSlogContext ctx -- to check chain quality
+       , WithLogger m
+       , DB.MonadBlockDB ssc m
+       , MonadIO m
+       , MonadMask m
+       , HasLens LrcContext ctx LrcContext
+
+       -- Mempools
+       , HasLens DelegationVar ctx DelegationVar
+       , MonadTxpMem TxpExtra_TMP ctx m
+       , HasLens UpdateContext ctx UpdateContext
+       , MonadSscMem ssc ctx m
+       , SscLocalDataClass ssc
        )
 
 ----------------------------------------------------------------------------
@@ -90,10 +105,14 @@ type CreationMode ssc ctx m
 --   In the former case, it doesn't make sense to create a block.
 --   In the latter case, we want the system to stop completely, rather
 --   than running in insecure mode.
-createGenesisBlock
-    :: forall ssc ctx m.
-       CreationMode ssc ctx m
-    => EpochIndex -> m (Maybe (GenesisBlock ssc))
+createGenesisBlock ::
+       forall ssc ctx m.
+       ( MonadCreateBlock ssc ctx m
+       , MonadBlockApply ssc ctx m
+       , HasLens BlkSemaphore ctx BlkSemaphore
+       )
+    => EpochIndex
+    -> m (Maybe (GenesisBlock ssc))
 -- Genesis block for 0-th epoch is hardcoded.
 createGenesisBlock 0 = pure Nothing
 createGenesisBlock epoch = reportingFatal $ do
@@ -108,7 +127,7 @@ createGenesisBlock epoch = reportingFatal $ do
 
 createGenesisBlockDo
     :: forall ssc ctx m.
-       BlockApplyMode ssc ctx m
+       (MonadCreateBlock ssc ctx m, MonadBlockApply ssc ctx m)
     => EpochIndex
     -> SlotLeaders
     -> HeaderHash
@@ -162,9 +181,12 @@ createGenesisBlockDo epoch leaders tip = do
 -- In theory we can create main block even if chain quality is
 -- bad. See documentation of 'createGenesisBlock' which explains why
 -- we don't create blocks in such cases.
-createMainBlockAndApply
-    :: forall ssc ctx m.
-       (CreationMode ssc ctx m)
+createMainBlockAndApply ::
+       forall ssc ctx m.
+       ( MonadCreateBlock ssc ctx m
+       , MonadBlockApply ssc ctx m
+       , HasLens BlkSemaphore ctx BlkSemaphore
+       )
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
@@ -187,7 +209,7 @@ createMainBlockAndApply sId pske =
 -- block. It only checks whether a block can be created (see
 -- 'createMainBlockAndApply') and creates it checks passes.
 createMainBlockInternal ::
-       forall ssc ctx m. (CreationMode ssc ctx m)
+       forall ssc ctx m. (MonadCreateBlock ssc ctx m)
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
@@ -213,7 +235,7 @@ createMainBlockInternal sId pske = do
         block <$ evaluateNF_ block
 
 canCreateBlock ::
-       forall ssc ctx m. CreationMode ssc ctx m
+       forall ssc ctx m. MonadCreateBlock ssc ctx m
     => SlotId
     -> BlockHeader ssc
     -> m (Either Text ())
@@ -279,7 +301,7 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
 -- the block we applied (usually it's the same as the argument, but
 -- can differ if verification fails).
 applyCreatedBlock ::
-       forall ssc ctx m. (CreationMode ssc ctx m)
+       forall ssc ctx m. (MonadBlockApply ssc ctx m, MonadCreateBlock ssc ctx m)
     => ProxySKBlockInfo
     -> MainBlock ssc
     -> m (MainBlock ssc)
@@ -336,7 +358,7 @@ data RawPayload ssc = RawPayload
 
 getRawPayload
     :: forall ssc ctx m.
-       (CreationMode ssc ctx m)
+       (MonadCreateBlock ssc ctx m)
     => SlotId
     -> ExceptT Text m (RawPayload ssc)
 getRawPayload slotId = do

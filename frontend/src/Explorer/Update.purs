@@ -29,7 +29,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gblAddressPagination, gblAddressPaginationEditable, genesisBlockViewState, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -309,6 +309,36 @@ update (BlocksEditBlocksPageNumber event editable) state =
 update (BlocksInvalidBlocksPageNumber event) state =
     { state:
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
+      , effects:
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
+          ]
+    }
+
+-- Genesis Block
+
+update (GenesisBlockPaginateAddresses mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< genesisBlockViewState <<< gblAddressPagination) pageNumber $
+          set (viewStates <<< genesisBlockViewState <<< gblAddressPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
+
+update (GenesisBlockEditAddressesPageNumber event editable) state =
+    { state:
+          set (viewStates <<< genesisBlockViewState <<< gblAddressPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
+          ]
+    }
+
+update (GenesisBlockInvalidAddressesPageNumber event) state =
+    { state:
+          set (viewStates <<< genesisBlockViewState <<< gblAddressPaginationEditable) false state
       , effects:
           [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]

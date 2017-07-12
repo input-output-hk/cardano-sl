@@ -14,6 +14,7 @@ translation =
         , cTransactions: "Transactions"
         , cTransactionFeed: "Transactions Feed"
         , cAddress: "Address"
+        , cAddresses: "Addresses"
         , cVersion: "version"
         , cCalculator: "Calculator"
         , cNetwork: "Network"
@@ -113,6 +114,14 @@ translation =
         , blRoot: "Merkle root"
         , blEpochSlotNotFound: "Epoch / slot do not exist."
         , blSlotNotFound: "Slot does not exist."
+        }
+    , genesisBlock:
+        { gblNotFound: "Genesis block not found."
+        , gblAddressesEmpty: "No addresses"
+        , gblAddressesNotFound: "Addresses do not exists."
+        , gblAddressHash: "Id"
+        , gblAddressRedeemAmount: "Redeem amount"
+        , gblAddressIsRedeemed: "Is redeemed"
         }
     , footer:
         { fooResources: "Resources"

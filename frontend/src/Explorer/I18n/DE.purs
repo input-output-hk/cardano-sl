@@ -14,6 +14,7 @@ translation =
         , cTransactions: "Transaktionen"
         , cTransactionFeed: "Transaktionen Feed"
         , cAddress: "Addresse"
+        , cAddresses: "Addressen"
         , cCalculator: "Rechner"
         , cNetwork: "Netzwerk"
         , cVersion: "Version"
@@ -113,6 +114,14 @@ translation =
         , blRoot: "Oberer Slot"
         , blEpochSlotNotFound: "Epoche / Slot existiert nicht."
         , blSlotNotFound: "Slot existiert nicht."
+        }
+    , genesisBlock:
+        { gblNotFound: "Genesis Block existiert nicht."
+        , gblAddressesEmpty: "Keine Addressen"
+        , gblAddressesNotFound: "Addressen existieren nicht."
+        , gblAddressHash: "Id"
+        , gblAddressRedeemAmount: "Einzulösender Wert"
+        , gblAddressIsRedeemed: "eingelöst"
         }
     , footer:
         { fooResources: "Ressourcen"

@@ -12,7 +12,7 @@ import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Util.Config (SyncAction)
 import Network.RemoteData (RemoteData)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CGenesisBlockAddress, CGenesisBlockSummary, CTxBrief, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord, class Show)
 import Waypoints (Waypoint)
 
@@ -32,6 +32,8 @@ type State =
     , currentCAddress :: CAddress
     , currentAddressSummary :: RemoteData Error CAddressSummary
     , currentBlocksResult :: RemoteData Error CBlockEntries
+    , currentCGenesisBlockSummary :: RemoteData Error CGenesisBlockSummary
+    , currentCGenesisBlockAddresses :: RemoteData Error CGenesisBlockAddresses
     , errors :: Errors
     , loading :: Boolean
     , now :: DateTime
@@ -76,6 +78,8 @@ type CBlockEntries = Array CBlockEntry
 type CTxEntries = Array CTxEntry
 type CTxBriefs = Array CTxBrief
 
+type CGenesisBlockAddresses = Array CGenesisBlockAddress
+
 type Errors = Array String
 
 type ViewStates =
@@ -84,6 +88,7 @@ type ViewStates =
     , addressDetail :: AddressDetailViewState
     , blockDetail :: BlockDetailViewState
     , blocksViewState :: BlocksViewState
+    , genesisBlockViewState :: GenesisBlockViewState
     }
 
 type GlobalViewState =
@@ -125,6 +130,11 @@ type AddressDetailViewState =
 type BlocksViewState =
     { blsViewPagination :: PageNumber
     , blsViewPaginationEditable :: Boolean
+    }
+
+type GenesisBlockViewState =
+    { gblAddressPagination :: PageNumber
+    , gblAddressPaginationEditable :: Boolean
     }
 
 newtype PageNumber = PageNumber Int

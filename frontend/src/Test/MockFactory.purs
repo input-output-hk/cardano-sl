@@ -5,6 +5,7 @@
 module Explorer.Test.MockFactory where
 
 import Prelude
+
 import Data.Array ((..))
 import Data.Lens (set)
 import Data.Maybe (Maybe(..))
@@ -12,7 +13,7 @@ import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Types.State (CTxBriefs)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary(..), CAddressType(..), CBlockEntry(..), CCoin, CHash, CTxEntry(..), CTxId, CTxBrief(..))
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary(..), CAddressType(..), CBlockEntry(..), CCoin, CGenesisBlockAddress(..), CGenesisBlockSummary(..), CHash, CTxBrief(..), CTxEntry(..), CTxId)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddressSummary, _CBlockEntry, _CTxEntry, caTxList, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId, cteTimeIssued)
 
 -- | Creates a `CTxEntry` with "empty" data
@@ -97,3 +98,16 @@ mkCtbInOutput addr coin =
 mkCtbInOutputs :: Array Int -> Array (Tuple CAddress CCoin)
 mkCtbInOutputs indexes =
     map (\index -> mkCtbInOutput index index) indexes
+
+mkCGenesisBlockSummary :: CGenesisBlockSummary
+mkCGenesisBlockSummary = CGenesisBlockSummary
+    { cgbRedeemedAddressesNum: 0
+    }
+
+mkCGenesisBlockAddress :: CGenesisBlockAddress
+mkCGenesisBlockAddress = CGenesisBlockAddress
+    { cgaAddressId: mkCAddress "A"
+    , cgaRSCoinAddressId: mkCAddress "B"
+    , cgaRedeemAmount: 1
+    , cgaRedeemed: false
+    }

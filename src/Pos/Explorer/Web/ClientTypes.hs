@@ -10,6 +10,8 @@ module Pos.Explorer.Web.ClientTypes
        , CBlockSummary (..)
        , CAddressType (..)
        , CAddressSummary (..)
+       , CGenesisBlockSummary(..)
+       , CGenesisBlockAddress(..)
        , CTxBrief (..)
        , CNetworkAddress (..)
        , CTxSummary (..)
@@ -274,6 +276,17 @@ data CTxSummary = CTxSummary
     , ctsFees            :: !CCoin
     , ctsInputs          :: ![(CAddress, CCoin)]
     , ctsOutputs         :: ![(CAddress, CCoin)]
+    } deriving (Show, Generic)
+
+newtype CGenesisBlockSummary = CGenesisBlockSummary
+    { cgbRedeemedAddressesNum :: Int
+    } deriving (Show, Generic)
+
+data CGenesisBlockAddress = CGenesisBlockAddress
+    { cgaAddressId :: !CAddress
+    , cgaRSCoinAddressId :: !CAddress
+    , cgaRedeemAmount :: !Int
+    , cgaRedeemed :: !Bool
     } deriving (Show, Generic)
 
 --------------------------------------------------------------------------------

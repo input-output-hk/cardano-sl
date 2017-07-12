@@ -11,6 +11,7 @@ type Translation =
     , address :: Address
     , tx :: Transaction
     , block :: Block
+    , genesisBlock :: GenesisBlock
     , footer :: Footer
     }
 
@@ -29,6 +30,7 @@ type Common =
     , cNetwork :: String
     , cVersion :: String
     , cAddress :: String
+    , cAddresses :: String
     , cSummary :: String
     , cBlock :: String
     , cGenesis :: String
@@ -143,6 +145,17 @@ type Block =
     , blRoot :: String
     , blEpochSlotNotFound :: String
     , blSlotNotFound :: String
+    }
+
+-- translations of block detail page
+
+type GenesisBlock =
+    { gblNotFound :: String
+    , gblAddressesEmpty :: String
+    , gblAddressesNotFound :: String
+    , gblAddressHash :: String
+    , gblAddressRedeemAmount :: String
+    , gblAddressIsRedeemed :: String
     }
 
 -- translations of footer

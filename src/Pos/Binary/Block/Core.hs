@@ -62,11 +62,6 @@ instance Bi (BC.BlockSignature ssc) where
         t -> fail $ "get@BlockSignature: unknown tag: " <> show t
 
 instance Cbor.Bi (BC.BlockSignature ssc) where
-{--
-    = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignatureLight (ProxySigLight (MainToSign ssc))
-    | BlockPSignatureHeavy (ProxySigHeavy (MainToSign ssc))
---}
   encode input = case input of
     BC.BlockSignature sig       -> Cbor.encodeListLen 2 <> Cbor.encode (0 :: Word8) <> Cbor.encode sig
     BC.BlockPSignatureLight pxy -> Cbor.encodeListLen 2 <> Cbor.encode (1 :: Word8) <> Cbor.encode pxy

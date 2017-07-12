@@ -52,8 +52,7 @@ import           Pos.Genesis             (stakeDistribution)
 import           Pos.Launcher            (newInitFuture)
 import           Pos.Lrc                 (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting            (HasSlottingVar (..), MonadSlots (..),
-                                          SlottingContextSum (SCSimple), SlottingData,
-                                          currentTimeSlottingSimple,
+                                          SlottingData, currentTimeSlottingSimple,
                                           getCurrentSlotBlockingSimple,
                                           getCurrentSlotInaccurateSimple,
                                           getCurrentSlotSimple)
@@ -152,11 +151,10 @@ instance Arbitrary TestParams where
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data TestInitModeContext ssc = TestInitModeContext
-    { imcDBPureVar          :: DBPureVar
-    , imcGenesisUtxo        :: GenesisUtxo
-    , imcSlottingVar        :: (Timestamp, TVar SlottingData)
-    , imcSlottingContextSum :: SlottingContextSum
-    , imcLrcContext         :: LrcContext
+    { timcDBPureVar   :: DBPureVar
+    , timcGenesisUtxo :: GenesisUtxo
+    , timcSlottingVar :: (Timestamp, TVar SlottingData)
+    , timcLrcContext  :: LrcContext
     }
 
 makeLensesWith postfixLFields ''TestInitModeContext
@@ -187,15 +185,9 @@ makeLensesWith postfixLFields ''BlockTestContext
 -- Initialization
 ----------------------------------------------------------------------------
 
--- Maybe we will make everything pure somewhere in 2021, but for now
--- this is commented out and let's use 'bracket'.
--- initBlockTestContext :: BlockTestContext
--- initBlockTestContext = ¯\_(ツ)_/¯
-
--- So here we go. Bracket, yes.
-bracketBlockTestContext ::
+initBlockTestContext ::
        TestParams -> (BlockTestContext -> BaseMonad a) -> BaseMonad a
-bracketBlockTestContext testParams@TestParams {..} callback = do
+initBlockTestContext testParams@TestParams {..} callback = do
     dbPureVar <- newDBPureVar
     (futureLrcCtx, putLrcCtx) <- newInitFuture
     (futureSlottingVar, putSlottingVar) <- newInitFuture
@@ -204,12 +196,11 @@ bracketBlockTestContext testParams@TestParams {..} callback = do
                 dbPureVar
                 tpGenUtxo
                 futureSlottingVar
-                SCSimple
                 futureLrcCtx
     runTestInitMode @SscGodTossing initCtx $
-        bracketBlockTestContextDo dbPureVar putSlottingVar putLrcCtx
+        initBlockTestContextDo dbPureVar putSlottingVar putLrcCtx
   where
-    bracketBlockTestContextDo btcDBPureVar putSlottingVar putLrcCtx = do
+    initBlockTestContextDo btcDBPureVar putSlottingVar putLrcCtx = do
         systemStart <- Timestamp <$> currentTime
         initNodeDBs @SscGodTossing systemStart
         slottingData <- GState.getSlottingData
@@ -238,7 +229,7 @@ type BlockTestMode = Mtl.ReaderT BlockTestContext BaseMonad
 
 runBlockTestMode :: TestParams -> BlockTestMode a -> IO a
 runBlockTestMode tp action =
-    runProduction $ bracketBlockTestContext tp (runReaderT action)
+    runProduction $ initBlockTestContext tp (runReaderT action)
 
 ----------------------------------------------------------------------------
 -- Property
@@ -256,20 +247,20 @@ instance Testable (BlockProperty a) where
 ----------------------------------------------------------------------------
 
 instance HasLens DBPureVar (TestInitModeContext ssc) DBPureVar where
-    lensOf = imcDBPureVar_L
+    lensOf = timcDBPureVar_L
 
 instance HasLens GenesisUtxo (TestInitModeContext ssc) GenesisUtxo where
-    lensOf = imcGenesisUtxo_L
+    lensOf = timcGenesisUtxo_L
 
-instance HasLens SlottingContextSum (TestInitModeContext ssc) SlottingContextSum where
-    lensOf = imcSlottingContextSum_L
+--instance HasLens SlottingContextSum (TestInitModeContext ssc) SlottingContextSum where
+--    lensOf = imcSlottingContextSum_L
 
 instance HasLens LrcContext (TestInitModeContext ssc) LrcContext where
-    lensOf = imcLrcContext_L
+    lensOf = timcLrcContext_L
 
 instance HasSlottingVar (TestInitModeContext ssc) where
-    slottingTimestamp = imcSlottingVar_L . _1
-    slottingVar = imcSlottingVar_L . _2
+    slottingTimestamp = timcSlottingVar_L . _1
+    slottingVar = timcSlottingVar_L . _2
 
 instance MonadDBRead (TestInitMode ssc) where
     dbGet = DB.dbGetPureDefault

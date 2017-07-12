@@ -9,10 +9,15 @@ module Pos.Generator.Block.Param
 
 import           Universum
 
-import           Control.Lens.TH (makeClassy)
+import           Control.Lens.TH     (makeClassy)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text.Buildable
+import           Formatting          (bprint, build, formatToString, int, (%))
+import qualified Prelude
+import           Serokell.Util       (listJson)
 
-import           Pos.Core        (BlockCount, StakeholderId)
-import           Pos.Crypto      (SecretKey)
+import           Pos.Core            (BlockCount, StakeholderId)
+import           Pos.Crypto          (SecretKey)
 
 -- | All secret keys in the system. In testing environment we often
 -- want to have inverse of 'hash' and 'toPublic'.
@@ -24,6 +29,15 @@ data AllSecrets = AllSecrets
     }
 
 makeClassy ''AllSecrets
+
+instance Buildable AllSecrets where
+    build AllSecrets {..} =
+        bprint ("AllSecrets {\n"%
+                "  secret keys: "%int%" items\n"%
+                "  stakeholders: "%listJson%"\n"%
+                "}\n")
+            (length _asSecretKeys)
+            (HM.keys _asSecretKeys)
 
 -- | Parameters for blockchain generation. Probably they come from the outside.
 data BlockGenParams = BlockGenParams
@@ -39,5 +53,17 @@ data BlockGenParams = BlockGenParams
 
 makeClassy ''BlockGenParams
 
+instance Buildable BlockGenParams where
+    build BlockGenParams {..} =
+        bprint ("BlockGenParams {\n"%
+                "  secrets: "%build%"\n"%
+                "  number of blocks: "%int%"\n"%
+                "}\n")
+            _bgpSecrets
+            _bgpBlockCount
+
 instance HasAllSecrets BlockGenParams where
     allSecrets = bgpSecrets
+
+instance Show BlockGenParams where
+    show = formatToString build

@@ -5,6 +5,7 @@ module Pos.Binary.Block.Block
        ) where
 
 import           Pos.Binary.Class      (Cons (..), Field (..), deriveSimpleBi)
+import qualified Pos.Binary.Cbor       as Cbor
 import           Pos.Binary.Core       ()
 import           Pos.Binary.Update     ()
 import           Pos.Block.Types       (Undo (..))
@@ -17,4 +18,11 @@ deriveSimpleBi ''Undo [
         Field [| undoTx  :: TxpUndo |],
         Field [| undoPsk :: DlgUndo |],
         Field [| undoUS  :: USUndo  |]
+    ]]
+
+Cbor.deriveSimpleBi ''Undo [
+    Cbor.Cons 'Undo [
+        Cbor.Field [| undoTx  :: TxpUndo |],
+        Cbor.Field [| undoPsk :: DlgUndo |],
+        Cbor.Field [| undoUS  :: USUndo  |]
     ]]

@@ -66,9 +66,17 @@ instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
     sizeNPut = labelS "MsgHeaders" $ putField $ \(MsgHeaders b) -> b
     get = label "MsgHeaders" $ MsgHeaders <$> get
 
+instance SscHelpersClass ssc => Cbor.Bi (MsgHeaders ssc) where
+  encode (MsgHeaders b) = Cbor.encode b
+  decode = MsgHeaders <$> Cbor.decode
+
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
     sizeNPut = labelS "MsgBlock" $ putField $ \(MsgBlock b) -> b
     get = label "MsgBlock" $ MsgBlock <$> get
+
+instance SscHelpersClass ssc => Cbor.Bi (MsgBlock ssc) where
+  encode (MsgBlock b) = Cbor.encode b
+  decode = MsgBlock <$> Cbor.decode
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related

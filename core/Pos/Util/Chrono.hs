@@ -23,18 +23,19 @@ import qualified GHC.Exts           as IL
 import           Test.QuickCheck    (Arbitrary)
 
 import           Pos.Binary.Class   (Bi)
+import qualified Pos.Binary.Cbor    as Cbor
 
 newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
             Container, NontrivialContainer,
-            Binary, Bi,
+            Binary, Bi, Cbor.Bi,
             Arbitrary)
 newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
             Container, NontrivialContainer,
-            Binary, Bi,
+            Binary, Bi, Cbor.Bi,
             Arbitrary)
 
 makeWrapped ''NewestFirst

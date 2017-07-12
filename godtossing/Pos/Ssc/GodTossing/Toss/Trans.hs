@@ -18,7 +18,8 @@ import           Universum
 
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment, getCertId,
                                                  insertSignedCommitment)
-import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))
+import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossEnv (..),
+                                                 MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Types  (TossModifier (..), tmCertificates,
                                                  tmCommitments, tmOpenings, tmShares)
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData (certs))
@@ -60,7 +61,11 @@ instance MonadTossRead m =>
     getVssCertificates = certs <$> getVssCertData
     getVssCertData = ether getVssCertData
     getStableCertificates = ether . getStableCertificates
+
+instance MonadTossEnv m =>
+         MonadTossEnv (TossT m) where
     getRichmen = ether . getRichmen
+    getAdoptedBVData = ether getAdoptedBVData
 
 instance MonadToss m =>
          MonadToss (TossT m) where

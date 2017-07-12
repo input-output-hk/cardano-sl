@@ -13,6 +13,7 @@ module Pos.Ssc.GodTossing.GState
 
 import           Control.Lens                   ((.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
+import           Control.Monad.Morph            (hoist)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Tagged                    (Tagged (..))
@@ -21,8 +22,8 @@ import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.GodTossing          ()
-import           Pos.Core                       (EpochIndex (..), SlotId (..),
-                                                 epochIndexL, epochOrSlotG)
+import           Pos.Core                       (BlockVersionData, EpochIndex (..),
+                                                 SlotId (..), epochIndexL, epochOrSlotG)
 import           Pos.DB                         (MonadDBRead, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
@@ -36,6 +37,7 @@ import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStake, PureToss,
                                                  TossVerFailure (..), applyGenesisBlock,
                                                  rollbackGT, runPureTossWithLogger,
+                                                 supplyPureTossEnv,
                                                  verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitments,
@@ -101,7 +103,7 @@ dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
 
 rollbackBlocks :: NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
-rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
+rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
     payloads = over _Wrapped (map snd . rights . map getSscBlock . toList)
@@ -109,20 +111,23 @@ rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
 
 verifyAndApply
     :: RichmenStake
+    -> BlockVersionData
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
-verifyAndApply richmenStake blocks = verifyAndApplyMultiRichmen False richmenData blocks
+verifyAndApply richmenStake bvd blocks =
+    verifyAndApplyMultiRichmen False (richmenData, bvd) blocks
   where
     epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
     :: Bool
-    -> MultiRichmenStake
+    -> (MultiRichmenStake, BlockVersionData)
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
-verifyAndApplyMultiRichmen onlyCerts richmenData =
-    tossToVerifier richmenData . mapM_ (verifyAndApplyDo . getSscBlock)
+verifyAndApplyMultiRichmen onlyCerts env =
+    tossToVerifier . hoist (supplyPureTossEnv env) .
+    mapM_ (verifyAndApplyDo . getSscBlock)
   where
     verifyAndApplyDo (Left header) = applyGenesisBlock $ header ^. epochIndexL
     verifyAndApplyDo (Right (header, payload)) =
@@ -137,20 +142,19 @@ verifyAndApplyMultiRichmen onlyCerts richmenData =
     leaveOnlyCerts (SharesPayload _ certs) = SharesPayload mempty certs
     leaveOnlyCerts c@(CertificatesPayload _) = c
 
-tossToUpdate :: MultiRichmenStake -> PureToss a -> GSUpdate a
-tossToUpdate richmenData action = do
+tossToUpdate :: PureToss a -> GSUpdate a
+tossToUpdate action = do
     oldState <- use identity
-    (res, newState) <- runPureTossWithLogger richmenData oldState action
+    (res, newState) <- runPureTossWithLogger oldState action
     (identity .= newState) $> res
 
 tossToVerifier
-    :: MultiRichmenStake
-    -> ExceptT TossVerFailure PureToss a
+    :: ExceptT TossVerFailure PureToss a
     -> SscVerifier SscGodTossing a
-tossToVerifier richmenData action = do
+tossToVerifier action = do
     oldState <- use identity
     (resOrErr, newState) <-
-        runPureTossWithLogger richmenData oldState $ runExceptT action
+        runPureTossWithLogger oldState $ runExceptT action
     case resOrErr of
         Left e    -> throwError e
         Right res -> (identity .= newState) $> res

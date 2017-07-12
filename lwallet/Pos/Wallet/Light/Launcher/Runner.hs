@@ -63,7 +63,7 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
     peers <- findPeers
     logInfo $ sformat ("Known peers: "%shown) (toList peers)
-    logDebug $ sformat ("Forking "%int%" plugins ...") (length peers)
+    logDebug $ sformat ("Forking "%int%" plugins ...") (length plugins')
     let unpackPlugin (ActionSpec action) = action vI sendActions
     void (mapConcurrently unpackPlugin (plugins' ++ workers'))
   where

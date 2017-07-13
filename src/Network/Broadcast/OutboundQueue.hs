@@ -1144,14 +1144,14 @@ timed act = do
     conv t = round (realToFrac t * 1000000 :: Double)
 
 {-------------------------------------------------------------------------------
-  Cardano specific wrapper
+  Wrapper for use as an OutboundQueue
 -------------------------------------------------------------------------------}
 
 newtype ClassifiedConversation peerData packingType peer m t =
-    ClassifiedConversation (MsgType, Origin peer, peer -> peerData -> Conversation packingType m t)
+    ClassifiedConversation (peer -> peerData -> Conversation packingType m t)
 
 instance FormatMsg (ClassifiedConversation peerData packingType peer m) where
-  formatMsg = flip fmap shown $ \k -> \(ClassifiedConversation (msgClass, _, _)) -> k msgClass
+  formatMsg = flip fmap shown $ \k -> \(ClassifiedConversation _) -> k ("<<conversation>>" :: String)
 
 -- | Use an OutboundQ as an OutboundQueue.
 asOutboundQueue
@@ -1178,7 +1178,7 @@ asOutboundQueue oq mkNodeId mkNodeType mkMsgType mkOrigin converse = do
     return $ OutboundQueue { oqEnqueue = enqueueIt, oqClose = M.cancel thread }
   where
     sendMsg :: SendMsg m (ClassifiedConversation peerData packingType nid m) nid
-    sendMsg (ClassifiedConversation (_, _, k)) nid =
+    sendMsg (ClassifiedConversation k) nid =
         converse (mkNodeId nid) (k nid)
     enqueueIt
         :: forall t .
@@ -1188,7 +1188,7 @@ asOutboundQueue oq mkNodeId mkNodeType mkMsgType mkOrigin converse = do
         -> m (Map nid (m t))
     enqueueIt peers msg conversation = do
         let peers' = simplePeers ((\nid -> (mkNodeType nid, nid)) <$> Set.toList peers)
-            cc = ClassifiedConversation (mkMsgType msg, mkOrigin msg, conversation)
+            cc = ClassifiedConversation conversation
         tlist <- enqueueSync' oq (mkMsgType msg) cc (mkOrigin msg) peers'
         let tmap = Map.fromList tlist
         return $ fmap (either M.throw return) tmap

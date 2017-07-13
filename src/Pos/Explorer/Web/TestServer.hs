@@ -137,11 +137,8 @@ testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
     , ctbOutputSum  = mkCCoin $ mkCoin 33333
     }]
 
-testTxsLast
-    :: Maybe Word
-    -> Maybe Word
-    -> Handler (Either ExplorerError [CTxEntry])
-testTxsLast _ _     = pure . pure $ [CTxEntry
+testTxsLast :: Handler (Either ExplorerError [CTxEntry])
+testTxsLast         = pure . pure $ [CTxEntry
     { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
     , cteTimeIssued = posixTime
     , cteAmount     = mkCCoin $ mkCoin 33333

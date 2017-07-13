@@ -644,8 +644,7 @@ update (RequestLastTxs) state =
           set latestTransactions Loading $
           state
     , effects:
-        [ attempt (fetchLatestTxs (RequestLimit maxTransactionRows) (RequestOffset 0)) >>=
-              pure <<< Just <<< ReceiveLastTxs
+        [ attempt fetchLatestTxs >>= pure <<< Just <<< ReceiveLastTxs
         ]
     }
 

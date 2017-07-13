@@ -117,8 +117,7 @@ createGenesisBlockAndApply ::
 createGenesisBlockAndApply 0 = pure Nothing
 createGenesisBlockAndApply epoch =
     reportingFatal $
-    try $
-    lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders >>= \case
+    try (lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders) >>= \case
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err

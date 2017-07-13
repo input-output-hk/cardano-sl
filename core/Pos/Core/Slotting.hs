@@ -15,7 +15,10 @@ module Pos.Core.Slotting
 
 import           Universum
 
-import           Pos.Core.Class     (HasEpochOrSlot (..), getEpochOrSlot)
+import           Control.Lens       (lens)
+
+import           Pos.Core.Class     (HasEpochIndex (..), HasEpochOrSlot (..),
+                                     getEpochOrSlot)
 import           Pos.Core.Constants (epochSlots, slotSecurityParam)
 import           Pos.Core.Types     (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
                                      LocalSlotIndex, SlotCount, SlotId (..), getSlotIndex,
@@ -63,6 +66,9 @@ instance Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral
     fromEnum = fromIntegral . flattenSlotId
 
+instance HasEpochIndex SlotId where
+    epochIndexL = lens siEpoch (\s a -> s {siEpoch = a})
+
 -- | Slot such that at the beginning of epoch blocks with SlotId ≤- this slot
 -- are stable.
 crucialSlot :: EpochIndex -> SlotId
@@ -72,6 +78,14 @@ crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
     siSlot =
         leftToPanic "crucialSlot: " $
         mkLocalSlotIndex (fromIntegral (epochSlots - slotSecurityParam - 1))
+
+instance HasEpochIndex EpochOrSlot where
+    epochIndexL = lens (epochOrSlot identity siEpoch) setter
+      where
+        setter :: EpochOrSlot -> EpochIndex -> EpochOrSlot
+        setter (EpochOrSlot (Left _)) epoch = EpochOrSlot (Left epoch)
+        setter (EpochOrSlot (Right slot)) epoch =
+            EpochOrSlot (Right $ set epochIndexL epoch slot)
 
 instance Enum EpochOrSlot where
     succ (EpochOrSlot (Left e)) =

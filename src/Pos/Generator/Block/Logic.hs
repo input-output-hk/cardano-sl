@@ -8,11 +8,12 @@ import           Universum
 
 import           Control.Lens              (at, ix, _Wrapped)
 
+import           Pos.Block.Core            (mkGenesisBlock)
 import           Pos.Block.Logic           (applyBlocksUnsafe, createMainBlockInternal,
                                             verifyBlocksPrefix)
 import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (EpochOrSlot (..), SlotId (..), getEpochOrSlot,
-                                            getSlotIndex)
+import           Pos.Core                  (EpochOrSlot (..), SlotId (..), epochIndexL,
+                                            getEpochOrSlot, getSlotIndex)
 import           Pos.DB.DB                 (getTipHeader)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode  (BlockGenMode, MonadBlockGen,
@@ -56,32 +57,40 @@ genBlock ::
        (MonadBlockGenBase m)
     => EpochOrSlot
     -> BlockGenMode m (Blund SscGodTossing)
-genBlock (EpochOrSlot (Left epoch)) = undefined epoch
-genBlock (EpochOrSlot (Right slot@SlotId {..})) = do
-    genPayload slot
-    -- We need to know leader's secret key to create a block.
-    leaders <- lrcActionOnEpochReason siEpoch "genBlock" LrcDB.getLeaders
-    leader <-
-        maybeThrow
-            (BGInternal "no leader")
-            (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
-    secrets <- view asSecretKeys <$> view blockGenParams
-    leaderSK <- maybeThrow (BGUnknownSecret leader) (secrets ^. at leader)
-    -- When we know the secret key we can proceed to the actual creation.
-    withCurrentSlot slot $ usingPrimaryKey leaderSK genBlockDo
+genBlock eos = do
+    -- We need to know leaders to create any block.
+    leaders <-
+        lrcActionOnEpochReason (eos ^. epochIndexL) "genBlock" LrcDB.getLeaders
+    case eos of
+        EpochOrSlot (Left epoch) -> do
+            tipHeader <- getTipHeader @SscGodTossing
+            let slot0 = SlotId epoch minBound
+            let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders
+            withCurrentSlot slot0 $ verifyAndApply (Left genesisBlock)
+        EpochOrSlot (Right slot@SlotId {..}) -> do
+            genPayload slot
+                    -- We need to know leader's secret key to create a block.
+            leader <-
+                maybeThrow
+                    (BGInternal "no leader")
+                    (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
+            secrets <- view asSecretKeys <$> view blockGenParams
+            leaderSK <-
+                maybeThrow (BGUnknownSecret leader) (secrets ^. at leader)
+                    -- When we know the secret key we can proceed to the actual creation.
+            withCurrentSlot slot $ usingPrimaryKey leaderSK (genMainBlock slot)
   where
-    genBlockDo =
-        (createMainBlockInternal @SscGodTossing slot Nothing) >>= \case
+    genMainBlock slot =
+        createMainBlockInternal @SscGodTossing slot Nothing >>= \case
             Left err -> throwM (BGFailedToCreate err)
-            Right mainBlock -> verifyAndApply mainBlock
-    verifyAndApply mainBlock =
-        let block = Right mainBlock
-        in verifyBlocksPrefix (one block) >>= \case
-               Left err -> throwM (BGCreatedInvalid err)
-               Right (undos, pollModifier) ->
-                   let undo = undos ^. _Wrapped . _neHead
-                       blund = (block, undo)
-                   in blund <$ applyBlocksUnsafe (one blund) (Just pollModifier)
+            Right mainBlock -> verifyAndApply $ Right mainBlock
+    verifyAndApply block =
+        verifyBlocksPrefix (one block) >>= \case
+            Left err -> throwM (BGCreatedInvalid err)
+            Right (undos, pollModifier) ->
+                let undo = undos ^. _Wrapped . _neHead
+                    blund = (block, undo)
+                in blund <$ applyBlocksUnsafe (one blund) (Just pollModifier)
 
 ----------------------------------------------------------------------------
 -- Payload generation

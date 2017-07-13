@@ -46,7 +46,7 @@ module Network.Broadcast.OutboundQueue (
   , Origin(..)
   , enqueue
   , enqueueSync
-  , enqueueTreasured
+  , enqueueCherished
     -- * Dequeuing
   , SendMsg
   , dequeueThread
@@ -860,16 +860,20 @@ enqueueSync outQ@OutQ{..} msgType msg origin peers = do
 -- | Enqueue a message which really should not get lost
 --
 -- Returns 'True' if the message was successfully sent.
-enqueueTreasured :: forall m msg nid a. (MonadIO m, WithLogger m)
+enqueueCherished :: forall m msg nid a. (MonadIO m, WithLogger m)
                  => OutboundQ msg nid
                  -> MsgType
                  -> msg a
                  -> Peers nid
                  -> m Bool
-enqueueTreasured outQ msgType msg peers = go
+enqueueCherished outQ@OutQ{..} msgType msg peers =
+    go maxNumIterations
   where
-    go :: m Bool
-    go = do
+    go :: Int -> m Bool
+    go 0 = do
+      logError $ msgLoop
+      return False
+    go n = do
       attempts <- enqueueSync' outQ msgType msg OriginSender peers
 
       let succs :: [a]
@@ -887,7 +891,19 @@ enqueueTreasured outQ msgType msg peers = go
              -- In this case, we simply try again, hoping that we'll manage to
              -- pick some different alternative nodes to send to (since the
              -- failures will have been recorded in qFailures)
-             go
+             go (n - 1)
+
+    -- If we didn't have an upper bound on the number of iterations, we could
+    -- in principle loop indefinitely, if the timeouts on sends are close to
+    -- the time-to-reset-error-state defined by the failure policy.
+    -- (Thus, the latter should be significantly larger than send timeouts.)
+    maxNumIterations :: Int
+    maxNumIterations = 4
+
+    msgLoop :: Text
+    msgLoop =
+      sformat (shown % ": enqueueCherished loop? This a policy failure.")
+              qSelf
 
 {-------------------------------------------------------------------------------
   Dequeue thread
@@ -1126,6 +1142,10 @@ timed act = do
   where
     conv :: NominalDiffTime -> ExecutionTime
     conv t = round (realToFrac t * 1000000 :: Double)
+
+{-------------------------------------------------------------------------------
+  Cardano specific wrapper
+-------------------------------------------------------------------------------}
 
 newtype ClassifiedConversation peerData packingType peer m t =
     ClassifiedConversation (MsgType, Origin peer, peer -> peerData -> Conversation packingType m t)

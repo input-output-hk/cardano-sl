@@ -1,4 +1,6 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Definitions for class of monads that capture logic of processing
 -- delegate certificates (proxy secret keys).
@@ -14,7 +16,6 @@ module Pos.Delegation.Class
        , dwThisEpochPosted
 
        , DelegationVar
-       , mkDelegationVar
        , MonadDelegation
        , askDelegationState
        ) where
@@ -23,18 +24,13 @@ import           Universum
 
 import           Control.Lens               (makeLenses)
 import qualified Data.Cache.LRU             as LRU
-import           Data.Default               (Default (def))
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.HashSet               as HS
 import           Data.Time.Clock            (UTCTime)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Constants              (dlgCacheParam)
 import           Pos.Core                   (EpochIndex, ProxySKHeavy, ProxySKLight)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.Delegation.Types       (DlgMemPool)
 import           Pos.Util.Concurrent.RWVar  (RWVar)
-import           Pos.Util.Concurrent.RWVar  as RWV
 import           Pos.Util.Util              (HasLens (..))
 
 ---------------------------------------------------------------------------
@@ -67,28 +63,7 @@ data DelegationWrap = DelegationWrap
 
 makeLenses ''DelegationWrap
 
-instance Default DelegationWrap where
-    def =
-        DelegationWrap
-        { _dwMessageCache = LRU.newLRU msgCacheLimit
-        , _dwConfirmationCache = LRU.newLRU confCacheLimit
-        , _dwProxySKPool = HM.empty
-        , _dwPoolSize = 1
-        , _dwEpochId = 0
-        , _dwThisEpochPosted = HS.empty
-        }
-      where
-        msgCacheLimit = Just dlgCacheParam
-        confCacheLimit = Just (dlgCacheParam `div` 5)
-
 type DelegationVar = RWVar DelegationWrap
-
--- | Make a new 'DelegationVar'.
---
--- FIXME: it creates 'DelegationVar' with '_dwThisEpochPosted =
--- HS.empty', is it even legal?
-mkDelegationVar :: MonadIO m => m DelegationVar
-mkDelegationVar = RWV.new def
 
 ----------------------------------------------------------------------------
 -- Class definition

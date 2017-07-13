@@ -167,7 +167,7 @@ mkBlockGenContext bgcParams = do
         bgcSscState <- mkSscState @SscGodTossing
         bgcUpdateContext <- mkUpdateContext
         bgcTxpMem <- (,) <$> mkTxpLocalData <*> pure ignoreTxpMetrics
-        bgcDelegation <- mkDelegationVar
+        bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
 
 data InitBlockGenContext = InitBlockGenContext

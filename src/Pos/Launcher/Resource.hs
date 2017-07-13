@@ -53,7 +53,7 @@ import           Pos.Core                    (Timestamp)
 import           Pos.DB                      (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                   (initNodeDBs)
 import           Pos.DB.Rocks                (closeNodeDBs, openNodeDBs)
-import           Pos.Delegation.Class        (DelegationVar, mkDelegationVar)
+import           Pos.Delegation              (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real                (KademliaDHTInstance, KademliaParams (..),
                                               startDHTInstance, stopDHTInstance)
 import           Pos.Discovery               (DiscoveryContextSum (..))
@@ -141,7 +141,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
         putLrcContext ncLrcContext
         setupLoggers $ bpLoggingParams npBaseParams
-        dlgVar <- mkDelegationVar
+        dlgVar <- mkDelegationVar @ssc
         txpVar <- mkTxpLocalData
         peerState <- liftIO SM.newIO
         sscState <- mkSscState @ssc

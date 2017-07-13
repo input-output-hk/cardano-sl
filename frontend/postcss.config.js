@@ -22,11 +22,16 @@ module.exports = {
         'ie >= 10'
       ]
     }),
+    require('postcss-discard-comments'),
     require('cssnano')({
-      autoprefixer: false, // already prefixed w/ cssnext
-      save: true,
-      core: true,
-      sourcemap: true
+      preset: ['default', {
+        warnForDuplicates: false,
+        autoprefixer: false, // already prefixed w/ cssnext
+        sourcemap: false,
+        discardComments: {
+          removeAll: true,
+        },
+      }]
     })
   ]
 };

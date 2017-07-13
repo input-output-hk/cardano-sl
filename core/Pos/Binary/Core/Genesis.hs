@@ -74,3 +74,13 @@ instance Bi GenesisCoreData where
         labelS "GenesisCoreData" $
             putField gcdAddrDistribution <>
             putField gcdBootstrapStakeholders
+
+instance Cbor.Bi GenesisCoreData where
+  encode (UnsafeGenesisCoreData addr stakes) = Cbor.encodeListLen 2 <> Cbor.encode addr <> Cbor.encode stakes
+  decode = do
+    Cbor.enforceSize "GenesisCoreData" 2
+    addrDistribution      <- Cbor.decode
+    bootstrapStakeholders <- Cbor.decode
+    case mkGenesisCoreData addrDistribution bootstrapStakeholders of
+        Left e  -> fail $ "Couldn't construct genesis data: " <> e
+        Right x -> pure x

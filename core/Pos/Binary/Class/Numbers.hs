@@ -31,6 +31,7 @@ import qualified Data.Store.Internal    as Store
 import           GHC.TypeLits           (ErrorMessage (..), TypeError)
 
 import           Pos.Binary.Class.Core  (Bi (..), label, limitGet)
+import qualified Pos.Binary.Cbor        as Cbor
 import           Pos.Binary.Class.Store (convertSize)
 
 -- CSL-1122 make sure it's indeed serialized as one byte
@@ -240,6 +241,10 @@ instance Bi (UnsignedVarInt Int) where
               getUnsignedVarIntSize (fromIntegral a :: Word)
     {-# INLINE size #-}
 
+instance Cbor.Bi (UnsignedVarInt Int) where
+  encode = Cbor.encode . getUnsignedVarInt
+  decode = UnsignedVarInt <$> Cbor.decode
+
 instance Bi (SignedVarInt Int) where
     put (SignedVarInt a) = putSignedVarInt a
     {-# INLINE put #-}
@@ -249,6 +254,9 @@ instance Bi (SignedVarInt Int) where
     size = VarSize $ getSignedVarIntSize . getSignedVarInt
     {-# INLINE size #-}
 
+instance Cbor.Bi (SignedVarInt Int) where
+  encode = Cbor.encode . getSignedVarInt
+  decode = SignedVarInt <$> Cbor.decode
 
 -- Is this instance valid at all? Is it int32 or int64 after all?
 instance Bi (FixedSizeInt Int) where
@@ -262,6 +270,10 @@ instance Bi (FixedSizeInt Int) where
 
 -- Int64
 
+instance Cbor.Bi (FixedSizeInt Int) where
+  encode = Cbor.encode . getFixedSizeInt
+  decode = FixedSizeInt <$> Cbor.decode
+
 instance Bi (UnsignedVarInt Int64) where
     put (UnsignedVarInt a) = putUnsignedVarInt (fromIntegral a :: Word64)
     {-# INLINE put #-}
@@ -273,6 +285,10 @@ instance Bi (UnsignedVarInt Int64) where
               getUnsignedVarIntSize (fromIntegral a :: Word64)
     {-# INLINE size #-}
 
+instance Cbor.Bi (UnsignedVarInt Int64) where
+  encode = Cbor.encode . getUnsignedVarInt
+  decode = UnsignedVarInt <$> Cbor.decode
+
 instance Bi (SignedVarInt Int64) where
     put (SignedVarInt a) = putSignedVarInt a
     {-# INLINE put #-}
@@ -282,6 +298,10 @@ instance Bi (SignedVarInt Int64) where
     size = VarSize $ getSignedVarIntSize . getSignedVarInt
     {-# INLINE size #-}
 
+instance Cbor.Bi (SignedVarInt Int64) where
+  encode = Cbor.encode . getSignedVarInt
+  decode = SignedVarInt <$> Cbor.decode
+
 instance Bi (FixedSizeInt Int64) where
     put (FixedSizeInt a) = Store.poke a -- CSL-1122 fix endianess
     {-# INLINE put #-}
@@ -290,6 +310,10 @@ instance Bi (FixedSizeInt Int64) where
     {-# INLINE get #-}
     size = convertSize getFixedSizeInt Store.size
     {-# INLINE size #-}
+
+instance Cbor.Bi (FixedSizeInt Int64) where
+  encode = Cbor.encode . getFixedSizeInt
+  decode = FixedSizeInt <$> Cbor.decode
 
 -- Word
 
@@ -302,6 +326,10 @@ instance Bi (UnsignedVarInt Word) where
     size = VarSize $ getUnsignedVarIntSize . getUnsignedVarInt
     {-# INLINE size #-}
 
+instance Cbor.Bi (UnsignedVarInt Word) where
+  encode = Cbor.encode . getUnsignedVarInt
+  decode = UnsignedVarInt <$> Cbor.decode
+
 -- Is this instance valid at all? Is it word32 or word64 after all?
 instance Bi (FixedSizeInt Word) where
     put (FixedSizeInt a) = Store.poke a -- CSL-1122 fix endianess
@@ -311,6 +339,10 @@ instance Bi (FixedSizeInt Word) where
     {-# INLINE get #-}
     size = convertSize getFixedSizeInt Store.size
     {-# INLINE size #-}
+
+instance Cbor.Bi (FixedSizeInt Word) where
+  encode = Cbor.encode . getFixedSizeInt
+  decode = FixedSizeInt <$> Cbor.decode
 
 -- Word16
 
@@ -323,6 +355,10 @@ instance Bi (UnsignedVarInt Word16) where
     size = VarSize $ getUnsignedVarIntSize . getUnsignedVarInt
     {-# INLINE size #-}
 
+instance Cbor.Bi (UnsignedVarInt Word16) where
+  encode = Cbor.encode . getUnsignedVarInt
+  decode = UnsignedVarInt <$> Cbor.decode
+
 -- Word32
 
 instance Bi (UnsignedVarInt Word32) where
@@ -334,6 +370,10 @@ instance Bi (UnsignedVarInt Word32) where
     size = VarSize $ getUnsignedVarIntSize . getUnsignedVarInt
     {-# INLINE size #-}
 
+instance Cbor.Bi (UnsignedVarInt Word32) where
+  encode = Cbor.encode . getUnsignedVarInt
+  decode = UnsignedVarInt <$> Cbor.decode
+
 -- Word64
 
 instance Bi (UnsignedVarInt Word64) where
@@ -344,6 +384,10 @@ instance Bi (UnsignedVarInt Word64) where
     {-# INLINE get #-}
     size = VarSize $ getUnsignedVarIntSize . getUnsignedVarInt
     {-# INLINE size #-}
+
+instance Cbor.Bi (UnsignedVarInt Word64) where
+  encode = Cbor.encode . getUnsignedVarInt
+  decode = UnsignedVarInt <$> Cbor.decode
 
 -- TinyVarInt
 
@@ -357,3 +401,7 @@ instance Bi TinyVarInt where
     {-# INLINE get #-}
     size = VarSize $ getTinyVarIntSize . getTinyVarInt
     {-# INLINE size #-}
+
+instance Cbor.Bi TinyVarInt where
+  encode = Cbor.encode . getTinyVarInt
+  decode = TinyVarInt <$> Cbor.decode

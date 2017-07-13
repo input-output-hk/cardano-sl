@@ -31,7 +31,8 @@ import           Test.QuickCheck.Instances         ()
 
 import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
                                                     SignedVarInt (..),
-                                                    UnsignedVarInt (..))
+                                                    UnsignedVarInt (..),
+                                                    TinyVarInt(..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
@@ -429,3 +430,4 @@ instance Arbitrary SmallHashMap where
 deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
+deriving instance Arbitrary TinyVarInt

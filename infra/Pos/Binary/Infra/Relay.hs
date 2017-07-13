@@ -13,9 +13,17 @@ instance Bi key => Bi (InvMsg key) where
     sizeNPut = labelS "InvMsg" $ putField imKey
     get = label "InvMsg" $ InvMsg <$> get
 
+instance Cbor.Bi key => Cbor.Bi (InvMsg key) where
+  encode = Cbor.encode . imKey
+  decode = InvMsg <$> Cbor.decode
+
 instance Bi key => Bi (ReqMsg key) where
     sizeNPut = labelS "ReqMsg" $ putField rmKey
     get = label "ReqMsg" $ ReqMsg <$> get
+
+instance Cbor.Bi key => Cbor.Bi (ReqMsg key) where
+  encode = Cbor.encode . rmKey
+  decode = ReqMsg <$> Cbor.decode
 
 instance Bi (MempoolMsg tag) where
     -- The extra byte is needed because time-warp doesn't work with

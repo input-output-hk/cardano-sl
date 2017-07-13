@@ -597,6 +597,7 @@ test-suite cardano-test
                      , cardano-sl-update
                      , cardano-sl-ssc
                      , cardano-sl
+                     , cborg
                      , cereal
                      , containers
                      , cryptonite
@@ -604,6 +605,7 @@ test-suite cardano-test
                      , derive
                      , ether
                      , formatting
+                     , generic-arbitrary
                      , hspec
                      , kademlia
                      , lens

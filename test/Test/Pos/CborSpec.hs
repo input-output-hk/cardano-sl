@@ -11,6 +11,7 @@ module Test.Pos.CborSpec
        ( spec
        ) where
 
+
 import qualified Codec.CBOR.FlatTerm as CBOR
 import           Node.Message.Class
 import           Pos.Binary.Cbor
@@ -44,8 +45,10 @@ import           Pos.Slotting.Types
 import           Pos.Ssc.GodTossing.Arbitrary ()
 import           Pos.Ssc.GodTossing.Core.Types
 import           Pos.Ssc.GodTossing.Types.Message
+import           Pos.Txp hiding (Unknown)
 import           Pos.Update.Arbitrary ()
 import           Pos.Update.Core
+import           Pos.Update.Poll
 import           Test.Hspec (Spec, describe, it, pendingWith)
 import           Test.QuickCheck
 import           Universum
@@ -256,6 +259,17 @@ spec = describe "Cbor.Bi instances" $ do
         prop "UpdateProposalToSign" (soundInstanceProperty @UpdateProposalToSign Proxy)
         prop "UpdatePayload" (soundInstanceProperty @UpdatePayload Proxy)
         prop "VoteState" (soundInstanceProperty @VoteState Proxy)
+        modifyMaxSuccess (const 50) $ prop "USUndo" (soundInstanceProperty @USUndo Proxy)
+        prop "UpsExtra" (soundInstanceProperty @UpsExtra Proxy)
+        prop "DpsExtra" (soundInstanceProperty @DpsExtra Proxy)
+        prop "UndecidedProposalState" (soundInstanceProperty @UndecidedProposalState Proxy)
+        prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState Proxy)
+        prop "ProposalState" (soundInstanceProperty @ProposalState Proxy)
+        prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState Proxy)
+        prop "TxIn" (soundInstanceProperty @TxIn Proxy)
+        prop "TxDistribution" (soundInstanceProperty @TxDistribution Proxy)
+        prop "TxSigData" (soundInstanceProperty @TxSigData Proxy)
+        prop "TxProof" (soundInstanceProperty @TxProof Proxy)
         -- Pending specs
         it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
@@ -264,10 +278,21 @@ spec = describe "Cbor.Bi instances" $ do
         it "(ProxySignature w a)" $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "AbstractHash SHA256"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "Address"              $ pendingWith "Requires proper implementation"
-        it "GenesisCoreData"      $ pendingWith "Requires proper Address implementation"
         it "DataMsg ProxySKLight" $ pendingWith "Failing"
         it "DataMsg ProxySKHeavy" $ pendingWith "Failing"
         it "DataMsg ProxySKLightConfirmation" $ pendingWith "Failing"
+        it "UserSecret" $ pendingWith "No Eq instance defined"
+        it "WalletUserSecret" $ pendingWith "No Eq instance defined"
+        pendingDependsOnAddress "GenesisCoreData"
+        pendingDependsOnAddress "TxPayload"
+        pendingDependsOnAddress "TxAux"
+        pendingDependsOnAddress "TxInWitness"
+        pendingDependsOnAddress "Tx"
+        pendingDependsOnAddress "TxOutAux"
+        pendingDependsOnAddress "TxOut"
+        pendingDependsOnAddress "DataMsg TxMsgContents"
+        -- Pending specs which doesn't have an `Arbitrary` instance defined.
+        pendingNoArbitrary "BackupPhrase"
         pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
         pendingNoArbitrary "DataMsg UpdateVote"
         pendingNoArbitrary "MsgGetHeaders"
@@ -294,6 +319,9 @@ spec = describe "Cbor.Bi instances" $ do
 
 pendingNoArbitrary :: String -> Spec
 pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"
+
+pendingDependsOnAddress :: String -> Spec
+pendingDependsOnAddress ty = it ty $ pendingWith "Requires proper Address implementation"
 
 ----------------------------------------
 

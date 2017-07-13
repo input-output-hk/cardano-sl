@@ -14,6 +14,7 @@ module Pos.Block.Logic.Creation
        ) where
 
 import           Universum
+import           Unsafe                     (unsafeHead)
 
 import           Control.Lens               (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
@@ -21,8 +22,7 @@ import           Control.Monad.Except       (MonadError (throwError), runExceptT
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import           Ether.Internal             (HasLens (..))
-import           Formatting                 (build, ords, sformat, stext, (%))
-import           Paths_cardano_sl           (version)
+import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog                (logDebug, logError, logInfo)
 
@@ -32,17 +32,19 @@ import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBloc
 import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (BlockApplyMode, BlockVerifyMode,
                                              applyBlocksUnsafe, toUpdateBlock)
-import           Pos.Block.Logic.Util       (withBlkSemaphore)
+import           Pos.Block.Logic.Util       (calcChainQualityM, withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
+import           Pos.Block.Slog             (HasSlogContext (..), SlogUndo (..),
+                                             slogGetLastSlots)
 import           Pos.Block.Types            (Undo (..))
-import           Pos.Constants              (slotSecurityParam)
+import           Pos.Constants              (blkSecurityParam, chainQualityThreshold,
+                                             epochSlots)
 import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
-                                             EpochOrSlot (..), HeaderHash, LocalSlotIndex,
-                                             SlotId (..), SlotLeaders, addLocalSlotIndex,
-                                             crucialSlot, epochOrSlot, flattenSlotId,
-                                             getEpochOrSlot, headerHash, siSlotL)
+                                             EpochOrSlot (..), HeaderHash, SlotId (..),
+                                             SlotLeaders, epochIndexL, flattenSlotId,
+                                             getEpochOrSlot, headerHash)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
@@ -65,6 +67,7 @@ import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload, usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier, USUndo)
 import           Pos.Util                   (maybeThrow, _neHead)
+import           Pos.Util.Chrono            (OldestFirst (..))
 import           Pos.Util.Util              (leftToPanic)
 
 type CreationMode ssc ctx m
@@ -72,6 +75,7 @@ type CreationMode ssc ctx m
        , MonadReader ctx m
        , HasPrimaryKey ctx
        , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasSlogContext ctx
        )
 
 ----------------------------------------------------------------------------
@@ -80,19 +84,26 @@ type CreationMode ssc ctx m
 
 -- | Create genesis block if necessary.
 --
--- We create genesis block for current epoch when head of currently
--- known best chain is a 'MainBlock' corresponding to one of last
--- `slotSecurityParam` slots of (i - 1)-th epoch. Main check is that
--- given 'epoch' is `(last stored epoch + 1)`, but we also don't want to
--- create genesis block on top of blocks from previous epoch which are
--- not from last slotSecurityParam slots, because it's practically
--- impossible for them to be valid.
--- [CSL-481] We can consider doing it though.
+-- We can /try/ to create a genesis block at any moment. However, it
+-- only makes sense to do it if the following conditions are met:
+--
+-- • our tip is a 'MainBlock' and its epoch is less than the given
+--   epoch by one;
+-- • chain quality is at least 0.5. To be more precise, it means that
+--   there are at least `blkSecurityParam` blocks in the last
+--   'slotSecurityParam' slots. If this condition is violated, it means
+--   that we are either desynchronized\/eclipsed\/attacked or that
+--   important security assumption is violated globally.
+--   In the former case, it doesn't make sense to create a block.
+--   In the latter case, we want the system to stop completely, rather
+--   than running in insecure mode.
 createGenesisBlock
     :: forall ssc ctx m.
        CreationMode ssc ctx m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock epoch = reportingFatal version $ do
+-- Genesis block for 0-th epoch is hardcoded.
+createGenesisBlock 0 = pure Nothing
+createGenesisBlock epoch = reportingFatal $ do
     leadersOrErr <-
         try $
         lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
@@ -101,15 +112,6 @@ createGenesisBlock epoch = reportingFatal version $ do
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
         Right leaders -> withBlkSemaphore (createGenesisBlockDo epoch leaders)
-
-shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
--- Genesis block for 0-th epoch is hardcoded.
-shouldCreateGenesisBlock 0 _ = False
-shouldCreateGenesisBlock epoch headEpochOrSlot =
-    epochOrSlot (const False) doCheck headEpochOrSlot
-  where
-    doCheck SlotId {siSlot = slot, ..} =
-        siEpoch == epoch - 1 && slot > siSlot (crucialSlot epoch)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -123,19 +125,28 @@ createGenesisBlockDo epoch leaders tip = do
             "There is no header is DB corresponding to tip from semaphore"
     tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.blkGetHeader tip
     logDebug $ sformat msgTryingFmt epoch tipHeader
-    createGenesisBlockFinally tipHeader
+    shouldCreate tipHeader >>= \case
+        False -> (Nothing, tip) <$ logShouldNot
+        True -> actuallyCreate tipHeader
   where
-    createGenesisBlockFinally tipHeader
-        | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
-            let blk = mkGenesisBlock (Just tipHeader) epoch leaders
-            let newTip = headerHash blk
-            verifyBlocksPrefix (one (Left blk)) >>= \case
-                Left err -> reportFatalError $ pretty err
-                Right (undos, pollModifier) -> do
-                    let undo = undos ^. _Wrapped . _neHead
-                    applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier) $>
-                        (Just blk, newTip)
-        | otherwise = (Nothing, tip) <$ logShouldNot
+    shouldCreate (Left _) = pure False
+    -- This is true iff tip is from 'epoch' - 1 and last
+    -- 'blkSecurityParam' blocks fully fit into last
+    -- 'slotSecurityParam' slots from 'epoch' - 1.
+    shouldCreate (Right mb)
+        | mb ^. epochIndexL /= epoch - 1 = pure False
+        | otherwise =
+            (chainQualityThreshold @Double <=) <$>
+            calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
+    actuallyCreate tipHeader = do
+        let blk = mkGenesisBlock (Just tipHeader) epoch leaders
+        let newTip = headerHash blk
+        verifyBlocksPrefix (one (Left blk)) >>= \case
+            Left err -> reportFatalError $ pretty err
+            Right (undos, pollModifier) ->
+                let undo = undos ^. _Wrapped . _neHead
+                in applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier) $>
+                   (Just blk, newTip)
     logShouldNot =
         logDebug
             "After we took lock for genesis block creation, we noticed that we shouldn't create it"
@@ -147,11 +158,17 @@ createGenesisBlockDo epoch leaders tip = do
 -- MainBlock creation
 ----------------------------------------------------------------------------
 
--- | Create a new main block on top of best chain if possible.
+-- | Create a new main block on top of our tip if possible.
 -- Block can be created if:
--- • we know genesis block for epoch from given SlotId
--- • last known block is not more than 'slotSecurityParam' blocks away from
--- given SlotId
+-- • our software is not obsolete (see 'usCanCreateBlock');
+-- • our tip's slot is less than the slot for which we want to create a block;
+-- • there are at least 'blkSecurityParam' blocks in the last
+-- 'slotSecurityParam' slots prior to the given slot (i. e. chain quality
+-- is decent).
+--
+-- In theory we can create main block even if chain quality is
+-- bad. See documentation of 'createGenesisBlock' which explains why
+-- we don't create blocks in such cases.
 createMainBlock
     :: forall ssc ctx m.
        (CreationMode ssc ctx m)
@@ -159,36 +176,46 @@ createMainBlock
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pske =
-    reportingFatal version $ withBlkSemaphore createMainBlockDo
+    reportingFatal $ withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
         tipHeader <- DB.getTipHeader @ssc
         logInfo $ sformat msgFmt tipHeader
-        canWrtUs <- usCanCreateBlock
-        case (canCreateBlock sId tipHeader, canWrtUs) of
-            (_, False) ->
-                return (Left "this software can't create block", tip)
-            (Nothing, True)  -> convertRes tip <$>
+        canCreateBlock sId tipHeader >>= \case
+            Left reason -> pure (Left reason, tip)
+            Right () ->
+                convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pske tipHeader)
-            (Just err, True) -> return (Left err, tip)
     convertRes oldTip (Left e) = (Left e, oldTip)
     convertRes _ (Right blk)   = (Right blk, headerHash blk)
 
-canCreateBlock :: SlotId -> BlockHeader ssc -> Maybe Text
-canCreateBlock sId tipHeader
-    | sId > maxSlotId = Just "slot id is too big, we don't know recent block"
-    | (EpochOrSlot $ Right sId) <= headSlot =
-        Just "slot id is not greater than one from the tip block"
-    | otherwise = Nothing
+canCreateBlock ::
+       forall ssc ctx m. CreationMode ssc ctx m
+    => SlotId
+    -> BlockHeader ssc
+    -> m (Either Text ())
+canCreateBlock sId tipHeader =
+    runExceptT $ do
+        unlessM usCanCreateBlock $
+            throwError "this software is obsolete and can't create block"
+        unless (EpochOrSlot (Right sId) > tipEOS) $
+            throwError "slot id is not greater than one from the tip block"
+        unless (tipHeader ^. epochIndexL == siEpoch sId) $
+            throwError "we don't know genesis block for this epoch"
+        let flatSId = flattenSlotId sId
+        -- Small heuristic: let's not check chain quality during the
+        -- first quarter of the 0-th epoch, because during this time
+        -- weird things can happen (we just launched the system) and
+        -- usually we monitor it manually anyway.
+        unless (flatSId <= fromIntegral (epochSlots `div` 4)) $ do
+            chainQuality <- calcChainQualityM flatSId
+            unless (chainQuality >= chainQualityThreshold @Double) $
+                throwError $
+                sformat ("chain quality is below threshold: "%fixed 3) chainQuality
   where
-    headSlot :: EpochOrSlot
-    headSlot = getEpochOrSlot tipHeader
-    addSafe :: LocalSlotIndex -> LocalSlotIndex
-    addSafe = fromMaybe maxBound . addLocalSlotIndex slotSecurityParam
-    maxSlotId :: SlotId
-    maxSlotId = over siSlotL addSafe $
-                epochOrSlot (`SlotId` minBound) identity headSlot
+    tipEOS :: EpochOrSlot
+    tipEOS = getEpochOrSlot tipHeader
 
 data RawPayload ssc = RawPayload
     { rpTxp    :: ![TxAux]
@@ -247,7 +274,8 @@ createMainBlockFinish slotId pske prevHeader = do
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er
-        lift $ reportMisbehaviourSilent version $
+        -- FIXME [CSL-1340]: it should be reported as 'RError'.
+        lift $ reportMisbehaviourSilent False $
             sformat ("We've created bad main block: "%build) er
         logDebug $ "Creating empty block"
         clearMempools
@@ -268,7 +296,8 @@ getRawPayloadAndUndo slotId = do
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (dlgPayload, pskUndo) <- lift $ getDlgMempool
     txpUndo <- reverse <$> foldM (prependToUndo txUndo) [] sortedTxs
-    let undo usUndo = Undo txpUndo pskUndo usUndo
+    slogUndo <- getSlogUndo
+    let undo usUndo = Undo txpUndo pskUndo usUndo slogUndo
     let rawPayload =
             RawPayload
             { rpTxp = map snd sortedTxs
@@ -279,13 +308,19 @@ getRawPayloadAndUndo slotId = do
     return (rawPayload, undo)
   where
     prependToUndo txUndo undos tx =
-        case (:undos) <$> HM.lookup (fst tx) txUndo of
+        case (: undos) <$> HM.lookup (fst tx) txUndo of
             Just res -> pure res
             Nothing  -> onAbsentUndo
     convertTx (txId, txAux) = WithHash (taTx txAux) txId
     onBrokenTopo = throwError "Topology of local transactions is broken!"
     onAbsentUndo = throwError "Undo for tx from local transactions not found"
     onNoUS = "can't obtain US payload to create block"
+    getSlogUndo =
+        slogGetLastSlots <&> \case
+            (OldestFirst lastSlots)
+                | length lastSlots < fromIntegral blkSecurityParam ->
+                    SlogUndo Nothing
+                | otherwise -> SlogUndo $ Just $ unsafeHead lastSlots
 
 createMainBlockPure
     :: forall m ssc .

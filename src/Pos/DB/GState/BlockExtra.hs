@@ -1,12 +1,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Extra information for blocks.
---   * Forward links
---   * InMainChain flags
+--   * Forward links.
+--   * InMainChain flags.
+--   * Slots of the last 'blkSecurityParam' (at most) blocks
+--     (for chain quality check).
 
 module Pos.DB.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
+       , getLastSlots
        , BlockExtraOp (..)
        , foldlUpWhileM
        , loadHeadersUpWhile
@@ -14,16 +17,20 @@ module Pos.DB.GState.BlockExtra
        , initGStateBlockExtra
        ) where
 
+import           Universum
+
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, (%))
-import           Universum
+import           Serokell.Util.Text   (listJson)
 
 import           Pos.Binary.Class     (encode)
 import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
+import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
 import           Pos.Constants        (genesisHash)
-import           Pos.Core             (HasHeaderHash, HeaderHash, headerHash)
+import           Pos.Core             (FlatSlotId, HasHeaderHash, HeaderHash, headerHash,
+                                       slotIdF, unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
@@ -47,17 +54,26 @@ isBlockInMainChain
 isBlockInMainChain h =
     maybe False (\() -> True) <$> gsGetBi (mainChainKey $ headerHash h)
 
+-- | This function returns 'FlatSlotId's of the blocks whose depth is
+-- less than 'blkSecurityParam'.
+getLastSlots :: forall m . MonadDBRead m => m LastBlkSlots
+getLastSlots = fromMaybe noLastBlkSlots <$> gsGetBi lastSlotsKey
+
 ----------------------------------------------------------------------------
 -- BlockOp
 ----------------------------------------------------------------------------
 
 data BlockExtraOp
-    = AddForwardLink HeaderHash HeaderHash
+    = AddForwardLink HeaderHash
+                     HeaderHash
       -- ^ Adds or overwrites forward link
     | RemoveForwardLink HeaderHash
       -- ^ Removes forward link
-    | SetInMainChain Bool HeaderHash
+    | SetInMainChain Bool
+                     HeaderHash
       -- ^ Enables or disables "in main chain" status of the block
+    | SetLastSlots (OldestFirst [] FlatSlotId)
+      -- ^ Updates list of slots for last blocks.
     deriving (Show)
 
 instance Buildable BlockExtraOp where
@@ -67,6 +83,9 @@ instance Buildable BlockExtraOp where
         bprint ("RemoveForwardLink from "%shortHashF) from
     build (SetInMainChain flag h) =
         bprint ("SetInMainChain for "%shortHashF%": "%build) h flag
+    build (SetLastSlots slots) =
+        bprint ("SetLastSlots: "%listJson)
+        (map (bprint slotIdF . unflattenSlotId) slots)
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
@@ -77,6 +96,8 @@ instance RocksBatchOp BlockExtraOp where
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
         [Rocks.Put (mainChainKey h) (encode ()) ]
+    toBatchOp (SetLastSlots slots) =
+        [Rocks.Put lastSlotsKey (encode slots)]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links
@@ -158,3 +179,6 @@ forwardLinkKey h = "e/fl/" <> encode h
 
 mainChainKey :: HeaderHash -> ByteString
 mainChainKey h = "e/mc/" <> encode h
+
+lastSlotsKey :: ByteString
+lastSlotsKey = "e/ls/"

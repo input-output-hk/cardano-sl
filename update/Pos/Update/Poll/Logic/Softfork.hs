@@ -1,3 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
+
 -- | Softfork resolution logic.
 
 module Pos.Update.Poll.Logic.Softfork
@@ -5,21 +8,25 @@ module Pos.Update.Poll.Logic.Softfork
        , processGenesisBlock
        ) where
 
+import           Universum
+
 import           Control.Monad.Except       (MonadError, throwError)
 import qualified Data.HashSet               as HS
 import qualified Data.List.NonEmpty         as NE
+import           Data.Tagged                (Tagged (..))
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logInfo)
-import           Universum
 
 import           Pos.Core                   (BlockVersion, Coin, EpochIndex, HeaderHash,
-                                             SlotId (..), StakeholderId, applyCoinPortion,
-                                             crucialSlot, sumCoins, unsafeIntegerToCoin)
+                                             SlotId (..), SoftforkRule (..),
+                                             StakeholderId, crucialSlot, sumCoins,
+                                             unsafeIntegerToCoin)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure    (PollVerFailure (..))
-import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV,
+import           Pos.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch, adoptBlockVersion,
+                                             calcSoftforkThreshold, canBeAdoptedBV,
                                              updateSlottingData)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util.Util              (inAssertMode)
@@ -66,50 +73,77 @@ recordBlockIssuance id bv slot h = do
 
 -- | Process creation of genesis block for given epoch.
 processGenesisBlock
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: forall m. (MonadError PollVerFailure m, MonadPoll m)
     => EpochIndex -> m ()
 processGenesisBlock epoch = do
-    -- First thing to do is to find out threshold for softfork resolution rule.
+    -- First thing to do is to obtain values threshold for softfork
+    -- resolution rule check.
     totalStake <- note (PollUnknownStakes epoch) =<< getEpochTotalStake epoch
     BlockVersionData {..} <- getAdoptedBVData
-    let threshold = applyCoinPortion bvdUpdateSoftforkThd totalStake
-    -- Then we take all confirmed BlockVersions and check softfork
+    -- Then we take all competing BlockVersions and actually check softfork
     -- resolution rule for them.
-    confirmed <- getCompetingBVStates
-    logConfirmedBVStates confirmed
-    toAdoptList <- catMaybes <$> mapM (checkThreshold threshold) confirmed
+    competing <- getCompetingBVStates
+    logCompetingBVStates competing
+    let checkThreshold' = checkThreshold totalStake bvdSoftforkRule
+    toAdoptList <- catMaybes <$> mapM checkThreshold' competing
     logWhichCanBeAdopted $ map fst toAdoptList
     -- We also do sanity check in assert mode just in case.
-    inAssertMode $ sanityCheckConfirmed $ map fst confirmed
+    inAssertMode $ sanityCheckCompeting $ map fst competing
     case nonEmpty toAdoptList of
         -- If there is nothing to adopt, we move unstable issuers to stable
         -- and that's all.
-        Nothing                         -> mapM_ moveUnstable confirmed
+        Nothing                         -> mapM_ moveUnstable competing
         -- Otherwise we choose version to adopt, adopt it, remove all
         -- versions which no longer can be adopted and only then move
         -- unstable to stable.
-        Just (chooseToAdopt -> toAdopt) -> adoptAndFinish confirmed toAdopt
+        Just (chooseToAdopt -> toAdopt) -> adoptAndFinish competing toAdopt
     -- In the end we also update slotting data to the most recent state.
     updateSlottingData epoch
     setEpochProposers mempty
   where
-    checkThreshold thd (bv, bvs) =
-        checkThresholdDo thd (bv, bvs) <$> calculateIssuersStake epoch bvs
-    checkThresholdDo thd (bv, bvs) stake
-        | stake >= thd = Just (bv, bvs)
-        | otherwise = Nothing
+    checkThreshold ::
+           Coin
+        -> SoftforkRule
+        -> (BlockVersion, BlockVersionState)
+        -> m $ Maybe (BlockVersion, BlockVersionState)
+    checkThreshold totalStake sr bvData@(bv, bvs) = do
+        let onNoConfirmedEpoch =
+                PollInternalError $
+                sformat
+                    ("checkThresholdDo: block version " %build %
+                     " is not competing, hello!")
+                    bv
+        confirmedEpoch <- note onNoConfirmedEpoch (bvsConfirmedEpoch bvs)
+        checkThresholdDo totalStake sr confirmedEpoch bvData <$>
+            calculateIssuersStake epoch bvs
+    checkThresholdDo ::
+           Coin
+        -> SoftforkRule
+        -> EpochIndex
+        -> (BlockVersion, BlockVersionState)
+        -> Coin
+        -> Maybe (BlockVersion, BlockVersionState)
+    checkThresholdDo totalStake sr confirmedEpoch bvData issuersStake =
+        let thd =
+                calcSoftforkThreshold
+                    sr
+                    totalStake
+                    (Tagged @CurEpoch epoch)
+                    (Tagged @ConfirmedEpoch confirmedEpoch)
+        in bvData <$ guard (issuersStake >= thd)
     adoptAndFinish allConfirmed (bv, BlockVersionState {..}) = do
         winningBlock <-
             note (PollInternalError "no winning block") bvsLastBlockStable
         adoptBlockVersion winningBlock bv
         filterBVAfterAdopt (fst <$> allConfirmed)
         mapM_ moveUnstable =<< getCompetingBVStates
-    logConfirmedBVStates [] =
+    logCompetingBVStates [] =
         logInfo ("We are processing genesis block, currently we don't have " <>
                 "competing block versions")
-    logConfirmedBVStates versions = do
+    logCompetingBVStates versions = do
         logInfo $ sformat
-                  ("We are processing genesis block, competing block versions are: "%listJson)
+                  ("We are processing genesis block, "%
+                   "competing block versions are: "%listJson)
                   (map fst versions)
         mapM_ logBVIssuers versions
     logBVIssuers (bv, BlockVersionState {..}) =
@@ -160,13 +194,13 @@ filterBVAfterAdopt = mapM_ filterBVAfterAdoptDo
   where
     filterBVAfterAdoptDo bv = unlessM (canBeAdoptedBV bv) $ delBVState bv
 
--- Here we check that all confirmed versions satisfy 'canBeAdoptedBV' predicate.
-sanityCheckConfirmed
+-- Here we check that all competing versions satisfy 'canBeAdoptedBV' predicate.
+sanityCheckCompeting
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => [BlockVersion] -> m ()
-sanityCheckConfirmed = mapM_ sanityCheckConfirmedDo
+sanityCheckCompeting = mapM_ sanityCheckConfirmedDo
   where
     sanityCheckConfirmedDo bv = unlessM (canBeAdoptedBV bv) $
         throwError $ PollInternalError $ sformat fmt bv
-    fmt = "we have confirmed block version which doesn't satisfy "%
+    fmt = "we have competing block version which doesn't satisfy "%
           "'canBeAdoptedBV' predicate: "%build%" :unamused:"

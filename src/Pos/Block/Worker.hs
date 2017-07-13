@@ -12,33 +12,42 @@ module Pos.Block.Worker
 import           Universum
 
 import           Control.Lens                (ix)
-import           Formatting                  (bprint, build, sformat, shown, (%))
-import           Mockable                    (delay, fork)
+import qualified Data.List.NonEmpty          as NE
+import           Formatting                  (bprint, build, fixed, sformat, shown, (%))
+import           Mockable                    (concurrently, delay, fork)
 import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
+import           Pos.Block.Logic             (calcChainQualityM, createGenesisBlock,
+                                              createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
+import           Pos.Block.Slog              (slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
-import           Pos.Constants               (networkDiameter)
+import           Pos.Constants               (blkSecurityParam, criticalCQ,
+                                              criticalCQBootstrap, networkDiameter,
+                                              nonCriticalCQ, nonCriticalCQBootstrap)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
-                                              gbHeader, getSlotIndex, slotIdF)
+                                              flattenSlotId, gbHeader, getSlotIndex,
+                                              slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
+import           Pos.DB                      (gsIsBootstrapEra)
 import           Pos.DB.GState               (getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Lrc.DB                  (getLeaders)
+import           Pos.Reporting               (reportMisbehaviour)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
+import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.JsonLog            (jlCreatedBlock)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
@@ -49,6 +58,10 @@ import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
+
+----------------------------------------------------------------------------
+-- All workers
+----------------------------------------------------------------------------
 
 -- | All workers specific to block processing.
 blkWorkers
@@ -68,12 +81,19 @@ blkWorkers =
 blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
-        recoveryCommGuard $ blkOnNewSlotImpl slotId sendActions
+        recoveryCommGuard $
+        () <$
+        chainQualityChecker slotId `concurrently`
+        blockCreator slotId sendActions
 
-blkOnNewSlotImpl
+----------------------------------------------------------------------------
+-- Block creation worker
+----------------------------------------------------------------------------
+
+blockCreator
     :: WorkMode ssc ctx m
     => SlotId -> SendActions m -> m ()
-blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
+blockCreator (slotId@SlotId {..}) sendActions = do
 
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
@@ -196,6 +216,67 @@ onNewSlotWhenLeader slotId pske sendActions = do
             jsonLog $ jlCreatedBlock (Right createdBlk)
             void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
+
+----------------------------------------------------------------------------
+-- Chain qualitiy checker
+----------------------------------------------------------------------------
+
+-- This action should be called only when we are synchronized with the
+-- network.  The goal of this worker is not to detect violation of
+-- chain quality assumption, but to produce warnings when this
+-- assumption is close to being violated.
+chainQualityChecker
+    :: WorkMode ssc ctx m
+    => SlotId -> m ()
+chainQualityChecker curSlot = do
+    OldestFirst lastSlots <- slogGetLastSlots
+    -- If total number of blocks is less than `blkSecurityParam' we do
+    -- nothing for two reasons:
+    -- 1. Usually after we deploy cluster we monitor it manually for a while.
+    -- 2. Sometimes we deploy after start time, so chain quality may indeed by
+    --    poor right after launch.
+    case nonEmpty lastSlots of
+        Nothing -> pass
+        Just slotsNE
+            | length slotsNE < fromIntegral blkSecurityParam -> pass
+            | otherwise -> chainQualityCheckerDo (NE.head slotsNE)
+  where
+    chainQualityCheckerDo __kThSlot = do
+        let curFlatSlot = flattenSlotId curSlot
+        -- We use monadic version here, because it also does sanity
+        -- check and we don't want to copy-paste it and it's easier
+        -- and cheap.
+        chainQuality :: Double <- calcChainQualityM curFlatSlot
+        let cqF = fixed 3 -- chain quality formatter
+        isBootstrap <- gsIsBootstrapEra (siEpoch curSlot)
+        let nonCriticalThreshold
+                | isBootstrap = nonCriticalCQBootstrap
+                | otherwise = nonCriticalCQ
+        let criticalThreshold
+                | isBootstrap = criticalCQBootstrap
+                | otherwise = criticalCQ
+        let formatCQWarning thd =
+                sformat
+                    ("Poor chain quality for the last 'k' blocks, "%
+                     "less than " %cqF % ": " %cqF)
+                                   thd         chainQuality
+        if | chainQuality < criticalThreshold ->
+               do let msg = formatCQWarning criticalThreshold
+                  logWarning msg
+                  reportMisbehaviour True msg
+           | chainQuality < nonCriticalThreshold ->
+               do let msg = formatCQWarning nonCriticalThreshold
+                  logWarning msg
+                  reportMisbehaviour False msg
+           | otherwise ->
+               logDebug $
+               sformat
+                   ("Chain quality for the last 'k' blocks is " %cqF)
+                   chainQuality
+
+----------------------------------------------------------------------------
+-- Block querier
+----------------------------------------------------------------------------
 
 #if defined(WITH_WALLET)
 -- | When we're behind NAT, other nodes can't send data to us and thus we

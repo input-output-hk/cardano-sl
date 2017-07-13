@@ -81,6 +81,13 @@ deriveSimpleBi ''T.ChainDifficulty [
         Field [| T.getChainDifficulty :: T.BlockCount |]
     ]]
 
+deriveSimpleBi ''T.SoftforkRule [
+    Cons 'T.SoftforkRule [
+        Field [| T.srInitThd      :: T.CoinPortion |],
+        Field [| T.srMinThd       :: T.CoinPortion |],
+        Field [| T.srThdDecrement :: T.CoinPortion |]
+    ]]
+
 deriveSimpleBi ''T.BlockVersionData [
     Cons 'T.BlockVersionData [
         Field [| T.bvdScriptVersion     :: T.ScriptVersion |],
@@ -94,7 +101,7 @@ deriveSimpleBi ''T.BlockVersionData [
         Field [| T.bvdUpdateVoteThd     :: T.CoinPortion   |],
         Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
         Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
-        Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion   |],
+        Field [| T.bvdSoftforkRule      :: T.SoftforkRule  |],
         Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |],
         Field [| T.bvdUnlockStakeEpoch  :: T.EpochIndex    |]
     ]]

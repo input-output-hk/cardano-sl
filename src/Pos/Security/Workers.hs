@@ -12,7 +12,6 @@ import           Data.Tagged                (Tagged (..))
 import           Data.Time.Units            (Millisecond, convertUnit)
 import           Formatting                 (build, int, sformat, (%))
 import           Mockable                   (delay)
-import           Paths_cardano_sl           (version)
 import           Serokell.Util              (sec)
 import           System.Wlog                (logWarning)
 
@@ -108,9 +107,9 @@ checkForReceivedBlocksWorkerImpl
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . reportingFatal version . recoveryCommGuard $
+    repeatOnInterval (const (sec' 4)) . reportingFatal . recoveryCommGuard $
         whenM (needRecovery @ssc) $ triggerRecovery sendActions
-    repeatOnInterval (min (sec' 20)) . reportingFatal version . recoveryCommGuard $ do
+    repeatOnInterval (min (sec' 20)) . reportingFatal . recoveryCommGuard $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
                 header <- getTipHeader @ssc
@@ -137,8 +136,10 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
+        -- TODO [CSL-1340]: should it be critical or not? Is it
+        -- misbehavior or error?
         when nonTrivialUptime $ recoveryCommGuard $
-            reportMisbehaviourSilent version reason
+            reportMisbehaviourSilent True reason
 
 checkForIgnoredCommitmentsWorker
     :: forall ctx m.

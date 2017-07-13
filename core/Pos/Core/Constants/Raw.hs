@@ -25,6 +25,11 @@ module Pos.Core.Constants.Raw
        , memPoolLimitRatio
 
        , genesisBinSuffix
+
+       , nonCriticalCQBootstrap
+       , criticalCQBootstrap
+       , nonCriticalCQ
+       , criticalCQ
        ) where
 
 import           Universum
@@ -76,6 +81,8 @@ data CoreConstants = CoreConstants
       -- | Size of mem pool will be limited by this value muliplied by block
       -- size limit.
     , ccMemPoolLimitRatio            :: !Word
+      -- | Suffix for genesis.bin files
+    , ccGenesisBinSuffix             :: ![Char]
 
        -- Genesis block version data
 
@@ -92,10 +99,13 @@ data CoreConstants = CoreConstants
       -- | Number of slots after which update is implicitly approved unless
       -- it has more negative votes than positive.
     , ccGenesisUpdateImplicit        :: !Word
-      -- | Portion of total stake such that if total stake of issuers of
-      -- blocks with some block version is bigger than this portion, this
-      -- block version is adopted.
-    , ccGenesisUpdateSoftforkThd     :: !Double
+      -- | The following three values define 'SoftforkRule', see the
+      -- documentation of this type for more detail.
+    , ccGenesisSoftforkInit          :: !Double
+      -- | See 'SoftforkRule'.
+    , ccGenesisSoftforkMin           :: !Double
+      -- | See 'SoftforkRule'.
+    , ccGenesisSoftforkDec           :: !Double
     , ccGenesisTxFeePolicy           :: !(ConfigOf TxFeePolicy)
     , ccGenesisUnlockStakeEpoch      :: !Word64
       -- | Maximum block size in bytes
@@ -108,8 +118,21 @@ data CoreConstants = CoreConstants
     , ccGenesisHeavyDelThd           :: !Double
       -- | Eligibility threshold for MPC
     , ccGenesisMpcThd                :: !Double
-      -- | Suffix for genesis.bin files
-    , ccGenesisBinSuffix             :: ![Char]
+
+       -- Chain quality thresholds.
+
+      -- | If chain quality in bootstrap era is less than this value,
+      -- non critical misbehavior will be reported.
+    , ccNonCriticalCQBootstrap       :: !Double
+      -- | If chain quality in bootstrap era is less than this value,
+      -- critical misbehavior will be reported.
+    , ccCriticalCQBootstrap          :: !Double
+      -- | If chain quality after bootstrap era is less than this
+      -- value, non critical misbehavior will be reported.
+    , ccNonCriticalCQ                :: !Double
+      -- | If chain quality after bootstrap era is less than this
+      -- value, critical misbehavior will be reported.
+    , ccCriticalCQ                   :: !Double
     }
     deriving (Show, Generic)
 
@@ -142,8 +165,12 @@ checkConstants cs@CoreConstants{..} = do
         fail "CoreConstants: genesisHeavyDelThd is not in range [0, 1)"
     unless (check [(> 0), (< 1)] ccGenesisUpdateProposalThd) $
         fail "CoreConstants: genesisUpdateProposalThd is not in range (0, 1)"
-    unless (check [(> 0), (< 1)] ccGenesisUpdateSoftforkThd) $
-        fail "CoreConstants: genesisUpdateSoftforkThd is not in range (0, 1)"
+    unless (check [(> 0), (< 1)] ccGenesisSoftforkInit) $
+        fail "CoreConstants: genesisSoftforkInit is not in range (0, 1)"
+    unless (check [(> 0), (< 1)] ccGenesisSoftforkMin) $
+        fail "CoreConstants: genesisSoftforkMin is not in range (0, 1)"
+    unless (check [(> 0), (< 1)] ccGenesisSoftforkDec) $
+        fail "CoreConstants: genesisSoftforkDec is not in range (0, 1)"
     pure cs
 
 ----------------------------------------------------------------------------
@@ -184,3 +211,23 @@ genesisKeysN = fromIntegral . ccGenesisN $ coreConstants
 -- size limit.
 memPoolLimitRatio :: Integral i => i
 memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConstants
+
+-- | If chain quality in bootstrap era is less than this value,
+-- non critical misbehavior will be reported.
+nonCriticalCQBootstrap :: Double
+nonCriticalCQBootstrap = ccNonCriticalCQBootstrap coreConstants
+
+-- | If chain quality in bootstrap era is less than this value,
+-- critical misbehavior will be reported.
+criticalCQBootstrap :: Double
+criticalCQBootstrap = ccCriticalCQBootstrap coreConstants
+
+-- | If chain quality after bootstrap era is less than this
+-- value, non critical misbehavior will be reported.
+nonCriticalCQ :: Double
+nonCriticalCQ = ccNonCriticalCQ coreConstants
+
+-- | If chain quality after bootstrap era is less than this
+-- value, critical misbehavior will be reported.
+criticalCQ :: Double
+criticalCQ = ccCriticalCQ coreConstants

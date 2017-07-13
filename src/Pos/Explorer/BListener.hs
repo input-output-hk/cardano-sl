@@ -33,7 +33,8 @@ import           Pos.DB.Class                 (MonadDBRead)
 import           Pos.Explorer.DB              (Epoch, Page)
 import qualified Pos.Explorer.DB              as DB
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Chrono              (NE, NewestFirst (..),
+                                               OldestFirst (..), toNewestFirst)
 
 ----------------------------------------------------------------------------
 -- Declarations
@@ -326,8 +327,11 @@ onApplyKeyBlocksGeneral blunds newBlocksMapF = do
     newBlocks :: M.Map k [HeaderHash]
     newBlocks = newBlocksMapF blocksNE
 
-    blocksNE :: NE (Block ssc)
-    blocksNE = fst <$> getOldestFirst blunds
+    blocksNE :: NE (Block ssc)  
+    blocksNE = fst <$> getNewestFirst blocksNewF
+
+    blocksNewF :: NewestFirst NE (Blund ssc) 
+    blocksNewF = toNewestFirst blunds
 
 
 -- A general @Key@ @Block@ database application for the rollback call.

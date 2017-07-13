@@ -16,8 +16,7 @@ import           Pos.Crypto                        (SignTag (SignUSVote), fakeSi
                                                     sign, toPublic)
 import           Pos.Crypto.Arbitrary              ()
 import           Pos.Data.Attributes               (mkAttributes)
-import           Pos.Update.Core.Types             (BlockVersionData (..),
-                                                    BlockVersionModifier, SystemTag,
+import           Pos.Update.Core.Types             (BlockVersionModifier, SystemTag,
                                                     UpdateData (..), UpdatePayload (..),
                                                     UpdateProposal (..),
                                                     UpdateProposalToSign (..),
@@ -78,9 +77,5 @@ instance Arbitrary UpdateData where
     shrink = genericShrink
 
 instance Arbitrary UpdatePayload where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary BlockVersionData where
     arbitrary = genericArbitrary
     shrink = genericShrink

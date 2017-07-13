@@ -44,7 +44,6 @@ instance ToJSON TxOut where
         "address" .= sformat build txOutAddress ]
 
 deriving instance ToJSON SlotCount
-deriving instance ToJSON BlockCount
 
 -- NOTE: some of these types are used on frontend (PureScript).
 -- We are automatically deriving instances there and they are
@@ -52,6 +51,7 @@ deriving instance ToJSON BlockCount
 -- If datatype is used on frontend, please use this instead of
 -- any other way of deriving if possible.
 
+deriveToJSON defaultOptions ''BlockCount
 deriveToJSON defaultOptions ''ApplicationName
 deriveToJSON defaultOptions ''ChainDifficulty
 deriveToJSON defaultOptions ''SlotId

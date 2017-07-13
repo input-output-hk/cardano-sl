@@ -68,7 +68,7 @@ import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxo
                                                evalToilTEmpty, flattenTxPayload,
                                                getLocalTxs, runDBToil, topsortTxs,
                                                txOutAddress, utxoGet)
-import           Pos.Util                     (maybeThrow)
+import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -262,8 +262,10 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
     return $ DL.fromList txs
 
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
+saveTxDefault txw = do
 #ifdef WITH_EXPLORER
-saveTxDefault txw = () <$ runExceptT (eTxProcessTransaction txw)
+    res <- runExceptT (eTxProcessTransaction txw)
 #else
-saveTxDefault txw = () <$ runExceptT (txProcessTransaction txw)
+    res <- runExceptT (txProcessTransaction txw)
 #endif
+    eitherToThrow identity res

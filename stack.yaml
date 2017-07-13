@@ -42,7 +42,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: d1247bef8fa71a4201fdc15d8b1b25ca53f289a3
+    commit: b4fbd07c077b41c0e948bd377f1662b599f0bc4c
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
@@ -84,7 +84,7 @@ extra-deps:
 - base58-bytestring-0.1.0
 - log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
-- purescript-bridge-0.8.0.1
+# - purescript-bridge-0.8.0.1
 - cryptonite-0.23
 - cryptonite-openssl-0.6
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8

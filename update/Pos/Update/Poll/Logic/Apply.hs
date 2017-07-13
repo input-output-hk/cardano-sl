@@ -90,14 +90,15 @@ verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader UpdatePayload {..} = do
     -- confirmed/discarded).
     case slotOrHeader of
         Left _ -> pass
-        Right mainBlk -> do
+        Right mainHeader -> do
             applyImplicitAgreement
-                (mainBlk ^. headerSlotL)
-                (mainBlk ^. difficultyL)
-                (mainBlk ^. headerHashG)
+                (mainHeader ^. headerSlotL)
+                (mainHeader ^. difficultyL)
+                (mainHeader ^. headerHashG)
             applyDepthCheck
-                (mainBlk ^. headerHashG)
-                (mainBlk ^. difficultyL)
+                (mainHeader ^. epochIndexL)
+                (mainHeader ^. headerHashG)
+                (mainHeader ^. difficultyL)
 
 -- Here we verify all US-related data from header.
 verifyHeader
@@ -304,8 +305,8 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- discarded).
 applyDepthCheck
     :: ApplyMode m
-    => HeaderHash -> ChainDifficulty -> m ()
-applyDepthCheck hh (ChainDifficulty cd)
+    => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
+applyDepthCheck epoch hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
@@ -367,7 +368,7 @@ applyDepthCheck hh (ChainDifficulty cd)
             mapM_ (deactivateProposal . hash . psProposal) proposals
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> do
-               confirmBlockVersion bv
+               confirmBlockVersion epoch bv
                logInfo $ sformat (build%" is competing now") bv
            | otherwise -> do
                delBVState bv

@@ -34,6 +34,7 @@ spec = describe "Types" $ do
             binaryTest @T.EpochOrSlot
             binaryTest @T.SharedSeed
             binaryTest @T.ChainDifficulty
+            binaryTest @T.SoftforkRule
             binaryTest @T.BlockVersionData
             binaryTest @(DataMsg T.ProxySKHeavy)
             binaryTest @(DataMsg T.ProxySKLight)

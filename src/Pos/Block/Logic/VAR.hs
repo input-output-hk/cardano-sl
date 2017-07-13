@@ -18,15 +18,14 @@ import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwE
                                            runExceptT, withExceptT)
 import qualified Data.List.NonEmpty       as NE
 import           Ether.Internal           (HasLens (..))
-import           Paths_cardano_sl         (version)
 import           System.Wlog              (logDebug)
 
 import           Pos.Block.Core           (Block)
 import           Pos.Block.Logic.Internal (BlockApplyMode, BlockVerifyMode,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe,
                                            toTxpBlock, toUpdateBlock)
-import           Pos.Block.Logic.Slog     (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
+import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
@@ -40,7 +39,7 @@ import           Pos.Txp.Settings         (TxpGlobalSettings (..))
 import qualified Pos.Update.DB            as UDB
 import           Pos.Update.Logic         (usVerifyBlocks)
 import           Pos.Update.Poll          (PollModifier)
-import           Pos.Util                 (neZipWith3, spanSafe, _neHead)
+import           Pos.Util                 (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..),
                                            toNewestFirst, toOldestFirst)
 
@@ -69,7 +68,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     adoptedBV <- UDB.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     -- And then we run verification of each component.
-    slogVerifyBlocks blocks
+    slogUndos <- slogVerifyBlocks blocks
     _ <- withExceptT pretty $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
@@ -80,10 +79,11 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
-    pure ( OldestFirst $ neZipWith3 Undo
+    pure ( OldestFirst $ neZipWith4 Undo
                (getOldestFirst txUndo)
                (getOldestFirst pskUndo)
                (getOldestFirst usUndos)
+               (getOldestFirst slogUndos)
          , pModifier)
 
 -- | Union of constraints required by block processing and LRC.
@@ -101,7 +101,7 @@ verifyAndApplyBlocks
     :: (BlockLrcMode ssc ctx m)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback =
-    reportingFatal version . verifyAndApplyBlocksInternal True rollback
+    reportingFatal . verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
@@ -228,7 +228,7 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
-applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
+applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $ do
         throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)

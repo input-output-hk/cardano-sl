@@ -13,6 +13,7 @@ module Test.Pos.CborSpec
 
 import qualified Codec.CBOR.FlatTerm as CBOR
 import           Pos.Binary.Cbor
+import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Class.Numbers
 import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
@@ -21,7 +22,11 @@ import           Pos.Core.Arbitrary ()
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
+import           Pos.Crypto.HD (HDAddressPayload)
+import           Pos.Crypto.RedeemSigning (RedeemPublicKey, RedeemSecretKey)
+import           Pos.Crypto.SafeSigning (PassPhrase)
 import           Pos.Crypto.SecretSharing (VssPublicKey, VssKeyPair, Secret, Share, EncShare, SecretProof)
+import           Pos.Crypto.Signing (PublicKey, SecretKey)
 import           Test.Hspec (Spec, describe, it, pendingWith)
 import           Test.QuickCheck
 import           Universum
@@ -193,7 +198,24 @@ spec = describe "Cbor.Bi instances" $ do
         prop "Share" (soundInstanceProperty @Share Proxy)
         prop "EncShare" (soundInstanceProperty @EncShare Proxy)
         prop "SecretProof" (soundInstanceProperty @SecretProof Proxy)
+        prop "AsBinary VssPublicKey" (soundInstanceProperty @(AsBinary VssPublicKey) Proxy)
+        prop "AsBinary Secret" (soundInstanceProperty @(AsBinary Secret) Proxy)
+        prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share) Proxy)
+        prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare) Proxy)
+        prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
+        prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
+        prop "PublicKey" (soundInstanceProperty @PublicKey Proxy)
+        prop "SecretKey" (soundInstanceProperty @SecretKey Proxy)
+        prop "PassPhrase" (soundInstanceProperty @PassPhrase Proxy)
+        prop "HDAddressPayload" (soundInstanceProperty @HDAddressPayload Proxy)
+        prop "RedeemPublicKey" (soundInstanceProperty @RedeemPublicKey Proxy)
+        prop "RedeemSecretKey" (soundInstanceProperty @RedeemSecretKey Proxy)
         -- Pending specs
+        it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
+        it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
+        it "(RedeemSignature a)"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
+        it "(ProxySecretKey w)"   $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
+        it "(ProxySignature w a)" $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "AbstractHash SHA256"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "SecretSharingExtra"   $ pendingWith "Requires proper implementation"
         it "Address"              $ pendingWith "Requires proper implementation"
@@ -205,6 +227,18 @@ spec = describe "Cbor.Bi instances" $ do
         pendingNoArbitrary "Pvss.DecryptedShare"
         pendingNoArbitrary "Pvss.EncryptedShare"
         pendingNoArbitrary "Pvss.Proof"
+        pendingNoArbitrary "AsBinary VssKeyPair"
+        pendingNoArbitrary "Ed25519.PointCompressed"
+        pendingNoArbitrary "Ed25519.Scalar"
+        pendingNoArbitrary "Ed25519.Signature"
+        pendingNoArbitrary "CC.ChainCode"
+        pendingNoArbitrary "CC.XPub"
+        pendingNoArbitrary "CC.XPrv"
+        pendingNoArbitrary "CC.XSignature"
+        pendingNoArbitrary "EdStandard.PublicKey"
+        pendingNoArbitrary "EdStandard.SecretKey"
+        pendingNoArbitrary "EdStandard.Signature"
+        pendingNoArbitrary "EncryptedSecretKey"
 
 pendingNoArbitrary :: String -> Spec
 pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"

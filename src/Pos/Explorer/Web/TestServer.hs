@@ -102,6 +102,7 @@ testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
     , cbeTotalSent  = mkCCoin $ mkCoin 0
     , cbeSize       = 390
     , cbeBlockLead  = Nothing
+    , cbeFees       = mkCCoin $ mkCoin 0
     }])
 
 testBlocksSummary
@@ -117,6 +118,7 @@ testBlocksSummary _ = pure . pure $ CBlockSummary
                         , cbeTotalSent  = mkCCoin $ mkCoin 0
                         , cbeSize       = 390
                         , cbeBlockLead  = Nothing
+                        , cbeFees       = mkCCoin $ mkCoin 0
                         }
     , cbsPrevHash   = CHash "d36710c918da4c4a3e0ff42e1049d81cc7bcbacc789c8583ea1c9afd8da3c24e"
     , cbsNextHash   = Just (CHash "d3bb988e57356b706f7b8f1fe29591ab0d1bdfac4aa08836475783973e4cf7c1")
@@ -186,4 +188,5 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
     , cbeTotalSent  = mkCCoin $ mkCoin 0
     , cbeSize       = 390
     , cbeBlockLead  = Nothing
+    , cbeFees       = mkCCoin $ mkCoin 0
     }]

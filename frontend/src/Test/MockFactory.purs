@@ -55,6 +55,7 @@ mkCBlockEntry = CBlockEntry
     , cbeTimeIssued: Nothing
     , cbeTxNum: 0
     , cbeTotalSent: mkCoin "0"
+    , cbeFees: mkCoin "0"
     , cbeSize: 0
     , cbeBlockLead: Nothing
     }

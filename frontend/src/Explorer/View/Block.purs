@@ -21,7 +21,7 @@ import Explorer.View.Common (currencyCSSClass, emptyView, getMaxPaginationNumber
 import Network.RemoteData (RemoteData(..), isFailure)
 
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..), CTxBrief)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash, cbeFees)
 
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
@@ -102,8 +102,7 @@ mkSummaryItems lang (CBlockEntry entry) =
     --   }
     , { id: "3"
       , label: translate (I18nL.block <<< I18nL.blFees) lang
-      -- TODO: We do need real data here
-      , amount: formatADA (mkCoin "0") lang
+      , amount: formatADA (entry ^. cbeFees) lang
       , mCurrency: Just ADA
       }
     , { id: "4"

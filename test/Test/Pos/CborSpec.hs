@@ -11,13 +11,23 @@ module Test.Pos.CborSpec
        ( spec
        ) where
 
+
 import qualified Codec.CBOR.FlatTerm as CBOR
+import           Node.Message.Class
 import           Pos.Binary.Cbor
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Class.Numbers
+import           Pos.Binary.Communication ()
 import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Crypto ()
+import           Pos.Binary.GodTossing ()
+import           Pos.Binary.Infra ()
+import           Pos.Binary.Relay ()
+import           Pos.Block.Arbitrary ()
+import           Pos.Block.Core
+import           Pos.Communication.Protocol
+import           Pos.Communication.Types.Relay (DataMsg)
 import           Pos.Core.Arbitrary ()
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
@@ -25,8 +35,22 @@ import           Pos.Core.Types
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.RedeemSigning (RedeemPublicKey, RedeemSecretKey)
 import           Pos.Crypto.SafeSigning (PassPhrase)
-import           Pos.Crypto.SecretSharing (VssPublicKey, VssKeyPair, Secret, Share, EncShare, SecretProof)
+import           Pos.Crypto.SecretSharing (SecretSharingExtra, VssPublicKey, VssKeyPair, Secret, Share, EncShare,
+                                           SecretProof)
 import           Pos.Crypto.Signing (PublicKey, SecretKey)
+import           Pos.DHT.Model.Types
+import           Pos.Delegation.Arbitrary ()
+import           Pos.Delegation.Types
+import           Pos.Infra.Arbitrary ()
+import           Pos.Slotting.Arbitrary ()
+import           Pos.Slotting.Types
+import           Pos.Ssc.GodTossing
+import           Pos.Ssc.GodTossing.Arbitrary ()
+import           Pos.Txp hiding (Unknown)
+import           Pos.Update.Arbitrary ()
+import           Pos.Update.Core
+import           Pos.Update.Poll
+import           Pos.Util.Chrono
 import           Test.Hspec (Spec, describe, it, pendingWith)
 import           Test.QuickCheck
 import           Universum
@@ -56,13 +80,16 @@ deriveSimpleBi ''MyScript [
 -- Type to be used to simulate a breaking change in the serialisation
 -- schema, so we can test instances which uses the `UnknownXX` pattern
 -- for extensibility.
-data U = U Word8 BS.ByteString
+data U = U Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U where
   encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encode bs
   decode = do
     decodeListLenOf 2
     U <$> decode <*> decode
+
+instance Arbitrary U where
+  arbitrary = U <$> choose (0, 255) <*> arbitrary
 
 ----------------------------------------
 
@@ -150,7 +177,7 @@ soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input 
 
 spec :: Spec
 spec = describe "Cbor.Bi instances" $ do
-    modifyMaxSuccess (const 1000) $ do
+    modifyMaxSuccess (const 500) $ do
       describe "Test instances are sound" $ do
         prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
         prop "MyScript" (soundInstanceProperty @MyScript Proxy)
@@ -203,6 +230,7 @@ spec = describe "Cbor.Bi instances" $ do
         prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share) Proxy)
         prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare) Proxy)
         prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
+        prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra Proxy)
         prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
         prop "PublicKey" (soundInstanceProperty @PublicKey Proxy)
         prop "SecretKey" (soundInstanceProperty @SecretKey Proxy)
@@ -210,6 +238,55 @@ spec = describe "Cbor.Bi instances" $ do
         prop "HDAddressPayload" (soundInstanceProperty @HDAddressPayload Proxy)
         prop "RedeemPublicKey" (soundInstanceProperty @RedeemPublicKey Proxy)
         prop "RedeemSecretKey" (soundInstanceProperty @RedeemSecretKey Proxy)
+        prop "Commitment" (soundInstanceProperty @Commitment Proxy)
+        prop "CommitmentsMap" (soundInstanceProperty @CommitmentsMap Proxy)
+        prop "VssCertificate" (soundInstanceProperty @VssCertificate Proxy)
+        prop "Opening" (soundInstanceProperty @Opening Proxy)
+        prop "GtPayload" (soundInstanceProperty @GtPayload Proxy)
+        prop "GtProof" (soundInstanceProperty @GtProof Proxy)
+        prop "DataMsg MCCommitment" (soundInstanceProperty @(DataMsg MCCommitment) Proxy)
+        prop "DataMsg MCOpening" (soundInstanceProperty @(DataMsg MCOpening) Proxy)
+        modifyMaxSuccess (const 50) $ prop "DataMsg MCShares" (soundInstanceProperty @(DataMsg MCShares) Proxy)
+        prop "DataMsg MCVssCertificate" (soundInstanceProperty @(DataMsg MCVssCertificate) Proxy)
+        prop "DHTKey" (soundInstanceProperty @DHTKey Proxy)
+        prop "DHTData" (soundInstanceProperty @DHTData Proxy)
+        prop "MessageName" (soundInstanceProperty @MessageName Proxy)
+        prop "HandlerSpec" (soundInstanceProperty @HandlerSpec Proxy .&&. extensionProperty @HandlerSpec Proxy)
+        prop "VerInfo" (soundInstanceProperty @VerInfo Proxy)
+        prop "DlgPayload" (soundInstanceProperty @DlgPayload Proxy)
+        prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData Proxy)
+        prop "SlottingData" (soundInstanceProperty @SlottingData Proxy)
+        prop "SystemTag" (soundInstanceProperty @SystemTag Proxy)
+        prop "UpdateVote" (soundInstanceProperty @UpdateVote Proxy)
+        prop "UpdateData" (soundInstanceProperty @UpdateData Proxy)
+        prop "BlockVersionModifier" (soundInstanceProperty @BlockVersionModifier Proxy)
+        prop "UpdateProposal" (soundInstanceProperty @UpdateProposal Proxy)
+        prop "UpdateProposalToSign" (soundInstanceProperty @UpdateProposalToSign Proxy)
+        prop "UpdatePayload" (soundInstanceProperty @UpdatePayload Proxy)
+        prop "VoteState" (soundInstanceProperty @VoteState Proxy)
+        modifyMaxSuccess (const 50) $ prop "USUndo" (soundInstanceProperty @USUndo Proxy)
+        prop "UpsExtra" (soundInstanceProperty @UpsExtra Proxy)
+        prop "DpsExtra" (soundInstanceProperty @DpsExtra Proxy)
+        prop "UndecidedProposalState" (soundInstanceProperty @UndecidedProposalState Proxy)
+        prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState Proxy)
+        prop "ProposalState" (soundInstanceProperty @ProposalState Proxy)
+        prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState Proxy)
+        prop "TxIn" (soundInstanceProperty @TxIn Proxy)
+        prop "TxDistribution" (soundInstanceProperty @TxDistribution Proxy)
+        prop "TxSigData" (soundInstanceProperty @TxSigData Proxy)
+        prop "TxProof" (soundInstanceProperty @TxProof Proxy)
+        prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData Proxy)
+        prop "MainExtraBodyData" (soundInstanceProperty @MainExtraBodyData Proxy)
+        prop "GenesisExtraHeaderData" (soundInstanceProperty @GenesisExtraHeaderData Proxy)
+        prop "GenesisExtraBodyData" (soundInstanceProperty @GenesisExtraBodyData Proxy)
+        prop "GtTag" (soundInstanceProperty @GtTag Proxy)
+        prop "TossModifier" (soundInstanceProperty @TossModifier Proxy)
+        prop "VssCertData" (soundInstanceProperty @VssCertData Proxy)
+        prop "GtGlobalState" (soundInstanceProperty @GtGlobalState Proxy)
+        prop "GtSecretStorage" (soundInstanceProperty @GtSecretStorage Proxy)
+        prop "GenesisGtData" (soundInstanceProperty @GenesisGtData Proxy)
+        prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U) Proxy)
+        prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U) Proxy)
         -- Pending specs
         it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
@@ -217,9 +294,27 @@ spec = describe "Cbor.Bi instances" $ do
         it "(ProxySecretKey w)"   $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(ProxySignature w a)" $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "AbstractHash SHA256"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "SecretSharingExtra"   $ pendingWith "Requires proper implementation"
         it "Address"              $ pendingWith "Requires proper implementation"
-        it "GenesisCoreData"      $ pendingWith "Requires proper Address implementation"
+        it "DataMsg ProxySKLight" $ pendingWith "Failing"
+        it "DataMsg ProxySKHeavy" $ pendingWith "Failing"
+        it "DataMsg ProxySKLightConfirmation" $ pendingWith "Failing"
+        it "UserSecret" $ pendingWith "No Eq instance defined"
+        it "WalletUserSecret" $ pendingWith "No Eq instance defined"
+        pendingDependsOnAddress "GenesisCoreData"
+        pendingDependsOnAddress "TxPayload"
+        pendingDependsOnAddress "TxAux"
+        pendingDependsOnAddress "TxInWitness (needs UknownXX testing)"
+        pendingDependsOnAddress "Tx"
+        pendingDependsOnAddress "TxOutAux"
+        pendingDependsOnAddress "TxOut"
+        pendingDependsOnAddress "DataMsg TxMsgContents"
+        -- Pending specs which doesn't have an `Arbitrary` instance defined.
+        pendingNoArbitrary "Undo"
+        pendingNoArbitrary "BackupPhrase"
+        pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
+        pendingNoArbitrary "DataMsg UpdateVote"
+        pendingNoArbitrary "MsgGetHeaders"
+        pendingNoArbitrary "MsgGetBlocks"
         pendingNoArbitrary "WithHash"
         pendingNoArbitrary "Pvss.PublicKey"
         pendingNoArbitrary "Pvss.KeyPair"
@@ -242,6 +337,9 @@ spec = describe "Cbor.Bi instances" $ do
 
 pendingNoArbitrary :: String -> Spec
 pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"
+
+pendingDependsOnAddress :: String -> Spec
+pendingDependsOnAddress ty = it ty $ pendingWith "Requires proper Address implementation"
 
 ----------------------------------------
 

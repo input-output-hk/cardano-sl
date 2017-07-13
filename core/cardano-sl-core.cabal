@@ -74,7 +74,6 @@ library
                        Pos.Binary.Cbor
                        Pos.Binary.Cbor.Class
                        Pos.Binary.Cbor.Serialization
-                       Pos.Binary.Cbor.Test
                        Pos.Binary.Cbor.TH
 
                        Pos.Binary.Class

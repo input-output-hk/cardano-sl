@@ -19,7 +19,8 @@ import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (calcChainQualityM, createGenesisBlock,
+import           Pos.Block.Logic             (calcChainQualityM,
+                                              createGenesisBlockAndApply,
                                               createMainBlockAndApply)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
@@ -96,7 +97,7 @@ blockCreator
 blockCreator (slotId@SlotId {..}) sendActions = do
 
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlock siEpoch
+    mGenBlock <- createGenesisBlockAndApply siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jsonLog $ jlCreatedBlock (Left createdBlk)

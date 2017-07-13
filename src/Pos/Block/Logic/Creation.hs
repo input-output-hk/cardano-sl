@@ -5,7 +5,7 @@
 -- | Block creation logic.
 
 module Pos.Block.Logic.Creation
-       ( createGenesisBlock
+       ( createGenesisBlockAndApply
        , createMainBlockAndApply
        , createMainBlockInternal
 
@@ -90,7 +90,7 @@ type MonadCreateBlock ssc ctx m
 -- GenesisBlock creation
 ----------------------------------------------------------------------------
 
--- | Create genesis block if necessary.
+-- | Create genesis block if necessary and apply it.
 --
 -- We can /try/ to create a genesis block at any moment. However, it
 -- only makes sense to do it if the following conditions are met:
@@ -105,7 +105,7 @@ type MonadCreateBlock ssc ctx m
 --   In the former case, it doesn't make sense to create a block.
 --   In the latter case, we want the system to stop completely, rather
 --   than running in insecure mode.
-createGenesisBlock ::
+createGenesisBlockAndApply ::
        forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
@@ -114,12 +114,11 @@ createGenesisBlock ::
     => EpochIndex
     -> m (Maybe (GenesisBlock ssc))
 -- Genesis block for 0-th epoch is hardcoded.
-createGenesisBlock 0 = pure Nothing
-createGenesisBlock epoch = reportingFatal $ do
-    leadersOrErr <-
-        try $
-        lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
-    case leadersOrErr of
+createGenesisBlockAndApply 0 = pure Nothing
+createGenesisBlockAndApply epoch =
+    reportingFatal $
+    try $
+    lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders >>= \case
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err

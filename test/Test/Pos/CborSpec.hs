@@ -300,6 +300,7 @@ spec = describe "Cbor.Bi instances" $ do
         it "DataMsg ProxySKLightConfirmation" $ pendingWith "Failing"
         it "UserSecret" $ pendingWith "No Eq instance defined"
         it "WalletUserSecret" $ pendingWith "No Eq instance defined"
+        pendingDependsOnAddress "TxExtra"
         pendingDependsOnAddress "GenesisCoreData"
         pendingDependsOnAddress "TxPayload"
         pendingDependsOnAddress "TxAux"

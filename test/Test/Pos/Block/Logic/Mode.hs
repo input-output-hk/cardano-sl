@@ -8,7 +8,7 @@
 
 module Test.Pos.Block.Logic.Mode
        ( TestParams (..)
-
+       , TestInitModeContext (..)
        , BlockTestContextTag
        , BlockTestContext(..)
        , BlockTestMode
@@ -32,10 +32,9 @@ import           Ether.Internal              (HasLens (..))
 import           Formatting                  (bprint, build, formatToString, int, shown,
                                               (%))
 import           Mockable                    (CurrentTime (..), Delay (..), Mockable (..),
-                                              currentTime, runProduction)
+                                              Production, currentTime, runProduction)
 import qualified Prelude
 import           Serokell.Util               (listJson)
-import           System.IO.Temp              (withSystemTempDirectory)
 import           System.Wlog                 (CanLog (..), HasLoggerName (..), LoggerName)
 import           Test.QuickCheck             (Arbitrary (..), Gen, Testable (..), choose,
                                               ioProperty, oneof)
@@ -50,24 +49,17 @@ import           Pos.Core                    (IsHeader, StakeDistribution (..),
 import           Pos.Crypto                  (SecretKey, toPublic, unsafeHash)
 import           Pos.DB                      (MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB (..),
-                                              MonadDBRead (..), MonadGState (..), NodeDBs,
-                                              dbDeleteDefault, dbGetDefault,
-                                              dbIterSourceDefault, dbPutDefault,
-                                              dbWriteBatchDefault)
-import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDefault,
-                                              dbGetHeaderDefault, dbGetHeaderSscDefault,
-                                              dbGetUndoDefault, dbGetUndoSscDefault,
-                                              dbPutBlundDefault)
+                                              MonadDBRead (..), MonadGState (..))
+import qualified Pos.DB                      as DB
+import qualified Pos.DB.Block                as DB
 import           Pos.DB.DB                   (gsAdoptedBVDataDefault, initNodeDBs)
 import qualified Pos.DB.GState               as GState
-import           Pos.DB.Rocks                (closeNodeDBs, openNodeDBs)
+import           Pos.DB.Pure                 (DBPureVar, newDBPureVar)
 import           Pos.Genesis                 (stakeDistribution)
-import           Pos.Launcher                (InitModeContext (..), newInitFuture,
-                                              runInitMode)
+import           Pos.Launcher                (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
-                                              SlottingContextSum (SCSimple), SlottingData,
-                                              currentTimeSlottingSimple,
+                                              SlottingData, currentTimeSlottingSimple,
                                               getCurrentSlotBlockingSimple,
                                               getCurrentSlotInaccurateSimple,
                                               getCurrentSlotSimple)
@@ -76,6 +68,7 @@ import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDa
                                               putSlottingDataDefault,
                                               waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class               (SscBlock)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (TxIn (..), TxOut (..), TxOutAux (..),
@@ -226,11 +219,31 @@ instance Arbitrary TestParams where
         return TestParams {..}
 
 ----------------------------------------------------------------------------
+-- Init mode with instances
+----------------------------------------------------------------------------
+
+-- The fields are lazy on purpose: this allows using them with
+-- futures.
+data TestInitModeContext ssc = TestInitModeContext
+    { timcDBPureVar   :: DBPureVar
+    , timcGenesisUtxo :: GenesisUtxo
+    , timcSlottingVar :: (Timestamp, TVar SlottingData)
+    , timcLrcContext  :: LrcContext
+    }
+
+makeLensesWith postfixLFields ''TestInitModeContext
+
+type TestInitMode ssc = Mtl.ReaderT (TestInitModeContext ssc) Production
+
+runTestInitMode :: TestInitModeContext ssc -> TestInitMode ssc a -> IO a
+runTestInitMode ctx = runProduction . flip Mtl.runReaderT ctx
+
+----------------------------------------------------------------------------
 -- Main context
 ----------------------------------------------------------------------------
 
 data BlockTestContext = BlockTestContext
-    { btcDBs               :: !NodeDBs
+    { btcDBPureVar         :: !DBPureVar
     , btcSlottingVar       :: !(Timestamp, TVar SlottingData)
     , btcLoggerName        :: !LoggerName
     , btcLrcContext        :: !LrcContext
@@ -246,18 +259,21 @@ makeLensesWith postfixLFields ''BlockTestContext
 -- Initialization
 ----------------------------------------------------------------------------
 
--- Maybe we will make everything pure somewhere in 2021, but for now
--- this is commented out and let's use 'bracket'.
--- initBlockTestContext :: BlockTestContext
--- initBlockTestContext = ¯\_(ツ)_/¯
-
--- So here we go. Bracket, yes.
-bracketBlockTestContext ::
+initBlockTestContext ::
        TestParams -> (BlockTestContext -> BaseMonad a) -> BaseMonad a
-bracketBlockTestContext testParams@TestParams {..} callback = do
+initBlockTestContext testParams@TestParams {..} callback = do
     clockVar <- BaseMonad ask
-    let
-        bracketBlockTestContextDo btcDBs putSlottingVar putLrcCtx = do
+    dbPureVar <- newDBPureVar
+    (futureLrcCtx, putLrcCtx) <- newInitFuture
+    (futureSlottingVar, putSlottingVar) <- newInitFuture
+    let initCtx =
+            TestInitModeContext
+                dbPureVar
+                tpGenUtxo
+                futureSlottingVar
+                futureLrcCtx
+        initBlockTestContextDo = do
+            let btcDBPureVar = dbPureVar
             systemStart <- Timestamp <$> currentTime
             initNodeDBs @SscGodTossing systemStart
             slottingData <- GState.getSlottingData
@@ -273,19 +289,8 @@ bracketBlockTestContext testParams@TestParams {..} callback = do
             let btcParams = testParams
             liftIO $ flip runReaderT clockVar $ unBaseMonad $
                 callback BlockTestContext {..}
-    withSystemTempDirectory "cardano-sl-testing" $ \dbPath ->
-        bracket (openNodeDBs False dbPath) closeNodeDBs $ \nodeDBs -> do
-            (futureLrcCtx, putLrcCtx) <- newInitFuture
-            (futureSlottingVar, putSlottingVar) <- newInitFuture
-            let initCtx =
-                    InitModeContext
-                        nodeDBs
-                        tpGenUtxo
-                        futureSlottingVar
-                        SCSimple
-                        futureLrcCtx
-            sudoLiftIO $ runProduction $ runInitMode @SscGodTossing initCtx $
-                bracketBlockTestContextDo nodeDBs putSlottingVar putLrcCtx
+    sudoLiftIO $ runTestInitMode @SscGodTossing initCtx $
+        initBlockTestContextDo
 
 ----------------------------------------------------------------------------
 -- ExecMode
@@ -300,7 +305,7 @@ type BlockTestMode = Mtl.ReaderT BlockTestContext BaseMonad
 
 runBlockTestMode :: TestParams -> BlockTestMode a -> IO a
 runBlockTestMode tp action =
-    runBaseMonad (tpStartTime tp) $ bracketBlockTestContext tp (runReaderT action)
+    runBaseMonad (tpStartTime tp) $ initBlockTestContext tp (runReaderT action)
 
 ----------------------------------------------------------------------------
 -- Property
@@ -314,13 +319,72 @@ instance Testable (BlockProperty a) where
             (monadic (ioProperty . runBlockTestMode testParams) blockProperty)
 
 ----------------------------------------------------------------------------
--- Boilerplate instances
+-- Boilerplate TestInitContext instances
 ----------------------------------------------------------------------------
 
--- Test mode
+instance HasLens DBPureVar (TestInitModeContext ssc) DBPureVar where
+    lensOf = timcDBPureVar_L
 
-instance HasLens NodeDBs BlockTestContext NodeDBs where
-      lensOf = btcDBs_L
+instance HasLens GenesisUtxo (TestInitModeContext ssc) GenesisUtxo where
+    lensOf = timcGenesisUtxo_L
+
+--instance HasLens SlottingContextSum (TestInitModeContext ssc) SlottingContextSum where
+--    lensOf = imcSlottingContextSum_L
+
+instance HasLens LrcContext (TestInitModeContext ssc) LrcContext where
+    lensOf = timcLrcContext_L
+
+instance HasSlottingVar (TestInitModeContext ssc) where
+    slottingTimestamp = timcSlottingVar_L . _1
+    slottingVar = timcSlottingVar_L . _2
+
+instance MonadDBRead (TestInitMode ssc) where
+    dbGet = DB.dbGetPureDefault
+    dbIterSource = DB.dbIterSourcePureDefault
+
+instance MonadDB (TestInitMode ssc) where
+    dbPut = DB.dbPutPureDefault
+    dbWriteBatch = DB.dbWriteBatchPureDefault
+    dbDelete = DB.dbDeletePureDefault
+
+instance
+    SscHelpersClass ssc =>
+    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (TestInitMode ssc)
+  where
+    dbGetBlock  = DB.dbGetBlockPureDefault @ssc
+    dbGetUndo   = DB.dbGetUndoPureDefault @ssc
+    dbGetHeader = DB.dbGetHeaderPureDefault @ssc
+
+instance SscHelpersClass ssc =>
+         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (TestInitMode ssc) where
+    dbPutBlund = DB.dbPutBlundPureDefault
+
+instance
+    SscHelpersClass ssc =>
+    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (TestInitMode ssc)
+  where
+    dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
+    dbGetUndo   = DB.dbGetUndoSscPureDefault @ssc
+    dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
+
+instance MonadSlotsData (TestInitMode ssc) where
+    getSystemStart = getSystemStartDefault
+    getSlottingData = getSlottingDataDefault
+    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    putSlottingData = putSlottingDataDefault
+
+instance MonadSlots (TestInitMode ssc) where
+    getCurrentSlot = getCurrentSlotSimple
+    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    currentTimeSlotting = currentTimeSlottingSimple
+
+----------------------------------------------------------------------------
+-- Boilerplate BlockTestContext instances
+----------------------------------------------------------------------------
+
+instance HasLens DBPureVar BlockTestContext DBPureVar where
+      lensOf = btcDBPureVar_L
 
 instance HasLens LoggerName BlockTestContext LoggerName where
       lensOf = btcLoggerName_L
@@ -364,28 +428,28 @@ instance MonadSlots BlockTestMode where
     currentTimeSlotting = currentTimeSlottingSimple
 
 instance MonadDBRead BlockTestMode where
-    dbGet = dbGetDefault
-    dbIterSource = dbIterSourceDefault
+    dbGet = DB.dbGetPureDefault
+    dbIterSource = DB.dbIterSourcePureDefault
 
 instance MonadDB BlockTestMode where
-    dbPut = dbPutDefault
-    dbWriteBatch = dbWriteBatchDefault
-    dbDelete = dbDeleteDefault
+    dbPut = DB.dbPutPureDefault
+    dbWriteBatch = DB.dbWriteBatchPureDefault
+    dbDelete = DB.dbDeletePureDefault
 
 instance MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
   where
-    dbGetBlock  = dbGetBlockDefault @SscGodTossing
-    dbGetUndo   = dbGetUndoDefault @SscGodTossing
-    dbGetHeader = dbGetHeaderDefault @SscGodTossing
+    dbGetBlock  = DB.dbGetBlockPureDefault @SscGodTossing
+    dbGetUndo   = DB.dbGetUndoPureDefault @SscGodTossing
+    dbGetHeader = DB.dbGetHeaderPureDefault @SscGodTossing
 
 instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestMode
   where
-    dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
-    dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
-    dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
+    dbGetBlock  = DB.dbGetBlockSscPureDefault @SscGodTossing
+    dbGetUndo   = DB.dbGetUndoSscPureDefault @SscGodTossing
+    dbGetHeader = DB.dbGetHeaderSscPureDefault @SscGodTossing
 
 instance MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
-    dbPutBlund = dbPutBlundDefault
+    dbPutBlund = DB.dbPutBlundPureDefault
 
 instance MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

@@ -39,15 +39,15 @@ import           Pos.Block.Slog.Types   (HasSlogContext, LastBlkSlots, SlogUndo 
 import           Pos.Block.Types        (Blund, Undo (..))
 import           Pos.Constants          (blkSecurityParam, lastKnownBlockVersion)
 import           Pos.Context            (lrcActionOnEpochReason)
-import           Pos.Core               (BlockVersion (..), FlatSlotId, epochIndexL,
-                                         flattenSlotId, headerHash, headerHashG,
-                                         prevBlockL)
+import           Pos.Core               (BlockVersion (..), FlatSlotId, difficultyL,
+                                         epochIndexL, flattenSlotId, headerHash,
+                                         headerHashG, prevBlockL)
 import           Pos.DB                 (SomeBatchOp (..))
-import           Pos.DB.Block           (MonadBlockDBWrite)
+import           Pos.DB.Block           (MonadBlockDBWrite, blkGetHeader)
 import           Pos.DB.Class           (MonadDBRead, dbPutBlund)
 import           Pos.DB.DB              (sanityCheckDB)
 import qualified Pos.DB.GState          as GS
-import           Pos.Exception          (assertionFailed)
+import           Pos.Exception          (assertionFailed, reportFatalError)
 import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
 import           Pos.Slotting           (MonadSlots (getCurrentSlot), putSlottingData)
@@ -209,12 +209,19 @@ slogApplyBlocks blunds = do
     -- problem.
     bListenerBatch <- onApplyBlocks blunds
 
-    let putTip =
-            SomeBatchOp $
-            GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
+    let newestBlock = NE.last $ getOldestFirst blunds
+        newestDifficulty = newestBlock ^. difficultyL
+    let putTip = SomeBatchOp $ GS.PutTip $ headerHash newestBlock
     lastSlots <- slogGetLastSlots
     slogCommon @ssc (newLastSlots lastSlots)
-    return $ SomeBatchOp [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
+    putDifficulty <- GS.getMaxSeenDifficulty <&> \x ->
+        SomeBatchOp [GS.PutMaxSeenDifficulty newestDifficulty
+                        | newestDifficulty > x]
+    return $ SomeBatchOp
+        [ putTip
+        , putDifficulty
+        , bListenerBatch
+        , SomeBatchOp (blockExtraBatch lastSlots) ]
   where
     blocks = fmap fst blunds
     forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
@@ -247,11 +254,21 @@ slogRollbackBlocks blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
+    -- We should never allow a situation when we summarily roll back by more
+    -- than 'k' blocks
+    maxSeenDifficulty <- GS.getMaxSeenDifficulty
+    resultingDifficulty <-
+        maybe 0 (view difficultyL) <$>
+        blkGetHeader @ssc (NE.head (getNewestFirst blunds) ^. prevBlockL)
+    when (maxSeenDifficulty >
+          fromIntegral blkSecurityParam + resultingDifficulty) $
+        reportFatalError "slogRollbackBlocks: the attempted rollback would \
+                         \lead to a more than 'k' distance between tip and \
+                         \last seen block, which is a security risk. Aborting."
     bListenerBatch <- onRollbackBlocks blunds
     let putTip =
-            SomeBatchOp $ GS.PutTip $ headerHash $
-            (NE.last $ getNewestFirst blunds) ^.
-            prevBlockL
+            SomeBatchOp $ GS.PutTip $
+            (NE.last $ getNewestFirst blunds) ^. prevBlockL
     lastSlots <- slogGetLastSlots
     slogCommon @ssc (newLastSlots lastSlots)
     return $

@@ -10,11 +10,11 @@ module Pos.Core.Timestamp
 
 import           Universum
 
-import           Data.Text.Buildable   (Buildable)
-import qualified Data.Text.Buildable   as Buildable
-import           Data.Time.Units       (Microsecond)
-import           Formatting            (Format, build)
-import           Mockable              (CurrentTime, Mockable, currentTime)
+import           Data.Text.Buildable (Buildable)
+import qualified Data.Text.Buildable as Buildable
+import           Data.Time.Units     (Microsecond)
+import           Formatting          (Format, build)
+import           Mockable            (CurrentTime, Mockable, currentTime)
 import qualified Prelude
 
 -- | Timestamp is a number which represents some point in time. It is

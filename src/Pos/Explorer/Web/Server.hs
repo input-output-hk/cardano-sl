@@ -209,7 +209,7 @@ getBlocksPage mPageNumber pageSize = do
     cBlocksEntry    <- forM (rights blocks) toBlockEntry
 
     -- Return total pages and the blocks. We start from page 1.
-    pure (totalPages, cBlocksEntry)
+    pure (totalPages, reverse cBlocksEntry)
   where
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.

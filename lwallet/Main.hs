@@ -12,6 +12,7 @@ module Main
 import           Control.Concurrent.STM.TQueue (newTQueue, writeTQueue, tryReadTQueue)
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Trans.Either (EitherT (..))
+import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
 import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict        as HM
@@ -31,6 +32,7 @@ import           Mockable                   (Mockable, SharedAtomic, SharedAtomi
                                              modifySharedAtomic, newSharedAtomic,
                                              Production, race, runProduction, forConcurrently)
 import           Network.Transport.Abstract (Transport, hoistTransport)
+import           System.Console.Readline    (addHistory, readline)
 import           System.IO                  (BufferMode (LineBuffering),
                                              hClose, hFlush, hSetBuffering, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -69,7 +71,7 @@ import           Pos.Launcher               (BaseParams (..), LoggingParams (..)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
-import           Pos.Types                  (coinF, makePubKeyAddress)
+import           Pos.Types                  (Address (..), coinF, makePubKeyAddress)
 import           Pos.Update                 (BlockVersionData (..),
                                              BlockVersionModifier (..), SystemTag (..),
                                              UpdateData (..), UpdateVote (..),
@@ -95,12 +97,16 @@ data CmdCtx =
     , na    :: [NodeId]
     }
 
+
 helpMsg :: Text
 helpMsg = [s|
 Avaliable commands:
    balance <address>              -- check balance on given address (may be any address)
    send <N> [<address> <coins>]+  -- create and send transaction with given outputs
                                      from own address #N
+   send-distr <N> <address> <coins> [<address> <coins>]+
+                                  -- create and send transaction with given output and
+                                     txDistribution from own address #N
    send-to-all-genesis <duration> <conc> <delay> <cooldown> <sendmode> <csvfile>
                                   -- create and send transactions from all genesis addresses for <duration>
                                      seconds, delay in ms.  conc is the number of threads that send
@@ -125,6 +131,9 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
+printBalance :: MonadWallet ssc ctx m => Address -> m ()
+printBalance addr = getBalance addr >>= putText . sformat ("Current balance: "%coinF)
+
 -- | Count submitted and failed transactions.
 --
 -- This is used in the benchmarks using send-to-all-genesis
@@ -139,9 +148,7 @@ addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed) -> return (TxCount submitted (failed + 1), ()))
 
 runCmd :: forall ssc ctx m. MonadWallet ssc ctx m => SendActions m -> Command -> CmdCtx -> m ()
-runCmd _ (Balance addr) _ =
-    getBalance addr >>=
-    putText . sformat ("Current balance: "%coinF)
+runCmd _ (Balance addrs) _ = mapM printBalance addrs >> pure ()
 runCmd sendActions (Send idx outputs) CmdCtx{na} = do
     skeys <- getSecretKeys
     etx <-
@@ -153,6 +160,20 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
                 ss
                 na
                 (map (flip TxOutAux []) outputs)
+    case etx of
+        Left err -> putText $ sformat ("Error: "%stext) err
+        Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+runCmd sendActions (SendDistr idx txOut txDistr) CmdCtx{na} = do
+    skeys <- getSecretKeys
+    etx <-
+        withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
+        runEitherT $ do
+            ss <- mss `whenNothing` throwError "Invalid passphrase"
+            lift $ submitTx
+                sendActions
+                ss
+                na
+                (NE.fromList [TxOutAux txOut txDistr])
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
@@ -345,13 +366,15 @@ evalCmd sa cmd cmdCtx = runCmd sa cmd cmdCtx >> evalCommands sa cmdCtx
 
 evalCommands :: MonadWallet ssc ctx m => SendActions m -> CmdCtx -> m ()
 evalCommands sa cmdCtx = do
-    putStr @Text "> "
-    liftIO $ hFlush stdout
-    line <- getLine
-    let cmd = parseCommand line
-    case cmd of
-        Left err   -> putStrLn err >> evalCommands sa cmdCtx
-        Right cmd_ -> evalCmd sa cmd_ cmdCtx
+    (liftIO $ readline "> ") >>= \case
+        Nothing ->
+            evalCmd sa Quit cmdCtx -- EOF
+        Just line -> do
+            liftIO $ addHistory line
+            let cmd = parseCommand $ toText line
+            case cmd of
+                Left err   -> putStrLn err >> evalCommands sa cmdCtx
+                Right cmd_ -> evalCmd sa cmd_ cmdCtx
 
 initialize :: MonadWallet ssc ctx m => WalletOptions -> m [NodeId]
 initialize WalletOptions{..} = do

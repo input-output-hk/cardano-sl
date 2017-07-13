@@ -20,10 +20,10 @@ import           Text.Parsec.Text           (Parser)
 import           Universum                  hiding (show)
 
 import           Pos.Binary                 (decodeOrFail)
-import           Pos.Core.Types             (ScriptVersion)
+import           Pos.Core.Types             (ScriptVersion, StakeholderId)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
-import           Pos.Crypto                 (Hash, PublicKey, decodeHash)
-import           Pos.Txp                    (TxOut (..))
+import           Pos.Crypto                 (Hash, PublicKey (..), decodeHash)
+import           Pos.Txp                    (TxOut (..), TxOutDistribution)
 import           Pos.Types                  (Address (..), BlockVersion, Coin, EpochIndex,
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
@@ -36,8 +36,9 @@ data SendMode =
     deriving Show
 
 data Command
-    = Balance Address
+    = Balance (NonEmpty Address)
     | Send Int (NonEmpty TxOut)
+    | SendDistr Int TxOut TxOutDistribution
     | SendToAllGenesis !Int !Int !Int !Int !SendMode !FilePath
     | Vote Int Bool UpId
     | ProposeUpdate
@@ -85,6 +86,7 @@ address = lexeme $ do
     case decodeTextAddress (toText str) of
         Left err -> fail (toString err)
         Right x  -> return x
+
 -- pubKey :: Parser PublicKey
 -- pubKey =
 --     fromMaybe (panic "couldn't read pk") . parseFullPublicKey . toText <$>
@@ -99,6 +101,20 @@ coin = mkCoin <$> num
 txout :: Parser TxOut
 txout = TxOut <$> address <*> coin
 
+stakeholderId :: Parser StakeholderId
+stakeholderId = lexeme $ do
+    str <- many1 alphaNum
+    case decodeTextAddress (toText str) of
+        Left err                            -> fail (toString err)
+        Right (PubKeyAddress addrKeyHash _) -> pure addrKeyHash
+        Right _                             -> fail "Wrong address type"
+
+txoutDistrSingle :: Parser (StakeholderId, Coin)
+txoutDistrSingle = (,) <$> stakeholderId <*> coin
+
+txoutDistribution :: Parser TxOutDistribution
+txoutDistribution = (many1 txoutDistrSingle)
+
 hash :: Parser (Hash a)
 hash = decodeHash <$> anyText
 
@@ -110,7 +126,7 @@ switch = lexeme $ positive $> True <|>
     negative = text "-" <|> text "n" <|> text "no"
 
 balance :: Parser Command
-balance = Balance <$> address
+balance = Balance <$> (NE.fromList <$> many1 address)
 
 base58PkParser :: Parser PublicKey
 base58PkParser = do
@@ -134,6 +150,9 @@ sendMode :: Parser SendMode
 sendMode = lexeme $ text "neighbours" $> SendNeighbours
                 <|> text "round-robin" $> SendRoundRobin
                 <|> text "send-random" $> SendRandom
+
+sendDistr :: Parser Command
+sendDistr = SendDistr <$> num <*> txout <*> txoutDistribution
 
 sendToAllGenesis :: Parser Command
 sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
@@ -171,6 +190,7 @@ parseSystemTag =
 command :: Parser Command
 command = try (text "balance") *> balance <|>
           try (text "send-to-all-genesis") *> sendToAllGenesis <|>
+          try (text "send-distr") *> sendDistr <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>

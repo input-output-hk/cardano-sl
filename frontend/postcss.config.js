@@ -17,6 +17,7 @@ module.exports = {
     require('postcss-custom-media'),
     require('postcss-media-minmax'),
     require('postcss-cssnext')({
+      warnForDuplicates: false,
       browsers: [
         'last 2 versions',
         'ie >= 10'
@@ -25,7 +26,6 @@ module.exports = {
     require('postcss-discard-comments'),
     require('cssnano')({
       preset: ['default', {
-        warnForDuplicates: false,
         autoprefixer: false, // already prefixed w/ cssnext
         sourcemap: false,
         discardComments: {

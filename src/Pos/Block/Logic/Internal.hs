@@ -173,9 +173,8 @@ applyBlocksUnsafeDo blunds pModifier = do
   where
     blocks = fmap fst blunds
 
--- | Rollback sequence of blocks, head-newest order exepected with
--- head being current tip. It's also assumed that lock on block db is
--- taken.  application is taken already.
+-- | Rollback sequence of blocks, head-newest order expected with head being
+-- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
     :: forall ssc ctx m. (MonadBlockApply ssc ctx m)
     => NewestFirst NE (Blund ssc)

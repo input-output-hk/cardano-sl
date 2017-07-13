@@ -15,7 +15,6 @@ module Pos.Util.TimeWarp
        ) where
 
 import qualified Data.ByteString.Char8          as BS8
-import           Data.Time.Units                (Microsecond)
 import           Formatting                     (build, formatToString, shown, (%))
 import           JsonLog
 import qualified Network.Transport.TCP.Internal as TCP

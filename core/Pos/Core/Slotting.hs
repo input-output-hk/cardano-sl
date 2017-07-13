@@ -9,6 +9,8 @@ module Pos.Core.Slotting
        , crucialSlot
        , unsafeMkLocalSlotIndex
        , isBootstrapEra
+       , epochOrSlot
+       , epochOrSlotToSlot
        ) where
 
 import           Universum
@@ -16,8 +18,8 @@ import           Universum
 import           Pos.Core.Class     (HasEpochOrSlot (..), getEpochOrSlot)
 import           Pos.Core.Constants (epochSlots, slotSecurityParam)
 import           Pos.Core.Types     (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                     LocalSlotIndex, SlotCount, SlotId (..), epochOrSlot,
-                                     getSlotIndex, mkLocalSlotIndex)
+                                     LocalSlotIndex, SlotCount, SlotId (..), getSlotIndex,
+                                     mkLocalSlotIndex)
 import           Pos.Util.Util      (leftToPanic)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
@@ -123,5 +125,15 @@ isBootstrapEra
     -> EpochIndex -- ^ Epoch in question (for which we determine whether it
                   --                      belongs to the bootstrap era).
     -> Bool
-isBootstrapEra unlockStakeEpoch epoch = do
+isBootstrapEra unlockStakeEpoch epoch =
     epoch < unlockStakeEpoch
+
+-- | Apply one of the function depending on content of 'EpochOrSlot'.
+epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
+epochOrSlot f g = either f g . unEpochOrSlot
+
+-- | Convert 'EpochOrSlot' to the corresponding slot. If slot is
+-- stored, it's returned, otherwise 0-th slot from the stored epoch is
+-- returned.
+epochOrSlotToSlot :: EpochOrSlot -> SlotId
+epochOrSlotToSlot = epochOrSlot (flip SlotId minBound) identity

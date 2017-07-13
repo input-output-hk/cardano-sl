@@ -6,23 +6,25 @@ module Pos.Generator.Block.Logic
 
 import           Universum
 
-import           Control.Lens              (at, ix)
+import           Control.Lens              (at, ix, _Wrapped)
 
-import           Pos.Block.Core            (Block)
-import           Pos.Block.Logic           (createMainBlockInternal)
-import           Pos.Core                  (EpochOrSlot (..), HasPrimaryKey (..),
-                                            SlotId (..), getEpochOrSlot, getSlotIndex)
+import           Pos.Block.Logic           (applyBlocksUnsafe, createMainBlockInternal,
+                                            verifyBlocksPrefix)
+import           Pos.Block.Types           (Blund)
+import           Pos.Core                  (EpochOrSlot (..), SlotId (..), getEpochOrSlot,
+                                            getSlotIndex)
 import           Pos.DB.DB                 (getTipHeader)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode  (BlockGenMode, MonadBlockGen,
-                                            MonadBlockGenBase, mkBlockGenContext)
+                                            MonadBlockGenBase, mkBlockGenContext,
+                                            usingPrimaryKey, withCurrentSlot)
 import           Pos.Generator.Block.Param (BlockGenParams, HasAllSecrets (..),
                                             HasBlockGenParams (..))
 import           Pos.Lrc.Context           (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                as LrcDB
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Util.Chrono           (OldestFirst (..))
-import           Pos.Util.Util             (maybeThrow)
+import           Pos.Util.Util             (maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------
 -- Block generation
@@ -34,7 +36,7 @@ import           Pos.Util.Util             (maybeThrow)
 genBlocks ::
        MonadBlockGen ctx m
     => BlockGenParams
-    -> m (OldestFirst [] (Block SscGodTossing))
+    -> m (OldestFirst [] (Blund SscGodTossing))
 genBlocks params = do
     ctx <- mkBlockGenContext params
     runReaderT genBlocksDo ctx
@@ -53,7 +55,7 @@ genBlocks params = do
 genBlock ::
        (MonadBlockGenBase m)
     => EpochOrSlot
-    -> BlockGenMode m (Block SscGodTossing)
+    -> BlockGenMode m (Blund SscGodTossing)
 genBlock (EpochOrSlot (Left epoch)) = undefined epoch
 genBlock (EpochOrSlot (Right slot@SlotId {..})) = do
     genPayload slot
@@ -66,13 +68,20 @@ genBlock (EpochOrSlot (Right slot@SlotId {..})) = do
     secrets <- view asSecretKeys <$> view blockGenParams
     leaderSK <- maybeThrow (BGUnknownSecret leader) (secrets ^. at leader)
     -- When we know the secret key we can proceed to the actual creation.
-    local (set primaryKey leaderSK) genBlockDo
+    withCurrentSlot slot $ usingPrimaryKey leaderSK genBlockDo
   where
     genBlockDo =
         (createMainBlockInternal @SscGodTossing slot Nothing) >>= \case
             Left err -> throwM (BGFailedToCreate err)
-        -- apply, but probably reduced version (e. g. no slotting)
-            Right mainBlock -> undefined mainBlock
+            Right mainBlock -> verifyAndApply mainBlock
+    verifyAndApply mainBlock =
+        let block = Right mainBlock
+        in verifyBlocksPrefix (one block) >>= \case
+               Left err -> throwM (BGCreatedInvalid err)
+               Right (undos, pollModifier) ->
+                   let undo = undos ^. _Wrapped . _neHead
+                       blund = (block, undo)
+                   in blund <$ applyBlocksUnsafe (one blund) (Just pollModifier)
 
 ----------------------------------------------------------------------------
 -- Payload generation

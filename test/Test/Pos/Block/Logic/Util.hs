@@ -9,7 +9,7 @@ import           Universum
 import           Test.QuickCheck.Gen       (sized)
 import           Test.QuickCheck.Monadic   (pick)
 
-import           Pos.Block.Core            (Block)
+import           Pos.Block.Types           (Blund)
 import           Pos.Generator.Block       (BlockGenParams (..), genBlocks)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Util.Chrono           (OldestFirst)
@@ -19,7 +19,7 @@ import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContextTag,
                                             tpAllSecrets)
 
 -- | Generate arbitrary valid blocks inside 'BlockProperty'.
-bpGenBlocks :: BlockProperty (OldestFirst [] (Block SscGodTossing))
+bpGenBlocks :: BlockProperty (OldestFirst [] (Blund SscGodTossing))
 bpGenBlocks = do
     allSecrets <- lift $ view (lensOf @BlockTestContextTag . tpAllSecrets)
     let genBlockGenParams s =

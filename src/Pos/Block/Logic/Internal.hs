@@ -37,7 +37,7 @@ import           Pos.Block.Types             (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epochIndexL,
                                               gbBody, gbHeader, headerHash)
 import           Pos.DB                      (MonadDB, MonadGState, SomeBatchOp (..))
-import           Pos.DB.Block                (MonadBlockDB)
+import           Pos.DB.Block                (MonadBlockDB, MonadSscBlockDB)
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgRollbackBlocks)
 import           Pos.Lrc.Context             (LrcContext)
@@ -75,6 +75,7 @@ type MonadBlockBase ssc ctx m
        , MonadSscMem ssc ctx m
        -- Needed to load blocks (at least delegation does it).
        , MonadBlockDB ssc m
+       , MonadSscBlockDB ssc m
        -- Needed by some components.
        , MonadGState m
        -- This constraints define block components' global logic.

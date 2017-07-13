@@ -22,6 +22,8 @@ data BlockGenError
     -- be found in the context.
     | BGFailedToCreate !Text
     -- ^ Block generator failed to create a block.
+    | BGCreatedInvalid !Text
+    -- ^ Block generator created invalid block.
     | BGInternal !Text
     -- ^ Internall error occurred.
     deriving (Show)
@@ -32,6 +34,8 @@ instance Buildable BlockGenError where
             ("Secret key of "%shortHashF%" is required but isn't known") sId
     build (BGFailedToCreate reason) =
         bprint ("Failed to create a block: "%stext) reason
+    build (BGCreatedInvalid reason) =
+        bprint ("Unfortunately, I created invalid block: "%stext) reason
     build (BGInternal reason) =
         bprint ("Internal error: "%stext) reason
 

@@ -39,9 +39,9 @@ import           Data.DList                 (DList)
 import qualified Data.DList                 as DL
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
+import qualified Data.Map                   as M
 import qualified Data.Text.Buildable
 import qualified Ether
-import qualified Data.Map                   as M
 import           Formatting                 (bprint, build, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
@@ -53,7 +53,7 @@ import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
 import           Pos.Constants              (genesisHash)
-import           Pos.Context                (BlkSemaphore, genesisUtxoM, GenesisUtxo (..))
+import           Pos.Context                (BlkSemaphore, GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                   (AddrPkAttrs (..), Address (..),
                                              ChainDifficulty, HasDifficulty (..),
                                              HeaderHash, Timestamp, headerHash,
@@ -70,23 +70,24 @@ import           Pos.DB.Error               (DBError (DBMalformed))
 import qualified Pos.DB.GState              as GS
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting               (getSlotStartPure)
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..), TxIn (..) ,
-                                             TxUndo, flattenTxPayload, toaOut, topsortTxs, getTxDistribution,
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxIn (..),
+                                             TxOutAux (..), TxUndo, flattenTxPayload,
+                                             getTxDistribution, toaOut, topsortTxs,
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
-import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT, UtxoModifier, Utxo, runUtxoReaderT,
-                                             applyTxToUtxo, evalToilTEmpty, runDBTxp)
+import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
+                                             Utxo, UtxoModifier, applyTxToUtxo,
+                                             evalToilTEmpty, runDBTxp, runUtxoReaderT)
 import           Pos.Util.Chrono            (getNewestFirst)
-import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Modifier          (MapModifier)
+import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Util              (maybeThrow)
 
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Wallet.SscType         (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal,
-                                             addressToCId, aiWId, encToCId,
-                                             isTxLocalAddress)
+                                             CWAddressMeta (..), Wal, addressToCId, aiWId,
+                                             encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
                                              CustomAddressType (..), WalletWebDB,
                                              WebWalletModeDB)
@@ -113,10 +114,10 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
         IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
 
 data CAccModifier = CAccModifier
-    { camAddresses :: !(IndexedMapModifier CWAddressMeta)
-    , camUsed      :: !(VoidModifier (CId Addr, HeaderHash))
-    , camChange    :: !(VoidModifier (CId Addr, HeaderHash))
-    , camUtxo      :: !UtxoModifier
+    { camAddresses      :: !(IndexedMapModifier CWAddressMeta)
+    , camUsed           :: !(VoidModifier (CId Addr, HeaderHash))
+    , camChange         :: !(VoidModifier (CId Addr, HeaderHash))
+    , camUtxo           :: !UtxoModifier
     , camAddedHistory   :: !(DList TxHistoryEntry)
     , camDeletedHistory :: !(DList TxId)
     }
@@ -251,14 +252,17 @@ syncWalletWithGStateUnsafe encSK = do
                              %" by last synced hh: "%build) wAddr wTip
                 Just wHeader -> do
                     genesisUtxo <- genesisUtxoM
-                    mapModifier@CAccModifier{..} <- computeAccModifier genesisUtxo wHeader
                     when (wTip == genesisHash) $ do
                         let encInfo = getEncInfo encSK
-                        let ownGenesisUtxo =
-                                M.fromList $
-                                map fst $
-                                selectOwnAccounts encInfo (txOutAddress . toaOut . snd) (M.toList genesisUtxo)
+                            ownGenesisData =
+                                selectOwnAccounts encInfo (txOutAddress . toaOut . snd) $
+                                M.toList genesisUtxo
+                            ownGenesisUtxo = M.fromList $ map fst ownGenesisData
+                            ownGenesisAddrs = map snd ownGenesisData
+                        mapM_ WS.addWAddress ownGenesisAddrs
                         WS.getWalletUtxo >>= WS.setWalletUtxo . (ownGenesisUtxo <>)
+
+                    mapModifier@CAccModifier{..} <- computeAccModifier genesisUtxo wHeader
                     applyModifierToWallet wAddr (headerHash tipHeader) mapModifier
                     logDebug $ sformat ("Wallet "%build%" has been synced with tip "
                                         %shortHashF%", "%build)

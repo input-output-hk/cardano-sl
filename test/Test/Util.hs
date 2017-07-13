@@ -80,7 +80,10 @@ import           Node                        (ConversationActions (..),
                                               NodeAction (..), NodeId, SendActions (..),
                                               Worker, node, nodeId, defaultNodeEnvironment,
                                               simpleNodeEndPoint, Conversation (..),
-                                              noReceiveDelay, NodeEnvironment)
+                                              noReceiveDelay, NodeEnvironment,
+                                              enqueueConversation')
+import           Node.Conversation           (Converse)
+import           Node.OutboundQueue          (freeForAll, OutboundQueue)
 import           Node.Message.Binary         (BinaryP (..))
 
 -- | Run a computation, but kill it if it takes more than a given number of
@@ -229,18 +232,19 @@ sendAll
        , Mockable SharedExclusive m
        )
     => TalkStyle
-    -> SendActions BinaryP () m
+    -> SendActions BinaryP () NodeId () m
     -> NodeId
     -> [msg]
     -> m ()
 sendAll ConversationStyle sendActions peerId msgs =
     timeout "sendAll" 30000000 $
-        void . withConnectionTo sendActions peerId $ \peerData ->
-            Conversation $ \cactions -> forM_ msgs $
-                \msg -> do
-                    send cactions msg
-                    (_ :: Maybe Bool) <- recv cactions maxBound
-                    pure ()
+        void . enqueueConversation' sendActions (S.singleton peerId) () $
+            \peer peerData ->
+                Conversation $ \cactions -> forM_ msgs $
+                    \msg -> do
+                        send cactions msg
+                        (_ :: Maybe Bool) <- recv cactions maxBound
+                        pure ()
 
 receiveAll
     :: ( Binary msg, Message msg, MonadIO m
@@ -252,12 +256,12 @@ receiveAll
        )
     => TalkStyle
     -> (msg -> m ())
-    -> Listener BinaryP () m
+    -> Listener BinaryP () NodeId () m
 -- For conversation style, we send a response for every message received.
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll ConversationStyle  handler =
-    Listener @_ @_ @_ @Bool $ \_ _ cactions ->
+    Listener @_ @_ @_ @_ @_ @Bool $ \_ _ _ cactions ->
         let loop = do mmsg <- recv cactions maxBound
                       case mmsg of
                           Nothing -> pure ()
@@ -295,8 +299,8 @@ makeTCPTransport bind hostAddr port qdisc mtu = do
 deliveryTest :: NT.Transport
              -> NodeEnvironment Production
              -> TVar TestState
-             -> [NodeId -> Worker BinaryP () Production]
-             -> [Listener BinaryP () Production]
+             -> [NodeId -> Worker BinaryP () NodeId () Production]
+             -> [Listener BinaryP () NodeId () Production]
              -> IO Property
 deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
 
@@ -309,7 +313,12 @@ deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
     clientFinished <- newSharedExclusive
     serverFinished <- newSharedExclusive
 
-    let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng1 BinaryP () nodeEnv $ \serverNode -> do
+    let mkOutboundQueue
+            :: Converse BinaryP () Production
+            -> Production (OutboundQueue BinaryP () NodeId () Production)
+        mkOutboundQueue converse = pure (freeForAll id converse)
+
+    let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prng1 BinaryP () nodeEnv $ \serverNode -> do
             NodeAction (const listeners) $ \_ -> do
                 -- Give our address to the client.
                 putSharedExclusive serverAddressVar (nodeId serverNode)
@@ -320,7 +329,7 @@ deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
                 -- Allow the client to stop.
                 putSharedExclusive serverFinished ()
 
-    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng2 BinaryP () nodeEnv $ \clientNode ->
+    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prng2 BinaryP () nodeEnv $ \clientNode ->
             NodeAction (const []) $ \sendActions -> do
                 serverAddress <- takeSharedExclusive serverAddressVar
                 let act = void . forConcurrently workers $ \worker ->

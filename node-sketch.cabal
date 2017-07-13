@@ -1,5 +1,5 @@
 name:                node-sketch
-version:             0.1.3.0
+version:             0.1.4.0
 license:             MIT
 license-file:        LICENSE
 category:            Network
@@ -21,6 +21,11 @@ Library
 
                         Network.Broadcast.Relay.Simple
 
+                        Network.Broadcast.OutboundQueue
+                        Network.Broadcast.OutboundQueue.Classification
+                        Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
+                        Network.Broadcast.OutboundQueue.Demo
+
                         Node
 
                         Mockable
@@ -37,6 +42,8 @@ Library
                         Mockable.Metrics
 
                         Node.Internal
+                        Node.Conversation
+                        Node.OutboundQueue
                         Node.Message.Decoder
                         Node.Message.Class
                         Node.Message.Binary
@@ -58,7 +65,7 @@ Library
                         NTP.Util
                         Data.NonEmptySet
 
-  build-depends:        aeson 
+  build-depends:        aeson
                       , async
                       , attoparsec
                       , base
@@ -138,6 +145,7 @@ executable ping-pong
   build-depends:       base >= 4.8 && < 5
                      , binary
                      , bytestring
+                     , containers
                      , network-transport-tcp
                      , node-sketch
                      , random

@@ -3,6 +3,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -10,9 +11,13 @@ module Mockable.Exception (
 
       Bracket(..)
     , bracket
+    , bracket_
     , bracketWithException
     , finally
     , onException
+    , mask
+    , mask_
+    , unsafeUnmask
 
     , Throw(..)
     , throw
@@ -30,6 +35,8 @@ import           Control.Exception (Exception, SomeException)
 import           Mockable.Class    (MFunctor' (hoist'), Mockable (liftMockable))
 
 data Bracket (m :: * -> *) (t :: *) where
+    Mask_ :: m a -> Bracket m a
+    UnsafeUnmask :: m a -> Bracket m a
     Bracket :: m r -> (r -> m b) -> (r -> m c) -> Bracket m c
     BracketWithException
         :: ( Exception e )
@@ -39,14 +46,34 @@ data Bracket (m :: * -> *) (t :: *) where
         -> Bracket m c
 
 instance MFunctor' Bracket m n where
+    hoist' nat (Mask_ f) =
+      Mask_ (nat f)
+    hoist' nat (UnsafeUnmask f) =
+      UnsafeUnmask (nat f)
     hoist' nat (Bracket acq rel act) =
       Bracket (nat acq) (\r -> nat $ rel r) (\r -> nat $ act r)
     hoist' nat (BracketWithException acq rel act) =
       BracketWithException (nat acq) (\r e -> nat $ rel r e) (\r -> nat $ act r)
 
+{-# INLINE mask #-}
+mask :: Mockable Bracket m => ((forall a. m a -> m a) -> m b) -> m b
+mask f = mask_ (f unsafeUnmask)
+
+{-# INLINE mask_ #-}
+mask_ :: Mockable Bracket m => m a -> m a
+mask_ act = liftMockable $ Mask_ act
+
+{-# INLINE unsafeUnmask #-}
+unsafeUnmask :: Mockable Bracket m => m a -> m a
+unsafeUnmask act = liftMockable $ UnsafeUnmask act
+
 {-# INLINE bracket #-}
 bracket :: ( Mockable Bracket m ) => m r -> (r -> m b) -> (r -> m c) -> m c
 bracket acquire release act = liftMockable $ Bracket acquire release act
+
+{-# INLINE bracket_ #-}
+bracket_ :: ( Mockable Bracket m ) => m r -> m b -> m c -> m c
+bracket_ acquire release act = bracket acquire (const release) (const act)
 
 {-# INLINE bracketWithException #-}
 bracketWithException

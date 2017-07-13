@@ -20,6 +20,7 @@ import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.IO.Class      (MonadIO)
 import qualified Crypto.Random               as Rand
 import           Data.Time.Units             (Hour)
+import qualified GHC.IO                      as GHC
 import           System.Wlog                 (CanLog (..), HasLoggerName (..))
 
 import           Control.Monad.Base          (MonadBase (..))
@@ -139,6 +140,12 @@ instance Mockable Channel Production where
 instance Mockable Bracket Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Bracket Production t -> Production t #-}
+
+    liftMockable (Mask_ act) = Production $
+        Exception.mask_ (runProduction act)
+    liftMockable (UnsafeUnmask act) = Production $
+        GHC.unsafeUnmask (runProduction act)
+
     liftMockable (Bracket acquire release act) = Production $
         Exception.bracket (runProduction acquire) (runProduction . release) (runProduction . act)
 

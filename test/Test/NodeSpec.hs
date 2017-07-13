@@ -6,6 +6,7 @@
 {-# LANGUAGE StandaloneDeriving  #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE RankNTypes          #-}
 
 module Test.NodeSpec
        ( spec
@@ -46,9 +47,11 @@ import           Mockable.Exception          (catch, throw)
 import           Mockable.Production         (Production, runProduction)
 import           Node.Message.Binary         (BinaryP(..))
 import           Node
+import           Node.Conversation
+import           Node.OutboundQueue
 
 spec :: Spec
-spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
+spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
 
     -- Take at most 25000 bytes for each Received message.
     -- We want to ensure that the MTU works, but not make the tests too
@@ -66,6 +69,12 @@ spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
             ]
     let nodeEnv = defaultNodeEnvironment { nodeMtu = mtu }
 
+    let mkOutboundQueue
+            :: forall peerData .
+               Converse BinaryP peerData Production
+            -> Production (OutboundQueue BinaryP peerData NodeId () Production)
+        mkOutboundQueue converse = pure (freeForAll id converse)
+
     forM_ transports $ \(name, mkTransport) -> do
 
         transport_ <- mkTransport
@@ -81,7 +90,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
                 serverFinished <- newSharedExclusive
                 let attempts = 1
 
-                let listener = Listener $ \pd _ cactions -> do
+                let listener = Listener $ \pd _ _ cactions -> do
                         True <- return $ pd == ("client", 24)
                         initial <- timeout "server waiting for request" 30000000 (recv cactions maxBound)
                         case initial of
@@ -90,13 +99,13 @@ spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
                                 _ <- timeout "server sending response" 30000000 (send cactions (Parcel i (Payload 32)))
                                 return ()
 
-                let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) serverGen BinaryP ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
+                let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue serverGen BinaryP ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
                         NodeAction (const [listener]) $ \sendActions -> do
                             putSharedExclusive serverAddressVar (nodeId _node)
                             takeSharedExclusive clientFinished
                             putSharedExclusive serverFinished ()
 
-                let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) clientGen BinaryP ("client" :: String, 24 :: Int) nodeEnv $ \_node ->
+                let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue clientGen BinaryP ("client" :: String, 24 :: Int) nodeEnv $ \_node ->
                         NodeAction (const [listener]) $ \sendActions -> do
                             serverAddress <- readSharedExclusive serverAddressVar
                             forM_ [1..attempts] $ \i -> withConnectionTo sendActions serverAddress $ \peerData -> Conversation $ \cactions -> do
@@ -126,7 +135,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
                 -- of attempts without taking too much time.
                 let attempts = 100
 
-                let listener = Listener $ \pd _ cactions -> do
+                let listener = Listener $ \pd _ _ cactions -> do
                         True <- return $ pd == ("some string", 42)
                         initial <- recv cactions maxBound
                         case initial of
@@ -135,7 +144,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
                                 _ <- send cactions (Parcel i (Payload 32))
                                 return ()
 
-                node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen BinaryP ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
+                node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue gen BinaryP ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
                     NodeAction (const [listener]) $ \sendActions -> do
                         forM_ [1..attempts] $ \i -> withConnectionTo sendActions (nodeId _node) $ \peerData -> Conversation $ \cactions -> do
                             True <- return $ peerData == ("some string", 42)
@@ -169,7 +178,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
                         handleThreadKilled Timeout = do
                             --liftIO . putStrLn $ "Thread killed successfully!"
                             return ()
-                    node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen BinaryP () env $ \_node ->
+                    node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue gen BinaryP () env $ \_node ->
                         NodeAction (const []) $ \sendActions -> do
                             timeout "client waiting for ACK" 5000000 $
                                 flip catch handleThreadKilled $ withConnectionTo sendActions peerAddr $ \peerData -> Conversation $ \cactions -> do

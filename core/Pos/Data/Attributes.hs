@@ -24,7 +24,6 @@ import           Universum
 
 import qualified Data.ByteString     as BS
 import           Data.Default        (Default (..))
-import           Data.DeriveTH       (derive, makeNFData)
 import qualified Data.Hashable       as H
 import qualified Data.Map            as M
 import           Data.Text.Buildable (Buildable)
@@ -99,6 +98,8 @@ instance Buildable (Attributes ()) where
                 (unknownAttributesLength attr)
 
 instance Hashable h => Hashable (Attributes h)
+
+instance NFData h => NFData (Attributes h)
 
 -- | Check whether all data from 'Attributes' is known, i. e. was
 -- successfully parsed into some structured data.
@@ -243,5 +244,3 @@ decodeAttributes initval updater = do
             { attrData   = newData
             , attrRemain = UnparsedFields . M.delete k $ fromUnparsedFields attrRemain
             }
-
-derive makeNFData ''Attributes

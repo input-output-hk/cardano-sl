@@ -71,8 +71,8 @@ data GenesisCoreData = UnsafeGenesisCoreData
     { gcdAddrDistribution      :: !([AddrDistribution])
       -- ^ Address distribution. Determines utxo without boot
       -- stakeholders distribution (addresses and coins).
-    , gcdBootstrapStakeholders :: !(HashSet StakeholderId)
-      -- ^ Bootstrap era stakeholders.
+    , gcdBootstrapStakeholders :: !(HashMap StakeholderId Word16)
+      -- ^ Bootstrap era stakeholders, values are weights.
     } deriving (Show, Eq, Generic)
 
 
@@ -80,7 +80,7 @@ data GenesisCoreData = UnsafeGenesisCoreData
 -- goes wrong.
 mkGenesisCoreData ::
        [AddrDistribution]
-    -> HashSet StakeholderId
+    -> HashMap StakeholderId Word16
     -> Either String GenesisCoreData
 mkGenesisCoreData distribution bootStakeholders = do
     -- Every set of addresses should match the stakeholders count

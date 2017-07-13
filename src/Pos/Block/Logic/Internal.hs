@@ -26,13 +26,12 @@ import           Control.Lens                (each, _Wrapped)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Ether.Internal              (HasLens (..))
 import           Formatting                  (sformat, (%))
-import           Paths_cardano_sl            (version)
 import           Serokell.Util.Text          (listJson)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Core              (Block, GenesisBlock, MainBlock, mbTxPayload,
                                               mbUpdatePayload)
-import           Pos.Block.Logic.Slog        (SlogApplyMode, SlogMode, slogApplyBlocks,
+import           Pos.Block.Slog              (SlogApplyMode, SlogMode, slogApplyBlocks,
                                               slogRollbackBlocks)
 import           Pos.Block.Types             (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epochIndexL,
@@ -94,7 +93,7 @@ type BlockVerifyMode ssc ctx m = BlockMode ssc ctx m
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
 type BlockApplyMode ssc ctx m
      = ( BlockMode ssc ctx m
-       , SlogApplyMode ssc m
+       , SlogApplyMode ssc ctx m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
        -- Needed for iteration over DB.
@@ -121,7 +120,7 @@ type BlockApplyMode ssc ctx m
 applyBlocksUnsafe
     :: forall ssc ctx m . BlockApplyMode ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe blunds pModifier = reportingFatal version $ do
+applyBlocksUnsafe blunds pModifier = reportingFatal $ do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -177,14 +176,13 @@ applyBlocksUnsafeDo blunds pModifier = do
   where
     blocks = fmap fst blunds
 
--- | Rollback sequence of blocks, head-newest order exepected with
--- head being current tip. It's also assumed that lock on block db is
--- taken.  application is taken already.
+-- | Rollback sequence of blocks, head-newest order expected with head being
+-- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
     :: forall ssc ctx m. (BlockApplyMode ssc ctx m)
     => NewestFirst NE (Blund ssc)
     -> m ()
-rollbackBlocksUnsafe toRollback = reportingFatal version $ do
+rollbackBlocksUnsafe toRollback = reportingFatal $ do
     slogRoll <- slogRollbackBlocks toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks

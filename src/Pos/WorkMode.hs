@@ -26,6 +26,7 @@ import           System.Wlog                 (HasLoggerName (..), LoggerName)
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
                                               onRollbackBlocksStub)
 import           Pos.Block.Core              (Block, BlockHeader)
+import           Pos.Block.Slog.Types        (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Communication.PeerState (HasPeerState (..), PeerStateCtx,
                                               WithPeerState (..), clearPeerStateDefault,
@@ -41,8 +42,7 @@ import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDe
 import           Pos.DB.Class                (MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB (..),
                                               MonadDBRead (..))
-import           Pos.DB.DB                   (gsAdoptedBVDataDefault,
-                                              gsIsBootstrapEraDefault)
+import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
                                               dbIterSourceDefault, dbPutDefault,
                                               dbWriteBatchDefault)
@@ -65,7 +65,8 @@ import           Pos.Slotting.MemState       (HasSlottingVar (..), MonadSlotsDat
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Ssc.Class.Types         (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState)
-import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag,
+                                              TxpMetrics)
 import           Pos.Util                    (Some (..))
 import           Pos.Util.JsonLog            (HasJsonLogConfig (..), JsonLogConfig,
                                               jsonLogDefault)
@@ -79,7 +80,7 @@ import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMod
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !(NodeDBs)
     , rmcSscState      :: !(SscState ssc)
-    , rmcTxpLocalData  :: !(GenericTxpLocalData TxpExtra_TMP)
+    , rmcTxpLocalData  :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , rmcDelegationVar :: !DelegationVar
     , rmcPeerState     :: !(PeerStateCtx Production)
     , rmcJsonLogConfig :: !JsonLogConfig
@@ -95,7 +96,8 @@ instance HasLens NodeDBs (RealModeContext ssc) NodeDBs where
 instance HasLens SscMemTag (RealModeContext ssc) (SscState ssc) where
     lensOf = rmcSscState_L
 
-instance HasLens TxpHolderTag (RealModeContext ssc) (GenericTxpLocalData TxpExtra_TMP) where
+instance HasLens TxpHolderTag (RealModeContext ssc) ( GenericTxpLocalData TxpExtra_TMP
+                                                    , TxpMetrics) where
     lensOf = rmcTxpLocalData_L
 
 instance HasLens DelegationVar (RealModeContext ssc) DelegationVar where
@@ -128,6 +130,9 @@ instance HasShutdownContext (RealModeContext ssc) where
 instance HasSlottingVar (RealModeContext ssc) where
     slottingTimestamp = rmcNodeContext_L . slottingTimestamp
     slottingVar = rmcNodeContext_L . slottingVar
+
+instance HasSlogContext (RealModeContext ssc) where
+    slogContextL = rmcNodeContext_L . slogContextL
 
 instance HasNodeContext ssc (RealModeContext ssc) where
     nodeContext = rmcNodeContext_L
@@ -168,7 +173,6 @@ instance MonadDiscovery (RealMode ssc) where
 
 instance MonadGState (RealMode ssc) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-    gsIsBootstrapEra = gsIsBootstrapEraDefault
 
 instance MonadDBRead (RealMode ssc) where
     dbGet = dbGetDefault

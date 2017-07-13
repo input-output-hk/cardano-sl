@@ -17,6 +17,7 @@ import           Mockable                      (Production, SharedAtomicT)
 import           System.Wlog                   (HasLoggerName (..))
 
 import           Pos.Block.Core                (Block, BlockHeader)
+import           Pos.Block.Slog.Types          (HasSlogContext (..))
 import           Pos.Block.Types               (Undo)
 import           Pos.Communication.PeerState   (HasPeerState (..), WithPeerState (..),
                                                 clearPeerStateDefault,
@@ -31,8 +32,7 @@ import           Pos.DB.Block                  (dbGetBlockDefault, dbGetBlockSsc
 import           Pos.DB.Class                  (MonadBlockDBGeneric (..),
                                                 MonadBlockDBGenericWrite (..),
                                                 MonadDB (..), MonadDBRead (..))
-import           Pos.DB.DB                     (gsAdoptedBVDataDefault,
-                                                gsIsBootstrapEraDefault)
+import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks                  (dbDeleteDefault, dbGetDefault,
                                                 dbIterSourceDefault, dbPutDefault,
                                                 dbWriteBatchDefault)
@@ -134,6 +134,9 @@ instance {-# OVERLAPPABLE #-}
 instance HasLoggerName' WalletWebModeContext where
     loggerName = wwmcRealModeContext_L . loggerName
 
+instance HasSlogContext WalletWebModeContext where
+    slogContextL = wwmcRealModeContext_L . slogContextL
+
 instance HasJsonLogConfig WalletWebModeContext where
     jsonLogConfig = wwmcRealModeContext_L . jsonLogConfig
 
@@ -198,7 +201,6 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletW
 
 instance MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-    gsIsBootstrapEra = gsIsBootstrapEraDefault
 
 instance MonadBListener WalletWebMode where
     onApplyBlocks = onApplyTracking

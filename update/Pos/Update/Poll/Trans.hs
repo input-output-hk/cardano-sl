@@ -24,10 +24,11 @@ import           Pos.Update.Core       (UpdateProposal (..), applyBVM)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
                                         PollModifier (..), ProposalState (..),
-                                        UndecidedProposalState (..), cpsSoftwareVersion,
-                                        pmActivePropsL, pmAdoptedBVFullL, pmBVsL,
-                                        pmConfirmedL, pmConfirmedPropsL,
-                                        pmEpochProposersL, pmSlottingDataL, psProposal)
+                                        UndecidedProposalState (..), bvsIsConfirmed,
+                                        cpsSoftwareVersion, pmActivePropsL,
+                                        pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
+                                        pmConfirmedPropsL, pmEpochProposersL,
+                                        pmSlottingDataL, psProposal)
 import qualified Pos.Util.Modifier     as MM
 import           Pos.Util.Util         (ether)
 

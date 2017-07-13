@@ -14,17 +14,18 @@ import           Pos.Update.Core.Types (BlockVersionModifier (..))
 applyBVM :: BlockVersionModifier -> BlockVersionData -> BlockVersionData
 applyBVM BlockVersionModifier {..} BlockVersionData {..} =
     BlockVersionData
-    { bvdScriptVersion     =                        bvmScriptVersion
-    , bvdSlotDuration      =                         bvmSlotDuration
-    , bvdMaxBlockSize      =                         bvmMaxBlockSize
+    { bvdScriptVersion     =                     bvmScriptVersion
+    , bvdSlotDuration      =                       bvmSlotDuration
+    , bvdMaxBlockSize      =                        bvmMaxBlockSize
     , bvdMaxHeaderSize     =                        bvmMaxHeaderSize
-    , bvdMaxTxSize         =                            bvmMaxTxSize
-    , bvdMaxProposalSize   =                      bvmMaxProposalSize
-    , bvdMpcThd            =                               bvmMpcThd
-    , bvdHeavyDelThd       =                          bvmHeavyDelThd
-    , bvdUpdateVoteThd     =                        bvmUpdateVoteThd
-    , bvdUpdateProposalThd =                    bvmUpdateProposalThd
-    , bvdUpdateImplicit    =                       bvmUpdateImplicit
-    , bvdUpdateSoftforkThd =                    bvmUpdateSoftforkThd
-    , bvdTxFeePolicy       = fromMaybe bvdTxFeePolicy bvmTxFeePolicy
+    , bvdMaxTxSize         =                             bvmMaxTxSize
+    , bvdMaxProposalSize   =                        bvmMaxProposalSize
+    , bvdMpcThd            =                                  bvmMpcThd
+    , bvdHeavyDelThd       =                              bvmHeavyDelThd
+    , bvdUpdateVoteThd     =                             bvmUpdateVoteThd
+    , bvdUpdateProposalThd =                          bvmUpdateProposalThd
+    , bvdUpdateImplicit    =                              bvmUpdateImplicit
+    , bvdSoftforkRule      =       fromMaybe bvdSoftforkRule bvmSoftforkRule
+    , bvdTxFeePolicy       =          fromMaybe bvdTxFeePolicy bvmTxFeePolicy
+    , bvdUnlockStakeEpoch  = fromMaybe bvdUnlockStakeEpoch bvmUnlockStakeEpoch
     }

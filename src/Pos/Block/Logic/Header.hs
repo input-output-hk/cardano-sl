@@ -26,15 +26,16 @@ import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
 import           System.Wlog               (WithLogger, logDebug)
 
 import           Pos.Block.Core            (BlockHeader)
-import           Pos.Block.Logic.Util      (lcaWithMainChain, needRecovery)
+import           Pos.Block.Logic.Util      (lcaWithMainChain)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
 import           Pos.Constants             (blkSecurityParam, genesisHash,
                                             recoveryHeadersMessage)
-import           Pos.Core                  (EpochOrSlot (..), HeaderHash, SlotId (..),
-                                            difficultyL, epochOrSlotG, getEpochOrSlot,
+import           Pos.Core                  (BlockCount, EpochOrSlot (..), HeaderHash,
+                                            SlotId (..), difficultyL, epochOrSlotG,
+                                            getChainDifficulty, getEpochOrSlot,
                                             headerHash, headerHashG, headerSlotL,
-                                            prevBlockL, prevBlockL)
+                                            prevBlockL)
 import           Pos.Crypto                (hash)
 import           Pos.DB                    (MonadDBRead)
 import qualified Pos.DB.Block              as DB
@@ -152,15 +153,15 @@ classifyHeaders ::
        , MonadCatch m
        , WithLogger m
        )
-    => NewestFirst NE (BlockHeader ssc)
+    => Bool -- recovery in progress?
+    -> NewestFirst NE (BlockHeader ssc)
     -> m (ClassifyHeadersRes ssc)
-classifyHeaders headers = do
+classifyHeaders inRecovery headers = do
     tipHeader <- DB.getTipHeader @ssc
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
     let headersValid = isVerSuccess $
                        verifyHeaders (headers & _Wrapped %~ toList)
-    needRecovery_ <- needRecovery @ssc
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =
             case newestHeader ^. epochOrSlotG of
@@ -178,7 +179,7 @@ classifyHeaders headers = do
              pure $ CHsUseless
                  "Newest hash difficulty is not greater than our tip's"
        | Just currentSlot <- mbCurrentSlot,
-         not needRecovery_,
+         not inRecovery,
          newestHeaderConvertedSlot /= currentSlot ->
              pure $ CHsUseless $ sformat
                  ("Newest header is from slot "%build%", but current slot"%
@@ -197,7 +198,9 @@ classifyHeaders headers = do
         lca <-
             MaybeT . DB.blkGetHeader =<<
             MaybeT (lcaWithMainChain $ toOldestFirst headers)
-        let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
+        let depthDiff :: BlockCount
+            depthDiff = getChainDifficulty (tipHeader ^. difficultyL) -
+                        getChainDifficulty (lca ^. difficultyL)
         lcaChild <- MaybeT $ pure $
             find (\bh -> bh ^. prevBlockL == headerHash lca) headers
         pure $ if
@@ -207,7 +210,7 @@ classifyHeaders headers = do
                   CHsUseless $
                   sformat ("Difficulty difference of (tip,lca) is "%int%
                            " which is more than blkSecurityParam = "%int)
-                          depthDiff (blkSecurityParam :: Int)
+                          depthDiff blkSecurityParam
             | otherwise -> CHsValid lcaChild
 
 -- | Given a set of checkpoints @c@ to stop at and a terminating
@@ -273,28 +276,47 @@ getHeadersFromManyTo checkpoints startM = do
 getHeadersOlderExp
     :: forall ssc m.
        (MonadDBRead m, SscHelpersClass ssc)
-    => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
+    => Maybe HeaderHash -> m (OldestFirst NE HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
     -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
-    allHeaders <-
-        toOldestFirst <$> DB.loadHeadersByDepth @ssc (blkSecurityParam + 1) upToReal
-    pure $ OldestFirst $
-        selectIndices
-            (getOldestFirst (map headerHash allHeaders))
-            (twoPowers $ length allHeaders)
+    (allHeaders :: NewestFirst [] (BlockHeader ssc)) <-
+        -- loadHeadersByDepth always returns nonempty list unless you
+        -- pass depth 0 (we pass k+1). It throws if upToReal is
+        -- absent. So it either throws or returns nonempty.
+        DB.loadHeadersByDepth @ssc (blkSecurityParam + 1) upToReal
+    let toNE = fromMaybe (error "getHeadersOlderExp: couldn't create nonempty") .
+               nonEmpty
+    let selectedHashes :: NewestFirst [] HeaderHash
+        selectedHashes =
+            fmap headerHash allHeaders &
+                _Wrapped %~ selectIndices (twoPowers $ length allHeaders)
+
+    pure . toOldestFirst . (_Wrapped %~ toNE) $ selectedHashes
   where
-    -- Powers of 2
+    -- For given n, select indices from start so they decrease as
+    -- power of 2. Also include last element of the list.
+    --
+    -- λ> twoPowers 0 ⇒ []
+    -- λ> twoPowers 1 ⇒ [0]
+    -- λ> twoPowers 5 ⇒ [0,1,3,4]
+    -- λ> twoPowers 7 ⇒ [0,1,3,6]
+    -- λ> twoPowers 19 ⇒ [0,1,3,7,15,18]
     twoPowers n
         | n < 0 = error $ "getHeadersOlderExp#twoPowers called w/" <> show n
     twoPowers 0 = []
     twoPowers 1 = [0]
-    twoPowers n = (takeWhile (< (n - 1)) $ 0 : 1 : iterate (* 2) 2) ++ [n - 1]
+    twoPowers n = (takeWhile (< (n - 1)) $ map pred $ 1 : iterate (* 2) 2) ++ [n - 1]
     -- Effectively do @!i@ for any @i@ from the index list applied to
-    -- source list. Index list should be increasing.
-    selectIndices :: [a] -> [Int] -> [a]
-    selectIndices elems ixs =
+    -- source list. Index list _must_ be increasing.
+    --
+    -- λ> selectIndices [0, 5, 8] "123456789"
+    -- "169"
+    -- λ> selectIndices [4] "123456789"
+    -- "5"
+    selectIndices :: [Int] -> [a] -> [a]
+    selectIndices ixs elems  =
         let selGo _ [] _ = []
             selGo [] _ _ = []
             selGo ee@(e:es) ii@(i:is) skipped

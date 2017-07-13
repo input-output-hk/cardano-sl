@@ -311,7 +311,7 @@ getNoLongerRichmen newEpoch =
 
 -- State needed for 'delegationVerifyBlocks'.
 data DlgVerState = DlgVerState
-    { _dvCurEpoch   :: HashSet PublicKey
+    { _dvCurEpoch   :: !(HashSet PublicKey)
       -- ^ Set of issuers that have already posted certificates this epoch
     }
 

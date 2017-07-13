@@ -20,6 +20,7 @@ import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
                                                metavar, option, progDesc, short,
                                                strOption)
 import           System.Directory             (getTemporaryDirectory)
+import           System.Environment           (getExecutablePath)
 import           System.FilePath              ((</>))
 import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle)
@@ -298,16 +299,22 @@ runUpdaterProc path args = do
     system' phvar cr mempty
 
 writeWindowsUpdaterRunner :: FilePath -> IO ()
-writeWindowsUpdaterRunner runnerPath =
+writeWindowsUpdaterRunner runnerPath = do
+    exePath <- getExecutablePath
+    launcherArgs <- getArgs
     writeFile (toString runnerPath) $ unlines
         [ "TaskKill /IM cardano-launcher.exe /F"
         -- Run updater
         , "%*"
         -- Delete updater
         , "del %1"
+        -- Run launcher again
+        , "start \"cardano launcher\" /b " <> (quote $ toText exePath) <> " " <> (unwords $ map (quote . toText) launcherArgs)
         -- Delete the bat file
         , "(goto) 2>nul & del \"%~f0\""
         ]
+  where
+    quote str = "\"" <> str <> "\""
 
 ----------------------------------------------------------------------------
 -- Running stuff
@@ -376,7 +383,7 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    sendReport (encodeString logPath:logFiles) [] (RCrash ec) "cardano-node" version reportServ
+    sendReport (encodeString logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
 
 ----------------------------------------------------------------------------
 -- Utils

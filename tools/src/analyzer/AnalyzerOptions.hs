@@ -7,6 +7,8 @@ module AnalyzerOptions
        , getAnalyzerOptions
        ) where
 
+import           Universum
+
 import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
 import           Options.Applicative.Simple   (Parser, auto, execParser, footerDoc,
@@ -15,15 +17,14 @@ import           Options.Applicative.Simple   (Parser, auto, execParser, footerD
                                                progDesc, short, strOption, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-import           Universum
-
 import           Paths_cardano_sl             (version)
 import           Pos.Constants                (blkSecurityParam)
+import           Pos.Core                     (BlockCount)
 
 data Args = Args
     { files             :: ![FilePath]
     , txFile            :: !(Maybe FilePath)
-    , confirmationParam :: !Word64
+    , confirmationParam :: !BlockCount
     }
   deriving Show
 

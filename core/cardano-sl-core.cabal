@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -113,6 +113,7 @@ library
                        Pos.Core.Constants.Raw
                        Pos.Core.Constants.Typed
                        Pos.Util.Config.Path
+                       Pos.Util.Config.Contents
                        Pos.Util.Config.Get
 
   build-depends:       QuickCheck
@@ -142,7 +143,6 @@ library
                      , cryptonite-openssl >= 0.5
                      , data-default
                      , deepseq
-                     , derive
                      , deriving-compat
                      , digest
                      , directory

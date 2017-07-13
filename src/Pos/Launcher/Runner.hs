@@ -110,9 +110,8 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         case npEnableMetrics of
             False -> return Nothing
             True  -> Just <$> do
-                ekgStore <- liftIO $ Metrics.newStore
                 ekgStore' <- setupMonitor
-                    (runProduction . runToProd JsonLogDisabled) node' ekgStore
+                    (runProduction . runToProd JsonLogDisabled) node' nrEkgStore
                 liftIO $ Metrics.registerGcMetrics ekgStore'
                 mEkgServer <- case npEkgParams of
                     Nothing -> return Nothing

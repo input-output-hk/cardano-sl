@@ -12,7 +12,6 @@ import           Data.Tagged                (Tagged (..))
 import           Data.Time.Units            (Millisecond, convertUnit)
 import           Formatting                 (build, int, sformat, (%))
 import           Mockable                   (delay)
-import           Paths_cardano_sl           (version)
 import           Serokell.Util              (sec)
 import           System.Wlog                (logWarning)
 
@@ -27,7 +26,7 @@ import           Pos.Constants              (blkSecurityParam, genesisHash,
                                              mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getOurPublicKey, getOurStakeholderId,
-                                             getUptime, recoveryInProgress)
+                                             getUptime, recoveryCommGuard)
 import           Pos.Core                   (EpochIndex, SlotId (..), epochIndexL,
                                              flattenEpochOrSlot, flattenSlotId,
                                              headerHash, headerLeaderKeyL, prevBlockL)
@@ -52,7 +51,9 @@ import           Pos.WorkMode.Class         (WorkMode)
 instance SecurityWorkersClass SscGodTossing where
     securityWorkers =
         Tagged $
-        merge [checkForReceivedBlocksWorker, checkForIgnoredCommitmentsWorker]
+        merge [ checkForReceivedBlocksWorker
+              , checkForIgnoredCommitmentsWorker
+              ]
       where
         merge = mconcatPair . map (first pure)
 
@@ -106,10 +107,9 @@ checkForReceivedBlocksWorkerImpl
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . reportingFatal version $
-        whenM (needRecovery @ssc) $
-            triggerRecovery sendActions
-    repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
+    repeatOnInterval (const (sec' 4)) . reportingFatal . recoveryCommGuard $
+        whenM (needRecovery @ssc) $ triggerRecovery sendActions
+    repeatOnInterval (min (sec' 20)) . reportingFatal . recoveryCommGuard $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
                 header <- getTipHeader @ssc
@@ -133,13 +133,13 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     reportEclipse = do
         bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime
-        isRecovery <- recoveryInProgress
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
-        when (nonTrivialUptime && not isRecovery) $
-            reportMisbehaviourSilent version reason
-
+        -- TODO [CSL-1340]: should it be critical or not? Is it
+        -- misbehavior or error?
+        when nonTrivialUptime $ recoveryCommGuard $
+            reportMisbehaviourSilent True reason
 
 checkForIgnoredCommitmentsWorker
     :: forall ctx m.
@@ -152,7 +152,7 @@ checkForIgnoredCommitmentsWorker = localWorker $ do
 checkForIgnoredCommitmentsWorkerImpl
     :: forall ctx m. (WorkMode SscGodTossing ctx m)
     => TVar EpochIndex -> SlotId -> m ()
-checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
+checkForIgnoredCommitmentsWorkerImpl tvar slotId = recoveryCommGuard $ do
     -- Check prev blocks
     (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
         map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam

@@ -5,7 +5,7 @@
 
 module Pos.Core.Types
        (
-        -- * Address
+       -- * Address
          Address (..)
        , AddrPkAttrs (..)
        , AddressHash
@@ -15,10 +15,10 @@ module Pos.Core.Types
 
        , Timestamp (..)
 
-        -- * ChainDifficulty
+       -- * ChainDifficulty
        , ChainDifficulty (..)
 
-        -- * Version
+       -- * Version
        , ApplicationName
        , getApplicationName
        , BlockVersion (..)
@@ -28,6 +28,7 @@ module Pos.Core.Types
        , mkApplicationName
 
        -- * Update system
+       , SoftforkRule (..)
        , BlockVersionData (..)
 
        -- * HeaderHash related types and functions
@@ -43,7 +44,7 @@ module Pos.Core.Types
        , SharedSeed (..)
        , SlotLeaders
 
-         -- * Coin
+       -- * Coin
        , Coin
        , CoinPortion
        , coinF
@@ -54,24 +55,33 @@ module Pos.Core.Types
        , mkCoinPortion
        , unsafeCoinPortionFromDouble
 
-        -- * Slotting
+       -- * Slotting
        , EpochIndex (..)
        , FlatSlotId
        , LocalSlotIndex (getSlotIndex)
        , mkLocalSlotIndex
+       , addLocalSlotIndex
        , SlotId (..)
-       , EpochOrSlot (..)
+       , siEpochL
+       , siSlotL
        , slotIdF
+       , EpochOrSlot (..)
        , epochOrSlot
 
        -- * Scripting
        , Script(..)
        , Script_v0
        , ScriptVersion
+
+       -- * Newtypes
+       -- ** for amounts
+       , BlockCount(..)
+       , SlotCount(..)
        ) where
 
 import           Universum
 
+import           Control.Lens               (makeLensesFor)
 import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
@@ -89,8 +99,9 @@ import qualified Prelude
 import           Serokell.AcidState         ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
+import           System.Random              (Random (..))
 
-import           Pos.Core.Constants.Raw     (epochSlots)
+import           Pos.Core.Constants.Raw     (epochSlotsRaw)
 import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
@@ -143,7 +154,7 @@ newtype GenesisStakeholders =
 -- | Chain difficulty represents necessary effort to generate a
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
-    { getChainDifficulty :: Word64
+    { getChainDifficulty :: BlockCount
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
 
 ----------------------------------------------------------------------------
@@ -207,6 +218,24 @@ instance NFData SoftwareVersion
 -- Values updatable by update system
 ----------------------------------------------------------------------------
 
+-- | Values defining softfork resolution rule.
+-- If a proposal is adopted at the 's'-th epoch, softfork resolution threshold
+-- at the 't'-th epoch will be
+-- 'max spMinThd (spInitThd - (t - s) * spThdDecrement)'.
+--
+-- Softfork resolution threshold is the portion of total stake such
+-- that if total stake of issuers of blocks with some block version is
+-- greater than this portion, this block version becomes adopted.
+data SoftforkRule = SoftforkRule
+    { srInitThd      :: !CoinPortion
+    -- ^ Initial threshold (right after proposal is confirmed).
+    , srMinThd       :: !CoinPortion
+    -- ^ Minimal threshold (i. e. threshold can't become less than
+    -- this one).
+    , srThdDecrement :: !CoinPortion
+    -- ^ Theshold will be decreased by this value after each epoch.
+    } deriving (Show, Eq, Generic)
+
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
     { bvdScriptVersion     :: !ScriptVersion
@@ -220,8 +249,9 @@ data BlockVersionData = BlockVersionData
     , bvdUpdateVoteThd     :: !CoinPortion
     , bvdUpdateProposalThd :: !CoinPortion
     , bvdUpdateImplicit    :: !FlatSlotId
-    , bvdUpdateSoftforkThd :: !CoinPortion
+    , bvdSoftforkRule      :: !SoftforkRule
     , bvdTxFeePolicy       :: !TxFeePolicy
+    , bvdUnlockStakeEpoch  :: !EpochIndex
     } deriving (Show, Eq, Generic, Typeable)
 
 ----------------------------------------------------------------------------
@@ -368,21 +398,37 @@ newtype LocalSlotIndex = LocalSlotIndex
 
 instance Bounded LocalSlotIndex where
     minBound = LocalSlotIndex 0
-    maxBound = LocalSlotIndex (epochSlots - 1)
+    maxBound = LocalSlotIndex (epochSlotsRaw - 1)
 
 instance Enum LocalSlotIndex where
-    toEnum i | i >= epochSlots = error "toEnum @LocalSlotIndex: greater than maxBound"
+    toEnum i | i >= epochSlotsRaw = error "toEnum @LocalSlotIndex: greater than maxBound"
              | i < 0 = error "toEnum @LocalSlotIndex: less than minBound"
              | otherwise = LocalSlotIndex (fromIntegral i)
     fromEnum = fromIntegral . getSlotIndex
 
+instance Random LocalSlotIndex where
+    random = randomR (minBound, maxBound)
+    randomR (LocalSlotIndex lo, LocalSlotIndex hi) g =
+        let (r, g') = randomR (lo, hi) g
+        in  (LocalSlotIndex r, g')
+
 mkLocalSlotIndex :: MonadError Text m => Word16 -> m LocalSlotIndex
 mkLocalSlotIndex idx
-    | idx < epochSlots = pure (LocalSlotIndex idx)
+    | idx < epochSlotsRaw = pure (LocalSlotIndex idx)
     | otherwise =
         throwError $
         "local slot is greater than or equal to the number of slots in epoch: " <>
         show idx
+
+-- | Shift slot index by given amount, and return 'Nothing' if it has
+-- overflowed past 'epochSlots'.
+addLocalSlotIndex :: SlotCount -> LocalSlotIndex -> Maybe LocalSlotIndex
+addLocalSlotIndex x (LocalSlotIndex i)
+    | s < epochSlotsRaw = Just (LocalSlotIndex (fromIntegral s))
+    | otherwise         = Nothing
+  where
+    s :: Word64
+    s = fromIntegral x + fromIntegral i
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -449,3 +495,24 @@ instance Buildable Script where
 
 -- | Deserialized script (i.e. an AST), version 0.
 type Script_v0 = PLCore.Program
+
+----------------------------------------------------------------------------
+-- Newtypes
+----------------------------------------------------------------------------
+
+newtype BlockCount = BlockCount {getBlockCount :: Word64}
+    deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
+              Buildable, Generic, Typeable, NFData, Hashable, Random)
+
+newtype SlotCount = SlotCount {getSlotCount :: Word64}
+    deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
+              Buildable, Generic, Typeable, NFData, Hashable, Random)
+
+----------------------------------------------------------------------------
+-- Template Haskell invocations, banished to the end of the module because
+-- we don't want to topsort the whole module
+----------------------------------------------------------------------------
+
+flip makeLensesFor ''SlotId [
+    ("siEpoch", "siEpochL"),
+    ("siSlot" , "siSlotL") ]

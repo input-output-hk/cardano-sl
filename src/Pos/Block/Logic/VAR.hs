@@ -14,18 +14,19 @@ module Pos.Block.Logic.VAR
 import           Universum
 
 import           Control.Lens             (_Wrapped)
+import           Control.Monad.Catch      (bracketOnError)
 import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwError),
                                            runExceptT, withExceptT)
 import qualified Data.List.NonEmpty       as NE
 import           Ether.Internal           (HasLens (..))
-import           Paths_cardano_sl         (version)
+import           System.Wlog              (logDebug)
 
 import           Pos.Block.Core           (Block)
 import           Pos.Block.Logic.Internal (BlockApplyMode, BlockVerifyMode,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe,
                                            toTxpBlock, toUpdateBlock)
-import           Pos.Block.Logic.Slog     (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
+import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
@@ -39,7 +40,7 @@ import           Pos.Txp.Settings         (TxpGlobalSettings (..))
 import qualified Pos.Update.DB            as UDB
 import           Pos.Update.Logic         (usVerifyBlocks)
 import           Pos.Update.Poll          (PollModifier)
-import           Pos.Util                 (neZipWith3, spanSafe, _neHead)
+import           Pos.Util                 (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..),
                                            toNewestFirst, toOldestFirst)
 
@@ -68,7 +69,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     adoptedBV <- UDB.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     -- And then we run verification of each component.
-    slogVerifyBlocks blocks
+    slogUndos <- slogVerifyBlocks blocks
     _ <- withExceptT pretty $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
@@ -79,10 +80,11 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
-    pure ( OldestFirst $ neZipWith3 Undo
+    pure ( OldestFirst $ neZipWith4 Undo
                (getOldestFirst txUndo)
                (getOldestFirst pskUndo)
                (getOldestFirst usUndos)
+               (getOldestFirst slogUndos)
          , pModifier)
 
 -- | Union of constraints required by block processing and LRC.
@@ -100,7 +102,7 @@ verifyAndApplyBlocks
     :: (BlockLrcMode ssc ctx m)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback =
-    reportingFatal version . verifyAndApplyBlocksInternal True rollback
+    reportingFatal . verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
@@ -139,6 +141,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         -> [NewestFirst NE (Blund ssc)]
         -> ExceptT Text m HeaderHash
     failWithRollback e toRollback = do
+        logDebug "verifyAndapply failed, rolling back"
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
     -- Calculates LRC if it's needed (no lock)
@@ -156,21 +159,26 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         -> ExceptT Text m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
+        logDebug "Rolling: Calculating LRC if needed"
         when (isLeft prefixHead) $ lift $ calculateLrc (prefixHead ^. epochIndexL)
+        logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
-                | otherwise ->
+                | otherwise -> do
+                      lift $ logDebug "Rolling: Applying AMAP"
                       applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (null blunds)
             Right (undos, pModifier) -> do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
+                logDebug "Rolling: Verification done, applying unsafe block"
                 lift $ applyBlocksUnsafe newBlunds (Just pModifier)
                 case getOldestFirst suffix of
                     [] -> GS.getTip
                     (genesis:xs) -> do
+                        lift $ logDebug "Rolling: Applying done, next portion"
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
 
@@ -221,24 +229,28 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
-applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
+applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
-    when (tip /= newestToRollback) $ do
-        throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
+    when (tip /= newestToRollback) $
+        throwError $ tipMismatchMsg "applyWithRollback/rollback"
+                         tip newestToRollback
     lift $ rollbackBlocksUnsafe toRollback
-    tipAfterRollback <- GS.getTip
-    when (tipAfterRollback /= expectedTipApply) $ do
-        applyBack
-        throwError (tipMismatchMsg "apply in 'apply with rollback'" tip newestToRollback)
-    lift (verifyAndApplyBlocks True toApply) >>= \case
-        -- We didn't succeed to apply blocks, so will apply
-        -- rollbacked back.
-        Left err -> do
-            applyBack
-            throwError err
-        Right tipHash  -> pure tipHash
+    ExceptT $ bracketOnError (pure ()) (\_ -> applyBack) $ \_ -> do
+        tipAfterRollback <- GS.getTip
+        if tipAfterRollback /= expectedTipApply
+            then onBadRollback tip
+            else onGoodRollback
   where
     reApply = toOldestFirst toRollback
-    applyBack = lift $ applyBlocks True Nothing reApply
+    applyBack = applyBlocks False Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
+
+    onBadRollback tip =
+        applyBack $> Left (tipMismatchMsg "applyWithRollback/apply"
+                               tip newestToRollback)
+
+    onGoodRollback =
+        verifyAndApplyBlocks True toApply >>= \case
+            Left err      -> applyBack $> Left err
+            Right tipHash -> pure (Right tipHash)

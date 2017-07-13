@@ -17,14 +17,13 @@ import           System.Wlog                   (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Class              (biSize)
-import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
+import           Pos.Core                      (ChainDifficulty (..), Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
-                                                addressHash, addressHash,
-                                                applyCoinPortion, blockVersionL,
-                                                coinToInteger, difficultyL, epochIndexL,
-                                                flattenSlotId, headerHashG, headerSlotL,
-                                                sumCoins, unflattenSlotId,
+                                                addressHash, applyCoinPortion,
+                                                blockVersionL, coinToInteger, difficultyL,
+                                                epochIndexL, flattenSlotId, headerHashG,
+                                                headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
 import           Pos.Core.Constants            (blkSecurityParam, genesisUpdateVoteThd)
 import           Pos.Crypto                    (hash, shortHashF)
@@ -91,14 +90,15 @@ verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader UpdatePayload {..} = do
     -- confirmed/discarded).
     case slotOrHeader of
         Left _ -> pass
-        Right mainBlk -> do
+        Right mainHeader -> do
             applyImplicitAgreement
-                (mainBlk ^. headerSlotL)
-                (mainBlk ^. difficultyL)
-                (mainBlk ^. headerHashG)
+                (mainHeader ^. headerSlotL)
+                (mainHeader ^. difficultyL)
+                (mainHeader ^. headerHashG)
             applyDepthCheck
-                (mainBlk ^. headerHashG)
-                (mainBlk ^. difficultyL)
+                (mainHeader ^. epochIndexL)
+                (mainHeader ^. headerHashG)
+                (mainHeader ^. difficultyL)
 
 -- Here we verify all US-related data from header.
 verifyHeader
@@ -177,7 +177,7 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
         const $ throwError $ PollProposalAlreadyActive upId
     -- Here we verify consistency with regards to data from 'BlockVersionState'
     -- and update relevant state if necessary.
-    verifyAndApplyProposalBVS upId up
+    verifyAndApplyProposalBVS upId epoch up
     -- Then we verify that protocol version from proposal can follow last
     -- adopted software version.
     verifyBlockVersion upId up
@@ -305,11 +305,11 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- discarded).
 applyDepthCheck
     :: ApplyMode m
-    => HeaderHash -> ChainDifficulty -> m ()
-applyDepthCheck hh cd
+    => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
+applyDepthCheck epoch hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass
     | otherwise = do
-        deepProposals <- getDeepProposals (cd - blkSecurityParam)
+        deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
         let winners =
                 concatMap (toList . resetAllDecisions . NE.sortBy proposalCmp) $
                 NE.groupWith groupCriterion deepProposals
@@ -368,7 +368,7 @@ applyDepthCheck hh cd
             mapM_ (deactivateProposal . hash . psProposal) proposals
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> do
-               confirmBlockVersion bv
+               confirmBlockVersion epoch bv
                logInfo $ sformat (build%" is competing now") bv
            | otherwise -> do
                delBVState bv

@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -107,10 +107,9 @@ library
                       , bytestring
                       , cardano-sl-core
                       , cardano-sl-db
-                      , cardano-report-server
+                      , cardano-report-server >= 0.2.0
                       , containers
                       , data-default
-                      , derive
                       , directory
                       , either
                       , ether >= 0.5

@@ -36,12 +36,14 @@ import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
 import qualified STMContainers.Map           as SM
 import           System.IO                   (Handle, hClose)
+import qualified System.Metrics              as Metrics
 import           System.Wlog                 (CanLog, LoggerConfig (..), WithLogger,
                                               getLoggerName, logError, productionB,
                                               releaseAllHandlers, setupLogging,
                                               usingLoggerName)
 
 import           Pos.Binary                  ()
+import           Pos.Block.Slog              (mkSlogContext)
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication.PeerState (PeerStateCtx)
 import qualified Pos.Constants               as Const
@@ -66,7 +68,8 @@ import           Pos.Slotting                (SlottingContextSum (..), SlottingD
 import           Pos.Ssc.Class               (SscConstraint, SscParams,
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (SscState, mkSscState)
-import           Pos.Txp                     (GenericTxpLocalData, mkTxpLocalData)
+import           Pos.Txp                     (GenericTxpLocalData, TxpMetrics,
+                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
@@ -94,12 +97,13 @@ data NodeResources ssc m = NodeResources
     { nrContext    :: !(NodeContext ssc)
     , nrDBs        :: !NodeDBs
     , nrSscState   :: !(SscState ssc)
-    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP)
+    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , nrDlgState   :: !DelegationVar
     , nrPeerState  :: !(PeerStateCtx Production)
     , nrTransport  :: !(Transport m)
     , nrJLogHandle :: !(Maybe Handle)
     -- ^ Handle for JSON logging (optional).
+    , nrEkgStore   :: !Metrics.Store
     }
 
 hoistNodeResources ::
@@ -150,11 +154,26 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             case npJLFile of
                 Nothing -> pure Nothing
                 Just fp -> Just <$> openFile fp WriteMode
+
+        -- EKG monitoring stuff.
+        --
+        -- Relevant even if monitoring is turned off (no port given). The
+        -- gauge and distribution can be sampled by the server dispatcher
+        -- and used to inform a policy for delaying the next receive event.
+        --
+        -- TODO implement this. Requires time-warp-nt commit
+        --   275c16b38a715264b0b12f32c2f22ab478db29e9
+        -- in addition to the non-master
+        --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
+        -- for flexible EKG setup.
+        nrEkgStore <- liftIO $ Metrics.newStore
+        txpMetrics <- liftIO $ recordTxpMetrics nrEkgStore
+
         return NodeResources
             { nrContext = ctx
             , nrDBs = db
             , nrSscState = sscState
-            , nrTxpState = txpVar
+            , nrTxpState = (txpVar, txpMetrics)
             , nrDlgState = dlgVar
             , nrPeerState = peerState
             , ..
@@ -237,6 +256,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncLastKnownHeader <- newTVarIO Nothing
     ncUpdateContext <- mkUpdateContext
     ncSscContext <- untag @ssc sscCreateNodeContext sscnp
+    ncSlogContext <- mkSlogContext
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty

@@ -20,13 +20,15 @@ import           Pos.Block.Core
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
 import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
-                                                  ApplicationName (..), BlockVersion (..),
+                                                  ApplicationName (..), BlockCount (..),
+                                                  BlockVersion (..),
                                                   BlockVersionData (..),
                                                   ChainDifficulty (..), Coin,
                                                   CoinPortion (..), EpochIndex (..),
                                                   EpochOrSlot (..), LocalSlotIndex (..),
                                                   Script (..), SharedSeed (..),
-                                                  SlotId (..), SoftwareVersion (..))
+                                                  SlotCount (..), SlotId (..),
+                                                  SoftforkRule (..), SoftwareVersion (..))
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
@@ -107,6 +109,8 @@ deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''EpochOrSlot
 deriveSafeCopySimple 0 'base ''UnparsedFields
+deriveSafeCopySimple 0 'base ''BlockCount
+deriveSafeCopySimple 0 'base ''SlotCount
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrPkAttrs
@@ -135,6 +139,7 @@ deriveSafeCopySimple 0 'base ''UpdateData
 deriveSafeCopySimple 0 'base ''Coeff
 deriveSafeCopySimple 0 'base ''TxSizeLinear
 deriveSafeCopySimple 0 'base ''TxFeePolicy
+deriveSafeCopySimple 0 'base ''SoftforkRule -- 💋
 deriveSafeCopySimple 0 'base ''BlockVersionData
 deriveSafeCopySimple 0 'base ''BlockVersionModifier
 deriveSafeCopySimple 0 'base ''UpdateProposal

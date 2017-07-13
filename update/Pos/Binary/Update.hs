@@ -17,9 +17,10 @@ import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw
 import           Pos.Binary.Infra           ()
 import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, CoinPortion,
-                                             FlatSlotId, HeaderHash, NumSoftwareVersion,
-                                             ScriptVersion, SlotId, SoftwareVersion,
-                                             StakeholderId, TxFeePolicy)
+                                             EpochIndex, FlatSlotId, HeaderHash,
+                                             NumSoftwareVersion, ScriptVersion, SlotId,
+                                             SoftforkRule, SoftwareVersion, StakeholderId,
+                                             TxFeePolicy)
 import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
 import           Pos.Slotting.Types         (SlottingData)
 import qualified Pos.Update.Core.Types      as U
@@ -102,8 +103,9 @@ deriveSimpleBi ''U.BlockVersionModifier [
         Field [| U.bvmUpdateVoteThd     :: CoinPortion       |],
         Field [| U.bvmUpdateProposalThd :: CoinPortion       |],
         Field [| U.bvmUpdateImplicit    :: FlatSlotId        |],
-        Field [| U.bvmUpdateSoftforkThd :: CoinPortion       |],
-        Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |]
+        Field [| U.bvmSoftforkRule      :: Maybe SoftforkRule|],
+        Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |],
+        Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex  |]
     ]]
 
 Cbor.deriveSimpleBi ''U.BlockVersionModifier [
@@ -119,8 +121,9 @@ Cbor.deriveSimpleBi ''U.BlockVersionModifier [
         Cbor.Field [| U.bvmUpdateVoteThd     :: CoinPortion       |],
         Cbor.Field [| U.bvmUpdateProposalThd :: CoinPortion       |],
         Cbor.Field [| U.bvmUpdateImplicit    :: FlatSlotId        |],
-        Cbor.Field [| U.bvmUpdateSoftforkThd :: CoinPortion       |],
-        Cbor.Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |]
+        Cbor.Field [| U.bvmSoftforkRule      :: Maybe SoftforkRule|],
+        Cbor.Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |],
+        Cbor.Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex  |]
     ]]
 
 instance Bi U.UpdateProposal where
@@ -363,7 +366,7 @@ Cbor.deriveSimpleBi ''U.ConfirmedProposalState [
 deriveSimpleBi ''U.BlockVersionState [
     Cons 'U.BlockVersionState [
         Field [| U.bvsModifier          :: U.BlockVersionModifier |],
-        Field [| U.bvsIsConfirmed       :: Bool                   |],
+        Field [| U.bvsConfirmedEpoch    :: Maybe EpochIndex       |],
         Field [| U.bvsIssuersStable     :: HashSet StakeholderId  |],
         Field [| U.bvsIssuersUnstable   :: HashSet StakeholderId  |],
         Field [| U.bvsLastBlockStable   :: Maybe HeaderHash       |],
@@ -373,7 +376,7 @@ deriveSimpleBi ''U.BlockVersionState [
 Cbor.deriveSimpleBi ''U.BlockVersionState [
     Cbor.Cons 'U.BlockVersionState [
         Cbor.Field [| U.bvsModifier          :: U.BlockVersionModifier |],
-        Cbor.Field [| U.bvsIsConfirmed       :: Bool                   |],
+        Cbor.Field [| U.bvsConfirmedEpoch    :: Maybe EpochIndex       |],
         Cbor.Field [| U.bvsIssuersStable     :: HashSet StakeholderId  |],
         Cbor.Field [| U.bvsIssuersUnstable   :: HashSet StakeholderId  |],
         Cbor.Field [| U.bvsLastBlockStable   :: Maybe HeaderHash       |],

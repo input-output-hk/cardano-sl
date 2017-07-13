@@ -103,6 +103,22 @@ instance Cbor.Bi T.EpochOrSlot where
   encode (T.EpochOrSlot e) = Cbor.encode e
   decode = T.EpochOrSlot <$> Cbor.decode @(Either T.EpochIndex T.SlotId)
 
+instance Bi T.SlotCount where
+    sizeNPut = labelS "SlotCount" $ putField (UnsignedVarInt . T.getSlotCount)
+    get = label "SlotCount" $ T.SlotCount . getUnsignedVarInt <$> get
+
+instance Cbor.Bi T.SlotCount where
+    encode = Cbor.encode . T.getSlotCount
+    decode = T.SlotCount <$> Cbor.decode
+
+instance Bi T.BlockCount where
+    sizeNPut = labelS "BlockCount" $ putField (UnsignedVarInt . T.getBlockCount)
+    get = label "BlockCount" $ T.BlockCount . getUnsignedVarInt <$> get
+
+instance Cbor.Bi T.BlockCount where
+    encode = Cbor.encode . T.getBlockCount
+    decode = T.BlockCount <$> Cbor.decode
+
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
@@ -116,14 +132,29 @@ Cbor.deriveSimpleBi ''T.SharedSeed [
         Cbor.Field [| T.getSharedSeed :: ByteString |]
     ]]
 
-instance Bi T.ChainDifficulty where
-    sizeNPut = labelS "ChainDifficulty" $ putField (UnsignedVarInt . T.getChainDifficulty)
-    get = label "ChainDifficulty" $
-          T.ChainDifficulty . getUnsignedVarInt <$> get
+deriveSimpleBi ''T.ChainDifficulty [
+    Cons 'T.ChainDifficulty [
+        Field [| T.getChainDifficulty :: T.BlockCount |]
+    ]]
 
-instance Cbor.Bi T.ChainDifficulty where
-  encode (T.ChainDifficulty word64) = Cbor.encode word64
-  decode = T.ChainDifficulty <$> Cbor.decode @Word64
+Cbor.deriveSimpleBi ''T.ChainDifficulty [
+    Cbor.Cons 'T.ChainDifficulty [
+        Cbor.Field [| T.getChainDifficulty :: T.BlockCount |]
+    ]]
+
+deriveSimpleBi ''T.SoftforkRule [
+    Cons 'T.SoftforkRule [
+        Field [| T.srInitThd      :: T.CoinPortion |],
+        Field [| T.srMinThd       :: T.CoinPortion |],
+        Field [| T.srThdDecrement :: T.CoinPortion |]
+    ]]
+
+Cbor.deriveSimpleBi ''T.SoftforkRule [
+    Cbor.Cons 'T.SoftforkRule [
+        Cbor.Field [| T.srInitThd      :: T.CoinPortion |],
+        Cbor.Field [| T.srMinThd       :: T.CoinPortion |],
+        Cbor.Field [| T.srThdDecrement :: T.CoinPortion |]
+    ]]
 
 deriveSimpleBi ''T.BlockVersionData [
     Cons 'T.BlockVersionData [
@@ -138,8 +169,9 @@ deriveSimpleBi ''T.BlockVersionData [
         Field [| T.bvdUpdateVoteThd     :: T.CoinPortion   |],
         Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
         Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
-        Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion   |],
-        Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |]
+        Field [| T.bvdSoftforkRule      :: T.SoftforkRule  |],
+        Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |],
+        Field [| T.bvdUnlockStakeEpoch  :: T.EpochIndex    |]
     ]]
 
 Cbor.deriveSimpleBi ''T.BlockVersionData [
@@ -155,6 +187,7 @@ Cbor.deriveSimpleBi ''T.BlockVersionData [
         Cbor.Field [| T.bvdUpdateVoteThd     :: T.CoinPortion   |],
         Cbor.Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
         Cbor.Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
-        Cbor.Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion   |],
-        Cbor.Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |]
+        Cbor.Field [| T.bvdSoftforkRule      :: T.SoftforkRule  |],
+        Cbor.Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |],
+        Cbor.Field [| T.bvdUnlockStakeEpoch  :: T.EpochIndex    |]
     ]]

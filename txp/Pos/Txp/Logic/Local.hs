@@ -6,6 +6,9 @@ module Pos.Txp.Logic.Local
        , txNormalize
        ) where
 
+import           Universum
+import           Unsafe                      (unsafeHead)
+
 import           Control.Lens                (views)
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -16,12 +19,11 @@ import qualified Data.Map                    as M (fromList)
 import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
-import           Universum
-import           Unsafe                      (unsafeHead)
 
-import           Pos.Core                    (Coin, HeaderHash, StakeholderId)
+import           Pos.Core                    (Coin, HeaderHash, StakeholderId, siEpoch)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
+import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
                                               getTxDistribution)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
@@ -40,6 +42,7 @@ type TxpLocalWorkMode ctx m =
     , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
+    , MonadSlots m
     , MonadTxpMem () ctx m
     , WithLogger m
     , HasLens GenesisUtxo ctx GenesisUtxo
@@ -54,7 +57,11 @@ txProcessTransaction
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
-    bootEra <- gsIsBootstrapEra
+    epoch <- siEpoch <$>
+        -- TODO: Don't use inaccurate slotting here. If we don't know the
+        -- current slot, we should reject transactions. See CSL-1341.
+        getCurrentSlotInaccurate
+    bootEra <- gsIsBootstrapEra epoch
     bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . utxoToStakes . unGenesisUtxo
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
@@ -71,7 +78,7 @@ txProcessTransaction itw@(txId, txAux) = do
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData $
+    pRes <- modifyTxpLocalData "txProcessTransaction" $
             processTxDo resolved bootHolders toilEnv tipDB itw bootEra
     case pRes of
         Left er -> do
@@ -128,6 +135,7 @@ txNormalize ::
        , MonadDBRead m
        , MonadGState m
        , MonadTxpMem () ctx m
+       , WithLogger m
        )
     => m ()
 txNormalize = do
@@ -135,4 +143,4 @@ txNormalize = do
     localTxs <- getLocalTxs
     ToilModifier {..} <-
         runDBToil $ execToilTLocal mempty def mempty $ normalizeToil localTxs
-    setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+    setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

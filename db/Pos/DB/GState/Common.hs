@@ -8,6 +8,7 @@ module Pos.DB.GState.Common
          -- * Getters
          getTip
        , getBot
+       , getMaxSeenDifficulty
        , getTipBlockGeneric
        , getTipHeaderGeneric
        , getTipSomething
@@ -29,12 +30,12 @@ module Pos.DB.GState.Common
 
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB    as Rocks
-import           Formatting          (bprint, sformat, stext, (%))
+import           Formatting          (bprint, int, sformat, stext, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Bi, encode)
 import           Pos.Binary.Crypto   ()
-import           Pos.Core.Types      (HeaderHash)
+import           Pos.Core.Types      (ChainDifficulty, HeaderHash)
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB.BatchOp      (RocksBatchOp (..), dbWriteBatch')
 import           Pos.DB.Class        (DBTag (GStateDB),
@@ -76,6 +77,12 @@ getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
 getBot :: MonadDBRead m => m HeaderHash
 getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
+-- | Get maximum seen chain difficulty (used to prevent improper rollbacks).
+getMaxSeenDifficulty :: MonadDBRead m => m ChainDifficulty
+getMaxSeenDifficulty =
+    maybeThrow (DBMalformed "no max chain difficulty in GState DB") =<<
+    getMaxSeenDifficultyMaybe
+
 -- | Get 'Block' corresponding to tip.
 getTipBlockGeneric
     :: forall block header undo m.
@@ -104,13 +111,19 @@ getTipSomething smthDescription smthGetter =
 -- Common operations
 ----------------------------------------------------------------------------
 
-data CommonOp = PutTip HeaderHash
+data CommonOp = PutTip HeaderHash | PutMaxSeenDifficulty ChainDifficulty
 
 instance Buildable CommonOp where
-    build (PutTip h) = bprint ("PutTip ("%shortHashF%")") h
+    build (PutTip h) =
+        bprint ("PutTip ("%shortHashF%")") h
+    build (PutMaxSeenDifficulty d) =
+        bprint ("PutMaxSeenDifficulty ("%int%")") d
 
 instance RocksBatchOp CommonOp where
-    toBatchOp (PutTip h) = [Rocks.Put tipKey (encode h)]
+    toBatchOp (PutTip h) =
+        [Rocks.Put tipKey (encode h)]
+    toBatchOp (PutMaxSeenDifficulty h) =
+        [Rocks.Put maxSeenDifficultyKey (encode h)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -121,6 +134,7 @@ initGStateCommon :: (MonadDB m) => HeaderHash -> m ()
 initGStateCommon initialTip = do
     putTip initialTip
     putBot initialTip
+    putMaxSeenDifficulty 0
 
 -- | Checks if gstate is initialized.
 isInitialized :: MonadDBRead m => m Bool
@@ -145,6 +159,9 @@ tipKey = "c/tip"
 botKey :: ByteString
 botKey = "c/bot"
 
+maxSeenDifficultyKey :: ByteString
+maxSeenDifficultyKey = "c/maxsd"
+
 ----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
@@ -155,8 +172,14 @@ getTipMaybe = gsGetBi tipKey
 getBotMaybe :: MonadDBRead m => m (Maybe HeaderHash)
 getBotMaybe = gsGetBi botKey
 
+getMaxSeenDifficultyMaybe :: MonadDBRead m => m (Maybe ChainDifficulty)
+getMaxSeenDifficultyMaybe = gsGetBi maxSeenDifficultyKey
+
 putTip :: MonadDB m => HeaderHash -> m ()
 putTip = gsPutBi tipKey
 
 putBot :: MonadDB m => HeaderHash -> m ()
 putBot = gsPutBi botKey
+
+putMaxSeenDifficulty :: MonadDB m => ChainDifficulty -> m ()
+putMaxSeenDifficulty = gsPutBi maxSeenDifficultyKey

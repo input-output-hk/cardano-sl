@@ -46,6 +46,7 @@ import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
 import           Pos.Discovery.Class              (MonadDiscovery)
+import           Pos.Recovery.Info                (MonadRecoveryInfo)
 import           Pos.Reporting                    (HasReportingContext)
 import           Pos.Shutdown                     (HasShutdownContext)
 import           Pos.Slotting                     (MonadSlots)
@@ -189,13 +190,6 @@ worker' outSpecs h =
     (,outSpecs) $ ActionSpec $ \vI -> h vI . convertSendActions vI
 
 
-type OnNewSlotComm ctx m =
-    ( LocalOnNewSlotComm ctx m
-    , Mockable Throw m
-    , WithPeerState m
-    , Mockable SharedAtomic m
-    )
-
 type LocalOnNewSlotComm ctx m =
     ( MonadIO m
     , MonadReader ctx m
@@ -206,6 +200,14 @@ type LocalOnNewSlotComm ctx m =
     , HasReportingContext ctx
     , HasShutdownContext ctx
     , MonadDiscovery m
+    , MonadRecoveryInfo m
+    )
+
+type OnNewSlotComm ctx m =
+    ( LocalOnNewSlotComm ctx m
+    , Mockable Throw m
+    , WithPeerState m
+    , Mockable SharedAtomic m
     )
 
 onNewSlot'

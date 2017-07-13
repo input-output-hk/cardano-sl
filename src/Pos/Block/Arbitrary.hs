@@ -130,16 +130,18 @@ instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) whe
     arbitrary = genericArbitrary
     shrink = genericShrink
 
--- | In the main blockchain's body, the number of transactions must be the same as the
--- number of transaction witnesses.
+-- | In the main blockchain's body, the number of transactions must be the
+-- same as the number of transaction witnesses.
 --
--- Furthermore, for every transaction in index i of the list, the length of its output
--- list must be the same as the length of the i-th item in the TxDistribution list.
+-- Furthermore, for every transaction in index i of the list, the length of
+-- its output list must be the same as the length of the i-th item in the
+-- TxDistribution list.
 --
--- Because of this, the Arbitrary instance for Ssc ssc => Body (MainBlockchain ssc)
--- ensures that for every transaction generated, a transaction witness is generated as
--- well, and the lengths of its list of outputs must also be the same as the length of its
--- corresponding TxDistribution item.
+-- Because of this, the Arbitrary instance for Ssc ssc => Body
+-- (MainBlockchain ssc) ensures that for every transaction generated, a
+-- transaction witness is generated as well, and the lengths of its list of
+-- outputs must also be the same as the length of its corresponding
+-- TxDistribution item.
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -229,24 +231,26 @@ newtype BlockHeaderList ssc = BHL
 instance T.BiSsc ssc => Show (BlockHeaderList ssc) where
     show = toString . unlines . map pretty . uncurry zip . getHeaderList
 
--- | Generation of arbitrary, valid headerchain along with a list of leaders for
--- each epoch.
+-- | Generation of arbitrary, valid headerchain along with a list of leaders
+-- for each epoch.
 --
 -- Because 'verifyHeaders' assumes the head of the list is the most recent
 -- block, this function is tail-recursive: while keeping track of the current
--- block and epoch/slot, it adds the most recent one to the head of the header list
--- it'll return when done.
+-- block and epoch/slot, it adds the most recent one to the head of the
+-- header list it'll return when done.
 --
--- The @[Either SecretKey (SecretKey, SecretKey, Bool)]@ type is for determining what
--- kind of signature the slot's block will have. If it's @Left sk@, it'll be a simple
--- 'BlockSignature'; if it's @Right (issuerSK, delegateSK, b)@, it will be a proxy
--- signature, and if @b :: Bool@ is false, it'll be a simple proxy secret key.
--- Otherwise, it'll be a proxy secret key with epochs, whose lower and upper epoch
--- bounds will be randomly generated.
+-- The @[Either SecretKey (SecretKey, SecretKey, Bool)]@ type is for
+-- determining what kind of signature the slot's block will have. If it's
+-- @Left sk@, it'll be a simple 'BlockSignature'; if it's @Right (issuerSK,
+-- delegateSK, b)@, it will be a proxy signature, and if @b :: Bool@ is
+-- false, it'll be a simple proxy secret key. Otherwise, it'll be a proxy
+-- secret key with epochs, whose lower and upper epoch bounds will be
+-- randomly generated.
 --
 -- Beware that
--- * genesis blocks have no leaders, and that
--- * if an epoch is `n` slots long, every `n+1`-th block will be of the genesis kind.
+--   * genesis blocks have no leaders, and that
+--   * if an epoch is `n` slots long, every `n+1`-th block will be of the
+--     genesis kind.
 recursiveHeaderGen
     :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc)
     => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
@@ -301,19 +305,20 @@ bhlMaxStartingEpoch = 1000000
 bhlEpochs :: Integral a => a
 bhlEpochs = 2
 
--- | This type is used to generate a blockchain, as well a list of leaders for every
--- slot with which the chain will be paired. The leaders are in reverse order to the
--- chain - the list goes from first to last leader. This is used in a `verifyHeader`
--- test.
+-- | This type is used to generate a blockchain, as well a list of leaders
+-- for every slot with which the chain will be paired. The leaders are in
+-- reverse order to the chain - the list goes from first to last leader. This
+-- is used in a `verifyHeader` test.
 --
--- Note that every non-empty blockchain has at least one epoch, which may be complete
--- or incomplete. To simulate this behavior, two random numbers are generated:
--- one that stands for the number of complete epochs we have, and the other for the
--- number of incomplete slots of the last epoch, which, in this instance, must exist.
+-- Note that every non-empty blockchain has at least one epoch, which may be
+-- complete or incomplete. To simulate this behavior, two random numbers are
+-- generated: one that stands for the number of complete epochs we have, and
+-- the other for the number of incomplete slots of the last epoch, which, in
+-- this instance, must exist.
 --
--- A blockchain with only complete epochs is a subset of some blockchain with one
--- incomplete epoch, so if the former is desired, a simple list `takeWhile` of the list
--- this instance generates will be enough.
+-- A blockchain with only complete epochs is a subset of some blockchain with
+-- one incomplete epoch, so if the former is desired, a simple list
+-- `takeWhile` of the list this instance generates will be enough.
 --
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
@@ -321,14 +326,16 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
          Arbitrary (BlockHeaderList ssc) where
     arbitrary = do
         incompleteEpochSize <- choose (1, epochSlots - 1)
-        let slot = T.SlotId 0 $ leftToPanic "generateBHL: " $ T.mkLocalSlotIndex 0
+        let slot = T.SlotId 0 minBound
         generateBHL True slot (epochSlots * bhlEpochs + incompleteEpochSize)
 
-generateBHL :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc)
-            => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
-            -> T.SlotId -- ^ Start slot
-            -> Int -- ^ Slot count
-            -> Gen (BlockHeaderList ssc)
+generateBHL
+    :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc)
+    => Bool         -- ^ Whether to create genesis block before creating main
+                    --    block for 0th slot
+    -> T.SlotId     -- ^ Start slot
+    -> T.SlotCount  -- ^ Slot count
+    -> Gen (BlockHeaderList ssc)
 generateBHL createInitGenesis startSlot slotCount = BHL <$> do
     let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey, Bool))
         correctLeaderGen =
@@ -336,33 +343,31 @@ generateBHL createInitGenesis startSlot slotCount = BHL <$> do
             let issDelDiff (Left _)        = True
                 issDelDiff (Right (i,d,_)) = i /= d
             in arbitrary `suchThat` issDelDiff
-    leadersList <- vectorOf slotCount correctLeaderGen
+    leadersList <- vectorOf (fromIntegral slotCount) correctLeaderGen
     let actualLeaders = map (toPublic . either identity (view _1)) leadersList
         slotIdsRange =
-            map T.unflattenSlotId
-              [T.flattenSlotId startSlot ..
-               T.flattenSlotId startSlot + fromIntegral slotCount - 1]
+            take (fromIntegral slotCount) $
+            map T.unflattenSlotId [T.flattenSlotId startSlot ..]
     (, actualLeaders) <$>
         recursiveHeaderGen
             createInitGenesis
             leadersList
             slotIdsRange
-            -- This `range` will give us pairs with all complete epochs and for each,
-            -- every slot therein.
             []
 
 -- | This type is used to generate a valid blockheader and associated header
 -- verification params. With regards to the block header function
--- 'Pos.Types.Blocks.Functions.verifyHeader', the blockheaders that may be part of the
--- verification parameters are guaranteed to be valid, as are the slot leaders and the
--- current slot.
+-- 'Pos.Types.Blocks.Functions.verifyHeader', the blockheaders that may be
+-- part of the verification parameters are guaranteed to be valid, as are the
+-- slot leaders and the current slot.
 newtype HeaderAndParams ssc = HAndP
     { getHAndP :: (T.VerifyHeaderParams ssc, T.BlockHeader ssc)
     } deriving (Eq, Show)
 
--- | A lot of the work to generate a valid sequence of blockheaders has already been done
--- in the 'Arbitrary' instance of the 'BlockHeaderList' type, so it is used here and at
--- most 3 blocks are taken from the generated list.
+-- | A lot of the work to generate a valid sequence of blockheaders has
+-- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'
+-- type, so it is used here and at most 3 blocks are taken from the generated
+-- list.
 instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
     Arbitrary (HeaderAndParams ssc) where
     arbitrary = do
@@ -371,8 +376,9 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
         startSlot <- T.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
         (headers, leaders) <- first reverse . getHeaderList <$> (generateBHL True startSlot =<< choose (1, 2))
         let num = length headers
-        -- 'skip' is the random number of headers that should be skipped in the header
-        -- chain. This ensures different parts of it are chosen each time.
+        -- 'skip' is the random number of headers that should be skipped in
+        -- the header chain. This ensures different parts of it are chosen
+        -- each time.
         skip <- choose (0, num - 1)
         let atMost2HeadersAndLeaders = take 2 $ drop skip headers
             (prev, header) =
@@ -380,34 +386,34 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                     [h] -> (Nothing, h)
                     [h1, h2] -> (Just h1, h2)
                     _ -> error "[BlockSpec] the headerchain doesn't have enough headers"
-            -- This binding captures the chosen header's epoch. It is used to drop all
-            -- all leaders of headers from previous epochs.
-            thisEpochStartIndex = fromIntegral $ epochSlots * (header ^. T.epochIndexL)
+            -- This binding captures the chosen header's epoch. It is used to
+            -- drop all all leaders of headers from previous epochs.
+            thisEpochStartIndex = fromIntegral epochSlots *
+                                  fromIntegral (header ^. T.epochIndexL)
             thisHeadersEpoch = drop thisEpochStartIndex leaders
-            -- A helper function. Given integers 'x' and 'y', it chooses a random integer
-            -- in the interval [x, y]
+            -- A helper function. Given integers 'x' and 'y', it chooses a
+            -- random integer in the interval [x, y]
             betweenXAndY x y = fst . randomR (x, y) . mkStdGen $ seed
-            betweenZeroAndN = betweenXAndY 0
-            -- One of the fields in the 'VerifyHeaderParams' type is 'Just SlotId'. The
-            -- following binding is where it is calculated.
+            -- One of the fields in the 'VerifyHeaderParams' type is 'Just
+            -- SlotId'. The following binding is where it is calculated.
             randomSlotBeforeThisHeader =
                 case header of
-                    -- If the header is of the genesis kind, this field is not needed.
+                    -- If the header is of the genesis kind, this field is
+                    -- not needed.
                     Left _  -> Nothing
-                    -- If it's a main blockheader, then a valid "current" SlotId for
-                    -- testing is any with an epoch greater than the header's epoch and
-                    -- with any slot index, or any in the same epoch but with a greater or
-                    -- equal slot index than the header.
+                    -- If it's a main blockheader, then a valid "current"
+                    -- SlotId for testing is any with an epoch greater than
+                    -- the header's epoch and with any slot index, or any in
+                    -- the same epoch but with a greater or equal slot index
+                    -- than the header.
                     Right h -> -- Nothing {-
                         let (T.SlotId e s) = view Core.headerSlotL h
                             rndEpoch :: Core.EpochIndex
                             rndEpoch = betweenXAndY e maxBound
                             rndSlotIdx :: Core.LocalSlotIndex
-                            rndSlotIdx = leftToPanic "arbitrary @HeaderAndParams: " $
-                                         Core.mkLocalSlotIndex $
-                              if rndEpoch > e
-                                then betweenZeroAndN (epochSlots - 1)
-                                else betweenXAndY (Core.getSlotIndex s) (epochSlots - 1)
+                            rndSlotIdx = if rndEpoch > e
+                                then betweenXAndY minBound maxBound
+                                else betweenXAndY s maxBound
                             rndSlot = T.SlotId rndEpoch rndSlotIdx
                         in Just rndSlot
             hasUnknownAttributes =

@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -127,6 +127,7 @@ library
                         Pos.Binary.Block
                         Pos.Binary.Block.Block
                         Pos.Binary.Block.Core
+                        Pos.Binary.Block.Slog
                         Pos.Binary.Communication
                         Pos.Binary.Delegation
                         Pos.Binary.Relay
@@ -153,7 +154,6 @@ library
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
-                        Pos.Block.Logic.Slog
                         Pos.Block.Logic.Util
                         Pos.Block.Logic.VAR
                         Pos.Block.Network.Announce
@@ -161,6 +161,10 @@ library
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
+                        Pos.Block.Slog
+                        Pos.Block.Slog.Context
+                        Pos.Block.Slog.Logic
+                        Pos.Block.Slog.Types
                         Pos.Block.Worker
 
                         -- Compile config
@@ -312,7 +316,7 @@ library
                       , binary-orphans
                       , bytestring
                       , cardano-crypto
-                      , cardano-report-server >= 0.1.1
+                      , cardano-report-server >= 0.2.0
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-godtossing
@@ -328,7 +332,6 @@ library
                       , cryptonite-openssl >= 0.6
                       , data-default
                       , deepseq
-                      , derive
                       , deriving-compat
                       , digest
                       , directory
@@ -551,6 +554,7 @@ test-suite cardano-test
                        Test.Pos.Block.Logic.VarSpec
 
                        -- Everything else
+                       Test.Pos.CborSpec
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
@@ -602,7 +606,6 @@ test-suite cardano-test
                      , containers
                      , cryptonite
                      , data-default
-                     , derive
                      , ether
                      , formatting
                      , generic-arbitrary
@@ -681,7 +684,6 @@ benchmark cardano-bench-criterion
                      , cardano-sl
                      , containers
                      , criterion
-                     , derive
                      , formatting
                      , hashtables
                      , lens

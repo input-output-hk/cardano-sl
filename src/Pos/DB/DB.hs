@@ -17,7 +17,6 @@ module Pos.DB.DB
        , sanityCheckDB
 
        , gsAdoptedBVDataDefault
-       , gsIsBootstrapEraDefault
        ) where
 
 import           Universum
@@ -28,10 +27,10 @@ import           System.Wlog           (WithLogger)
 
 import           Pos.Block.Core        (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types       (Blund)
-import           Pos.Constants         (isDevelopment)
 import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Context.Functions (genesisLeadersM)
-import           Pos.Core              (BlockVersionData, Timestamp, headerHash)
+import           Pos.Core              (BlockCount, BlockVersionData, Timestamp,
+                                        headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
                                         loadBlundsByDepth, loadBlundsWhile,
                                         prepareBlockDB)
@@ -84,7 +83,7 @@ loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 -- given.
 loadBlundsFromTipByDepth
     :: (MonadBlockDB ssc m, MonadDBRead m)
-    => Word -> m (NewestFirst [] (Blund ssc))
+    => BlockCount -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
@@ -110,10 +109,3 @@ getTipHeader = getTipHeaderGeneric @(Block ssc)
 
 gsAdoptedBVDataDefault :: MonadDBRead m => m BlockVersionData
 gsAdoptedBVDataDefault = getAdoptedBVData
-
--- TODO: CSL-1204 provide actual implementation after corresponding
--- flag is actually stored in the DB
-gsIsBootstrapEraDefault :: MonadDBRead m => m Bool
-gsIsBootstrapEraDefault
-    | isDevelopment = pure False
-    | otherwise     = pure True

@@ -32,7 +32,8 @@ import           Pos.Core.Types
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.RedeemSigning (RedeemPublicKey, RedeemSecretKey)
 import           Pos.Crypto.SafeSigning (PassPhrase)
-import           Pos.Crypto.SecretSharing (VssPublicKey, VssKeyPair, Secret, Share, EncShare, SecretProof)
+import           Pos.Crypto.SecretSharing (SecretSharingExtra, VssPublicKey, VssKeyPair, Secret, Share, EncShare,
+                                           SecretProof)
 import           Pos.Crypto.Signing (PublicKey, SecretKey)
 import           Pos.DHT.Model.Types
 import           Pos.Delegation.Arbitrary ()
@@ -221,6 +222,7 @@ spec = describe "Cbor.Bi instances" $ do
         prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share) Proxy)
         prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare) Proxy)
         prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
+        prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra Proxy)
         prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
         prop "PublicKey" (soundInstanceProperty @PublicKey Proxy)
         prop "SecretKey" (soundInstanceProperty @SecretKey Proxy)
@@ -241,15 +243,11 @@ spec = describe "Cbor.Bi instances" $ do
         prop "DHTKey" (soundInstanceProperty @DHTKey Proxy)
         prop "DHTData" (soundInstanceProperty @DHTData Proxy)
         prop "MessageName" (soundInstanceProperty @MessageName Proxy)
-        pendingNoArbitrary "MsgGetHeaders"
-        pendingNoArbitrary "MsgGetBlocks"
         prop "HandlerSpec" (soundInstanceProperty @HandlerSpec Proxy)
         prop "VerInfo" (soundInstanceProperty @VerInfo Proxy)
         prop "DlgPayload" (soundInstanceProperty @DlgPayload Proxy)
         prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData Proxy)
         prop "SlottingData" (soundInstanceProperty @SlottingData Proxy)
-        pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
-        pendingNoArbitrary "DataMsg UpdateVote"
         prop "SystemTag" (soundInstanceProperty @SystemTag Proxy)
         prop "UpdateVote" (soundInstanceProperty @UpdateVote Proxy)
         prop "UpdateData" (soundInstanceProperty @UpdateData Proxy)
@@ -265,9 +263,15 @@ spec = describe "Cbor.Bi instances" $ do
         it "(ProxySecretKey w)"   $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(ProxySignature w a)" $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "AbstractHash SHA256"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "SecretSharingExtra"   $ pendingWith "Requires proper implementation"
         it "Address"              $ pendingWith "Requires proper implementation"
         it "GenesisCoreData"      $ pendingWith "Requires proper Address implementation"
+        it "DataMsg ProxySKLight" $ pendingWith "Failing"
+        it "DataMsg ProxySKHeavy" $ pendingWith "Failing"
+        it "DataMsg ProxySKLightConfirmation" $ pendingWith "Failing"
+        pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
+        pendingNoArbitrary "DataMsg UpdateVote"
+        pendingNoArbitrary "MsgGetHeaders"
+        pendingNoArbitrary "MsgGetBlocks"
         pendingNoArbitrary "WithHash"
         pendingNoArbitrary "Pvss.PublicKey"
         pendingNoArbitrary "Pvss.KeyPair"

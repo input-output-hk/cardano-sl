@@ -12,12 +12,19 @@ module Test.Pos.CborSpec
        ) where
 
 import qualified Codec.CBOR.FlatTerm as CBOR
+import           Node.Message.Class
 import           Pos.Binary.Cbor
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Class.Numbers
+import           Pos.Binary.Communication ()
 import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Crypto ()
+import           Pos.Binary.GodTossing ()
+import           Pos.Binary.Infra ()
+import           Pos.Binary.Relay ()
+import           Pos.Communication.Protocol
+import           Pos.Communication.Types.Relay (DataMsg)
 import           Pos.Core.Arbitrary ()
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
@@ -27,6 +34,17 @@ import           Pos.Crypto.RedeemSigning (RedeemPublicKey, RedeemSecretKey)
 import           Pos.Crypto.SafeSigning (PassPhrase)
 import           Pos.Crypto.SecretSharing (VssPublicKey, VssKeyPair, Secret, Share, EncShare, SecretProof)
 import           Pos.Crypto.Signing (PublicKey, SecretKey)
+import           Pos.DHT.Model.Types
+import           Pos.Delegation.Arbitrary ()
+import           Pos.Delegation.Types
+import           Pos.Infra.Arbitrary ()
+import           Pos.Slotting.Arbitrary ()
+import           Pos.Slotting.Types
+import           Pos.Ssc.GodTossing.Arbitrary ()
+import           Pos.Ssc.GodTossing.Core.Types
+import           Pos.Ssc.GodTossing.Types.Message
+import           Pos.Update.Arbitrary ()
+import           Pos.Update.Core
 import           Test.Hspec (Spec, describe, it, pendingWith)
 import           Test.QuickCheck
 import           Universum
@@ -150,7 +168,7 @@ soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input 
 
 spec :: Spec
 spec = describe "Cbor.Bi instances" $ do
-    modifyMaxSuccess (const 1000) $ do
+    modifyMaxSuccess (const 500) $ do
       describe "Test instances are sound" $ do
         prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
         prop "MyScript" (soundInstanceProperty @MyScript Proxy)
@@ -210,6 +228,36 @@ spec = describe "Cbor.Bi instances" $ do
         prop "HDAddressPayload" (soundInstanceProperty @HDAddressPayload Proxy)
         prop "RedeemPublicKey" (soundInstanceProperty @RedeemPublicKey Proxy)
         prop "RedeemSecretKey" (soundInstanceProperty @RedeemSecretKey Proxy)
+        prop "Commitment" (soundInstanceProperty @Commitment Proxy)
+        prop "CommitmentsMap" (soundInstanceProperty @CommitmentsMap Proxy)
+        prop "VssCertificate" (soundInstanceProperty @VssCertificate Proxy)
+        prop "Opening" (soundInstanceProperty @Opening Proxy)
+        prop "GtPayload" (soundInstanceProperty @GtPayload Proxy)
+        prop "GtProof" (soundInstanceProperty @GtProof Proxy)
+        prop "DataMsg MCCommitment" (soundInstanceProperty @(DataMsg MCCommitment) Proxy)
+        prop "DataMsg MCOpening" (soundInstanceProperty @(DataMsg MCOpening) Proxy)
+        modifyMaxSuccess (const 50) $ prop "DataMsg MCShares" (soundInstanceProperty @(DataMsg MCShares) Proxy)
+        prop "DataMsg MCVssCertificate" (soundInstanceProperty @(DataMsg MCVssCertificate) Proxy)
+        prop "DHTKey" (soundInstanceProperty @DHTKey Proxy)
+        prop "DHTData" (soundInstanceProperty @DHTData Proxy)
+        prop "MessageName" (soundInstanceProperty @MessageName Proxy)
+        pendingNoArbitrary "MsgGetHeaders"
+        pendingNoArbitrary "MsgGetBlocks"
+        prop "HandlerSpec" (soundInstanceProperty @HandlerSpec Proxy)
+        prop "VerInfo" (soundInstanceProperty @VerInfo Proxy)
+        prop "DlgPayload" (soundInstanceProperty @DlgPayload Proxy)
+        prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData Proxy)
+        prop "SlottingData" (soundInstanceProperty @SlottingData Proxy)
+        pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
+        pendingNoArbitrary "DataMsg UpdateVote"
+        prop "SystemTag" (soundInstanceProperty @SystemTag Proxy)
+        prop "UpdateVote" (soundInstanceProperty @UpdateVote Proxy)
+        prop "UpdateData" (soundInstanceProperty @UpdateData Proxy)
+        prop "BlockVersionModifier" (soundInstanceProperty @BlockVersionModifier Proxy)
+        prop "UpdateProposal" (soundInstanceProperty @UpdateProposal Proxy)
+        prop "UpdateProposalToSign" (soundInstanceProperty @UpdateProposalToSign Proxy)
+        prop "UpdatePayload" (soundInstanceProperty @UpdatePayload Proxy)
+        prop "VoteState" (soundInstanceProperty @VoteState Proxy)
         -- Pending specs
         it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"

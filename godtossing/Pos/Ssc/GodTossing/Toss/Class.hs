@@ -7,17 +7,16 @@ module Pos.Ssc.GodTossing.Toss.Class
        , MonadToss (..)
        ) where
 
-import           Control.Monad.Except           (ExceptT)
-import           Control.Monad.Trans            (MonadTrans)
-import           System.Wlog                    (WithLogger)
+import           Control.Monad.Except    (ExceptT)
+import           Control.Monad.Trans     (MonadTrans)
+import           System.Wlog             (WithLogger)
 import           Universum
 
-import           Pos.Core                       (EpochIndex, EpochOrSlot, StakeholderId)
-import           Pos.Lrc.Types                  (RichmenStake)
-import           Pos.Ssc.GodTossing.Core        (CommitmentsMap, InnerSharesMap, Opening,
-                                                 OpeningsMap, SharesMap, SignedCommitment,
-                                                 VssCertificate, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.VssCertData (VssCertData)
+import           Pos.Core                (EpochIndex, EpochOrSlot, StakeholderId)
+import           Pos.Lrc.Types           (RichmenStake)
+import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, Opening,
+                                          OpeningsMap, SharesMap, SignedCommitment,
+                                          VssCertificate, VssCertificatesMap)
 
 ----------------------------------------------------------------------------
 -- Read-only
@@ -39,9 +38,6 @@ class (Monad m, WithLogger m) =>
     -- | Get 'VssCertificatesMap' with all VSS certificates.
     getVssCertificates :: m VssCertificatesMap
 
-    -- | Get 'VssCertData'.
-    getVssCertData :: m VssCertData
-
     -- | Retrieve all stable 'VssCertificate's for given epoch.
     getStableCertificates :: EpochIndex -> m VssCertificatesMap
 
@@ -60,10 +56,6 @@ class (Monad m, WithLogger m) =>
     default getShares :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
         m SharesMap
     getShares = lift getShares
-
-    default getVssCertData :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        m VssCertData
-    getVssCertData = lift getVssCertData
 
     default getVssCertificates :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
         m VssCertificatesMap

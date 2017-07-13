@@ -27,6 +27,8 @@ module Pos.Ssc.GodTossing.Toss.Base
        , verifyEntriesGuardM
        ) where
 
+import           Universum
+
 import           Control.Monad.Except            (MonadError (throwError))
 import           Control.Monad.State             (get, put)
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
@@ -36,7 +38,6 @@ import qualified Data.List.NonEmpty              as NE
 import           Formatting                      (ords, sformat, (%))
 import           System.Wlog                     (logWarning)
 
-import           Universum
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Core                        (EpochIndex, StakeholderId, addressHash,

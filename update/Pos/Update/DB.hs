@@ -183,12 +183,12 @@ initGStateUS systemStart = do
             }
         esdPenult = EpochSlottingData
             { esdSlotDuration = genesisSlotDuration
-            , esdStart        = systemStart
+            , esdStartDiff    = 0
             }
-        epoch1Start = systemStart + Timestamp genesisEpochDuration
+        epoch1Start = Timestamp genesisEpochDuration
         esdLast = EpochSlottingData
             { esdSlotDuration = genesisSlotDuration
-            , esdStart        = epoch1Start
+            , esdStartDiff    = epoch1Start
             }
     writeBatchGState $
         PutSlottingData genesisSlottingData :

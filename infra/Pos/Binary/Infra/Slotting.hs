@@ -15,7 +15,7 @@ import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
 deriveSimpleBi ''EpochSlottingData [
     Cons 'EpochSlottingData [
         Field [| esdSlotDuration :: Millisecond |],
-        Field [| esdStart        :: Timestamp   |]
+        Field [| esdStartDiff    :: Timestamp   |]
     ]]
 
 -- CSL-1122: add a test for serialization of 'SlottingData'

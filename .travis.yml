@@ -12,6 +12,7 @@ matrix:
       # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
 
   allow_failures:
+    - os: osx
     - env: MODE=nix
     # https://github.com/input-output-hk/stack2nix/issues/15
     # stack2nix will randomly omit sections of the generated file

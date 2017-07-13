@@ -16,29 +16,20 @@ import           Pos.Binary.Cbor
 import           Pos.Binary.Class.Numbers
 import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
+import           Pos.Binary.Crypto ()
 import           Pos.Core.Arbitrary ()
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
-import           Test.Hspec (Expectation, Spec, describe)
+import           Pos.Crypto.SecretSharing (VssPublicKey, VssKeyPair, Secret, Share, EncShare, SecretProof)
+import           Test.Hspec (Spec, describe, it, pendingWith)
 import           Test.QuickCheck
 import           Universum
 
-import qualified Codec.CBOR.FlatTerm as CBOR
-import           Pos.Binary.Cbor
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec.QuickCheck (prop, modifyMaxSuccess)
 
-import           Universum
-import           Test.QuickCheck
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
-import           Pos.Core.Fee
-import           Pos.Binary.Core.Fee ()
-import           Pos.Core.Arbitrary ()
-import           Pos.Binary.Core.Script ()
-import           Pos.Core.Types
-import           Pos.Core.Genesis.Types
-import           Pos.Binary.Class.Numbers
 import           Pos.Data.Attributes
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import qualified Data.ByteString as BS
 import qualified Data.Map as M
@@ -154,41 +145,69 @@ soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input 
 
 spec :: Spec
 spec = describe "Cbor.Bi instances" $ do
-    prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int) Proxy)
-    prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int) Proxy)
-    prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int) Proxy)
-    prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int64) Proxy)
-    prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int64) Proxy)
-    prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int64) Proxy)
-    prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word) Proxy)
-    prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Word) Proxy)
-    prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word16) Proxy)
-    prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word32) Proxy)
-    prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word64) Proxy)
-    prop "TinyVarInt" (soundInstanceProperty @TinyVarInt Proxy)
-    prop "Int64" (soundInstanceProperty @Int64 Proxy)
-    prop "MyScript" (soundInstanceProperty @MyScript Proxy)
-    prop "Coeff" (soundInstanceProperty @Coeff Proxy)
-    prop "TxSizeLinear" (soundInstanceProperty @TxSizeLinear Proxy)
-    prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy Proxy .&&. extensionProperty @TxFeePolicy Proxy)
-    prop "Script" (soundInstanceProperty @Script Proxy)
-    prop "Timestamp" (soundInstanceProperty @Timestamp Proxy)
-    prop "EpochIndex" (soundInstanceProperty @EpochIndex Proxy)
-    prop "Attributes" (soundInstanceProperty @(Attributes ()) Proxy)
-    prop "Coin" (soundInstanceProperty @Coin Proxy)
-    prop "CoinPortion" (soundInstanceProperty @CoinPortion Proxy)
-    prop "LocalSlotIndex" (soundInstanceProperty @LocalSlotIndex Proxy)
-    prop "SlotId" (soundInstanceProperty @SlotId Proxy)
-    prop "EpochOrSlot" (soundInstanceProperty @EpochOrSlot Proxy)
-    prop "SharedSeed" (soundInstanceProperty @SharedSeed Proxy)
-    prop "ChainDifficulty" (soundInstanceProperty @ChainDifficulty Proxy)
-    prop "StakeDistribution" (soundInstanceProperty @StakeDistribution Proxy)
-    prop "ApplicationName" (soundInstanceProperty @ApplicationName Proxy)
-    prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion Proxy)
-    prop "BlockVersion" (soundInstanceProperty @BlockVersion Proxy)
-    prop "Attributes" (soundInstanceProperty @(Attributes X1) Proxy)
-    prop "Attributes" (soundInstanceProperty @(Attributes X2) Proxy)
-    prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1 Proxy Proxy)
+    modifyMaxSuccess (const 1000) $ do
+      describe "Test instances are sound" $ do
+        prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
+        prop "MyScript" (soundInstanceProperty @MyScript Proxy)
+        prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1 Proxy Proxy)
+      describe "Primitive instances are sound" $ do
+        prop "Int64" (soundInstanceProperty @Int64 Proxy)
+      describe "Plutus Types' instances are sound" $ do
+        prop "Script" (soundInstanceProperty @Script Proxy)
+      describe "Core instances are sound" $ do
+        prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int) Proxy)
+        prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int) Proxy)
+        prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int) Proxy)
+        prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int64) Proxy)
+        prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int64) Proxy)
+        prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int64) Proxy)
+        prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word) Proxy)
+        prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Word) Proxy)
+        prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word16) Proxy)
+        prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word32) Proxy)
+        prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word64) Proxy)
+        prop "TinyVarInt" (soundInstanceProperty @TinyVarInt Proxy)
+        prop "Coeff" (soundInstanceProperty @Coeff Proxy)
+        prop "TxSizeLinear" (soundInstanceProperty @TxSizeLinear Proxy)
+        prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy Proxy .&&. extensionProperty @TxFeePolicy Proxy)
+        prop "Timestamp" (soundInstanceProperty @Timestamp Proxy)
+        prop "EpochIndex" (soundInstanceProperty @EpochIndex Proxy)
+        prop "Attributes" (soundInstanceProperty @(Attributes ()) Proxy)
+        prop "Coin" (soundInstanceProperty @Coin Proxy)
+        prop "CoinPortion" (soundInstanceProperty @CoinPortion Proxy)
+        prop "LocalSlotIndex" (soundInstanceProperty @LocalSlotIndex Proxy)
+        prop "SlotId" (soundInstanceProperty @SlotId Proxy)
+        prop "EpochOrSlot" (soundInstanceProperty @EpochOrSlot Proxy)
+        prop "SharedSeed" (soundInstanceProperty @SharedSeed Proxy)
+        prop "ChainDifficulty" (soundInstanceProperty @ChainDifficulty Proxy)
+        prop "StakeDistribution" (soundInstanceProperty @StakeDistribution Proxy)
+        prop "ApplicationName" (soundInstanceProperty @ApplicationName Proxy)
+        prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion Proxy)
+        prop "BlockVersion" (soundInstanceProperty @BlockVersion Proxy)
+        prop "Attributes X1" (soundInstanceProperty @(Attributes X1) Proxy)
+        prop "Attributes X2" (soundInstanceProperty @(Attributes X2) Proxy)
+        prop "AbstractHash " (soundInstanceProperty @(Attributes X2) Proxy)
+        prop "VssPublicKey" (soundInstanceProperty @VssPublicKey Proxy)
+        prop "VssKeyPair" (soundInstanceProperty @VssKeyPair Proxy)
+        prop "Secret" (soundInstanceProperty @Secret Proxy)
+        prop "Share" (soundInstanceProperty @Share Proxy)
+        prop "EncShare" (soundInstanceProperty @EncShare Proxy)
+        prop "SecretProof" (soundInstanceProperty @SecretProof Proxy)
+        -- Pending specs
+        it "AbstractHash SHA256"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
+        it "SecretSharingExtra"   $ pendingWith "Requires proper implementation"
+        it "Address"              $ pendingWith "Requires proper implementation"
+        it "GenesisCoreData"      $ pendingWith "Requires proper Address implementation"
+        pendingNoArbitrary "WithHash"
+        pendingNoArbitrary "Pvss.PublicKey"
+        pendingNoArbitrary "Pvss.KeyPair"
+        pendingNoArbitrary "Pvss.Secret"
+        pendingNoArbitrary "Pvss.DecryptedShare"
+        pendingNoArbitrary "Pvss.EncryptedShare"
+        pendingNoArbitrary "Pvss.Proof"
+
+pendingNoArbitrary :: String -> Spec
+pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"
 
 ----------------------------------------
 
@@ -201,7 +220,7 @@ data User
       firstName  :: String
     , lastName   :: String
     , sex        :: Bool
-    } deriving Show
+    } deriving (Show, Eq)
 
 deriveSimpleBi ''User [
     Cons 'Login [
@@ -213,9 +232,6 @@ deriveSimpleBi ''User [
         Field [| lastName  :: String |],
         Field [| sex       :: Bool   |]
     ]]
-
-u1 :: User
-u1 = deserialize $ serialize $ Login "asd" 34
 
 ----------------------------------------
 

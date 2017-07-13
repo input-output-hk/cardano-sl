@@ -274,6 +274,8 @@ spec = describe "Cbor.Bi instances" $ do
         prop "TxProof" (soundInstanceProperty @TxProof Proxy)
         prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData Proxy)
         prop "MainExtraBodyData" (soundInstanceProperty @MainExtraBodyData Proxy)
+        prop "GenesisExtraHeaderData" (soundInstanceProperty @GenesisExtraHeaderData Proxy)
+        prop "GenesisExtraBodyData" (soundInstanceProperty @GenesisExtraBodyData Proxy)
         -- Pending specs
         it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"

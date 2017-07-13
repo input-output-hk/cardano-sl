@@ -27,11 +27,11 @@ import           Data.Coerce                 (coerce)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map.Strict             as M
 import qualified Data.Text.Buildable
-import           Data.Time.Units             (Microsecond, TimeUnit (..))
+import           Data.Time.Units             (Microsecond, TimeUnit (..), addTime)
 import           Ether.Internal              (HasLens (..))
 import           Formatting                  (bprint, build, formatToString, int, shown,
                                               (%))
-import           Mockable                    (CurrentTime (..), Mockable (..),
+import           Mockable                    (CurrentTime (..), Delay (..), Mockable (..),
                                               currentTime, runProduction)
 import qualified Prelude
 import           Serokell.Util               (listJson)
@@ -102,7 +102,9 @@ sudoLiftIO m = BaseMonad (liftIO m)
 
 instance MonadIO BaseMonad where
     liftIO m = BaseMonad . liftIO $ do
-        putStr ("Don't do IO in tests! " :: String)
+        -- if you see a lot of stars in the test log, a hunting season for
+        -- not-mocked operations is open.
+        putStr ("*" :: String)
         m
 
 instance MonadBase IO BaseMonad where
@@ -137,6 +139,14 @@ instance Mockable CurrentTime BaseMonad where
     liftMockable CurrentTime = BaseMonad $ do
         ClockVar clockVar <- ask
         readIORef clockVar
+
+-- The tests compile even without this instance, meaning we don't even test
+-- delays, which is sad.
+instance Mockable Delay BaseMonad where
+    liftMockable SleepForever = return ()
+    liftMockable (Delay d) = BaseMonad $ do
+        ClockVar clockVar <- ask
+        atomicModifyIORef' clockVar (\t -> (addTime t d, ()))
 
 instance CanLog BaseMonad where
     dispatchMessage ln s t = BaseMonad $ dispatchMessage ln s t

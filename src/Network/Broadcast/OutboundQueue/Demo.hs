@@ -176,9 +176,6 @@ instance ClassifyMsg Msg_ where
   classifyMsg = msgType
   formatMsg = later $ \Msg{..} -> T.fromText . T.pack $ show (msgType, msgId)
 
-instance ClassifyNode Node where
-  classifyNode = nodeType . nodeCfg
-
 {-------------------------------------------------------------------------------
   Model of a node
 
@@ -234,7 +231,9 @@ newNode nodeCfg@NodeCfg{..} = mdo
     return node
 
 setPeers :: Node -> [Node] -> IO ()
-setPeers Node{..} = OutQ.subscribe nodeOutQ . OutQ.simplePeers
+setPeers peersOf nids =
+    OutQ.subscribe (nodeOutQ peersOf) $
+      OutQ.simplePeers (map (\n -> (nodeType (nodeCfg n), n)) nids)
 
 send :: Msg -> Enqueue ()
 send msg@Msg{msgSender = Node{nodeCfg = NodeCfg{..}, ..}} = do

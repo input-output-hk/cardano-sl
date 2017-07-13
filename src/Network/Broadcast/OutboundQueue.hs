@@ -62,7 +62,6 @@ module Network.Broadcast.OutboundQueue (
   , unsubscribe
 
   , ClassifiedConversation
-  , ClassifiedNode
   ) where
 
 import Control.Concurrent
@@ -141,12 +140,12 @@ peersOfType NodeEdge  = peersEdge
 --
 -- This effective means that all of these peers will be sent all (relevant)
 -- messages.
-simplePeers :: forall nid. ClassifyNode nid => [nid] -> Peers nid
+simplePeers :: forall nid. [(NodeType, nid)] -> Peers nid
 simplePeers = go mempty
   where
-    go :: Peers nid -> [nid] -> Peers nid
-    go acc []     = acc
-    go acc (n:ns) = go (acc & peersOfType (classifyNode n) %~ ([n] :)) ns
+    go :: Peers nid -> [(NodeType, nid)] -> Peers nid
+    go acc []            = acc
+    go acc ((typ, n):ns) = go (acc & peersOfType typ %~ ([n] :)) ns
 
 instance Monoid (Peers nid) where
   mempty      = Peers [] [] []
@@ -342,8 +341,11 @@ data Packet msg nid a = Packet {
     -- | The actual payload of the message
     packetPayload :: msg a
 
+    -- | Type of the node the packet needs to be sent to
+  , packetDestType :: NodeType
+
     -- | Node to send it to
-  , packetDest :: nid
+  , packetDestId :: nid
 
     -- | Precedence of the message
   , packetPrec :: Precedence
@@ -357,8 +359,9 @@ data Packet msg nid a = Packet {
 -- | Hide the 'a' type parameter
 data EnqPacket msg nid = forall a. EnqPacket (Packet msg nid a)
 
-enqPacketDest :: EnqPacket msg nid -> nid
-enqPacketDest (EnqPacket Packet{..}) = packetDest
+-- | Lift functions on 'Packet' to 'EnqPacket'
+liftEnq :: (forall a. Packet msg nid a -> b) -> EnqPacket msg nid -> b
+liftEnq f (EnqPacket p) = f p
 
 -- | The keys we use to index the multiqueue
 data Key nid =
@@ -384,25 +387,28 @@ type MQ msg nid = MultiQueue (Key nid) (EnqPacket msg nid)
 
 mqEnqueue :: (MonadIO m, Ord nid)
           => MQ msg nid -> EnqPacket msg nid -> m ()
-mqEnqueue qs pkt@(EnqPacket Packet{packetDest, packetPrec}) = liftIO $
-  MQ.enqueue qs [ KeyByPrec packetPrec
-                , KeyByDest packetDest
-                , KeyByDestPrec packetDest packetPrec
+mqEnqueue qs p = liftIO $
+  MQ.enqueue qs [ KeyByDest     (liftEnq packetDestId p)
+                , KeyByDestPrec (liftEnq packetDestId p) (liftEnq packetPrec p)
+                , KeyByPrec                              (liftEnq packetPrec p)
                 ]
-                pkt
+                p
 
 -- | Check whether a node is not currently busy
 --
 -- (i.e., number of in-flight messages is less than the max)
-type NotBusy nid = nid -> Bool
+type NotBusy nid = NodeType -> nid -> Bool
 
-mqDequeue :: (MonadIO m, Ord nid)
+mqDequeue :: forall m msg nid. (MonadIO m, Ord nid)
           => MQ msg nid -> NotBusy nid -> m (Maybe (EnqPacket msg nid))
 mqDequeue qs notBusy =
     orElseM [
-        liftIO $ MQ.dequeue (KeyByPrec prec) (notBusy . enqPacketDest) qs
+        liftIO $ MQ.dequeue (KeyByPrec prec) notBusy' qs
       | prec <- enumPrecHighestFirst
       ]
+  where
+    notBusy' :: EnqPacket msg nid -> Bool
+    notBusy' (EnqPacket Packet{..}) = notBusy packetDestType packetDestId
 
 {-------------------------------------------------------------------------------
   State Initialization
@@ -423,7 +429,6 @@ inFlightWithPrec nid prec = inFlightTo nid . at prec . anon 0 (== 0)
 -- | The outbound queue (opaque data structure)
 data OutboundQ msg nid = forall self .
                          ( ClassifyMsg msg
-                         , ClassifyNode nid
                          , Ord nid
                          , Show nid
                          , Show self
@@ -464,7 +469,6 @@ data OutboundQ msg nid = forall self .
 -- NOTE: The dequeuing thread must be started separately. See 'dequeueThread'.
 new :: ( MonadIO m
        , ClassifyMsg msg
-       , ClassifyNode nid
        , Ord nid
        , Show nid
        , Show self
@@ -513,7 +517,7 @@ intEnqueue outQ@OutQ{..} msg origin peers = fmap concat $
                     -> m [Packet msg nid a]
           goFwdSets acc []           = return acc
           goFwdSets acc (alts:altss) = do
-            mPacket <- goFwdSet (map packetDest acc) alts
+            mPacket <- goFwdSet (map packetDestId acc) alts
             case mPacket of
               Nothing -> goFwdSets    acc  altss
               Just p  -> goFwdSets (p:acc) altss
@@ -527,7 +531,13 @@ intEnqueue outQ@OutQ{..} msg origin peers = fmap concat $
                 return Nothing
               Just alt -> liftIO $ do
                 sentVar <- newEmptyMVar
-                let packet = Packet msg alt enqPrecedence sentVar
+                let packet = Packet {
+                                 packetPayload  = msg
+                               , packetDestId   = alt
+                               , packetDestType = enqNodeType
+                               , packetPrec     = enqPrecedence
+                               , packetSent     = sentVar
+                               }
                 mqEnqueue qScheduled (EnqPacket packet)
                 poke qSignal
                 return $ Just packet
@@ -569,7 +579,7 @@ intEnqueue outQ@OutQ{..} msg origin peers = fmap concat $
     msgEnqueued :: [Packet msg nid a] -> Text
     msgEnqueued enqueued =
       sformat (shown % ": message " % formatMsg % " enqueued to " % shown)
-              qSelf msg (map packetDest enqueued)
+              qSelf msg (map packetDestId enqueued)
 
     msgNoAlt :: [nid] -> Text
     msgNoAlt alts =
@@ -620,20 +630,19 @@ countAhead OutQ{..} nid prec = do
   Interpreter for the dequeueing policy
 -------------------------------------------------------------------------------}
 
-checkMaxInFlight :: (Ord nid, ClassifyNode nid)
-                 => DequeuePolicy -> InFlight nid -> NotBusy nid
-checkMaxInFlight dequeuePolicy inFlight nid =
+checkMaxInFlight :: Ord nid => DequeuePolicy -> InFlight nid -> NotBusy nid
+checkMaxInFlight dequeuePolicy inFlight nodeType nid =
     sum (Map.elems (inFlight ^. inFlightTo nid)) < n
   where
-    MaxInFlight n = deqMaxInFlight (dequeuePolicy (classifyNode nid))
+    MaxInFlight n = deqMaxInFlight (dequeuePolicy nodeType)
 
-applyRateLimit :: (MonadIO m, ClassifyNode nid)
+applyRateLimit :: MonadIO m
                => DequeuePolicy
-               -> nid
+               -> NodeType
                -> ExecutionTime -- ^ Time of the send
                -> m ()
-applyRateLimit dequeuePolicy nid sendExecTime = liftIO $
-    case deqRateLimit (dequeuePolicy (classifyNode nid)) of
+applyRateLimit dequeuePolicy nodeType sendExecTime = liftIO $
+    case deqRateLimit (dequeuePolicy nodeType) of
       NoRateLimiting -> return ()
       MaxMsgPerSec n -> threadDelay (1000000 `div` n - sendExecTime)
 
@@ -674,47 +683,47 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
     -- will be able to solve this conumdrum properly once we move away from TCP
     -- and use the RINA network architecture instead.
     sendPacket :: EnqPacket msg nid -> m ()
-    sendPacket (EnqPacket packet@Packet{..}) = do
+    sendPacket (EnqPacket p) = do
       applyMVar_ qInFlight $
-        inFlightWithPrec packetDest packetPrec %~ (\n -> n + 1)
+        inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n + 1)
       forkThread threadRegistry $ \unmask -> do
-        logDebug $ msgSending packet
+        logDebug $ msgSending p
         (ma, sendExecTime) <- timed $ M.try $ unmask $
-                                sendMsg packetPayload packetDest
+                                sendMsg (packetPayload p) (packetDestId p)
         -- TODO: Do we want to acknowledge the send here? Or after we have
         -- reduced qInFlight? The latter is safer (means the next enqueue is
         -- less likely to be rejected because there are no peers available with
         -- a small enough number of messages " ahead ") but it would mean we
         -- can only acknowledge the send after the delay, which seems
         -- undesirable.
-        liftIO $ putMVar packetSent ma
-        unmask $ applyRateLimit qDequeuePolicy packetDest sendExecTime
+        liftIO $ putMVar (packetSent p) ma
+        unmask $ applyRateLimit qDequeuePolicy (packetDestType p) sendExecTime
         case ma of
           Left err -> do
-            logWarning $ msgSendFailed packet err
-            intFailure outQ threadRegistry packet sendExecTime err
+            logWarning $ msgSendFailed p err
+            intFailure outQ threadRegistry p sendExecTime err
           Right _  ->
             return ()
         applyMVar_ qInFlight $
-          inFlightWithPrec packetDest packetPrec %~ (\n -> n - 1)
-        logDebug $ msgSent packet
+          inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n - 1)
+        logDebug $ msgSent p
         liftIO $ poke qSignal
 
     msgSending :: Packet msg nid a -> Text
     msgSending Packet{..} =
       sformat (shown % ": sending " % formatMsg % " to " % shown)
-              qSelf packetPayload packetDest
+              qSelf packetPayload packetDestId
 
     msgSent :: Packet msg nid a -> Text
     msgSent Packet{..} =
       sformat (shown % ": sent " % formatMsg % " to " % shown)
-              qSelf packetPayload packetDest
+              qSelf packetPayload packetDestId
 
     msgSendFailed :: Packet msg nid a -> SomeException -> Text
     msgSendFailed Packet{..} err =
       sformat ( shown % ": sending " % formatMsg % " to " % shown
               % " failed with " % string )
-              qSelf packetPayload packetDest (displayException err)
+              qSelf packetPayload packetDestId (displayException err)
 
 {-------------------------------------------------------------------------------
   Interpreter for failure policy
@@ -731,17 +740,18 @@ intFailure :: forall m msg nid a.
            -> ExecutionTime     -- ^ How long did the send take?
            -> SomeException     -- ^ The exception thrown by the send action
            -> m ()
-intFailure OutQ{..} threadRegistry@TR{} Packet{..} sendExecTime err = do
-    applyMVar_ qFailures $ Set.insert packetDest
+intFailure OutQ{..} threadRegistry@TR{} p sendExecTime err = do
+    applyMVar_ qFailures $ Set.insert (packetDestId p)
     forkThread threadRegistry $ \unmask -> do
       -- Negative delay is interpreted as no delay
       unmask $ liftIO $ threadDelay (delay * 1000000 - sendExecTime)
-      applyMVar_ qFailures $ Set.delete packetDest
+      applyMVar_ qFailures $ Set.delete (packetDestId p)
   where
     delay :: Int
-    ReconsiderAfter delay = qFailurePolicy (classifyNode packetDest)
-                                           (classifyMsg  packetPayload)
-                                           err
+    ReconsiderAfter delay =
+      qFailurePolicy (packetDestType p)
+                     (classifyMsg (packetPayload p))
+                     err
 
 hasRecentFailure :: MonadIO m => OutboundQ msg nid -> nid -> m Bool
 hasRecentFailure OutQ{..} nid = liftIO $ Set.member nid <$> readMVar qFailures
@@ -807,8 +817,7 @@ enqueueSync' :: (MonadIO m, WithLogger m)
 enqueueSync' outQ@OutQ{..} msg origin peers' = do
     peers   <- liftIO $ readMVar qPeers
     packets <- intEnqueue outQ msg origin (peers <> peers')
-    liftIO $ forM packets $ \Packet{..} ->
-      (packetDest, ) <$> readMVar packetSent
+    liftIO $ forM packets $ \p -> (packetDestId p, ) <$> readMVar (packetSent p)
 
 -- | Queue a message and wait for it to have been sent
 --
@@ -1116,26 +1125,6 @@ instance ClassifyMsg (ClassifiedConversation peerData packingType peer m) where
     classifyMsg (ClassifiedConversation (msgClass, _, _)) = msgClass
     formatMsg = flip fmap shown $ \k -> \(ClassifiedConversation (msgClass, _, _)) -> k msgClass
 
-newtype ClassifiedNode nid = ClassifiedNode (NodeType, nid)
-
-instance Show (ClassifiedNode nid) where
-    show (ClassifiedNode (ty, _)) = show ty
-
-instance ClassifyNode (ClassifiedNode nid) where
-    classifyNode (ClassifiedNode (nodeType, _)) = nodeType
-
-instance Eq nid => Eq (ClassifiedNode nid) where
-    ClassifiedNode (_, nid1) == ClassifiedNode (_, nid2) = nid1 == nid2
-
-instance Ord nid => Ord (ClassifiedNode nid) where
-    ClassifiedNode (_, nid1) `compare` ClassifiedNode (_, nid2) = nid1 `compare` nid2
-
-classifiedNode :: (nid -> NodeType) -> nid -> ClassifiedNode nid
-classifiedNode f nid = ClassifiedNode (f nid, nid)
-
-forgetNodeClassification :: ClassifiedNode nid -> nid
-forgetNodeClassification (ClassifiedNode (_, nid)) = nid
-
 -- | Use an OutboundQ as an OutboundQueue.
 asOutboundQueue
     :: forall packingType peerData msg nid m .
@@ -1149,7 +1138,7 @@ asOutboundQueue
        , WithLogger           m
        , Ord nid
        )
-    => OutboundQ (ClassifiedConversation peerData packingType nid m) (ClassifiedNode nid)
+    => OutboundQ (ClassifiedConversation peerData packingType nid m) nid
     -> (nid -> NodeId)
     -> (nid -> NodeType)
     -> (msg -> MsgType)
@@ -1160,8 +1149,8 @@ asOutboundQueue oq mkNodeId mkNodeType mkMsgType mkOrigin converse = do
     thread <- M.async $ dequeueThread oq sendMsg
     return $ OutboundQueue { oqEnqueue = enqueueIt, oqClose = M.cancel thread }
   where
-    sendMsg :: SendMsg m (ClassifiedConversation peerData packingType nid m) (ClassifiedNode nid)
-    sendMsg (ClassifiedConversation (_, _, k)) (ClassifiedNode (_, nid)) =
+    sendMsg :: SendMsg m (ClassifiedConversation peerData packingType nid m) nid
+    sendMsg (ClassifiedConversation (_, _, k)) nid =
         converse (mkNodeId nid) (k nid)
     enqueueIt
         :: forall t .
@@ -1170,8 +1159,8 @@ asOutboundQueue oq mkNodeId mkNodeType mkMsgType mkOrigin converse = do
         -> (nid -> peerData -> Conversation packingType m t)
         -> m (Map nid (m t))
     enqueueIt peers msg conversation = do
-        let peers' = simplePeers (classifiedNode mkNodeType <$> Set.toList peers)
+        let peers' = simplePeers ((\nid -> (mkNodeType nid, nid)) <$> Set.toList peers)
             cc = ClassifiedConversation (mkMsgType msg, mkOrigin msg, conversation)
-        tlist <- enqueueSync' oq cc (fmap (classifiedNode mkNodeType) (mkOrigin msg)) peers'
-        let tmap = Map.fromList (fmap (\(clnode, it) -> (forgetNodeClassification clnode, it)) tlist)
+        tlist <- enqueueSync' oq cc (mkOrigin msg) peers'
+        let tmap = Map.fromList tlist
         return $ fmap (either M.throw return) tmap

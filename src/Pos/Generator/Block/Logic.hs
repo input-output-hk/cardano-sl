@@ -21,6 +21,7 @@ import           Pos.Generator.Block.Mode  (BlockGenMode, MonadBlockGen,
                                             usingPrimaryKey, withCurrentSlot)
 import           Pos.Generator.Block.Param (BlockGenParams, HasAllSecrets (..),
                                             HasBlockGenParams (..))
+import           Pos.Lrc                   (lrcSingleShotNoLock)
 import           Pos.Lrc.Context           (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                as LrcDB
 import           Pos.Ssc.GodTossing        (SscGodTossing)
@@ -58,11 +59,12 @@ genBlock ::
     => EpochOrSlot
     -> BlockGenMode m (Blund SscGodTossing)
 genBlock eos = do
+    let epoch = eos ^. epochIndexL
+    unlessM ((epoch ==) <$> LrcDB.getEpoch) $ lrcSingleShotNoLock epoch
     -- We need to know leaders to create any block.
-    leaders <-
-        lrcActionOnEpochReason (eos ^. epochIndexL) "genBlock" LrcDB.getLeaders
+    leaders <- lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeaders
     case eos of
-        EpochOrSlot (Left epoch) -> do
+        EpochOrSlot (Left _) -> do
             tipHeader <- getTipHeader @SscGodTossing
             let slot0 = SlotId epoch minBound
             let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders

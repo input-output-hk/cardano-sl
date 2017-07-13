@@ -20,7 +20,7 @@ import           Pos.Binary.Class              (biSize)
 import           Pos.Core                      (ChainDifficulty (..), Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
-                                                addressHash, applyCoinPortion,
+                                                addressHash, applyCoinPortionUp,
                                                 blockVersionL, coinToInteger, difficultyL,
                                                 epochIndexL, flattenSlotId, headerHashG,
                                                 headerSlotL, sumCoins, unflattenSlotId,
@@ -120,7 +120,7 @@ resolveVoteStake
 resolveVoteStake epoch totalStake UpdateVote {..} = do
     let !id = addressHash uvKey
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
-    let threshold = applyCoinPortion thresholdPortion totalStake
+    let threshold = applyCoinPortionUp thresholdPortion totalStake
     let errNotRichman mbStake = PollNotRichman
             { pnrStakeholder = id
             , pnrThreshold   = threshold
@@ -203,7 +203,7 @@ verifyProposalStake
     => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
 verifyProposalStake totalStake votesAndStakes upId = do
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
-    let threshold = applyCoinPortion thresholdPortion totalStake
+    let threshold = applyCoinPortionUp thresholdPortion totalStake
     let thresholdInt = coinToInteger threshold
     let votesSum =
             sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes

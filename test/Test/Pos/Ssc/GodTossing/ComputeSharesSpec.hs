@@ -4,19 +4,22 @@ module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
        ( spec
        ) where
 
-import           Control.Monad.Except  (runExcept)
 import qualified Data.HashMap.Strict   as HM
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (Property, (.&&.), (===))
 import           Universum
 
 import           Pos.Constants         (genesisMpcThd)
-import           Pos.Core              (mkCoin)
+import           Pos.Core              (mkCoin, unsafeAddressHash,
+                                        unsafeCoinPortionFromDouble)
 import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
-import           Pos.Lrc               (RichmenStakes)
+import           Pos.Lrc               (RichmenStakes, RichmenType (RTUsual),
+                                        findRichmenPure)
 import           Pos.Lrc.Arbitrary     (GenesisMpcThd, InvalidRichmenStakes (..),
                                         ValidRichmenStakes (..))
-import qualified Pos.Ssc.GodTossing    as T
+import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
+                                        computeSharesDistrPure)
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do
@@ -25,6 +28,7 @@ spec = describe "computeSharesDistr" $ do
     prop invalidStakeErrorsDesc invalidStakeErrors
     prop totalStakeZeroDesc totalStakeIsZero
     prop validRichmenStakesWorksDesc validRichmenStakesWorks
+    prop lrcConsistencyDesc lrcConsistency
   where
     emptyRichmenStakesDesc = "Fails to calculate a share distribution when the richmen\
     \ stake is empty."
@@ -37,9 +41,11 @@ spec = describe "computeSharesDistr" $ do
     \ calculated"
     validRichmenStakesWorksDesc = "Given a valid distribution of stake, calculating the\
     \ distribution of shares successfully works."
+    lrcConsistencyDesc = "computeSharesDistr's definition of richmen is\
+    \ consistent with one used by LRC."
 
-computeShares' :: RichmenStakes -> Either T.TossVerFailure T.SharesDistribution
-computeShares' stake = runExcept $ T.computeSharesDistrPure stake genesisMpcThd
+computeShares' :: RichmenStakes -> Either TossVerFailure SharesDistribution
+computeShares' stake = computeSharesDistrPure stake genesisMpcThd
 
 emptyRichmenStakes :: Expectation
 emptyRichmenStakes =
@@ -72,3 +78,19 @@ totalStakeIsZero (getValid -> richmen) =
 invalidStakeErrors :: InvalidRichmenStakes GenesisMpcThd -> Bool
 invalidStakeErrors (getInvalid -> richmen) =
     isLeft $ computeShares' richmen
+
+lrcConsistency :: Property
+lrcConsistency =
+    let
+        (_, richmen) = findRichmenPure stakes mpcThd RTUsual
+        Right sharesDistr = computeSharesDistrPure richmen mpcThd
+    in
+        all (> 0) (toList sharesDistr) .&&.
+        HM.keys sharesDistr === HM.keys richmen
+  where
+    -- stakes used for the test
+    stakes       = zip stakeholders coins
+    stakeholders = map unsafeAddressHash [0 :: Integer ..]
+    coins        = map mkCoin [1,2,4,6,8,19,39,78,156,312]
+    -- threshold used for the test
+    mpcThd = unsafeCoinPortionFromDouble 0.01

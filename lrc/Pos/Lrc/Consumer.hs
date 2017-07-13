@@ -12,7 +12,7 @@ module Pos.Lrc.Consumer
 import           Universum
 
 import           Pos.Core               (BlockVersionData, Coin, CoinPortion, EpochIndex,
-                                         applyCoinPortion)
+                                         applyCoinPortionUp)
 import           Pos.DB.Class           (MonadDB, MonadGState, gsAdoptedBVData)
 import           Pos.Lrc.Class          (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
@@ -60,7 +60,7 @@ lrcConsumerFromComponentSimple thresholdGetter =
     lrcConsumerFromComponent @c toThreshold ifNeedCompute onComputed
   where
     toThreshold total =
-        flip applyCoinPortion total . thresholdGetter <$> gsAdoptedBVData
+        flip applyCoinPortionUp total . thresholdGetter <$> gsAdoptedBVData
     ifNeedCompute epoch = isNothing <$> getRichmen @c epoch
     onComputed epoch totalStake stakes =
         putRichmen @c epoch (totalStake, stakes)

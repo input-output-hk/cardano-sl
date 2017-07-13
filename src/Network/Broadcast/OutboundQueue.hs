@@ -459,9 +459,9 @@ data OutboundQ msg nid = forall self .
 
       -- | Recent communication failures
     , qFailures :: MVar (Failures nid)
+
       -- | Used to send control messages to the main thread
     , qCtrlMsg :: MVar CtrlMsg
-
 
       -- | Signal we use to wake up blocked threads
     , qSignal :: Signal CtrlMsg

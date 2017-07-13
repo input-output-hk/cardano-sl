@@ -32,9 +32,14 @@ Flag with-explorer
 
 library
   exposed-modules:      Paths_cardano_sl
+
+                        -- Arbitrary instances
+                        Pos.Arbitrary.Block
+                        Pos.Arbitrary.Delegation
+                        Pos.Arbitrary.Txp.Network
+
                         Pos.Aeson
                         Pos.Binary
-                        Pos.Block.Arbitrary
                         Pos.Block.BListener
                         Pos.Block.Core
                         Pos.Block.Logic
@@ -189,7 +194,6 @@ library
                         Pos.DB.Misc
 
                         -- Heavy delegation
-                        Pos.Delegation.Arbitrary
                         Pos.Delegation.Cede
                         Pos.Delegation.Cede.Class
                         Pos.Delegation.Cede.Logic
@@ -255,7 +259,6 @@ library
 
                         -- Txp
                         Pos.Txp.Network
-                        Pos.Txp.Network.Arbitrary
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Worker
@@ -271,8 +274,8 @@ library
                         Pos.Wallet.Web.Util
 
   -- Explorer (TODO: move into cardano-explorer)
-  other-modules:        Pos.Binary.Explorer
-                        Pos.Explorer.Arbitrary
+  other-modules:        Pos.Arbitrary.Explorer
+                        Pos.Binary.Explorer
                         Pos.Explorer.Core
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp

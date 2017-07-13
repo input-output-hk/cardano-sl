@@ -2,7 +2,7 @@
 
 -- | Arbitrary instances for Lrc types.
 
-module Pos.Lrc.Arbitrary
+module Pos.Arbitrary.Lrc
        ( GenesisMpcThd
        , InvalidRichmenStake (..)
        , ValidRichmenStake (..)
@@ -15,12 +15,12 @@ import           Data.Reflection                   (Reifies (..))
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose)
 import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 
-import           Pos.Core.Constants                (genesisMpcThd)
+import           Pos.Arbitrary.Core                ()
 import           Pos.Core                          (Coin, CoinPortion, StakeholderId,
                                                     mkCoin, unsafeGetCoin)
 import           Pos.Core.Coin                     (coinPortionToDouble)
+import           Pos.Core.Constants                (genesisMpcThd)
 import           Pos.Lrc.Types                     (RichmenStake)
-import           Pos.Core.Arbitrary                ()
 
 -- | Wrapper over 'RichmenStake'. Its 'Arbitrary' instance enforces that the stake
 -- distribution inside must be valid with respect to the threshold 'thd', i.e. all of the

@@ -10,12 +10,12 @@ import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
+import           Pos.Arbitrary.Lrc     (GenesisMpcThd, InvalidRichmenStake (..),
+                                        ValidRichmenStake (..))
 import           Pos.Constants         (genesisMpcThd)
 import           Pos.Core              (mkCoin)
 import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
 import           Pos.Lrc               (RichmenStake)
-import           Pos.Lrc.Arbitrary     (GenesisMpcThd, InvalidRichmenStake (..),
-                                        ValidRichmenStake (..))
 import qualified Pos.Ssc.GodTossing    as T
 
 spec :: Spec

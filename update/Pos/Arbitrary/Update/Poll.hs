@@ -2,16 +2,16 @@
 
 -- | Arbitrary instances for Update System Poll types.
 
-module Pos.Update.Arbitrary.Poll () where
+module Pos.Arbitrary.Update.Poll () where
 
 import           Test.QuickCheck                   (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core                ()
+import           Pos.Arbitrary.Slotting            ()
+import           Pos.Arbitrary.Update.Core         ()
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Update                 ()
-import           Pos.Slotting.Arbitrary            ()
-import           Pos.Core.Arbitrary                ()
-import           Pos.Update.Arbitrary.Core         ()
 import           Pos.Update.Poll.PollState         (PollState (..))
 import           Pos.Update.Poll.Types             (BlockVersionState (..),
                                                     ConfirmedProposalState (..),

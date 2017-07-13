@@ -2,7 +2,7 @@
 
 -- | `Arbitrary` instances for Txp types
 
-module Pos.Txp.Arbitrary
+module Pos.Arbitrary.Txp
        ( BadSigsTx (..)
        , GoodTx (..)
        , goodTxToTxAux
@@ -21,11 +21,11 @@ import           Test.QuickCheck                   (Arbitrary (..), Gen, choose,
                                                     oneof, scale)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core                ()
 import           Pos.Binary.Class                  (Bi, Raw)
 import           Pos.Binary.Txp.Core               ()
 import           Pos.Core.Address                  (makePubKeyAddress)
 import           Pos.Core.Types                    (Coin)
-import           Pos.Core.Arbitrary                ()
 import           Pos.Crypto                        (Hash, SecretKey, SignTag (SignTxIn),
                                                     hash, sign, toPublic)
 import           Pos.Data.Attributes               (mkAttributes)
@@ -33,7 +33,7 @@ import           Pos.Merkle                        (MerkleNode (..), MerkleRoot 
                                                     MerkleTree, mkMerkleTree)
 import           Pos.Txp.Core.Types                (Tx (..), TxAux (..),
                                                     TxDistribution (..), TxIn (..),
-                                                    TxInWitness (..),TxOut (..),
+                                                    TxInWitness (..), TxOut (..),
                                                     TxOutAux (..), TxPayload (..),
                                                     TxProof (..), TxSigData (..), mkTx,
                                                     mkTxPayload)

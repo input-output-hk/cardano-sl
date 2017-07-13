@@ -6,12 +6,13 @@ module Test.Pos.Delegation.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec                       (Spec, describe)
+import           Test.Hspec                    (Spec, describe)
 
-import           Pos.Communication.Types.Relay    (DataMsg (..))
-import           Pos.Delegation                   (DlgPayload, ProxySKLightConfirmation)
-import           Pos.Infra.Arbitrary              ()
-import           Test.Pos.Util                    (binaryTest, networkBinaryTest)
+import           Pos.Arbitrary.Delegation      ()
+import           Pos.Arbitrary.Infra           ()
+import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Delegation                (DlgPayload, ProxySKLightConfirmation)
+import           Test.Pos.Util                 (binaryTest, networkBinaryTest)
 
 
 spec :: Spec

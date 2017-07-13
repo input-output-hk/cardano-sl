@@ -1,6 +1,6 @@
 -- | 'Arbitrary' instances for types in 'cardano-sl-infra'
 
-module Pos.Infra.Arbitrary () where
+module Pos.Arbitrary.Infra () where
 
 import           Universum
 
@@ -10,11 +10,12 @@ import           Node.Message.Class                (MessageName (..))
 import           Test.QuickCheck                   (Arbitrary (..), choose, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core                ()
 import           Pos.Communication.Types.Protocol  (HandlerSpec (..), VerInfo (..))
 import           Pos.Communication.Types.Relay     (DataMsg (..), InvMsg (..),
                                                     MempoolMsg (..), ReqMsg (..))
-import           Pos.DHT                           (DHTData (..), DHTKey (..))
 import           Pos.Core.Types                    (ProxySKHeavy, ProxySKLight)
+import           Pos.DHT                           (DHTData (..), DHTKey (..))
 
 deriving instance Arbitrary DHTData
 

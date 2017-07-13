@@ -12,7 +12,7 @@ import           Test.Hspec            (Expectation, Spec, anyErrorCall, describ
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===))
 
-import qualified Pos.Core.Arbitrary    as C
+import qualified Pos.Arbitrary.Core    as C
 import qualified Pos.Types             as C
 
 import           Test.Pos.Util         (shouldThrowException, (.=.), (>=.))

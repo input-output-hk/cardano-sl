@@ -16,9 +16,9 @@ import           Test.QuickCheck         (Arbitrary (..), Property, ioProperty, 
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
+import           Pos.Arbitrary.Crypto    (SharedSecrets (..))
 import           Pos.Binary              (AsBinary, Bi)
 import qualified Pos.Crypto              as Crypto
-import           Pos.Crypto.Arbitrary    (SharedSecrets (..))
 import           Pos.Ssc.GodTossing      ()
 
 import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,

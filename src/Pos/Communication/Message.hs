@@ -10,31 +10,21 @@ import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeSt
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
 import           Pos.Communication.MessagePart    (MessagePart (..))
-import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, MempoolMsg, ReqMsg)
-import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtTag)
-import           Pos.Txp.Network.Types            (TxMsgContents, TxMsgTag)
+import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, MempoolMsg,
+                                                   ReqMsg)
+import           Pos.Delegation.Types             (ProxySKLightConfirmation)
+import           Pos.Ssc.GodTossing.Types.Message (MCCommitment, MCOpening, MCShares,
+                                                   MCVssCertificate)
+import           Pos.Txp.Network.Types            (TxMsgContents)
+import           Pos.Types                        (ProxySKHeavy, ProxySKLight)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
-import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
 
-instance Message SendProxySK where
-    messageName _ = varIntMName 2
-    formatMessage _ = "SendProxySK"
-
-instance Message ConfirmProxySK where
-    messageName _ = varIntMName 3
-    formatMessage _ = "ConfirmProxySK"
-
---instance Message CheckProxySKConfirmed where
---    messageName _ = varIntMName _
---    formatMessage _ = "CheckProxySKConfirmed"
---
---instance Message CheckProxySKConfirmedRes where
---    messageName _ = varIntMName _
---    formatMessage _ = "CheckProxySKConfirmedRes"
+instance Message Void where
+    messageName _ = varIntMName 0
+    formatMessage _ = "Void"
 
 instance Message MsgGetHeaders where
     messageName _ = varIntMName 4
@@ -52,38 +42,44 @@ instance Message (MsgBlock ssc) where
     messageName _ = varIntMName 7
     formatMessage _ = "Block"
 
-instance MessagePart TxMsgTag where
-    pMessageName _ = varIntMName 0
-
 instance MessagePart TxMsgContents where
     pMessageName _ = varIntMName 0
-
-instance MessagePart ProposalMsgTag where
-    pMessageName _ = varIntMName 1
 
 -- | Instance for `UpdateProposal`
 instance MessagePart (UpdateProposal, [UpdateVote]) where
     pMessageName _ = varIntMName 1
 
-instance MessagePart VoteMsgTag where
-    pMessageName _ = varIntMName 2
-
 -- | Instance for `UpdateVote`
 instance MessagePart UpdateVote where
     pMessageName _ = varIntMName 2
 
-instance MessagePart GtTag where
+instance MessagePart MCCommitment where
     pMessageName _ = varIntMName 3
 
-instance MessagePart GtMsgContents where
-    pMessageName _ = varIntMName 3
+instance MessagePart MCOpening where
+    pMessageName _ = varIntMName 4
 
-instance (MessagePart tag) =>
-         Message (ReqMsg key tag) where
-    messageName p = varIntMName 9 <> pMessageName (tagM p)
+instance MessagePart MCShares where
+    pMessageName _ = varIntMName 5
+
+instance MessagePart MCVssCertificate where
+    pMessageName _ = varIntMName 6
+
+instance MessagePart ProxySKLight where
+    pMessageName _ = varIntMName 7
+
+instance MessagePart ProxySKHeavy where
+    pMessageName _ = varIntMName 8
+
+instance MessagePart ProxySKLightConfirmation where
+    pMessageName _ = varIntMName 9
+
+instance (MessagePart key) =>
+         Message (ReqMsg key) where
+    messageName p = varIntMName 9 <> pMessageName (keyM p)
       where
-        tagM :: Proxy (ReqMsg key tag) -> Proxy tag
-        tagM _ = Proxy
+        keyM :: Proxy (ReqMsg key) -> Proxy key
+        keyM _ = Proxy
     formatMessage _ = "Request"
 
 instance (MessagePart tag) =>
@@ -102,17 +98,20 @@ instance (MessagePart contents) =>
         contentsM _ = Proxy
     formatMessage _ = "Data"
 
-instance (MessagePart tag, MessagePart contents) =>
-         Message (InvOrData tag key contents) where
+instance (MessagePart key) =>
+         Message (InvMsg key) where
+    messageName p = varIntMName 12 <> pMessageName (keyM p)
+      where
+        keyM :: Proxy (InvMsg key) -> Proxy key
+        keyM _ = Proxy
+    formatMessage _ = "Inventory"
+
+instance (MessagePart contents) =>
+         Message (InvOrData key contents) where
     messageName p = varIntMName 8 <>
-                    pMessageName (tagM p) <>
                     pMessageName (contentsM p)
       where
-        tagM :: Proxy (InvOrData tag key contents)
-             -> Proxy tag
-        tagM _ = Proxy
-
-        contentsM :: Proxy (InvOrData tag keys contents)
+        contentsM :: Proxy (InvOrData keys contents)
                   -> Proxy contents
         contentsM _ = Proxy
     formatMessage _ = "Inventory/Data"

@@ -1,60 +1,77 @@
+{-# LANGUAGE GADTs        #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Communication.Relay.Class
        ( Relay (..)
+       , InvReqDataParams (..)
+       , DataParams (..)
+       , MempoolParams (..)
        , MonadRelayMem
        , askRelayMem
        ) where
 
 import qualified Ether
 import           Node.Message                   (Message)
-import           Serokell.Util.Verify           (VerificationRes)
+import           Pos.Binary.Class               (Bi)
 import           Universum
 
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Relay.Types  (RelayContext)
-import           Pos.Communication.Types.Relay  (DataMsg, InvOrData, MempoolMsg,
+import           Pos.Communication.Types.Relay  (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                  ReqMsg (..))
 
--- | Typeclass for general Inv/Req/Dat framework. It describes monads,
--- that store data described by tag, where "key" stands for node
--- identifier.
-class ( Buildable tag
-      , Buildable contents
+-- | Data for general Inv/Req/Dat framework
+
+data Relay m where
+  InvReqData ::
+      ( Buildable contents
       , Buildable key
-      , Typeable tag
       , Typeable contents
       , Typeable key
-      , Message (ReqMsg key tag)
-      , Message (MempoolMsg tag)
-      , Message (InvOrData tag key contents)
+      , Eq key
+      , Bi (ReqMsg key)
+      , Bi (InvOrData key contents)
+      , Message (ReqMsg key)
+      , Message (InvOrData key contents)
       , MessageLimited (DataMsg contents)
-      ) => Relay m tag key contents
-      | tag -> contents, contents -> tag, contents -> key, tag -> key where
-    -- | Converts data to tag. Tag returned in monad `m`
-    -- for only type matching reason (multiparam type classes are tricky)
-    contentsToTag :: contents -> m tag
+      ) => MempoolParams m -> InvReqDataParams key contents m -> Relay m
+  Data ::
+      ( Buildable contents
+      , Typeable contents
+      , Bi (DataMsg contents)
+      , Message (DataMsg contents)
+      , MessageLimited (DataMsg contents)
+      ) => DataParams contents m -> Relay m
 
-    -- | Same for key. Sometime contents has key inside already, so
-    -- it's redundant to double-pass it everywhere.
-    contentsToKey :: contents -> m key
+data MempoolParams m where
+    NoMempool :: MempoolParams m
+    -- `tag` is used only as type param, no actual param used
+    KeyMempool ::
+      ( Message (MempoolMsg tag)
+      , Message (InvMsg key)
+      , Bi (MempoolMsg tag)
+      , Bi (InvMsg key)
+      , Buildable key
+      , Typeable tag
+      , Typeable key
+      ) => Proxy tag -> m [key] -> MempoolParams m
 
-    verifyInvTag :: tag -> m VerificationRes
-    verifyReqTag :: tag -> m VerificationRes
-    verifyMempoolTag :: tag -> m VerificationRes
-    verifyDataContents :: contents -> m VerificationRes
+data InvReqDataParams key contents m = InvReqDataParams
+    { contentsToKey :: contents -> m key
+      -- ^ Get key for given contents.
+    , handleInv     :: key -> m Bool
+      -- ^ Handle inv msg and return whether it's useful or not
+    , handleReq     :: key -> m (Maybe contents)
+      -- ^ Handle req msg and return (Just data) in case requested data can be provided
+    , handleData    :: contents -> m Bool
+      -- ^ Handle data msg and return True if message is to be propagated
+    }
 
-    -- | Handle inv msg and return whether it's useful or not
-    handleInv :: tag -> key -> m Bool
+data DataParams contents m = DataParams
+    { handleDataOnly :: contents -> m Bool
+      -- ^ Handle data msg and return True if message is to be propagated
+    }
 
-    -- | Handle req msg and return (Just data) in case requested data can be provided
-    handleReq :: tag -> key -> m (Maybe contents)
-
-    -- | Handle mempool msg and return all keys we want to send
-    handleMempool :: tag -> m [key]
-
-    -- | Handle data msg and return True if message is to be propagated
-    handleData :: contents -> m Bool
 
 type MonadRelayMem = Ether.MonadReader' RelayContext
 

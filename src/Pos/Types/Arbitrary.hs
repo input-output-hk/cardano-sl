@@ -11,6 +11,7 @@ module Pos.Types.Arbitrary
        , IntegerToCoinNoOverflow (..)
        , IntegerToCoinOverflow (..)
        , GoodTx (..)
+       , goodTxToTxAux
        , LessThanZeroOrMoreThanOne (..)
        , SafeCoinPairMul (..)
        , SafeCoinPairSum (..)
@@ -23,42 +24,42 @@ module Pos.Types.Arbitrary
 
 import           Universum
 
-import qualified Data.ByteString            as BS (pack)
-import           Data.DeriveTH              (derive, makeArbitrary)
-import           Data.List.NonEmpty         ((<|))
-import qualified Data.List.NonEmpty         as NE
-import           Data.Time.Units            (Microsecond, Millisecond, fromMicroseconds)
-import           System.Random              (Random)
-import           Test.QuickCheck            (Arbitrary (..), Gen, choose, choose,
-                                             elements, oneof, scale, suchThat)
-import           Test.QuickCheck.Instances  ()
+import qualified Data.ByteString           as BS (pack)
+import           Data.Default              (def)
+import           Data.DeriveTH             (derive, makeArbitrary)
+import           Data.List.NonEmpty        ((<|))
+import qualified Data.List.NonEmpty        as NE
+import           Data.Time.Units           (Microsecond, Millisecond, fromMicroseconds)
+import qualified Data.Vector               as V
+import           Test.QuickCheck           (Arbitrary (..), Gen, choose, elements, oneof,
+                                            scale, suchThat)
+import           Test.QuickCheck.Instances ()
 
-import           Pos.Binary.Class           (AsBinary, FixedSizeInt (..), Raw,
-                                             SignedVarInt (..), UnsignedVarInt (..))
-import           Pos.Binary.Core            ()
-import           Pos.Binary.Crypto          ()
-import           Pos.Binary.Txp             ()
-import           Pos.Constants              (epochSlots, sharedSeedLength)
-import           Pos.Core.Address           (makePubKeyAddress, makeRedeemAddress,
-                                             makeScriptAddress)
-import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Types             (BlockVersion (..), Coin,
-                                             SoftwareVersion (..),
-                                             applicationNameMaxLength, mkApplicationName)
-import qualified Pos.Core.Types             as Types
-import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share,
-                                             SignTag (SignTxIn), hash, sign, toPublic)
-import           Pos.Crypto.Arbitrary       ()
-import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.Merkle                 (MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Script                 (Script)
-import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
-                                             intValidator)
-import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..), TxOutAux (..),
-                                             TxProof (..), TxSigData (..), mkTx)
-import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Util                   (makeSmall)
+import           Pos.Binary.Class          (AsBinary, FixedSizeInt (..), Raw,
+                                            SignedVarInt (..), UnsignedVarInt (..))
+import           Pos.Binary.Core           ()
+import           Pos.Binary.Crypto         ()
+import           Pos.Binary.Txp            ()
+import           Pos.Constants             (sharedSeedLength)
+import           Pos.Core.Address          (makePubKeyAddress, makeRedeemAddress,
+                                            makeScriptAddress)
+import           Pos.Core.Coin             (coinToInteger, divCoin, unsafeSubCoin)
+import           Pos.Core.Types            (BlockVersion (..), Coin, SoftwareVersion (..),
+                                            applicationNameMaxLength, mkApplicationName)
+import qualified Pos.Core.Types            as Types
+import           Pos.Crypto                (Hash, PublicKey, SecretKey, Share,
+                                            SignTag (SignTxIn), hash, sign, toPublic)
+import           Pos.Crypto.Arbitrary      ()
+import           Pos.Data.Attributes       (mkAttributes)
+import           Pos.Merkle                (MerkleRoot (..), MerkleTree, mkMerkleTree)
+import           Pos.Script                (Script)
+import           Pos.Script.Examples       (badIntRedeemer, goodIntRedeemer, intValidator)
+import           Pos.Txp.Core.Types        (Tx (..), TxAux (..), TxDistribution (..),
+                                            TxIn (..), TxInWitness (..), TxOut (..),
+                                            TxOutAux (..), TxProof (..), TxSigData (..),
+                                            mkTx)
+import           Pos.Types.Arbitrary.Core  ()
+import           Pos.Util                  (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types
@@ -243,30 +244,6 @@ newtype SafeWord = SafeWord
 instance Arbitrary SafeWord where
     arbitrary = SafeWord . Types.getCoinPortion <$> arbitrary
 
-maxReasonableEpoch :: Integral a => a
-maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
-
-deriving instance Random Types.EpochIndex
-
-instance Arbitrary Types.EpochIndex where
-    arbitrary = choose (0, maxReasonableEpoch)
-
-deriving instance Random Types.LocalSlotIndex
-
-instance Arbitrary Types.LocalSlotIndex where
-    arbitrary = choose (0, epochSlots - 1)
-
-instance Arbitrary Types.SlotId where
-    arbitrary = Types.SlotId
-        <$> arbitrary
-        <*> arbitrary
-
-instance Arbitrary Types.EpochOrSlot where
-    arbitrary = oneof [
-          Types.EpochOrSlot . Left <$> arbitrary
-        , Types.EpochOrSlot . Right <$> arbitrary
-        ]
-
 instance Arbitrary TxInWitness where
     arbitrary = oneof [
         PkWitness <$> arbitrary <*> arbitrary,
@@ -293,9 +270,9 @@ instance Arbitrary Tx where
 -- It's not entirely general because it only generates transactions whose
 -- outputs are in the same number as its inputs in a one-to-one correspondence.
 --
--- The GoodTx type is a list of triples where the third elements are the
--- transaction's outputs, the second elements are its inputs, and the first are
--- the transactions from where the tuple's TxIn came from.
+-- The GoodTx type is a nonempty list of quadruples. It contains
+-- previous transaction input came from, the input itself, output and
+-- witness for the input. Number of inputs is equal to number of outputs.
 --
 -- The OverflowTx type is the same as GoodTx, except its values, both for
 -- inputs as well as outputs, are very close to maxBound :: Coin so as to cause
@@ -344,9 +321,15 @@ newtype GoodTx = GoodTx
     { getGoodTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
     } deriving (Show)
 
-newtype SmallGoodTx =
-    SmallGoodTx GoodTx
-    deriving Show
+newtype SmallGoodTx = SmallGoodTx { getSmallGoodTx :: GoodTx } deriving (Show)
+
+goodTxToTxAux :: GoodTx -> TxAux
+goodTxToTxAux (GoodTx l) = TxAux tx witness distr
+  where
+    tx = fromMaybe (error "goodTxToTxAux created malformed tx") $
+         mkTx (map (view _2) l) (map (toaOut . view _3) l) def
+    witness = V.fromList $ NE.toList $ map (view _4) l
+    distr = TxDistribution $ map (toaDistr . view _3) l
 
 instance Arbitrary GoodTx where
     arbitrary =

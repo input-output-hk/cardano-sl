@@ -1,18 +1,32 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Constants that the rest of the code needs to know. They're available
--- from this module directly, instead of being passed as a config.
+-- | Constants that the rest of the code needs to know. They're
+-- available from this module directly, instead of being passed as a
+-- config. Also some constants aren't configurable.
+
 module Pos.Core.Constants
-       ( CoreConstants(..)
+       (
+       -- * Non-configurable constants
+         sharedSeedLength
+       , genesisHash
+
+       -- * The config structure
+       , CoreConstants(..)
        , coreConstants
 
+       -- * Constants
        , epochSlots
        , blkSecurityParam
        , slotSecurityParam
        , isDevelopment
        , protocolMagic
        , staticSysStart
+       , memPoolLimitRatio
+       -- * Genesis constants
+       , genesisN
+
+       , genesisBinSuffix
        ) where
 
 import           Data.Aeson             (FromJSON (..), genericParseJSON)
@@ -22,7 +36,22 @@ import           Serokell.Util          (sec)
 import           Universum
 
 import           Pos.Core.Timestamp     (Timestamp (..))
+import           Pos.Crypto.Hashing     (Hash, unsafeHash)
 import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
+
+----------------------------------------------------------------------------
+-- Constants which are not configurable
+----------------------------------------------------------------------------
+
+-- | Length of shared seed.
+sharedSeedLength :: Integral a => a
+sharedSeedLength = 32
+
+-- | Predefined 'Hash' of the parent of the 0-th genesis block (which
+-- is the only block without a real parent).
+genesisHash :: Hash a
+genesisHash = unsafeHash @Text "patak"
+{-# INLINE genesisHash #-}
 
 ----------------------------------------------------------------------------
 -- Config itself
@@ -43,6 +72,13 @@ data CoreConstants = CoreConstants
     , -- | Start time of network (in @Production@ running mode). If set to
       -- zero, then running time is 2 minutes after build.
       ccProductionNetworkStartTime :: !Int
+    , -- | Number of pre-generated keys
+      ccGenesisN                   :: !Int
+      -- | Size of mem pool will be limited by this value muliplied by block
+      -- size limit.
+    , ccMemPoolLimitRatio          :: !Word
+      -- | Suffix for genesis.bin files
+    , ccGenesisBinSuffix           :: ![Char]
     }
     deriving (Show, Generic)
 
@@ -60,6 +96,10 @@ instance IsConfig CoreConstants where
 -- rolled back.
 blkSecurityParam :: Integral a => a
 blkSecurityParam = fromIntegral . ccK $ coreConstants
+
+-- | Suffix for genesis.bin files
+genesisBinSuffix :: [Char]
+genesisBinSuffix = ccGenesisBinSuffix coreConstants
 
 -- | Security parameter expressed in number of slots. It uses chain
 -- quality property. It's basically @blkSecurityParam / chain_quality@.
@@ -91,3 +131,20 @@ staticSysStart
 -- wider).
 protocolMagic :: Int32
 protocolMagic = fromIntegral . ccProtocolMagic $ coreConstants
+
+----------------------------------------------------------------------------
+-- Genesis
+----------------------------------------------------------------------------
+
+-- | Number of pre-generated keys
+genesisN :: Integral i => i
+genesisN = fromIntegral . ccGenesisN $ coreConstants
+
+----------------------------------------------------------------------------
+-- Hardware/system
+----------------------------------------------------------------------------
+
+-- | Size of mem pool will be limited by this value muliplied by block
+-- size limit.
+memPoolLimitRatio :: Integral i => i
+memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConstants

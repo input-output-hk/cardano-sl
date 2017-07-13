@@ -20,6 +20,7 @@ import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.Discovery.Class        (MonadDiscovery)
+import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Shutdown               (MonadShutdownMem)
 import           Pos.Slotting.Class         (MonadSlots)
@@ -32,6 +33,7 @@ type DhtWorkMode m =
     , Mockable Fork m
     , Mockable Delay m
     , MonadReportingMem m
+    , MonadRecoveryInfo m
     , MonadShutdownMem m
     , MonadDiscovery m
     )
@@ -46,9 +48,11 @@ dumpKademliaStateWorker
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
 dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
-    when (flattenSlotId slotId `mod` kademliaDumpInterval == 0) $ do
+    when (isTimeToDump slotId) $ recoveryCommGuard $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
         liftIO . BS.writeFile dumpFile $ encode snapshot
+  where
+    isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0

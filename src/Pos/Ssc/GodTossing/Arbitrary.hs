@@ -1,21 +1,29 @@
--- | Arbitrary instances for GodTossing types.
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- | Arbitrary instances and generators for GodTossing types.
 
 module Pos.Ssc.GodTossing.Arbitrary
        ( BadCommAndOpening (..)
        , BadCommitment (..)
        , BadSignedCommitment (..)
        , CommitmentOpening (..)
+       , commitmentMapEpochGen
+       , vssCertificateEpochGen
        ) where
 
-import qualified Data.HashMap.Strict              as HM
-import           Test.QuickCheck                  (Arbitrary (..), Gen, elements, oneof)
 import           Universum
+
+import qualified Data.HashMap.Strict              as HM
+import           Test.QuickCheck                  (Arbitrary (..), Gen, choose, elements,
+                                                   listOf, oneof)
 
 import           Pos.Binary.Class                 (asBinary)
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
-import           Pos.Core.Address                 (addressHash)
-import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
+import           Pos.Constants                    (vssMaxTTL, vssMinTTL)
+import           Pos.Core                         (EpochIndex, SlotId (..), addressHash,
+                                                   addressHash)
+import           Pos.Crypto                       (SecretKey, deterministicVssKeyGen,
                                                    toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsMap,
@@ -27,12 +35,14 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsM
                                                    isSharesId, mkCommitmentsMap,
                                                    mkCommitmentsMap, mkSignedCommitment,
                                                    mkVssCertificate)
+import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
+import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..),
+                                                   MCOpening (..), MCShares (..),
+                                                   MCVssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
-import           Pos.Types                        (SlotId (..))
 import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
@@ -92,6 +102,7 @@ commitmentsAndOpenings =
     vssPk = toVssPublicKey $ deterministicVssKeyGen "ababahalamaha"
 {-# NOINLINE commitmentsAndOpenings #-}
 
+
 instance Arbitrary CommitmentOpening where
     arbitrary = elements commitmentsAndOpenings
 
@@ -104,11 +115,25 @@ instance Arbitrary Commitment where
 instance Arbitrary CommitmentsMap where
     arbitrary = mkCommitmentsMap <$> arbitrary
 
+-- | Generates commitment map having commitments from given epoch.
+commitmentMapEpochGen :: EpochIndex -> Gen CommitmentsMap
+commitmentMapEpochGen i = do
+    (coms :: [(SecretKey, Commitment)]) <- listOf $ (,) <$> arbitrary <*> arbitrary
+    pure $ mkCommitmentsMap $
+        map (\(sk,com) -> mkSignedCommitment sk i com) coms
+
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
+
+-- | For given epoch @e@ enerates vss certificate having epoch in
+-- range @[e+vssMin,e+vssMax)@.
+vssCertificateEpochGen :: EpochIndex -> Gen VssCertificate
+vssCertificateEpochGen x = do
+    e <- choose (vssMinTTL, vssMaxTTL-1)
+    mkVssCertificate <$> arbitrary <*> arbitrary <*> pure (e + x)
 
 ----------------------------------------------------------------------------
 -- Gt (God Tossing) types
@@ -176,6 +201,11 @@ instance Arbitrary GtGlobalState where
 instance Arbitrary GtSecretStorage where
     arbitrary = GtSecretStorage <$> arbitrary <*> arbitrary <*> arbitrary
 
+instance Arbitrary TossModifier where
+    arbitrary =
+        makeSmall $
+        TossModifier <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
 ------------------------------------------------------------------------------------------
 -- Message types
 ------------------------------------------------------------------------------------------
@@ -187,22 +217,26 @@ instance Arbitrary GtTag where
                       , pure VssCertificateMsg
                       ]
 
-instance Arbitrary GtMsgContents where
-    arbitrary = oneof [ MCCommitment <$> arbitrary
-                      , MCOpening <$> arbitrary <*> arbitrary
-                      , MCShares <$> arbitrary <*> arbitrary
-                      , MCVssCertificate <$> arbitrary
-                      ]
+instance Arbitrary MCCommitment where
+    arbitrary = MCCommitment <$> arbitrary
 
-instance Arbitrary (DataMsg GtMsgContents) where
-    arbitrary = do
-        sk <- arbitrary
-        dmContents <-
-            oneof
-                [ MCCommitment <$> ((toPublic sk,,) <$> arbitrary <*> arbitrary)
-                , MCOpening <$> arbitrary <*> arbitrary
-                , MCShares <$> arbitrary <*> arbitrary
-                , MCVssCertificate <$>
-                  (mkVssCertificate sk <$> arbitrary <*> arbitrary)
-                ]
-        return $ DataMsg {..}
+instance Arbitrary MCOpening where
+    arbitrary = MCOpening <$> arbitrary <*> arbitrary
+
+instance Arbitrary MCShares where
+    arbitrary = MCShares <$> arbitrary <*> arbitrary
+
+instance Arbitrary MCVssCertificate where
+    arbitrary = MCVssCertificate <$> arbitrary
+
+instance Arbitrary (DataMsg MCCommitment) where
+    arbitrary = DataMsg <$> arbitrary
+
+instance Arbitrary (DataMsg MCOpening) where
+    arbitrary = DataMsg <$> arbitrary
+
+instance Arbitrary (DataMsg MCShares) where
+    arbitrary = DataMsg <$> arbitrary
+
+instance Arbitrary (DataMsg MCVssCertificate) where
+    arbitrary = DataMsg <$> arbitrary

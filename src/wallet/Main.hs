@@ -1,24 +1,30 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+{-# OPTIONS -fno-cross-module-specialise #-}
+
+module Main
+       ( main
+       ) where
 
 import           Control.Monad.Error.Class  (throwError)
-import           Control.Monad.Reader       (MonadReader (..), ReaderT, ask, runReaderT)
+import           Control.Monad.Reader       (MonadReader (..), ReaderT, runReaderT)
 import           Control.Monad.Trans.Either (EitherT (..))
-import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
+import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
+import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S (fromList, toList)
+import           Data.String.QQ             (s)
 import qualified Data.Text                  as T
 import           Data.Time.Units            (convertUnit)
-import           Formatting                 (build, int, sformat, stext, (%))
+import           Formatting                 (build, int, sformat, stext, string, (%))
 import           Mockable                   (Production, delay)
 import           Network.Transport.Abstract (Transport, hoistTransport)
-import           Options.Applicative        (execParser)
 import           System.IO                  (hFlush, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
@@ -28,54 +34,89 @@ import           System.Posix.Process       (exitImmediately)
 import           Serokell.Util              (ms, sec)
 import           Universum
 
-import           Pos.Binary                 (Raw)
+import           Pos.Binary                 (Raw, encodeStrict)
 import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (NodeId, OutSpecs, SendActions, Worker',
-                                             WorkerSpec, sendTxOuts, submitTx, worker)
+                                             WorkerSpec, dataFlow, delegationRelays,
+                                             relayPropagateOut, submitTx,
+                                             submitUpdateProposal, submitVote, txRelays,
+                                             usRelays, worker)
 import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
                                              emptyPassphrase, encToPublic, fakeSigner,
-                                             hash, hashHexF, noPassEncrypt, safeSign,
-                                             toPublic, unsafeHash, withSafeSigner)
+                                             hash, hashHexF, noPassEncrypt,
+                                             safeCreateProxySecretKey, safeSign, toPublic,
+                                             unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.Delegation             (sendProxySKHeavyOuts, sendProxySKLightOuts)
 import           Pos.Discovery              (findPeers, getPeers)
 import           Pos.Genesis                (genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              bracketResources, stakesDistr)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)
-import           Pos.Update                 (BlockVersionData (..), UpdateVote (..),
-                                             mkUpdateProposalWSign, patakUpdateData,
-                                             skovorodaUpdateData)
+import           Pos.Update                 (BlockVersionData (..), SystemTag (..),
+                                             UpdateData (..), UpdateVote (..),
+                                             mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
-import           Pos.Wallet                 (WalletMode, WalletParams (..),
-                                             WalletStaticPeersMode, addSecretKey,
-                                             getBalance, getSecretKeys,
-                                             runWalletStaticPeers, sendProposalOuts,
-                                             sendVoteOuts, submitUpdateProposal,
-                                             submitVote)
+import           Pos.Wallet                 (WalletMode, addSecretKey, getBalance,
+                                             getSecretKeys)
+import           Pos.Wallet.Light           (LightWalletMode, WalletParams (..),
+                                             runWalletStaticPeers)
+import           Pos.WorkMode               (RealMode)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web             (walletServeWebLite, walletServerOuts)
+import           Pos.Wallet.Light           (walletServeWebLite, walletServerOuts)
 #endif
 
-import           Command                    (Command (..), parseCommand)
+import           Command                    (Command (..), ProposeUpdateSystem (..),
+                                             parseCommand)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
-                                             optsInfo)
+                                             getWalletOptions)
 
-type CmdRunner = ReaderT ([SecretKey], [NodeId])
+type CmdRunner = ReaderT CmdCtx
 
-runCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
+data CmdCtx =
+  CmdCtx
+    { skeys :: [SecretKey]
+    , na    :: [NodeId]
+    }
+
+
+helpMsg :: Text
+helpMsg = [s|
+Avaliable commands:
+   balance <address>              -- check balance on given address (may be any address)
+   send <N> [<address> <coins>]+  -- create and send transaction with given outputs
+                                     from own address #N
+   send-to-all-genesis <coins> <delay>
+                                  -- create and send transactions from all genesis addresses,
+                                     delay in ms to themselves with the given amount of coins
+   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and
+                                     decision, from own address #N
+   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
+                                  -- propose an update with given versions and other data
+                                     with one positive vote for it, from own address #N
+   listaddr                       -- list own addresses
+   delegate-light <N> <M> <eStart> <eEnd>?
+                                  -- delegate secret key #N to pk <M> light version (M is encoded in base58),
+                                     where eStart is cert start epoch, eEnd -- expire epoch
+   delegate-heavy <N> <M> <e>     -- delegate secret key #N to pk <M> heavyweight (M is encoded in base58),
+                                     e is current epoch.
+   add-key-pool <N>               -- add key from intial pool
+   add-key <file>                 -- add key from file
+   help                           -- show this message
+   quit                           -- shutdown node wallet
+|]
+
+runCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
                           putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
-    (_, na) <- ask
+    CmdCtx{na} <- ask
     skeys <- getSecretKeys
     etx <-
         lift $ withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
@@ -91,7 +132,7 @@ runCmd sendActions (Send idx outputs) = do
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions (SendToAllGenesis amount delay_) = do
-    (skeys, na) <- ask
+    CmdCtx{..} <- ask
     for_ skeys $ \key -> do
         let txOut = TxOut {
             txOutAddress = makePubKeyAddress (toPublic key),
@@ -110,9 +151,8 @@ runCmd sendActions (SendToAllGenesis amount delay_) = do
         delay $ ms delay_
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
-    (_, na) <- ask
-    skeys <- getSecretKeys
-    let skey = skeys !! idx
+    CmdCtx{na} <- ask
+    skey <- (!! idx) <$> getSecretKeys
     msignature <- lift $ withSafeSigner skey (pure emptyPassphrase) $ mapM $
                         \ss -> pure $ safeSign SignUSVote ss (upid, decision)
     case msignature of
@@ -131,21 +171,15 @@ runCmd sendActions v@(Vote idx decision upid) = do
                     putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} = do
     logDebug "Proposing update..."
-    (_, na) <- ask
-    skeys <- getSecretKeys
-    (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
-        filePath <- MaybeT $ pure puFilePath
-        fileData <- liftIO $ BS.readFile filePath
-        let h = unsafeHash fileData
-        liftIO $ putText $ sformat ("Read file succesfuly, its hash: "%hashHexF) h
-        pure h
-    let skey = skeys !! puIdx
+    CmdCtx{na} <- ask
+    skey <- (!! puIdx) <$> getSecretKeys
     let bvd = genesisBlockVersionData
             { bvdScriptVersion = puScriptVersion
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
-    let udata = maybe patakUpdateData skovorodaUpdateData diffFile
+    updateData <- mapM updateDataElement puUpdates
+    let udata = HM.fromList updateData
     let whenCantCreate = error . mappend "Failed to create update proposal: "
     lift $ withSafeSigner skey (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
@@ -165,50 +199,37 @@ runCmd sendActions ProposeUpdate{..} = do
                     let id = hash updateProposal
                     putText $
                       sformat ("Update proposal submitted, upId: "%hashHexF) id
-runCmd _ Help = do
-    putText $
-        unlines
-            [ "Avaliable commands:"
-            , "   balance <address>              -- check balance on given address (may be any address)"
-            , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
-            , "                                     from own address #N"
-            , "   send-to-all-genesis <coins> <delay>  -- create and send transactions from all genesis addresses, delay in ms"
-            , "                                     to themselves with the given amount of coins"
-            , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
-            , "                                     decision, from own address #N"
-            , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?"
-            , "                                  -- propose an update with given versions and other data"
-            , "                                     with one positive vote for it, from own address #N"
-            , "   listaddr                       -- list own addresses"
-            , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
-            , "   delegate-heavy <N> <M>         -- delegate secret key #N to #M (genesis) heavyweight "
-            , "   add-key-pool <N>               -- add key from intial pool"
-            , "   add-key <file>                 -- add key from file"
-            , "   help                           -- show this message"
-            , "   quit                           -- shutdown node wallet"
-            ]
+runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
-   addrs <- map (makePubKeyAddress . encToPublic) <$> getSecretKeys
+   addrs <- map encToPublic <$> getSecretKeys
    putText "Available addresses:"
-   for_ (zip [0 :: Int ..] addrs) $
-       putText . uncurry (sformat $ "    #"%int%":   "%build)
-runCmd __sendActions (DelegateLight __i __j) = error "Not implemented"
---   (skeys, _) <- ask
---   let issuerSk = skeys !! i
---       delegatePk = undefined
---       psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
---   lift $ sendProxySKLight psk sendActions
---   putText "Sent lightweight cert"
-runCmd __sendActions (DelegateHeavy __i __j __epochMaybe) = error "Not implemented"
---   (skeys, _) <- ask
---   let issuerSk = skeys !! i
---       delegatePk = undefined
---       epoch = fromMaybe 0 epochMaybe
---       psk = createProxySecretKey issuerSk delegatePk epoch
---   lift $ sendProxySKHeavy psk sendActions
---   putText "Sent heavyweight cert"
+   for_ (zip [0 :: Int ..] addrs) $ \(i, pk) ->
+       putText $ sformat ("    #"%int%":   "%build%" (PK: "%stext%")")
+                    i (makePubKeyAddress pk) (toBase58Text pk)
+  where
+    toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . encodeStrict
+runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
+   CmdCtx{na} <- ask
+   issuerSk <- (!! i) <$> getSecretKeys
+   lift $ withSafeSigner issuerSk (pure emptyPassphrase) $ \case
+        Nothing -> putText "Invalid passphrase"
+        Just ss -> do
+          let psk = safeCreateProxySecretKey ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
+          for_ na $ \nodeId ->
+             dataFlow "pskLight" sendActions nodeId psk
+   putText "Sent lightweight cert"
+runCmd sendActions (DelegateHeavy i delegatePk curEpoch) = do
+   CmdCtx{na} <- ask
+   issuerSk <- (!! i) <$> getSecretKeys
+   lift $ withSafeSigner issuerSk (pure emptyPassphrase) $ \case
+        Nothing -> putText "Invalid passphrase"
+        Just ss -> do
+          let psk = safeCreateProxySecretKey ss delegatePk curEpoch
+          for_ na $ \nodeId ->
+             dataFlow "pskHeavy" sendActions nodeId psk
+   putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do
-   (skeys, _) <- ask
+   CmdCtx{..} <- ask
    let key = skeys !! i
    addSecretKey $ noPassEncrypt key
 runCmd _ (AddKeyFromFile f) = do
@@ -216,29 +237,46 @@ runCmd _ (AddKeyFromFile f) = do
     mapM_ addSecretKey $ secret ^. usKeys
 runCmd _ Quit = pure ()
 
-runCmdOuts :: OutSpecs
-runCmdOuts = mconcat [ sendProxySKLightOuts
-                     , sendProxySKHeavyOuts
-                     , sendTxOuts
-                     , sendVoteOuts
-                     , sendProposalOuts
-                     ]
+dummyHash :: Hash Raw
+dummyHash = unsafeHash (0 :: Integer)
 
-evalCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
+hashFile :: MonadIO m => Maybe FilePath -> m (Hash Raw)
+hashFile Nothing  = pure dummyHash
+hashFile (Just filename) = do
+    fileData <- liftIO $ BS.readFile filename
+    let h = unsafeHash fileData
+    putText $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
+    pure h
+
+updateDataElement :: MonadIO m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
+updateDataElement ProposeUpdateSystem{..} = do
+    diffHash <- hashFile pusBinDiffPath
+    installerHash <- hashFile pusInstallerPath
+    pure (pusSystemTag, UpdateData diffHash installerHash dummyHash dummyHash)
+
+-- This solution is hacky, but will work for now
+runCmdOuts :: OutSpecs
+runCmdOuts = relayPropagateOut $ mconcat
+                [ usRelays @(RealMode SscGodTossing)
+                , delegationRelays @SscGodTossing @(RealMode SscGodTossing)
+                , txRelays @SscGodTossing @(RealMode SscGodTossing)
+                ]
+
+evalCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode ssc m => SendActions m -> CmdRunner m ()
+evalCommands :: WalletMode m => SendActions m -> CmdRunner m ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
     line <- getLine
     let cmd = parseCommand line
     case cmd of
-        Left err  -> putStrLn err >> evalCommands sa
-        Right cmd -> evalCmd sa cmd
+        Left err   -> putStrLn err >> evalCommands sa
+        Right cmd_ -> evalCmd sa cmd_
 
-initialize :: WalletMode ssc m => WalletOptions -> m [NodeId]
+initialize :: WalletMode m => WalletOptions -> m [NodeId]
 initialize WalletOptions{..} = do
     peers <- S.toList <$> getPeers
     bool (pure peers) getPeersUntilSome (null peers)
@@ -253,19 +291,19 @@ initialize WalletOptions{..} = do
         then getPeersUntilSome
         else pure peers
 
-runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
+runWalletRepl :: WalletMode m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
-    runReaderT (evalCmd sa Help) (keysPool, na)
+    runReaderT (evalCmd sa Help) (CmdCtx keysPool na)
 
-runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> Worker' m
+runWalletCmd :: WalletMode m => WalletOptions -> Text -> Worker' m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
-    flip runReaderT (keysPool, na) $ for_ strs $ \scmd -> do
+    flip runReaderT (CmdCtx keysPool na) $ for_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
@@ -280,7 +318,7 @@ runWalletCmd wo str sa = do
 
 main :: IO ()
 main = do
-    opts@WalletOptions {..} <- execParser optsInfo
+    opts@WalletOptions {..} <- getWalletOptions
     --filePeers <- maybe (return []) CLI.readPeersFile
     --                   (CLI.dhtPeersFile woCommonArgs)
     let allPeers = woPeers -- ++ filePeers
@@ -289,18 +327,16 @@ main = do
             { lpRunnerTag     = "smart-wallet"
             , lpHandlerPrefix = CLI.logPrefix woCommonArgs
             , lpConfigPath    = CLI.logConfig woCommonArgs
-            , lpEkgPort       = Nothing
             }
         baseParams = BaseParams { bpLoggingParams = logParams }
 
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
 
-        let transport' :: Transport WalletStaticPeersMode
+        let transport' :: Transport LightWalletMode
             transport' = hoistTransport
-                (powerLift :: forall t . Production t -> WalletStaticPeersMode t)
+                (powerLift :: forall t . Production t -> LightWalletMode t)
                 transport
 
-        let peerId = CLI.peerId woCommonArgs
         let sysStart = CLI.sysStart woCommonArgs
 
         let params =
@@ -321,25 +357,19 @@ main = do
                           else genesisStakeDistribution
                 }
 
-            plugins :: ([ WorkerSpec WalletStaticPeersMode ], OutSpecs)
+            plugins :: ([ WorkerSpec LightWalletMode ], OutSpecs)
             plugins = first pure $ case woAction of
                 Repl    -> worker runCmdOuts $ runWalletRepl opts
                 Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    case CLI.sscAlgo woCommonArgs of
-                        GodTossingAlgo -> walletServeWebLite (Proxy @SscGodTossing)
-                                              sendActions webDaedalusDbPath False webPort
-                                              woTLSCertPath woTLSKeyPath woTLSCAPath
-                        NistBeaconAlgo -> walletServeWebLite (Proxy @SscNistBeacon)
-                                              sendActions webDaedalusDbPath False webPort
-                                              woTLSCertPath woTLSKeyPath woTLSCAPath
+                    walletServeWebLite sendActions webDaedalusDbPath False webPort woTLSCertPath woTLSKeyPath woTLSCAPath
 #endif
 
         case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> do
                 logInfo "Using MPC coin tossing"
                 liftIO $ hFlush stdout
-                runWalletStaticPeers peerId transport' (S.fromList allPeers) params plugins
+                runWalletStaticPeers transport' (S.fromList allPeers) params plugins
             NistBeaconAlgo ->
                 logError "Wallet does not support NIST beacon!"

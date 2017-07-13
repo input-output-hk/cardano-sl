@@ -1,5 +1,5 @@
 name:                cardano-sl-db
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - basic DB interfaces
 description:         Cardano SL - basic DB interfaces
 license:             MIT
@@ -13,6 +13,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Pos.DB
+                       Pos.DB.BatchOp
                        Pos.DB.Class
                        Pos.DB.Error
                        Pos.DB.Functions
@@ -21,8 +22,8 @@ library
                        Pos.DB.Iterator
                        Pos.DB.Iterator.Class
                        Pos.DB.Iterator.DBIterator
-                       Pos.DB.Limits
                        Pos.DB.Misc.Common
+                       Pos.DB.Redirect
                        Pos.DB.Types
 
   build-depends:       base

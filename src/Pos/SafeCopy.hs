@@ -27,6 +27,7 @@ import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey
                                                   Signed (..))
 import           Pos.Ssc.Class.Types             (Ssc (..))
 
+import           Pos.Block.Core
 import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
                                                   ApplicationName (..), BlockVersion (..),
                                                   BlockVersionData (..),
@@ -37,6 +38,7 @@ import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..)
                                                   SlotId (..), SoftwareVersion (..))
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Data.Attributes             (Attributes (..))
+import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
@@ -46,7 +48,6 @@ import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), 
                                                   TxInWitness (..), TxOut (..),
                                                   TxOutAux (..), TxPayload (..),
                                                   TxProof (..))
-import           Pos.Types.Block
 import           Pos.Update.Core.Types           (SystemTag (..), UpdateData (..),
                                                   UpdatePayload (..), UpdateProposal (..),
                                                   UpdateVote (..))
@@ -120,6 +121,8 @@ deriveSafeCopySimple 0 'base ''TxProof
 deriveSafeCopySimple 0 'base ''TxPayload
 deriveSafeCopySimple 0 'base ''SharedSeed
 
+deriveSafeCopySimple 0 'base ''DlgPayload
+
 deriveSafeCopySimple 0 'base ''MainExtraBodyData
 deriveSafeCopySimple 0 'base ''MainExtraHeaderData
 deriveSafeCopySimple 0 'base ''GenesisExtraHeaderData
@@ -153,8 +156,8 @@ instance ( SafeCopy (BHeaderHash b)
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
-           return $! GenericBlockHeader {..}
-    putCopy GenericBlockHeader {..} =
+           return $! UnsafeGenericBlockHeader {..}
+    putCopy UnsafeGenericBlockHeader {..} =
         contain $
         do safePut _gbhPrevBlock
            safePut _gbhBodyProof
@@ -174,8 +177,8 @@ instance ( SafeCopy (BHeaderHash b)
         do _gbHeader <- safeGet
            _gbBody <- safeGet
            _gbExtra <- safeGet
-           return $! GenericBlock {..}
-    putCopy GenericBlock {..} =
+           return $! UnsafeGenericBlock {..}
+    putCopy UnsafeGenericBlock {..} =
         contain $
         do safePut _gbHeader
            safePut _gbBody
@@ -209,12 +212,12 @@ instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
 instance SafeCopy (BlockSignature ssc) where
     getCopy = contain $ Cereal.getWord8 >>= \case
         0 -> BlockSignature <$> safeGet
-        1 -> BlockPSignatureEpoch <$> safeGet
-        2 -> BlockPSignatureSimple <$> safeGet
+        1 -> BlockPSignatureLight <$> safeGet
+        2 -> BlockPSignatureHeavy <$> safeGet
         t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
     putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
-    putCopy (BlockPSignatureEpoch proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
-    putCopy (BlockPSignatureSimple proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
+    putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+    putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
 instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
     getCopy =
@@ -246,14 +249,14 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
          SafeCopy (Body (MainBlockchain ssc)) where
     getCopy = contain $ do
         _mbTxPayload     <- safeGet
-        _mbMpc           <- safeGet
-        _mbProxySKs      <- safeGet
+        _mbSscPayload    <- safeGet
+        _mbDlgPayload    <- safeGet
         _mbUpdatePayload <- safeGet
         return $! MainBody{..}
     putCopy MainBody {..} = contain $ do
         safePut _mbTxPayload
-        safePut _mbMpc
-        safePut _mbProxySKs
+        safePut _mbSscPayload
+        safePut _mbDlgPayload
         safePut _mbUpdatePayload
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where
@@ -287,12 +290,9 @@ instance SafeCopy (ProxyCert w) where
 
 instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
     putCopy ProxySignature{..} = contain $ do
-        safePut pdOmega
-        safePut pdDelegatePk
-        safePut pdCert
-        safePut pdSig
-    getCopy = contain $
-        ProxySignature <$> safeGet <*> safeGet <*> safeGet <*> safeGet
+        safePut psigPsk
+        safePut psigSig
+    getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
 
 instance Bi (MerkleRoot a) => SafeCopy (MerkleRoot a) where
     getCopy = Bi.getCopyBi "MerkleRoot"

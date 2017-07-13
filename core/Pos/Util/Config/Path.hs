@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | This is a separate module due to the TH stage restriction
@@ -13,24 +12,10 @@ import           Universum                  hiding (lift)
 
 -- | Path to config that should be used by all parts of Cardano SL.
 --
--- The name of the config is
---
---   * "constants-dev.yaml" in development mode
---   * "constants-prod.yaml" in production mode
---   * "constants-wallet-prod.yaml" in production mode with wallet
---
--- TODO: allow overriding the config path via an env var?
+-- The name of the config is @constants.yaml@.
 cslConfigFilePath :: FilePath
 cslConfigFilePath = $(do
-
-#if defined(DEV_MODE)
-    let name = "constants-dev.yaml"
-#elif defined(WITH_WALLET)
-    let name = "constants-wallet-prod.yaml"
-#else
-    let name = "constants-prod.yaml"
-#endif
-
+    let name = "constants.yaml"
     -- This code was stolen from file-embed ('makeRelativeToProject'). We
     -- don't use file-embed because the config-finding logic has already been
     -- changed several times and switching from file-embed to custom logic
@@ -51,4 +36,5 @@ cslConfigFilePath = $(do
             Just dir -> return (dir </> name)
             Nothing  -> error $ toText $
                 "Could not find " ++ marker ++ " for path: " ++ srcFP
-    lift path)
+    lift path
+  )

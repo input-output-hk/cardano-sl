@@ -11,6 +11,9 @@ module Pos.Crypto.HD
        , decryptChaChaPoly
        , encryptChaChaPoly
        , toEither
+
+       , firstNonHardened
+       , isNonHardened
        ) where
 
 import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub,
@@ -20,13 +23,15 @@ import           Crypto.Error
 import           Crypto.Hash                  (SHA512 (..))
 import qualified Crypto.KDF.PBKDF2            as PBKDF2
 import qualified Crypto.MAC.Poly1305          as Poly
-import           Data.ByteArray               as BA (ByteArrayAccess, convert)
+import           Data.ByteArray               as BA (convert)
 import           Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
-import           Pos.Binary.Class             (decodeFull, encodeStrict)
-import           Pos.Crypto.Signing           (PublicKey (..), SecretKey (..))
+import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
+import           Pos.Crypto.Hashing           (hash)
+import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..), PassPhrase)
+import           Pos.Crypto.Signing           (PublicKey (..))
 
 -- | Passphrase is a hash of root public key.
 --- We don't use root public key to store money, we use hash of it
@@ -63,9 +68,17 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
     passLen = 32
 
 -- Direct children of node are numbered from 0 to 2^32-1.
--- Child with index less or equal @maxHardened@ is a hardened child.
+-- Child with index greater or equal than @firstNonHardened@ is a non-hardened
+-- child.
+firstNonHardened :: Word32
+firstNonHardened = 2 ^ (31 :: Word32)
+
+-- Child with index less or equal than @maxHardened@ is a hardened child.
 maxHardened :: Word32
-maxHardened = 2 ^ (31 :: Word32) - 1
+maxHardened = firstNonHardened - 1
+
+isNonHardened :: Word32 -> Bool
+isNonHardened = ( >= firstNonHardened)
 
 -- | Derive public key from public key in non-hardened (normal) way.
 -- If you try to pass index more than @maxHardened@, error will be called.
@@ -78,13 +91,18 @@ deriveHDPublicKey (PublicKey xpub) childIndex
 -- | Derive secret key from secret key.
 -- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
 deriveHDSecretKey
-    :: ByteArrayAccess passPhrase
-    => passPhrase -> SecretKey -> Word32 -> SecretKey
-deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
-  | childIndex <= maxHardened =
-      SecretKey $ deriveXPrvHardened passPhrase xprv childIndex
-  | otherwise =
-      SecretKey $ deriveXPrv passPhrase xprv (childIndex - maxHardened - 1)
+    :: Bi PassPhrase
+    => PassPhrase -> EncryptedSecretKey -> Word32 -> Maybe EncryptedSecretKey
+deriveHDSecretKey passPhrase (EncryptedSecretKey xprv pph) childIndex
+    | hash passPhrase /= pph = Nothing
+    | childIndex <= maxHardened = Just $
+        EncryptedSecretKey
+            (deriveXPrvHardened passPhrase xprv childIndex)
+            pph
+    | otherwise = Just $
+        EncryptedSecretKey
+            (deriveXPrv passPhrase xprv (childIndex - maxHardened - 1))
+            pph
 
 addrAttrNonce :: ByteString
 addrAttrNonce = "serokellfore"

@@ -18,14 +18,15 @@ import           Mockable              (catchAll, delay)
 import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
 
+import           Pos.Block.Core        (mainBlockSlot, mainBlockTxPayload)
 import           Pos.Constants         (blkSecurityParam, genesisSlotDuration)
+import           Pos.Core              (SlotId (..))
 import           Pos.Crypto            (hash)
 import           Pos.DB.DB             (loadBlundsFromTipByDepth)
 import           Pos.Slotting          (getCurrentSlotBlocking, getSlotStartEmpatically)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Txp               (TxId)
-import           Pos.Types             (SlotId (..), blockSlot, blockTxs)
-import           Pos.WorkMode          (StaticMode)
+import           Pos.Txp               (TxId, txpTxs)
+import           Pos.WorkMode          (RealMode)
 
 import           Util                  (verifyCsvFile, verifyCsvFormat)
 
@@ -39,7 +40,7 @@ data TxTimestamps = TxTimestamps
 createTxTimestamps :: IO TxTimestamps
 createTxTimestamps = TxTimestamps
                      <$> newIORef M.empty
-                     <*> newIORef (SlotId 0 0)
+                     <*> newIORef (SlotId 0 minBound)
 
 registerSentTx :: TxTimestamps -> TxId -> Int -> Word64 -> IO ()
 registerSentTx TxTimestamps{..} id roundNum ts =
@@ -59,7 +60,7 @@ appendVerified ts roundNum df logsPrefix = do
 checkTxsInLastBlock
     :: forall ssc.
        SscConstraint ssc
-    => TxTimestamps -> FilePath -> StaticMode ssc ()
+    => TxTimestamps -> FilePath -> RealMode ssc ()
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
     mBlock <- preview (_Wrapped . _last . _1) <$>
               loadBlundsFromTipByDepth @ssc blkSecurityParam
@@ -69,10 +70,10 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
         Just (Right block) -> do
             st <- readIORef sentTimes
             ls <- readIORef lastSlot
-            let curSlot = block^.blockSlot
+            let curSlot = block ^. mainBlockSlot
             when (ls < curSlot) $ do
                 let toCheck = M.keys st
-                    txsMerkle = block^.blockTxs
+                    txsMerkle = block ^. mainBlockTxPayload . txpTxs
                     txIds = map hash $ toList txsMerkle
                     verified = toCheck `intersect` txIds
 
@@ -95,7 +96,7 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
                     liftIO $ appendVerified (fromIntegral slStart) roundNum df logsPrefix
 
 checkWorker :: forall ssc . SscConstraint ssc
-            => TxTimestamps -> FilePath -> StaticMode ssc ()
+            => TxTimestamps -> FilePath -> RealMode ssc ()
 checkWorker txts logsPrefix = loop `catchAll` onError
   where
     loop = do

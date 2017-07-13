@@ -4,6 +4,7 @@ module Test.Pos.Update.Identity.BinarySpec
        ( spec
        ) where
 
+import           Data.Tagged              (Tagged)
 import           Test.Hspec               (Spec, describe)
 import           Universum
 
@@ -16,6 +17,9 @@ import           Test.Pos.Arbitrary.Infra ()
 
 import           Test.Pos.Util            (binaryTest, msgLenLimitedTest,
                                            networkBinaryTest)
+
+type VoteId' = Tagged U.UpdateVote U.VoteId
+type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 spec :: Spec
 spec =
@@ -37,21 +41,21 @@ spec =
         binaryTest @U.ConfirmedProposalState
         -- TODO: binaryTest @U.ProposalState
       describe "Network" $ do
-        networkBinaryTest @(R.InvMsg U.VoteId U.VoteMsgTag)
-        networkBinaryTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
-        networkBinaryTest @(R.MempoolMsg U.VoteMsgTag)
+        networkBinaryTest @(R.InvMsg VoteId')
+        networkBinaryTest @(R.ReqMsg VoteId')
+        networkBinaryTest @(R.MempoolMsg U.UpdateVote)
         networkBinaryTest @(R.DataMsg U.UpdateVote)
-        networkBinaryTest @(R.InvMsg U.UpId U.ProposalMsgTag)
-        networkBinaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
-        networkBinaryTest @(R.MempoolMsg U.ProposalMsgTag)
+        networkBinaryTest @(R.InvMsg UpId')
+        networkBinaryTest @(R.ReqMsg UpId')
+        networkBinaryTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
         networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
     describe "Message length limit" $ do
-        msgLenLimitedTest @(R.InvMsg U.VoteId U.VoteMsgTag)
-        msgLenLimitedTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
-        msgLenLimitedTest @(R.MempoolMsg U.VoteMsgTag)
-        msgLenLimitedTest @(R.InvMsg U.UpId U.ProposalMsgTag)
-        msgLenLimitedTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
-        msgLenLimitedTest @(R.MempoolMsg U.ProposalMsgTag)
+        msgLenLimitedTest @(R.InvMsg VoteId')
+        msgLenLimitedTest @(R.ReqMsg VoteId')
+        msgLenLimitedTest @(R.MempoolMsg U.UpdateVote)
+        msgLenLimitedTest @(R.InvMsg UpId')
+        msgLenLimitedTest @(R.ReqMsg UpId')
+        msgLenLimitedTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
         -- TODO [CSL-859]
         -- msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
         msgLenLimitedTest @(R.DataMsg U.UpdateVote)

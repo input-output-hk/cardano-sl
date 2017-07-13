@@ -8,6 +8,8 @@ module Pos.Crypto.SafeSigning
        , SafeSigner
        , emptyPassphrase
        , noPassEncrypt
+       , checkPassMatches
+       , changeEncPassphrase
        , encToPublic
        , safeSign
        , safeToPublic
@@ -15,6 +17,10 @@ module Pos.Crypto.SafeSigning
        , safeDeterministicKeyGen
        , withSafeSigner
        , fakeSigner
+       , createProxyCert
+       , createProxySecretKey
+       , safeCreateProxyCert
+       , safeCreateProxySecretKey
        ) where
 
 import qualified Cardano.Crypto.Wallet as CC
@@ -22,6 +28,7 @@ import           Data.ByteArray        (ByteArray, ByteArrayAccess, ScrubbedByte
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Coerce           (coerce)
+import           Data.Default          (Default (..))
 import           Data.Text.Buildable   (build)
 import qualified Data.Text.Buildable   as B
 import qualified Prelude
@@ -31,9 +38,10 @@ import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi
 import           Pos.Crypto.Hashing    (Hash, hash)
 import           Pos.Crypto.Random     (secureRandomBS)
-import           Pos.Crypto.Signing    (PublicKey (..), SecretKey (..), Signature (..),
+import           Pos.Crypto.Signing    (ProxyCert (..), ProxySecretKey (..),
+                                        PublicKey (..), SecretKey (..), Signature (..),
                                         sign, toPublic)
-import           Pos.Crypto.SignTag    (SignTag, signTag)
+import           Pos.Crypto.SignTag    (SignTag (SignProxySK), signTag)
 
 data EncryptedSecretKey = EncryptedSecretKey
     { eskPayload :: !CC.XPrv
@@ -59,6 +67,13 @@ instance Buildable PassPhrase where
 emptyPassphrase :: PassPhrase
 emptyPassphrase = PassPhrase mempty
 
+instance Default PassPhrase where
+    def = emptyPassphrase
+
+{-instance Monoid PassPhrase where
+    mempty = PassPhrase mempty
+    mappend (PassPhrase p1) (PassPhrase p2) = PassPhrase (p1 `mappend` p2)-}
+
 mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
 mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)
 
@@ -69,6 +84,19 @@ encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
 -- | Re-wrap unencrypted secret key as an encrypted one
 noPassEncrypt :: Bi PassPhrase => SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) = mkEncSecret emptyPassphrase k
+
+checkPassMatches :: (Bi PassPhrase, Alternative f) => PassPhrase -> EncryptedSecretKey -> f ()
+checkPassMatches pp (EncryptedSecretKey _ pph) = guard (hash pp == pph)
+
+changeEncPassphrase
+    :: Bi PassPhrase
+    => PassPhrase
+    -> PassPhrase
+    -> EncryptedSecretKey
+    -> Maybe EncryptedSecretKey
+changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _) = do
+    checkPassMatches oldPass esk
+    return $ mkEncSecret newPass $ CC.xPrvChangePass oldPass newPass sk
 
 signRaw' :: Maybe SignTag
          -> PassPhrase
@@ -134,10 +162,37 @@ withSafeSigner
     -> m a
 withSafeSigner sk ppGetter action = do
     pp <- ppGetter
-    let mss = guard (hash pp == eskHash sk) $> SafeSigner sk pp
+    let mss = checkPassMatches pp sk $> SafeSigner sk pp
     action mss
 
 -- | We need this to be able to perform signing with unencrypted `SecretKey`s,
 -- where `SafeSigner` is required
 fakeSigner :: SecretKey -> SafeSigner
 fakeSigner = FakeSigner
+
+-- [CSL-1157] `createProxyCert` and `createProxySecretKey` are not safe and
+--   left here because of their implementation details
+--   in future should be removed completely, now left for compatibility with tests
+
+-- | Proxy certificate creation from secret key of issuer, public key
+-- of delegate and the message space ω.
+createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
+createProxyCert = safeCreateProxyCert . fakeSigner
+
+-- | Creates proxy secret key
+createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
+createProxySecretKey = safeCreateProxySecretKey . fakeSigner
+
+-- | Proxy certificate creation from secret key of issuer, public key
+-- of delegate and the message space ω.
+safeCreateProxyCert :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxyCert w
+safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
+  where
+    Signature sig = safeSign SignProxySK ss $
+                      mconcat
+                          ["00", CC.unXPub delegatePk, Bi.encodeStrict o]
+
+-- | Creates proxy secret key
+safeCreateProxySecretKey :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
+safeCreateProxySecretKey ss delegatePk w =
+    ProxySecretKey w (safeToPublic ss) delegatePk $ safeCreateProxyCert ss delegatePk w

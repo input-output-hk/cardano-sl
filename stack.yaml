@@ -1,6 +1,8 @@
 resolver: lts-8.13
 
-flags: {}
+flags:
+  ether:
+    disable-tup-instances: true
 
 extra-package-dbs: []
 
@@ -11,6 +13,9 @@ packages:
 - infra
 - db
 - lrc
+- ssc
+- godtossing
+- txp
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -22,7 +27,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: b4b0a6774368b9bbea96d7a03a1a451b6fc3cfea
+    commit: 92043c7e80e93aeb08212e8ce42c783edd9b2f80
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -35,7 +40,7 @@ packages:
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519
     # We're waiting on next release
-    commit: 57adb970e198a9b377769ab46e776ec29f19cff6
+    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
@@ -43,20 +48,20 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 513c86b0570c9866f3b4a28653fb0756ebce8212
+    commit: 52969ff1e14385a9fa0e7de1593969f8b5e52a1b
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
-    git: https://github.com/avieth/network-transport-tcp
-    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
+    git: https://github.com/serokell/network-transport-tcp
+    commit: a6c04c35f3a1d786bc5e57fd04cf3e2a043179f3
   extra-dep: true
 - location:
-    git: https://github.com/avieth/network-transport
+    git: https://github.com/serokell/network-transport
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 838b064d8a59286142aa2fe14434fe7601896ddb
+    commit: 84f8c358463bbf6bb09168aac5ad990faa9d310a
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
@@ -74,7 +79,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.4.1
+- universum-0.4.3
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
@@ -82,24 +87,27 @@ extra-deps:
 - log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - purescript-bridge-0.8.0.1
-- cryptonite-0.22
+- cryptonite-0.23
 - cryptonite-openssl-0.6
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 - servant-0.10                    # servant-multipart supports version servant-10 only
 - servant-server-0.10             # so it triggers another dependencies to be v10
 - servant-swagger-1.1.2.1
 - servant-multipart-0.10
-- ether-0.5.0.0
+- ether-0.5.1.0
 - transformers-lift-0.2.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
-# If you find it too restrictive, you can use `util-scripts/build.sh' script
+# If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
-  cardano-sl-core:   -Werror
-  cardano-sl-db:     -Werror
-  cardano-sl-infra:  -Werror
-  cardano-sl-lrc:    -Werror
-  cardano-sl-update: -Werror
-  cardano-sl:        -Werror
+  cardano-sl-core:       -Werror
+  cardano-sl-db:         -Werror
+  cardano-sl-ssc:        -Werror
+  cardano-sl-infra:      -Werror
+  cardano-sl-lrc:        -Werror
+  cardano-sl-update:     -Werror
+  cardano-sl-godtossing: -Werror
+  cardano-sl-txp:        -Werror
+  cardano-sl:            -Werror

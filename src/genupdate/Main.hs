@@ -1,33 +1,80 @@
-module Main where
+{-# LANGUAGE QuasiQuotes #-}
 
-import qualified Codec.Archive.Tar    as Tar
-import qualified Control.Foldl        as Fold
-import           Crypto.Hash          (Digest, SHA512, hashlazy)
-import qualified Data.ByteString.Lazy as BSL
-import           Data.List            ((\\))
-import           Filesystem.Path      (filename)
-import           Turtle               hiding (f, toText)
-import           Turtle.Prelude       (stat)
-import           Universum            hiding (FilePath, fold)
+module Main
+  ( main
+  ) where
+
+import qualified Codec.Archive.Tar            as Tar
+import qualified Control.Foldl                as Fold
+import           Crypto.Hash                  (Digest, SHA512, hashlazy)
+import qualified Data.ByteString.Lazy         as BSL
+import           Data.List                    ((\\))
+import           Data.String.QQ               (s)
+import           Data.Version                 (showVersion)
+import           Filesystem.Path              (filename)
+import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fullDesc,
+                                               help, helper, info, infoOption, long,
+                                               metavar, progDesc, short)
+import qualified Options.Applicative.Simple   as S
+import           Options.Applicative.Text     (textOption)
+import           Paths_cardano_sl             (version)
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Turtle                       hiding (f, s, toText)
+import           Turtle.Prelude               (stat)
+import           Universum                    hiding (FilePath, fold)
+
+data UpdateGenOptions = UpdateGenOptions
+    { oldDir    :: !Text
+    , newDir    :: !Text
+    , outputTar :: !Text
+    } deriving (Show)
+
+optionsParser :: Parser UpdateGenOptions
+optionsParser = do
+    oldDir <- textOption $
+           long    "old"
+        <> metavar "PATH"
+        <> help    "Path to directory with old program."
+    newDir <- textOption $
+           long    "new"
+        <> metavar "PATH"
+        <> help    "Path to directory with new program."
+    outputTar <- textOption $
+           short   'o'
+        <> long    "output"
+        <> metavar "PATH"
+        <> help    "Path to output .tar-file with diff."
+    pure UpdateGenOptions{..}
+
+getUpdateGenOptions :: IO UpdateGenOptions
+getUpdateGenOptions = execParser programInfo
+  where
+    programInfo = info (helper <*> versionOption <*> optionsParser) $
+        fullDesc <> progDesc ("")
+                 <> S.header "Cardano SL updates generator."
+                 <> footerDoc usageExample
+
+    versionOption = infoOption
+        ("cardano-genupdate-" <> showVersion version)
+        (long "version" <> help "Show version.")
+
+usageExample :: Maybe Doc
+usageExample = Just [s|
+Command example:
+
+  stack exec -- cardano-genupdate /tmp/app-v000 /tmp/app-v001 /tmp/app-update.tar
+
+Both directories must have equal file structure (e.g. they must contain the same
+files in the same subdirectories correspondingly), otherwise 'cardano-genupdate' will fail.
+
+Please note that 'cardano-genupdate' uses 'bsdiff' program, so make sure 'bsdiff' is available in the PATH.|]
 
 main :: IO ()
 main = do
-    args <- map (fromString . toString) <$> arguments
-    case args of
-        [oldDir, newDir, updPath] -> createUpdate oldDir newDir updPath
-        _                         -> printHelp >> exit (ExitFailure 1)
-
-printHelp :: IO ()
-printHelp = putStrLn $ unlines [
-    "genupdate.sh - Update generator",
-    "",
-    "Usage: genupdate.sh [OLD DIR] [NEW DIR] [OUTPUT TAR FILE]",
-    "",
-    "If there are any files in one of the dirs that are not contained",
-    "in the other dir, genupdate.sh will fail.",
-    "",
-    "bsdiff has to be present in path."
-    ]
+    UpdateGenOptions{..} <- getUpdateGenOptions
+    createUpdate (fromText oldDir)
+                 (fromText newDir)
+                 (fromText outputTar)
 
 createUpdate :: FilePath -> FilePath -> FilePath -> IO ()
 createUpdate oldDir newDir updPath = sh $ do

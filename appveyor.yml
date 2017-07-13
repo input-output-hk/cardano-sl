@@ -11,6 +11,7 @@ environment:
     CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
+    DCONFIG: "testnet_wallet"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
@@ -75,7 +76,7 @@ test_script:
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
-  - scripts\appveyor-retry call stack install cardano-sl
+  - scripts\ci\appveyor-retry call stack install cardano-sl
       -j 2
       --no-terminal
       --local-bin-path daedalus
@@ -85,22 +86,23 @@ test_script:
       --bench
       --no-run-benchmarks
       --work-dir %STACK_WORK%
+      --ghc-options="-DCONFIG=%DCONFIG%"
       --flag cardano-sl:for-installer
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
-      --flag cardano-sl:-asserts
+      --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include"
       --extra-lib-dirs="C:\OpenSSL-Win64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
-  # - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
+  # - scripts\ci\appveyor-retry call stack --no-terminal --local-bin-path daedalus
   #     install -j 2 --no-haddock-deps
   #     --work-dir %STACK_WORK%
   #     --flag cardano-sl:for-installer
   #     --flag cardano-sl:with-web
   #     --flag cardano-sl:with-wallet
-  #     --flag cardano-sl:-asserts
+  #     --flag cardano-sl-core:-asserts
   #     --flag cardano-sl-core:-dev-mode
   #     --extra-include-dirs="C:\OpenSSL-Win64\include"
   #     --extra-lib-dirs="C:\OpenSSL-Win64"
@@ -111,7 +113,7 @@ test_script:
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
   - ps: Install-Product node 7
-  - ..\scripts\appveyor-retry call npm install
+  - ..\scripts\ci\appveyor-retry call npm install
   - npm run build:prod
 
 after_test:

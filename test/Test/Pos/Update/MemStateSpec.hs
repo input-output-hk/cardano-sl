@@ -42,7 +42,7 @@ payloadIsAddedToMemPool up@Upd.UpdatePayload {..} mp =
         Just uProp -> HM.lookup (hash uProp) mpProposals == Just uProp
     votesWereAdded = all verifyVoteWasAdded upVotes
     verifyVoteWasAdded vote@(Upd.UpdateVote {..}) =
-        maybe False (== vote) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
+        (== Just vote) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
     Upd.MemPool {..} = Upd.addToMemPool up mp
 
 badVoteIsNotAdded :: Upd.UpdateVote -> Upd.UpdatePayload -> Upd.MemPool -> Property
@@ -51,10 +51,10 @@ badVoteIsNotAdded uv@Upd.UpdateVote {..} up@Upd.UpdatePayload {..} mp =
   where
     Upd.MemPool {..} = Upd.addToMemPool up mp
     voteIsNotPresent =
-        maybe True (/= uv) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
+        (/= Just uv) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
 
 keysWithoutVoteRemainSo :: PublicKey -> Upd.UpdatePayload -> Upd.MemPool -> Property
-keysWithoutVoteRemainSo pk up@Upd.UpdatePayload {..} mp@(Upd.MemPool _ lv) =
+keysWithoutVoteRemainSo pk up@Upd.UpdatePayload {..} mp@(Upd.MemPool _ lv _) =
     keyHasNotVoted ==> keyHasNoNewVotes
   where
     Upd.MemPool {..} = Upd.addToMemPool up mp

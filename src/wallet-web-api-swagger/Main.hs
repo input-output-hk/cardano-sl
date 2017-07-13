@@ -1,49 +1,72 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedLists     #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
 
--- | This program builds Swagger specification for wallet web API and converts it to JSON.
--- We run this program during CI build.
--- Produced JSON will be used to create online
--- version of wallet web API description at cardanodocs.com website
--- (please see 'update_wallet_web_api_docs.sh' for technical details).
+module Main
+  ( main
+  ) where
 
-module Main where
-
+import           Control.Lens                       (mapped, (?~))
+import           Data.Aeson                         (encode)
+import qualified Data.ByteString.Lazy.Char8         as BSL8
+import           Data.Swagger                       (NamedSchema (..), Operation, Swagger,
+                                                     SwaggerType (..), ToParamSchema (..),
+                                                     ToSchema (..), declareNamedSchema,
+                                                     declareSchemaRef,
+                                                     defaultSchemaOptions, description,
+                                                     format, genericDeclareNamedSchema,
+                                                     host, info, name, properties,
+                                                     required, title, type_, version)
+import           Data.Typeable                      (Typeable, typeRep)
+import           Data.Version                       (showVersion)
+import           Options.Applicative.Simple         (execParser, footer, fullDesc, header,
+                                                     help, helper, infoOption, long,
+                                                     progDesc)
+import qualified Options.Applicative.Simple         as S
+import           Servant                            ((:>))
+import           Servant.Multipart                  (FileData (..), MultipartForm)
+import           Servant.Swagger                    (HasSwagger (toSwagger),
+                                                     subOperations)
+import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
 import           Universum
 
-import           Control.Lens               (mapped, (?~))
-import           Data.Aeson                 (encode)
-import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (NamedSchema (..), Operation, Swagger,
-                                             SwaggerType (SwaggerObject), ToParamSchema,
-                                             ToSchema (..), declareNamedSchema,
-                                             declareSchemaRef, defaultSchemaOptions,
-                                             description, genericDeclareNamedSchema, host,
-                                             info, name, properties, required, title,
-                                             type_, version)
-import           Data.Typeable              (Typeable, typeRep)
-import           Data.Version               (showVersion)
-import           Servant                    ((:>))
-import           Servant.Multipart          (FileData (..), MultipartForm)
-import           Servant.Swagger            (HasSwagger (toSwagger), subOperations)
+import qualified Paths_cardano_sl                   as CSL
+import           Pos.Types                          (ApplicationName, BlockVersion,
+                                                     ChainDifficulty, Coin,
+                                                     SoftwareVersion)
+import           Pos.Util.BackupPhrase              (BackupPhrase)
+import           Pos.Util.Servant                   (CDecodeApiArg, VerbMod,
+                                                     WithDefaultApiArg)
+import qualified Pos.Wallet.Web                     as W
 
-import qualified Paths_cardano_sl           as CSL
-import           Pos.Types                  (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, SoftwareVersion)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
-import qualified Pos.Wallet.Web             as W
+import qualified Description                        as D
 
-import qualified Description                as D
+showProgramInfoIfRequired :: FilePath -> IO ()
+showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
+  where
+    programInfo = S.info (helper <*> versionOption) $
+        fullDesc <> progDesc "Generate Swagger specification for Wallet web API."
+                 <> header   "Cardano SL Wallet web API docs generator."
+                 <> footer   ("This program runs during 'cardano-sl' building on Travis CI. " <>
+                              "Generated file '" <> generatedJSON <> "' will be used to produce HTML documentation. " <>
+                              "This documentation will be published at cardanodocs.com using 'update_wallet_web_api_docs.sh'.")
+
+    versionOption = infoOption
+        ("cardano-swagger-" <> showVersion CSL.version)
+        (long "version" <> help "Show version.")
+
 
 main :: IO ()
 main = do
+    showProgramInfoIfRequired jsonFile
     BSL8.writeFile jsonFile $ encode swaggerSpecForWalletApi
     putStrLn $ "Done. See " <> jsonFile <> "."
   where
@@ -73,24 +96,40 @@ instance ToSchema      Coin
 instance ToParamSchema Coin
 instance ToSchema      W.CTxId
 instance ToParamSchema W.CTxId
-instance ToSchema      W.CTType
 instance ToSchema      W.CTx
 instance ToSchema      W.CTxMeta
 instance ToSchema      W.CHash
 instance ToParamSchema W.CHash
-instance ToSchema      W.CAddress
-instance ToParamSchema W.CAddress
-instance ToSchema      W.CCurrency
-instance ToParamSchema W.CCurrency
+instance ToSchema      (W.CId W.Wal)
+instance ToSchema      (W.CId W.Addr)
+instance ToParamSchema (W.CId W.Wal)
+instance ToParamSchema (W.CId W.Addr)
 instance ToSchema      W.CProfile
 instance ToSchema      W.WalletError
+
+-- TODO: currently not used
+instance ToSchema      W.CWAddressMeta
+instance ToParamSchema W.CWAddressMeta where
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerString
+        & format ?~ "walletSetAddress@walletIndex@accountIndex@address"
+
+instance ToSchema      W.CAccountId
+instance ToParamSchema W.CAccountId where
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerString
+        & format ?~ "walletSetAddress@walletKeyIndex"
+
 instance ToSchema      W.CWalletAssurance
+instance ToSchema      W.CAccountMeta
 instance ToSchema      W.CWalletMeta
+instance ToSchema      W.CAccountInit
 instance ToSchema      W.CWalletInit
-instance ToSchema      W.CWalletType
 instance ToSchema      W.CWalletRedeem
-instance ToSchema      W.CPaperVendWalletRedeem
 instance ToSchema      W.CWallet
+instance ToSchema      W.CAccount
+instance ToSchema      W.CAddress
+instance ToSchema      W.CPaperVendWalletRedeem
 instance ToSchema      W.CCoin
 instance ToSchema      W.CInitialized
 instance ToSchema      W.CElectronCrashReport
@@ -110,8 +149,26 @@ instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either W.Wall
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
         & mapped . name ?~ show (typeRep (Proxy @(Either W.WalletError a)))
 
--- | Helper type for subApi, we use it to create description.
-type Op = Traversal' Swagger Operation
+instance HasSwagger v =>
+         HasSwagger (VerbMod mod v) where
+    toSwagger _ = toSwagger (Proxy @v)
+
+instance HasSwagger (apiType a :> res) =>
+         HasSwagger (CDecodeApiArg apiType a :> res) where
+    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+
+instance HasSwagger (apiType a :> res) =>
+         HasSwagger (WithDefaultApiArg apiType a :> res) where
+    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+
+-- | Wallet API operations.
+wop
+    :: forall sub.
+       ( IsSubAPI (W.ApiPrefix :> sub) W.WalletApi
+       , HasSwagger (W.ApiPrefix :> sub)
+       )
+    => Traversal' Swagger Operation
+wop = subOperations (Proxy @(W.ApiPrefix :> sub)) W.walletApi
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger
@@ -121,56 +178,43 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & info . description ?~ "This is an API for Cardano SL wallet."
     & host               ?~ "localhost:8090" -- Default node's port for wallet web API.
     -- Descriptions for all endpoints.
-    & testReset              . description ?~ D.testResetDescription
-    & getWallet              . description ?~ D.getWalletDescription
-    & getWallets             . description ?~ D.getWalletsDescription
-    & updateWallet           . description ?~ D.updateWalletDescription
-    & deleteWallet           . description ?~ D.deleteWalletDescription
-    & importKey              . description ?~ D.importKeyDescription
-    & walletRestore          . description ?~ D.walletRestoreDescription
-    & newWallet              . description ?~ D.newWalletDescription
-    & isValidAddress         . description ?~ D.isValidAddressDescription
-    & getProfile             . description ?~ D.getProfileDescription
-    & updateProfile          . description ?~ D.updateProfileDescription
-    & newPayment             . description ?~ D.newPaymentDescription
-    & newPaymentExt          . description ?~ D.newPaymentExtDescription
-    & updateTx               . description ?~ D.updateTxDescription
-    & getHistory             . description ?~ D.getHistoryDescription
-    & searchHistory          . description ?~ D.searchHistoryDescription
-    & nextUpdate             . description ?~ D.nextUpdateDescription
-    & applyUpdate            . description ?~ D.applyUpdateDescription
-    & redeemADA              . description ?~ D.redeemADADescription
-    & redeemADAPaperVend     . description ?~ D.redeemADAPaperVendDescription
-    & reportingInitialized   . description ?~ D.reportingInitializedDescription
-    & reportingElectroncrash . description ?~ D.reportingElectroncrashDescription
-    & getSlotsDuration       . description ?~ D.getSlotsDurationDescription
-    & getVersion             . description ?~ D.getVersionDescription
-    & getSyncProgress        . description ?~ D.getSyncProgressDescription
-  where
-    -- | SubOperations for all endpoints in 'walletApi'.
-    -- We need it to fill description sections in produced HTML-documentation.
-    testReset              = subOperations (Proxy @W.TestReset) W.walletApi :: Op
-    getWallet              = subOperations (Proxy @W.GetWallet) W.walletApi :: Op
-    getWallets             = subOperations (Proxy @W.GetWallets) W.walletApi :: Op
-    updateWallet           = subOperations (Proxy @W.UpdateWallet) W.walletApi :: Op
-    deleteWallet           = subOperations (Proxy @W.DeleteWallet) W.walletApi :: Op
-    importKey              = subOperations (Proxy @W.ImportKey) W.walletApi :: Op
-    walletRestore          = subOperations (Proxy @W.WalletRestore) W.walletApi :: Op
-    newWallet              = subOperations (Proxy @W.NewWallet) W.walletApi :: Op
-    isValidAddress         = subOperations (Proxy @W.IsValidAddress) W.walletApi :: Op
-    getProfile             = subOperations (Proxy @W.GetProfile) W.walletApi :: Op
-    updateProfile          = subOperations (Proxy @W.UpdateProfile) W.walletApi :: Op
-    newPayment             = subOperations (Proxy @W.NewPayment) W.walletApi :: Op
-    newPaymentExt          = subOperations (Proxy @W.NewPaymentExt) W.walletApi :: Op
-    updateTx               = subOperations (Proxy @W.UpdateTx) W.walletApi :: Op
-    getHistory             = subOperations (Proxy @W.GetHistory) W.walletApi :: Op
-    searchHistory          = subOperations (Proxy @W.SearchHistory) W.walletApi :: Op
-    nextUpdate             = subOperations (Proxy @W.NextUpdate) W.walletApi :: Op
-    applyUpdate            = subOperations (Proxy @W.ApplyUpdate) W.walletApi :: Op
-    redeemADA              = subOperations (Proxy @W.RedeemADA) W.walletApi :: Op
-    redeemADAPaperVend     = subOperations (Proxy @W.RedeemADAPaperVend) W.walletApi :: Op
-    reportingInitialized   = subOperations (Proxy @W.ReportingInitialized) W.walletApi :: Op
-    reportingElectroncrash = subOperations (Proxy @W.ReportingElectroncrash) W.walletApi :: Op
-    getSlotsDuration       = subOperations (Proxy @W.GetSlotsDuration) W.walletApi :: Op
-    getVersion             = subOperations (Proxy @W.GetVersion) W.walletApi :: Op
-    getSyncProgress        = subOperations (Proxy @W.GetSyncProgress) W.walletApi :: Op
+    & wop @W.TestReset              . description ?~ D.testReset
+
+    & wop @W.GetWallet              . description ?~ D.getWallet
+    & wop @W.GetWallets             . description ?~ D.getWallets
+    & wop @W.NewWallet              . description ?~ D.newWallet
+    & wop @W.RestoreWallet          . description ?~ D.restoreWallet
+    & wop @W.RenameWallet           . description ?~ D.renameWallet
+    & wop @W.DeleteWallet           . description ?~ D.deleteWallet
+    & wop @W.ImportWallet           . description ?~ D.importWallet
+    & wop @W.ChangeWalletPassphrase . description ?~ D.changeWalletPassphrase
+
+    & wop @W.GetAccount             . description ?~ D.getAccount
+    & wop @W.GetAccounts            . description ?~ D.getAccounts
+    & wop @W.UpdateAccount          . description ?~ D.updateAccount
+    & wop @W.NewAccount             . description ?~ D.newAccount
+    & wop @W.DeleteAccount          . description ?~ D.deleteAccount
+
+    & wop @W.NewAddress             . description ?~ D.newAddress
+
+    & wop @W.IsValidAddress         . description ?~ D.isValidAddress
+
+    & wop @W.GetProfile             . description ?~ D.getProfile
+    & wop @W.UpdateProfile          . description ?~ D.updateProfile
+
+    & wop @W.NewPayment             . description ?~ D.newPayment
+    & wop @W.UpdateTx               . description ?~ D.updateTx
+    & wop @W.GetHistory             . description ?~ D.getHistory
+
+    & wop @W.NextUpdate             . description ?~ D.nextUpdate
+    & wop @W.ApplyUpdate            . description ?~ D.applyUpdate
+
+    & wop @W.RedeemADA              . description ?~ D.redeemADA
+    & wop @W.RedeemADAPaperVend     . description ?~ D.redeemADAPaperVend
+
+    & wop @W.ReportingInitialized   . description ?~ D.reportingInitialized
+    & wop @W.ReportingElectroncrash . description ?~ D.reportingElectroncrash
+
+    & wop @W.GetSlotsDuration       . description ?~ D.getSlotsDuration
+    & wop @W.GetVersion             . description ?~ D.getVersion
+    & wop @W.GetSyncProgress        . description ?~ D.getSyncProgress

@@ -7,7 +7,7 @@ module Pos.Reporting.Methods
        , sendReportNodeNologs
        , getNodeInfo
        , reportMisbehaviour
-       , reportMisbehaviourMasked
+       , reportMisbehaviourSilent
        , reportingFatal
        , sendReport
        , retrieveLogFiles
@@ -31,16 +31,16 @@ import           Formatting               (sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
-import           Serokell.Util.Exceptions (throwText)
+import           Serokell.Util.Exceptions (TextException (..))
 import           Serokell.Util.Text       (listBuilderJSON, listJson)
 import           System.Directory         (doesFileExist)
 import           System.FilePath          (takeFileName)
 import           System.Info              (arch, os)
 import           System.IO                (hClose)
 import           System.IO.Temp           (withSystemTempFile)
-import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
-                                           hwFilePath, lcTree, logDebug, logError,
-                                           ltFiles, ltSubloggers, retrieveLogContent)
+import           System.Wlog              (LoggerConfig (..), WithLogger, hwFilePath,
+                                           lcTree, logDebug, logError, logInfo, ltFiles,
+                                           ltSubloggers, retrieveLogContent)
 
 import           Pos.Core.Constants       (protocolMagic)
 import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
@@ -48,6 +48,7 @@ import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState   (MonadReportingMem, rcLoggingConfig,
                                            rcReportServers)
+import           Pos.Util.Util            (maybeThrow)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -59,6 +60,13 @@ import           Pos.Reporting.MemState   (MonadReportingMem, rcLoggingConfig,
     lhs' = reverse $ dropWhile isSlash $ reverse lhs
     rhs' = dropWhile isSlash rhs
 
+type MonadReporting m =
+       ( MonadIO m
+       , MonadMask m
+       , MonadReportingMem m
+       , WithLogger m
+       )
+
 ----------------------------------------------------------------------------
 -- Node-specific
 ----------------------------------------------------------------------------
@@ -67,19 +75,21 @@ import           Pos.Reporting.MemState   (MonadReportingMem, rcLoggingConfig,
 -- retrieving all logger files from it. List of servers is also taken
 -- from node's configuration.
 sendReportNode
-    :: (MonadIO m, MonadMask m, MonadReportingMem m)
+    :: (MonadReporting m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    logConfig <- Ether.asks' (view rcLoggingConfig)
-    let allFiles = map snd $ retrieveLogFiles logConfig
-    logFile <- maybe
-        (throwText "sendReportNode: can't find any .pub file in logconfig")
-        pure
-        (head $ filter (".pub" `isSuffixOf`) allFiles)
-    logContent <-
-        takeGlobalSize charsConst <$>
-        retrieveLogContent logFile (Just 5000)
-    sendReportNodeImpl (reverse logContent) version reportType
+    noServers <- null <$> Ether.asks' (view rcReportServers)
+    if noServers then onNoServers else do
+        logConfig <- Ether.asks' (view rcLoggingConfig)
+        let allFiles = map snd $ retrieveLogFiles logConfig
+        logFile <-
+            maybeThrow (TextException onNoPubfiles)
+                       (head $ filter (".pub" `isSuffixOf`) allFiles)
+        logContent <-
+            takeGlobalSize charsConst <$>
+            retrieveLogContent logFile (Just 5000)
+        sendReportNodeImpl (reverse logContent) version reportType
+
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
@@ -89,24 +99,31 @@ sendReportNode version reportType = do
     takeGlobalSize curLimit (t:xs) =
         let delta = curLimit - length t
         in bool [] (t:(takeGlobalSize delta xs)) (delta > 0)
+    onNoServers =
+        logInfo $ "sendReportNode: not sending report " <>
+                  "because no reporting servers are specified"
+    onNoPubfiles = "sendReportNode: can't find any .pub file in logconfig. " <>
+        "Most probably public logging is misconfigured. Either set reporting " <>
+        "servers to [] or include .pub files in log config"
 
 -- | Same as 'sendReportNode', but doesn't attach any logs.
-sendReportNodeNologs
-    :: (MonadIO m, MonadMask m, MonadReportingMem m)
-    => Version -> ReportType -> m ()
+sendReportNodeNologs :: (MonadReporting m) => Version -> ReportType -> m ()
 sendReportNodeNologs = sendReportNodeImpl []
 
 sendReportNodeImpl
-    :: (MonadIO m, MonadMask m, MonadReportingMem m)
+    :: (MonadReporting m)
     => [Text] -> Version -> ReportType -> m ()
 sendReportNodeImpl rawLogs version reportType = do
     servers <- Ether.asks' (view rcReportServers)
+    when (null servers) onNoServers
     errors <- fmap lefts $ forM servers $ try .
         sendReport [] rawLogs reportType "cardano-node" version . toString
     whenNotNull errors $ throwSE . NE.head
   where
+    onNoServers =
+        logInfo $ "sendReportNodeImpl: not sending report " <>
+                  "because no reporting servers are specified"
     throwSE (e :: SomeException) = throwM e
-
 
 -- checks if ipv4 is from local range
 ipv4Local :: Word32 -> Bool
@@ -130,19 +147,11 @@ getNodeInfo = do
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
     outputF = ("{ nodeParams: '"%stext%"', otherNodes: "%listJson%" }")
 
-type ReportingWorkMode m =
-       ( MonadIO m
-       , MonadMask m
-       , MonadReportingMem m
-       , HasLoggerName m
-       , MonadDiscovery m
-       , CanLog m
-       )
 
 -- | Reports misbehaviour given reason string. Effectively designed
 -- for 'WorkMode' context.
 reportMisbehaviour
-    :: forall m . ReportingWorkMode m
+    :: (MonadReporting m, MonadDiscovery m)
     => Version -> Text -> m ()
 reportMisbehaviour version reason = do
     logError $ "Reporting misbehaviour \"" <> reason <> "\""
@@ -151,16 +160,12 @@ reportMisbehaviour version reason = do
   where
     misbehF = stext%", nodeInfo: "%stext
 
+-- FIXME catch and squelch *all* exceptions? Probably a bad idea.
 -- | Report misbehaviour, but catch all errors inside
---
---   FIXME very misleading name. Suggests reporting misbehaviours while
---   asynchronous exceptions are masked.
---
---   FIXME catch and squelch *all* exceptions? Probably a bad idea.
-reportMisbehaviourMasked
-    :: forall m . ReportingWorkMode m
+reportMisbehaviourSilent
+    :: forall m . (MonadReporting m, MonadDiscovery m)
     => Version -> Text -> m ()
-reportMisbehaviourMasked version reason =
+reportMisbehaviourSilent version reason =
     reportMisbehaviour version reason `catch` handler
   where
     handler :: SomeException -> m ()
@@ -173,7 +178,7 @@ reportMisbehaviourMasked version reason =
 -- happens and rethrow. Errors related to reporting itself are caught,
 -- logged and ignored.
 reportingFatal
-    :: forall m a . ReportingWorkMode m
+    :: forall m a . (MonadReporting m, MonadDiscovery m)
     => Version -> m a -> m a
 reportingFatal version action =
     action `catch` handler1 `catch` handler2

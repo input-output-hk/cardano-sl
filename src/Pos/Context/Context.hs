@@ -13,8 +13,6 @@ module Pos.Context.Context
        , MonadSscContext
        , NodeContext (..)
        , NodeParams(..)
-       , npPublicKey
-       , npPubKeyAddress
        , BaseParams(..)
        , TxpGlobalSettings
        , GenesisUtxo(..)
@@ -45,26 +43,30 @@ import           Data.Kind                     (Type)
 import           Data.Time.Clock               (UTCTime)
 import qualified Ether
 import           Ether.Internal                (HList (..), HasLens (..), Tags, TagsK)
+import           Pos.Security.Params           (SecurityParams)
 import           System.Wlog                   (LoggerConfig)
 
-import           Pos.Communication.Relay       (RelayInvQueue)
+import           Pos.Block.Core                (BlockHeader)
+import           Pos.Block.RetrievalQueue      (BlockRetrievalQueue,
+                                                BlockRetrievalQueueTag,
+                                                MonadBlockRetrievalQueue)
+import           Pos.Communication.Relay       (RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
-import           Pos.Crypto                    (PublicKey, toPublic)
+import           Pos.Core                      (HeaderHash, PrimaryKeyTag, SlotLeaders)
+import           Pos.Crypto                    (SecretKey)
+import           Pos.Discovery                 (DiscoveryContextSum)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
-import           Pos.Ssc.Class.Types           (Ssc (SscNodeContext))
+import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
+                                                SscContextTag)
 import           Pos.Txp.Settings              (TxpGlobalSettings)
 import           Pos.Txp.Toil.Types            (Utxo)
-import           Pos.Types                     (Address, BlockHeader, HeaderHash,
-                                                SlotLeaders, makePubKeyAddress)
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
-import           Pos.Util.Chrono               (NE, NewestFirst)
-import           Pos.Util.JsonLog              (JLFile)
 import           Pos.Util.UserSecret           (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -72,75 +74,37 @@ import           Pos.Util.UserSecret           (UserSecret)
 ----------------------------------------------------------------------------
 
 data NodeContextTag
-
-type MonadNodeContext ssc =
-    Ether.MonadReader NodeContextTag (NodeContext ssc)
+type MonadNodeContext ssc = Ether.MonadReader NodeContextTag (NodeContext ssc)
 
 data LastKnownHeaderTag
-
 type LastKnownHeader ssc = TVar (Maybe (BlockHeader ssc))
-
-type MonadLastKnownHeader ssc =
-    Ether.MonadReader LastKnownHeaderTag (LastKnownHeader ssc)
+type MonadLastKnownHeader ssc = Ether.MonadReader LastKnownHeaderTag (LastKnownHeader ssc)
 
 data ProgressHeaderTag
-
 type ProgressHeader ssc = STM.TMVar (BlockHeader ssc)
-
-type MonadProgressHeader ssc =
-    Ether.MonadReader ProgressHeaderTag (ProgressHeader ssc)
-
-data BlockRetrievalQueueTag
-
-type BlockRetrievalQueue ssc =
-    TBQueue (NodeId, NewestFirst NE (BlockHeader ssc))
-
-type MonadBlockRetrievalQueue ssc =
-    Ether.MonadReader BlockRetrievalQueueTag (BlockRetrievalQueue ssc)
+type MonadProgressHeader ssc = Ether.MonadReader ProgressHeaderTag (ProgressHeader ssc)
 
 data RecoveryHeaderTag
+type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
+type MonadRecoveryHeader ssc = Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
 
-type RecoveryHeader ssc =
-    STM.TMVar (NodeId, BlockHeader ssc)
+newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
+newtype GenesisLeaders = GenesisLeaders { unGenesisLeaders :: SlotLeaders }
+newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
+newtype BlkSemaphore = BlkSemaphore { unBlkSemaphore :: MVar HeaderHash }
+newtype StartTime = StartTime { unStartTime :: UTCTime }
 
-type MonadRecoveryHeader ssc =
-    Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
-
-data SscContextTag
-
-type MonadSscContext ssc =
-    Ether.MonadReader SscContextTag (SscNodeContext ssc)
-
-newtype GenesisUtxo = GenesisUtxo
-    { unGenesisUtxo :: Utxo
-    }
-
-newtype GenesisLeaders = GenesisLeaders
-    { unGenesisLeaders :: SlotLeaders
-    }
-
-newtype ConnectedPeers = ConnectedPeers
-    { unConnectedPeers :: STM.TVar (Set NodeId)
-    }
-
-newtype BlkSemaphore = BlkSemaphore
-    { unBlkSemaphore :: MVar HeaderHash
-    }
-
-newtype StartTime = StartTime
-    { unStartTime :: UTCTime
-    }
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncJLFile              :: !JLFile
-    -- @georgeee please add documentation when you see this comment
-    , ncSscContext          :: !(SscNodeContext ssc)
+    { ncSscContext          :: !(SscNodeContext ssc)
     -- @georgeee please add documentation when you see this comment
     , ncUpdateContext       :: !UpdateContext
     -- ^ Context needed for the update system
     , ncLrcContext          :: !LrcContext
     -- ^ Context needed for LRC
+    , ncDiscoveryContext    :: !DiscoveryContextSum
+    -- ^ Context needed for Discovery.
     , ncBlkSemaphore        :: !BlkSemaphore
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
@@ -152,16 +116,19 @@ data NodeContext ssc = NodeContext
     , ncRecoveryHeader      :: !(RecoveryHeader ssc)
     -- ^ In case of recovery mode this variable holds the latest header hash
     -- we know about, and the node we're talking to, so we can do chained
-    -- block requests. Invariant: this mvar is full iff we're more than
-    -- 'recoveryHeadersMessage' blocks deep relatively to some valid header
-    -- and we're downloading blocks. Every time we get block that's more
+    -- block requests. Invariant: this mvar is full iff we're in recovery mode
+    -- and downloading blocks. Every time we get block that's more
     -- difficult than this one, we overwrite. Every time we process some
     -- blocks and fail or see that we've downloaded this header, we clean
     -- mvar.
+    , ncLastKnownHeader     :: !(LastKnownHeader ssc)
+    -- ^ Header of last known block, generated by network (announcement of
+    -- which reached us). Should be use only for informational purposes
+    -- (status in Daedalus). It's easy to falsify this value.
     , ncProgressHeader      :: !(ProgressHeader ssc)
     -- ^ Header of the last block that was downloaded in retrieving
     -- queue. Is needed to show smooth prorgess on the frontend.
-    , ncInvPropagationQueue :: !RelayInvQueue
+    , ncInvPropagationQueue :: !RelayPropagationQueue
     -- ^ Queue is used in Relay framework,
     -- it stores inv messages for earlier received data.
     , ncLoggerConfig        :: !LoggerConfig
@@ -178,10 +145,6 @@ data NodeContext ssc = NodeContext
     -- (if Nothing, no lock used).
     , ncStartTime           :: !StartTime
     -- ^ Time when node was started ('NodeContext' initialized).
-    , ncLastKnownHeader     :: !(LastKnownHeader ssc)
-    -- ^ Header of last known block, generated by network (announcement of
-    -- which reached us). Should be use only for informational purposes
-    -- (status in Daedalus). It's easy to falsify this value.
     , ncTxpGlobalSettings   :: !TxpGlobalSettings
     -- ^ Settings for global Txp.
     , ncGenesisLeaders      :: !SlotLeaders
@@ -193,6 +156,7 @@ data NodeContext ssc = NodeContext
 makeLensesFor
     [ ("ncUpdateContext", "ncUpdateContextL")
     , ("ncLrcContext", "ncLrcContextL")
+    , ("ncDiscoveryContext", "ncDiscoveryContextL")
     , ("ncSscContext", "ncSscContextL")
     , ("ncNodeParams", "ncNodeParamsL")
     , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
@@ -214,12 +178,16 @@ makeLensesFor
 
 makeLensesFor
     [ ("npUpdateParams", "npUpdateParamsL")
+    , ("npSecurityParams", "npSecurityParamsL")
+    , ("npSecretKey", "npSecretKeyL")
     , ("npReportServers", "npReportServersL")
     , ("npPropagation", "npPropagationL")
     , ("npCustomUtxo", "npCustomUtxoL") ]
     ''NodeParams
 
 type instance TagsK (NodeContext ssc) =
+  Type ':
+  Type ':
   Type ':
   Type ':
   Type ':
@@ -254,13 +222,15 @@ type instance Tags (NodeContext ssc) =
   SscContextTag          :::
   UpdateContext          :::
   LrcContext             :::
+  DiscoveryContextSum    :::
   NodeParams             :::
   UpdateParams           :::
+  SecurityParams         :::
+  PrimaryKeyTag          :::
   ReportingContext       :::
   RelayContext           :::
   ShutdownContext        :::
   TxpGlobalSettings      :::
-  JLFile                 :::
   GenesisUtxo            :::
   GenesisLeaders         :::
   TVar UserSecret        :::
@@ -285,11 +255,20 @@ instance HasLens UpdateContext (NodeContext ssc) UpdateContext where
 instance HasLens LrcContext (NodeContext ssc) LrcContext where
     lensOf = ncLrcContextL
 
+instance HasLens DiscoveryContextSum (NodeContext ssc) DiscoveryContextSum where
+    lensOf = ncDiscoveryContextL
+
 instance HasLens NodeParams (NodeContext ssc) NodeParams where
     lensOf = ncNodeParamsL
 
 instance HasLens UpdateParams (NodeContext ssc) UpdateParams where
     lensOf = ncNodeParamsL . npUpdateParamsL
+
+instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
+    lensOf = ncNodeParamsL . npSecurityParamsL
+
+instance HasLens PrimaryKeyTag (NodeContext ssc) SecretKey where
+    lensOf = ncNodeParamsL . npSecretKeyL
 
 instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
     lensOf = lens getter (flip setter)
@@ -324,9 +303,6 @@ instance HasLens ShutdownContext (NodeContext ssc) ShutdownContext where
             set ncShutdownFlagL (_shdnIsTriggered sc) .
             set ncShutdownNotifyQueueL (_shdnNotifyQueue sc)
 
-instance HasLens JLFile (NodeContext ssc) JLFile where
-    lensOf = ncJLFileL
-
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = ncNodeParamsL . npCustomUtxoL . coerced
 
@@ -359,15 +335,3 @@ instance HasLens StartTime (NodeContext ssc) StartTime where
 
 instance HasLens TxpGlobalSettings (NodeContext ssc) TxpGlobalSettings where
     lensOf = ncTxpGlobalSettingsL
-
-----------------------------------------------------------------------------
--- Helper functions
-----------------------------------------------------------------------------
-
--- | Generate 'PublicKey' from 'SecretKey' of 'NodeParams'.
-npPublicKey :: NodeParams -> PublicKey
-npPublicKey = toPublic . npSecretKey
-
--- | Generate 'Address' from 'SecretKey' of 'NodeContext'
-npPubKeyAddress :: NodeParams -> Address
-npPubKeyAddress = makePubKeyAddress . npPublicKey

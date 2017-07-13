@@ -1,10 +1,10 @@
-{-# LANGUAGE BinaryLiterals       #-}
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE DeriveFunctor        #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE BinaryLiterals      #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
 #include "MachDeps.h"
 
@@ -14,6 +14,8 @@
 
 module Pos.Binary.Class
        ( Bi (..)
+       , Get
+       , Put
        , encode
        , encodeStrict
        , decode
@@ -65,38 +67,39 @@ module Pos.Binary.Class
 
 import           Universum
 
-import           Formatting                  (formatToString, int, (%))
-import           Data.Bits                   (Bits (..))
-import qualified Data.Set                    as S
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getByteString,
-                                              getLazyByteString, getWord8, runGet,
-                                              label, runGetOrFail,
-                                              getRemainingLazyByteString)
+                                              getLazyByteString,
+                                              getRemainingLazyByteString, getWord8, label,
+                                              runGet, runGetOrFail)
 import           Data.Binary.Get.Internal    (Decoder (..), runCont)
 import           Data.Binary.Put             (PutM, putByteString, putCharUtf8,
                                               putLazyByteString, putWord8, runPut,
                                               runPutM)
+import           Data.Bits                   (Bits (..))
 import qualified Data.ByteString             as BS
-import           Data.Char                   (isAscii)
 import qualified Data.ByteString.Lazy        as BSL
+import           Data.Char                   (isAscii)
 import           Data.Hashable               (Hashable (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
+import           Data.SafeCopy               (Contained, SafeCopy (..), contain, safeGet,
+                                              safePut)
+import qualified Data.Serialize              as Cereal (Get, Put)
+import qualified Data.Set                    as S
+import           Data.Tagged                 (Tagged (Tagged))
 import qualified Data.Text.Encoding          as T
 import           Data.Time.Units             (Microsecond, Millisecond)
 import qualified Data.Vector                 as V
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Generic.Mutable as GM
 import           Data.Word                   (Word32)
+import           Formatting                  (formatToString, int, (%))
 import           GHC.TypeLits                (ErrorMessage (..), TypeError)
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Unsafe.Coerce               (unsafeCoerce)
-import           Data.SafeCopy               (Contained, SafeCopy (..), contain,
-                                              safeGet, safePut)
-import qualified Data.Serialize              as Cereal (Get, Put)
 
 ----------------------------------------------------------------------------
 -- Bi typeclass
@@ -525,6 +528,14 @@ instance Bi Word32             -- 4 bytes, big endian
 instance Bi Word64             -- 8 bytes, big endian
 
 ----------------------------------------------------------------------------
+-- Tagged
+----------------------------------------------------------------------------
+
+instance Bi a => Bi (Tagged s a) where
+    put (Tagged a) = put a
+    get = Tagged <$> get
+
+----------------------------------------------------------------------------
 -- Containers
 ----------------------------------------------------------------------------
 
@@ -673,15 +684,17 @@ limitGet n0 act
   go 0 (Partial resume) = go 0 (resume Nothing)
   go n (Partial resume) = do
     inp <- unsafeCoerce (OurC (\inp k -> do
-      let takeLimited str =
 #if (WORD_SIZE_IN_BITS == 64)
+      let takeLimited str =
             let (inp', out) = BS.splitAt (fromIntegral n) str
+            in k out (Just inp')
 #else
+      let takeLimited str =
             let (inp', out) = if n > fromIntegral (maxBound :: Int)
                                 then (str, BS.empty)
                                 else BS.splitAt (fromIntegral n) str
-#endif
             in k out (Just inp')
+#endif
       case not (BS.null inp) of
         True  -> takeLimited inp
         False -> prompt inp (k BS.empty Nothing) takeLimited))
@@ -710,15 +723,17 @@ isolate64 n0 act
   go 0 (Partial resume) = go 0 (resume Nothing)
   go n (Partial resume) = do
     inp <- unsafeCoerce (OurC (\inp k -> do
-      let takeLimited str =
 #if (WORD_SIZE_IN_BITS == 64)
+      let takeLimited str =
             let (inp', out) = BS.splitAt (fromIntegral n) str
+            in k out (Just inp')
 #else
+      let takeLimited str =
             let (inp', out) = if n > fromIntegral (maxBound :: Int)
                                 then (str, BS.empty)
                                 else BS.splitAt (fromIntegral n) str
-#endif
             in k out (Just inp')
+#endif
       case not (BS.null inp) of
         True  -> takeLimited inp
         False -> prompt inp (k BS.empty Nothing) takeLimited))

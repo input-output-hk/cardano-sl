@@ -3,11 +3,13 @@ language: nix
 sudo: true
 matrix:
   include:
+    - env: HLINT=true
+    - env: HLINT=false
     - os: osx
       osx_image: xcode8.3
-    - env: HLINT=true
 env:
-- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
+  global:
+    - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
 cache:
   directories:
   - "$HOME/.stack"
@@ -16,18 +18,28 @@ cache:
 before_install:
 - echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
+- export DCONFIG=testnet_wallet
 - mkdir -p ~/.local/bin s3
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
   xz --strip-components=1 -C ~/.local/bin
+- sudo service --status-all || true
+- sudo /etc/init.d/memcached stop || true
+- sudo /etc/init.d/mysql stop || true
+- sudo /etc/init.d/postgresql stop || true
+
+after_failure:
+- sudo dmesg
 
 script:
+# DEVOPS-107: wait 20min for output due to haddock generation
 - if [[ "$HLINT" == "true" ]]; then
-    nix-shell -p haskellPackages.hlint moreutils --run "util-scripts/lint.sh --nix | ts";
+    nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   else
-    nix-shell -p moreutils --run "./util-scripts/travis.sh | ts";
+    travis_wait 20 sleep 4600&
+    nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
 
 deploy:

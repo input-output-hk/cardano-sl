@@ -19,23 +19,18 @@ module Pos.Context.Functions
 
          -- * Misc
        , getUptime
-       , recoveryInProgress
        ) where
 
-import qualified Control.Concurrent.STM as STM
-import           Data.Time              (diffUTCTime, getCurrentTime)
-import           Data.Time.Units        (Microsecond, fromMicroseconds)
+import           Data.Time           (diffUTCTime, getCurrentTime)
+import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import qualified Ether
 import           Universum
 
-import           Pos.Context.Context    (BlkSemaphore (..), GenesisLeaders (..),
-                                         GenesisUtxo (..), MonadRecoveryHeader,
-                                         RecoveryHeaderTag, StartTime (..))
-import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
-import           Pos.Lrc.Error          (LrcError (..))
-import           Pos.Txp.Toil.Types     (Utxo)
-import           Pos.Types              (EpochIndex, HeaderHash, SlotLeaders)
-import           Pos.Util               (maybeThrow, readTVarConditional)
+import           Pos.Context.Context (BlkSemaphore (..), GenesisLeaders (..),
+                                      GenesisUtxo (..), StartTime (..))
+import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
+import           Pos.Txp.Toil.Types  (Utxo)
+import           Pos.Types           (HeaderHash, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -67,38 +62,6 @@ readBlkSemaphore
 readBlkSemaphore = readMVar =<< Ether.asks' unBlkSemaphore
 
 ----------------------------------------------------------------------------
--- LRC synchronization
-----------------------------------------------------------------------------
-
--- | Block until LRC data is available for given epoch.
-waitLrc
-    :: (MonadIO m, Ether.MonadReader' LrcContext m)
-    => EpochIndex -> m ()
-waitLrc epoch = do
-    sync <- Ether.asks' @LrcContext lcLrcSync
-    () <$ readTVarConditional ((>= epoch) . lastEpochWithLrc) sync
-
-lrcActionOnEpoch
-    :: (MonadIO m, Ether.MonadReader' LrcContext m, MonadThrow m)
-    => EpochIndex
-    -> (EpochIndex -> m (Maybe a))
-    -> m a
-lrcActionOnEpoch epoch =
-    lrcActionOnEpochReason
-        epoch
-        "action on lrcCallOnEpoch couldn't be performed properly"
-
-lrcActionOnEpochReason
-    :: (MonadIO m, Ether.MonadReader' LrcContext m, MonadThrow m)
-    => EpochIndex
-    -> Text
-    -> (EpochIndex -> m (Maybe a))
-    -> m a
-lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
-    waitLrc epoch
-    actionDependsOnLrc epoch >>= maybeThrow (LrcDataUnknown epoch reason)
-
-----------------------------------------------------------------------------
 -- Misc
 ----------------------------------------------------------------------------
 
@@ -109,10 +72,3 @@ getUptime = do
     startTime <- Ether.asks' unStartTime
     let seconds = toRational $ curTime `diffUTCTime` startTime
     pure $ fromMicroseconds $ round $ seconds * 1000 * 1000
-
--- | Returns if 'RecoveryHeader' is 'Just' which is equivalent to
--- “we're doing recovery”.
-recoveryInProgress :: (MonadIO m, MonadRecoveryHeader ssc m) => m Bool
-recoveryInProgress = do
-    var <- Ether.ask @RecoveryHeaderTag
-    isJust <$> atomically (STM.tryReadTMVar var)

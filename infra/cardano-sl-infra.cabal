@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -56,9 +56,11 @@ library
                         Pos.Communication.BiP
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
+                        Pos.Communication.Listener
                         Pos.Communication.MessagePart
                         Pos.Communication.PeerState
                         Pos.Communication.Protocol
+                        Pos.Communication.Specs
                         Pos.Communication.Relay
                         Pos.Communication.Relay.Class
                         Pos.Communication.Relay.Logic
@@ -66,7 +68,10 @@ library
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
 
-                        -- Pos.Communication
+                        -- Recovery
+                        Pos.Recovery.Info
+
+                        -- Pos.Shutdown
                         Pos.Shutdown
                         Pos.Shutdown.Class
                         Pos.Shutdown.Logic
@@ -77,6 +82,7 @@ library
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
                         Pos.Binary.Infra.Communication
+                        Pos.Binary.Infra.Relay
 
                         -- Pos.Util
                         Pos.Util.LogSafe
@@ -89,6 +95,7 @@ library
   build-depends:        aeson
                       , base
                       , parsec
+                      , base64-bytestring
                       , binary
                       , bytestring
                       , cardano-sl-core

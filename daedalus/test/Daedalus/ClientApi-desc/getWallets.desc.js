@@ -6,7 +6,7 @@ const Daedalus = require ('../../../dist/Daedalus');
 
 export default function () {
 
-  describe('getWallets()', () => {
+  describe('getAccounts()', () => {
     let xhr;
     let requests;
 
@@ -24,7 +24,7 @@ export default function () {
         mockWallet()
       ]);
 
-      Daedalus.ClientApi.getWallets()
+      Daedalus.ClientApi.getAccounts()
         .then( (result) => {
           assert.deepEqual(result, response.Right, 'list of wallet data objects');
           done();
@@ -41,7 +41,7 @@ export default function () {
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
       const response = mockSuccessResponse({ any: "XXX"});
 
-      Daedalus.ClientApi.getWallets()
+      Daedalus.ClientApi.getAccounts()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'JSONDecodingError', 'includes JSONDecodingError error message');
@@ -56,7 +56,7 @@ export default function () {
     })
 
     it('rejects with a HTTPStatusError if server response with 400', (done) => {
-      Daedalus.ClientApi.getWallets()
+      Daedalus.ClientApi.getAccounts()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'HTTPStatusError', 'HTTPStatusError error message');
@@ -72,7 +72,7 @@ export default function () {
     it('rejects with a ServerError if server response with Left', (done) => {
       const response = mockErrorResponse();
 
-      Daedalus.ClientApi.getWallets()
+      Daedalus.ClientApi.getAccounts()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'ServerError', 'ServerError error message');

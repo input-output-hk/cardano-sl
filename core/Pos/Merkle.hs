@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns       #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 -- | Merkle tree implementation.
 --

@@ -2,7 +2,11 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+{-# OPTIONS -fno-cross-module-specialise #-}
+
+module Main
+  ( main
+  ) where
 
 import           Universum
 
@@ -12,7 +16,6 @@ import           Data.Time.Units            (Microsecond, convertUnit)
 import           Formatting                 (float, int, sformat, (%))
 import           Mockable                   (Production, delay, forConcurrently, fork)
 import           Network.Transport.Abstract (Transport, hoistTransport)
-import           Options.Applicative        (execParser)
 import           Serokell.Util              (ms, sec)
 import           System.FilePath            ((</>))
 import           System.Random.Shuffle      (shuffleM)
@@ -20,30 +23,32 @@ import           System.Wlog                (logInfo)
 import           Test.QuickCheck            (arbitrary, generate)
 
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (ActionSpec (..), NodeId, PeerId, SendActions,
+import           Pos.Communication          (ActionSpec (..), NodeId, SendActions,
                                              convertSendActions, sendTxOuts, submitTxRaw,
                                              wrapSendActions)
 import           Pos.Constants              (genesisN, genesisSlotDuration,
                                              neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                 (hash)
-import           Pos.Discovery              (MonadDiscovery, findPeers, getPeers)
+import           Pos.Discovery              (DiscoveryContextSum (..), MonadDiscovery,
+                                             findPeers, getPeers)
 import           Pos.Genesis                (genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), bracketResources, initLrc,
-                                             runNode', runStaticMode, stakesDistr)
+                                             runNode', runRealMode, stakesDistr)
+import           Pos.Security               (SecurityParams (..), SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
-import           Pos.Txp                    (TxAux)
+import           Pos.Txp                    (TxAux (..))
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.JsonLog           ()
 import           Pos.Util.UserSecret        (simpleUserSecret)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Worker                 (allWorkers)
-import           Pos.WorkMode               (StaticMode)
+import           Pos.WorkMode               (RealMode)
 
-import           GenOptions                 (GenOptions (..), optsInfo)
+import           GenOptions                 (GenOptions (..), getGenOptions)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           TxAnalysis                 (checkWorker, createTxTimestamps,
                                              registerSentTx)
@@ -55,11 +60,11 @@ import           Util
 
 -- | Resend initTx with 'slotDuration' period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => SendActions (StaticMode ssc)
+           => SendActions (RealMode ssc)
            -> Double
            -> BambooPool
            -> TxAux
-           -> StaticMode ssc ()
+           -> RealMode ssc ()
 seedInitTx sendActions recipShare bp initTx = do
     na <- getPeersShare recipShare
     logInfo "Issuing seed transaction"
@@ -68,7 +73,7 @@ seedInitTx sendActions recipShare bp initTx = do
     delay genesisSlotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
-    isVer <- isTxVerified $ view _1 tx
+    isVer <- isTxVerified $ taTx tx
     if isVer
         then pure ()
         else seedInitTx sendActions recipShare bp initTx
@@ -92,16 +97,15 @@ getPeersShare share = do
 
 runSmartGen
     :: forall ssc.
-       SscConstraint ssc
-    => PeerId
-    -> Transport (StaticMode ssc)
+       (SscConstraint ssc, SecurityWorkersClass ssc)
+    => Transport (RealMode ssc)
     -> (Set NodeId)
     -> NodeParams
     -> SscParams ssc
     -> GenOptions
     -> Production ()
-runSmartGen peerId transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runStaticMode peerId transport peers np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
+runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
+  runRealMode (DCStatic peers) transport np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -183,10 +187,10 @@ runSmartGen peerId transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
                             logInfo "Resend the transaction parent again"
                             submitTxRaw sA na parent
 
-                        Right (transaction, witness, distr) -> do
+                        Right ta@(TxAux transaction _ _) -> do
                             let curTxId = hash transaction
                             logInfo $ sformat ("Sending transaction #"%int) idx
-                            submitTxRaw sA na (transaction, witness, distr)
+                            submitTxRaw sA na ta
                             when (startT >= startMeasurementsT) $ liftIO $ do
                                 atomically $ modifyTVar' realTxNum (+1)
                                 -- put timestamp to current txmap
@@ -234,7 +238,7 @@ runSmartGen peerId transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
 
 main :: IO ()
 main = do
-    opts@GenOptions {..} <- execParser optsInfo
+    opts@GenOptions {..} <- getGenOptions
 
     -- Check correctness of --m-of-n param
     case goMOfNParams of
@@ -252,7 +256,6 @@ main = do
             { lpRunnerTag     = "smart-gen"
             , lpHandlerPrefix = CLI.logPrefix goCommonArgs
             , lpConfigPath    = CLI.logConfig goCommonArgs
-            , lpEkgPort       = Nothing
             }
         baseParams =
             BaseParams
@@ -260,12 +263,11 @@ main = do
             }
 
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
-        let transport' :: forall ssc . Transport (StaticMode ssc)
+        let transport' :: forall ssc . Transport (RealMode ssc)
             transport' = hoistTransport
-                (powerLift :: forall t . Production t -> StaticMode ssc t)
+                (powerLift :: forall t . Production t -> RealMode ssc t)
                 transport
 
-        let peerId = CLI.peerId goCommonArgs
         let systemStart = CLI.sysStart goCommonArgs
 
         let params =
@@ -283,8 +285,6 @@ main = do
                                         (CLI.richPoorDistr goCommonArgs)
                                         (CLI.expDistr goCommonArgs)
                 , npJLFile        = goJLFile
-                , npAttackTypes   = []
-                , npAttackTargets = []
                 , npPropagation   = not (CLI.disablePropagation goCommonArgs)
                 , npReportServers = []
                 , npUpdateParams = UpdateParams
@@ -292,7 +292,14 @@ main = do
                     , upUpdateWithPkg = True
                     , upUpdateServers = []
                     }
+                , npSecurityParams = SecurityParams
+                    { spAttackTypes   = []
+                    , spAttackTargets = []
+                    }
                 , npUseNTP = True
+                , npEnableMetrics = False
+                , npEkgParams = Nothing
+                , npStatsdParams = Nothing
                 }
             gtParams =
                 GtParams
@@ -303,7 +310,7 @@ main = do
         case CLI.sscAlgo goCommonArgs of
             GodTossingAlgo -> do
                 putText "Using MPC coin tossing"
-                runSmartGen @SscGodTossing peerId transport' peerSet params gtParams opts
+                runSmartGen @SscGodTossing transport' peerSet params gtParams opts
             NistBeaconAlgo -> do
                 putText "Using NIST beacon"
-                runSmartGen @SscNistBeacon peerId transport' peerSet params () opts
+                runSmartGen @SscNistBeacon transport' peerSet params () opts

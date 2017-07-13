@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -11,9 +11,11 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 data-files:
-  constants-dev.yaml
-  constants-prod.yaml
-  constants-wallet-prod.yaml
+  constants.yaml
+
+flag asserts
+  default:     True
+  manual:      True
 
 flag dev-mode
   default:     True
@@ -35,11 +37,17 @@ library
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
+                       Pos.Core.Context
                        Pos.Core.Script
+                       Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
                        Pos.Core.Version
+
+                       Pos.Core.Genesis
+                       Pos.Core.Genesis.Parser
+                       Pos.Core.Genesis.Types
 
                        Pos.Crypto
                        Pos.Crypto.Encryption
@@ -59,35 +67,47 @@ library
 
                        Pos.Binary.Class
                        Pos.Binary.Crypto
+                       Pos.Binary.Merkle
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
+                       Pos.Binary.Core.Block
                        Pos.Binary.Core.Coin
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
+                       Pos.Binary.Core.Genesis
 
+                       Pos.Util.Concurrent
+                       Pos.Util.Concurrent.RWLock
+                       Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
                        Pos.Util.Config
                        Pos.Util.HVect
                        Pos.Util.Iterator
+                       Pos.Util.Limits
+                       Pos.Util.LRU
+                       Pos.Util.Mnemonics
                        Pos.Util.Modifier
                        Pos.Util.Util
-                       Pos.Util.Mnemonics
 
   other-modules:       Pos.Util.Config.Path
+                       Pos.Util.Config.Get
 
   build-depends:      QuickCheck
                     , aeson
                     , autoexporter
                     , base
                     , base58-bytestring
-                    , ether >= 0.5
+                    , concurrent-extra
+                    , ether >= 0.5.1
+                    , file-embed
                     , log-warper >= 1.0.3
+                    , mmorph
+                    , resourcet
+                    , stm
                     , transformers
                     , transformers-base
                     , transformers-lift
-                    , mmorph
-                    , resourcet
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump
@@ -98,6 +118,7 @@ library
                      , bytestring
                      , cardano-crypto
                      , cereal
+                     , concurrent-extra
                      , containers
                      , cryptonite
                      , cryptonite-openssl >= 0.5
@@ -112,6 +133,7 @@ library
                      , formatting
                      , hashable
                      , lens
+                     , lrucache
                      , memory
                      , mtl
                      , node-sketch
@@ -123,6 +145,7 @@ library
                      , safecopy
                      , semigroups
                      , serokell-util
+                     , stm
                      , tagged
                      , template-haskell
                      , text
@@ -164,7 +187,9 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON
   if flag(dev-mode)
-    cpp-options: -DDEV_MODE
+    cpp-options: -DDEV_MODE -DCONFIG=dev
   if flag(embed-config) || !flag(dev-mode)
     cpp-options: -DEMBED_CONFIG

@@ -47,6 +47,9 @@
     "purescript-node-fs": "v3.0.0",
     "purescript-node-buffer": "v2.0.0",
     "purescript-http-methods": "v2.0.0",
-    "purescript-maps": "v2.0.0"
+    "purescript-maps": "v2.0.0",
+    "purescript-int-53": "^2.1.1",
+    "purescript-foreign": "^3.2.0",
+    "purescript-form-urlencoded": "^2.0.0"
   }
 }

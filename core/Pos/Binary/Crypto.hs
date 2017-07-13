@@ -104,12 +104,13 @@ BiMacro(SecretProof, 64)
 ----------------------------------------------------------------------------
 
 secretKeyLength, publicKeyLength, signatureLength, chainCodeLength,
-    encryptedKeyLength :: Int
+    encryptedKeyLength, passphraseLength :: Int
 secretKeyLength = 32
 publicKeyLength = 32
 encryptedKeyLength = 96
 signatureLength = 64
 chainCodeLength = 32
+passphraseLength = 32
 
 putAssertLength :: Monad m => Text -> Int -> ByteString -> m ()
 putAssertLength typeName expectedLength bs =
@@ -189,23 +190,23 @@ instance (Bi w) => Bi (ProxySecretKey w) where
 
 instance (Bi w) => Bi (ProxySignature w a) where
     put ProxySignature{..} = do
-        put pdOmega
-        put pdDelegatePk
-        put pdCert
-        put pdSig
-    get = label "ProxySignature" $ liftM4 ProxySignature get get get get
+        put psigPsk
+        put psigSig
+    get = label "ProxySignature" $ liftM2 ProxySignature get get
 
 instance Bi PassPhrase where
     put pp = do
         -- currently passphrase may be 32-byte long, or empty
         -- (for unencrypted keys)
         let bs = BS.pack $ ByteArray.unpack pp
-        when (all (/= BS.length bs) [0, 32]) $ error $
+            bl = BS.length bs
+        unless (bl `elem` [0, 32]) $ error $
             sformat ("put@PassPhrase: expected length 0 or 32, not "%int)
-                (BS.length bs)
+                bl
         putByteString bs
     get = label "PassPhrase" $
-          ByteArray.pack . BS.unpack <$> (getByteString 32 <|> getByteString 0)
+          ByteArray.pack . BS.unpack <$>
+              (getByteString passphraseLength <|> getByteString 0)
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation

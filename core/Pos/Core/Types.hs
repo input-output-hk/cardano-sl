@@ -38,7 +38,6 @@ module Pos.Core.Types
        , ProxySKLight
        , ProxySigHeavy
        , ProxySKHeavy
-       , ProxySKEither
 
        , SharedSeed (..)
        , SlotLeaders
@@ -57,7 +56,8 @@ module Pos.Core.Types
         -- * Slotting
        , EpochIndex (..)
        , FlatSlotId
-       , LocalSlotIndex (..)
+       , LocalSlotIndex (getSlotIndex)
+       , mkLocalSlotIndex
        , SlotId (..)
        , EpochOrSlot (..)
        , slotIdF
@@ -71,6 +71,7 @@ module Pos.Core.Types
 
 import           Universum
 
+import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
 import           Data.Data                  (Data)
@@ -88,6 +89,7 @@ import           Serokell.AcidState         ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
 
+import           Pos.Core.Constants         (epochSlots)
 import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
@@ -228,8 +230,8 @@ headerHashF = build
 -- Proxy signatures and delegation
 ----------------------------------------------------------------------------
 
--- | Proxy signature used in csl -- holds a pair of epoch
--- indices. Block is valid if its epoch index is inside this range.
+-- | Proxy signature, that holds a pair of epoch indices. Block is
+-- valid if its epoch index is inside this range.
 type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 
 -- | Same alias for the proxy secret key (see 'ProxySigLight').
@@ -237,14 +239,12 @@ type ProxySKLight = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Simple proxy signature without ttl/epoch index
 -- constraints. 'EpochIndex' inside is needed for replay attack
--- prevention.
+-- prevention (it should match epoch of the block psk is announced
+-- in).
 type ProxySigHeavy a = ProxySignature EpochIndex a
 
--- | Correspondent SK for no-ttl proxy signature scheme.
+-- | Heavy delegation psk.
 type ProxySKHeavy = ProxySecretKey EpochIndex
-
--- | Some proxy secret key.
-type ProxySKEither = Either ProxySKLight ProxySKHeavy
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
@@ -341,7 +341,7 @@ unsafeCoinPortionFromDouble x
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -352,7 +352,25 @@ instance Buildable EpochIndex where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, Typeable, NFData)
+    } deriving (Show, Eq, Ord, Ix, Generic, Hashable, Buildable, Typeable, NFData)
+
+instance Bounded LocalSlotIndex where
+    minBound = LocalSlotIndex 0
+    maxBound = LocalSlotIndex (epochSlots - 1)
+
+instance Enum LocalSlotIndex where
+    toEnum i | i >= epochSlots = error "toEnum @LocalSlotIndex: greater than maxBound"
+             | i < 0 = error "toEnum @LocalSlotIndex: less than minBound"
+             | otherwise = LocalSlotIndex (fromIntegral i)
+    fromEnum = fromIntegral . getSlotIndex
+
+mkLocalSlotIndex :: MonadError Text m => Word16 -> m LocalSlotIndex
+mkLocalSlotIndex idx
+    | idx < epochSlots = pure (LocalSlotIndex idx)
+    | otherwise =
+        throwError $
+        "local slot is greater than or equal to the number of slots in epoch: " <>
+        show idx
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -363,7 +381,7 @@ data SlotId = SlotId
 
 instance Buildable SlotId where
     build SlotId {..} =
-        bprint (ords%" slot of "%ords%" epoch") siSlot siEpoch
+        bprint (ords%" slot of "%ords%" epoch") (getSlotIndex siSlot) siEpoch
 
 -- | Specialized formatter for 'SlotId'.
 slotIdF :: Format r (SlotId -> r)

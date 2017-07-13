@@ -23,21 +23,21 @@ import qualified Ether
 import qualified ListT                            as LT
 import           Mockable                         (Mockable, SharedAtomic, SharedAtomicT,
                                                    newSharedAtomic, readSharedAtomic)
-import           Pos.Communication.Types.Protocol (PeerId)
+import           Pos.Communication.Types.Protocol (NodeId)
 import qualified STMContainers.Map                as STM
 import           Universum
 
 import           Pos.Communication.Types.State
 import           Pos.Util.Util                    ()
 
-type PeerStateCtx m = STM.Map PeerId (SharedAtomicT m PeerState)
+type PeerStateCtx m = STM.Map NodeId (SharedAtomicT m PeerState)
 
 -- | PeerStateCtx with no dependency on `m` type.
-newtype PeerStateSnapshot = PeerStateSnapshot [(PeerId, PeerState)]
+newtype PeerStateSnapshot = PeerStateSnapshot [(NodeId, PeerState)]
 
 class WithPeerState m where
-    getPeerState   :: PeerId -> m (SharedAtomicT m PeerState)
-    clearPeerState :: PeerId -> m ()
+    getPeerState   :: NodeId -> m (SharedAtomicT m PeerState)
+    clearPeerState :: NodeId -> m ()
     getAllStates   :: m PeerStateSnapshot
 
 instance {-# OVERLAPPABLE #-}

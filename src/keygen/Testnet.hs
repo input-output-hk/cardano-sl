@@ -5,6 +5,7 @@ module Testnet
        , rearrangeKeyfile
        ) where
 
+import           Control.Lens         ((?~))
 import qualified Serokell.Util.Base64 as B64
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
                                        verifyGeneric)
@@ -14,15 +15,20 @@ import           Universum
 
 import           Pos.Binary           (asBinary)
 import qualified Pos.Constants        as Const
-import           Pos.Crypto           (PublicKey, RedeemPublicKey, SecretKey, keyGen,
-                                       noPassEncrypt, redeemDeterministicKeyGen,
+import           Pos.Core             (deriveLvl2KeyPair)
+import           Pos.Crypto           (EncryptedSecretKey, PublicKey, RedeemPublicKey,
+                                       SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
+                                       redeemDeterministicKeyGen, safeKeyGen,
                                        secureRandomBS, toPublic, toVssPublicKey,
                                        vssKeyGen)
-import           Pos.Genesis          (StakeDistribution (..))
+import           Pos.Genesis          (StakeDistribution (..), accountGenesisIndex,
+                                       wAddressGenesisIndex)
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
-import           Pos.Types            (coinPortionToDouble, unsafeIntegerToCoin)
+import           Pos.Types            (Address, coinPortionToDouble, unsafeIntegerToCoin)
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
-                                       usPrimKey, usVss, writeUserSecretRelease)
+                                       usPrimKey, usVss, usWalletSet,
+                                       writeUserSecretRelease)
+import           Pos.Wallet           (mkGenesisWalletUserSecret)
 
 import           KeygenOptions        (TestStakeOptions (..))
 
@@ -35,25 +41,35 @@ rearrangeKeyfile fp = do
 
 generateKeyfile
     :: (MonadIO m, MonadFail m, WithLogger m)
-    => Bool -> Maybe SecretKey -> FilePath -> m (PublicKey, VssCertificate)
+    => Bool
+    -> Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
+    -> FilePath
+    -> m (PublicKey, VssCertificate, Address)  -- ^ plain key, certificate & hd wallet account address
 generateKeyfile isPrim mbSk fp = do
     initializeUserSecret fp
-    sk <- case mbSk of
+    (sk, hdwSk) <- case mbSk of
         Just x  -> return x
-        Nothing -> snd <$> keyGen
+        Nothing -> (,) <$> (snd <$> keyGen) <*> (snd <$> safeKeyGen emptyPassphrase)
     vss <- vssKeyGen
     us <- takeUserSecret fp
+
     writeUserSecretRelease $
         us & (if isPrim
               then usPrimKey .~ Just sk
-              else usKeys %~ (noPassEncrypt sk :))
+              else (usKeys %~ (noPassEncrypt sk :))
+                 . (usWalletSet ?~ mkGenesisWalletUserSecret hdwSk))
            & usVss .~ Just vss
+
     expiry <- liftIO $
         fromIntegral <$>
         randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
-    return (toPublic sk, vssCert)
+        hdwAccountPk =
+            fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
+            deriveLvl2KeyPair emptyPassphrase hdwSk
+                accountGenesisIndex wAddressGenesisIndex
+    return (toPublic sk, vssCert, hdwAccountPk)
 
 generateFakeAvvm :: MonadIO m => FilePath -> m RedeemPublicKey
 generateFakeAvvm fp = do
@@ -69,7 +85,7 @@ genTestnetStakes TestStakeOptions{..} =
     checkConsistency $ RichPoorStakes {..}
   where
     richs = fromIntegral tsoRichmen
-    poors = fromIntegral tsoPoors
+    poors = fromIntegral tsoPoors * 2  -- for plain and hd wallet keys
     testStake = fromIntegral tsoTotalStake
 
     -- Calculate actual stakes

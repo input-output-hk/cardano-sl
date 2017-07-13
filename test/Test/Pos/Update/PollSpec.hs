@@ -8,6 +8,7 @@ module Test.Pos.Update.PollSpec
 
 import           Universum
 
+import           Control.Lens          (at)
 import           Data.DeriveTH         (derive, makeArbitrary)
 import qualified Data.HashSet          as HS
 import           Test.Hspec            (Spec, describe)
@@ -85,47 +86,59 @@ actionToMonad (DeactivateProposal ui)    = Poll.deactivateProposal ui
 actionToMonad (SetSlottingData sd)       = Poll.setSlottingData sd
 actionToMonad (SetEpochProposers hs)     = Poll.setEpochProposers hs
 
-applyActionToModifier :: PollAction -> Poll.PollModifier -> Poll.PollModifier
-applyActionToModifier (PutBVState bv bvs) = Poll.pmBVsL %~ MM.insert bv bvs
-applyActionToModifier (DelBVState bv) = Poll.pmBVsL %~ MM.delete bv
-applyActionToModifier (SetAdoptedBV bv) = \p ->
-    case MM.lookup (const Nothing) bv (Poll.pmBVs p) of
+applyActionToModifier
+    :: PollAction
+    -> Poll.PollState
+    -> Poll.PollModifier
+    -> Poll.PollModifier
+applyActionToModifier (PutBVState bv bvs) _ = Poll.pmBVsL %~ MM.insert bv bvs
+applyActionToModifier (DelBVState bv) _ = Poll.pmBVsL %~ MM.delete bv
+applyActionToModifier (SetAdoptedBV bv) pst = \p ->
+    case MM.lookup innerLookupFun bv (Poll.pmBVs p) of
         Nothing                    -> p
         Just (Poll.bvsData -> bvd) -> p { Poll.pmAdoptedBVFull = Just (bv, bvd) }
-applyActionToModifier (SetLastConfirmedSV SoftwareVersion {..}) =
+  where
+    innerLookupFun k = pst ^. Poll.psBlockVersions . at k
+applyActionToModifier (SetLastConfirmedSV SoftwareVersion {..}) _ =
     Poll.pmConfirmedL %~ MM.insert svAppName svNumber
-applyActionToModifier (DelConfirmedSV an) = Poll.pmConfirmedL %~ MM.delete an
-applyActionToModifier (AddConfirmedProposal cps) =
+applyActionToModifier (DelConfirmedSV an) _ = Poll.pmConfirmedL %~ MM.delete an
+applyActionToModifier (AddConfirmedProposal cps) _ =
     Poll.pmConfirmedPropsL %~ MM.insert (Poll.cpsSoftwareVersion cps) cps
-applyActionToModifier (DelConfirmedProposal sv) = Poll.pmConfirmedPropsL %~ MM.delete sv
-applyActionToModifier (InsertActiveProposal ps) = \p ->
+applyActionToModifier (DelConfirmedProposal sv) _ = Poll.pmConfirmedPropsL %~ MM.delete sv
+applyActionToModifier (InsertActiveProposal ps) pst = \p ->
     let up@Poll.UnsafeUpdateProposal{..} = Poll.psProposal ps
         upId = hash up
-        p' = case MM.lookup (const Nothing) upId (Poll.pmActiveProps p) of
+        p' = case MM.lookup innerLookupFun upId (Poll.pmActiveProps p) of
             Nothing -> p
             Just _ -> p & Poll.pmEpochProposersL %~ fmap (HS.insert (addressHash upFrom))
     in p' & (Poll.pmActivePropsL %~ MM.insert upId ps)
-applyActionToModifier (DeactivateProposal ui) = \p ->
-    let proposal = MM.lookup (const Nothing) ui (Poll.pmActiveProps p)
+  where
+    innerLookupFun k = pst ^. Poll.psActiveProposals . at k
+
+applyActionToModifier (DeactivateProposal ui) pst = \p ->
+    let proposal = MM.lookup innerLookupFun ui (Poll.pmActiveProps p)
     in case proposal of
            Nothing -> p
            Just ps ->
                let up = Poll.psProposal ps
                    upId = hash up
                in p & (Poll.pmActivePropsL %~ MM.delete upId)
+  where
+    innerLookupFun k = pst ^. Poll.psActiveProposals . at k
 
-applyActionToModifier (SetSlottingData sd) = Poll.pmSlottingDataL .~ (Just sd)
-applyActionToModifier (SetEpochProposers hs) = Poll.pmEpochProposersL .~ (Just hs)
+applyActionToModifier (SetSlottingData sd) _ = Poll.pmSlottingDataL .~ (Just sd)
+applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
 
 type PollActions = [PollAction]
 
-applyActions
-    :: Poll.PollState -> PollActions -> Property
+applyActions :: Poll.PollState -> PollActions -> Property
 applyActions ps actionList =
     let pollSts = fmap (actionToMonad @Poll.PurePoll) actionList
-        -- 'resultModifiers' has an additional 'mempty' poll modifier up front, so we
-        -- add the initial poll state at the head of 'resultPStates' to make up for that.
-        resultModifiers = scanl (flip applyActionToModifier) mempty actionList
+        -- 'resultModifiers' has a 'mempty' poll modifier up front, so 'newPollStates'
+        -- has two 'ps's in the head of the list. As such another 'ps' is added
+        -- at the head of 'resultPStates' to make up for that.
+        resultModifiers =
+            scanl (\pmod act -> applyActionToModifier act ps pmod) mempty actionList
         resultPStates = ps : scanl Poll.execPurePollWithLogger ps pollSts
         newPollStates = scanl (flip Poll.modifyPollState) ps resultModifiers
     in conjoin $ zipWith (===) resultPStates newPollStates

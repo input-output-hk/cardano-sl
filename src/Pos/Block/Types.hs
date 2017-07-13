@@ -6,22 +6,23 @@ module Pos.Block.Types
        , Blund
        ) where
 
+import           Universum
+
 import           Data.Default          (Default (def))
 import qualified Data.Text.Buildable
 import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
-import           Universum
 
-import           Pos.Core              (HasDifficulty (..), HasHeaderHash (..),
-                                        ProxySKHeavy)
+import           Pos.Block.Core        (BiSsc, Block)
+import           Pos.Core              (HasDifficulty (..), HasHeaderHash (..))
+import           Pos.Delegation.Types  (DlgUndo)
 import           Pos.Txp.Core          (TxpUndo)
-import           Pos.Types.Block       (BiSsc, Block)
 import           Pos.Update.Poll.Types (USUndo)
 
 -- | Structure for undo block during rollback
 data Undo = Undo
     { undoTx  :: !TxpUndo
-    , undoPsk :: ![ProxySKHeavy] -- ^ PSKs we've overwritten/deleted
+    , undoPsk :: !DlgUndo
     , undoUS  :: !USUndo
     } deriving (Generic)
 

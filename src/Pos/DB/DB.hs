@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -9,49 +10,51 @@ module Pos.DB.DB
        , initNodeDBs
        , getTip
        , getTipBlock
-       , getTipBlockHeader
+       , getTipHeader
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
-       , DbCoreRedirect
-       , runDbCoreRedirect
+
+       , GStateCoreRedirect
+       , runGStateCoreRedirect
        ) where
 
 import           Universum
 
-import qualified Control.Concurrent.ReadWriteLock as RWL
-import           Control.Monad.Catch              (MonadMask)
-import           Control.Monad.Trans.Identity     (IdentityT (..))
-import           Data.Coerce                      (coerce)
+import           Control.Monad.Catch          (MonadMask)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
 import qualified Ether
-import           System.Directory                 (createDirectoryIfMissing,
-                                                   doesDirectoryExist,
-                                                   removeDirectoryRecursive)
-import           System.FilePath                  ((</>))
-import           System.Wlog                      (WithLogger)
+import           System.Directory             (createDirectoryIfMissing,
+                                               doesDirectoryExist,
+                                               removeDirectoryRecursive)
+import           System.FilePath              ((</>))
+import           System.Wlog                  (WithLogger)
 
-import           Pos.Block.Pure                   (mkGenesisBlock)
-import           Pos.Block.Types                  (Blund)
-import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
-                                                   NodeParams)
-import           Pos.Context.Functions            (genesisLeadersM)
-import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
-                                                   loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                     (MonadDB, MonadDBCore (..))
-import           Pos.DB.Error                     (DBError (DBMalformed))
-import           Pos.DB.Functions                 (openDB)
-import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
-import           Pos.DB.GState.Common             (getTip)
-import           Pos.DB.GState.GState             (prepareGStateDB, sanityCheckGStateDB)
-import           Pos.DB.Misc                      (prepareMiscDB)
-import           Pos.DB.Types                     (NodeDBs (..))
-import           Pos.Lrc.DB                       (prepareLrcDB)
-import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
-import           Pos.Types                        (Block, BlockHeader, getBlockHeader,
-                                                   headerHash)
-import           Pos.Update.DB                    (getAdoptedBVData)
-import           Pos.Util                         (inAssertMode)
-import           Pos.Util.Chrono                  (NewestFirst)
+import           Pos.Block.Core               (Block, mkGenesisBlock)
+import           Pos.Block.Types              (Blund)
+import           Pos.Context.Context          (GenesisLeaders, GenesisUtxo, NodeParams)
+import           Pos.Context.Functions        (genesisLeadersM)
+import           Pos.Core                     (headerHash)
+import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
+                                               loadBlundsByDepth, loadBlundsWhile,
+                                               prepareBlockDB)
+import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
+                                               MonadGState (..), MonadRealDB)
+import           Pos.DB.Functions             (openDB)
+import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
+import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
+import           Pos.DB.GState.GState         (prepareGStateDB, sanityCheckGStateDB)
+import           Pos.DB.Misc                  (prepareMiscDB)
+import           Pos.DB.Types                 (NodeDBs (..))
+import           Pos.Lrc.DB                   (prepareLrcDB)
+import           Pos.Update.DB                (getAdoptedBVData)
+import           Pos.Util                     (inAssertMode)
+import           Pos.Util.Chrono              (NewestFirst)
+import qualified Pos.Util.Concurrent.RWLock   as RWL
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.DB              (prepareExplorerDB)
+#endif
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -77,17 +80,18 @@ openNodeDBs recreate fp = do
     _gStateDB <- openDB gStatePath
     _lrcDB <- openDB lrcPath
     _miscDB <- openDB miscPath
-    _miscLock <- liftIO RWL.new
+    _miscLock <- RWL.new
     pure NodeDBs {..}
 
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc m.
-       ( SscHelpersClass ssc
-       , Ether.MonadReader' GenesisUtxo m
+       ( Ether.MonadReader' GenesisUtxo m
        , Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' NodeParams m
-       , MonadDB m )
+       , MonadBlockDBWrite ssc m
+       , MonadDB m
+       )
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM
@@ -98,37 +102,26 @@ initNodeDBs = do
     prepareGStateBlockExtra initialTip
     prepareLrcDB
     prepareMiscDB
-
--- | Get block corresponding to tip.
-getTipBlock
-    :: (SscHelpersClass ssc, MonadDB m)
-    => m (Block ssc)
-getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
-  where
-    onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
-
--- | Get BlockHeader corresponding to tip.
-getTipBlockHeader
-    :: (SscHelpersClass ssc, MonadDB m)
-    => m (BlockHeader ssc)
-getTipBlockHeader = getBlockHeader <$> getTipBlock
+#ifdef WITH_EXPLORER
+    prepareExplorerDB
+#endif
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m, MonadDBRead m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m, MonadDBRead m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, MonadDB m, WithLogger m)
+    :: (MonadMask m, MonadRealDB m, WithLogger m, MonadDBRead m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 
@@ -142,19 +135,19 @@ ensureDirectoryExists
 ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 ----------------------------------------------------------------------------
--- MonadDBCore instance
+-- MonadGState instance
 ----------------------------------------------------------------------------
 
-data DbCoreRedirectTag
+data GStateCoreRedirectTag
 
-type DbCoreRedirect =
-    Ether.TaggedTrans DbCoreRedirectTag IdentityT
+type GStateCoreRedirect =
+    Ether.TaggedTrans GStateCoreRedirectTag IdentityT
 
-runDbCoreRedirect :: DbCoreRedirect m a -> m a
-runDbCoreRedirect = coerce
+runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
+runGStateCoreRedirect = coerce
 
 instance
-    (MonadDB m, t ~ IdentityT) =>
-        MonadDBCore (Ether.TaggedTrans DbCoreRedirectTag t m)
+    (MonadDBRead m, t ~ IdentityT) =>
+        MonadGState (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
-    dbAdoptedBVData = getAdoptedBVData
+    gsAdoptedBVData = getAdoptedBVData

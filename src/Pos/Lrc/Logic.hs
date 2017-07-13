@@ -14,43 +14,32 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Universum
 
-import           Pos.Crypto.Signing  (pskDelegatePk)
-import           Pos.DB.Class        (MonadDB)
-import           Pos.DB.GState       (getEffectiveStake, isIssuerByAddressHash,
-                                      runPskMapIterator)
+import           Pos.DB.Class        (MonadRealDB, MonadDBRead)
+import           Pos.DB.GState       (getDelegators, getEffectiveStake,
+                                      isIssuerByAddressHash)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
-import           Pos.Types           (Coin, StakeholderId, addressHash, sumCoins,
-                                      unsafeIntegerToCoin)
-import           Pos.Util.Iterator   (MonadIterator (nextItem), runListHolder,
-                                      runListHolderT)
+import           Pos.Types           (Coin, StakeholderId, sumCoins, unsafeIntegerToCoin)
+import           Pos.Util.Iterator   (MonadIterator, runListHolder, runListHolderT)
 
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.
 findDelRichUsingPrecomp
     :: forall m.
-       MonadDB m
+       (MonadRealDB m, MonadDBRead m)
     => RichmenStake -> Coin -> m RichmenStake
 findDelRichUsingPrecomp precomputed t = do
-    delIssMap <- computeDelIssMap
+    delIssMap <- getDelegators
     (old, new) <- runListHolderT @(StakeholderId, [StakeholderId])
                       (findDelegationStakes isIssuerByAddressHash getEffectiveStake t)
                       (HM.toList delIssMap)
     -- attention: order of new and precomputed is important
     -- we want to use new balances (computed from delegated) of precomputed richmen
     pure (new `HM.union` (precomputed `HM.difference` (HS.toMap old)))
-  where
-    computeDelIssMap :: m (HashMap StakeholderId [StakeholderId])
-    computeDelIssMap =
-        runPskMapIterator (step mempty) conv
-    step hm = nextItem >>= maybe (pure hm) (\(iss, del) -> do
-        let curList = HM.lookupDefault [] del hm
-        step (HM.insert del (iss:curList) hm))
-    conv (id, cert) = (id, addressHash (pskDelegatePk cert))
 
 -- | Find delegated richmen.
 findDelegatedRichmen
-    :: (MonadDB m, MonadIterator (StakeholderId, Coin) m)
+    :: (MonadRealDB m, MonadDBRead m, MonadIterator (StakeholderId, Coin) m)
     => Coin -> m RichmenStake
 findDelegatedRichmen t =
     findRichmenStake t >>= flip findDelRichUsingPrecomp t
@@ -59,7 +48,7 @@ findDelegatedRichmen t =
 -- and compute using one pass by stake DB and one pass by delegation DB.
 findAllRichmenMaybe
     :: forall m.
-       (MonadDB m, MonadIterator (StakeholderId, Coin) m)
+       (MonadRealDB m, MonadDBRead m, MonadIterator (StakeholderId, Coin) m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
     -> m (RichmenStake, RichmenStake)

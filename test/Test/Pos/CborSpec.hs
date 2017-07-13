@@ -44,13 +44,13 @@ import           Pos.Delegation.Types
 import           Pos.Infra.Arbitrary ()
 import           Pos.Slotting.Arbitrary ()
 import           Pos.Slotting.Types
+import           Pos.Ssc.GodTossing
 import           Pos.Ssc.GodTossing.Arbitrary ()
-import           Pos.Ssc.GodTossing.Core.Types
-import           Pos.Ssc.GodTossing.Types.Message
 import           Pos.Txp hiding (Unknown)
 import           Pos.Update.Arbitrary ()
 import           Pos.Update.Core
 import           Pos.Update.Poll
+import           Pos.Util.Chrono
 import           Test.Hspec (Spec, describe, it, pendingWith)
 import           Test.QuickCheck
 import           Universum
@@ -80,13 +80,16 @@ deriveSimpleBi ''MyScript [
 -- Type to be used to simulate a breaking change in the serialisation
 -- schema, so we can test instances which uses the `UnknownXX` pattern
 -- for extensibility.
-data U = U Word8 BS.ByteString
+data U = U Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U where
   encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encode bs
   decode = do
     decodeListLenOf 2
     U <$> decode <*> decode
+
+instance Arbitrary U where
+  arbitrary = U <$> choose (0, 255) <*> arbitrary
 
 ----------------------------------------
 
@@ -248,7 +251,7 @@ spec = describe "Cbor.Bi instances" $ do
         prop "DHTKey" (soundInstanceProperty @DHTKey Proxy)
         prop "DHTData" (soundInstanceProperty @DHTData Proxy)
         prop "MessageName" (soundInstanceProperty @MessageName Proxy)
-        prop "HandlerSpec" (soundInstanceProperty @HandlerSpec Proxy)
+        prop "HandlerSpec" (soundInstanceProperty @HandlerSpec Proxy .&&. extensionProperty @HandlerSpec Proxy)
         prop "VerInfo" (soundInstanceProperty @VerInfo Proxy)
         prop "DlgPayload" (soundInstanceProperty @DlgPayload Proxy)
         prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData Proxy)
@@ -276,6 +279,14 @@ spec = describe "Cbor.Bi instances" $ do
         prop "MainExtraBodyData" (soundInstanceProperty @MainExtraBodyData Proxy)
         prop "GenesisExtraHeaderData" (soundInstanceProperty @GenesisExtraHeaderData Proxy)
         prop "GenesisExtraBodyData" (soundInstanceProperty @GenesisExtraBodyData Proxy)
+        prop "GtTag" (soundInstanceProperty @GtTag Proxy)
+        prop "TossModifier" (soundInstanceProperty @TossModifier Proxy)
+        prop "VssCertData" (soundInstanceProperty @VssCertData Proxy)
+        prop "GtGlobalState" (soundInstanceProperty @GtGlobalState Proxy)
+        prop "GtSecretStorage" (soundInstanceProperty @GtSecretStorage Proxy)
+        prop "GenesisGtData" (soundInstanceProperty @GenesisGtData Proxy)
+        prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U) Proxy)
+        prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U) Proxy)
         -- Pending specs
         it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
@@ -292,12 +303,13 @@ spec = describe "Cbor.Bi instances" $ do
         pendingDependsOnAddress "GenesisCoreData"
         pendingDependsOnAddress "TxPayload"
         pendingDependsOnAddress "TxAux"
-        pendingDependsOnAddress "TxInWitness"
+        pendingDependsOnAddress "TxInWitness (needs UknownXX testing)"
         pendingDependsOnAddress "Tx"
         pendingDependsOnAddress "TxOutAux"
         pendingDependsOnAddress "TxOut"
         pendingDependsOnAddress "DataMsg TxMsgContents"
         -- Pending specs which doesn't have an `Arbitrary` instance defined.
+        pendingNoArbitrary "Undo"
         pendingNoArbitrary "BackupPhrase"
         pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
         pendingNoArbitrary "DataMsg UpdateVote"

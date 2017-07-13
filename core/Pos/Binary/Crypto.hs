@@ -144,9 +144,22 @@ instance Bi SecretSharingExtra where
 
 deriving instance Bi (AsBinary SecretSharingExtra)
 
+instance Cbor.Bi Pvss.ExtraGen where
+    encode = Cbor.encodeBinary
+    decode = Cbor.decodeBinary
+
+instance Cbor.Bi Pvss.Commitment where
+    encode = Cbor.encodeBinary
+    decode = Cbor.decodeBinary
+
 instance Cbor.Bi SecretSharingExtra where
-    encode = error "encode SecretSharingExtra"
-    decode = error "decode SecretSharingExtra"
+    encode (SecretSharingExtra eg comms) = Cbor.encodeListLen 2
+                                        <> Cbor.encode eg
+                                        <> Cbor.encode comms
+    decode = SecretSharingExtra
+          <$  Cbor.enforceSize "SecretSharingExtra" 2
+          <*> Cbor.decode
+          <*> Cbor.decode
 
 deriving instance Cbor.Bi (AsBinary SecretSharingExtra)
 
@@ -297,8 +310,13 @@ instance Bi EncryptedSecretKey where
     get = label "EncryptedSecretKey" $ liftM2 EncryptedSecretKey get get
 
 instance Cbor.Bi EncryptedSecretKey where
-    encode (EncryptedSecretKey sk pph) = Cbor.encode sk <> Cbor.encode pph
-    decode = EncryptedSecretKey <$> Cbor.decode <*> Cbor.decode
+    encode (EncryptedSecretKey sk pph) = Cbor.encodeListLen 2
+                                      <> Cbor.encode sk
+                                      <> Cbor.encode pph
+    decode = EncryptedSecretKey
+         <$  Cbor.enforceSize "EncryptedSecretKey" 2
+         <*> Cbor.decode
+         <*> Cbor.decode
 
 instance Bi a => Bi (Signed a) where
     size = Bi.combineSize (signedValue, signedSig)
@@ -306,8 +324,13 @@ instance Bi a => Bi (Signed a) where
     get = label "Signed" $ Signed <$> get <*> get
 
 instance Cbor.Bi a => Cbor.Bi (Signed a) where
-    encode (Signed v s) = Cbor.encode v <> Cbor.encode s
-    decode = Signed <$> Cbor.decode <*> Cbor.decode
+    encode (Signed v s) = Cbor.encodeListLen 2
+                       <> Cbor.encode v
+                       <> Cbor.encode s
+    decode = Signed
+         <$  Cbor.enforceSize "Signed" 2
+         <*> Cbor.decode
+         <*> Cbor.decode
 
 deriving instance Bi (ProxyCert w)
 deriving instance Cbor.Bi (ProxyCert w)
@@ -321,11 +344,13 @@ instance (Bi w) => Bi (ProxySecretKey w) where
     get = label "ProxySecretKey" $ liftM4 ProxySecretKey get get get get
 
 instance Cbor.Bi w => Cbor.Bi (ProxySecretKey w) where
-    encode ProxySecretKey{..} = Cbor.encode pskOmega
+    encode ProxySecretKey{..} = Cbor.encodeListLen 4
+                             <> Cbor.encode pskOmega
                              <> Cbor.encode pskIssuerPk
                              <> Cbor.encode pskDelegatePk
                              <> Cbor.encode pskCert
-    decode = ProxySecretKey <$> Cbor.decode
+    decode = ProxySecretKey <$  Cbor.enforceSize "ProxySecretKey" 4
+                            <*> Cbor.decode
                             <*> Cbor.decode
                             <*> Cbor.decode
                             <*> Cbor.decode
@@ -335,8 +360,13 @@ instance (Bi w) => Bi (ProxySignature w a) where
     get = label "ProxySignature" $ liftM2 ProxySignature get get
 
 instance Cbor.Bi w => Cbor.Bi (ProxySignature w a) where
-    encode ProxySignature{..} = Cbor.encode psigPsk <> Cbor.encode psigSig
-    decode = ProxySignature <$> Cbor.decode <*> Cbor.decode
+    encode ProxySignature{..} = Cbor.encodeListLen 2
+                             <> Cbor.encode psigPsk
+                             <> Cbor.encode psigSig
+    decode = ProxySignature
+          <$  Cbor.enforceSize "ProxySignature" 2
+          <*> Cbor.decode
+          <*> Cbor.decode
 
 instance Bi PassPhrase where
     size = ConstSize passphraseLength

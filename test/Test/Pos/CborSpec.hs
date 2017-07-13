@@ -24,6 +24,8 @@ import           Pos.Binary.Crypto ()
 import           Pos.Binary.GodTossing ()
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Relay ()
+import           Pos.Block.Arbitrary ()
+import           Pos.Block.Core
 import           Pos.Communication.Protocol
 import           Pos.Communication.Types.Relay (DataMsg)
 import           Pos.Core.Arbitrary ()
@@ -270,6 +272,8 @@ spec = describe "Cbor.Bi instances" $ do
         prop "TxDistribution" (soundInstanceProperty @TxDistribution Proxy)
         prop "TxSigData" (soundInstanceProperty @TxSigData Proxy)
         prop "TxProof" (soundInstanceProperty @TxProof Proxy)
+        prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData Proxy)
+        prop "MainExtraBodyData" (soundInstanceProperty @MainExtraBodyData Proxy)
         -- Pending specs
         it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"

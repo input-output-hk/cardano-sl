@@ -15,11 +15,9 @@ import Control.Monad.IO.Class
 import Data.Function
 import Data.Set (Set)
 import Data.Text (Text)
-import Formatting (sformat, (%), shown, later)
+import Formatting (sformat, (%), shown)
 import System.Wlog
 import qualified Data.Set as Set
-import qualified Data.Text as T
-import qualified Data.Text.Internal.Builder as T (fromText)
 
 import Network.Broadcast.OutboundQueue (OutboundQ)
 import Network.Broadcast.OutboundQueue.Classification
@@ -172,9 +170,8 @@ mkMsg msgSender msgType msgId = msg
 instance Eq  Msg where (==) = (==) `on` msgId
 instance Ord Msg where (<=) = (<=) `on` msgId
 
-instance ClassifyMsg Msg_ where
-  classifyMsg = msgType
-  formatMsg = later $ \Msg{..} -> T.fromText . T.pack $ show (msgType, msgId)
+instance FormatMsg Msg_ where
+  formatMsg = (\k Msg{..} -> k (msgType, msgId)) <$> shown
 
 {-------------------------------------------------------------------------------
   Model of a node
@@ -224,7 +221,7 @@ newNode nodeCfg@NodeCfg{..} = mdo
       added <- addToMsgPool nodeMsgPool msg
       if added then do
         logNotice $ sformat (shown % ": received " % formatMsg) nodeId msg
-        OutQ.enqueue nodeOutQ msg (OutQ.OriginForward (msgSender msg)) mempty
+        OutQ.enqueue nodeOutQ (msgType msg) msg (OutQ.OriginForward (msgSender msg)) mempty
       else do
         logDebug $ sformat (shown % ": discarded " % formatMsg) nodeId msg
     let node = Node{..}
@@ -240,15 +237,14 @@ send msg@Msg{msgSender = Node{nodeCfg = NodeCfg{..}, ..}} = do
     logNotice $ sformat (shown % ": enqueue " % formatMsg) nodeId msg
     liftIO $ modifyMVar_ nodeMsgPool $ \msgPool ->
                return $! Set.insert msg msgPool
-    OutQ.enqueue nodeOutQ msg OutQ.OriginSender mempty
+    OutQ.enqueue nodeOutQ (msgType msg) msg OutQ.OriginSender mempty
 
 sendSync :: Msg -> Enqueue ()
 sendSync msg@Msg{msgSender = Node{nodeCfg = NodeCfg{..}, ..}} = do
     logNotice $ sformat (shown % ": enqueueSync " % formatMsg) nodeId msg
     liftIO $ modifyMVar_ nodeMsgPool $ \msgPool ->
                return $! Set.insert msg msgPool
-    OutQ.enqueueSync nodeOutQ msg OutQ.OriginSender mempty
-
+    OutQ.enqueueSync nodeOutQ (msgType msg) msg OutQ.OriginSender mempty
 
 {-------------------------------------------------------------------------------
   Message pool

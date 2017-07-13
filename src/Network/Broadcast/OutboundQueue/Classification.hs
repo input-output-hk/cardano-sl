@@ -4,7 +4,7 @@
 module Network.Broadcast.OutboundQueue.Classification (
     MsgType(..)
   , NodeType(..)
-  , ClassifyMsg(..)
+  , FormatMsg(..)
   ) where
 
 import Formatting
@@ -57,7 +57,5 @@ data NodeType =
   | NodeRelay
   deriving (Show, Eq, Ord)
 
--- | Classify a message (to determine precedence)
-class ClassifyMsg msg where
-  classifyMsg :: forall a. msg a -> MsgType
+class FormatMsg msg where
   formatMsg :: forall r a. Format r (msg a -> r)

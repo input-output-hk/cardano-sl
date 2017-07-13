@@ -341,6 +341,9 @@ data Packet msg nid a = Packet {
     -- | The actual payload of the message
     packetPayload :: msg a
 
+    -- | Type of the message
+  , packetMsgType :: MsgType
+
     -- | Type of the node the packet needs to be sent to
   , packetDestType :: NodeType
 
@@ -428,7 +431,7 @@ inFlightWithPrec nid prec = inFlightTo nid . at prec . anon 0 (== 0)
 
 -- | The outbound queue (opaque data structure)
 data OutboundQ msg nid = forall self .
-                         ( ClassifyMsg msg
+                         ( FormatMsg msg
                          , Ord nid
                          , Show nid
                          , Show self
@@ -456,9 +459,9 @@ data OutboundQ msg nid = forall self .
 
       -- | Recent communication failures
     , qFailures :: MVar (Failures nid)
-
       -- | Used to send control messages to the main thread
     , qCtrlMsg :: MVar CtrlMsg
+
 
       -- | Signal we use to wake up blocked threads
     , qSignal :: Signal CtrlMsg
@@ -468,7 +471,7 @@ data OutboundQ msg nid = forall self .
 --
 -- NOTE: The dequeuing thread must be started separately. See 'dequeueThread'.
 new :: ( MonadIO m
-       , ClassifyMsg msg
+       , FormatMsg msg
        , Ord nid
        , Show nid
        , Show self
@@ -502,12 +505,13 @@ new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
 
 intEnqueue :: forall m msg nid a. (MonadIO m, WithLogger m)
            => OutboundQ msg nid
+           -> MsgType
            -> msg a
            -> Origin nid
            -> Peers nid
            -> m [Packet msg nid a]
-intEnqueue outQ@OutQ{..} msg origin peers = fmap concat $
-    forM (qEnqueuePolicy (classifyMsg msg) origin) $ \enq@Enqueue{..} -> do
+intEnqueue outQ@OutQ{..} msgType msg origin peers = fmap concat $
+    forM (qEnqueuePolicy msgType origin) $ \enq@Enqueue{..} -> do
 
       let fwdSets :: AllOf (Alts nid)
           fwdSets = removeOrigin origin $ peers ^. peersOfType enqNodeType
@@ -534,6 +538,7 @@ intEnqueue outQ@OutQ{..} msg origin peers = fmap concat $
                 let packet = Packet {
                                  packetPayload  = msg
                                , packetDestId   = alt
+                               , packetMsgType  = msgType
                                , packetDestType = enqNodeType
                                , packetPrec     = enqPrecedence
                                , packetSent     = sentVar
@@ -750,7 +755,7 @@ intFailure OutQ{..} threadRegistry@TR{} p sendExecTime err = do
     delay :: Int
     ReconsiderAfter delay =
       qFailurePolicy (packetDestType p)
-                     (classifyMsg (packetPayload p))
+                     (packetMsgType  p)
                      err
 
 hasRecentFailure :: MonadIO m => OutboundQ msg nid -> nid -> m Bool
@@ -794,13 +799,14 @@ instance Functor Origin where
 -- make integration easier.
 enqueue :: (MonadIO m, WithLogger m)
         => OutboundQ msg nid
+        -> MsgType    -- ^ Type of the message being sent (to determine policy)
         -> msg a      -- ^ Message to send
         -> Origin nid -- ^ Origin of this message
         -> Peers nid  -- ^ Additional peers (in addition to subscribers)
         -> m ()
-enqueue outQ@OutQ{..} msg origin peers' = do
+enqueue outQ@OutQ{..} msgType msg origin peers' = do
     peers    <- liftIO $ readMVar qPeers
-    _packets <- intEnqueue outQ msg origin (peers <> peers')
+    _packets <- intEnqueue outQ msgType msg origin (peers <> peers')
     -- Don't wait for any results
     return ()
 
@@ -810,13 +816,14 @@ enqueue outQ@OutQ{..} msg origin peers' = do
 -- send action (or an exception if it failed).
 enqueueSync' :: (MonadIO m, WithLogger m)
              => OutboundQ msg nid
+             -> MsgType    -- ^ Type of the message being sent
              -> msg a      -- ^ Message to send
              -> Origin nid -- ^ Origin of this message
              -> Peers nid  -- ^ Additional peers (in addition to subscribers)
              -> m [(nid, Either SomeException a)]
-enqueueSync' outQ@OutQ{..} msg origin peers' = do
+enqueueSync' outQ@OutQ{..} msgType msg origin peers' = do
     peers   <- liftIO $ readMVar qPeers
-    packets <- intEnqueue outQ msg origin (peers <> peers')
+    packets <- intEnqueue outQ msgType msg origin (peers <> peers')
     liftIO $ forM packets $ \p -> (packetDestId p, ) <$> readMVar (packetSent p)
 
 -- | Queue a message and wait for it to have been sent
@@ -828,12 +835,13 @@ enqueueSync' outQ@OutQ{..} msg origin peers' = do
 -- asynchronous API).
 enqueueSync :: forall m msg nid a. (MonadIO m, WithLogger m)
             => OutboundQ msg nid
+            -> MsgType    -- ^ Type of the message being sent
             -> msg a      -- ^ Message to send
             -> Origin nid -- ^ Origin of this message
             -> Peers nid  -- ^ Additional peers (in addition to subscribers)
             -> m ()
-enqueueSync outQ@OutQ{..} msg origin peers = do
-    attempts <- enqueueSync' outQ msg origin peers
+enqueueSync outQ@OutQ{..} msgType msg origin peers = do
+    attempts <- enqueueSync' outQ msgType msg origin peers
 
     let succs :: [a]
         succs = rights (map snd attempts)
@@ -854,14 +862,15 @@ enqueueSync outQ@OutQ{..} msg origin peers = do
 -- Returns 'True' if the message was successfully sent.
 enqueueTreasured :: forall m msg nid a. (MonadIO m, WithLogger m)
                  => OutboundQ msg nid
+                 -> MsgType
                  -> msg a
                  -> Peers nid
                  -> m Bool
-enqueueTreasured outQ msg peers = go
+enqueueTreasured outQ msgType msg peers = go
   where
     go :: m Bool
     go = do
-      attempts <- enqueueSync' outQ msg OriginSender peers
+      attempts <- enqueueSync' outQ msgType msg OriginSender peers
 
       let succs :: [a]
           succs = rights (map snd attempts)
@@ -1121,9 +1130,8 @@ timed act = do
 newtype ClassifiedConversation peerData packingType peer m t =
     ClassifiedConversation (MsgType, Origin peer, peer -> peerData -> Conversation packingType m t)
 
-instance ClassifyMsg (ClassifiedConversation peerData packingType peer m) where
-    classifyMsg (ClassifiedConversation (msgClass, _, _)) = msgClass
-    formatMsg = flip fmap shown $ \k -> \(ClassifiedConversation (msgClass, _, _)) -> k msgClass
+instance FormatMsg (ClassifiedConversation peerData packingType peer m) where
+  formatMsg = flip fmap shown $ \k -> \(ClassifiedConversation (msgClass, _, _)) -> k msgClass
 
 -- | Use an OutboundQ as an OutboundQueue.
 asOutboundQueue
@@ -1161,6 +1169,6 @@ asOutboundQueue oq mkNodeId mkNodeType mkMsgType mkOrigin converse = do
     enqueueIt peers msg conversation = do
         let peers' = simplePeers ((\nid -> (mkNodeType nid, nid)) <$> Set.toList peers)
             cc = ClassifiedConversation (mkMsgType msg, mkOrigin msg, conversation)
-        tlist <- enqueueSync' oq cc (mkOrigin msg) peers'
+        tlist <- enqueueSync' oq (mkMsgType msg) cc (mkOrigin msg) peers'
         let tmap = Map.fromList tlist
         return $ fmap (either M.throw return) tmap

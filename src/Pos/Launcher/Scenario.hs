@@ -16,7 +16,7 @@ import           Control.Lens        (each, to, views, _tail)
 import           Development.GitRev  (gitBranch, gitHash)
 import           Ether.Internal      (HasLens (..))
 import           Formatting          (build, sformat, shown, (%))
-import           Mockable            (mapConcurrently, concurrently)
+import           Mockable            (race, mapConcurrently)
 import           Serokell.Util.Text  (listJson)
 import           System.Exit         (ExitCode (..))
 import           System.Wlog         (WithLogger, getLoggerName, logError, logInfo,
@@ -88,9 +88,9 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
     -- Instead of sleeping forever, we wait until graceful shutdown
     void
-      (concurrently
-         (void (mapConcurrently (unpackPlugin) plugins'))
-         (waitForWorkers (allWorkersCount @ssc nc)))
+      (race
+           (void (mapConcurrently (unpackPlugin) plugins'))
+           (waitForWorkers (allWorkersCount @ssc nc)))
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?

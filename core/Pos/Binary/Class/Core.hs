@@ -31,7 +31,6 @@ import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import qualified Data.Map                    as M
 import qualified Data.Set                    as S
-import qualified Data.Store.Internal         as Store
 import           Data.Tagged
 import qualified Data.Text                   as Text
 import qualified Data.Text.Lazy              as Text.Lazy
@@ -240,10 +239,6 @@ instance Bi Text.Lazy.Text where
 instance Bi BS.Lazy.ByteString where
     encode = encodeChunked encodeBytesIndef BS.Lazy.foldrChunks
     decode = decodeChunked decodeBytesIndef BS.Lazy.fromChunks
-
-instance KnownNat n => Bi (Store.StaticSize n BS.ByteString) where
-    encode = encode . Store.unStaticSize
-    decode = Store.StaticSize <$> decode
 
 instance Bi a => Bi [a] where
     encode = encodeList

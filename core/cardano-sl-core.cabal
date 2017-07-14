@@ -158,8 +158,6 @@ library
                      , semigroups
                      , serokell-util
                      , stm
-                     , store
-                     , store-core
                      , tagged
                      , template-haskell
                      , text

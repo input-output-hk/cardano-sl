@@ -29,6 +29,7 @@ checkLen :: Text -> Text -> Int -> ByteString -> ByteString
 checkLen action name len bs =
     maybe bs error $ checkLenImpl action name len $ BS.length bs
 
+-- CSL-1296: Temporarily disable checkLen.
 checkLenImpl :: Integral a => Text -> Text -> a -> a -> Maybe Text
 checkLenImpl action name expectedLen len
     | expectedLen == len = Nothing
@@ -47,11 +48,11 @@ checkLenImpl action name expectedLen len
     asBinary = AsBinary . checkLen "asBinary" Name Bytes . serialize' ;\
     fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . serialize' }; \
 
-Ser(VssPublicKey, 33, "VssPublicKey")
-Ser(Secret, 33, "Secret")
-Ser(Share, 101, "Share") --4+33+64
-Ser(EncShare, 101, "EncShare")
-Ser(SecretProof, 64, "SecretProof")
+Ser(VssPublicKey, 35, "VssPublicKey") -- 33 data + 2 of CBOR overhead
+Ser(Secret, 35, "Secret")             -- 33 data + 2 of CBOR overhead
+Ser(Share, 103, "Share")              --4+33+64
+Ser(EncShare, 103, "EncShare")
+Ser(SecretProof, 66, "SecretProof")   -- 64 data + 2 of CBOR overhead
 
 instance Buildable (AsBinary Secret) where
     build _ = "secret \\_(o.o)_/"

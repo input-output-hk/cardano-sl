@@ -39,13 +39,13 @@
 .blocks-column {
 
   &__epoch {
-    lost-column: 6/12;
+    lost-column: 1/2;
     /* TODO change it ^ to 3/12 if `since` (age) column will be back */
     button: standard-button;
     button-color: var(--color8) var(--color5) var(--color5);
   }
   &__slot {
-    lost-column: 5/12;
+    lost-column: 1/2;
     /* TODO change it ^ to 3/12 if `since` (age) column will be back */
     button: standard-button;
     button-color: var(--color8) var(--color5) var(--color5);

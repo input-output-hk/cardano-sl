@@ -63,13 +63,16 @@
         };
 
         &__column {
-          /* DON'T REMOVE THIS EMPTY `__column` declaration
-             It is needed after updating to latest post-css plugins
-            Maybe a bug of `postcss-css-variables` ???
-            see https://github.com/MadLittleMods/postcss-css-variables/issues/50
+          /* DON'T REMOVE THIS `__column` declaration
+          It is needed after updating to latest post-css plugins
+          Maybe a bug of `postcss-css-variables` ???
+          see https://github.com/MadLittleMods/postcss-css-variables/issues/50
           */
+          background-color: transparent;
         }
+
       }
+
 
       &__column {
         padding: 10px 18px;

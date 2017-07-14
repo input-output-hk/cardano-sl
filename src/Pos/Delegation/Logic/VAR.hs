@@ -8,7 +8,7 @@ module Pos.Delegation.Logic.VAR
        ( dlgVerifyBlocks
        , dlgApplyBlocks
        , dlgRollbackBlocks
-       , dlgNormalize
+       , dlgNormalizeOnRollback
        ) where
 
 import           Universum
@@ -572,8 +572,8 @@ dlgRollbackBlocks blunds = do
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
         pure $ SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
 
--- | Normalizes the memory state after the (e.g.) rollback.
-dlgNormalize ::
+-- | Normalizes the memory state after the rollback.
+dlgNormalizeOnRollback ::
        forall ssc ctx m.
        ( MonadDelegation ctx m
        , DB.MonadBlockDB ssc m
@@ -586,14 +586,15 @@ dlgNormalize ::
        , HasLens LrcContext ctx LrcContext
        )
     => m ()
-dlgNormalize = do
+dlgNormalizeOnRollback = do
     tip <- DB.getTipHeader @ssc
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
         map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
-    pure ()
     oldPool <- runDelegationStateAction $ do
         dwEpochId .= tipEpoch
         dwThisEpochPosted .= HS.fromList fromGenesisPsks
-        uses dwProxySKPool toList
+        pool <- uses dwProxySKPool toList
+        dwProxySKPool .= mempty
+        pure pool
     forM_ oldPool (processProxySKHeavy @ssc)

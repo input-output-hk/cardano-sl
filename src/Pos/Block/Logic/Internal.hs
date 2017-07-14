@@ -40,7 +40,7 @@ import           Pos.DB                      (MonadDB, MonadGState, SomeBatchOp 
 import           Pos.DB.Block                (MonadBlockDB, MonadSscBlockDB)
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgNormalize,
+import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgNormalizeOnRollback,
                                               dlgRollbackBlocks)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Exception               (assertionFailed)
@@ -166,7 +166,6 @@ applyBlocksUnsafeDo blunds pModifier = do
         , slogBatch
         ]
     sscNormalize
-    dlgNormalize @ssc
 #ifdef WITH_EXPLORER
     eTxNormalize
 #else
@@ -199,6 +198,9 @@ rollbackBlocksUnsafe toRollback = reportingFatal $ do
         , sscBatch
         , slogRoll
         ]
+    -- After blocks are rolled back it makes sense to recreate the
+    -- delegation mempool.
+    dlgNormalizeOnRollback @ssc
 
 ----------------------------------------------------------------------------
 -- Garbage

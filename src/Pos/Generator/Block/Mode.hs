@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 -- | Execution mode used by blockchain generator.
 
 module Pos.Generator.Block.Mode
@@ -17,7 +19,8 @@ import           Universum
 
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Mockable                    (MonadMockable, Promise)
+import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
+                                              Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
 
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
@@ -74,8 +77,15 @@ type MonadBlockGenBase m
      = ( WithLogger m
        , MonadMask m
        , MonadIO m
-       , MonadMockable m
        , MonadBaseControl IO m
+       , Mockables m
+           [ CurrentTime
+           , Async
+           , Catch
+           , Throw
+           , Delay
+           , Concurrently
+           ]
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
        )
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -19,60 +20,67 @@ module Test.Pos.Block.Logic.Mode
 
 import           Universum
 
-import           Control.Lens            (makeClassy, makeLensesWith)
-import qualified Data.HashMap.Strict     as HM
-import qualified Data.Map.Strict         as M
+import           Control.Lens                   (makeClassy, makeLensesWith)
+import qualified Data.HashMap.Strict            as HM
+import qualified Data.Map.Strict                as M
 import qualified Data.Text.Buildable
-import           Formatting              (bprint, build, formatToString, shown, (%))
-import           Mockable                (Production, currentTime, runProduction)
+import           Data.Time.Units                (Microsecond, TimeUnit (..))
+import           Ether.Internal                 (HasLens (..))
+import           Formatting                     (bprint, build, formatToString, shown,
+                                                 (%))
+import           Mockable                       (Production, currentTime, runProduction)
 import qualified Prelude
-import           System.Wlog             (HasLoggerName (..), LoggerName)
-import           Test.QuickCheck         (Arbitrary (..), Gen, Testable (..), choose,
-                                          ioProperty, oneof)
-import           Test.QuickCheck.Monadic (PropertyM, monadic)
+import           System.Wlog                    (HasLoggerName (..), LoggerName)
+import           Test.QuickCheck                (Arbitrary (..), Gen, Testable (..),
+                                                 choose, ioProperty, oneof)
+import           Test.QuickCheck.Monadic        (PropertyM, monadic)
 
-import           Pos.Block.Core          (Block, BlockHeader)
-import           Pos.Block.Slog          (HasSlogContext (..), SlogContext, mkSlogContext)
-import           Pos.Block.Types         (Undo)
-import           Pos.Context             (GenesisUtxo (..))
-import           Pos.Core                (IsHeader, StakeDistribution (..),
-                                          Timestamp (..), addressHash, makePubKeyAddress,
-                                          mkCoin, unsafeGetCoin)
-import           Pos.Crypto              (SecretKey, toPublic, unsafeHash)
-import           Pos.DB                  (MonadBlockDBGeneric (..),
-                                          MonadBlockDBGenericWrite (..), MonadDB (..),
-                                          MonadDBRead (..), MonadGState (..))
-import qualified Pos.DB                  as DB
-import qualified Pos.DB.Block            as DB
-import           Pos.DB.DB               (gsAdoptedBVDataDefault, initNodeDBs)
-import qualified Pos.DB.GState           as GState
-import           Pos.DB.Pure             (DBPureVar, newDBPureVar)
-import           Pos.Generator.Block     (AllSecrets (..), HasAllSecrets (..))
-import           Pos.Genesis             (stakeDistribution)
-import           Pos.Launcher            (newInitFuture)
-import           Pos.Lrc                 (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting            (HasSlottingVar (..), MonadSlots (..),
-                                          SlottingData, currentTimeSlottingSimple,
-                                          getCurrentSlotBlockingSimple,
-                                          getCurrentSlotInaccurateSimple,
-                                          getCurrentSlotSimple)
-import           Pos.Slotting.MemState   (MonadSlotsData (..), getSlottingDataDefault,
-                                          getSystemStartDefault, putSlottingDataDefault,
-                                          waitPenultEpochEqualsDefault)
-import           Pos.Ssc.Class           (SscBlock)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
-import           Pos.Ssc.Extra           (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing      (SscGodTossing)
-import           Pos.Txp                 (TxIn (..), TxOut (..), TxOutAux (..),
-                                          TxpGlobalSettings, txpGlobalSettings, utxoF)
-import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
-import           Pos.Util.LoggerName     (HasLoggerName' (..), getLoggerNameDefault,
-                                          modifyLoggerNameDefault)
-import           Pos.Util.Util           (HasLens (..), Some, postfixLFields)
+import           Pos.Block.Core                 (Block, BlockHeader)
+import           Pos.Block.Slog                 (HasSlogContext (..), SlogContext,
+                                                 mkSlogContext)
+import           Pos.Block.Types                (Undo)
+import           Pos.Context                    (GenesisUtxo (..))
+import           Pos.Core                       (IsHeader, StakeDistribution (..),
+                                                 Timestamp (..), addressHash,
+                                                 makePubKeyAddress, mkCoin, unsafeGetCoin)
+import           Pos.Crypto                     (SecretKey, toPublic, unsafeHash)
+import           Pos.DB                         (MonadBlockDBGeneric (..),
+                                                 MonadBlockDBGenericWrite (..),
+                                                 MonadDB (..), MonadDBRead (..),
+                                                 MonadGState (..))
+import qualified Pos.DB                         as DB
+import qualified Pos.DB.Block                   as DB
+import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
+import qualified Pos.DB.GState                  as GState
+import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
+import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..))
+import           Pos.Genesis                    (stakeDistribution)
+import           Pos.Launcher                   (newInitFuture)
+import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
+import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
+                                                 SlottingData, currentTimeSlottingSimple,
+                                                 getCurrentSlotBlockingSimple,
+                                                 getCurrentSlotInaccurateSimple,
+                                                 getCurrentSlotSimple)
+import           Pos.Slotting.MemState          (MonadSlotsData (..),
+                                                 getSlottingDataDefault,
+                                                 getSystemStartDefault,
+                                                 putSlottingDataDefault,
+                                                 waitPenultEpochEqualsDefault)
+import           Pos.Ssc.Class                  (SscBlock)
+import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
+import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
+import           Pos.Ssc.GodTossing             (SscGodTossing)
+import           Pos.Txp                        (TxIn (..), TxOut (..), TxOutAux (..),
+                                                 TxpGlobalSettings, txpGlobalSettings,
+                                                 utxoF)
+import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
+import           Pos.Util.LoggerName            (HasLoggerName' (..),
+                                                 getLoggerNameDefault,
+                                                 modifyLoggerNameDefault)
+import           Pos.Util.Util                  (Some, postfixLFields)
 
--- TODO: it shouldn't be 'Production', but currently we don't have anything else.
--- Expect some changes here somewhere in 2019.
-type BaseMonad = Production
+import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -93,6 +101,7 @@ data TestParams = TestParams
     -- ^ Stake distribution which was used to generate genesis utxo.
     -- It's primarily needed to see which distribution was used (e. g.
     -- when test fails).
+    , _tpStartTime         :: !Microsecond
     }
 
 makeClassy ''TestParams
@@ -106,10 +115,12 @@ instance Buildable TestParams where
                 "  utxo = "%utxoF%"\n"%
                 "  secrets: "%build%"\n"%
                 "  stake distribution: "%shown%"\n"%
+                "  start time: "%shown%"\n"%
                 "}\n")
             utxo
             _tpAllSecrets
             _tpStakeDistribution
+            _tpStartTime
       where
         utxo = _tpGenUtxo & \(GenesisUtxo u) -> u
 
@@ -131,6 +142,7 @@ genSuitableStakeDistribution stakeholdersNum =
 instance Arbitrary TestParams where
     arbitrary = do
         secretKeysList <- toList @(NonEmpty SecretKey) <$> arbitrary -- might have repetitions
+        let _tpStartTime = fromMicroseconds 0
         let toSecretPair sk = (addressHash (toPublic sk), sk)
         let secretKeysMap = HM.fromList $ map toSecretPair secretKeysList
         let _tpAllSecrets = AllSecrets secretKeysMap
@@ -165,8 +177,8 @@ makeLensesWith postfixLFields ''TestInitModeContext
 
 type TestInitMode ssc = ReaderT (TestInitModeContext ssc) Production
 
-runTestInitMode :: TestInitModeContext ssc -> TestInitMode ssc a -> Production a
-runTestInitMode = flip runReaderT
+runTestInitMode :: TestInitModeContext ssc -> TestInitMode ssc a -> IO a
+runTestInitMode ctx = runProduction . flip runReaderT ctx
 
 ----------------------------------------------------------------------------
 -- Main context
@@ -197,8 +209,9 @@ instance HasAllSecrets BlockTestContext where
 ----------------------------------------------------------------------------
 
 initBlockTestContext ::
-       TestParams -> (BlockTestContext -> BaseMonad a) -> BaseMonad a
+       TestParams -> (BlockTestContext -> Emulation a) -> Emulation a
 initBlockTestContext tp@TestParams {..} callback = do
+    clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
     (futureLrcCtx, putLrcCtx) <- newInitFuture
     (futureSlottingVar, putSlottingVar) <- newInitFuture
@@ -208,25 +221,26 @@ initBlockTestContext tp@TestParams {..} callback = do
                 _tpGenUtxo
                 futureSlottingVar
                 futureLrcCtx
-    runTestInitMode @SscGodTossing initCtx $
-        initBlockTestContextDo dbPureVar putSlottingVar putLrcCtx
-  where
-    initBlockTestContextDo btcDBPureVar putSlottingVar putLrcCtx = do
-        systemStart <- Timestamp <$> currentTime
-        initNodeDBs @SscGodTossing systemStart
-        slottingData <- GState.getSlottingData
-        btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
-        putSlottingVar btcSlottingVar
-        let btcLoggerName = "testing"
-        lcLrcSync <- mkLrcSyncData >>= newTVarIO
-        let btcLrcContext = LrcContext {..}
-        putLrcCtx btcLrcContext
-        btcUpdateContext <- mkUpdateContext
-        btcSscState <- mkSscState @SscGodTossing
-        let btcTxpGlobalSettings = txpGlobalSettings
-        btcSlogContext <- mkSlogContext
-        let btcParams = tp
-        lift $ callback BlockTestContext {..}
+        initBlockTestContextDo = do
+            let btcDBPureVar = dbPureVar
+            systemStart <- Timestamp <$> currentTime
+            initNodeDBs @SscGodTossing systemStart
+            slottingData <- GState.getSlottingData
+            btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
+            putSlottingVar btcSlottingVar
+            let btcLoggerName = "testing"
+            lcLrcSync <- mkLrcSyncData >>= newTVarIO
+            let btcLrcContext = LrcContext {..}
+            putLrcCtx btcLrcContext
+            btcUpdateContext <- mkUpdateContext
+            btcSscState <- mkSscState @SscGodTossing
+            btcSlogContext <- mkSlogContext
+            let btcTxpGlobalSettings = txpGlobalSettings
+            let btcParams = tp
+            liftIO $ flip runReaderT clockVar $ unEmulation $
+                callback BlockTestContext {..}
+    sudoLiftIO $ runTestInitMode @SscGodTossing initCtx $
+        initBlockTestContextDo
 
 ----------------------------------------------------------------------------
 -- ExecMode
@@ -237,11 +251,12 @@ data BlockTestContextTag
 instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
     lensOf = identity
 
-type BlockTestMode = ReaderT BlockTestContext BaseMonad
+type BlockTestMode = ReaderT BlockTestContext Emulation
 
 runBlockTestMode :: TestParams -> BlockTestMode a -> IO a
 runBlockTestMode tp action =
-    runProduction $ initBlockTestContext tp (runReaderT action)
+    runEmulation (tp ^. tpStartTime) $
+    initBlockTestContext tp (runReaderT action)
 
 ----------------------------------------------------------------------------
 -- Property
@@ -263,9 +278,6 @@ instance HasLens DBPureVar (TestInitModeContext ssc) DBPureVar where
 
 instance HasLens GenesisUtxo (TestInitModeContext ssc) GenesisUtxo where
     lensOf = timcGenesisUtxo_L
-
---instance HasLens SlottingContextSum (TestInitModeContext ssc) SlottingContextSum where
---    lensOf = imcSlottingContextSum_L
 
 instance HasLens LrcContext (TestInitModeContext ssc) LrcContext where
     lensOf = timcLrcContext_L

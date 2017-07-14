@@ -560,6 +560,7 @@ test-suite cardano-test
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Block.Logic.CreationSpec
+                       Test.Pos.Block.Logic.Emulation
                        Test.Pos.Block.Logic.Mode
                        Test.Pos.Block.Logic.Util
                        Test.Pos.Block.Logic.VarSpec
@@ -623,6 +624,7 @@ test-suite cardano-test
                      , lens
                      , log-warper
                      , memory
+                     , monad-control
                      , mtl
                      , node-sketch
                      , pvss
@@ -638,6 +640,7 @@ test-suite cardano-test
                      , temporary
                      , text-format
                      , time-units
+                     , transformers-base
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector

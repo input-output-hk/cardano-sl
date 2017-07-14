@@ -360,7 +360,7 @@ getRawPayload
     => SlotId
     -> ExceptT Text m (RawPayload ssc)
 getRawPayload slotId = do
-    localTxs <- getLocalTxs
+    localTxs <- lift getLocalTxs
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)

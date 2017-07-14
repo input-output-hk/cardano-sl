@@ -33,8 +33,8 @@ import           Control.Lens                (at, uses, (%=), (+=), (-=), (.=))
 import qualified Data.Cache.LRU              as LRU
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import           Data.Time.Clock             (getCurrentTime)
 import           Ether.Internal              (HasLens (..))
+import           Mockable                    (CurrentTime, Mockable, currentTime)
 
 import           Pos.Binary.Class            (biSize)
 import           Pos.Binary.Communication    ()
@@ -65,7 +65,7 @@ import           Pos.Delegation.Types        (DlgPayload, DlgUndo, mkDlgPayload)
 import           Pos.Lrc.Context             (LrcContext)
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Types                   (ProxySKHeavy, ProxySKLight, ProxySigLight)
-import           Pos.Util                    (leftToPanic)
+import           Pos.Util                    (leftToPanic, microsecondsToUTC)
 import qualified Pos.Util.Concurrent.RWLock  as RWL
 import qualified Pos.Util.Concurrent.RWVar   as RWV
 
@@ -151,10 +151,11 @@ processProxySKHeavy
        , MonadDelegation ctx m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
+       , Mockable CurrentTime m
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
-    curTime <- liftIO getCurrentTime
+    curTime <- microsecondsToUTC <$> currentTime
     headEpoch <- view epochIndexL <$> DB.getTipHeader @ssc
     richmen <-
         toList <$>
@@ -234,12 +235,13 @@ processProxySKLight ::
        , MonadDB m
        , MonadMask m
        , MonadRealDB ctx m
+       , Mockable CurrentTime m
        )
     => ProxySKLight
     -> m PskLightVerdict
 processProxySKLight psk = do
     sk <- view primaryKey
-    curTime <- liftIO getCurrentTime
+    curTime <- microsecondsToUTC <$> currentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- RWL.withRead miscLock Misc.getProxySecretKeys
     res <- runDelegationStateAction $ do
@@ -278,10 +280,10 @@ data ConfirmPskLightVerdict
 -- | Takes a lightweight psk, delegate proof of delivery. Checks if
 -- it's valid or not. Caches message in any case.
 processConfirmProxySk
-    :: (MonadDelegation ctx m, MonadIO m, MonadMask m)
+    :: (MonadDelegation ctx m, MonadIO m, MonadMask m, Mockable CurrentTime m)
     => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskLightVerdict
 processConfirmProxySk psk proof = do
-    curTime <- liftIO getCurrentTime
+    curTime <- microsecondsToUTC <$> currentTime
     runDelegationStateAction $ do
         let valid = proxyVerify SignProxySK proof (const True) psk
         cached <- isJust . snd . LRU.lookup psk <$> use dwConfirmationCache

@@ -62,14 +62,14 @@ import           Pos.Aeson.WalletBackup           ()
 import           Pos.Binary.Class                 (biSize)
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util              (createMTx, TxError (..))
+import           Pos.Client.Txp.Util              (TxError (..), createMTx)
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Context                      (GenesisUtxo, genesisStakeholdersM)
-import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..), TxSizeLinear (..),
-                                                   addressF, bvdTxFeePolicy,
-                                                   calculateTxSizeLinear,
+import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
+                                                   TxSizeLinear (..), addressF,
+                                                   bvdTxFeePolicy, calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, integerToCoin,
                                                    makeRedeemAddress, mkCoin, siEpoch,
@@ -92,7 +92,8 @@ import           Pos.Reporting.MemState           (HasReportServers (..),
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Slotting                     (MonadSlots (..))
 import           Pos.Txp                          (TxFee (..))
-import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..), TxOutDistribution)
+import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..),
+                                                   TxOutDistribution)
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
@@ -142,8 +143,7 @@ import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing),
-                                                   CustomAddressType (ChangeAddr, UsedAddr),
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
                                                    addOnlyNewTxMeta, addUpdate,
                                                    addWAddress, closeState, createAccount,
                                                    createWallet, getAccountMeta,
@@ -614,7 +614,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
             -- TODO: this should be removed in production
             let txHash    = hash tx
                 srcWallet = getMoneySourceWallet moneySource
-            ts <- Just <$> liftIO getCurrentTimestamp
+            ts <- Just <$> getCurrentTimestamp
             ctxs <- addHistoryTx srcWallet False $
                 THEntry txHash tx inpTxOuts Nothing (toList srcAddrs) dstAddrs ts
             ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
@@ -1142,7 +1142,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         submitRedemptionTx sendActions redeemSK (toList na) dstAddr
     -- add redemption transaction to the history of new wallet
     let txInputs = [TxOut redeemAddress redeemBalance]
-    ts <- Just <$> liftIO getCurrentTimestamp
+    ts <- Just <$> getCurrentTimestamp
     ctxs <- addHistoryTx (aiWId accId) True $
         THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts
     ctsIncoming ctxs `whenNothing` throwM noIncomingTx

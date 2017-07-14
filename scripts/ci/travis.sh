@@ -44,6 +44,12 @@ if [[ "$with_haddock" == "true" ]]; then
 fi
 
 targets="cardano-sl cardano-sl-lwallet cardano-sl-tools"
+projects="core db lrc infra update ssc godtossing txp"
+to_build=''
+
+for prj in $projects; do
+  to_build="$to_build cardano-sl-$prj"
+done
 
 for trgt in $targets; do
 
@@ -52,6 +58,11 @@ for trgt in $targets; do
       --ghc-options="-j -DCONFIG=$DCONFIG +RTS -A128m -n2m -RTS" \
       --flag cardano-sl-core:-asserts \
       --flag cardano-sl-core:-dev-mode
+    if [[ "$trgt" == "cardano-sl" ]]; then
+      stack test --nix --fast --jobs=2 --coverage \
+      --ghc-options="-j -DCONFIG=$DCONFIG +RTS -A128m -n2m -RTS";
+      stack --nix hpc report $to_build
+    fi
 
 done
 

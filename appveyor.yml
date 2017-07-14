@@ -76,7 +76,9 @@ test_script:
       --extra-lib-dirs="C:\OpenSSL-Win64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
-  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
+  - stack test --coverage
+  - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
+# Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build lwallet here, because this build is for installer.
   - scripts\ci\appveyor-retry call stack install cardano-sl-tools
       -j 2

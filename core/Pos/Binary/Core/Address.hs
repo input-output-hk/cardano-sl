@@ -5,7 +5,7 @@ import           Universum
 
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
---import qualified Pos.Binary.Cbor     as Cbor
+import           Data.Word           (Word8)
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
                                       convertToSizeNPut, encodeWithS, getBytes,
                                       getSmallWithLength, getWord8, label, labelS,
@@ -14,7 +14,8 @@ import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (.
 import qualified Pos.Binary.Cbor     as Cbor
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
-import           Pos.Data.Attributes (getAttributes, putAttributesS)
+import           Pos.Data.Attributes (Attributes, getAttributes, putAttributesS,
+                                      encodeAttributes, decodeAttributes)
 
 {- NOTE: Address serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -103,7 +104,38 @@ instance Bi Address where
            then fail "Address has invalid checksum!"
            else return addr
 
--- Just a stub as @arybczak is working on it.
+----------------------------------------
+
+instance Cbor.Bi (Attributes AddrPkAttrs) where
+    encode = encodeAttributes [(0, Cbor.serialize' . addrPkDerivationPath)]
+    decode = decodeAttributes def $ \n v acc -> case n of
+        0 -> Just $ acc { addrPkDerivationPath = Cbor.deserialize' v }
+        _ -> Nothing
+
 instance Cbor.Bi Address where
-  encode = error "Address encode: unimplemented"
-  decode = fail  "Address decode: unimplemented"
+    encode addr =
+        Cbor.encodeListLen 2 <> encodeAddr
+      where
+        encodeAddr = case addr of
+            PubKeyAddress keyHash attrs ->
+                   Cbor.encode (0 :: Word8)
+                <> Cbor.encode (Cbor.serialize' (keyHash, attrs))
+            ScriptAddress scrHash ->
+                   Cbor.encode (1 :: Word8)
+                <> Cbor.encode (Cbor.serialize' scrHash)
+            RedeemAddress keyHash ->
+                   Cbor.encode (2 :: Word8)
+                <> Cbor.encode (Cbor.serialize' keyHash)
+            UnknownAddressType t bs ->
+                   Cbor.encode t
+                <> Cbor.encode bs
+
+    decode = do
+        Cbor.enforceSize "Address" 2
+        t  <- Cbor.decode @Word8
+        bs <- Cbor.decode @ByteString
+        pure $ case t of
+            0 -> uncurry PubKeyAddress $ Cbor.deserialize' bs
+            1 -> ScriptAddress         $ Cbor.deserialize' bs
+            2 -> RedeemAddress         $ Cbor.deserialize' bs
+            _ -> UnknownAddressType t bs

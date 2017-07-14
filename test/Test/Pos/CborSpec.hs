@@ -35,8 +35,8 @@ import           Pos.Core.Types
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.RedeemSigning (RedeemPublicKey, RedeemSecretKey)
 import           Pos.Crypto.SafeSigning (PassPhrase)
-import           Pos.Crypto.SecretSharing (SecretSharingExtra, VssPublicKey, VssKeyPair, Secret, Share, EncShare,
-                                           SecretProof)
+import           Pos.Crypto.SecretSharing (VssPublicKey, VssKeyPair, Secret, Share,
+                                           EncShare, SecretProof, SecretSharingExtra)
 import           Pos.Crypto.Signing (PublicKey, SecretKey)
 import           Pos.DHT.Model.Types
 import           Pos.Delegation.Arbitrary ()
@@ -205,6 +205,7 @@ spec = describe "Cbor.Bi instances" $ do
         prop "Timestamp" (soundInstanceProperty @Timestamp Proxy)
         prop "EpochIndex" (soundInstanceProperty @EpochIndex Proxy)
         prop "Attributes" (soundInstanceProperty @(Attributes ()) Proxy)
+        prop "Address" (soundInstanceProperty @Address Proxy)
         prop "Coin" (soundInstanceProperty @Coin Proxy)
         prop "CoinPortion" (soundInstanceProperty @CoinPortion Proxy)
         prop "LocalSlotIndex" (soundInstanceProperty @LocalSlotIndex Proxy)
@@ -213,6 +214,7 @@ spec = describe "Cbor.Bi instances" $ do
         prop "SharedSeed" (soundInstanceProperty @SharedSeed Proxy)
         prop "ChainDifficulty" (soundInstanceProperty @ChainDifficulty Proxy)
         prop "StakeDistribution" (soundInstanceProperty @StakeDistribution Proxy)
+        prop "GenesisCoreData" (soundInstanceProperty @GenesisCoreData Proxy)
         prop "ApplicationName" (soundInstanceProperty @ApplicationName Proxy)
         prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion Proxy)
         prop "BlockVersion" (soundInstanceProperty @BlockVersion Proxy)
@@ -224,6 +226,7 @@ spec = describe "Cbor.Bi instances" $ do
         prop "Secret" (soundInstanceProperty @Secret Proxy)
         prop "Share" (soundInstanceProperty @Share Proxy)
         prop "EncShare" (soundInstanceProperty @EncShare Proxy)
+        prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra Proxy)
         prop "SecretProof" (soundInstanceProperty @SecretProof Proxy)
         prop "AsBinary VssPublicKey" (soundInstanceProperty @(AsBinary VssPublicKey) Proxy)
         prop "AsBinary Secret" (soundInstanceProperty @(AsBinary Secret) Proxy)
@@ -294,7 +297,6 @@ spec = describe "Cbor.Bi instances" $ do
         it "(ProxySecretKey w)"   $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(ProxySignature w a)" $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "AbstractHash SHA256"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "Address"              $ pendingWith "Requires proper implementation"
         it "DataMsg ProxySKLight" $ pendingWith "Failing"
         it "DataMsg ProxySKHeavy" $ pendingWith "Failing"
         it "DataMsg ProxySKLightConfirmation" $ pendingWith "Failing"

@@ -12,7 +12,7 @@ import           Ether.Internal            (HasLens (..))
 import           Formatting                (sformat, (%))
 import           Serokell.Util             (listJson)
 import           Test.Hspec                (Spec, describe)
-import           Test.Hspec.QuickCheck     (prop)
+import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Monadic   (PropertyM, stop)
 import           Test.QuickCheck.Property  (Result (..), failed)
 
@@ -20,12 +20,12 @@ import           Pos.Block.Core            (MainBlock, emptyMainBody, mkMainBloc
 import           Pos.Block.Logic           (verifyBlocksPrefix)
 import           Pos.Core                  (SlotId (..))
 import           Pos.DB.DB                 (getTipHeader)
-import           Pos.Generator.Block       (asSecretKeys, bpGenBlocks)
+import           Pos.Generator.Block       (asSecretKeys)
 import           Pos.Lrc                   (getLeaders)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContextTag)
--- import           Test.Pos.Block.Logic.Util (bpGenBlocks)
+import           Test.Pos.Block.Logic.Util (bpGenBlocks)
 
 spec :: Spec
 spec = describe "Block.Logic.VAR" $ do
@@ -37,7 +37,10 @@ spec = describe "Block.Logic.VAR" $ do
 
 verifyBlocksPrefixSpec :: Spec
 verifyBlocksPrefixSpec = do
-    prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
+    -- Unfortunatelly, blocks generation is currently extremely slow.
+    -- Maybe we will optimize it in future.
+    modifyMaxSuccess (const 3) $
+        prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
   where
     verifyEmptyMainBlockDesc =
         "verification of consistent empty main block " <>

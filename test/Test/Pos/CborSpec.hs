@@ -65,7 +65,7 @@ import qualified Data.Map as M
 
 data MyScript = MyScript
     { version :: ScriptVersion -- ^ Version
-    , script  :: LByteString   -- ^ Serialized script
+    , script  :: ByteString   -- ^ Serialized script
     } deriving (Eq, Show, Generic, Typeable)
 
 instance Arbitrary MyScript where
@@ -74,7 +74,7 @@ instance Arbitrary MyScript where
 deriveSimpleBi ''MyScript [
     Cons 'MyScript [
         Field [| version :: ScriptVersion |],
-        Field [| script  :: LByteString   |]
+        Field [| script  :: ByteString   |]
     ]]
 
 -- Type to be used to simulate a breaking change in the serialisation

@@ -94,7 +94,7 @@ instance Bi PLCore.Program where
 deriveSimpleBi ''Script [
     Cons 'Script [
         Field [| scrVersion :: ScriptVersion |],
-        Field [| scrScript  :: LByteString   |]
+        Field [| scrScript  :: ByteString   |]
     ]]
 
 instance Hashable PLCore.Term where

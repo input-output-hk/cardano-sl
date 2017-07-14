@@ -33,7 +33,6 @@ import qualified Data.Map                    as M
 import qualified Data.Set                    as S
 import           Data.Tagged
 import qualified Data.Text                   as Text
-import qualified Data.Text.Lazy              as Text.Lazy
 import           Data.Time.Units             (Microsecond, Millisecond)
 import qualified Data.Vector                 as Vector
 import qualified Data.Vector.Generic         as Vector.Generic
@@ -232,10 +231,6 @@ decodeChunked decodeIndef fromChunks = do
   decodeIndef
   decodeSequenceLenIndef (flip (:)) [] (fromChunks . reverse) decode
 
-instance Bi Text.Lazy.Text where
-    encode = encodeChunked encodeStringIndef Text.Lazy.foldrChunks
-    decode = decodeChunked decodeStringIndef Text.Lazy.fromChunks
-
 instance Bi BS.Lazy.ByteString where
     encode = encodeChunked encodeBytesIndef BS.Lazy.foldrChunks
     decode = decodeChunked decodeBytesIndef BS.Lazy.fromChunks
@@ -340,13 +335,16 @@ decodeMapSkel fromList = do
   fmap fromList (replicateM n decodeEntry)
 {-# INLINE decodeMapSkel #-}
 
-instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
-  encode = encodeMapSkel HM.size HM.foldrWithKey
+instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
+  encode = encodeMapSkel HM.size $ \f acc ->
+      -- We need to encode the list with keys sorted in ascending order as
+      -- that's the only representation we accept during decoding.
+      Universum.foldr (uncurry f) acc . sortBy (comparing fst) . HM.toList
   decode = decodeMapSkel HM.fromList
 
 instance (Ord k, Bi k, Bi v) => Bi (Map k v) where
   encode = encodeMapSkel M.size M.foldrWithKey
-  decode = decodeMapSkel M.fromList
+  decode = decodeMapSkel M.fromAscList
 
 encodeSetSkel :: Bi a
               => (s -> Int)
@@ -363,13 +361,16 @@ decodeSetSkel fromList = do
   fmap fromList (replicateM n decode)
 {-# INLINE decodeSetSkel #-}
 
-instance (Hashable a, Eq a, Bi a) => Bi (HashSet a) where
-  encode = encodeSetSkel HS.size HS.foldr
+instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
+  encode = encodeSetSkel HS.size $ \f acc ->
+      -- We need to encode the list sorted in ascending order as that's the only
+      -- representation we accept during decoding.
+      Universum.foldr f acc . sort . HS.toList
   decode = decodeSetSkel HS.fromList
 
 instance (Ord a, Bi a) => Bi (Set a) where
   encode = encodeSetSkel S.size S.foldr
-  decode = decodeSetSkel S.fromList
+  decode = decodeSetSkel S.fromAscList
 
 -- | Generic encoder for vectors. Its intended use is to allow easy
 -- definition of 'Serialise' instances for custom vector

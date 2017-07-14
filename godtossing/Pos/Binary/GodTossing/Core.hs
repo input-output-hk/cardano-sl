@@ -33,9 +33,9 @@ instance Bi CommitmentsMap where
 
 instance Bi VssCertificate where
   encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
-                                        <> encode (vcExpiryEpoch vssCert)
-                                        <> encode (vcSignature vssCert)
-                                        <> encode (vcSigningKey vssCert)
+                                   <> encode (vcExpiryEpoch vssCert)
+                                   <> encode (vcSignature vssCert)
+                                   <> encode (vcSigningKey vssCert)
   decode = do
     enforceSize "VssCertificate" 4
     key <- decode

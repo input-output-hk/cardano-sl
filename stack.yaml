@@ -100,7 +100,6 @@ extra-deps:
 - servant-multipart-0.10
 - ether-0.5.1.0
 - transformers-lift-0.2.0.1
-- store-0.4.3.1
 - lens-4.15.3                     # not yet in lts-8
 - th-abstraction-0.2.2.0          # needed for lens
 - rocksdb-haskell-1.0.0

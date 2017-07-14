@@ -88,7 +88,7 @@ tinyVarIntSpec = describe "TinyVarInt" $ do
             bytes <- generate $ map (`setBit` 7) <$>
                                   replicateM (len - 1) arbitrary
             let bs = BS.pack (bytes ++ [0x01])
-            shouldThrowException (B.decodeOrFail @B.TinyVarInt) anyErrorCall bs
+            shouldThrowException (B.deserialize' @B.TinyVarInt) anyErrorCall bs
         prop "never generates more than 2 bytes" $ do
             n <- generate $ choose (0, maxnum)
             B.biSize (B.TinyVarInt n) `shouldSatisfy` (<= 2)
@@ -110,4 +110,4 @@ tinyVarIntSpec = describe "TinyVarInt" $ do
         prop "fails to deserialize ambiguous numbers (e.g. 0x80 0x00)" $ do
             word8 <- generate $ flip setBit 7 <$> arbitrary
             let bs = BS.pack [word8, 0x00]
-            shouldThrowException (B.decodeOrFail @B.TinyVarInt) anyErrorCall bs
+            shouldThrowException (B.deserialize' @B.TinyVarInt) anyErrorCall bs

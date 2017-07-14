@@ -23,7 +23,7 @@ import           Pos.Ssc.GodTossing      ()
 
 import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
                                           msgLenLimitedTest, safeCopyEncodeDecode,
-                                          safeCopyTest, serDeserId, storeTest, (.=.))
+                                          safeCopyTest, serDeserId, (.=.))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -131,8 +131,6 @@ spec = describe "Crypto" $ do
                 safeCopyTest @(AsBinary Crypto.EncShare)
                 safeCopyTest @(AsBinary Crypto.SecretProof)
                 safeCopyTest @(AsBinary Crypto.SecretSharingExtra)
-            describe "Store" $ do
-                storeTest @Crypto.SecretSharingExtra
             describe "msgLenLimitedTest" $ do
                 msgLenLimitedTest @Crypto.PublicKey
                 msgLenLimitedTest @Crypto.EncShare

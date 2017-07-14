@@ -18,6 +18,8 @@ module Pos.Binary.Class.Primitive
     , AsBinary (..)
     , AsBinaryClass (..)
     , fromBinaryM
+    -- * Temporary functions
+    , biSize
     ) where
 
 import qualified Codec.CBOR.Read                  as CBOR.Read
@@ -34,6 +36,7 @@ import           Data.Typeable                    (typeRep)
 
 import           Pos.Binary.Class.Core            (Bi(..))
 import           Universum
+import           Serokell.Data.Memory.Units       (Byte)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -147,3 +150,8 @@ class AsBinaryClass a where
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either (fail . toString) return . fromBinary
+
+-- | Compute size of something serializable in bytes.
+biSize :: Bi a => a -> Byte
+biSize = fromIntegral . BS.length . serialize'
+{-# INLINE biSize #-}

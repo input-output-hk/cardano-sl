@@ -6,7 +6,6 @@ module Pos.Generators.BlockEvent
        , beaInput
        , beaOutValid
        -- * Block rollback
-       , RollbackCount(..)
        , BlockRollbackResult(..)
        , BlockEventRollback(..)
        , berInput
@@ -16,9 +15,8 @@ module Pos.Generators.BlockEvent
        ) where
 
 import           Control.Lens            (makeLenses)
-import           Numeric.Natural         (Natural)
 
-import           Pos.Block.Core          (Block)
+import           Pos.Block.Types         (Blund)
 import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 data BlockApplyResult
@@ -29,13 +27,11 @@ data BlockApplyResult
                             * etc -}
 
 data BlockEventApply = BlockEventApply
-    { _beaInput    :: ![Block SscGodTossing]
+    { _beaInput    :: ![Blund SscGodTossing]
     , _beaOutValid :: !BlockApplyResult
     }
 
 makeLenses ''BlockEventApply
-
-newtype RollbackCount = RollbackCount Natural
 
 data BlockRollbackResult
     = BlockRollbackSuccess
@@ -46,7 +42,7 @@ data BlockRollbackResult
                                 * etc -}
 
 data BlockEventRollback = BlockEventRollback
-    { _berInput    :: !RollbackCount
+    { _berInput    :: ![Blund SscGodTossing]
     , _berOutValid :: !BlockRollbackResult
     }
 

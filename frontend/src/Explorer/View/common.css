@@ -59,6 +59,13 @@
     lost-column: 1/1;
   }
 
+
+  @media (--md) {
+    .hash-container {
+      lost-column: 7/12;
+    }
+  }
+
   .hash {
     color: var(--color8);
     line-height: var(--transaction-header-height);
@@ -70,8 +77,8 @@
   }
 
   @media (--md) {
-    .hash-container {
-      lost-column: 7/12;
+    .hash {
+      display: inline-block; /* needed to select text in browser */
     }
   }
 
@@ -79,14 +86,10 @@
     @extend .hide;
   }
 
-  @media (--md) {
-    .hash {
-      display: inline-block; /* needed to select text in browser */
-    }
-
+  @media (--lg) {
     .date {
       @extend .show;
-      lost-column: 3/12;
+      lost-column: 2/12;
       line-height: var(--transaction-header-height);
       color: var(--color9);
     }
@@ -99,9 +102,16 @@
   @media (--md) {
     .amount-container {
       @extend .show-flex;
-      lost-column: 2/12;
+      lost-column: 5/12;
       height: 100%;
       box: horizontal right;
+    }
+  }
+
+  @media (--lg) {
+    .amount-container {
+      /* less space, because `.date` column is shown */
+      lost-column: 3/12;
     }
   }
 
@@ -134,48 +144,105 @@
   color: var(--color8);
   padding: 0 18px;
 
-  .from-hash-container {
-    box-item: center;
-  }
-
-  @media (--md) {
-    .from-hash-container {
-      lost-column: 5/12;
-    }
-  }
-
   .from-hash {
-    button: standard-button;
-    button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
-    padding: 18px 0 12px 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
-  }
 
-  .to-hash-container {
-    background-repeat: no-repeat;
-    background-position: left top;
-    background-size: 15px 15px;
-    padding: 28px 0 0 0;
-  }
-
-  @media (--md) {
-    .to-hash-container {
-      background-position: left center;
-      padding: 18px 0 0 30px;
+    &__container {
       box-item: center;
-      lost-column: 5/12;
+      lost-utility: clearfix;
+      padding: 18px 0 0 0;
+    }
+
+    @media (--md) {
+      &__container {
+        lost-column: 5/12;
+      }
+    }
+
+
+    &__wrapper {
+      lost-column: 8/12;
+    }
+
+    @media (--md) {
+      &__wrapper {
+        lost-column: 1/1;
+      }
+    }
+
+    &__value {
+      button: standard-button;
+      button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+      padding-bottom: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+    }
+
+    &__amounts {
+      lost-column: 4/12;
+      text-align: right;
+      box-item: center;
+    }
+
+    @media (--md) {
+      &__amounts {
+        @extend .hide;
+      }
     }
   }
 
   .to-hash {
-    button: standard-button;
-    button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
-    padding-bottom: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
+
+    &__container {
+      background-repeat: no-repeat;
+      background-position: left top;
+      background-size: 15px 15px;
+      padding: 28px 0 0 0;
+      lost-utility: clearfix;
+    }
+
+    @media (--md) {
+      &__container {
+        background-position: left center;
+        padding: 18px 0 0 30px;
+        box-item: center;
+        lost-column: 5/12;
+      }
+    }
+
+    &__wrapper {
+      lost-column: 8/12;
+    }
+
+    @media (--md) {
+      &__wrapper {
+        lost-column: 1/1;
+      }
+    }
+
+
+    &__value {
+      button: standard-button;
+      button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+      padding-bottom: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+    }
+
+    &__amounts {
+      lost-column: 4/12;
+      padding: 0;
+      text-align: right;
+      box-item: center;
+    }
+
+    @media (--md) {
+      &__amounts {
+        @extend .hide;
+      }
+    }
+
   }
 
   .amounts-container {
@@ -191,6 +258,7 @@
       box-item: center;
     }
   }
+
   .amount-wrapper {
     padding-bottom: 12px;
     display: block;

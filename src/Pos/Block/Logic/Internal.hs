@@ -165,6 +165,9 @@ applyBlocksUnsafeDo blunds pModifier = do
         , sscBatch
         , slogBatch
         ]
+    -- We normalize all mempools except the delegation one.
+    -- That's because delegation mempool normalization is harder and is done
+    -- within block application.
     sscNormalize
 #ifdef WITH_EXPLORER
     eTxNormalize
@@ -200,6 +203,9 @@ rollbackBlocksUnsafe toRollback = reportingFatal $ do
         ]
     -- After blocks are rolled back it makes sense to recreate the
     -- delegation mempool.
+    -- We don't normalize other mempools, because they are normalized
+    -- in 'applyBlocksUnsafe' and we always ensure that some blocks
+    -- are applied after rollback.
     dlgNormalizeOnRollback @ssc
 
 ----------------------------------------------------------------------------

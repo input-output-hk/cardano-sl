@@ -71,7 +71,7 @@ import           Servant.Multipart         (FileData, FromMultipart (..), lookup
                                             lookupInput)
 
 import           Pos.Aeson.Types           ()
-import           Pos.Binary.Class          (decodeFull, encode)
+import           Pos.Binary.Class          (decodeFull, serialize')
 import           Pos.Client.Txp.History    (TxHistoryEntry (..))
 import           Pos.Core.Coin             (mkCoin)
 import           Pos.Core.Types            (ScriptVersion)
@@ -265,7 +265,7 @@ instance FromCType CPassPhrase where
         first toText . decodeFull  =<< Base16.decode text
 
 instance ToCType CPassPhrase where
-    encodeCType = CPassPhrase . Base16.encode . encode
+    encodeCType = CPassPhrase . Base16.encode . serialize'
 
 ----------------------------------------------------------------------------
 -- Wallet

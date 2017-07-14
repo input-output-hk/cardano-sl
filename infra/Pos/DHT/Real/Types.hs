@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TupleSections #-}
 
 module Pos.DHT.Real.Types
        ( KademliaDHTInstance (..)
@@ -10,28 +11,24 @@ import           Universum              hiding (fromStrict, toStrict)
 import           Control.Concurrent.STM (TVar)
 import qualified Data.ByteString        as BS
 
-import           Data.Store             (PeekException (..), decodeIOPortionWith)
 import qualified Network.Kademlia       as K
 
-import           Pos.Binary.Class       (Bi (..), encode)
+import           Data.Bifunctor         (bimap)
+import           Pos.Binary.Class       (Bi (..), serialize', decodeFull)
 import           Pos.DHT.Model.Types    (DHTData, DHTKey)
 import           Pos.Util.TimeWarp      (NetworkAddress)
-import           System.IO.Unsafe       (unsafePerformIO)
 
-fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
-fromBSBinary bs = unsafePerformIO $
-    (decodeIOPortionWith get bs >>= \(off, res) -> return $ Right (res, BS.drop off bs))
-      `catch` handler
-  where
-    handler (PeekException {..}) = return $ Left (toString peekExMessage)
-
+-- CSL-1296: Should we worry about leftovers?
+-- Previous Store-based implementation was taking the leftover
+-- out of the serialisation, whereas in CBOR we deserialise everything
+-- in a gulp.
 instance Bi DHTData => K.Serialize DHTData where
-  toBS = encode
-  fromBS = fromBSBinary
+  toBS   = serialize'
+  fromBS = bimap toString (,BS.empty) . decodeFull
 
 instance Bi DHTKey => K.Serialize DHTKey where
-  toBS = encode
-  fromBS = fromBSBinary
+  toBS   = serialize'
+  fromBS = bimap toString (,BS.empty) . decodeFull
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData
 

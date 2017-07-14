@@ -55,7 +55,7 @@ parseValidator :: Bi Script_v0 => Text -> Either String Script
 parseValidator t = do
     scr <- PL.runElabInContexts [stdlib] $ PL.loadValidator (toString t)
     return Script {
-        scrScript = Bi.encodeLazy scr,
+        scrScript = Bi.serialize scr,
         scrVersion = 0 }
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
@@ -73,7 +73,7 @@ parseRedeemer mbV t = do
     scr <- PL.runElabInContexts (stdlib : maybeToList mbValScr) $
                PL.loadRedeemer (toString t)
     return Script {
-        scrScript = Bi.encodeLazy scr,
+        scrScript = Bi.serialize scr,
         scrVersion = 0 }
 
 {-
@@ -122,7 +122,7 @@ txScriptCheck sigData validator redeemer = case spoon result of
             0 -> first toString $ Bi.decodeFull $ BSL.toStrict (scrScript redeemer)
             v -> Left ("unknown script version of redeemer: " ++ show v)
         (script, env) <- PL.buildValidationScript stdlib valScr redScr
-        let taggedSigData = BSL.fromStrict $ (signTag SignTxIn) <> Bi.encode sigData
+        let taggedSigData = BSL.fromStrict $ (signTag SignTxIn) <> Bi.serialize' sigData
         PL.checkValidationResult taggedSigData (script, env)
 
 stdlib :: PLCore.Program

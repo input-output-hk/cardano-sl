@@ -5,35 +5,51 @@ module Pos.Binary.Infra.DHTModel () where
 
 import           Universum
 
-import qualified Data.Store                  as Store
-import qualified Data.Store.Internal         as Store
 import           Network.Kademlia.HashNodeId (HashId (..))
+import           Network.Kademlia            as K
+import           Network.Kademlia.Tree       as K
+import           Network.Kademlia.Types      as K
+import           Network.Kademlia.Instance   (BanState)
 
-import           Pos.Binary.Class            (Bi (..), Size (..), getSize, label, labelP)
-import qualified Pos.Binary.Cbor             as Cbor
+import           Pos.Binary.Class            (Bi (..), encodeListLen, enforceSize, genericEncode, genericDecode)
 import           Pos.DHT.Model.Types         (DHTData (..), DHTKey (..))
 
 instance Bi DHTKey where
-    -- CSL-1122: is this a constant?
-    size = VarSize $ \(DHTKey (HashId bs)) -> getSize bs
-    put (DHTKey (HashId bs)) = labelP "DHTKey" $ put bs
-    get = label "DHTKey" $ DHTKey . HashId <$> get
-
-instance Cbor.Bi DHTKey where
-  encode (DHTKey (HashId bs)) = Cbor.encode bs
-  decode = DHTKey . HashId <$> Cbor.decode
+  encode (DHTKey (HashId bs)) = encode bs
+  decode = DHTKey . HashId <$> decode
 
 instance Bi DHTData where
-    size = ConstSize 0
-    put (DHTData ()) = labelP "DHTData" $ pure ()
-    get = label "DHTData" $ pure $ DHTData ()
+  encode (DHTData unit) = encode unit
+  decode = DHTData <$> decode
 
-instance Cbor.Bi DHTData where
-  encode (DHTData unit) = Cbor.encode unit
-  decode = DHTData <$> Cbor.decode
+-- CSL-1296: Orphan (inefficient) Kademlia instances.
 
--- Kademlia uses Store, so we define a Store instance here as well.
-instance Store.Store DHTKey where
-    size = VarSize $ \(DHTKey (HashId bs)) -> Store.getSize bs
-    poke (DHTKey (HashId bs)) = labelP "Store: DHTKey" $ Store.poke bs
-    peek = label "Store: DHTKey" $ DHTKey . HashId <$> Store.peek
+instance Bi PingInfo where
+  encode = genericEncode
+  decode = genericDecode
+
+instance Bi i => Bi (K.Node i) where
+  encode = genericEncode
+  decode = genericDecode
+
+instance Bi BanState where
+  encode = genericEncode
+  decode = genericDecode
+
+instance Bi K.Peer where
+  encode p = encodeListLen 2 <> encode (K.peerHost p) <> encode (K.unwrapPort . K.peerPort $ p)
+  decode   = do
+    enforceSize "Kademlia.Peer" 2
+    K.Peer <$> decode <*> (K.wrapPort <$> decode)
+
+instance Bi i => (Bi (K.NodeTreeElem i)) where
+  encode = genericEncode
+  decode = genericDecode
+
+instance Bi i => Bi (K.NodeTree i) where
+  encode = genericEncode
+  decode = genericDecode
+
+instance Bi i => Bi (K.KademliaSnapshot i) where
+  encode = genericEncode
+  decode = genericDecode

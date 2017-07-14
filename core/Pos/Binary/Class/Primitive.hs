@@ -7,8 +7,6 @@ module Pos.Binary.Class.Primitive
     , serialize'
     , deserialize
     , deserialize'
-    , decodeFull
-    -- ^ Backward-compatible function
     , deserializeOrFail
     , deserializeOrFail'
     , putCopyBi
@@ -20,6 +18,8 @@ module Pos.Binary.Class.Primitive
     , fromBinaryM
     -- * Temporary functions
     , biSize
+    -- * Backward-compatible functions
+    , decodeFull
     ) where
 
 import qualified Codec.CBOR.Read                  as CBOR.Read

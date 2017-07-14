@@ -17,8 +17,7 @@ import           Data.Text.Buildable (Buildable (..))
 import qualified Prelude
 
 import           Crypto.Hash         (Blake2b_256)
-import           Pos.Binary          (Bi (..), encode, label, labelS, putField)
-import qualified Pos.Binary.Cbor     as Cbor
+import           Pos.Binary          (Bi (..), serialize')
 import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
                                       SecretKey, VssKeyPair, deterministicKeyGen,
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
@@ -32,12 +31,8 @@ newtype BackupPhrase = BackupPhrase
     } deriving (Eq, Generic)
 
 instance Bi BackupPhrase where
-    sizeNPut = labelS "BackupPhrase" $ putField bpToList
-    get = label "BackupPhrase" $ BackupPhrase <$> get
-
-instance Cbor.Bi BackupPhrase where
-  encode = Cbor.encode
-  decode = BackupPhrase <$> Cbor.decode
+  encode = encode
+  decode = BackupPhrase <$> decode
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int
@@ -68,7 +63,7 @@ toSeed :: BackupPhrase -> Either Text ByteString
 toSeed = first toText . fromMnemonic . unwords . bpToList
 
 toHashSeed :: BackupPhrase -> Either Text ByteString
-toHashSeed bp = encode . blake2b <$> toSeed bp
+toHashSeed bp = serialize' . blake2b <$> toSeed bp
   where blake2b :: Bi a => a -> AbstractHash Blake2b_256 b
         blake2b = unsafeAbstractHash
 

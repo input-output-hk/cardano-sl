@@ -24,7 +24,7 @@ import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, (%))
 import           Serokell.Util.Text   (listJson)
 
-import           Pos.Binary.Class     (encode)
+import           Pos.Binary.Class     (serialize')
 import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
@@ -89,15 +89,15 @@ instance Buildable BlockExtraOp where
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
-        [Rocks.Put (forwardLinkKey from) (encode to)]
+        [Rocks.Put (forwardLinkKey from) (serialize' to)]
     toBatchOp (RemoveForwardLink from) =
         [Rocks.Del $ forwardLinkKey from]
     toBatchOp (SetInMainChain False h) =
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
-        [Rocks.Put (mainChainKey h) (encode ()) ]
+        [Rocks.Put (mainChainKey h) (serialize' ()) ]
     toBatchOp (SetLastSlots slots) =
-        [Rocks.Put lastSlotsKey (encode slots)]
+        [Rocks.Put lastSlotsKey (serialize' slots)]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links
@@ -175,10 +175,10 @@ initGStateBlockExtra firstGenesisHash = do
 ----------------------------------------------------------------------------
 
 forwardLinkKey :: HeaderHash -> ByteString
-forwardLinkKey h = "e/fl/" <> encode h
+forwardLinkKey h = "e/fl/" <> serialize' h
 
 mainChainKey :: HeaderHash -> ByteString
-mainChainKey h = "e/mc/" <> encode h
+mainChainKey h = "e/mc/" <> serialize' h
 
 lastSlotsKey :: ByteString
 lastSlotsKey = "e/ls/"

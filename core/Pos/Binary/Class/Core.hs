@@ -1,4 +1,8 @@
-
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 module Pos.Binary.Class.Core
     ( Bi(..)
     , encodeBinary
@@ -10,10 +14,14 @@ module Pos.Binary.Class.Core
     , decodeListLen
     , Encoding
     , Decoder
+    -- * GHC-Generics-based encoding & decoding
+    , genericEncode
+    , genericDecode
     ) where
 
 import           Codec.CBOR.Decoding
 import           Codec.CBOR.Encoding
+import           GHC.Generics
 import qualified Data.Binary                 as Binary
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as BS.Lazy
@@ -146,6 +154,10 @@ instance Bi Int64 where
 instance Bi Nano where
     encode (MkFixed resolution) = encodeInteger resolution
     decode = MkFixed <$> decodeInteger
+
+instance Bi Void where
+    decode = fail "instance Bi Void: you shouldn't try to deserialize Void"
+    encode = error "instance Bi Void: you shouldn't try to serialize Void"
 
 ----------------------------------------------------------------------------
 -- Tagged
@@ -401,3 +413,187 @@ instance Bi Microsecond where
 instance Bi Byte where
     encode = encode . toBytes
     decode = fromBytes <$> decode
+
+genericEncode :: (Generic a, GSerialiseEncode (Rep a)) => a -> Encoding
+genericEncode = gencode . from
+
+genericDecode :: (Generic a, GSerialiseDecode (Rep a)) => Decoder s a
+genericDecode = to <$> gdecode
+
+class GSerialiseEncode f where
+    gencode  :: f a -> Encoding
+
+class GSerialiseDecode f where
+    gdecode  :: Decoder s (f a)
+
+instance GSerialiseEncode V1 where
+    -- Data types without constructors are still serialised as null value
+    gencode _ = encodeNull
+
+instance GSerialiseDecode V1 where
+    gdecode   = error "V1 don't have contructors" <$ decodeNull
+
+instance GSerialiseEncode U1 where
+    -- Constructors without fields are serialised as null value
+    gencode _ = encodeListLen 1 <> encodeWord 0
+
+instance GSerialiseDecode U1 where
+    gdecode   = do
+      n <- decodeListLen
+      when (n /= 1) $ fail "expect list of length 1"
+      tag <- decodeWord
+      when (tag /= 0) $ fail "unexpected tag. Expect 0"
+      return U1
+
+instance GSerialiseEncode a => GSerialiseEncode (M1 i c a) where
+    -- Metadata (constructor name, etc) is skipped
+    gencode = gencode . unM1
+
+instance GSerialiseDecode a => GSerialiseDecode (M1 i c a) where
+    gdecode = M1 <$> gdecode
+
+instance Bi a => GSerialiseEncode (K1 i a) where
+    -- Constructor field (Could only appear in one-field & one-constructor
+    -- data types). In all other cases we go through GSerialise{Sum,Prod}
+    gencode (K1 a) = encodeListLen 2
+                  <> encodeWord 0
+                  <> encode a
+
+instance Bi a => GSerialiseDecode (K1 i a) where
+    gdecode = do
+      n <- decodeListLen
+      when (n /= 2) $
+        fail "expect list of length 2"
+      tag <- decodeWord
+      when (tag /= 0) $
+        fail "unexpected tag. Expects 0"
+      K1 <$> decode
+
+instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseEncode (f :*: g) where
+    -- Products are serialised as N-tuples with 0 constructor tag
+    gencode (f :*: g)
+        = encodeListLen (nFields (Proxy :: Proxy (f :*: g)) + 1)
+       <> encodeWord 0
+       <> encodeSeq f
+       <> encodeSeq g
+
+instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseDecode (f :*: g) where
+    gdecode = do
+      let nF = nFields (Proxy :: Proxy (f :*: g))
+      n <- decodeListLen
+      -- TODO FIXME: signedness of list length
+      when (fromIntegral n /= nF + 1) $
+        fail $ "Wrong number of fields: expected="++show (nF+1)++" got="++show n
+      tag <- decodeWord
+      when (tag /= 0) $
+        fail $ "unexpect tag (expect 0)"
+      !f <- gdecodeSeq
+      !g <- gdecodeSeq
+      return $ f :*: g
+
+instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseEncode (f :+: g) where
+    -- Sum types are serialised as N-tuples and first element is
+    -- constructor tag
+    gencode a = encodeListLen (numOfFields a + 1)
+             <> encode (conNumber a)
+             <> encodeSum a
+
+instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseDecode (f :+: g) where
+    gdecode = do
+        n <- decodeListLen
+        -- TODO FIXME: Again signedness
+        when (n == 0) $
+          fail "Empty list encountered for sum type"
+        nCon  <- decodeWord
+        trueN <- fieldsForCon (Proxy :: Proxy (f :+: g)) nCon
+        when (n-1 /= fromIntegral trueN ) $
+          fail $ "Number of fields mismatch: expected="++show trueN++" got="++show n
+        decodeSum nCon
+
+
+-- | Serialization of product types
+class GSerialiseProd f where
+    -- | Number of fields in product type
+    nFields   :: Proxy f -> Word
+    -- | Encode fields sequentially without writing header
+    encodeSeq :: f a -> Encoding
+    -- | Decode fields sequentially without reading header
+    gdecodeSeq :: Decoder s (f a)
+
+instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseProd (f :*: g) where
+    nFields _ = nFields (Proxy :: Proxy f) + nFields (Proxy :: Proxy g)
+    encodeSeq (f :*: g) = encodeSeq f <> encodeSeq g
+    gdecodeSeq = do !f <- gdecodeSeq
+                    !g <- gdecodeSeq
+                    return (f :*: g)
+
+instance GSerialiseProd U1 where
+    -- N.B. Could only be reached when one of constructors in sum type
+    --      don't have parameters
+    nFields   _ = 0
+    encodeSeq _ = mempty
+    gdecodeSeq  = return U1
+
+instance (Bi a) => GSerialiseProd (K1 i a) where
+    -- Ordinary field
+    nFields    _     = 1
+    encodeSeq (K1 f) = encode f
+    gdecodeSeq       = K1 <$> decode
+
+instance (i ~ S, GSerialiseProd f) => GSerialiseProd (M1 i c f) where
+    -- We skip metadata
+    nFields     _     = 1
+    encodeSeq  (M1 f) = encodeSeq f
+    gdecodeSeq        = M1 <$> gdecodeSeq
+
+-- | Serialization of sum types
+--
+class GSerialiseSum f where
+    -- | Number of constructor of given value
+    conNumber   :: f a -> Word
+    -- | Number of fields of given value
+    numOfFields :: f a -> Word
+    -- | Encode field
+    encodeSum   :: f a  -> Encoding
+
+    -- | Decode field
+    decodeSum     :: Word -> Decoder s (f a)
+    -- | Number of constructors
+    nConstructors :: Proxy f -> Word
+    -- | Number of fields for given constructor number
+    fieldsForCon  :: Proxy f -> Word -> Decoder s Word
+
+instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseSum (f :+: g) where
+    conNumber x = case x of
+      L1 f -> conNumber f
+      R1 g -> conNumber g + nConstructors (Proxy :: Proxy f)
+    numOfFields x = case x of
+      L1 f -> numOfFields f
+      R1 g -> numOfFields g
+    encodeSum x = case x of
+      L1 f -> encodeSum f
+      R1 g -> encodeSum g
+
+    nConstructors _ = nConstructors (Proxy :: Proxy f)
+                    + nConstructors (Proxy :: Proxy g)
+
+    fieldsForCon _ n | n < nL    = fieldsForCon (Proxy :: Proxy f) n
+                     | otherwise = fieldsForCon (Proxy :: Proxy g) (n - nL)
+      where
+        nL = nConstructors (Proxy :: Proxy f)
+
+    decodeSum nCon | nCon < nL = L1 <$> decodeSum nCon
+                   | otherwise = R1 <$> decodeSum (nCon - nL)
+      where
+        nL = nConstructors (Proxy :: Proxy f)
+
+instance (i ~ C, GSerialiseProd f) => GSerialiseSum (M1 i c f) where
+    conNumber    _     = 0
+    numOfFields  _     = nFields (Proxy :: Proxy f)
+    encodeSum   (M1 f) = encodeSeq f
+
+    nConstructors  _ = 1
+    fieldsForCon _ 0 = return $ nFields (Proxy :: Proxy f)
+    fieldsForCon _ _ = fail "Bad constructor number"
+    decodeSum      0 = M1 <$> gdecodeSeq
+    decodeSum      _ = fail "bad constructor number"

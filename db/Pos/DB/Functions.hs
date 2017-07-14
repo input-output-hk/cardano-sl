@@ -24,7 +24,7 @@ import           Universum
 import qualified Data.ByteString  as BS (drop, isPrefixOf)
 import           Formatting       (sformat, shown, stext, string, (%))
 
-import           Pos.Binary.Class (Bi, decodeFull, encode)
+import           Pos.Binary.Class (Bi, decodeFull, serialize')
 import           Pos.DB.Class     (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
                                    MonadDBRead (..))
 import           Pos.DB.Error     (DBError (DBMalformed))
@@ -42,7 +42,7 @@ dbGetBi tag key = do
 
 -- | Write serializable value to DB for given key.
 dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
-dbPutBi tag k v = dbPut tag k (encode v)
+dbPutBi tag k v = dbPut tag k (serialize' v)
 
 
 data ToDecode
@@ -92,7 +92,7 @@ dbDecodeMaybeWP s
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encode
+encodeWithKeyPrefix = (iterKeyPrefix @i <>) . serialize'
 
 -- | Given a @(k,v)@ as pair of strings, try to decode both.
 processIterEntry ::

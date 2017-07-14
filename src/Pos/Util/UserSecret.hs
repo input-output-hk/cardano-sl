@@ -40,9 +40,7 @@ import           System.FileLock       (FileLock, SharedExclusive (..), lockFile
 import qualified Turtle                as T
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..), decodeFull, encode, label, labelS,
-                                        putField)
-import qualified Pos.Binary.Cbor       as Cbor
+import           Pos.Binary.Class      (Bi (..), decodeFull, serialize', encodeListLen, enforceSize)
 import           Pos.Binary.Crypto     ()
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
@@ -126,33 +124,16 @@ instance Default UserSecret where
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
-    sizeNPut = labelS "UserSecret" $
-        putField _usVss <>
-        putField _usPrimKey <>
-        putField _usKeys <>
-        putField _usWalletSet
-    get = label "UserSecret" $ do
-        vss <- get
-        pkey <- get
-        keys <- get
-        wset <- get
-        return $ def
-            & usVss .~ vss
-            & usPrimKey .~ pkey
-            & usKeys .~ keys
-            & usWalletSet .~ wset
-
-instance Cbor.Bi UserSecret where
-  encode us = Cbor.encodeListLen 4 <> Cbor.encode (_usVss us) <>
-                                      Cbor.encode (_usPrimKey us) <>
-                                      Cbor.encode (_usKeys us) <>
-                                      Cbor.encode (_usWalletSet us)
+  encode us = encodeListLen 4 <> encode (_usVss us) <>
+                                      encode (_usPrimKey us) <>
+                                      encode (_usKeys us) <>
+                                      encode (_usWalletSet us)
   decode = do
-    Cbor.enforceSize "UserSecret" 4
-    vss  <- Cbor.decode
-    pkey <- Cbor.decode
-    keys <- Cbor.decode
-    wset <- Cbor.decode
+    enforceSize "UserSecret" 4
+    vss  <- decode
+    pkey <- decode
+    keys <- decode
+    wset <- decode
     return $ def
         & usVss .~ vss
         & usPrimKey .~ pkey
@@ -269,7 +250,7 @@ writeRaw u = do
         openBinaryTempFile (takeDirectory path) (takeFileName path)
 
     -- onException rethrows the exception after calling the handler.
-    BS.hPut tempHandle (encode u) `onException` do
+    BS.hPut tempHandle (serialize' u) `onException` do
         hClose tempHandle
 
     hClose tempHandle

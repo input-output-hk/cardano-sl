@@ -14,7 +14,6 @@ import           Data.Text.Buildable (Buildable)
 import           Universum
 
 import           Pos.Binary.Class    (Bi)
-import qualified Pos.Binary.Cbor     as Cbor
 import           Pos.Core            (HasDifficulty (..), HasEpochIndex (..),
                                       HasEpochOrSlot (..), HasHeaderHash (..),
                                       IsGenesisHeader, IsMainHeader)
@@ -36,8 +35,6 @@ class ( Typeable ssc
       , Buildable (SscGlobalState ssc)
       , Bi (SscProof ssc)
       , Bi (SscPayload ssc)
-      , Cbor.Bi (SscProof ssc)
-      , Cbor.Bi (SscPayload ssc)
       , NFData (SscPayload ssc)
       , NFData (SscProof ssc)
       ) =>

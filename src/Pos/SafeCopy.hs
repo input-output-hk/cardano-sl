@@ -288,7 +288,7 @@ instance SafeCopy (Signature a) where
     getCopy = contain $ Signature <$> safeGet
 
 instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
-    putCopy (Signed v s) = contain $ safePut (Bi.encode (v,s))
+    putCopy (Signed v s) = contain $ safePut (Bi.serialize' (v,s))
     getCopy = contain $ do
         bs <- safeGet
         case Bi.decodeFull bs of
@@ -305,16 +305,16 @@ instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
         safePut psigSig
     getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
 
-instance Bi (MerkleRoot a) => SafeCopy (MerkleRoot a) where
-    getCopy = Bi.getCopyBi "MerkleRoot"
+instance (Bi (MerkleRoot a), Typeable a) => SafeCopy (MerkleRoot a) where
+    getCopy = Bi.getCopyBi
     putCopy = Bi.putCopyBi
 
-instance Bi (MerkleNode a) => SafeCopy (MerkleNode a) where
-    getCopy = Bi.getCopyBi "MerkleNode"
+instance (Bi (MerkleNode a), Typeable a) => SafeCopy (MerkleNode a) where
+    getCopy = Bi.getCopyBi
     putCopy = Bi.putCopyBi
 
-instance Bi (MerkleTree a) => SafeCopy (MerkleTree a) where
-    getCopy = Bi.getCopyBi "MerkleTree"
+instance (Bi (MerkleTree a), Typeable a) => SafeCopy (MerkleTree a) where
+    getCopy = Bi.getCopyBi
     putCopy = Bi.putCopyBi
 
 instance SafeCopy h => SafeCopy (Attributes h) where
@@ -328,7 +328,7 @@ instance SafeCopy h => SafeCopy (Attributes h) where
         do safePut attrData
            safePut attrRemain
 
-instance Bi (AbstractHash algo a) =>
+instance (Bi (AbstractHash algo a), Typeable algo, Typeable a) =>
         SafeCopy (AbstractHash algo a) where
    putCopy = Bi.putCopyBi
-   getCopy = Bi.getCopyBi "AbstractHash"
+   getCopy = Bi.getCopyBi

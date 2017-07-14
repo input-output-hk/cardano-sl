@@ -6,7 +6,6 @@ module Pos.Binary.Block.Block
 
 import           Pos.Binary.Block.Slog ()
 import           Pos.Binary.Class      (Cons (..), Field (..), deriveSimpleBi)
-import qualified Pos.Binary.Cbor       as Cbor
 import           Pos.Binary.Core       ()
 import           Pos.Binary.Update     ()
 import           Pos.Block.Slog.Types  (SlogUndo)
@@ -17,16 +16,8 @@ import           Pos.Update.Poll.Types (USUndo)
 
 deriveSimpleBi ''Undo [
     Cons 'Undo [
-        Field [| undoTx    :: TxpUndo   |],
-        Field [| undoPsk   :: DlgUndo   |],
-        Field [| undoUS    :: USUndo    |],
-        Field [| undoSlog  :: SlogUndo  |]
-    ]]
-
-Cbor.deriveSimpleBi ''Undo [
-    Cbor.Cons 'Undo [
-        Cbor.Field [| undoTx    :: TxpUndo  |],
-        Cbor.Field [| undoPsk   :: DlgUndo  |],
-        Cbor.Field [| undoUS    :: USUndo   |],
-        Cbor.Field [| undoSlog  :: SlogUndo |]
+        Field [| undoTx    :: TxpUndo  |],
+        Field [| undoPsk   :: DlgUndo  |],
+        Field [| undoUS    :: USUndo   |],
+        Field [| undoSlog  :: SlogUndo |]
     ]]

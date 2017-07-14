@@ -83,7 +83,6 @@ import           Pos.WorkMode               (RealMode, RealModeContext)
 
 import           Command                    (Command (..), ProposeUpdateSystem (..),
                                              SendMode (..), parseCommand)
-import           Prelude                    (id) -- TODO: this should be exported from Universum.
 import           System.Random              (randomRIO)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
@@ -213,7 +212,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
                 Nothing -> return ()
         let sendTxsConcurrently = void $ forConcurrently [1..conc] (const sendTxs)
         let sendTxsConcurrentlyFor n = race (delay (sec n)) sendTxsConcurrently
-        either absurd id <$> race
+        either absurd identity <$> race
             writeTPS
             (sendTxsConcurrentlyFor duration >> delay (sec $ cooldown * slotDuration))
 runCmd sendActions v@(Vote idx decision upid) CmdCtx{na} = do

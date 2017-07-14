@@ -28,7 +28,12 @@ import           Pos.Types                  (Address (..), BlockVersion, Coin, E
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
 
-data SendMode = SendNeighbours | SendRoundRobin | SendRandom deriving Show
+-- | Specify how transactions are sent to the network during benchmarks using 'SendToAllGenesis'.
+data SendMode =
+      SendNeighbours -- ^ Send each transaction to every specified neighbour
+    | SendRoundRobin -- ^ Send transactions to neighbours in a round-robin fashion
+    | SendRandom     -- ^ Send each transaction to a randomly picked neighbour
+    deriving Show
 
 data Command
     = Balance Address

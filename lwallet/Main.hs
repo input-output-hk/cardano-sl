@@ -160,7 +160,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
     tpsMVar <- newSharedAtomic $ TxCount 0 0
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
-    Mockable.bracket (liftIO $ openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
+    Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
         liftIO $ hSetBuffering h LineBuffering
         liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> show slotDuration
                                                    , "sendMode=" <> show sendMode
@@ -169,7 +169,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
                                                    , "delay=" <> show delay_
                                                    , "cooldown=" <> show cooldown]
         liftIO $ T.hPutStrLn h "time,txCount,txType"
-        txQueue <- liftIO . atomically $ newTQueue
+        txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
         forM_ (zip skeys [0..]) $ \(key, n) -> do
             let txOut = TxOut {
@@ -182,7 +182,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
                     SendRandom -> do
                         i <- liftIO $ randomRIO (0, nNeighbours - 1)
                         return [na !! i]
-            liftIO . atomically $ writeTQueue txQueue (key, txOut, neighbours)
+            atomically $ writeTQueue txQueue (key, txOut, neighbours)
 
         let writeTPS :: m void
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
@@ -198,7 +198,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
                 writeTPS
         let sendTxs :: m ()
             -- repeatedly take transactions from the queue and send them
-            sendTxs = (liftIO . atomically $ tryReadTQueue txQueue) >>= \case
+            sendTxs = (atomically $ tryReadTQueue txQueue) >>= \case
                 Just (key, txOut, neighbours) -> do
                     utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic (fakeSigner key)
                     let tx = createTx utxo (fakeSigner key) (NE.fromList [TxOutAux txOut []])

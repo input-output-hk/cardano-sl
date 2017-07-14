@@ -29,7 +29,6 @@ checkLen :: Text -> Text -> Int -> ByteString -> ByteString
 checkLen action name len bs =
     maybe bs error $ checkLenImpl action name len $ BS.length bs
 
--- CSL-1296: Temporarily disable checkLen.
 checkLenImpl :: Integral a => Text -> Text -> a -> a -> Maybe Text
 checkLenImpl action name expectedLen len
     | expectedLen == len = Nothing

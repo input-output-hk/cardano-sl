@@ -12,7 +12,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple)
 import Explorer.Api.Helper (decodeResult)
-import Explorer.Api.Types (Endpoint, EndpointError(..), RequestLimit(..), RequestOffset(..))
+import Explorer.Api.Types (Endpoint, EndpointError(..) )
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..))
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
@@ -64,9 +64,8 @@ fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxBriefs
 fetchBlockTxs (CHash hash) = get $ "blocks/txs/" <> hash
 
 -- txs
-fetchLatestTxs :: forall eff. RequestLimit -> RequestOffset -> Aff (ajax::AJAX | eff) CTxEntries
-fetchLatestTxs (RequestLimit limit) (RequestOffset offset) =
-    get $ "txs/last/?limit=" <> show limit <> "&offset=" <> show offset
+fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
+fetchLatestTxs = get $ "txs/last"
 
 fetchTxSummary :: forall eff. CTxId -> Aff (ajax::AJAX | eff) CTxSummary
 fetchTxSummary id = get $ "txs/summary/" <> id ^. (_CTxId <<< _CHash)

@@ -13,5 +13,8 @@ rm -rf run/*
 rm -rf wallet-db/
 rm -rf db-qanet/
 rm -rf wdb-qanet/
+rm -rf node-db/
 rm -rf node-*.*key*
 rm -rf kademlia-abc.dump
+rm -rf *.log
+

@@ -9,15 +9,20 @@ module Pos.Core.Slotting
        , crucialSlot
        , unsafeMkLocalSlotIndex
        , isBootstrapEra
+       , epochOrSlot
+       , epochOrSlotToSlot
        ) where
 
 import           Universum
 
-import           Pos.Core.Class     (HasEpochOrSlot (..), getEpochOrSlot)
+import           Control.Lens       (lens)
+
+import           Pos.Core.Class     (HasEpochIndex (..), HasEpochOrSlot (..),
+                                     getEpochOrSlot)
 import           Pos.Core.Constants (epochSlots, slotSecurityParam)
 import           Pos.Core.Types     (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                     LocalSlotIndex, SlotCount, SlotId (..), epochOrSlot,
-                                     getSlotIndex, mkLocalSlotIndex)
+                                     LocalSlotIndex, SlotCount, SlotId (..), getSlotIndex,
+                                     mkLocalSlotIndex)
 import           Pos.Util.Util      (leftToPanic)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
@@ -61,6 +66,9 @@ instance Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral
     fromEnum = fromIntegral . flattenSlotId
 
+instance HasEpochIndex SlotId where
+    epochIndexL = lens siEpoch (\s a -> s {siEpoch = a})
+
 -- | Slot such that at the beginning of epoch blocks with SlotId ≤- this slot
 -- are stable.
 crucialSlot :: EpochIndex -> SlotId
@@ -70,6 +78,14 @@ crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
     siSlot =
         leftToPanic "crucialSlot: " $
         mkLocalSlotIndex (fromIntegral (epochSlots - slotSecurityParam - 1))
+
+instance HasEpochIndex EpochOrSlot where
+    epochIndexL = lens (epochOrSlot identity siEpoch) setter
+      where
+        setter :: EpochOrSlot -> EpochIndex -> EpochOrSlot
+        setter (EpochOrSlot (Left _)) epoch = EpochOrSlot (Left epoch)
+        setter (EpochOrSlot (Right slot)) epoch =
+            EpochOrSlot (Right $ set epochIndexL epoch slot)
 
 instance Enum EpochOrSlot where
     succ (EpochOrSlot (Left e)) =
@@ -123,5 +139,15 @@ isBootstrapEra
     -> EpochIndex -- ^ Epoch in question (for which we determine whether it
                   --                      belongs to the bootstrap era).
     -> Bool
-isBootstrapEra unlockStakeEpoch epoch = do
+isBootstrapEra unlockStakeEpoch epoch =
     epoch < unlockStakeEpoch
+
+-- | Apply one of the function depending on content of 'EpochOrSlot'.
+epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
+epochOrSlot f g = either f g . unEpochOrSlot
+
+-- | Convert 'EpochOrSlot' to the corresponding slot. If slot is
+-- stored, it's returned, otherwise 0-th slot from the stored epoch is
+-- returned.
+epochOrSlotToSlot :: EpochOrSlot -> SlotId
+epochOrSlotToSlot = epochOrSlot (flip SlotId minBound) identity

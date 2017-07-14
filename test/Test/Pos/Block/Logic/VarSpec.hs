@@ -6,7 +6,7 @@ module Test.Pos.Block.Logic.VarSpec
 
 import           Universum
 
-import           Control.Lens              (at, views)
+import           Control.Lens              (at)
 import qualified Data.List.NonEmpty        as NE
 import           Ether.Internal            (HasLens (..))
 import           Formatting                (sformat, (%))
@@ -20,10 +20,12 @@ import           Pos.Block.Core            (MainBlock, emptyMainBody, mkMainBloc
 import           Pos.Block.Logic           (verifyBlocksPrefix)
 import           Pos.Core                  (SlotId (..))
 import           Pos.DB.DB                 (getTipHeader)
+import           Pos.Generator.Block       (asSecretKeys)
 import           Pos.Lrc                   (getLeaders)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..))
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContextTag)
+-- import           Test.Pos.Block.Logic.Util (bpGenBlocks)
 
 spec :: Spec
 spec = describe "Block.Logic.VAR" $ do
@@ -59,10 +61,15 @@ maybeStopProperty msg =
 
 verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
+    -- We generate blocks and discard them. It's only a proof of concept.
+    -- But in fact we don't generate blocks, because genesis is broken in
+    -- travis mode.
+    -- But this line compiles, trust me.
+    -- () <$ bpGenBlocks
     genesisLeaders <-
         maybeStopProperty "no genesis leaders" =<< lift (getLeaders 0)
     let theLeader = NE.head genesisLeaders
-    idToSecret <- lift $ views (lensOf @TestParams) tpSecretKeys
+    idToSecret <- lift $ view asSecretKeys <$> view (lensOf @BlockTestContextTag)
     let unknownLeaderMsg =
             sformat
                 ("the secret key of the leader is unknown, leaders are: "

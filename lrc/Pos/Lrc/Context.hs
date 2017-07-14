@@ -3,6 +3,7 @@
 module Pos.Lrc.Context
        ( LrcSyncData(..)
        , LrcContext(..)
+       , cloneLrcContext
        , mkLrcSyncData
 
        , waitLrc
@@ -13,19 +14,32 @@ module Pos.Lrc.Context
 import           Universum
 
 import           Control.Lens        (views)
-import           Ether.Internal      (HasLens (..))
+import           System.Wlog         (WithLogger)
 
 import           Pos.Core            (EpochIndex)
 import           Pos.DB.Class        (MonadDBRead)
+import           Pos.Exception       (reportFatalError)
 import           Pos.Lrc.DB.Common   (getEpoch)
 import           Pos.Lrc.Error       (LrcError (..))
 import           Pos.Util.Concurrent (readTVarConditional)
-import           Pos.Util.Util       (maybeThrow)
+import           Pos.Util.Util       (HasLens (..), maybeThrow)
 
 data LrcContext = LrcContext
     { -- | Primitive for synchronization with LRC.
       lcLrcSync :: !(TVar LrcSyncData)
     }
+
+-- | Create a new 'LrcContext' with the same contents as the given
+-- context has.
+cloneLrcContext ::
+       (WithLogger m, MonadIO m, MonadThrow m) => LrcContext -> m LrcContext
+cloneLrcContext LrcContext {..} = do
+    readTVarIO lcLrcSync >>= \case
+        lsd@LrcSyncData {..}
+            | lrcNotRunning -> LrcContext <$> newTVarIO lsd
+            | otherwise ->
+                reportFatalError
+                    "Someone tried to clone 'LrcContext' while LRC is running. It's weird"
 
 -- | Data used for LRC syncronization. First value is __False__ iff
 -- LRC is running now. Second value is last epoch for which we have

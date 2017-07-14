@@ -64,5 +64,5 @@ instance Bi Script where
 Cbor.deriveSimpleBi ''Script [
     Cbor.Cons 'Script [
         Cbor.Field [| scrVersion :: ScriptVersion |],
-        Cbor.Field [| scrScript  :: LByteString   |]
+        Cbor.Field [| scrScript  :: ByteString   |]
     ]]

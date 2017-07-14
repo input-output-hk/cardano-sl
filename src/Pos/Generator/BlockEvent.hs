@@ -1,4 +1,4 @@
-module Pos.Generators.BlockEvent
+module Pos.Generator.BlockEvent
        (
        -- * Block apply
          BlockApplyResult(..)

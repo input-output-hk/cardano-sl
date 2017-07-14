@@ -24,6 +24,7 @@ module Explorer.View.Common (
 
 import Prelude
 
+import Data.Array (length)
 import Data.Foldable (for_)
 import Data.Int (ceil, fromString, toNumber)
 import Data.Lens ((^.))
@@ -31,7 +32,6 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Monoid (mempty)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
-
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
 import Explorer.Lenses.State (lang)
@@ -39,23 +39,21 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), PageNumber(..), State)
+import Explorer.Util.Config (testNetVersion)
 import Explorer.Util.DOM (enterKeyPressed)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
 import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
-
 import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
-
 import Pux.DOM.Events (DOMEvent, onBlur, onChange, onFocus, onKeyDown, onClick, targetValue) as P
 import Pux.DOM.HTML (HTML) as P
-
 import Text.Smolder.HTML (a, div, p, span, input, option, select) as S
 import Text.Smolder.HTML.Attributes (className, href, value, disabled, type', min, max) as S
-import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!), (!?))
+import Text.Smolder.Markup (text) as S
 
 
 
@@ -163,14 +161,38 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
 
 txBodyView :: Language -> TxBodyViewProps -> P.HTML Action
 txBodyView lang (TxBodyViewProps props) =
+    let inputs = props ^. txbInputs
+        lInputs = length inputs
+        outputs = props ^. txbOutputs
+        lOutputs = length outputs
+        amounts = if (lOutputs >= lInputs) then outputs else inputs
+    in
     S.div ! S.className "transaction-body" $ do
-        S.div ! S.className "from-hash-container"
-              $ for_ (props ^. txbInputs) txFromView
-        S.div ! S.className "to-hash-container bg-transaction-arrow"
-              $ S.div ! S.className "to-hash-wrapper"
-                      $ for_ (props ^. txbOutputs) txToView
+        S.div ! S.className "from-hash__container" $ do
+              S.div ! S.className "from-hash__wrapper"
+                    $ for_ inputs txFromView
+              -- On mobile devices we wan't to show amounts of `inputs`.
+              -- This view is hidden on desktop by CSS.
+              S.div ! S.className "from-hash__amounts"
+                    $ if (lInputs > lOutputs)
+                          then for_ inputs (txBodyAmountView lang)
+                          else mempty
+        S.div ! S.className "to-hash__container bg-transaction-arrow" $ do
+              S.div ! S.className "to-hash__wrapper"
+                    $ for_ outputs txToView
+              -- On mobile devices we wan't to show amounts of `outputs`.
+              -- This view is hidden on desktop by CSS.
+              S.div ! S.className "to-hash__amounts"
+                    $ if (lOutputs >= lInputs)
+                          then for_ outputs (txBodyAmountView lang)
+                          else mempty
+        -- On desktop we do show amounts within an extra column.
+        -- This column is hidden on mobile by CSS.
         S.div ! S.className "amounts-container"
-              $ for_ (props ^. txbOutputs) (txBodyAmountView lang)
+              $ for_ amounts (txBodyAmountView lang)
+
+        -- On mobile we do show an extra row of total amount
+        -- This view is hidden on desktop by CSS.
         txAmountView (props ^. txbAmount) lang
 
 emptyTxBodyView :: P.HTML Action
@@ -183,7 +205,7 @@ txFromView (Tuple (CAddress cAddress) _) =
     let addressRoute = Address $ mkCAddress cAddress in
     S.a ! S.href (toUrl addressRoute)
         #! P.onClick (Navigate $ toUrl addressRoute)
-        ! S.className "from-hash"
+        ! S.className "from-hash__value"
         $ S.text cAddress
 
 txToView :: Tuple CAddress CCoin -> P.HTML Action
@@ -191,7 +213,7 @@ txToView (Tuple (CAddress cAddress) _) =
     let addressRoute = Address $ mkCAddress cAddress in
     S.a ! S.href (toUrl addressRoute)
         #! P.onClick (Navigate $ toUrl addressRoute)
-        ! S.className "to-hash"
+        ! S.className "to-hash__value"
         $ S.text cAddress
 
 txBodyAmountView :: Language -> Tuple CAddress CCoin -> P.HTML Action
@@ -301,26 +323,32 @@ txEmptyContentView message =
 -- logo
 -- -----------------
 
-logoView' :: Maybe Route -> P.HTML Action
-logoView' mRoute =
+logoView' :: Maybe Route -> Boolean -> P.HTML Action
+logoView' mRoute isTestnet =
     let logoContentTag = case mRoute of
                               Just route ->
                                   S.a ! S.href (toUrl route)
                                       #! P.onClick (Navigate $ toUrl route)
-                                      $ mempty
                               Nothing ->
-                                  S.div $ mempty
+                                  S.div
+
+        iconHiddenClazz = if isTestnet then "" else " hide"
     in
-    S.div ! S.className "logo__container"
-          $ S.div ! S.className "logo__wrapper"
-                  $ logoContentTag  ! S.className "logo__img bg-logo"
-                                    ! S.href (toUrl Dashboard)
+    S.div
+        ! S.className "logo__container"
+        $ S.div
+            ! S.className "logo__wrapper"
+            $ logoContentTag
+                ! S.className "logo__img bg-logo"
+                $ S.div
+                    ! S.className ("testnet-icon" <> iconHiddenClazz)
+                    $ S.text ("TN " <> testNetVersion)
 
-logoView :: P.HTML Action
-logoView = logoView' Nothing
+logoView :: Boolean -> P.HTML Action
+logoView isTestnet = logoView' Nothing isTestnet
 
-clickableLogoView :: Route -> P.HTML Action
-clickableLogoView = logoView' <<< Just
+clickableLogoView :: Route -> Boolean -> P.HTML Action
+clickableLogoView route isTestnet = logoView' (Just route) isTestnet
 
 -- -----------------
 -- lang

@@ -22,8 +22,6 @@ import           Universum
 
 import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
-import           Control.Monad.Loops            (unfoldrM)
-import           Control.Monad.Trans.Maybe      (MaybeT (..))
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
 import           Data.Time.Clock.POSIX          (POSIXTime)
@@ -37,7 +35,6 @@ import           Pos.Crypto                     (WithHash (..), hash, withHash)
 
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
-import qualified Pos.DB.GState                  as GS
 
 import           Pos.Block.Core                 (Block, MainBlock,
                                                  mainBlockSlot,
@@ -56,8 +53,8 @@ import           Pos.Types                      (Address (..), Coin, EpochIndex,
                                                  difficultyL, gbHeader,
                                                  gbhConsensus,
                                                  getChainDifficulty, mkCoin,
-                                                 prevBlockL, siEpoch, siSlot,
-                                                 sumCoins, unsafeIntegerToCoin,
+                                                 siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin,
                                                  unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
@@ -65,6 +62,7 @@ import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
+                                                 getLastTransactions,
                                                  getPageBlocks, getTxExtra)
 import qualified Pos.Explorer                   as EX (getAddrBalance,
                                                        getAddrHistory,
@@ -127,7 +125,7 @@ explorerHandlers _sendActions =
     apiBlocksPagesTotal  = getBlocksPagesTotalDefault
     apiBlocksSummary     = catchExplorerError . getBlockSummary
     apiBlocksTxs         = getBlockTxsDefault
-    apiTxsLast           = getLastTxsDefault
+    apiTxsLast           = catchExplorerError getLastTxs
     apiTxsSummary        = catchExplorerError . getTxSummary
     apiAddressSummary    = catchExplorerError . getAddressSummary
     apiEpochSlotSearch   = tryEpochSlotSearch
@@ -142,9 +140,6 @@ explorerHandlers _sendActions =
 
     getBlockTxsDefault hash'  limit skip =
       catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
-
-    getLastTxsDefault         limit skip =
-      catchExplorerError $ getLastTxs (defaultLimit limit) (defaultSkip skip)
 
     tryEpochSlotSearch   epoch maybeSlot =
       catchExplorerError $ epochSlotSearch epoch maybeSlot
@@ -209,7 +204,7 @@ getBlocksPage mPageNumber pageSize = do
     cBlocksEntry    <- forM (rights blocks) toBlockEntry
 
     -- Return total pages and the blocks. We start from page 1.
-    pure (totalPages, cBlocksEntry)
+    pure (totalPages, reverse cBlocksEntry)
   where
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
@@ -265,25 +260,42 @@ getBlocksLastPage = getBlocksPage Nothing pageSize
     pageSize = 10
 
 
--- | Get last transactions from the blockchain
+-- | Get last transactions from the blockchain.
 getLastTxs
     :: ExplorerMode m
-    => Word
-    -> Word
-    -> m [CTxEntry]
-getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
-    mempoolTxs <- getMempoolTxs
+    => m [CTxEntry]
+getLastTxs = do
+    mempoolTxs     <- getMempoolTxs
+    blockTxsWithTs <- getBlockchainLastTxs
 
-    let lenTxs = length mempoolTxs
-        (newOff, newLim) = recalculateOffLim off lim lenTxs
-        localTxsWithTs = take lim $ drop off mempoolTxs
+    -- We take the mempool txs first, then topsorted blockchain ones.
+    let newTxs      = mempoolTxs <> blockTxsWithTs
 
-    blockTxsWithTs <- getBlockchainTxs newOff newLim
+    pure $ tiToTxEntry <$> newTxs
+  where
+    -- Get last transactions from the blockchain.
+    getBlockchainLastTxs 
+        :: ExplorerMode m
+        => m [TxInternal]
+    getBlockchainLastTxs = do
+        mLastTxs     <- getLastTransactions
+        let lastTxs   = fromMaybe [] mLastTxs
+        let lastTxsWH = map withHash lastTxs
 
-    pure $ tiToTxEntry <$> localTxsWithTs <> blockTxsWithTs
+        forM lastTxsWH toTxInternal
+      where
+        -- Convert transaction to TxInternal.
+        toTxInternal 
+            :: (MonadThrow m, MonadDBRead m)
+            => WithHash Tx
+            -> m TxInternal
+        toTxInternal (WithHash tx txId) = do
+            extra <- EX.getTxExtra txId >>= 
+                maybeThrow (Internal "No extra info for tx in DB!")
+            pure $ TxInternal extra tx
 
 
--- | Get block summary
+-- | Get block summary.
 getBlockSummary
     :: ExplorerMode m
     => CHash
@@ -302,9 +314,10 @@ getBlockTxs
     -> Word
     -> m [CTxBrief]
 getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
-    h <- unwrapOrThrow $ fromCHash cHash
+    h   <- unwrapOrThrow $ fromCHash cHash
     blk <- getMainBlock h
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+
     forM (take lim . drop off $ txs) $ \tx -> do
         extra <- EX.getTxExtra (hash tx) >>=
                  maybeThrow (Internal "In-block transaction doesn't \
@@ -545,38 +558,6 @@ getMempoolTxs = do
 
     mkWhTx :: (TxId, TxAux) -> WithHash Tx
     mkWhTx (txid, txAux) = WithHash (taTx txAux) txid
-
-recalculateOffLim :: Int -> Int -> Int -> (Int, Int)
-recalculateOffLim off lim lenTxs =
-    if lenTxs <= off
-    then (off - lenTxs, lim)
-    else (0, lim - (lenTxs - off))
-
-getBlockchainTxs :: ExplorerMode m => Int -> Int -> m [TxInternal]
-getBlockchainTxs origOff origLim = do
-    let unfolder off lim h = do
-            when (lim <= 0) $
-                fail "Finished"
-            MaybeT (DB.blkGetBlock @SscGodTossing h) >>= \case
-                Left gb -> unfolder off lim (gb ^. prevBlockL)
-                Right mb -> do
-                    let mTxs   = mb ^. mainBlockTxPayload . txpTxs
-                        lenTxs = length mTxs
-                    if off >= lenTxs
-                        then return ([], (off - lenTxs, lim, mb ^. prevBlockL))
-                        else do
-                        txs <- topsortTxsOrFail identity $ map withHash $ toList mTxs
-                        let neededTxs = take lim $ drop off $ reverse txs
-                            (newOff, newLim) = recalculateOffLim off lim lenTxs
-                        blkTxEntries <- lift $ forM neededTxs $ \(WithHash tx id) -> do
-                            extra <- maybeThrow (Internal "No extra info for tx in DB") =<<
-                                            EX.getTxExtra id
-                            pure $ TxInternal extra tx
-                        return (blkTxEntries, (newOff, newLim, mb ^. prevBlockL))
-
-    tip <- GS.getTip
-    fmap concat $ flip unfoldrM (origOff, origLim, tip) $
-        \(o, l, h) -> runMaybeT $ unfolder o l h
 
 getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m (Maybe Timestamp)
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot

@@ -2,10 +2,9 @@ module Pos.Core.Script () where
 
 import           Universum
 
+import           Data.Store
 import           Data.Eq.Deriving   (deriveEq1)
 import           Data.Hashable      (Hashable, hashWithSalt)
-import           Data.SafeCopy      (SafeCopy (..))
-import           Data.Store         (Store, encode)
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term    as PLCore
 import qualified PlutusTypes.ConSig as PLTypes
@@ -13,9 +12,6 @@ import qualified PlutusTypes.Type   as PLTypes
 import qualified Utils.ABT          as ABT
 import qualified Utils.Names        as Names
 import qualified Utils.Vars         as Vars
-
-import           Pos.Binary.Class   (Bi, getCopyBi, putCopyBi)
-
 
 ----------------------------------------------------------------------------
 -- Orphan instances, to be included into plutus-prototype
@@ -73,14 +69,6 @@ instance NFData a => NFData (PLCore.PatternF a)
 instance NFData a => NFData (PLTypes.TypeF a)
 instance NFData PLCore.PrimData
 instance NFData PLCore.Program
-
-instance Bi PLCore.Term => SafeCopy PLCore.Term where
-    getCopy = getCopyBi "Term"
-    putCopy = putCopyBi
-
-instance Bi PLCore.Program => SafeCopy PLCore.Program where
-    getCopy = getCopyBi "Program"
-    putCopy = putCopyBi
 
 instance Hashable PLCore.Term where
     hashWithSalt s = hashWithSalt s . encode

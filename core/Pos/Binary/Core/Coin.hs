@@ -1,7 +1,11 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Pos.Binary.Core.Coin
        ( encode
        , decode
        , size
+       , expectedContBytes
+       , hdrToParam
+       , isClear
        ) where
 
 import           Universum
@@ -9,8 +13,9 @@ import           Universum
 import           Data.Bits        (Bits (..))
 import           Data.Word        ()
 
-import           Pos.Binary.Class (Peek, getWord8)
 import           Pos.Core.Types   (Coin, mkCoin, unsafeGetCoin)
+import           Pos.Binary.Class (Decoder)
+import qualified Pos.Binary.Class as Bi
 
 -- number of total coins is 45*10^9 * 10^6
 --
@@ -115,20 +120,25 @@ hdrToParam h
     | isClear h 4 = (3, fromIntegral (h .&. 0x0f))
     | otherwise   = (4, fromIntegral (h .&. 0x0f))
 
-decodeVarint :: Peek Word64
-decodeVarint = do
-    (nbBytes, acc) <- hdrToParam <$> getWord8
-    conts <- replicateM nbBytes getWord8
-    let val = orAndShift acc conts
-    when (expectedContBytes val /= length conts) $ fail "not canonical encoding"
-    return val
+decodeMegaMicros :: [Word8] -> Decoder s (Word64, [Word8])
+decodeMegaMicros rawCoins = do
+    case rawCoins of
+      (header:rest) -> do
+        let (nbBytes,acc)      = hdrToParam header
+        let (conts, leftover)  = splitAt nbBytes rest
+        let val = orAndShift acc conts
+        when (expectedContBytes val /= length conts) $ fail "not canonical encoding"
+        return (val, leftover)
+      _ -> fail "decodeMegaMicros: header not found"
   where
     orAndShift acc []     = acc
     orAndShift acc (x:xs) = orAndShift ((acc `shiftL` 8) .|. fromIntegral x) xs
 
-decode :: Peek Coin
+decode :: Decoder s Coin
 decode = do
-    (mega, microsReversed) <- (,) <$> decodeVarint <*> decodeVarint
+    (rawCoins :: [Word8]) <- Bi.decode
+    (mega, leftover)      <- decodeMegaMicros rawCoins
+    (microsReversed, _)   <- decodeMegaMicros leftover
     let micros = reversedBase10 microsReversed
         w      = mega * 1000000 + micros
     if micros < 1000000 && w <= unsafeGetCoin maxBound

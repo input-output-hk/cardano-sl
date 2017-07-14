@@ -175,7 +175,7 @@ sign
     -> SecretKey
     -> a
     -> Signature a
-sign t k = coerce . signRaw (Just t) k . Bi.encode
+sign t k = coerce . signRaw (Just t) k . Bi.serialize'
 
 -- | Sign a bytestring.
 signRaw
@@ -193,7 +193,7 @@ signRaw mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
 -- | Verify a signature.
 -- #verifyRaw
 checkSig :: Bi a => SignTag -> PublicKey -> a -> Signature a -> Bool
-checkSig t k x s = verifyRaw (Just t) k (Bi.encode x) (coerce s)
+checkSig t k x s = verifyRaw (Just t) k (Bi.serialize' x) (coerce s)
 
 -- CHECK: @verifyRaw
 -- | Verify raw 'ByteString'.
@@ -227,7 +227,7 @@ instance B.Buildable (ProxyCert w) where
 verifyProxyCert :: (Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
 verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
     checkSig SignProxySK issuerPk
-        (mconcat ["00", CC.unXPub delegatePk, Bi.encode o])
+        (mconcat ["00", CC.unXPub delegatePk, Bi.serialize' o])
         (Signature sig)
 
 -- | Convenient wrapper for secret key, that's basically ω plus
@@ -308,7 +308,7 @@ proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
         mconcat
             -- it's safe to put the tag after issuerPk because `CC.unXPub
             -- issuerPk` always takes 64 bytes
-            ["01", CC.unXPub issuerPk, signTag t, Bi.encode m]
+            ["01", CC.unXPub issuerPk, signTag t, Bi.serialize' m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
@@ -331,6 +331,6 @@ proxyVerify t ProxySignature{..} omegaPred m =
                  [ "01"
                  , CC.unXPub issuerPk
                  , signTag t
-                 , Bi.encode m
+                 , Bi.serialize' m
                  ])
             psigSig

@@ -1,171 +1,403 @@
-{-# LANGUAGE CPP #-}
-
-#include "MachDeps.h"
-
--- | Bi typeclass and most basic functions.
 
 module Pos.Binary.Class.Core
-       ( Bi (..)
-       , encode
-       , encodeWithS
-       , encodeLazy
-       , decodeFull
-       , decodeOrFail
-       , getSize
-       , biSize
-       , label
-       , labelP
-       , labelS
-       -- * Length things
-       , limitGet
-       , isolate64Full
-       , getPeekLength
-       ) where
+    ( Bi(..)
+    , encodeBinary
+    , decodeBinary
+    , enforceSize
+    , matchSize
+    -- * CBOR re-exports
+    , encodeListLen
+    , decodeListLen
+    , Encoding
+    , Decoder
+    ) where
 
-import           Universum
+import           Codec.CBOR.Decoding
+import           Codec.CBOR.Encoding
+import qualified Data.Binary                 as Binary
+import qualified Data.ByteString             as BS
+import qualified Data.ByteString.Lazy        as BS.Lazy
+import           Data.Fixed                  (Fixed(..), Nano)
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.HashSet                as HS
+import qualified Data.Map                    as M
+import qualified Data.Set                    as S
+import qualified Data.Store.Internal         as Store
+import           Data.Tagged
+import qualified Data.Text                   as Text
+import qualified Data.Text.Lazy              as Text.Lazy
+import           Data.Time.Units             (Microsecond, Millisecond)
+import qualified Data.Vector                 as Vector
+import qualified Data.Vector.Generic         as Vector.Generic
+import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
+import           Universum                   hiding (foldr)
+import qualified Universum
 
-import           Control.Lens               (_Left)
-import qualified Data.ByteString.Lazy       as BSL
-import           Data.Store                 (Size)
-import           Data.Store.Core            (Peek (..), PeekResult (..), Poke (..))
-import qualified Data.Store.Core            as Store
-import           Data.Store.Internal        (PeekException (..), PokeException (..))
-import qualified Data.Store.Internal        as Store
-import           Foreign.Ptr                (minusPtr, plusPtr)
-import           Formatting                 (build, sformat, shown, (%))
-import           Serokell.Data.Memory.Units (Byte)
+encodeBinary :: Binary.Binary a => a -> Encoding
+encodeBinary = encode . BS.Lazy.toStrict . Binary.encode
 
-----------------------------------------------------------------------------
--- Bi typeclass
-----------------------------------------------------------------------------
+decodeBinary :: Binary.Binary a => Decoder s a
+decodeBinary = do
+    x <- decode @ByteString
+    case Binary.decodeOrFail (BS.Lazy.fromStrict x) of
+        Left (_, _, err) -> fail err
+        Right (bs, _, res)
+            | BS.Lazy.null bs -> pure res
+            | otherwise       -> fail "decodeBinary: unconsumed input"
 
--- | A class for serialization (like the one in "Data.Store", but we
--- reimplement it to have full control over serialization).
---
--- You can implement @put@ and @size@ or only @sizeNPut@. @sizeNPut@ is
--- needed for convenient way to implement @put@ and @size@ together without
--- boilerplate code. It also makes instance less error-prone. Please
--- implement @sizeNPut@ instead of @size@ and @put@ if it's possible. There
--- are some useful helpers at Pos.Binary.Class.Store (like @putField@,
--- @putConst@, etc)
-class Bi t where
-    {-# MINIMAL get, put, size | get, sizeNPut  #-}
-    sizeNPut :: (Size t, t -> Poke ())
-    sizeNPut = (size, put)
+-- | Enforces that the input size is the same as the decoded one, failing in case it's not.
+enforceSize :: String -> Int -> Decoder s ()
+enforceSize label requestedSize = decodeListLen >>= matchSize requestedSize label
 
-    size :: Size t
-    size = fst sizeNPut
+-- | Compare two sizes, failing if they are not equal.
+matchSize :: Int -> String -> Int -> Decoder s ()
+matchSize requestedSize label actualSize = do
+  case actualSize == requestedSize of
+    True  -> return ()
+    False -> fail (label <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
 
-    put :: t -> Poke ()
-    put = snd sizeNPut
+----------------------------------------
 
-    get :: Peek t
+class Bi a where
+    encode :: a -> Encoding
+    decode :: Decoder s a
 
--- | Encode a value to a strict bytestring
-encode :: Bi a => a -> ByteString
-encode x = Store.unsafeEncodeWith (put x) (getSize x)
-{-# INLINE encode #-}
+    encodeList :: [a] -> Encoding
+    encodeList = defaultEncodeList
 
-encodeWithS :: (Size a, a -> Poke ()) -> a -> ByteString
-encodeWithS (s, p) x = Store.unsafeEncodeWith (p x) (Store.getSizeWith s x)
-{-# INLINE encodeWithS #-}
+    decodeList :: Decoder s [a]
+    decodeList = defaultDecodeList
 
--- | Encode a value to a lazy bytestring
-encodeLazy :: Bi a => a -> BSL.ByteString
-encodeLazy = BSL.fromStrict . encode
-{-# INLINE encodeLazy #-}
+-- | Default @'Encoding'@ for list types.
+defaultEncodeList :: Bi a => [a] -> Encoding
+defaultEncodeList xs = encodeListLenIndef
+                    <> Universum.foldr (\x r -> encode x <> r) encodeBreak xs
 
-getSize :: Bi a => a -> Int
-getSize = Store.getSizeWith size
-{-# INLINE getSize #-}
-
--- | Compute size of something serializable in bytes.
-biSize :: Bi a => a -> Byte
-biSize = fromIntegral . getSize
-{-# INLINE biSize #-}
-
--- | Try to encode a strict ByteString,
--- return text of a thrown exception, if it failed.
-decodeFull :: Bi a => ByteString -> Either Text a
-decodeFull = over _Left Store.peekExMessage . Store.decodeWith get
-
--- | Try to encode a strict ByteString, call @error@ if it failed.
-decodeOrFail :: Bi a => ByteString -> a
-decodeOrFail a =
-    (either (error . sformat ("Couldn't decode: "%shown%", reason: "%build) a) identity) $
-    decodeFull a
+-- | Default @'Decoder'@ for list types.
+defaultDecodeList :: Bi a => Decoder s [a]
+defaultDecodeList = do
+    decodeListLenIndef
+    decodeSequenceLenIndef (flip (:)) [] reverse decode
 
 ----------------------------------------------------------------------------
--- Basic functions for other modules
+-- Primitive types
 ----------------------------------------------------------------------------
 
--- | Append to exception message passed text, if decoding failed.
-label :: Text -> Peek a -> Peek a
-label msg p = Peek $ \pstate ptr ->
-    runPeek p pstate ptr `catch` onPeekEx
-  where
-    onPeekEx (PeekException offset msgEx) =
-        throwM (PeekException offset (msgEx <> "\n" <> msg))
+instance Bi () where
+    encode = const encodeNull
+    decode = decodeNull
 
-labelP :: Text -> Poke a -> Poke a
-labelP msg p = Poke $ \pstate off ->
-    runPoke p pstate off `catch` onPokeEx
-  where
-    onPokeEx (PokeException offset msgEx) =
-        throwM (PokeException offset (msgEx <> "\n" <> msg))
+instance Bi Bool where
+    encode = encodeBool
+    decode = decodeBool
 
-labelS :: Text -> (Size t, t -> Poke ()) -> (Size t, t -> Poke ())
-labelS msg (s, poke) = (s, labelP msg . poke)
+instance Bi Char where
+    encode c = encodeString (Text.singleton c)
+    decode = do t <- decodeString
+                if Text.length t == 1
+                  then return $! Text.head t
+                  else fail "expected a single char, found a string"
 
--- | Like 'isolate', but allows consuming less bytes than expected (just not
--- more).
--- Differences from `Store.isolate`:
---  * safely handles `Int64` length argument
---  * advances pointer only by bytes read
-{-# INLINE limitGet #-}
-limitGet :: Int64 -> Peek a -> Peek a
-limitGet len m = Peek $ \ps ptr -> do
-    let end = Store.peekStateEndPtr ps
-        remaining = end `minusPtr` ptr
-        len' = fromIntegral $ min (fromIntegral remaining) len
-        ptr2 = ptr `plusPtr` len'
-    PeekResult ptr' x <- Store.runPeek m ps ptr
-    when (ptr' > ptr2) $
-        throwM $ PeekException (ptr' `minusPtr` ptr2) "Overshot end of isolated bytes"
-    return $ PeekResult ptr' x
+    -- For [Char]/String we have a special encoding
+    encodeList cs = encodeString (Text.pack cs)
+    decodeList    = do txt <- decodeString
+                       return (Text.unpack txt) -- unpack lazily
 
--- | Isolate the input to n bytes, skipping n bytes forward. Fails if @m@
--- advances the offset beyond the isolated region.
--- Differences from `Store.isolate`:
---  * safely handles `Int64` length argument
---  * requires isolated input to be fully consumed
-{-# INLINE isolate64Full #-}
-isolate64Full :: Int64 -> Peek a -> Peek a
-isolate64Full len m = Peek $ \ps ptr -> do
-    let end = Store.peekStateEndPtr ps
-        remaining = end `minusPtr` ptr
-    when (len > fromIntegral remaining) $
-      -- Do not perform the check on the new pointer, since it could have
-      -- overflowed
-#if (WORD_SIZE_IN_BITS >= 64)
-      Store.tooManyBytes (fromIntegral len) remaining "isolate64Full"
-#else
-# error 32-bit platforms not supported yet
-      (if len <= fromIntegral (maxBound :: Int)
-         then Store.tooManyBytes (fromIntegral len) remaining "isolate64Full"
-         else throwM $ PeekException 0 "isolate64Full: size too large for 32-bit")
-#endif
-    PeekResult ptr' x <- Store.runPeek m ps ptr
-    let ptr2 = ptr `plusPtr` fromIntegral len
-    when (ptr' < ptr2) $
-        throwM $ PeekException (ptr2 `minusPtr` ptr') "Not all isolated bytes read"
-    when (ptr' > ptr2) $
-        throwM $ PeekException (ptr' `minusPtr` ptr2) "Overshot end of isolated bytes"
-    return $ PeekResult ptr2 x
+----------------------------------------------------------------------------
+-- Numeric data
+----------------------------------------------------------------------------
 
--- | Find out how many bytes were read during a 'Peek'.
-getPeekLength :: Peek a -> Peek (a, Int)
-getPeekLength m = Peek $ \ps ptr -> do
-    PeekResult ptr2 x <- Store.runPeek m ps ptr
-    return (PeekResult ptr2 (x, ptr2 `minusPtr` ptr))
-{-# INLINE getPeekLength #-}
+instance Bi Integer where
+    encode = encodeInteger
+    decode = decodeInteger
+
+instance Bi Word where
+    encode = encodeWord
+    decode = decodeWord
+
+instance Bi Word8 where
+    encode = encodeWord8
+    decode = decodeWord8
+
+instance Bi Word16 where
+    encode = encodeWord16
+    decode = decodeWord16
+
+instance Bi Word32 where
+    encode = encodeWord32
+    decode = decodeWord32
+
+instance Bi Word64 where
+    encode = encodeWord64
+    decode = decodeWord64
+
+instance Bi Int where
+    encode = encodeInt
+    decode = decodeInt
+
+instance Bi Int32 where
+    encode = encodeInt32
+    decode = decodeInt32
+
+instance Bi Int64 where
+    encode = encodeInt64
+    decode = decodeInt64
+
+instance Bi Nano where
+    encode (MkFixed resolution) = encodeInteger resolution
+    decode = MkFixed <$> decodeInteger
+
+----------------------------------------------------------------------------
+-- Tagged
+----------------------------------------------------------------------------
+
+instance Bi a => Bi (Tagged s a) where
+    encode (Tagged a) = encode a
+    decode = Tagged <$> decode
+
+----------------------------------------------------------------------------
+-- Containers
+----------------------------------------------------------------------------
+
+instance (Bi a, Bi b) => Bi (a,b) where
+    encode (a,b) = encodeListLen 2
+                <> encode a
+                <> encode b
+    decode = do decodeListLenOf 2
+                !x <- decode
+                !y <- decode
+                return (x, y)
+
+instance (Bi a, Bi b, Bi c) => Bi (a,b,c) where
+    encode (a,b,c) = encodeListLen 3
+                  <> encode a
+                  <> encode b
+                  <> encode c
+
+    decode = do decodeListLenOf 3
+                !x <- decode
+                !y <- decode
+                !z <- decode
+                return (x, y, z)
+
+instance (Bi a, Bi b, Bi c, Bi d) => Bi (a,b,c,d) where
+    encode (a,b,c,d) = encodeListLen 4
+                    <> encode a
+                    <> encode b
+                    <> encode c
+                    <> encode d
+
+    decode = do decodeListLenOf 4
+                !a <- decode
+                !b <- decode
+                !c <- decode
+                !d <- decode
+                return (a, b, c, d)
+
+instance Bi BS.ByteString where
+    encode = encodeBytes
+    decode = decodeBytes
+
+instance Bi Text.Text where
+    encode = encodeString
+    decode = decodeString
+
+encodeChunked :: Bi c
+              => Encoding
+              -> ((c -> Encoding -> Encoding) -> Encoding -> a -> Encoding)
+              -> a
+              -> Encoding
+encodeChunked encodeIndef foldrChunks a =
+    encodeIndef
+ <> foldrChunks (\x r -> encode x <> r) encodeBreak a
+
+decodeChunked :: Bi c => Decoder s () -> ([c] -> a) -> Decoder s a
+decodeChunked decodeIndef fromChunks = do
+  decodeIndef
+  decodeSequenceLenIndef (flip (:)) [] (fromChunks . reverse) decode
+
+instance Bi Text.Lazy.Text where
+    encode = encodeChunked encodeStringIndef Text.Lazy.foldrChunks
+    decode = decodeChunked decodeStringIndef Text.Lazy.fromChunks
+
+instance Bi BS.Lazy.ByteString where
+    encode = encodeChunked encodeBytesIndef BS.Lazy.foldrChunks
+    decode = decodeChunked decodeBytesIndef BS.Lazy.fromChunks
+
+instance KnownNat n => Bi (Store.StaticSize n BS.ByteString) where
+    encode = encode . Store.unStaticSize
+    decode = Store.StaticSize <$> decode
+
+instance Bi a => Bi [a] where
+    encode = encodeList
+    decode = decodeList
+
+instance (Bi a, Bi b) => Bi (Either a b) where
+    encode (Left  x) = encodeListLen 2 <> encodeWord 0 <> encode x
+    encode (Right x) = encodeListLen 2 <> encodeWord 1 <> encode x
+
+    decode = do decodeListLenOf 2
+                t <- decodeWord
+                case t of
+                  0 -> do !x <- decode
+                          return (Left x)
+                  1 -> do !x <- decode
+                          return (Right x)
+                  _ -> fail "unknown tag"
+
+instance Bi a => Bi (NonEmpty a) where
+  encode = defaultEncodeList . toList
+  decode = do
+    l <- defaultDecodeList
+    case nonEmpty l of
+      Nothing -> fail "Expected a NonEmpty list, but an empty list was found!"
+      Just xs -> return xs
+
+instance Bi a => Bi (Maybe a) where
+    encode Nothing  = encodeListLen 0
+    encode (Just x) = encodeListLen 1 <> encode x
+
+    decode = do n <- decodeListLen
+                case n of
+                  0 -> return Nothing
+                  1 -> do !x <- decode
+                          return (Just x)
+                  _ -> fail "unknown tag"
+
+encodeContainerSkel :: (Word -> Encoding)
+                    -> (container -> Int)
+                    -> (accumFunc -> Encoding -> container -> Encoding)
+                    -> accumFunc
+                    -> container
+                    -> Encoding
+encodeContainerSkel encodeLen size foldr f  c =
+    encodeLen (fromIntegral (size c)) <> foldr f mempty c
+{-# INLINE encodeContainerSkel #-}
+
+decodeContainerSkelWithReplicate
+  :: Bi a
+  => Decoder s Int
+     -- ^ How to get the size of the container
+  -> (Int -> Decoder s a -> Decoder s container)
+     -- ^ replicateM for the container
+  -> ([container] -> container)
+     -- ^ concat for the container
+  -> Decoder s container
+decodeContainerSkelWithReplicate decodeLen replicateFun fromList = do
+    -- Look at how much data we have at the moment and use it as the limit for
+    -- the size of a single call to replicateFun. We don't want to use
+    -- replicateFun directly on the result of decodeLen since this might lead to
+    -- DOS attack (attacker providing a huge value for length). So if it's above
+    -- our limit, we'll do manual chunking and then combine the containers into
+    -- one.
+    size <- decodeLen
+    limit <- peekAvailable
+    if size <= limit
+       then replicateFun size decode
+       else do
+           -- Take the max of limit and a fixed chunk size (note: limit can be
+           -- 0). This basically means that the attacker can make us allocate a
+           -- container of size 128 even though there's no actual input.
+           let chunkSize = max limit 128
+               (d, m) = size `divMod` chunkSize
+               buildOne s = replicateFun s decode
+           containers <- sequence $ buildOne m : replicate d (buildOne chunkSize)
+           return $! fromList containers
+{-# INLINE decodeContainerSkelWithReplicate #-}
+
+encodeMapSkel :: (Bi k, Bi v)
+              => (m -> Int)
+              -> ((k -> v -> Encoding -> Encoding) -> Encoding -> m -> Encoding)
+              -> m
+              -> Encoding
+encodeMapSkel size foldrWithKey =
+  encodeContainerSkel
+    encodeMapLen
+    size
+    foldrWithKey
+    (\k v b -> encode k <> encode v <> b)
+{-# INLINE encodeMapSkel #-}
+
+decodeMapSkel :: (Bi k, Bi v) => ([(k,v)] -> m) -> Decoder s m
+decodeMapSkel fromList = do
+  n <- decodeMapLen
+  let decodeEntry = do
+        !k <- decode
+        !v <- decode
+        return (k, v)
+  fmap fromList (replicateM n decodeEntry)
+{-# INLINE decodeMapSkel #-}
+
+instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
+  encode = encodeMapSkel HM.size HM.foldrWithKey
+  decode = decodeMapSkel HM.fromList
+
+instance (Ord k, Bi k, Bi v) => Bi (Map k v) where
+  encode = encodeMapSkel M.size M.foldrWithKey
+  decode = decodeMapSkel M.fromList
+
+encodeSetSkel :: Bi a
+              => (s -> Int)
+              -> ((a -> Encoding -> Encoding) -> Encoding -> s -> Encoding)
+              -> s
+              -> Encoding
+encodeSetSkel size foldr =
+    encodeContainerSkel encodeListLen size foldr (\a b -> encode a <> b)
+{-# INLINE encodeSetSkel #-}
+
+decodeSetSkel :: Bi a => ([a] -> c) -> Decoder s c
+decodeSetSkel fromList = do
+  n <- decodeListLen
+  fmap fromList (replicateM n decode)
+{-# INLINE decodeSetSkel #-}
+
+instance (Hashable a, Eq a, Bi a) => Bi (HashSet a) where
+  encode = encodeSetSkel HS.size HS.foldr
+  decode = decodeSetSkel HS.fromList
+
+instance (Ord a, Bi a) => Bi (Set a) where
+  encode = encodeSetSkel S.size S.foldr
+  decode = decodeSetSkel S.fromList
+
+-- | Generic encoder for vectors. Its intended use is to allow easy
+-- definition of 'Serialise' instances for custom vector
+encodeVector :: (Bi a, Vector.Generic.Vector v a)
+             => v a -> Encoding
+encodeVector = encodeContainerSkel
+    encodeListLen
+    Vector.Generic.length
+    Vector.Generic.foldr
+    (\a b -> encode a <> b)
+{-# INLINE encodeVector #-}
+
+-- | Generic decoder for vectors. Its intended use is to allow easy
+-- definition of 'Serialise' instances for custom vector
+decodeVector :: (Bi a, Vector.Generic.Vector v a)
+             => Decoder s (v a)
+decodeVector = decodeContainerSkelWithReplicate
+    decodeListLen
+    Vector.Generic.replicateM
+    Vector.Generic.concat
+{-# INLINE decodeVector #-}
+
+instance (Bi a) => Bi (Vector.Vector a) where
+  encode = encodeVector
+  {-# INLINE encode #-}
+  decode = decodeVector
+  {-# INLINE decode #-}
+
+----------------------------------------------------------------------------
+-- Other types
+----------------------------------------------------------------------------
+
+instance Bi Millisecond where
+    encode = encode . toInteger
+    decode = fromInteger <$> decode
+
+instance Bi Microsecond where
+    encode = encode . toInteger
+    decode = fromInteger <$> decode
+
+instance Bi Byte where
+    encode = encode . toBytes
+    decode = fromBytes <$> decode

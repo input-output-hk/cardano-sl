@@ -5,80 +5,46 @@ import           Universum
 import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Size (..),
-                                             UnsignedVarInt (..), deriveSimpleBi, label,
-                                             labelP, labelS, putField, putWord8)
-import qualified Pos.Binary.Core.Coin       as BinCoin
+import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Core.Fee        ()
 import           Pos.Binary.Core.Script     ()
 import           Pos.Binary.Core.Version    ()
-import qualified Pos.Binary.Cbor            as Cbor
+import qualified Pos.Binary.Core.Coin       as BinCoin
 import qualified Pos.Core.Fee               as T
 import qualified Pos.Core.Types             as T
 import qualified Pos.Data.Attributes        as A
-import           Pos.Util.Util              (eitherToFail)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
 
 instance Bi T.Timestamp where
-    sizeNPut = labelS "Timestamp" $ putField toInteger
-    get = label "Timestamp" $ fromInteger <$> get
-
-instance Cbor.Bi T.Timestamp where
-  encode (T.Timestamp ms) = Cbor.encode . toInteger $ ms
-  decode = T.Timestamp . fromIntegral <$> Cbor.decode @Integer
+  encode (T.Timestamp ms) = encode . toInteger $ ms
+  decode = T.Timestamp . fromIntegral <$> decode @Integer
 
 instance Bi T.EpochIndex where
-    sizeNPut = labelS "EpochIndex" $ putField (UnsignedVarInt . T.getEpochIndex)
-    get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
-
-instance Cbor.Bi T.EpochIndex where
-  encode (T.EpochIndex epoch) = Cbor.encode epoch
-  decode = T.EpochIndex <$> Cbor.decode
+  encode (T.EpochIndex epoch) = encode epoch
+  decode = T.EpochIndex <$> decode
 
 instance Bi (A.Attributes ()) where
-    size = VarSize $ A.sizeAttributes (\() -> [])
-    get = label "Attributes" $
-        A.getAttributes (\_ () -> Nothing) (Just (128 * 1024 * 1024)) ()
-    put = labelP "Attributes" . A.putAttributes (\() -> [])
-
-instance Cbor.Bi (A.Attributes ()) where
   encode = A.encodeAttributes []
   decode = A.decodeAttributes () $ \_ _ _ -> Nothing
 
 instance Bi T.Coin where
-    size = VarSize BinCoin.size
-    put = labelP "Coin" . mapM_ putWord8 . BinCoin.encode
-    get = label "Coin" $ BinCoin.decode
-
-instance Cbor.Bi T.Coin where
-  encode = Cbor.encode . T.unsafeGetCoin
-  decode = T.mkCoin <$> Cbor.decode
+  encode = encode . BinCoin.encode
+  decode = BinCoin.decode
 
 instance Bi T.CoinPortion where
-    sizeNPut = labelS "CoinPortion" $ putField T.getCoinPortion
-    get = label "CoinPortion" $ get >>= T.mkCoinPortion
-
-instance Cbor.Bi T.CoinPortion where
-  encode = Cbor.encode . T.getCoinPortion
+  encode = encode . T.getCoinPortion
   decode = do
-    word64 <- Cbor.decode @Word64
+    word64 <- decode @Word64
     case T.mkCoinPortion word64 of
       Left err          -> fail err
       Right coinPortion -> return coinPortion
 
 instance Bi T.LocalSlotIndex where
-    sizeNPut = labelS "LocalSlotIndex" $
-        putField (UnsignedVarInt . T.getSlotIndex)
-    get =
-        label "LocalSlotIndex" $
-        eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
-
-instance Cbor.Bi T.LocalSlotIndex where
-  encode = Cbor.encode . T.getSlotIndex
+  encode = encode . T.getSlotIndex
   decode = do
-    word16 <- Cbor.decode @Word16
+    word16 <- decode @Word16
     case T.mkLocalSlotIndex word16 of
       Left err        -> fail (toString err)
       Right slotIndex -> return slotIndex
@@ -89,35 +55,17 @@ deriveSimpleBi ''T.SlotId [
         Field [| T.siSlot  :: T.LocalSlotIndex |]
     ]]
 
-Cbor.deriveSimpleBi ''T.SlotId [
-    Cbor.Cons 'T.SlotId [
-        Cbor.Field [| T.siEpoch :: T.EpochIndex     |],
-        Cbor.Field [| T.siSlot  :: T.LocalSlotIndex |]
-    ]]
-
 instance Bi T.EpochOrSlot where
-    sizeNPut = labelS "EpochOrSlot" $ putField T.unEpochOrSlot
-    get = label "EpochOrSlot" $ T.EpochOrSlot <$> get
-
-instance Cbor.Bi T.EpochOrSlot where
-  encode (T.EpochOrSlot e) = Cbor.encode e
-  decode = T.EpochOrSlot <$> Cbor.decode @(Either T.EpochIndex T.SlotId)
+  encode (T.EpochOrSlot e) = encode e
+  decode = T.EpochOrSlot <$> decode @(Either T.EpochIndex T.SlotId)
 
 instance Bi T.SlotCount where
-    sizeNPut = labelS "SlotCount" $ putField (UnsignedVarInt . T.getSlotCount)
-    get = label "SlotCount" $ T.SlotCount . getUnsignedVarInt <$> get
-
-instance Cbor.Bi T.SlotCount where
-    encode = Cbor.encode . T.getSlotCount
-    decode = T.SlotCount <$> Cbor.decode
+    encode = encode . T.getSlotCount
+    decode = T.SlotCount <$> decode
 
 instance Bi T.BlockCount where
-    sizeNPut = labelS "BlockCount" $ putField (UnsignedVarInt . T.getBlockCount)
-    get = label "BlockCount" $ T.BlockCount . getUnsignedVarInt <$> get
-
-instance Cbor.Bi T.BlockCount where
-    encode = Cbor.encode . T.getBlockCount
-    decode = T.BlockCount <$> Cbor.decode
+    encode = encode . T.getBlockCount
+    decode = T.BlockCount <$> decode
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
@@ -127,19 +75,9 @@ deriveSimpleBi ''T.SharedSeed [
         Field [| T.getSharedSeed :: ByteString |]
     ]]
 
-Cbor.deriveSimpleBi ''T.SharedSeed [
-    Cbor.Cons 'T.SharedSeed [
-        Cbor.Field [| T.getSharedSeed :: ByteString |]
-    ]]
-
 deriveSimpleBi ''T.ChainDifficulty [
     Cons 'T.ChainDifficulty [
         Field [| T.getChainDifficulty :: T.BlockCount |]
-    ]]
-
-Cbor.deriveSimpleBi ''T.ChainDifficulty [
-    Cbor.Cons 'T.ChainDifficulty [
-        Cbor.Field [| T.getChainDifficulty :: T.BlockCount |]
     ]]
 
 deriveSimpleBi ''T.SoftforkRule [
@@ -147,13 +85,6 @@ deriveSimpleBi ''T.SoftforkRule [
         Field [| T.srInitThd      :: T.CoinPortion |],
         Field [| T.srMinThd       :: T.CoinPortion |],
         Field [| T.srThdDecrement :: T.CoinPortion |]
-    ]]
-
-Cbor.deriveSimpleBi ''T.SoftforkRule [
-    Cbor.Cons 'T.SoftforkRule [
-        Cbor.Field [| T.srInitThd      :: T.CoinPortion |],
-        Cbor.Field [| T.srMinThd       :: T.CoinPortion |],
-        Cbor.Field [| T.srThdDecrement :: T.CoinPortion |]
     ]]
 
 deriveSimpleBi ''T.BlockVersionData [
@@ -172,22 +103,4 @@ deriveSimpleBi ''T.BlockVersionData [
         Field [| T.bvdSoftforkRule      :: T.SoftforkRule  |],
         Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |],
         Field [| T.bvdUnlockStakeEpoch  :: T.EpochIndex    |]
-    ]]
-
-Cbor.deriveSimpleBi ''T.BlockVersionData [
-    Cbor.Cons 'T.BlockVersionData [
-        Cbor.Field [| T.bvdScriptVersion     :: T.ScriptVersion |],
-        Cbor.Field [| T.bvdSlotDuration      :: Millisecond     |],
-        Cbor.Field [| T.bvdMaxBlockSize      :: Byte            |],
-        Cbor.Field [| T.bvdMaxHeaderSize     :: Byte            |],
-        Cbor.Field [| T.bvdMaxTxSize         :: Byte            |],
-        Cbor.Field [| T.bvdMaxProposalSize   :: Byte            |],
-        Cbor.Field [| T.bvdMpcThd            :: T.CoinPortion   |],
-        Cbor.Field [| T.bvdHeavyDelThd       :: T.CoinPortion   |],
-        Cbor.Field [| T.bvdUpdateVoteThd     :: T.CoinPortion   |],
-        Cbor.Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
-        Cbor.Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
-        Cbor.Field [| T.bvdSoftforkRule      :: T.SoftforkRule  |],
-        Cbor.Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |],
-        Cbor.Field [| T.bvdUnlockStakeEpoch  :: T.EpochIndex    |]
     ]]

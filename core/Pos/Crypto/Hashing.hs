@@ -9,7 +9,6 @@ module Pos.Crypto.Hashing
          -- * WithHash
          WithHash (..)
        , withHash
-       , withHashCbor
        , _whData
        , _whHash
 
@@ -25,7 +24,6 @@ module Pos.Crypto.Hashing
        , hashHexF
        , shortHashF
        , hash
-       , hashCbor
        , hashRaw
        , unsafeHash
 
@@ -50,7 +48,6 @@ import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe     (unsafeDupablePerformIO)
 
-import qualified Pos.Binary.Cbor      as Cbor
 import           Pos.Binary.Class     (Bi, Raw)
 import qualified Pos.Binary.Class     as Bi
 
@@ -79,11 +76,6 @@ withHash :: Bi a => a -> WithHash a
 withHash a = WithHash a (force h)
   where
     h = hash a
-
-withHashCbor :: Cbor.Bi a => a -> WithHash a
-withHashCbor a = WithHash a (force h)
-  where
-    h = hashCbor a
 
 -- | Hash wrapper with phantom type for more type-safety.
 -- Made abstract in order to support different algorithms in
@@ -143,13 +135,7 @@ abstractHash = unsafeAbstractHash
 unsafeAbstractHash
     :: (HashAlgorithm algo, Bi a)
     => a -> AbstractHash algo b
-unsafeAbstractHash = AbstractHash . Hash.hash . Bi.encode
-
--- | Unsafe version of abstractHash.
-unsafeAbstractHashCbor
-    :: (HashAlgorithm algo, Cbor.Bi a)
-    => a -> AbstractHash algo b
-unsafeAbstractHashCbor = AbstractHash . Hash.hash . Cbor.serialize'
+unsafeAbstractHash = AbstractHash . Hash.hash . Bi.serialize'
 
 -- | Type alias for commonly used hash
 type Hash = AbstractHash Blake2b_256
@@ -158,10 +144,6 @@ type Hash = AbstractHash Blake2b_256
 hash :: Bi a => a -> Hash a
 hash = unsafeHash
 
--- | Short version of 'unsafeHash'.
-hashCbor :: Cbor.Bi a => a -> Hash a
-hashCbor = unsafeHashCbor
-
 -- | Raw constructor application.
 hashRaw :: ByteString -> Hash Raw
 hashRaw = AbstractHash . Hash.hash
@@ -169,10 +151,6 @@ hashRaw = AbstractHash . Hash.hash
 -- | Encode thing as 'Bi' data and then wrap into constructor.
 unsafeHash :: Bi a => a -> Hash b
 unsafeHash = unsafeAbstractHash
-
--- | Encode thing as 'Bi' data and then wrap into constructor.
-unsafeHashCbor :: Cbor.Bi a => a -> Hash b
-unsafeHashCbor = unsafeAbstractHashCbor
 
 -- | Specialized formatter for 'Hash'.
 hashHexF :: Format r (AbstractHash algo a -> r)

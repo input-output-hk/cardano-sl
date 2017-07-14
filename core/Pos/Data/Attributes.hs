@@ -13,10 +13,6 @@ module Pos.Data.Attributes
        , areAttributesKnown
        , encodeAttributes
        , decodeAttributes
-       , getAttributes
-       , putAttributes
-       , putAttributesS
-       , sizeAttributes
        , mkAttributes
        ) where
 
@@ -31,11 +27,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
 import qualified Prelude
 
-import qualified Pos.Binary.Cbor     as Cbor
-import           Pos.Binary.Class    (Peek, Poke, PokeWithSize (..), getBytes,
-                                      getPeekLength, getWithLength, getWithLengthLimited,
-                                      getWord8, lookAhead, putBytesS, putWithLengthS,
-                                      putWord8S)
+import           Pos.Binary.Class
 
 -- | Representation of unparsed fields in Attributes. Newtype wrapper is used
 -- for clear backward compatibility between previous representation (which was
@@ -157,67 +149,12 @@ version would be able to parse it).
 
 -}
 
--- | Generate 'Attributes' reader given mapper from keys to 'Get',
--- maximum input length and the attribute value 'h' itself.
---
--- The mapper will be applied until it returns 'Nothing'.
-getAttributes
-    :: (Word8 -> h -> Maybe (Peek h))   -- ^ A function to parse an attribute
-                                        --    with given key and “set” it in
-                                        --    the attributes structure
-    -> Maybe Word32                     -- ^ Maximum length of the structure
-    -> h                                -- ^ Default data (which read
-                                        --    attributes are applied to)
-    -> Peek (Attributes h)
-getAttributes keyGetMapper maxLen initData = maybeLimit $ \len -> do
-    let readWhileKnown remaining dat
-          | remaining < 0 = fail "getAttributes: read more bytes than expected"
-          | remaining == 0 = pure (dat, remaining)
-          | otherwise = do
-                key <- lookAhead getWord8
-                case keyGetMapper key dat of
-                    -- the attribute is unknown, so we finish reading
-                    Nothing -> pure (dat, remaining)
-                    -- the attribute is known, so we proceed with reading
-                    Just gh -> do
-                        (dat', read) <- getPeekLength (getWord8 >> gh)
-                        readWhileKnown (remaining - fromIntegral read) dat'
-    (attrData, remaining) <- readWhileKnown len initData
-    -- It's important that we use 'getBytes' here and not 'get'.
-    -- See the note above.
-    attrRemain <- fromRaw <$> getBytes (fromIntegral remaining)
-    pure $ Attributes {..}
- where
-   maybeLimit act = case maxLen of
-       Nothing -> getWithLength act
-       Just l  -> getWithLengthLimited (fromIntegral l) act
-
--- | Generate 'Put' given the way to serialize inner attribute value
--- into set of keys and values.
-putAttributes :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> Poke ()
-putAttributes putMapper attrs = pwsToPoke (putAttributesS putMapper attrs)
-
-sizeAttributes :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> Int
-sizeAttributes putMapper attrs = pwsToSize (putAttributesS putMapper attrs)
-
-putAttributesS :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> PokeWithSize ()
-putAttributesS putMapper Attributes {..} =
-    putWithLengthS $
-        traverse_ putAttr kvs *>
-        -- Note: it's important that we use 'putBytesS' here and not 'putS'.
-        -- See the note above.
-        putBytesS (toRaw attrRemain)
- where
-   putAttr (k, v) = putWord8S k *> v
-   kvs = sortOn fst $ putMapper attrData
-
--- | CBOR serialization of Attributes.
 encodeAttributes
     :: forall t. [(Word8, t -> BS.ByteString)]
     -> Attributes t
-    -> Cbor.Encoding
+    -> Encoding
 encodeAttributes encs Attributes{..} =
-    Cbor.encode $ foldr go (fromUnparsedFields attrRemain) encs
+    encode $ foldr go (fromUnparsedFields attrRemain) encs
   where
     go :: (Word8, t -> BS.ByteString)
        -> Map Word8 BS.ByteString
@@ -228,13 +165,12 @@ encodeAttributes encs Attributes{..} =
           insertCheck _ (Just v') = error $ "encodeAttributes: impossible: field no. "
               <> show k <> " is already encoded as unparsed field: " <> show v'
 
--- | CBOR deserialization of Attributes.
 decodeAttributes
     :: forall t s. t
     -> (Word8 -> BS.ByteString -> t -> Maybe t)
-    -> Cbor.Decoder s (Attributes t)
+    -> Decoder s (Attributes t)
 decodeAttributes initval updater = do
-    raw <- Cbor.decode @(Map Word8 BS.ByteString)
+    raw <- decode @(Map Word8 BS.ByteString)
     pure . foldr go (Attributes initval $ UnparsedFields raw) $ M.toList raw
   where
     go :: (Word8, BS.ByteString) -> Attributes t -> Attributes t

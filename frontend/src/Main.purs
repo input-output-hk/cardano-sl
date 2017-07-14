@@ -14,13 +14,13 @@ import Data.Lens ((^.), set)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.Api.Socket (addressTxsUpdatedEventHandler, blocksPageUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
 import Explorer.I18n.Lang (Language(..), detectLocale)
-import Explorer.Lenses.State (connection, lang, socket, syncAction)
+import Explorer.Lenses.State (connection, testnet, lang, socket, syncAction)
 import Explorer.Routes (match)
 import Explorer.Types.Actions (Action(..), ActionChannel) as Ex
 import Explorer.Types.App (AppEffects)
 import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex
-import Explorer.Util.Config (SyncAction(..), hostname, isProduction, secureProtocol)
+import Explorer.Util.Config (SyncAction(..), hostname, isTestnet, isProduction, secureProtocol)
 import Explorer.View.Layout (view)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
 import Pux (App, Config, CoreEffects, start)
@@ -83,8 +83,13 @@ commonConfig state actionChannel = do
                 htmlDocumentToEventTarget >>>
                     addEventListener click (eventListener globalClickListener) false
 
+    isTestnet' <- isTestnet <$> hostname
+
     pure
-        { initialState: set lang locale state
+        { initialState:
+            set lang locale $
+            set testnet isTestnet' $
+            state
         , foldp: Ex.update
         , view
         , inputs:

@@ -62,8 +62,6 @@ type BlocksTxs = API
 type TxsLast = API
     :> "txs"
     :> "last"
-    :> QueryParam "limit" Word
-    :> QueryParam "offset" Word
     :> Get '[JSON] (Either ExplorerError [CTxEntry])
 
 type TxsSummary = API

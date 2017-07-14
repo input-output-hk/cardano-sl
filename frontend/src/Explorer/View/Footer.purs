@@ -50,7 +50,7 @@ footerView state =
                       $ langView state
             S.div ! S.className "explorer-footer__container explorer-footer__meta" $ do
                 S.span  ! S.className "version"
-                        $ S.text ("v. " <> (show version))
+                        $ S.text ("v. " <> version)
                 S.a ! S.className "commit"
                     ! S.href ("https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash)
                     $ S.text $ "( " <> (take 7 $ commitHash) <> " )"
@@ -78,10 +78,10 @@ resourcesNavRow lang =
 navItemsRow0 :: Language -> Array NavItem
 navItemsRow0 lang =
     [ { label: translate (I18nL.common <<< I18nL.cApi) lang
-      , link: "https://github.com/input-output-hk/cardano-sl-explorer/blob/master/docs/cardano-explorer-table-web-api.md"
+      , link: "https://cardanodocs.com/technical/explorer/api/"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooDocumentation) lang
-      , link: "https://github.com/input-output-hk/cardano-sl-explorer/blob/master/docs/cardano-explorer-web-api.md"
+      , link: "https://cardanodocs.com/cardano/explorer/"
       }
     -- TODO (ks) Add when we have the links
     -- , { label: "Support"

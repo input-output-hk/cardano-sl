@@ -2,9 +2,7 @@ module Pos.Core.Script () where
 
 import           Universum
 
-import           Data.Store
 import           Data.Eq.Deriving   (deriveEq1)
-import           Data.Hashable      (Hashable, hashWithSalt)
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term    as PLCore
 import qualified PlutusTypes.ConSig as PLTypes
@@ -36,23 +34,6 @@ deriving instance Show (f PLCore.PatternF) => Show (PLCore.PatternF (f PLCore.Pa
 
 deriving instance Show r => Show (PLCore.ClauseF r)
 
-instance Store Vars.FreeVar
-instance Store Vars.MetaVar
-instance Store Vars.BoundVar
-instance Store PLTypes.TyConSig
-instance Store PLTypes.ConSig
-instance Store PLTypes.PolymorphicType
-instance Store a => Store (Names.Sourced a)
-instance Store ABT.Variable
-instance Store (f (ABT.Scope f)) => Store (ABT.ABT f)
-instance Store (f (ABT.Scope f)) => Store (ABT.Scope f)
-instance Store r => Store (PLCore.ClauseF r)
-instance Store a => Store (PLCore.TermF a)
-instance Store a => Store (PLCore.PatternF a)
-instance Store a => Store (PLTypes.TypeF a)
-instance Store PLCore.PrimData
-instance Store PLCore.Program
-
 instance NFData Vars.FreeVar
 instance NFData Vars.MetaVar
 instance NFData Vars.BoundVar
@@ -69,9 +50,3 @@ instance NFData a => NFData (PLCore.PatternF a)
 instance NFData a => NFData (PLTypes.TypeF a)
 instance NFData PLCore.PrimData
 instance NFData PLCore.Program
-
-instance Hashable PLCore.Term where
-    hashWithSalt s = hashWithSalt s . encode
-
-instance Hashable PLCore.Program where
-    hashWithSalt s = hashWithSalt s . encode

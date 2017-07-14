@@ -4,10 +4,14 @@ module Pos.Binary.Core.Address () where
 import           Universum
 
 import           Data.Digest.CRC32   (CRC32 (..))
-import           Pos.Binary.Class    (Bi (..), serialize')
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (Address)
-
+import           Data.Default        (def)
+import           Data.Word           (Word8)
+import           Pos.Binary.Class    (Bi (..), serialize', deserialize', encodeListLen, enforceSize)
+import           Pos.Binary.Crypto   ()
+import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
+import           Pos.Data.Attributes (Attributes, encodeAttributes, decodeAttributes)
 
 {- NOTE: Address serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -42,7 +46,38 @@ addresses and save a byte).
 instance CRC32 Address where
     crc32Update seed = crc32Update seed . serialize'
 
--- Just a stub as @arybczak is working on it.
+----------------------------------------
+
+instance Bi (Attributes AddrPkAttrs) where
+    encode = encodeAttributes [(0, serialize' . addrPkDerivationPath)]
+    decode = decodeAttributes def $ \n v acc -> case n of
+        0 -> Just $ acc { addrPkDerivationPath = deserialize' v }
+        _ -> Nothing
+
 instance Bi Address where
-  encode = error "Address encode: unimplemented"
-  decode = fail  "Address decode: unimplemented"
+    encode addr =
+        encodeListLen 2 <> encodeAddr
+      where
+        encodeAddr = case addr of
+            PubKeyAddress keyHash attrs ->
+                   encode (0 :: Word8)
+                <> encode (serialize' (keyHash, attrs))
+            ScriptAddress scrHash ->
+                   encode (1 :: Word8)
+                <> encode (serialize' scrHash)
+            RedeemAddress keyHash ->
+                   encode (2 :: Word8)
+                <> encode (serialize' keyHash)
+            UnknownAddressType t bs ->
+                   encode t
+                <> encode bs
+
+    decode = do
+        enforceSize "Address" 2
+        t  <- decode @Word8
+        bs <- decode @ByteString
+        pure $ case t of
+            0 -> uncurry PubKeyAddress $ deserialize' bs
+            1 -> ScriptAddress         $ deserialize' bs
+            2 -> RedeemAddress         $ deserialize' bs
+            _ -> UnknownAddressType t bs

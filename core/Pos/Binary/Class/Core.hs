@@ -143,6 +143,10 @@ instance Bi Int where
     encode = encodeInt
     decode = decodeInt
 
+instance Bi Float where
+    encode = encodeFloat
+    decode = decodeFloat
+
 instance Bi Int32 where
     encode = encodeInt32
     decode = decodeInt32

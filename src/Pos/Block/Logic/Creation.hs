@@ -23,6 +23,7 @@ import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
+import           Mockable                   (CurrentTime, Mockable)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog                (logDebug, logError, logInfo)
 
@@ -76,6 +77,7 @@ type CreationMode ssc ctx m
        , HasPrimaryKey ctx
        , HasLens BlkSemaphore ctx BlkSemaphore
        , HasSlogContext ctx
+       , Mockable CurrentTime m
        )
 
 ----------------------------------------------------------------------------
@@ -266,11 +268,11 @@ createMainBlockFinish slotId pske prevHeader = do
     verifyCreatedBlock block onSuccess onFailure =
         verifyBlocksPrefix (one (Right block)) >>=
         either onFailure (const onSuccess)
-    clearMempools = do
+    clearMempools = lift $ do
         clearTxpMemPool "createMainBlockFinish"
         sscResetLocal
         clearUSMemPool
-        lift $ clearDlgMemPool
+        clearDlgMemPool
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er
@@ -290,7 +292,7 @@ getRawPayloadAndUndo
     => SlotId
     -> ExceptT Text m (RawPayload ssc, (USUndo -> Undo))
 getRawPayloadAndUndo slotId = do
-    (localTxs, txUndo) <- getLocalTxsNUndo
+    (localTxs, txUndo) <- lift getLocalTxsNUndo
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)

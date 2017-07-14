@@ -163,6 +163,9 @@ qanet_tns: &qanet_tns
 
   genesisBinSuffix: tns
 
+travis: &travis
+  <<: *qanet_tns
+
 ##############################################################################
 ##                                                                          ##
 ##   Wallet config                                                          ##
@@ -183,4 +186,8 @@ qanet_tns_wallet: &qanet_tns_wallet
 
 qanet_upd_wallet: &qanet_upd_wallet
   <<: *qanet_upd
+  applicationName: csl-daedalus
+
+travis_wallet: &travis_wallet
+  <<: *travis
   applicationName: csl-daedalus

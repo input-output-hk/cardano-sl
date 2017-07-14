@@ -61,7 +61,8 @@ library
     Pos.Binary.GodTossing.Toss
     Pos.Binary.GodTossing.Relay
 
-  build-depends:       aeson
+  build-depends:       QuickCheck
+                     , aeson
                      , base
                      , bytestring
                      , cardano-sl-core
@@ -78,10 +79,10 @@ library
                      , generic-arbitrary
                      , lens
                      , log-warper
+                     , mmorph
                      , mono-traversable
                      , mtl
                      , node-sketch
-                     , QuickCheck
                      , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm

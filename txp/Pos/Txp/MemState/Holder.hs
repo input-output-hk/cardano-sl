@@ -8,26 +8,24 @@ module Pos.Txp.MemState.Holder
        , mkTxpLocalData
        ) where
 
-import qualified Control.Concurrent.STM as STM
-import           Data.Default           (Default (def))
 import           Universum
 
-import           Pos.Core               (HeaderHash)
+import           Data.Default           (Default (def))
 
+import           Pos.DB.Class           (MonadDBRead)
+import           Pos.DB.GState.Common   (getTip)
 import           Pos.Txp.MemState.Class (TxpHolderTag)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))
-import           Pos.Txp.Toil.Types     (UtxoModifier)
 
 ----------------------------------------------------------------------------
 -- Holder
 ----------------------------------------------------------------------------
 
 mkTxpLocalData
-    :: (Default e, MonadIO m)
-    => UtxoModifier -> HeaderHash -> m (GenericTxpLocalData e)
-mkTxpLocalData uv initTip = TxpLocalData
-    <$> liftIO (STM.newTVarIO uv)
-    <*> liftIO (STM.newTVarIO def)
-    <*> liftIO (STM.newTVarIO mempty)
-    <*> liftIO (STM.newTVarIO initTip)
-    <*> liftIO (STM.newTVarIO def)
+    :: (Default e, MonadIO m, MonadDBRead m)
+    => m (GenericTxpLocalData e)
+mkTxpLocalData = do
+    initTip <- getTip
+    TxpLocalData <$> newTVarIO mempty <*> newTVarIO def <*> newTVarIO mempty <*>
+        newTVarIO initTip <*>
+        newTVarIO def

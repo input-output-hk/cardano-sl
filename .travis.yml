@@ -12,6 +12,7 @@ matrix:
       # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
 
   allow_failures:
+    - os: osx
     - env: MODE=nix
     # https://github.com/input-output-hk/stack2nix/issues/15
     # stack2nix will randomly omit sections of the generated file
@@ -26,7 +27,7 @@ cache:
 before_install:
 - echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
-- export DCONFIG=qanet_tns_wallet
+- export DCONFIG=travis
 - mkdir -p ~/.local/bin s3
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
@@ -43,7 +44,7 @@ before_install:
 - export NIX_CONF_DIR=~
 
 install:
-  - source scripts/set_nixpath.sh
+- source scripts/set_nixpath.sh
 
 after_failure:
 - sudo dmesg

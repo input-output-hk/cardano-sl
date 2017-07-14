@@ -22,4 +22,5 @@ stack exec -- cardano-node \
     --wallet \
     --wallet-db-path wdb-qanet \
     --static-peers \
+    --no-ntp \
     $@

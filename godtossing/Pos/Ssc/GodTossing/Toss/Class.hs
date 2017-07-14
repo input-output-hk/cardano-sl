@@ -4,6 +4,7 @@
 
 module Pos.Ssc.GodTossing.Toss.Class
        ( MonadTossRead (..)
+       , MonadTossEnv (..)
        , MonadToss (..)
        ) where
 
@@ -12,7 +13,8 @@ import           Control.Monad.Trans     (MonadTrans)
 import           System.Wlog             (WithLogger)
 import           Universum
 
-import           Pos.Core                (EpochIndex, EpochOrSlot, StakeholderId)
+import           Pos.Core                (BlockVersionData, EpochIndex, EpochOrSlot,
+                                          StakeholderId)
 import           Pos.Lrc.Types           (RichmenStake)
 import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, Opening,
                                           OpeningsMap, SharesMap, SignedCommitment,
@@ -41,9 +43,6 @@ class (Monad m, WithLogger m) =>
     -- | Retrieve all stable 'VssCertificate's for given epoch.
     getStableCertificates :: EpochIndex -> m VssCertificatesMap
 
-    -- | Retrieve richmen for given epoch if they are known.
-    getRichmen :: EpochIndex -> m (Maybe RichmenStake)
-
     -- | Default implementations for 'MonadTrans'.
     default getCommitments :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
         m CommitmentsMap
@@ -65,13 +64,32 @@ class (Monad m, WithLogger m) =>
         EpochIndex -> m VssCertificatesMap
     getStableCertificates = lift . getStableCertificates
 
-    default getRichmen :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        EpochIndex -> m (Maybe RichmenStake)
-    getRichmen = lift . getRichmen
-
 instance MonadTossRead m => MonadTossRead (ReaderT s m)
 instance MonadTossRead m => MonadTossRead (StateT s m)
 instance MonadTossRead m => MonadTossRead (ExceptT s m)
+
+----------------------------------------------------------------------------
+-- Environment
+----------------------------------------------------------------------------
+
+class Monad m => MonadTossEnv m where
+    -- | Retrieve richmen for given epoch if they are known.
+    getRichmen :: EpochIndex -> m (Maybe RichmenStake)
+
+    -- | Retrieve current adopted block data
+    getAdoptedBVData :: m BlockVersionData
+
+    default getRichmen :: (MonadTrans t, MonadTossEnv m', t m' ~ m) =>
+        EpochIndex -> m (Maybe RichmenStake)
+    getRichmen = lift . getRichmen
+
+    default getAdoptedBVData :: (MonadTrans t, MonadTossEnv m', t m' ~ m) =>
+        m BlockVersionData
+    getAdoptedBVData = lift getAdoptedBVData
+
+instance MonadTossEnv m => MonadTossEnv (ReaderT s m)
+instance MonadTossEnv m => MonadTossEnv (StateT s m)
+instance MonadTossEnv m => MonadTossEnv (ExceptT s m)
 
 ----------------------------------------------------------------------------
 -- Writeable

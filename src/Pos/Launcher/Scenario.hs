@@ -28,7 +28,6 @@ import qualified Pos.Constants       as Const
 import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
                                       getOurPubKeyAddress, getOurPublicKey)
 import qualified Pos.DB.GState       as GS
-import           Pos.Delegation      (initDelegation)
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
@@ -74,7 +73,6 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                     lastKnownEpoch leaders
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
 
-    initDelegation @ssc
     initSemaphore
     waitSystemStart
     let unpackPlugin (ActionSpec action) =

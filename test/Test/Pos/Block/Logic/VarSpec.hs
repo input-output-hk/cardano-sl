@@ -20,7 +20,7 @@ import           Pos.Block.Core            (MainBlock, emptyMainBody, mkMainBloc
 import           Pos.Block.Logic           (verifyBlocksPrefix)
 import           Pos.Core                  (SlotId (..))
 import           Pos.DB.DB                 (getTipHeader)
-import           Pos.Generator.Block       (asSecretKeys)
+import           Pos.Generator.Block       (asSecretKeys, bpGenBlocks)
 import           Pos.Lrc                   (getLeaders)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 
@@ -62,10 +62,7 @@ maybeStopProperty msg =
 verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
     -- We generate blocks and discard them. It's only a proof of concept.
-    -- But in fact we don't generate blocks, because genesis is broken in
-    -- travis mode.
-    -- But this line compiles, trust me.
-    -- () <$ bpGenBlocks
+    () <$ bpGenBlocks
     genesisLeaders <-
         maybeStopProperty "no genesis leaders" =<< lift (getLeaders 0)
     let theLeader = NE.head genesisLeaders

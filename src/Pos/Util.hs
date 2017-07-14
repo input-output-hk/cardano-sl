@@ -22,6 +22,7 @@ module Pos.Util
        , diffDoubleMap
        , withMaybeFile
        , mapEither
+       , microsecondsToUTC
 
        -- * NonEmpty
        , neZipWith3
@@ -45,7 +46,11 @@ import           Data.Either                  (rights)
 import           Data.Hashable                (Hashable)
 import qualified Data.HashMap.Strict          as HM
 import           Data.List                    (span, zipWith3, zipWith4)
+import           Data.Ratio                   ((%))
 import qualified Data.Text                    as T
+import           Data.Time.Clock              (UTCTime)
+import           Data.Time.Clock.POSIX        (posixSecondsToUTCTime)
+import           Data.Time.Units              (Microsecond, toMicroseconds)
 import           Serokell.Util                (VerificationRes (..))
 import           System.IO                    (hClose)
 import           System.Wlog                  (LoggerNameBox (..))
@@ -112,6 +117,9 @@ withMaybeFile (Just file) mode f =
 
 mapEither :: (a -> Either b c) -> [a] -> [c]
 mapEither f = rights . map f
+
+microsecondsToUTC :: Microsecond -> UTCTime
+microsecondsToUTC = posixSecondsToUTCTime . fromRational . (% 1000000) . toMicroseconds
 
 ----------------------------------------------------------------------------
 -- NonEmpty

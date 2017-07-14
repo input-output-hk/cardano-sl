@@ -32,7 +32,6 @@ import           Pos.Crypto          (createPsk, encToPublic)
 import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
 import           Pos.DB.Misc         (addProxySecretKey)
-import           Pos.Delegation      (initDelegation)
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
@@ -79,7 +78,6 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
 
     putProxySecretKeys
-    initDelegation @ssc
     initSemaphore
     waitSystemStart
     let unpackPlugin (ActionSpec action) =

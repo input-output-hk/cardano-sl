@@ -10,11 +10,11 @@
 module Pos.Block.Slog.Logic
        ( mustDataBeKnown
 
-       , SlogMode
-       , SlogVerifyMode
+       , MonadSlogBase
+       , MonadSlogVerify
        , slogVerifyBlocks
 
-       , SlogApplyMode
+       , MonadSlogApply
        , slogApplyBlocks
        , slogRollbackBlocks
        ) where
@@ -97,18 +97,17 @@ mustDataBeKnown adoptedBV =
 ----------------------------------------------------------------------------
 
 -- | Set of basic constraints needed by Slog.
-type SlogMode ssc m =
+type MonadSlogBase ssc m =
     ( MonadSlots m
+    , MonadIO m
     , SscHelpersClass ssc
     , MonadDBRead m
     , WithLogger m
     )
 
 -- | Set of constraints needed for Slog verification.
-type SlogVerifyMode ssc ctx m =
-    ( SlogMode ssc m
-    , MonadError Text m
-    , MonadIO m
+type MonadSlogVerify ssc ctx m =
+    ( MonadSlogBase ssc m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
     )
@@ -117,7 +116,7 @@ type SlogVerifyMode ssc ctx m =
 -- All blocks must be from the same epoch.
 slogVerifyBlocks
     :: forall ssc ctx m.
-       SlogVerifyMode ssc ctx m
+       (MonadSlogVerify ssc ctx m, MonadError Text m)
     => OldestFirst NE (Block ssc)
     -> m (OldestFirst NE SlogUndo)
 slogVerifyBlocks blocks = do
@@ -173,12 +172,11 @@ slogVerifyBlocks blocks = do
     return $ over _Wrapped NE.fromList $ map SlogUndo slogUndo
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
-type SlogApplyMode ssc ctx m =
-    ( SlogMode ssc m
+type MonadSlogApply ssc ctx m =
+    ( MonadSlogBase ssc m
     , MonadBlockDBWrite ssc m
     , MonadBListener m
     , MonadMask m
-    , MonadIO m
     , MonadReader ctx m
     , HasSlogContext ctx
     )
@@ -194,7 +192,7 @@ type SlogApplyMode ssc ctx m =
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
 slogApplyBlocks ::
-       forall ssc ctx m. SlogApplyMode ssc ctx m
+       forall ssc ctx m. MonadSlogApply ssc ctx m
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogApplyBlocks blunds = do
@@ -247,7 +245,7 @@ slogApplyBlocks blunds = do
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
 slogRollbackBlocks ::
-       forall ssc ctx m. SlogApplyMode ssc ctx m
+       forall ssc ctx m. MonadSlogApply ssc ctx m
     => NewestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogRollbackBlocks blunds = do
@@ -292,7 +290,7 @@ slogRollbackBlocks blunds = do
         mconcat [forwardLinksBatch, inMainBatch]
 
 -- Common actions for rollback and apply.
-slogCommon :: SlogApplyMode ssc ctx m => LastBlkSlots -> m ()
+slogCommon :: MonadSlogApply ssc ctx m => LastBlkSlots -> m ()
 slogCommon newLastSlots = do
     sanityCheckDB
     slogPutLastSlots newLastSlots

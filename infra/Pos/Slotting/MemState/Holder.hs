@@ -4,6 +4,8 @@
 
 module Pos.Slotting.MemState.Holder
        ( HasSlottingVar(..)
+       , SlottingVar
+       , cloneSlottingVar
        , getSystemStartDefault
        , getSlottingDataDefault
        , waitPenultEpochEqualsDefault
@@ -21,10 +23,17 @@ import           Pos.Slotting.Types (SlottingData (sdPenultEpoch))
 -- Context
 ----------------------------------------------------------------------------
 
+type SlottingVar = TVar SlottingData
+
+-- | Create a new 'SlottingVar' with the same contents as the given
+-- variable has.
+cloneSlottingVar :: MonadIO m => SlottingVar -> m SlottingVar
+cloneSlottingVar = readTVarIO >=> newTVarIO
+
 -- | System start and slotting data
 class HasSlottingVar ctx where
     slottingTimestamp :: Lens' ctx Timestamp
-    slottingVar :: Lens' ctx (TVar SlottingData)
+    slottingVar :: Lens' ctx SlottingVar
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation

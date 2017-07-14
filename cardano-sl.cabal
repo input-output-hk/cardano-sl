@@ -41,6 +41,7 @@ library
                         Pos.Block.Network
                         Pos.Block.Pure
                         Pos.Block.RetrievalQueue
+                        Pos.Block.Slog
                         Pos.Block.Types
                         Pos.CLI
                         Pos.Context
@@ -53,6 +54,10 @@ library
                         Pos.DB.GState
 
                         Pos.Delegation
+
+                        -- Arbitrary data generation
+                        Pos.Generator
+                        Pos.Generator.Block
 
                         -- Genesis data
                         Pos.Genesis
@@ -161,7 +166,6 @@ library
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
-                        Pos.Block.Slog
                         Pos.Block.Slog.Context
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
@@ -196,6 +200,12 @@ library
                         Pos.Delegation.Lrc
                         Pos.Delegation.Types
                         Pos.Delegation.Worker
+
+                        -- Arbitrary data generation
+                        Pos.Generator.Block.Error
+                        Pos.Generator.Block.Logic
+                        Pos.Generator.Block.Mode
+                        Pos.Generator.Block.Param
 
                         -- Launcher
                         Pos.Launcher.Launcher
@@ -550,7 +560,9 @@ test-suite cardano-test
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Block.Logic.CreationSpec
+                       Test.Pos.Block.Logic.Emulation
                        Test.Pos.Block.Logic.Mode
+                       Test.Pos.Block.Logic.Util
                        Test.Pos.Block.Logic.VarSpec
 
                        -- Everything else

@@ -12,7 +12,7 @@ import           Ether.Internal            (HasLens (..))
 import           Formatting                (sformat, (%))
 import           Serokell.Util             (listJson)
 import           Test.Hspec                (Spec, describe)
-import           Test.Hspec.QuickCheck     (prop)
+import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Monadic   (PropertyM, stop)
 import           Test.QuickCheck.Property  (Result (..), failed)
 
@@ -25,7 +25,7 @@ import           Pos.Lrc                   (getLeaders)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContextTag)
--- import           Test.Pos.Block.Logic.Util (bpGenBlocks)
+import           Test.Pos.Block.Logic.Util (bpGenBlocks)
 
 spec :: Spec
 spec = describe "Block.Logic.VAR" $ do
@@ -37,7 +37,10 @@ spec = describe "Block.Logic.VAR" $ do
 
 verifyBlocksPrefixSpec :: Spec
 verifyBlocksPrefixSpec = do
-    prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
+    -- Unfortunatelly, blocks generation is currently extremely slow.
+    -- Maybe we will optimize it in future.
+    modifyMaxSuccess (const 3) $
+        prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
   where
     verifyEmptyMainBlockDesc =
         "verification of consistent empty main block " <>
@@ -62,10 +65,7 @@ maybeStopProperty msg =
 verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
     -- We generate blocks and discard them. It's only a proof of concept.
-    -- But in fact we don't generate blocks, because genesis is broken in
-    -- travis mode.
-    -- But this line compiles, trust me.
-    -- () <$ bpGenBlocks
+    () <$ bpGenBlocks
     genesisLeaders <-
         maybeStopProperty "no genesis leaders" =<< lift (getLeaders 0)
     let theLeader = NE.head genesisLeaders

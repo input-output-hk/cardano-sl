@@ -29,8 +29,7 @@ import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..),
-                                                  MonadTossRead (getRichmen))
+import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type         ()
@@ -41,7 +40,7 @@ import           Pos.Util.Util                   (Some, inAssertMode, sortWithMD
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- TossVerFailure is thrown using 'MonadError' type class.
 verifyAndApplyGtPayload
-    :: (MonadToss m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
     => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call
@@ -112,7 +111,7 @@ rollbackGT oldestEOS (NewestFirst payloads)
 
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
-    :: forall m . MonadToss m
+    :: forall m . (MonadToss m, MonadTossEnv m)
     => EpochIndex -> TossModifier -> m ()
 normalizeToss epoch TossModifier {..} =
     normalizeTossDo
@@ -125,7 +124,7 @@ normalizeToss epoch TossModifier {..} =
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
-    :: forall m . MonadToss m
+    :: forall m . (MonadToss m, MonadTossEnv m)
     => EpochIndex -> TossModifier -> m ()
 refreshToss epoch TossModifier {..} = do
     comms <-
@@ -135,8 +134,8 @@ refreshToss epoch TossModifier {..} = do
     certs <- takeMostValuable epoch (HM.toList _tmCertificates)
     normalizeTossDo epoch (comms, opens, shares, certs)
 
-takeMostValuable ::
-       MonadToss m
+takeMostValuable
+    :: (MonadToss m, MonadTossEnv m)
     => EpochIndex
     -> [(StakeholderId, x)]
     -> m [(StakeholderId, x)]
@@ -154,7 +153,7 @@ type TossModifierLists
        , [(StakeholderId, VssCertificate)])
 
 normalizeTossDo
-    :: forall m . MonadToss m
+    :: forall m . (MonadToss m, MonadTossEnv m)
     => EpochIndex -> TossModifierLists -> m ()
 normalizeTossDo epoch (comms, opens, shares, certs) = do
     putsUseful $

@@ -14,6 +14,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        -- * Basic logic
        , getParticipants
        , computeParticipants
+       , computeSharesDistrPure
        , computeSharesDistr
 
        -- * Payload processing
@@ -27,6 +28,8 @@ module Pos.Ssc.GodTossing.Toss.Base
        , verifyEntriesGuardM
        ) where
 
+import           Universum
+
 import           Control.Monad.Except            (MonadError (throwError))
 import           Control.Monad.State             (get, put)
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
@@ -36,13 +39,11 @@ import qualified Data.List.NonEmpty              as NE
 import           Formatting                      (ords, sformat, (%))
 import           System.Wlog                     (logWarning)
 
-import           Universum
-
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
-import           Pos.Core                        (EpochIndex, StakeholderId, addressHash,
+import           Pos.Core                        (CoinPortion, EpochIndex, StakeholderId,
+                                                  addressHash, bvdMpcThd,
                                                   coinPortionDenominator, getCoinPortion,
                                                   unsafeGetCoin)
-import           Pos.Core.Constants              (genesisMpcThd)
 import           Pos.Crypto                      (Share, verifyShare)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
 import           Pos.Ssc.GodTossing.Core         (Commitment (..),
@@ -54,7 +55,8 @@ import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   VssCertificatesMap, commShares,
                                                   vcSigningKey, vcVssKey, verifyOpening,
                                                   verifyOpening, _gpCertificates)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead (..))
+import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),
+                                                  MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Util.Util                   (getKeys)
 
@@ -88,7 +90,7 @@ hasCertificateToss id = HM.member id <$> getVssCertificates
 
 -- | Get 'VssCertificatesMap' containing 'StakeholderId's and
 -- 'VssPublicKey's of participating nodes for given epoch.
-getParticipants :: (MonadError TossVerFailure m, MonadToss m)
+getParticipants :: (MonadError TossVerFailure m, MonadToss m, MonadTossEnv m)
                 => EpochIndex
                 -> m VssCertificatesMap
 getParticipants epoch = do
@@ -108,7 +110,7 @@ matchCommitment
 matchCommitment op = flip matchCommitmentPure op <$> getCommitments
 
 checkShares
-    :: MonadTossRead m
+    :: (MonadTossRead m, MonadTossEnv m)
     => EpochIndex -> (StakeholderId, InnerSharesMap) -> m Bool
 checkShares epoch (id, sh) = do
     certs <- getStableCertificates epoch
@@ -130,10 +132,12 @@ checkShares epoch (id, sh) = do
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 
-computeSharesDistr
+computeSharesDistrPure
     :: MonadError TossVerFailure m
-    => RichmenStake -> m SharesDistribution
-computeSharesDistr richmen = do
+    => RichmenStake
+    -> CoinPortion             -- ^ MPC threshold, e.g. 'genesisMpcThd'
+    -> m SharesDistribution
+computeSharesDistrPure richmen threshold = do
     let total :: Word64
         total = sum $ map unsafeGetCoin $ toList richmen
     when (total == 0) $
@@ -141,7 +145,7 @@ computeSharesDistr richmen = do
     let epsilon = 0.05::Rational
     -- We accept error in computation = 0.05,
     -- so stakeholders must have at least 55% of stake (for reveal secret) in the worst case
-    let mpcThreshold = toRational (getCoinPortion genesisMpcThd) / toRational coinPortionDenominator
+    let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
     let fromX = 1
     let toX = truncate $ toRational (3::Int) / mpcThreshold
 
@@ -291,6 +295,17 @@ checkCommitmentShares distr participants  (_, Commitment{..}, _) =
             length ne == fromIntegral (HM.lookupDefault 0 id distr)
 
 ----------------------------------------------------------------------------
+-- Impure versions
+----------------------------------------------------------------------------
+
+-- | Like 'computeSharesDistrPure', but uses MPC threshold from the database.
+computeSharesDistr
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
+    => RichmenStake -> m SharesDistribution
+computeSharesDistr richmen =
+    computeSharesDistrPure richmen =<< (bvdMpcThd <$> getAdoptedBVData)
+
+----------------------------------------------------------------------------
 -- Payload processing
 ----------------------------------------------------------------------------
 
@@ -302,7 +317,7 @@ checkCommitmentShares distr participants  (_, Commitment{..}, _) =
 --   * commitment is generated exactly for all participants with correct
 --     proportions (according to 'computeSharesDistr')
 checkCommitmentsPayload
-    :: (MonadToss m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
     => EpochIndex
     -> CommitmentsMap
     -> m ()
@@ -341,7 +356,7 @@ checkOpeningsPayload opens = do
 --   * if encrypted shares (in commitments) are decrypted, they match
 --     decrypted shares
 checkSharesPayload
-    :: (MonadToss m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
     => EpochIndex
     -> SharesMap
     -> m ()
@@ -363,7 +378,7 @@ checkSharesPayload epoch shares = do
 --   * certificate hasn't been sent already
 --   * certificate is generated by richman
 checkCertificatesPayload
-    :: (MonadToss m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
     => EpochIndex
     -> VssCertificatesMap
     -> m ()
@@ -376,7 +391,7 @@ checkCertificatesPayload epoch certs = do
         (HM.toList certs)
 
 checkPayload
-    :: (MonadToss m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
     => EpochIndex
     -> GtPayload
     -> m ()

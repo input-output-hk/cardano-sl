@@ -14,37 +14,39 @@ module Pos.Delegation.Logic.Common
        , invalidateProxyCaches
 
        -- * Common helpers
-       , initDelegation
+       , mkDelegationVar
        , getPSKsFromThisEpoch
        , getDlgTransPsk
        ) where
 
+import           Universum
+
 import           Control.Exception         (Exception (..))
-import           Control.Lens              ((%=), (.=))
+import           Control.Lens              ((%=))
+import qualified Data.Cache.LRU            as LRU
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import qualified Data.Text.Buildable       as B
 import           Data.Time.Clock           (UTCTime, addUTCTime)
 import           Formatting                (bprint, build, sformat, stext, (%))
-import           Universum
 
 import           Pos.Block.Core            (mainBlockDlgPayload)
-import           Pos.Constants             (lightDlgConfirmationTimeout,
+import           Pos.Constants             (dlgCacheParam, lightDlgConfirmationTimeout,
                                             messageCacheTimeout)
-import           Pos.Core                  (HeaderHash, epochIndexL, headerHash)
+import           Pos.Core                  (HeaderHash, ProxySKHeavy, StakeholderId,
+                                            addressHash, epochIndexL, headerHash)
 import           Pos.Crypto                (ProxySecretKey (..), PublicKey)
 import           Pos.DB                    (DBError (DBMalformed), MonadDBRead)
 import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
 import           Pos.Delegation.Cede       (getPskChain, runDBCede)
-import           Pos.Delegation.Class      (DelegationWrap (..), MonadDelegation,
-                                            askDelegationState, dwConfirmationCache,
-                                            dwEpochId, dwMessageCache, dwThisEpochPosted)
+import           Pos.Delegation.Class      (DelegationVar, DelegationWrap (..),
+                                            MonadDelegation, askDelegationState,
+                                            dwConfirmationCache, dwMessageCache)
 import           Pos.Delegation.DB         (getDlgTransitive)
 import           Pos.Delegation.Types      (DlgPayload (getDlgPayload))
 import           Pos.Exception             (cardanoExceptionFromException,
                                             cardanoExceptionToException)
-import           Pos.Types                 (ProxySKHeavy, StakeholderId, addressHash)
 import qualified Pos.Util.Concurrent.RWVar as RWV
 import           Pos.Util.LRU              (filterLRU)
 
@@ -109,22 +111,30 @@ getPSKsFromThisEpoch tip =
     concatMap (either (const []) (getDlgPayload . view mainBlockDlgPayload)) <$>
         (DB.loadBlocksWhile @ssc) isRight tip
 
--- | Initializes delegation in-memory storage.
+-- | Make a new 'DelegationVar' and initialize it.
 --
 -- * Sets `_dwEpochId` to epoch of tip.
 -- * Loads `_dwThisEpochPosted` from database
-initDelegation
-    :: forall ssc ctx m.
-       (MonadIO m, DB.MonadBlockDB ssc m, MonadDelegation ctx m, MonadMask m)
-    => m ()
-initDelegation = do
+mkDelegationVar ::
+       forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m, MonadMask m)
+    => m DelegationVar
+mkDelegationVar = do
     tip <- DB.getTipHeader @ssc
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
         map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
-    runDelegationStateAction $ do
-        dwEpochId .= tipEpoch
-        dwThisEpochPosted .= HS.fromList fromGenesisPsks
+    RWV.new
+        DelegationWrap
+        { _dwMessageCache = LRU.newLRU msgCacheLimit
+        , _dwConfirmationCache = LRU.newLRU confCacheLimit
+        , _dwProxySKPool = HM.empty
+        , _dwPoolSize = 1
+        , _dwEpochId = tipEpoch
+        , _dwThisEpochPosted = HS.fromList fromGenesisPsks
+        }
+  where
+    msgCacheLimit = Just dlgCacheParam
+    confCacheLimit = Just (dlgCacheParam `div` 5)
 
 -- | Retrieves last PSK in chain of delegation started by public key
 -- and resolves the passed issuer to a public key. Doesn't check that

@@ -14,9 +14,7 @@ module Test.Pos.CborSpec
 
 import qualified Codec.CBOR.FlatTerm as CBOR
 import           Node.Message.Class
-import           Pos.Binary.Cbor
-import           Pos.Binary.Class (AsBinary (..))
-import           Pos.Binary.Class.Numbers
+import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
@@ -41,6 +39,8 @@ import           Pos.Crypto.Signing (PublicKey, SecretKey)
 import           Pos.DHT.Model.Types
 import           Pos.Delegation.Arbitrary ()
 import           Pos.Delegation.Types
+import           Pos.Explorer
+import           Pos.Explorer.Arbitrary ()
 import           Pos.Infra.Arbitrary ()
 import           Pos.Slotting.Arbitrary ()
 import           Pos.Slotting.Types
@@ -177,7 +177,7 @@ soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input 
 
 spec :: Spec
 spec = describe "Cbor.Bi instances" $ do
-    modifyMaxSuccess (const 500) $ do
+    modifyMaxSuccess (const 50) $ do
       describe "Test instances are sound" $ do
         prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
         prop "MyScript" (soundInstanceProperty @MyScript Proxy)
@@ -290,6 +290,15 @@ spec = describe "Cbor.Bi instances" $ do
         prop "GenesisGtData" (soundInstanceProperty @GenesisGtData Proxy)
         prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U) Proxy)
         prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U) Proxy)
+        prop "TxExtra" (soundInstanceProperty @TxExtra Proxy)
+        prop "GenesisCoreData" (soundInstanceProperty @GenesisCoreData Proxy)
+        prop "TxPayload" (soundInstanceProperty @TxPayload Proxy)
+        prop "TxAux" (soundInstanceProperty @TxAux Proxy)
+        prop "Tx" (soundInstanceProperty @Tx Proxy)
+        prop "TxOutAux" (soundInstanceProperty @TxOutAux Proxy)
+        prop "TxOut" (soundInstanceProperty @TxOut Proxy)
+        prop "DataMsg TxMsgContents" (soundInstanceProperty @(DataMsg TxMsgContents) Proxy)
+        prop "TxInWitness" (soundInstanceProperty @TxInWitness Proxy .&&. extensionProperty @TxInWitness Proxy)
         -- Pending specs
         it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
         it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
@@ -302,15 +311,6 @@ spec = describe "Cbor.Bi instances" $ do
         it "DataMsg ProxySKLightConfirmation" $ pendingWith "Failing"
         it "UserSecret" $ pendingWith "No Eq instance defined"
         it "WalletUserSecret" $ pendingWith "No Eq instance defined"
-        pendingDependsOnAddress "TxExtra"
-        pendingDependsOnAddress "GenesisCoreData"
-        pendingDependsOnAddress "TxPayload"
-        pendingDependsOnAddress "TxAux"
-        pendingDependsOnAddress "TxInWitness (needs UknownXX testing)"
-        pendingDependsOnAddress "Tx"
-        pendingDependsOnAddress "TxOutAux"
-        pendingDependsOnAddress "TxOut"
-        pendingDependsOnAddress "DataMsg TxMsgContents"
         -- Pending specs which doesn't have an `Arbitrary` instance defined.
         pendingNoArbitrary "Undo"
         pendingNoArbitrary "BackupPhrase"
@@ -340,9 +340,6 @@ spec = describe "Cbor.Bi instances" $ do
 
 pendingNoArbitrary :: String -> Spec
 pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"
-
-pendingDependsOnAddress :: String -> Spec
-pendingDependsOnAddress ty = it ty $ pendingWith "Requires proper Address implementation"
 
 ----------------------------------------
 

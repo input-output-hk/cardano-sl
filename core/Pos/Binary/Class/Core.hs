@@ -12,6 +12,7 @@ module Pos.Binary.Class.Core
     -- * CBOR re-exports
     , encodeListLen
     , decodeListLen
+    , decodeListLenOf
     , Encoding
     , Decoder
     -- * GHC-Generics-based encoding & decoding

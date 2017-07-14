@@ -50,27 +50,27 @@ instance Bi T.Tx where
 
 instance Bi T.TxInWitness where
   encode input = case input of
-    T.PkWitness key sig         -> encodeListLen 3 <> encode (0 :: Word8)
-                                                        <> encode (serialize' (key, sig))
-    T.ScriptWitness val red     -> encodeListLen 3 <> encode (1 :: Word8)
-                                                        <> encode (serialize' (val, red))
-    T.RedeemWitness key sig     -> encodeListLen 3 <> encode (2 :: Word8)
-                                                        <> encode (serialize' (key, sig))
+    T.PkWitness key sig         -> encodeListLen 2 <> encode (0 :: Word8)
+                                                   <> encode (serialize' (key, sig))
+    T.ScriptWitness val red     -> encodeListLen 2 <> encode (1 :: Word8)
+                                                   <> encode (serialize' (val, red))
+    T.RedeemWitness key sig     -> encodeListLen 2 <> encode (2 :: Word8)
+                                                   <> encode (serialize' (key, sig))
     T.UnknownWitnessType tag bs -> encodeListLen 2 <> encode tag
-                                                        <> encode bs
+                                                   <> encode bs
   decode = do
     len <- decodeListLen
     tag <- decode @Word8
     case tag of
       0 -> do
-        matchSize len "TxInWitness.PkWitness" 3
+        matchSize len "TxInWitness.PkWitness" 2
         uncurry T.PkWitness . deserialize' <$> decode
       1 -> do
-        matchSize len "TxInWitness.ScriptWitness" 3
+        matchSize len "TxInWitness.ScriptWitness" 2
         uncurry T.ScriptWitness . deserialize' <$> decode
       2 -> do
-        matchSize len "TxInWitness.ScriptWitness" 3
-        uncurry T.ScriptWitness . deserialize' <$> decode
+        matchSize len "TxInWitness.ScriptWitness" 2
+        uncurry T.RedeemWitness . deserialize' <$> decode
       _ -> do
         matchSize len "TxInWitness.UnknownWitnessType" 2
         T.UnknownWitnessType tag <$> decode

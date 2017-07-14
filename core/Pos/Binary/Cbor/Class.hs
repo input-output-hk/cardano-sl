@@ -300,12 +300,15 @@ decodeMapSkel fromList = do
 {-# INLINE decodeMapSkel #-}
 
 instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
-  encode = encodeMapSkel HM.size HM.foldrWithKey
+  encode = encodeMapSkel HM.size $ \f acc ->
+      -- We need to encode the list with keys sorted in ascending order as
+      -- that's the only representation we accept during decoding.
+      Universum.foldr (uncurry f) acc . sortBy (comparing fst) . HM.toList
   decode = decodeMapSkel HM.fromList
 
 instance (Ord k, Bi k, Bi v) => Bi (Map k v) where
   encode = encodeMapSkel M.size M.foldrWithKey
-  decode = decodeMapSkel M.fromList
+  decode = decodeMapSkel M.fromAscList
 
 encodeSetSkel :: Bi a
               => (s -> Int)
@@ -330,12 +333,15 @@ decodeSetSkel fromList = do
 {-# INLINE decodeSetSkel #-}
 
 instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
-  encode = encodeSetSkel HS.size HS.foldr
+  encode = encodeSetSkel HS.size $ \f acc ->
+      -- We need to encode the list sorted in ascending order as that's the only
+      -- representation we accept during decoding.
+      Universum.foldr f acc . sort . HS.toList
   decode = decodeSetSkel HS.fromList
 
 instance (Ord a, Bi a) => Bi (Set a) where
   encode = encodeSetSkel S.size S.foldr
-  decode = decodeSetSkel S.fromList
+  decode = decodeSetSkel S.fromAscList
 
 -- | Generic encoder for vectors. Its intended use is to allow easy
 -- definition of 'Serialise' instances for custom vector

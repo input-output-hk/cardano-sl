@@ -12,6 +12,7 @@ module Test.Pos.Block.Logic.Mode
        , TestInitModeContext (..)
        , BlockTestContextTag
        , BlockTestContext(..)
+       , btcSlotId_L
        , BlockTestMode
        , runBlockTestMode
 
@@ -40,7 +41,7 @@ import           Pos.Block.Slog                 (HasSlogContext (..), SlogContex
                                                  mkSlogContext)
 import           Pos.Block.Types                (Undo)
 import           Pos.Context                    (GenesisUtxo (..))
-import           Pos.Core                       (IsHeader, StakeDistribution (..),
+import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
                                                  Timestamp (..), addressHash,
                                                  makePubKeyAddress, mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic, unsafeHash)
@@ -196,6 +197,9 @@ data BlockTestContext = BlockTestContext
     , btcSscState          :: !(SscState SscGodTossing)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
     , btcSlogContext       :: !SlogContext
+    , btcSlotId            :: !(Maybe SlotId)
+    -- ^ If this value is 'Just' we will return it as the current
+    -- slot. Otherwise simple slotting is used.
     , btcParams            :: !TestParams
     }
 
@@ -240,6 +244,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState @SscGodTossing
             btcSlogContext <- mkSlogContext
             let btcTxpGlobalSettings = txpGlobalSettings
+            let btcSlotId = Nothing
             let btcParams = tp
             liftIO $ flip runReaderT clockVar $ unEmulation $
                 callback BlockTestContext {..}
@@ -380,9 +385,18 @@ instance MonadSlotsData BlockTestMode where
     putSlottingData = putSlottingDataDefault
 
 instance MonadSlots BlockTestMode where
-    getCurrentSlot = getCurrentSlotSimple =<< view btcSSlottingVar_L
-    getCurrentSlotBlocking = getCurrentSlotBlockingSimple =<< view btcSSlottingVar_L
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
+    getCurrentSlot = do
+        view btcSlotId_L >>= \case
+            Nothing -> getCurrentSlotSimple =<< view btcSSlottingVar_L
+            Just slot -> pure (Just slot)
+    getCurrentSlotBlocking =
+        view btcSlotId_L >>= \case
+            Nothing -> getCurrentSlotBlockingSimple =<< view btcSSlottingVar_L
+            Just slot -> pure slot
+    getCurrentSlotInaccurate =
+        view btcSlotId_L >>= \case
+            Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
+            Just slot -> pure slot
     currentTimeSlotting = currentTimeSlottingSimple
 
 instance MonadDBRead BlockTestMode where

@@ -161,8 +161,6 @@ qanet_tns: &qanet_tns
   protocolMagic: 50987900
   genesisBinSuffix: qa
 
-  genesisBinSuffix: tns
-
 travis: &travis
   <<: *qanet_tns
 

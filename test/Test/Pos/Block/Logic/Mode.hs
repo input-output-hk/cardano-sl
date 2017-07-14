@@ -58,10 +58,12 @@ import           Pos.Genesis                    (stakeDistribution)
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
-                                                 SlottingData, currentTimeSlottingSimple,
+                                                 SimpleSlottingVar, SlottingData,
+                                                 currentTimeSlottingSimple,
                                                  getCurrentSlotBlockingSimple,
                                                  getCurrentSlotInaccurateSimple,
-                                                 getCurrentSlotSimple)
+                                                 getCurrentSlotSimple,
+                                                 mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData (..),
                                                  getSlottingDataDefault,
                                                  getSystemStartDefault,
@@ -189,6 +191,7 @@ data BlockTestContext = BlockTestContext
     , btcSlottingVar       :: !(Timestamp, TVar SlottingData)
     , btcLoggerName        :: !LoggerName
     , btcLrcContext        :: !LrcContext
+    , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !(SscState SscGodTossing)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
@@ -228,6 +231,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             slottingData <- GState.getSlottingData
             btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
             putSlottingVar btcSlottingVar
+            btcSSlottingVar <- mkSimpleSlottingVar
             let btcLoggerName = "testing"
             lcLrcSync <- mkLrcSyncData >>= newTVarIO
             let btcLrcContext = LrcContext {..}
@@ -322,9 +326,9 @@ instance MonadSlotsData (TestInitMode ssc) where
     putSlottingData = putSlottingDataDefault
 
 instance MonadSlots (TestInitMode ssc) where
-    getCurrentSlot = getCurrentSlotSimple
-    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    getCurrentSlot = getCurrentSlotSimple =<< mkSimpleSlottingVar
+    getCurrentSlotBlocking = getCurrentSlotBlockingSimple =<< mkSimpleSlottingVar
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple =<< mkSimpleSlottingVar
     currentTimeSlotting = currentTimeSlottingSimple
 
 ----------------------------------------------------------------------------
@@ -352,6 +356,9 @@ instance HasLens TxpGlobalSettings BlockTestContext TxpGlobalSettings where
 instance HasLens TestParams BlockTestContext TestParams where
       lensOf = btcParams_L
 
+instance HasLens SimpleSlottingVar BlockTestContext SimpleSlottingVar where
+      lensOf = btcSSlottingVar_L
+
 instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSlottingVar_L . _1
     slottingVar = btcSlottingVar_L . _2
@@ -373,9 +380,9 @@ instance MonadSlotsData BlockTestMode where
     putSlottingData = putSlottingDataDefault
 
 instance MonadSlots BlockTestMode where
-    getCurrentSlot = getCurrentSlotSimple
-    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    getCurrentSlot = getCurrentSlotSimple =<< view btcSSlottingVar_L
+    getCurrentSlotBlocking = getCurrentSlotBlockingSimple =<< view btcSSlottingVar_L
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
     currentTimeSlotting = currentTimeSlottingSimple
 
 instance MonadDBRead BlockTestMode where

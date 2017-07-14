@@ -312,17 +312,22 @@ encodeMapSkel size foldrWithKey =
     (\k v b -> encode k <> encode v <> b)
 {-# INLINE encodeMapSkel #-}
 
-decodeMapSkel :: (Bi k, Bi v) => ([(k,v)] -> m) -> Decoder s m
+decodeMapSkel :: (Ord k, Bi k, Bi v) => ([(k, v)] -> m) -> Decoder s m
 decodeMapSkel fromList = do
   n <- decodeMapLen
-  let decodeEntry = do
+  fromList <$> decodeEntries n Nothing []
+  where
+    decodeEntries 0 _  !acc = pure acc
+    decodeEntries i pk !acc = do
         !k <- decode
         !v <- decode
-        return (k, v)
-  fmap fromList (replicateM n decodeEntry)
+        whenJust pk $ \k' -> unless (k' < k) $
+            fail "decodeMapSkel: keys are not encoded in strictly ascending order"
+        decodeEntries (i - 1) (Just k) $ (k, v) : acc
+
 {-# INLINE decodeMapSkel #-}
 
-instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
+instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
   encode = encodeMapSkel HM.size HM.foldrWithKey
   decode = decodeMapSkel HM.fromList
 
@@ -339,13 +344,20 @@ encodeSetSkel size foldr =
     encodeContainerSkel encodeListLen size foldr (\a b -> encode a <> b)
 {-# INLINE encodeSetSkel #-}
 
-decodeSetSkel :: Bi a => ([a] -> c) -> Decoder s c
+decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> Decoder s c
 decodeSetSkel fromList = do
   n <- decodeListLen
-  fmap fromList (replicateM n decode)
+  fromList <$> decodeEntries n Nothing []
+  where
+    decodeEntries 0 _  !acc = pure acc
+    decodeEntries i pv !acc = do
+        !v <- decode
+        whenJust pv $ \v' -> unless (v' < v) $
+            fail "decodeSetSkel: values are not encoded in strictly ascending order"
+        decodeEntries (i - 1) (Just v) $ v : acc
 {-# INLINE decodeSetSkel #-}
 
-instance (Hashable a, Eq a, Bi a) => Bi (HashSet a) where
+instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
   encode = encodeSetSkel HS.size HS.foldr
   decode = decodeSetSkel HS.fromList
 

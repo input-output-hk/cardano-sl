@@ -18,7 +18,7 @@ import           Universum
 import           Control.Monad.Base          (MonadBase (..))
 import qualified Control.Monad.Trans.Control as MC
 import           Data.Coerce                 (coerce)
-import           Data.Time.Units             (Microsecond, addTime)
+import           Data.Time.Units             (Microsecond)
 import           Mockable                    (Async, Catch, Concurrently,
                                               CurrentTime (..), Delay (..), Fork,
                                               MFunctor' (hoist'), Mockable (..),
@@ -85,18 +85,30 @@ instance CanLog Emulation where
 -- Time emulation
 ----------------------------------------------------------------------------
 
-instance Mockable CurrentTime Emulation where
-    liftMockable CurrentTime = Emulation $ do
-        ClockVar clockVar <- ask
-        readIORef clockVar
+-- [CSL-1376] FIXME: make it work!
 
--- The tests compile even without this instance, meaning we don't even test
--- delays, which is sad.
+-- instance Mockable CurrentTime Emulation where
+--     liftMockable CurrentTime = Emulation $ do
+--         ClockVar clockVar <- ask
+--         readIORef clockVar
+
+-- -- The tests compile even without this instance, meaning we don't even test
+-- -- delays, which is sad.
+-- instance Mockable Delay Emulation where
+--     liftMockable SleepForever = return ()
+--     liftMockable (Delay d) = Emulation $ do
+--         ClockVar clockVar <- ask
+--         atomicModifyIORef' clockVar (\t -> (addTime t d, ()))
+
+instance Mockable CurrentTime Emulation where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: CurrentTime Emulation t -> Emulation t #-}
+    liftMockable = liftMockableProduction
+
 instance Mockable Delay Emulation where
-    liftMockable SleepForever = return ()
-    liftMockable (Delay d) = Emulation $ do
-        ClockVar clockVar <- ask
-        atomicModifyIORef' clockVar (\t -> (addTime t d, ()))
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: Delay Emulation t -> Emulation t #-}
+    liftMockable = liftMockableProduction
 
 ----------------------------------------------------------------------------
 -- Helper to use 'Production' implementation

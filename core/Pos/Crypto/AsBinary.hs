@@ -45,7 +45,7 @@ checkLenImpl action name expectedLen len
 #define Ser(B, Bytes, Name) \
   instance (Bi B, Bi (AsBinary B)) => AsBinaryClass B where {\
     asBinary = AsBinary . checkLen "asBinary" Name Bytes . serialize' ;\
-    fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . serialize' }; \
+    fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . getAsBinary }; \
 
 Ser(VssPublicKey, 35, "VssPublicKey") -- 33 data + 2 of CBOR overhead
 Ser(Secret, 35, "Secret")             -- 33 data + 2 of CBOR overhead

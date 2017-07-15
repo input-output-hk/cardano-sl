@@ -175,6 +175,10 @@ soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input 
       isFlat       = hasValidFlatTerm input === True
   in itRoundtrips .&&. isFlat
 
+asBinaryIdempotencyProperty :: (Arbitrary a, AsBinaryClass a, Eq a, Show a) => Proxy a -> Property
+asBinaryIdempotencyProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
+  (fromBinary . asBinary $ input) === Right input
+
 spec :: Spec
 spec = describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 50) $ do
@@ -228,8 +232,12 @@ spec = describe "Cbor.Bi instances" $ do
         prop "EncShare" (soundInstanceProperty @EncShare Proxy)
         prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra Proxy)
         prop "SecretProof" (soundInstanceProperty @SecretProof Proxy)
-        prop "AsBinary VssPublicKey" (soundInstanceProperty @(AsBinary VssPublicKey) Proxy)
-        prop "AsBinary Secret" (soundInstanceProperty @(AsBinary Secret) Proxy)
+        prop "AsBinary VssPublicKey" (    soundInstanceProperty @(AsBinary VssPublicKey) Proxy
+                                     .&&. asBinaryIdempotencyProperty @VssPublicKey Proxy
+                                     )
+        prop "AsBinary Secret" (    soundInstanceProperty @Secret Proxy
+                               .&&. asBinaryIdempotencyProperty @Secret Proxy
+                               )
         prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share) Proxy)
         prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare) Proxy)
         prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof) Proxy)

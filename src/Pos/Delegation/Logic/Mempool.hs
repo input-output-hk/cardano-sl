@@ -243,7 +243,7 @@ processProxySKLight psk = do
     sk <- view primaryKey
     curTime <- microsecondsToUTC <$> currentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
-    psks <- RWL.withRead miscLock Misc.getProxySecretKeys
+    psks <- RWL.withRead miscLock Misc.getProxySecretKeysLight
     res <- runDelegationStateAction $ do
         let pk = toPublic sk
             related = pk == pskDelegatePk psk || pk == pskIssuerPk psk

@@ -48,8 +48,7 @@ instance MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
     getOpenings = PureToss $ use gsOpenings
     getShares = PureToss $ use gsShares
-    getVssCertificates = VCD.certs <$> getVssCertData
-    getVssCertData = PureToss $ use $ gsVssCertificates
+    getVssCertificates = PureToss $ VCD.certs <$> use gsVssCertificates
     getStableCertificates epoch
         | epoch == 0 = pure genesisCertificates
         | otherwise =

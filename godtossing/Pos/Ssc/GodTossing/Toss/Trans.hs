@@ -9,21 +9,20 @@ module Pos.Ssc.GodTossing.Toss.Trans
        , execTossT
        ) where
 
-import           Control.Lens                   (at, (%=), (.=))
-import qualified Data.HashMap.Strict            as HM
+import           Control.Lens                  (at, (%=), (.=))
+import qualified Data.HashMap.Strict           as HM
 import qualified Ether
-import           Mockable                       (ChannelT, Promise, SharedAtomicT,
-                                                 ThreadId)
+import           Mockable                      (ChannelT, Promise, SharedAtomicT,
+                                                ThreadId)
 import           Universum
 
-import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment, getCertId,
-                                                 insertSignedCommitment)
-import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossEnv (..),
-                                                 MonadTossRead (..))
-import           Pos.Ssc.GodTossing.Toss.Types  (TossModifier (..), tmCertificates,
-                                                 tmCommitments, tmOpenings, tmShares)
-import           Pos.Ssc.GodTossing.VssCertData (VssCertData (certs))
-import           Pos.Util.Util                  (ether)
+import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment, getCertId,
+                                                insertSignedCommitment)
+import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossEnv (..),
+                                                MonadTossRead (..))
+import           Pos.Ssc.GodTossing.Toss.Types (TossModifier (..), tmCertificates,
+                                                tmCommitments, tmOpenings, tmShares)
+import           Pos.Util.Util                 (ether)
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -58,8 +57,7 @@ instance MonadTossRead m =>
     getCommitments = ether $ (<>) <$> use tmCommitments <*> getCommitments
     getOpenings = ether $ (<>) <$> use tmOpenings <*> getOpenings
     getShares = ether $ (<>) <$> use tmShares <*> getShares
-    getVssCertificates = certs <$> getVssCertData
-    getVssCertData = ether getVssCertData
+    getVssCertificates = ether $ (<>) <$> use tmCertificates <*> getVssCertificates
     getStableCertificates = ether . getStableCertificates
 
 instance MonadTossEnv m =>

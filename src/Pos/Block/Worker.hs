@@ -38,7 +38,7 @@ import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
 import           Pos.DB.GState               (getPskByIssuer)
-import           Pos.DB.Misc                 (getProxySecretKeys)
+import           Pos.DB.Misc                 (getProxySecretKeysLight)
 import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
@@ -141,7 +141,7 @@ blockCreator (slotId@SlotId {..}) sendActions = do
             else logDebug $ sformat ("Trimmed leaders: "%listJson) $
                             dropAround (fromIntegral $ fromEnum $ siSlot) 10 strLeaders
 
-        proxyCerts <- getProxySecretKeys -- TODO rename it with "light" suffix
+        proxyCerts <- getProxySecretKeysLight
         let validCerts =
                 filter (\pSk -> let (w0,w1) = pskOmega pSk
                                 in and [ siEpoch >= w0

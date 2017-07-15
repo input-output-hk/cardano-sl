@@ -22,9 +22,11 @@ module Pos.Util
        , diffDoubleMap
        , withMaybeFile
        , mapEither
+       , microsecondsToUTC
 
        -- * NonEmpty
        , neZipWith3
+       , neZipWith4
        , spanSafe
 
        -- * Instances
@@ -43,8 +45,12 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Either                  (rights)
 import           Data.Hashable                (Hashable)
 import qualified Data.HashMap.Strict          as HM
-import           Data.List                    (span, zipWith3)
+import           Data.List                    (span, zipWith3, zipWith4)
+import           Data.Ratio                   ((%))
 import qualified Data.Text                    as T
+import           Data.Time.Clock              (UTCTime)
+import           Data.Time.Clock.POSIX        (posixSecondsToUTCTime)
+import           Data.Time.Units              (Microsecond, toMicroseconds)
 import           Serokell.Util                (VerificationRes (..))
 import           System.IO                    (hClose)
 import           System.Wlog                  (LoggerNameBox (..))
@@ -112,12 +118,24 @@ withMaybeFile (Just file) mode f =
 mapEither :: (a -> Either b c) -> [a] -> [c]
 mapEither f = rights . map f
 
+microsecondsToUTC :: Microsecond -> UTCTime
+microsecondsToUTC = posixSecondsToUTCTime . fromRational . (% 1000000) . toMicroseconds
+
 ----------------------------------------------------------------------------
 -- NonEmpty
 ----------------------------------------------------------------------------
 
 neZipWith3 :: (x -> y -> z -> q) -> NonEmpty x -> NonEmpty y -> NonEmpty z -> NonEmpty q
 neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
+
+neZipWith4 ::
+       (x -> y -> i -> z -> q)
+    -> NonEmpty x
+    -> NonEmpty y
+    -> NonEmpty i
+    -> NonEmpty z
+    -> NonEmpty q
+neZipWith4 f (x :| xs) (y :| ys) (i :| is) (z :| zs) = f x y i z :| zipWith4 f xs ys is zs
 
 -- | Makes a span on the list, considering tail only. Predicate has
 -- list head as first argument. Used to take non-null prefix that

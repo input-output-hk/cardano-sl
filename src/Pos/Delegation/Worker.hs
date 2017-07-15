@@ -5,10 +5,9 @@ module Pos.Delegation.Worker
        ) where
 
 import           Control.Monad.Catch        (catch)
-import           Data.Time.Clock            (getCurrentTime)
 import           Formatting                 (build, sformat, (%))
-import           Mockable                   (Delay, Mockable, delay)
-import           Paths_cardano_sl           (version)
+import           Mockable                   (CurrentTime, Delay, Mockable, currentTime,
+                                             delay)
 import           Serokell.Util              (sec)
 import           System.Wlog                (WithLogger, logError)
 import           Universum
@@ -21,6 +20,7 @@ import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (HasShutdownContext, runIfNotShutdown)
+import           Pos.Util                   (microsecondsToUTC)
 import           Pos.WorkMode.Class         (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
@@ -39,10 +39,11 @@ dlgInvalidateCaches
        , MonadDelegation ctx m
        , MonadDiscovery m
        , MonadReader ctx m
+       , Mockable CurrentTime m
        )
     => m ()
 dlgInvalidateCaches = runIfNotShutdown $ do
-    reportingFatal version invalidate `catch` handler
+    reportingFatal invalidate `catch` handler
     delay (sec 1)
     dlgInvalidateCaches
   where
@@ -50,5 +51,5 @@ dlgInvalidateCaches = runIfNotShutdown $ do
     handler =
         logError . sformat ("Delegation worker, error occurred: "%build)
     invalidate = do
-        curTime <- liftIO getCurrentTime
+        curTime <- microsecondsToUTC <$> currentTime
         runDelegationStateAction $ invalidateProxyCaches curTime

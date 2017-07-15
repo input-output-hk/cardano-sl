@@ -26,6 +26,7 @@ import           System.Wlog                 (HasLoggerName (..), LoggerName)
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
                                               onRollbackBlocksStub)
 import           Pos.Block.Core              (Block, BlockHeader)
+import           Pos.Block.Slog.Types        (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Communication.PeerState (HasPeerState (..), PeerStateCtx,
                                               WithPeerState (..), clearPeerStateDefault,
@@ -129,6 +130,9 @@ instance HasShutdownContext (RealModeContext ssc) where
 instance HasSlottingVar (RealModeContext ssc) where
     slottingTimestamp = rmcNodeContext_L . slottingTimestamp
     slottingVar = rmcNodeContext_L . slottingVar
+
+instance HasSlogContext (RealModeContext ssc) where
+    slogContextL = rmcNodeContext_L . slogContextL
 
 instance HasNodeContext ssc (RealModeContext ssc) where
     nodeContext = rmcNodeContext_L

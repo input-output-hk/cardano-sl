@@ -27,10 +27,14 @@ module Pos.DB.Block
        , dbGetHeaderPureDefault
        , dbGetBlockPureDefault
        , dbGetUndoPureDefault
+       , dbGetBlockSscPureDefault
+       , dbGetUndoSscPureDefault
+       , dbGetHeaderSscPureDefault
        , dbPutBlundPureDefault
 
        -- * MonadBlockDB
        , MonadBlockDB
+       , MonadSscBlockDB
        , MonadBlockDBWrite
        , dbGetBlockDefault
        , dbGetUndoDefault
@@ -57,7 +61,7 @@ import           Pos.Binary.Block      ()
 import           Pos.Binary.Class      (Bi, decodeFull, decodeOrFail, encode)
 import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core        as BC
-import           Pos.Block.Types       (Blund, Undo (..))
+import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
 import           Pos.Constants         (genesisHash)
 import           Pos.Core              (BlockCount, HasDifficulty (difficultyL),
                                         HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
@@ -266,6 +270,24 @@ dbPutBlundPureDefault (blk,undo) = do
         (pureBlocksStorage . at h .~ Just (encode (blk,undo))) .
         (pureBlockIndexDB . at (blockIndexKey h) .~ Just (encode $ BC.getBlockHeader blk))
 
+dbGetBlockSscPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (SscBlock ssc))
+dbGetBlockSscPureDefault = fmap (toSscBlock <$>) . dbGetBlockPureDefault
+
+dbGetUndoSscPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe ())
+dbGetUndoSscPureDefault = fmap (const () <$>) . dbGetUndoPureDefault @ssc
+
+dbGetHeaderSscPureDefault ::
+       forall ssc m. (MonadDBRead m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (Some IsHeader))
+dbGetHeaderSscPureDefault = fmap (Some <$>) . dbGetHeaderPureDefault @ssc
+
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
@@ -274,7 +296,16 @@ prepareBlockDB
     :: forall ssc m.
        MonadBlockDBWrite ssc m
     => GenesisBlock ssc -> m ()
-prepareBlockDB blk = dbPutBlund @(BlockHeader ssc) @(Block ssc) @Undo (Left blk, def)
+prepareBlockDB blk =
+    dbPutBlund @(BlockHeader ssc) @(Block ssc) @Undo (Left blk, genesisUndo)
+  where
+    genesisUndo =
+        Undo
+        { undoTx = mempty
+        , undoPsk = mempty
+        , undoUS = def
+        , undoSlog = SlogUndo Nothing
+        }
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -290,7 +321,10 @@ blockIndexKey h = "b" <> convert h
 -- | Specialization of 'MonadBlockDBGeneric' for block processing.
 type MonadBlockDB ssc m
      = ( MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
-       , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
+       , SscHelpersClass ssc)
+
+type MonadSscBlockDB ssc m
+     = ( MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , SscHelpersClass ssc)
 
 -- | 'MonadBlocksDB' with write options

@@ -28,6 +28,7 @@ module Pos.Core.Types
        , mkApplicationName
 
        -- * Update system
+       , SoftforkRule (..)
        , BlockVersionData (..)
 
        -- * HeaderHash related types and functions
@@ -65,7 +66,6 @@ module Pos.Core.Types
        , siSlotL
        , slotIdF
        , EpochOrSlot (..)
-       , epochOrSlot
 
        -- * Scripting
        , Script(..)
@@ -217,6 +217,24 @@ instance NFData SoftwareVersion
 -- Values updatable by update system
 ----------------------------------------------------------------------------
 
+-- | Values defining softfork resolution rule.
+-- If a proposal is adopted at the 's'-th epoch, softfork resolution threshold
+-- at the 't'-th epoch will be
+-- 'max spMinThd (spInitThd - (t - s) * spThdDecrement)'.
+--
+-- Softfork resolution threshold is the portion of total stake such
+-- that if total stake of issuers of blocks with some block version is
+-- greater than this portion, this block version becomes adopted.
+data SoftforkRule = SoftforkRule
+    { srInitThd      :: !CoinPortion
+    -- ^ Initial threshold (right after proposal is confirmed).
+    , srMinThd       :: !CoinPortion
+    -- ^ Minimal threshold (i. e. threshold can't become less than
+    -- this one).
+    , srThdDecrement :: !CoinPortion
+    -- ^ Theshold will be decreased by this value after each epoch.
+    } deriving (Show, Eq, Generic)
+
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
     { bvdScriptVersion     :: !ScriptVersion
@@ -230,7 +248,7 @@ data BlockVersionData = BlockVersionData
     , bvdUpdateVoteThd     :: !CoinPortion
     , bvdUpdateProposalThd :: !CoinPortion
     , bvdUpdateImplicit    :: !FlatSlotId
-    , bvdUpdateSoftforkThd :: !CoinPortion
+    , bvdSoftforkRule      :: !SoftforkRule
     , bvdTxFeePolicy       :: !TxFeePolicy
     , bvdUnlockStakeEpoch  :: !EpochIndex
     } deriving (Show, Eq, Generic, Typeable)
@@ -434,10 +452,6 @@ type FlatSlotId = Word64
 newtype EpochOrSlot = EpochOrSlot
     { unEpochOrSlot :: Either EpochIndex SlotId
     } deriving (Show, Eq, Generic, NFData)
-
--- | Apply one of the function depending on content of EpochOrSlot.
-epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
-epochOrSlot f g = either f g . unEpochOrSlot
 
 instance Ord EpochOrSlot where
     compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of

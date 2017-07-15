@@ -28,6 +28,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
 import qualified Data.HashMap.Strict         as HM
 import           Ether.Internal              (HasLens (..))
+import           Mockable                    (CurrentTime, Mockable, currentTime)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           System.Wlog                 (WithLogger, getLoggerName, usingLoggerName)
 
@@ -35,7 +36,6 @@ import           Pos.Txp.Core.Types          (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types      (GenericTxpLocalData (..),
                                               GenericTxpLocalDataPure, TxpMetrics (..))
 import           Pos.Txp.Toil.Types          (MemPool (..), UtxoModifier)
-import           Pos.Util.TimeWarp           (currentTime)
 
 data TxpHolderTag
 
@@ -43,6 +43,7 @@ data TxpHolderTag
 type MonadTxpMem ext ctx m
      = ( MonadReader ctx m
        , HasLens TxpHolderTag ctx (GenericTxpLocalData ext, TxpMetrics)
+       , Mockable CurrentTime m
        )
 
 askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)

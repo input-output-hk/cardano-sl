@@ -16,8 +16,14 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
                                                progDesc, short, strOption, value)
+import           Serokell.Util.OptParse       (fromParsec)
+import qualified Text.Parsec                  as P
+import qualified Text.Parsec.String           as P
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Universum                    hiding (show)
+import           Universum
+
+import           Pos.Core.Types               (Address (..), StakeholderId)
+import           Pos.Types                    (decodeTextAddress)
 
 import           Paths_cardano_sl             (version)
 
@@ -30,11 +36,16 @@ data KeygenOptions = KeygenOptions
     }
 
 data GenesisGenOptions = GenesisGenOptions
-    { ggoGenesisDir    :: FilePath
+    { ggoGenesisDir       :: FilePath
       -- ^ Output directory everything will be put into
-    , ggoTestStake     :: Maybe TestStakeOptions
-    , ggoAvvmStake     :: Maybe AvvmStakeOptions
-    , ggoFakeAvvmStake :: Maybe FakeAvvmOptions
+    , ggoTestStake        :: Maybe TestStakeOptions
+    , ggoAvvmStake        :: Maybe AvvmStakeOptions
+    , ggoFakeAvvmStake    :: Maybe FakeAvvmOptions
+    , ggoBootStakeholders :: [(StakeholderId, Word16)]
+      -- ^ Explicit bootstrap era stakeholders, list of addresses with
+      -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
+      -- overrides default settings for boot stakeholders (e.g. rich
+      -- in testnet stakes).
     } deriving (Show)
 
 data TestStakeOptions = TestStakeOptions
@@ -80,6 +91,7 @@ genesisGenParser = do
     ggoTestStake <- optional testStakeParser
     ggoAvvmStake <- optional avvmStakeParser
     ggoFakeAvvmStake <- optional fakeAvvmParser
+    ggoBootStakeholders <- many bootStakeholderParser
     pure $ GenesisGenOptions{..}
 
 testStakeParser :: Parser TestStakeOptions
@@ -142,20 +154,54 @@ fakeAvvmParser = do
         help    "A stake assigned to each of fake AVVM stakeholders."
     return FakeAvvmOptions{..}
 
+bootStakeholderParser :: Parser (StakeholderId, Word16)
+bootStakeholderParser =
+    option (fromParsec pairParser) $
+        long "bootstakeholder" <>
+        metavar "ADDRESS,INTEGER" <>
+        help "Explicit boot stakeholder with his stake weight for the boot era."
+  where
+    pairParser :: P.Parser (StakeholderId, Word16)
+    pairParser = do
+        st <- stakeholderId
+        void $ P.char ','
+        d <- word16
+        pure (st,d)
+
+    lexeme :: P.Parser a -> P.Parser a
+    lexeme p = P.spaces *> p >>= \x -> P.spaces $> x
+
+    word16 :: P.Parser Word16
+    word16 = lexeme $ do
+        val <- readMaybe <$> P.many1 P.digit
+        maybe (fail $ show val <> " is not a valid word16")
+              (pure . fromInteger)
+              val
+
+    stakeholderId :: P.Parser StakeholderId
+    stakeholderId = lexeme $ do
+        str <- P.many1 P.alphaNum
+        case decodeTextAddress (toText str) of
+            Left err                  -> fail (toString err)
+            Right (PubKeyAddress{..}) -> pure addrKeyHash
+            Right p                   ->
+                fail $ "Expected public key address, but it's " ++
+                       toString (pretty p)
+
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc "Produce 'genesis-*' directory with generated keys."
                  <> header "Tool to generate keyfiles."
-                 <> footerDoc usageExample
+                 <> footerDoc (Just usageExample)
 
     versionOption = infoOption
         ("cardano-keygen-" <> showVersion version)
         (long "version" <> help "Show version.")
 
-usageExample :: Maybe Doc
-usageExample = Just [s|
+usageExample :: Doc
+usageExample = [s|
 Command example:
 
   stack exec -- cardano-keygen                          \
@@ -167,8 +213,10 @@ Command example:
     --utxo-file /tmp/avvm-files/utxo-dump-last-new.json \
     --randcerts                                         \
     --blacklisted /tmp/avvm-files/full_blacklist.js     \
-    --fake-avvm-entries 100
+    --fake-avvm-entries 100                             \
+    --bootstakeholder "1fKNcnJ44voGtWmekuKic1HJdbHEwd1YEwZNu6XaAwE8RSk,5" \
+    --bootstakeholder "1HJdbHEwd1YEwZNu6XaAwE8RSk1fKNcnJ44voGtWmekuKic,3" \
+    --bootstakeholder "8RSk1fKNcnJ41HJdbNu6XaAwE4voGtWmekuHEwd1YEwZKic,2"
 
-Subdirectory 'genesis-*/nodes' contains keys for uploading to nodes (in cluster).
-Subdirectory 'genesis-*/avvm' contains AVVM seeds.
-Subdirectory 'genesis-*/secrets' contains secret keys.|]
+Subdirectory 'genesis-*/keys-testnet' contains keys for uploading to nodes (in cluster).
+Subdirectory 'genesis-*/keys-fakeavvm' contains AVVM seeds. |]

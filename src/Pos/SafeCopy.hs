@@ -28,7 +28,7 @@ import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..)
                                                   EpochOrSlot (..), LocalSlotIndex (..),
                                                   Script (..), SharedSeed (..),
                                                   SlotCount (..), SlotId (..),
-                                                  SoftwareVersion (..))
+                                                  SoftforkRule (..), SoftwareVersion (..))
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
@@ -138,6 +138,7 @@ deriveSafeCopySimple 0 'base ''UpdateData
 deriveSafeCopySimple 0 'base ''Coeff
 deriveSafeCopySimple 0 'base ''TxSizeLinear
 deriveSafeCopySimple 0 'base ''TxFeePolicy
+deriveSafeCopySimple 0 'base ''SoftforkRule -- 💋
 deriveSafeCopySimple 0 'base ''BlockVersionData
 deriveSafeCopySimple 0 'base ''BlockVersionModifier
 deriveSafeCopySimple 0 'base ''UpdateProposal

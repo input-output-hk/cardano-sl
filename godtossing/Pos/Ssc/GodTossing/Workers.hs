@@ -38,7 +38,8 @@ import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
 import           Pos.Core                              (EpochIndex, SlotId (..),
                                                         StakeholderId, Timestamp (..),
-                                                        addressHash, getOurSecretKey,
+                                                        addressHash, bvdMpcThd,
+                                                        getOurSecretKey,
                                                         getOurStakeholderId,
                                                         mkLocalSlotIndex)
 import           Pos.Core.Constants                    (slotSecurityParam)
@@ -46,6 +47,7 @@ import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
                                                         runSecureRandom)
 import           Pos.Crypto.SecretSharing              (toVssPublicKey)
+import           Pos.DB                                (gsAdoptedBVData)
 import           Pos.Lrc.Context                       (lrcActionOnEpochReason)
 import           Pos.Lrc.Types                         (RichmenStake)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
@@ -76,7 +78,7 @@ import           Pos.Ssc.GodTossing.Richmen            (gtLrcConsumer)
 import qualified Pos.Ssc.GodTossing.SecretStorage      as SS
 import           Pos.Ssc.GodTossing.Shares             (getOurShares)
 import           Pos.Ssc.GodTossing.Toss               (computeParticipants,
-                                                        computeSharesDistr)
+                                                        computeSharesDistrPure)
 import           Pos.Ssc.GodTossing.Type               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types              (gsCommitments, gtcParticipateSsc,
                                                         gtcVssKeyPair)
@@ -331,7 +333,8 @@ generateAndSetNewSecret sk SlotId {..} = do
                 Nothing <$
                 logWarning
                 (sformat ("Couldn't compute shares distribution, reason: "%build) er)
-        distrET <- runExceptT (computeSharesDistr richmen)
+        mpcThreshold <- bvdMpcThd <$> gsAdoptedBVData
+        distrET <- runExceptT (computeSharesDistrPure richmen mpcThreshold)
         flip (either onLeft) distrET $ \distr -> do
             logDebug $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
             let threshold = vssThreshold $ sum $ toList distr

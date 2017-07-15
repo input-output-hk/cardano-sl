@@ -41,12 +41,12 @@ import           Control.Lens               (to)
 import           Data.Default               (def)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.DList                 (DList)
-import           Ether.Internal             (HasLens (..))
 import qualified Data.DList                 as DL
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
-import qualified Data.Text.Buildable
 import qualified Data.Map                   as M
+import qualified Data.Text.Buildable
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, sformat, (%))
 import           Mockable                   (SharedAtomicT)
 import           Serokell.Util              (listJson)
@@ -75,25 +75,25 @@ import qualified Pos.DB.GState              as GS
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.DB.Rocks               (MonadRealDB)
 import           Pos.Slotting               (getSlotStartPure)
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..), TxIn (..) ,
-                                             TxUndo, flattenTxPayload, toaOut, topsortTxs, getTxDistribution,
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxIn (..),
+                                             TxOutAux (..), TxUndo, flattenTxPayload,
+                                             getTxDistribution, toaOut, topsortTxs,
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), fromUtxo,
                                              UtxoModifier, ToilT, runToilTLocal,
                                              applyTxToUtxo)
 import           Pos.Util.Chrono            (getNewestFirst)
-import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Modifier          (MapModifier)
+import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Util              (maybeThrow)
 
-import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Wallet.SscType         (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal,
-                                             addressToCId, aiWId, encToCId,
-                                             isTxLocalAddress)
+                                             CWAddressMeta (..), Wal, addressToCId, aiWId,
+                                             encToCId, isTxLocalAddress)
+import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
                                              CustomAddressType (..),
                                              WebWalletModeDB, WalletTip (..))
@@ -319,25 +319,28 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
                      pure $ foldl' (\r b -> r <> rollbackBlock allAddresses b) mempty blunds
                | otherwise -> mempty <$ logDebug (sformat ("Wallet "%build%" is already synced") wAddr)
 
-    startFromH <- maybe firstGenesisHeader pure wTipHeader
-    genesisUtxo <- genesisUtxoM
-    mapModifier@CAccModifier{..} <- computeAccModifier startFromH
     whenNothing_ wTipHeader $ do
+        genesisUtxo <- genesisUtxoM
         let encInfo = getEncInfo encSK
-        let ownGenesisUtxo =
-                M.fromList $
-                map fst $
-                selectOwnAccounts encInfo (txOutAddress . toaOut . snd) (M.toList genesisUtxo)
+            ownGenesisData =
+                selectOwnAccounts encInfo (txOutAddress . toaOut . snd) $
+                M.toList genesisUtxo
+            ownGenesisUtxo = M.fromList $ map fst ownGenesisData
+            ownGenesisAddrs = map snd ownGenesisData
+        mapM_ WS.addWAddress ownGenesisAddrs
         WS.getWalletUtxo >>= WS.setWalletUtxo . (ownGenesisUtxo <>)
+
+    startFromH <- maybe firstGenesisHeader pure wTipHeader
+    mapModifier@CAccModifier{..} <- computeAccModifier startFromH
     applyModifierToWallet wAddr gstateHHash mapModifier
     logInfo $ sformat ("Wallet "%build%" has been synced with tip "
-                        %shortHashF%", "%build)
-        wAddr (maybe genesisHash headerHash wTipHeader) mapModifier
-    where
-      firstGenesisHeader :: m (BlockHeader ssc)
-      firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeaderStub) >>=
-          maybe (error "Unexpected state: genesisHash doesn't have forward link")
-              (maybe (error "No genesis block corresponding to header hash") pure <=< DB.blkGetHeader)
+                    %shortHashF%", "%build)
+                wAddr (maybe genesisHash headerHash wTipHeader) mapModifier
+  where
+    firstGenesisHeader :: m (BlockHeader ssc)
+    firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeaderStub) >>=
+        maybe (error "Unexpected state: genesisHash doesn't have forward link")
+            (maybe (error "No genesis block corresponding to header hash") pure <=< DB.blkGetHeader)
 
 
 runWithWalletUtxo

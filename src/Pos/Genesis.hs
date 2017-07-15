@@ -115,7 +115,7 @@ stakeDistribution (CustomStakes coins) = map (,[]) coins
 -- and address distribution. In case boot stakeholders are supplied,
 -- all the balance is distributed among them. Otherwise, txDistr is
 -- set to @[]@ or left as it is (in case of 'ExplicitStakes').
-genesisUtxo :: Maybe (HashSet StakeholderId) -> [AddrDistribution] -> Utxo
+genesisUtxo :: Maybe (HashMap StakeholderId Word16) -> [AddrDistribution] -> Utxo
 genesisUtxo bootStakeholders ad =
     M.fromList $ concatMap (uncurry toUtxo . second stakeDistribution) ad
   where

@@ -6,13 +6,13 @@ module Test.Pos.Block.Logic.VarSpec
 
 import           Universum
 
-import           Control.Lens              (at, views)
+import           Control.Lens              (at)
 import qualified Data.List.NonEmpty        as NE
 import           Ether.Internal            (HasLens (..))
 import           Formatting                (sformat, (%))
 import           Serokell.Util             (listJson)
 import           Test.Hspec                (Spec, describe)
-import           Test.Hspec.QuickCheck     (prop)
+import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Monadic   (PropertyM, stop)
 import           Test.QuickCheck.Property  (Result (..), failed)
 
@@ -20,10 +20,12 @@ import           Pos.Block.Core            (MainBlock, emptyMainBody, mkMainBloc
 import           Pos.Block.Logic           (verifyBlocksPrefix)
 import           Pos.Core                  (SlotId (..))
 import           Pos.DB.DB                 (getTipHeader)
+import           Pos.Generator.Block       (asSecretKeys)
 import           Pos.Lrc                   (getLeaders)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..))
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContextTag)
+import           Test.Pos.Block.Logic.Util (bpGenBlocks)
 
 spec :: Spec
 spec = describe "Block.Logic.VAR" $ do
@@ -35,7 +37,10 @@ spec = describe "Block.Logic.VAR" $ do
 
 verifyBlocksPrefixSpec :: Spec
 verifyBlocksPrefixSpec = do
-    prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
+    -- Unfortunatelly, blocks generation is currently extremely slow.
+    -- Maybe we will optimize it in future.
+    modifyMaxSuccess (const 3) $
+        prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
   where
     verifyEmptyMainBlockDesc =
         "verification of consistent empty main block " <>
@@ -59,10 +64,12 @@ maybeStopProperty msg =
 
 verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
+    -- We generate blocks and discard them. It's only a proof of concept.
+    () <$ bpGenBlocks
     genesisLeaders <-
         maybeStopProperty "no genesis leaders" =<< lift (getLeaders 0)
     let theLeader = NE.head genesisLeaders
-    idToSecret <- lift $ views (lensOf @TestParams) tpSecretKeys
+    idToSecret <- lift $ view asSecretKeys <$> view (lensOf @BlockTestContextTag)
     let unknownLeaderMsg =
             sformat
                 ("the secret key of the leader is unknown, leaders are: "

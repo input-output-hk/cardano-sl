@@ -58,6 +58,7 @@ library
                         -- Arbitrary data generation
                         Pos.Generator
                         Pos.Generator.Block
+                        Pos.Generator.BlockEvent
 
                         -- Genesis data
                         Pos.Genesis

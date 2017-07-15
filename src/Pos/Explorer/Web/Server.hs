@@ -22,12 +22,9 @@ import           Universum
 
 import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
-import           Control.Monad.Loops            (unfoldrM)
-import           Control.Monad.Trans.Maybe      (MaybeT (..))
 import qualified Data.ByteString                as BS
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
-import qualified Data.Text                      as T
 import           Data.Time.Clock.POSIX          (POSIXTime)
 import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
@@ -36,8 +33,8 @@ import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
 
 import           Pos.Communication              (SendActions)
-import           Pos.Crypto                     (RedeemPublicKey, WithHash (..), hash,
-                                                 redeemPkBuild, withHash)
+import           Pos.Crypto                     (WithHash (..), hash, redeemPkBuild,
+                                                 withHash)
 
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
@@ -55,9 +52,8 @@ import           Pos.Types                      (Address (..), Coin, EpochIndex,
                                                  HeaderHash, Timestamp, difficultyL,
                                                  gbHeader, gbhConsensus,
                                                  getChainDifficulty, makeRedeemAddress,
-                                                 mkCoin, prevBlockL, prevBlockL, siEpoch,
-                                                 siSlot, sumCoins, unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+                                                 mkCoin, siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
@@ -567,31 +563,28 @@ topsortTxsOrFail f =
 -- Throw exception on failure.
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
 cAddrToAddr cAddr@(CAddress rawAddrText) =
-    if (not $ T.null rawAddrText) && (T.last rawAddrText == '=') then do
-        -- cAddr is in RSCoin address format, converting to equivalent Cardano address
-        cardanoAddr <- convertAddr rawAddrText
-        either badRSCoinAddress pure (fromCAddress $ CAddress cardanoAddr)
-    else
-        -- cAddr is in Cardano address format
-        either badCardanoAddress pure (fromCAddress cAddr)
+    -- Try decoding address as base64. If both decoders succeed,
+    -- the output of the first one is returned
+    let mDecodedBase64 =
+            rightToMaybe (B64.decode rawAddrText) <|>
+            rightToMaybe (B64.decodeUrl rawAddrText)
+    in case mDecodedBase64 of
+        Just addr -> do
+            -- cAddr is in RSCoin address format, converting to equivalent Cardano address
+            -- Originally taken from:
+            -- * cardano-sl/tools/src/keygen/Avvm.hs
+            -- * cardano-sl/tools/src/addr-convert/Main.hs
+            unless (BS.length addr == 32) $
+                throwM badAddressLength
+            let cardanoAddr = pretty $ makeRedeemAddress $ redeemPkBuild addr
+            either badRSCoinAddress pure (fromCAddress $ CAddress cardanoAddr)
+        Nothing ->
+            -- cAddr is in Cardano address format
+            either badCardanoAddress pure (fromCAddress cAddr)
   where
+    badAddressLength = Internal "Address length is not equal to 32, can't be redeeming pk"
     badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
     badRSCoinAddress  = const $ throwM $ Internal "Invalid RSCoin address!"
-    -- Copied from cardano-sl/tools/src/keygen/Avvm.hs
-    fromAvvmPk :: (MonadThrow m, Monad m) => Text -> m RedeemPublicKey
-    fromAvvmPk addrText = do
-        let base64rify = T.replace "-" "+" . T.replace "_" "/"
-        let parsedM = B64.decode $ base64rify addrText
-        addrParsed <-
-            maybe (throwM $ errorBase64 addrText) pure (rightToMaybe parsedM)
-        unless (BS.length addrParsed == 32) $
-            throwM errorLength
-        pure $ redeemPkBuild addrParsed
-    errorBase64 addrText = Internal $ "Address " <> addrText <> " is not base64(url) format"
-    errorLength = Internal "Address length is not equal to 32, can't be redeeming pk"
-    -- Copied from cardano-sl/tools/src/addr-convert/Main.hs
-    convertAddr :: (MonadThrow m, Monad m) => Text -> m Text
-    convertAddr addr = pretty . makeRedeemAddress <$> fromAvvmPk (toText addr)
 
 -- | Deserialize transaction ID.
 -- Throw exception on failure.

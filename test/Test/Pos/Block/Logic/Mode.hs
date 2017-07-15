@@ -260,7 +260,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcUpdateContext <- mkUpdateContext
             btcSscState <- mkSscState @SscGodTossing
             btcSlogContext <- mkSlogContext
-            btcTxpMem <- (,) <$> mkTxpLocalData <*> pure ignoreTxpMetrics
+            btcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings
             let btcReportingContext = emptyReportingContext
             let btcDiscoveryContext = DCStatic mempty

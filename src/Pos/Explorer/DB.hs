@@ -24,13 +24,13 @@ import qualified Ether
 import           Pos.Binary.Class      (UnsignedVarInt (..), encodeStrict)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
-import           Pos.Core.Types        (Address, Coin, HeaderHash, EpochIndex)
+import           Pos.Core.Types        (Address, Coin, EpochIndex, HeaderHash)
 import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
                                         RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core          (Tx, TxId, TxOutAux (..), _TxOut)
-import           Pos.Txp.Toil          (Utxo)
+import           Pos.Txp.Toil          (Utxo, utxoToAddressCoinPairs)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
 ----------------------------------------------------------------------------
@@ -42,7 +42,7 @@ type Page = Int
 type Epoch = EpochIndex
 
 -- type PageBlocks = [Block SscGodTossing]
--- ^ this is much simpler but we are trading time for space 
+-- ^ this is much simpler but we are trading time for space
 -- (since space is an issue, it seems)
 
 -- TODO: In time if we have enough constants, maybe add to explorer Constants?
@@ -95,11 +95,8 @@ putInitFlag = gsPutBi balancesInitFlag True
 putGenesisBalances :: MonadDB m => Utxo -> m ()
 putGenesisBalances genesisUtxo =
     writeBatchGState $
-    map (uncurry PutAddrBalance) $ combineWith unsafeAddCoin txOuts
-  where
-    txOuts = map (view _TxOut . toaOut) . M.elems $ genesisUtxo
-    combineWith :: (Eq a, Hashable a) => (b -> b -> b) -> [(a, b)] -> [(a, b)]
-    combineWith func = HM.toList . HM.fromListWith func
+    map (uncurry PutAddrBalance) $
+    utxoToAddressCoinPairs genesisUtxo
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -121,12 +118,12 @@ data ExplorerOp
     | DelAddrBalance !Address
 
 instance RocksBatchOp ExplorerOp where
-  
+
     toBatchOp (AddTxExtra id extra) =
         [Rocks.Put (txExtraPrefix id) (encodeStrict extra)]
     toBatchOp (DelTxExtra id) =
         [Rocks.Del $ txExtraPrefix id]
-    
+
     toBatchOp (PutPageBlocks page pageBlocks) =
         [Rocks.Put (blockPagePrefix page) (encodeStrict pageBlocks)]
 

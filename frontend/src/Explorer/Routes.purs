@@ -7,6 +7,7 @@ import Data.Generic (class Generic, gEq, gShow)
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
+import Global (decodeURIComponent, encodeURIComponent)
 import Pos.Core.Lenses.Types (_EpochIndex, _LocalSlotIndex, getEpochIndex, getSlotIndex)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CHash, CTxId)
@@ -36,7 +37,7 @@ match url = fromMaybe NotFound $ router url $
     <|>
     Tx <<< mkCTxId <$> (lit transactionLit *> str) <* end
     <|>
-    Address <<< mkCAddress <$> (lit addressLit *> str) <* end
+    Address <<< mkCAddress <<< decodeURIComponent <$> (lit addressLit *> str) <* end
     <|>
     EpochSlot <$> mkEpochIndex <$> (lit epochLit *> int)
               <*> (mkLocalSlotIndex <$> (lit slotLit *> int) <* end)
@@ -54,7 +55,7 @@ match url = fromMaybe NotFound $ router url $
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
 toUrl (Tx id) = transactionUrl id
-toUrl (Address address) = addressUrl address
+toUrl (Address cAddress) = addressUrl cAddress
 toUrl (EpochSlot epoch slot) = epochSlotUrl epoch slot
 toUrl (Epoch epoch) = epochUrl epoch
 toUrl Calculator = calculatorUrl
@@ -81,7 +82,7 @@ addressLit :: String
 addressLit = "address"
 
 addressUrl :: CAddress -> String
-addressUrl address = litUrl addressLit <> address ^. _CAddress
+addressUrl address = litUrl addressLit <> (encodeURIComponent (address ^. _CAddress))
 
 epochLit :: String
 epochLit = "epoch"

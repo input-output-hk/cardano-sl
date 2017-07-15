@@ -4,7 +4,8 @@
 -- | Workers responsible for Leaders and Richmen computation.
 
 module Pos.Lrc.Worker
-       ( LrcModeFull
+       ( LrcModeFullNoSemaphore
+       , LrcModeFull
        , lrcOnNewSlotWorker
        , lrcSingleShot
        , lrcSingleShotNoLock

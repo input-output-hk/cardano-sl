@@ -9,32 +9,35 @@ import           Unsafe                    (unsafeHead)
 
 import           Data.List                 (span)
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty        as NE
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
-import           Test.QuickCheck.Monadic   (pre)
+import           Test.QuickCheck.Monadic   (assert, pre)
 
-import           Pos.Block.Logic           (verifyBlocksPrefix)
+import           Pos.Block.Logic           (applyBlocks, verifyBlocksPrefix)
 import           Pos.Core                  (SlotId (..), epochIndexL)
+import           Pos.DB.Pure               (cloneDBPure)
 import           Pos.Util                  (_neLast)
 import           Pos.Util.Chrono           (OldestFirst (..))
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, btcDBPureVar_L)
 import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
                                             withCurrentSlot)
 import           Test.Pos.Util             (stopProperty)
 
 spec :: Spec
-spec = describe "Block.Logic.VAR" $ do
+-- Unfortunatelly, blocks generation is currently extremely slow.
+-- Maybe we will optimize it in future.
+spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (const 3) $ do
     describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
+    describe "applyBlocks" applyBlocksSpec
 
 ----------------------------------------------------------------------------
 -- verifyBlocksPrefix
 ----------------------------------------------------------------------------
 
 verifyBlocksPrefixSpec :: Spec
--- Unfortunatelly, blocks generation is currently extremely slow.
--- Maybe we will optimize it in future.
-verifyBlocksPrefixSpec = modifyMaxSuccess (const 3) $ do
+verifyBlocksPrefixSpec = do
     prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
     prop verifyValidBlocksDesc verifyValidBlocks
   where
@@ -70,3 +73,32 @@ verifyValidBlocks = do
         verifyBlocksPrefix $
         OldestFirst blocksToVerify
     whenLeft verRes stopProperty
+
+----------------------------------------------------------------------------
+-- applyBlocks
+----------------------------------------------------------------------------
+
+applyBlocksSpec :: Spec
+applyBlocksSpec = do
+    prop applyByOneOrAllAtOnceDesc applyByOneOrAllAtOnce
+  where
+    applyByOneOrAllAtOnceDesc =
+        "applying blocks one by one leads to the same GState as " <>
+        "applying them all at once"
+
+applyByOneOrAllAtOnce :: BlockProperty ()
+applyByOneOrAllAtOnce = do
+    bpGoToArbitraryState
+    blunds <- getOldestFirst <$> bpGenBlocks Nothing
+    pre (not $ null blunds)
+    let blundsNE = OldestFirst (NE.fromList blunds)
+    dbPureVar <- lift (view btcDBPureVar_L)
+    clonedDBPureVar <- cloneDBPure dbPureVar
+    lift (applyBlocks True Nothing blundsNE)
+    dbPure <- readIORef dbPureVar
+    dbPureCloned <-
+        lift $
+        local (set btcDBPureVar_L clonedDBPureVar) $ do
+            applyBlocks True Nothing blundsNE
+            readIORef dbPureVar
+    assert (dbPure == dbPureCloned)

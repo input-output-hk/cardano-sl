@@ -61,7 +61,7 @@ data DBPure = DBPure
     , _pureLrcDB         :: DBPureMap
     , _pureMiscDB        :: DBPureMap
     , _pureBlocksStorage :: Map HeaderHash ByteString
-    }
+    } deriving (Eq)
 
 makeLenses ''DBPure
 

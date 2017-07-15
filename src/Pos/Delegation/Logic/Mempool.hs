@@ -135,6 +135,7 @@ data PskHeavyVerdict
     | PHCached       -- ^ Message is cached
     | PHIncoherent   -- ^ Verdict can't be made at the moment (we're updating)
     | PHExhausted    -- ^ Memory pool is exhausted and can't accept more data
+    | PHRemoved      -- ^ Revoked previous psk from the mempool
     | PHAdded        -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
@@ -173,12 +174,14 @@ processProxySKHeavy psk = do
         omegaCorrect = headEpoch == pskOmega psk
     runDelegationStateAction $ do
         memPoolSize <- use dwPoolSize
-        exists <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
+        posted <- uses dwProxySKPool (\m -> isJust $ HM.lookup iPk m)
+        existsSame <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member iPk
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
-        let rerevoke = isRevokePsk psk && not hasPskInDB
+        let isRevoke = isRevokePsk psk
+        let rerevoke = isRevoke && not hasPskInDB
         producesCycle <- use dwProxySKPool >>= \pool ->
             -- This is inefficient. Consider supporting this map
             -- in-memory or changing mempool key to stakeholderId.
@@ -202,10 +205,12 @@ processProxySKHeavy psk = do
                          PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
                      | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
                      | cached -> PHCached
-                     | exists -> PHExists
+                     | existsSame -> PHExists
                      | exhausted -> PHExhausted
+                     | posted && isRevoke -> PHRemoved
                      | otherwise -> PHAdded
         when (res == PHAdded) $ putToDlgMemPool iPk psk
+        when (res == PHRemoved) $ deleteFromDlgMemPool iPk
         pure res
 
 ----------------------------------------------------------------------------

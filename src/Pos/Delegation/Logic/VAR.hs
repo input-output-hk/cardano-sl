@@ -22,6 +22,7 @@ import           Data.List                    (partition, (\\))
 import qualified Data.Text.Buildable          as B
 import           Ether.Internal               (HasLens (..))
 import           Formatting                   (bprint, build, sformat, (%))
+import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util                (listJson, mapJson)
 import           System.Wlog                  (WithLogger, logDebug)
 
@@ -584,6 +585,7 @@ dlgNormalizeOnRollback ::
        , WithLogger m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
+       , Mockable CurrentTime m
        )
     => m ()
 dlgNormalizeOnRollback = do

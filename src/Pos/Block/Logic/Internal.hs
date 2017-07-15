@@ -26,6 +26,7 @@ import           Control.Lens                (each, _Wrapped)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Ether.Internal              (HasLens (..))
 import           Formatting                  (sformat, (%))
+import           Mockable                    (CurrentTime, Mockable)
 import           Serokell.Util.Text          (listJson)
 
 import           Pos.Block.BListener         (MonadBListener)
@@ -104,6 +105,7 @@ type MonadBlockApply ssc ctx m
        , MonadDelegation ctx m
        , SscLocalDataClass ssc
        , HasLens UpdateContext ctx UpdateContext
+       , Mockable CurrentTime m
        -- Needed for error reporting.
        , HasReportingContext ctx
        , MonadDiscovery m

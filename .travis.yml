@@ -38,7 +38,7 @@ before_install:
 - sudo /etc/init.d/memcached stop || true
 - sudo /etc/init.d/mysql stop || true
 - sudo /etc/init.d/postgresql stop || true
-- cat /etc/nix/nix.conf > ~/nix.conf
+- (cat /etc/nix/nix.conf || echo "") > ~/nix.conf
 - echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" >> ~/nix.conf
 - echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" >> ~/nix.conf
 - export NIX_CONF_DIR=~

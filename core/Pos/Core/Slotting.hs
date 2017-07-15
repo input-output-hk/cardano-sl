@@ -103,7 +103,7 @@ instance Enum EpochOrSlot where
         | siSlot == minBound = EpochOrSlot (Left siEpoch)
         | otherwise = EpochOrSlot $ Right si {siSlot = pred siSlot}
     fromEnum (EpochOrSlot (Left e)) =
-        fromIntegral $ fromIntegral e * epochSlots + 1
+        fromIntegral $ fromIntegral e * epochSlots
     fromEnum (EpochOrSlot (Right SlotId {..})) =
         fromEnum (EpochOrSlot (Left siEpoch)) +
         fromIntegral (getSlotIndex siSlot) +

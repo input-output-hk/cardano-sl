@@ -53,6 +53,8 @@ verifyBlocksPrefixSpec = do
 
 verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
+    -- unsafeHead is safe here, because we explicitly request to
+    -- generate exactly 1 block
     emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1)
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) stopProperty
 
@@ -63,6 +65,7 @@ verifyValidBlocks = do
     pre (not $ null blocks)
     let blocksToVerify =
             case blocks of
+                -- impossible because of precondition (see 'pre' above)
                 [] -> error "verifyValidBlocks: impossible"
                 (block0:otherBlocks) ->
                     let (otherBlocks', _) = span isRight otherBlocks

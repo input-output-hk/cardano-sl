@@ -121,6 +121,9 @@ library
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
+
+                        -- Needed for testing
+                        Pos.Explorer.Arbitrary
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
@@ -260,7 +263,6 @@ library
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
-                        Pos.Explorer.Arbitrary
                         Pos.Explorer.Core
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp

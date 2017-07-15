@@ -1,8 +1,8 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- API server logic
 
@@ -31,30 +31,28 @@ import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
 
 import           Pos.Communication              (SendActions)
+import           Pos.Context                    (genesisUtxoM)
 import           Pos.Crypto                     (WithHash (..), hash, withHash)
 
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
 
-import           Pos.Block.Core                 (Block, MainBlock,
-                                                 mainBlockSlot,
+import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId,
-                                                 TxOutAux (..), getLocalTxs,
-                                                 getMemPool, mpLocalTxs, taTx,
-                                                 topsortTxs, txOutValue,
-                                                 _txOutputs)
-import           Pos.Txp                        (MonadTxpMem, txpTxs)
+import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId,
+                                                 TxOutAux (..), Utxo, getLocalTxs,
+                                                 getMemPool, mpLocalTxs, taTx, topsortTxs,
+                                                 txOutValue, txpTxs,
+                                                 utxoToAddressCoinPairs, _txOutputs)
+-- import           Pos.Txp.Toil                   (utxoToAddressCoinPairs)
 import           Pos.Types                      (Address (..), Coin, EpochIndex,
-                                                 HeaderHash, Timestamp,
-                                                 difficultyL, gbHeader,
-                                                 gbhConsensus,
-                                                 getChainDifficulty, mkCoin,
-                                                 siEpoch, siSlot, sumCoins,
-                                                 unsafeIntegerToCoin,
+                                                 HeaderHash, Timestamp, difficultyL,
+                                                 gbHeader, gbhConsensus,
+                                                 getChainDifficulty, mkCoin, siEpoch,
+                                                 siSlot, sumCoins, unsafeIntegerToCoin,
                                                  unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
@@ -62,28 +60,24 @@ import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
-                                                 getLastTransactions,
-                                                 getPageBlocks, getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrBalance,
-                                                       getAddrHistory,
+                                                 getLastTransactions, getPageBlocks,
+                                                 getTxExtra)
+import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
                                                        getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CAddressType (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash,
-                                                 CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 TxInternal (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CAddressType (..), CBlockEntry (..),
+                                                 CBlockSummary (..),
+                                                 CGenesisAddressInfo (..),
+                                                 CGenesisSummary (..), CHash,
+                                                 CTxBrief (..), CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
-                                                 fromCHash, fromCTxId,
-                                                 getEpochIndex, getSlotIndex,
-                                                 mkCCoin, tiToTxEntry,
-                                                 toBlockEntry, toBlockSummary,
-                                                 toCHash, toPosixTime,
-                                                 toTxBrief)
+                                                 fromCHash, fromCTxId, getEpochIndex,
+                                                 getSlotIndex, mkCCoin, tiToTxEntry,
+                                                 toBlockEntry, toBlockSummary, toCHash,
+                                                 toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -274,7 +268,7 @@ getLastTxs = do
     pure $ tiToTxEntry <$> newTxs
   where
     -- Get last transactions from the blockchain.
-    getBlockchainLastTxs 
+    getBlockchainLastTxs
         :: ExplorerMode m
         => m [TxInternal]
     getBlockchainLastTxs = do
@@ -285,12 +279,12 @@ getLastTxs = do
         forM lastTxsWH toTxInternal
       where
         -- Convert transaction to TxInternal.
-        toTxInternal 
+        toTxInternal
             :: (MonadThrow m, MonadDBRead m)
             => WithHash Tx
             -> m TxInternal
         toTxInternal (WithHash tx txId) = do
-            extra <- EX.getTxExtra txId >>= 
+            extra <- EX.getTxExtra txId >>=
                 maybeThrow (Internal "No extra info for tx in DB!")
             pure $ TxInternal extra tx
 
@@ -472,6 +466,37 @@ getTxSummary cTxId = do
                     , bfOutputs = txOutputs
                     }
 
+getGenesisUtxo :: ExplorerMode m => m Utxo
+getGenesisUtxo = genesisUtxoM
+
+isRedeemAddress :: Address -> Bool
+isRedeemAddress (RedeemAddress _) = True
+isRedeemAddress _                 = False
+
+getGenesisSummary
+    :: ExplorerMode m
+    => m CGenesisSummary
+getGenesisSummary = do
+    addrBalancePairs <-
+        filter (isRedeemAddress . fst) . utxoToAddressCoinPairs <$> getGenesisUtxo
+    cgsNumRedeemed <- length <$> filterM (uncurry isRedeemed) addrBalancePairs
+    pure CGenesisSummary {cgsNumTotal = length addrBalancePairs, ..}
+  where
+    isRedeemed :: MonadDBRead m => Address -> Coin -> m Bool
+    isRedeemed address initialBalance = do
+        currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
+        pure $ currentBalance /= initialBalance
+
+getGenesisAddressInfo
+    :: (ExplorerMode m)
+    => Word  -- ^ limit
+    -> Word  -- ^ offset
+    -> m [CGenesisAddressInfo]
+getGenesisAddressInfo (fromIntegral -> lim) (fromIntegral -> off) = do
+    addrBalancePairs <-
+        filter (isRedeemAddress . fst) . utxoToAddressCoinPairs <$> getGenesisUtxo
+    pure []
+
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch
     :: (ExplorerMode m)
@@ -490,9 +515,9 @@ epochSlotSearch epochIndex slotIndex = do
   where
     -- Get epoch slot block that's being searched or return all epochs if
     -- the slot is @Nothing@.
-    getEpochSlots 
-        :: Maybe Word16 
-        -> [MainBlock SscGodTossing] 
+    getEpochSlots
+        :: Maybe Word16
+        -> [MainBlock SscGodTossing]
         -> [MainBlock SscGodTossing]
     getEpochSlots Nothing          blocks = blocks
     getEpochSlots (Just slotIndex') blocks = filter filterBlocksBySlotIndex blocks
@@ -508,7 +533,7 @@ epochSlotSearch epochIndex slotIndex = do
         filterBlocksBySlotIndex block = getBlockSlotIndex block == slotIndex'
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
-    getPageHHsOrThrow 
+    getPageHHsOrThrow
         :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
         => EpochIndex
         -> m [HeaderHash]
@@ -519,11 +544,11 @@ epochSlotSearch epochIndex slotIndex = do
         errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
 
     -- Either get the block from the @HeaderHash@ or throw an exception.
-    getBlockOrThrow 
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m) 
-        => HeaderHash 
+    getBlockOrThrow
+        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        => HeaderHash
         -> m (Block SscGodTossing)
-    getBlockOrThrow headerHash = DB.blkGetBlock headerHash >>= 
+    getBlockOrThrow headerHash = DB.blkGetBlock headerHash >>=
         maybeThrow (Internal "Block with hash cannot be found!")
 
 

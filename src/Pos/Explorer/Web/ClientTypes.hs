@@ -13,6 +13,8 @@ module Pos.Explorer.Web.ClientTypes
        , CTxBrief (..)
        , CNetworkAddress (..)
        , CTxSummary (..)
+       , CGenesisSummary (..)
+       , CGenesisAddressInfo (..)
        , TxInternal (..)
        , CCoin
        , EpochIndex (..)
@@ -274,6 +276,18 @@ data CTxSummary = CTxSummary
     , ctsFees            :: !CCoin
     , ctsInputs          :: ![(CAddress, CCoin)]
     , ctsOutputs         :: ![(CAddress, CCoin)]
+    } deriving (Show, Generic)
+
+data CGenesisSummary = CGenesisSummary
+    { cgsNumTotal    :: !Int
+    , cgsNumRedeemed :: !Int
+    } deriving (Show, Generic)
+
+data CGenesisAddressInfo = CGenesisAddressInfo
+    { cgaiCardanoAddress :: !CAddress
+    , cgaiRSCoinAddress  :: !CAddress
+    , cgaiGenesisAmount  :: !CCoin
+    , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)
 
 --------------------------------------------------------------------------------

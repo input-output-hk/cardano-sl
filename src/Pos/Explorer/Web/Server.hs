@@ -22,17 +22,20 @@ import           Universum
 
 import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
+import qualified Data.ByteString                as BS
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
 import           Data.Time.Clock.POSIX          (POSIXTime)
 import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
+import qualified Serokell.Util.Base64           as B64
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
 
 import           Pos.Communication              (SendActions)
 import           Pos.Context                    (genesisUtxoM)
-import           Pos.Crypto                     (WithHash (..), hash, withHash)
+import           Pos.Crypto                     (WithHash (..), hash, redeemPkBuild,
+                                                 withHash)
 
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
@@ -47,13 +50,12 @@ import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, Tx
                                                  getMemPool, mpLocalTxs, taTx, topsortTxs,
                                                  txOutValue, txpTxs,
                                                  utxoToAddressCoinPairs, _txOutputs)
--- import           Pos.Txp.Toil                   (utxoToAddressCoinPairs)
 import           Pos.Types                      (Address (..), Coin, EpochIndex,
                                                  HeaderHash, Timestamp, difficultyL,
                                                  gbHeader, gbhConsensus,
-                                                 getChainDifficulty, mkCoin, siEpoch,
-                                                 siSlot, sumCoins, unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+                                                 getChainDifficulty, makeRedeemAddress,
+                                                 mkCoin, siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
@@ -592,15 +594,35 @@ topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f
 
--- | Convert server address to client address,
--- with the possible exception (effect).
+-- | Deserialize Cardano or RSCoin address and convert it to Cardano address.
+-- Throw exception on failure.
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
-cAddrToAddr cAddr = either exception pure (fromCAddress cAddr)
+cAddrToAddr cAddr@(CAddress rawAddrText) =
+    -- Try decoding address as base64. If both decoders succeed,
+    -- the output of the first one is returned
+    let mDecodedBase64 =
+            rightToMaybe (B64.decode rawAddrText) <|>
+            rightToMaybe (B64.decodeUrl rawAddrText)
+    in case mDecodedBase64 of
+        Just addr -> do
+            -- cAddr is in RSCoin address format, converting to equivalent Cardano address
+            -- Originally taken from:
+            -- * cardano-sl/tools/src/keygen/Avvm.hs
+            -- * cardano-sl/tools/src/addr-convert/Main.hs
+            unless (BS.length addr == 32) $
+                throwM badAddressLength
+            let cardanoAddr = pretty $ makeRedeemAddress $ redeemPkBuild addr
+            either badRSCoinAddress pure (fromCAddress $ CAddress cardanoAddr)
+        Nothing ->
+            -- cAddr is in Cardano address format
+            either badCardanoAddress pure (fromCAddress cAddr)
   where
-    exception = const $ throwM $ Internal "Invalid address!"
+    badAddressLength = Internal "Address length is not equal to 32, can't be redeeming pk"
+    badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
+    badRSCoinAddress  = const $ throwM $ Internal "Invalid RSCoin address!"
 
--- | Convert server transaction to client transaction,
--- with the possible exception (effect).
+-- | Deserialize transaction ID.
+-- Throw exception on failure.
 cTxIdToTxId :: MonadThrow m => CTxId -> m TxId
 cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
   where

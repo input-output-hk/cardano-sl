@@ -36,6 +36,8 @@ module Pos.Explorer.Web.ClientTypes
        , tiToTxEntry
        ) where
 
+import           Universum
+
 import           Control.Arrow          ((&&&))
 import           Control.Lens           (ix, _Left)
 import qualified Data.ByteString.Base16 as B16
@@ -43,6 +45,10 @@ import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
+import           Prelude                ()
+import           Serokell.Util.Base16   as SB16
+import           Servant.API            (FromHttpApiData (..))
+
 import qualified Pos.Binary             as Bi
 import           Pos.Block.Core         (MainBlock, mainBlockSlot, mainBlockTxPayload,
                                          mcdSlot)
@@ -64,10 +70,6 @@ import           Pos.Types              (Address, AddressHash, Coin, EpochIndex,
                                          getEpochIndex, getSlotIndex, headerHash, mkCoin,
                                          prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeGetCoin, unsafeIntegerToCoin)
-import           Prelude                ()
-import           Serokell.Util.Base16   as SB16
-import           Servant.API            (FromHttpApiData (..))
-import           Universum
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -77,7 +79,7 @@ import           Universum
 newtype CHash = CHash Text
     deriving (Show, Eq, Generic, Buildable, Hashable)
 
--- | Client address
+-- | Client address. The address may be from either Cardano or RSCoin.
 newtype CAddress = CAddress Text
     deriving (Show, Eq, Generic, Buildable, Hashable)
 

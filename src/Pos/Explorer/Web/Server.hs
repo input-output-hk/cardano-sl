@@ -26,6 +26,7 @@ import qualified Data.ByteString                as BS
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
 import           Data.Time.Clock.POSIX          (POSIXTime)
+import qualified Ether
 import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
 import qualified Serokell.Util.Base64           as B64
@@ -33,7 +34,6 @@ import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
 
 import           Pos.Communication              (SendActions)
-import           Pos.Context                    (genesisUtxoM)
 import           Pos.Crypto                     (WithHash (..), hash, redeemPkBuild,
                                                  withHash)
 
@@ -43,6 +43,7 @@ import qualified Pos.DB.DB                      as DB
 import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.DB.Class                   (MonadDBRead)
+import           Pos.Launcher                   (npCustomUtxo)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId,
@@ -469,7 +470,7 @@ getTxSummary cTxId = do
                     }
 
 getGenesisUtxo :: ExplorerMode m => m Utxo
-getGenesisUtxo = genesisUtxoM
+getGenesisUtxo = Ether.asks' npCustomUtxo
 
 isRedeemAddress :: Address -> Bool
 isRedeemAddress (RedeemAddress _) = True

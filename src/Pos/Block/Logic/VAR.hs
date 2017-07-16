@@ -9,6 +9,9 @@ module Pos.Block.Logic.VAR
        , verifyAndApplyBlocks
        , rollbackBlocks
        , applyWithRollback
+
+       -- * Exported for tests
+       , applyBlocks
        ) where
 
 import           Universum
@@ -32,7 +35,7 @@ import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
 import qualified Pos.DB.GState            as GS
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
-import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShotNoLock)
+import           Pos.Lrc.Worker           (LrcModeFullNoSemaphore, lrcSingleShotNoLock)
 import           Pos.Reporting            (reportingFatal)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Ssc.Util             (toSscBlock)
@@ -88,7 +91,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
          , pModifier)
 
 -- | Union of constraints required by block processing and LRC.
-type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFull ssc ctx m)
+type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore ssc ctx m)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on

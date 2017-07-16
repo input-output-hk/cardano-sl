@@ -176,7 +176,7 @@ mkBlockGenContext bgcParams = do
         putInitSlot (epochOrSlotToSlot tipEOS)
         bgcSscState <- mkSscState @SscGodTossing
         bgcUpdateContext <- mkUpdateContext
-        bgcTxpMem <- (,) <$> mkTxpLocalData <*> pure ignoreTxpMetrics
+        bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
 

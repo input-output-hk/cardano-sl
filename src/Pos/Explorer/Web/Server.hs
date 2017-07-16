@@ -515,9 +515,11 @@ getGenesisAddressInfo (fromIntegral -> lim) (fromIntegral -> skip) = do
     toGenesisAddressInfo :: ExplorerMode m => (Address, Coin) -> m CGenesisAddressInfo
     toGenesisAddressInfo (address, coin) = do
         cgaiIsRedeemed <- isAddressRedeemed address coin
+        -- Commenting out RSCoin address until it can actually be displayed.
+        -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
         pure CGenesisAddressInfo
             { cgaiCardanoAddress = toCAddress address
-            , cgaiRSCoinAddress  = toCAddress address -- TODO: format to RSCoin
+            -- , cgaiRSCoinAddress  = toCAddress address
             , cgaiGenesisAmount  = mkCCoin coin
             , ..
             }

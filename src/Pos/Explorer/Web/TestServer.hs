@@ -205,15 +205,17 @@ testGenesisAddressInfo
     -> Maybe Word
     -> Handler (Either ExplorerError [CGenesisAddressInfo])
 testGenesisAddressInfo _ _ = pure . pure $ [
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
     CGenesisAddressInfo
     { cgaiCardanoAddress = CAddress "3meLwrCDE4C7RofEdkZbUuR75ep3EcTmZv9ebcdjfMtv5H"
-    , cgaiRSCoinAddress  = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
+    -- , cgaiRSCoinAddress  = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
     , cgaiGenesisAmount  = mkCCoin $ mkCoin 15000000
     , cgaiIsRedeemed     = False
     },
     CGenesisAddressInfo
     { cgaiCardanoAddress = CAddress "3mfaPhQ8ewtmyi7tvcxo1TXhGh5piePbjkqgz49Jo2wpV9"
-    , cgaiRSCoinAddress  = CAddress "l-47iKlYk1xlyCaxoPiCHNhPQ9PTsHWnXKl6Nk9dwac="
+    -- , cgaiRSCoinAddress  = CAddress "l-47iKlYk1xlyCaxoPiCHNhPQ9PTsHWnXKl6Nk9dwac="
     , cgaiGenesisAmount  = mkCCoin $ mkCoin 2225295000000
     , cgaiIsRedeemed     = True
     }]

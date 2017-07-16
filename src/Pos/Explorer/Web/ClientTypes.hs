@@ -287,7 +287,11 @@ data CGenesisSummary = CGenesisSummary
 
 data CGenesisAddressInfo = CGenesisAddressInfo
     { cgaiCardanoAddress :: !CAddress
-    , cgaiRSCoinAddress  :: !CAddress
+    -- Commenting out RSCoin address since currently genesisUtxo stores
+    -- only Cardano addresses, which are essentially hashes of RSCoin addresses
+    -- and therefore cannot be converted to them. Hence we should enable RSCoin
+    -- addresses here only after we start storing them in genesisUtxo.
+    -- , cgaiRSCoinAddress  :: !CAddress
     , cgaiGenesisAmount  :: !CCoin
     , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)

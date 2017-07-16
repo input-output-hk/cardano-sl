@@ -7,6 +7,7 @@ module Pos.Generator.Block.Mode
        , MonadBlockGen
        , BlockGenContext (..)
        , BlockGenMode
+       , BlockGenRandMode
        , mkBlockGenContext
 
        , usingPrimaryKey
@@ -17,7 +18,9 @@ module Pos.Generator.Block.Mode
 
 import           Universum
 
+import           Control.Lens                (coerced)
 import           Control.Lens.TH             (makeLensesWith)
+import           Control.Monad.Random        (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
@@ -62,6 +65,7 @@ import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
+import           Pos.Txp.Toil.Types          (GenesisUtxo (..), Utxo)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -117,6 +121,7 @@ data BlockGenContext = BlockGenContext
     , bgcSystemStart       :: !Timestamp
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
+    , bgcCustomUtxo        :: !Utxo
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -132,6 +137,9 @@ makeLensesWith postfixLFields ''BlockGenContext
 
 -- | Execution mode for blockchain generation.
 type BlockGenMode m = ReaderT BlockGenContext m
+
+-- | Block generation mode with random
+type BlockGenRandMode g m = RandT g (BlockGenMode m)
 
 ----------------------------------------------------------------------------
 -- Context creation
@@ -164,6 +172,7 @@ mkBlockGenContext bgcParams = do
         bgcUpdateContext <- mkUpdateContext
         bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
+        let bgcCustomUtxo = undefined
         return BlockGenContext {..}
 
 data InitBlockGenContext = InitBlockGenContext
@@ -263,6 +272,9 @@ instance HasLens SscMemTag BlockGenContext (SscState SscGodTossing) where
 
 instance HasLens TxpGlobalSettings BlockGenContext TxpGlobalSettings where
     lensOf = bgcTxpGlobalSettings_L
+
+instance HasLens GenesisUtxo BlockGenContext GenesisUtxo where
+    lensOf = bgcCustomUtxo_L . coerced
 
 instance HasReportingContext BlockGenContext where
     reportingContext = bgcReportingContext_L

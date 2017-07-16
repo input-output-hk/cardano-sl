@@ -48,8 +48,9 @@ type TxpLocalWorkMode ctx m =
     , HasLens GenesisUtxo ctx GenesisUtxo
     )
 
--- CHECK: @processTx
--- #processTxDo
+-- | Process transaction. 'TxId' is expected to be the hash of
+-- transaction in 'TxAux'. Separation is supported for optimization
+-- only.
 txProcessTransaction
     :: TxpLocalWorkMode ctx m
     => (TxId, TxAux) -> ExceptT ToilVerFailure m ()

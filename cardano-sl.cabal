@@ -214,6 +214,7 @@ library
                         -- Arbitrary data generation
                         Pos.Generator.Block.Error
                         Pos.Generator.Block.Logic
+                        Pos.Generator.Block.Payload
                         Pos.Generator.Block.Mode
                         Pos.Generator.Block.Param
 
@@ -382,6 +383,7 @@ library
                       , mmorph
                       , monad-control
                       , monad-loops
+                      , MonadRandom
                       , mono-traversable
                       , mtl
                       , neat-interpolation

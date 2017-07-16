@@ -18,10 +18,10 @@ module Pos.Explorer.Web.Api
 
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
-                                               CBlockEntry, CBlockSummary,
-                                               CHash, CTxBrief, CTxEntry, CTxId,
-                                               CTxSummary)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
+                                               CBlockSummary, CGenesisAddressInfo,
+                                               CGenesisSummary, CHash, CTxBrief, CTxEntry,
+                                               CTxId, CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (EpochIndex)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
@@ -83,6 +83,18 @@ type EpochSlotSearch = API
     :> QueryParam "slot" Word16
     :> Get '[JSON] (Either ExplorerError [CBlockEntry])
 
+type GenesisSummary = API
+    :> "genesis"
+    :> "summary"
+    :> Get '[JSON] (Either ExplorerError CGenesisSummary)
+
+type GenesisAddressInfo = API
+    :> "genesis"
+    :> "address"
+    :> QueryParam "limit" Word
+    :> QueryParam "offset" Word
+    :> Get '[JSON] (Either ExplorerError [CGenesisAddressInfo])
+
 -- | Servant API which provides access to explorer
 type ExplorerApi =
          BlocksPages
@@ -93,6 +105,8 @@ type ExplorerApi =
     :<|> TxsSummary
     :<|> AddressSummary
     :<|> EpochSlotSearch
+    :<|> GenesisSummary
+    :<|> GenesisAddressInfo
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

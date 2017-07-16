@@ -14,11 +14,13 @@ translation =
         , cTransactions: "トランザクション"
         , cTransactionFeed: "トランザクションフィード"
         , cAddress: "アドレス"
+        , cAddresses: "JP - Addresses"
         , cVersion: "バージョン"
         , cCalculator: "計算機"
         , cNetwork: "ネットワーク"
         , cSummary: "概要"
         , cBlock: "スロット"
+        , cGenesis: "JP - Genesis block"
         , cHash: "ハッシュ値"
         , cHashes: "ハッシュ値"
         , cEpoch: "エポック"
@@ -112,6 +114,14 @@ translation =
         , blRoot: "ハッシュ根"
         , blEpochSlotNotFound: "エポック / スロットは存在していません。"
         , blSlotNotFound: "スロットは存在していません。"
+        }
+    , genesisBlock:
+        { gblNotFound: "JP - Genesis block not found."
+        , gblAddressesEmpty: "JP - No addresses"
+        , gblAddressesNotFound: "JP - Addresses do not exists."
+        , gblAddressHash: "JP - Id"
+        , gblAddressRedeemAmount: "JP - Redeem amount"
+        , gblAddressIsRedeemed: "JP - Is redeemed"
         }
     , footer:
         { fooResources: "Resources"

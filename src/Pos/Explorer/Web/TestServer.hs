@@ -196,7 +196,7 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
 testGenesisSummary
     :: Handler (Either ExplorerError CGenesisSummary)
 testGenesisSummary = pure . pure $ CGenesisSummary
-    { cgsNumTotal = 2
+    { cgsNumTotal    = 2
     , cgsNumRedeemed = 1
     }
 

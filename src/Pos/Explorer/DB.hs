@@ -16,20 +16,17 @@ module Pos.Explorer.DB
 
 import           Universum
 
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.Map.Strict       as M
 import qualified Database.RocksDB      as Rocks
 import qualified Ether
 
 import           Pos.Binary.Class      (UnsignedVarInt (..), encodeStrict)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
-import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin, EpochIndex, HeaderHash)
 import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
                                         RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
-import           Pos.Txp.Core          (Tx, TxId, TxOutAux (..), _TxOut)
+import           Pos.Txp.Core          (Tx, TxId)
 import           Pos.Txp.Toil          (Utxo, utxoToAddressCoinPairs)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
@@ -93,10 +90,13 @@ putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
 putGenesisBalances :: MonadDB m => Utxo -> m ()
-putGenesisBalances genesisUtxo =
-    writeBatchGState $
-    map (uncurry PutAddrBalance) $
-    utxoToAddressCoinPairs genesisUtxo
+putGenesisBalances genesisUtxo = writeBatchGState putAddrBalancesOp
+  where
+    putAddrBalancesOp :: [ExplorerOp]
+    putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinsPairs
+
+    addressCoinsPairs :: [(Address, Coin)]
+    addressCoinsPairs = utxoToAddressCoinPairs genesisUtxo
 
 ----------------------------------------------------------------------------
 -- Batch operations

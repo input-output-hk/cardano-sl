@@ -37,9 +37,16 @@ utxoToStakes = foldl' putDistr mempty . M.toList
     putDistr hm (_, toaux) = foldl' plusAt hm (txOutStake toaux)
 
 utxoToAddressCoinPairs :: Utxo -> [(Address, Coin)]
-utxoToAddressCoinPairs utxo =
-    let txOuts = map (view _TxOut . toaOut) . M.elems $ utxo
-    in combineWith unsafeAddCoin txOuts
+utxoToAddressCoinPairs utxo = combineWith unsafeAddCoin txOuts
   where
     combineWith :: (Eq a, Hashable a) => (b -> b -> b) -> [(a, b)] -> [(a, b)]
     combineWith func = HM.toList . HM.fromListWith func
+
+    txOuts :: [(Address, Coin)]
+    txOuts = map processTxOutAux utxoElems
+      where
+        processTxOutAux :: TxOutAux -> (Address, Coin)
+        processTxOutAux txOutAux = view _TxOut . toaOut $ txOutAux
+
+        utxoElems :: [TxOutAux]
+        utxoElems = M.elems utxo

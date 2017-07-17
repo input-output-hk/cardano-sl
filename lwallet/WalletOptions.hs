@@ -107,7 +107,7 @@ argsParser = do
     woTLSCAPath <- strOption $
         long    "tlsca" <>
         metavar "FILEPATH" <>
-        value   "ca.cert" <>
+        value   "ca.crt" <>
         help    "Path to file with TLS certificate authority"
 
 

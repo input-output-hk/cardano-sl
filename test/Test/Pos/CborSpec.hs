@@ -13,6 +13,7 @@ module Test.Pos.CborSpec
 
 
 import qualified Codec.CBOR.FlatTerm as CBOR
+import           Crypto.Hash.Algorithms (SHA256)
 import           Node.Message.Class
 import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
@@ -30,12 +31,13 @@ import           Pos.Core.Arbitrary ()
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
+import           Pos.Crypto (AbstractHash)
 import           Pos.Crypto.HD (HDAddressPayload)
-import           Pos.Crypto.RedeemSigning (RedeemPublicKey, RedeemSecretKey)
+import           Pos.Crypto.RedeemSigning (RedeemPublicKey, RedeemSecretKey, RedeemSignature)
 import           Pos.Crypto.SafeSigning (PassPhrase)
 import           Pos.Crypto.SecretSharing (VssPublicKey, VssKeyPair, Secret, Share,
                                            EncShare, SecretProof, SecretSharingExtra)
-import           Pos.Crypto.Signing (PublicKey, SecretKey)
+import           Pos.Crypto.Signing (PublicKey, SecretKey, ProxySignature, ProxySecretKey, Signed, Signature)
 import           Pos.DHT.Model.Types
 import           Pos.Delegation.Arbitrary ()
 import           Pos.Delegation.Types
@@ -284,7 +286,8 @@ spec = describe "Cbor.Bi instances" $ do
         prop "ProposalState" (soundInstanceProperty @ProposalState Proxy)
         prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState Proxy)
         prop "TxIn" (soundInstanceProperty @TxIn Proxy)
-        prop "TxDistribution" (soundInstanceProperty @TxDistribution Proxy)
+        modifyMaxSuccess (const 100) $
+          prop "TxDistribution" (soundInstanceProperty @TxDistribution Proxy)
         prop "TxSigData" (soundInstanceProperty @TxSigData Proxy)
         prop "TxProof" (soundInstanceProperty @TxProof Proxy)
         prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData Proxy)
@@ -299,31 +302,31 @@ spec = describe "Cbor.Bi instances" $ do
         prop "GenesisGtData" (soundInstanceProperty @GenesisGtData Proxy)
         prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U) Proxy)
         prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U) Proxy)
-        prop "TxExtra" (soundInstanceProperty @TxExtra Proxy)
-        -- This runs extremely slow. For now the quickest
-        -- course of action is to decrease the number of tests performed, but it's probably
-        -- a hot trail for performance testing.
+        modifyMaxSuccess (const 100) $
+          prop "TxExtra" (soundInstanceProperty @TxExtra Proxy)
+        -- This runs extremely slow. For now the quickest course of action is to decrease the number of tests performed.
         modifyMaxSuccess (const 10) $
           prop "TxPayload" (soundInstanceProperty @TxPayload Proxy)
-        prop "TxAux" (soundInstanceProperty @TxAux Proxy)
+        modifyMaxSuccess (const 100) $
+          prop "TxAux" (soundInstanceProperty @TxAux Proxy)
         prop "Tx" (soundInstanceProperty @Tx Proxy)
         prop "TxOutAux" (soundInstanceProperty @TxOutAux Proxy)
         prop "TxOut" (soundInstanceProperty @TxOut Proxy)
-        prop "DataMsg TxMsgContents" (soundInstanceProperty @(DataMsg TxMsgContents) Proxy)
+        modifyMaxSuccess (const 100) $
+          prop "DataMsg TxMsgContents" (soundInstanceProperty @(DataMsg TxMsgContents) Proxy)
         prop "TxInWitness" (soundInstanceProperty @TxInWitness Proxy .&&. extensionProperty @TxInWitness Proxy)
-        -- Pending specs
-        it "(Signature a)"        $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "(Signed a)"           $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "(RedeemSignature a)"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "(ProxySecretKey w)"   $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "(ProxySignature w a)" $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "AbstractHash SHA256"  $ pendingWith "Arbitrary instance requires Bi (not Cbor.Bi) constraint"
-        it "DataMsg ProxySKLight" $ pendingWith "Failing"
-        it "DataMsg ProxySKHeavy" $ pendingWith "Failing"
-        it "DataMsg ProxySKLightConfirmation" $ pendingWith "Failing"
+        prop "Signature a" (soundInstanceProperty @(Signature U) Proxy)
+        prop "Signed a"    (soundInstanceProperty @(Signed U) Proxy)
+        prop "RedeemSignature a"    (soundInstanceProperty @(RedeemSignature U) Proxy)
+        prop "ProxySecretKey w"     (soundInstanceProperty @(ProxySecretKey U) Proxy)
+        prop "ProxySignature w a"   (soundInstanceProperty @(ProxySignature U U) Proxy)
+        prop "AbstractHash SHA256"  (soundInstanceProperty @(AbstractHash SHA256 U) Proxy)
+        prop "DataMsg ProxySKLight" (soundInstanceProperty @(DataMsg ProxySKLight) Proxy)
+        prop "DataMsg ProxySKHeavy" (soundInstanceProperty @(DataMsg ProxySKHeavy) Proxy)
+        prop "DataMsg ProxySKLightConfirmation" (soundInstanceProperty @(DataMsg ProxySKLightConfirmation) Proxy)
+        -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
         it "UserSecret" $ pendingWith "No Eq instance defined"
         it "WalletUserSecret" $ pendingWith "No Eq instance defined"
-        -- Pending specs which doesn't have an `Arbitrary` instance defined.
         pendingNoArbitrary "Undo"
         pendingNoArbitrary "BackupPhrase"
         pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"

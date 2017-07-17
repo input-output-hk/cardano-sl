@@ -11,6 +11,7 @@ import qualified Data.HashMap.Strict   as HM
 import           System.Random         (mkStdGen, randomR)
 
 import           Pos.Binary            (AsBinary)
+import           Pos.Constants         (genesisBlockVersionData)
 import           Pos.Crypto            (PublicKey, SecretKey, Share,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Arbitrary     (GenesisMpcThd, ValidRichmenStake (..))
@@ -20,7 +21,7 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (.
                                         CommitmentOpening (..), CommitmentSignature,
                                         CommitmentsMap (..), GtGlobalState (..),
                                         InnerSharesMap, MultiRichmenStake, Opening,
-                                        OpeningsMap, PureToss, SharesMap,
+                                        OpeningsMap, PureTossWithEnv, SharesMap,
                                         SignedCommitment, TossVerFailure (..),
                                         VssCertData (..), VssCertificate (vcSigningKey),
                                         VssCertificatesMap, checkCertificatesPayload,
@@ -28,8 +29,8 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (.
                                         checkSharesPayload, gsCommitments, gsOpenings,
                                         gsShares, gsVssCertificates,
                                         mkCommitmentsMapUnsafe, runPureToss,
-                                        verifyCommitment, verifyCommitmentSignature,
-                                        verifyOpening)
+                                        supplyPureTossEnv, verifyCommitment,
+                                        verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
 
@@ -132,7 +133,7 @@ notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
 
 emptyPayload
     :: Monoid container
-    => (container -> ExceptT e PureToss a)
+    => (container -> ExceptT e PureTossWithEnv a)
     -> MultiRichmenStake
     -> GtGlobalState
     -> Bool
@@ -568,8 +569,16 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =
 ----------------------------------------------------------------------------
 -- Utility functions for this module
 ----------------------------------------------------------------------------
-tossRunner :: MultiRichmenStake -> GtGlobalState -> ExceptT e PureToss a -> Either e a
-tossRunner mrs gtgs = view _1 . runPureToss mrs gtgs . runExceptT
 
-customHashMapGen :: (Hashable k, Eq k) => Gen k -> Gen v -> Gen (HM.HashMap k v)
+tossRunner :: MultiRichmenStake
+           -> GtGlobalState
+           -> ExceptT e PureTossWithEnv a
+           -> Either e a
+tossRunner mrs gtgs =
+    view _1 . runPureToss gtgs .
+    supplyPureTossEnv (mrs, genesisBlockVersionData) . runExceptT
+
+customHashMapGen
+    :: (Hashable k, Eq k)
+    => Gen k -> Gen v -> Gen (HM.HashMap k v)
 customHashMapGen keyGen valGen = HM.fromList <$> (listOf $ (,) <$> keyGen <*> valGen)

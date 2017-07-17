@@ -24,7 +24,6 @@ module Pos.Launcher.Resource
 import           Universum                   hiding (bracket, finally)
 
 import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
-import           Data.Default                (def)
 import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (sformat, shown, (%))
@@ -53,9 +52,8 @@ import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers 
 import           Pos.Core                    (Timestamp)
 import           Pos.DB                      (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                   (initNodeDBs)
-import           Pos.DB.GState               (getTip)
 import           Pos.DB.Rocks                (closeNodeDBs, openNodeDBs)
-import           Pos.Delegation.Class        (DelegationVar)
+import           Pos.Delegation              (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real                (KademliaDHTInstance, KademliaParams (..),
                                               startDHTInstance, stopDHTInstance)
 import           Pos.Discovery               (DiscoveryContextSum (..))
@@ -64,7 +62,7 @@ import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..
 import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
 import           Pos.Shutdown.Types          (ShutdownContext (..))
 import           Pos.Slotting                (SlottingContextSum (..), SlottingData,
-                                              mkNtpSlottingVar)
+                                              mkNtpSlottingVar, mkSimpleSlottingVar)
 import           Pos.Ssc.Class               (SscConstraint, SscParams,
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (SscState, mkSscState)
@@ -80,7 +78,6 @@ import           Pos.Launcher.Mode           (InitMode, InitModeContext (..),
 import           Pos.Security                (SecurityWorkersClass)
 import           Pos.Update.Context          (mkUpdateContext)
 import qualified Pos.Update.DB               as GState
-import           Pos.Util.Concurrent.RWVar   as RWV
 import           Pos.Util.Util               (powerLift)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (TxpExtra_TMP)
@@ -143,10 +140,9 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         initNodeDBs @ssc
         ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
         putLrcContext ncLrcContext
-        initTip <- getTip
         setupLoggers $ bpLoggingParams npBaseParams
-        dlgVar <- RWV.new def
-        txpVar <- mkTxpLocalData mempty initTip
+        dlgVar <- mkDelegationVar @ssc
+        txpVar <- mkTxpLocalData
         peerState <- liftIO SM.newIO
         sscState <- mkSscState @ssc
         nrTransport <- powerLift @Production $ createTransportTCP $ npTcpAddr npNetwork
@@ -244,7 +240,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncSlottingContext <-
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar
-            False -> pure SCSimple
+            False -> SCSimple <$> mkSimpleSlottingVar
     putSlotting ncSlottingVar ncSlottingContext
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize

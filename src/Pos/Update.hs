@@ -1,7 +1,8 @@
 -- | Whole Update System in one module :)
 
 module Pos.Update
-       ( module Pos.Update.Core
+       ( module Pos.Update.Context
+       , module Pos.Update.Core
        , module Pos.Update.Download
        , module Pos.Update.Logic
        , module Pos.Update.Lrc
@@ -13,6 +14,7 @@ module Pos.Update
        ) where
 
 import           Pos.Update.Arbitrary ()
+import           Pos.Update.Context
 import           Pos.Update.Core
 import           Pos.Update.Download
 import           Pos.Update.Logic

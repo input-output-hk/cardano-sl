@@ -1,4 +1,6 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Definitions for class of monads that capture logic of processing
 -- delegate certificates (proxy secret keys).
@@ -18,21 +20,18 @@ module Pos.Delegation.Class
        , askDelegationState
        ) where
 
-import           Control.Lens               (makeLenses)
-import qualified Data.Cache.LRU             as LRU
-import           Data.Default               (Default (def))
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.HashSet               as HS
-import           Data.Time.Clock            (UTCTime)
-import           Ether.Internal             (HasLens (..))
-import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Constants              (dlgCacheParam)
+import           Control.Lens               (makeLenses)
+import qualified Data.Cache.LRU             as LRU
+import           Data.Time.Clock            (UTCTime)
+import           Serokell.Data.Memory.Units (Byte)
+
+import           Pos.Core                   (EpochIndex, ProxySKHeavy, ProxySKLight)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.Delegation.Types       (DlgMemPool)
-import           Pos.Types                  (EpochIndex, ProxySKHeavy, ProxySKLight)
 import           Pos.Util.Concurrent.RWVar  (RWVar)
+import           Pos.Util.Util              (HasLens (..))
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
@@ -64,26 +63,11 @@ data DelegationWrap = DelegationWrap
 
 makeLenses ''DelegationWrap
 
-instance Default DelegationWrap where
-    def =
-        DelegationWrap
-        { _dwMessageCache = LRU.newLRU msgCacheLimit
-        , _dwConfirmationCache = LRU.newLRU confCacheLimit
-        , _dwProxySKPool = HM.empty
-        , _dwPoolSize = 1
-        , _dwEpochId = 0
-        , _dwThisEpochPosted = HS.empty
-        }
-      where
-        msgCacheLimit = Just dlgCacheParam
-        confCacheLimit = Just (dlgCacheParam `div` 5)
-
+type DelegationVar = RWVar DelegationWrap
 
 ----------------------------------------------------------------------------
 -- Class definition
 ----------------------------------------------------------------------------
-
-type DelegationVar = RWVar DelegationWrap
 
 -- | We're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place

@@ -39,12 +39,12 @@ import           Universum
 import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.DList                 (DList)
-import           Ether.Internal             (HasLens (..))
 import qualified Data.DList                 as DL
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
-import qualified Data.Text.Buildable
 import qualified Data.Map                   as M
+import qualified Data.Text.Buildable
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, sformat, (%))
 import           Mockable                   (SharedAtomicT)
 import           Serokell.Util              (listJson)
@@ -56,7 +56,7 @@ import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Client.Txp.History     (TxHistoryEntry (..), runGenesisToil)
 import           Pos.Constants              (genesisHash)
-import           Pos.Context                (BlkSemaphore, genesisUtxoM, GenesisUtxo (..))
+import           Pos.Context                (BlkSemaphore, GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                   (AddrPkAttrs (..), Address (..),
                                              ChainDifficulty, HasDifficulty (..),
                                              HeaderHash, Timestamp, headerHash,
@@ -72,27 +72,27 @@ import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.DB.Rocks               (MonadRealDB)
 import           Pos.Slotting               (getSlotStartPure, MonadSlotsData (..))
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..), TxIn (..) ,
-                                             TxUndo, flattenTxPayload, toaOut, topsortTxs, getTxDistribution,
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxIn (..),
+                                             TxOutAux (..), TxUndo, flattenTxPayload,
+                                             getTxDistribution, toaOut, topsortTxs,
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
-                                             UtxoModifier, applyTxToUtxo, evalToilTEmpty, runDBToil)
+                                             UtxoModifier, applyTxToUtxo, evalToilTEmpty,
+                                             runDBToil)
 import           Pos.Util.Chrono            (getNewestFirst)
-import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Modifier          (MapModifier)
+import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Util              (maybeThrow)
 
-import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Wallet.SscType         (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal,
-                                             addressToCId, aiWId, encToCId,
-                                             isTxLocalAddress)
+                                             CWAddressMeta (..), Wal, addressToCId, aiWId,
+                                             encToCId, isTxLocalAddress)
+import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
-                                             CustomAddressType (..),
-                                             WebWalletModeDB)
+                                             CustomAddressType (..), WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
 -- VoidModifier describes a difference between two states.
@@ -270,14 +270,17 @@ syncWalletWithGStateUnsafe encSK = do
                               %" by last synced hh: "%build) wAddr wTip
                 Just wHeader -> do
                     genesisUtxo <- genesisUtxoM
-                    mapModifier@CAccModifier{..} <- computeAccModifier wHeader
                     when (wTip == genesisHash) $ do
                         let encInfo = getEncInfo encSK
-                        let ownGenesisUtxo =
-                                M.fromList $
-                                map fst $
-                                selectOwnAccounts encInfo (txOutAddress . toaOut . snd) (M.toList genesisUtxo)
+                            ownGenesisData =
+                                selectOwnAccounts encInfo (txOutAddress . toaOut . snd) $
+                                M.toList genesisUtxo
+                            ownGenesisUtxo = M.fromList $ map fst ownGenesisData
+                            ownGenesisAddrs = map snd ownGenesisData
+                        mapM_ WS.addWAddress ownGenesisAddrs
                         WS.getWalletUtxo >>= WS.setWalletUtxo . (ownGenesisUtxo <>)
+
+                    mapModifier@CAccModifier{..} <- computeAccModifier wHeader
                     applyModifierToWallet wAddr (headerHash tipHeader) mapModifier
                     logDebug $ sformat ("Wallet "%build%" has been synced with tip "
                                         %shortHashF%", "%build)

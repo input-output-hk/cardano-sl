@@ -20,6 +20,7 @@ module Pos.DB.Pure
 
        , DBPureVar
        , newDBPureVar
+       , cloneDBPure
 
        , dbGetPureDefault
        , dbIterSourcePureDefault
@@ -60,7 +61,7 @@ data DBPure = DBPure
     , _pureLrcDB         :: DBPureMap
     , _pureMiscDB        :: DBPureMap
     , _pureBlocksStorage :: Map HeaderHash ByteString
-    }
+    } deriving (Eq)
 
 makeLenses ''DBPure
 
@@ -72,6 +73,11 @@ type DBPureVar = IORef DBPure
 -- | Creates new db var.
 newDBPureVar :: MonadIO m => m DBPureVar
 newDBPureVar = newIORef def
+
+-- | Clones existing pure DB into a new one with the same contents.
+-- TODO: implement for any 'MonadDBRead' (requires iteration over whole DB).
+cloneDBPure :: MonadIO m => DBPureVar -> m DBPureVar
+cloneDBPure = readIORef >=> newIORef
 
 tagToLens :: DBTag -> Lens' DBPure DBPureMap
 tagToLens BlockIndexDB = pureBlockIndexDB

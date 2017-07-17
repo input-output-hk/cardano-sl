@@ -25,12 +25,12 @@ import           Pos.Core                      (ChainDifficulty (..), Coin, Epoc
                                                 epochIndexL, flattenSlotId, headerHashG,
                                                 headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Core.Constants            (blkSecurityParam, genesisUpdateVoteThd)
+import           Pos.Core.Constants            (blkSecurityParam)
 import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Data.Attributes           (areAttributesKnown)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
-                                                UpdateVote (..))
+                                                UpdateVote (..), bvdUpdateProposalThd)
 import           Pos.Update.Poll.Class         (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure       (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base    (canBeAdoptedBV, canCreateBlockBV,
@@ -119,14 +119,16 @@ resolveVoteStake
     => EpochIndex -> Coin -> UpdateVote -> m Coin
 resolveVoteStake epoch totalStake UpdateVote {..} = do
     let !id = addressHash uvKey
-    stake <- note (mkNotRichman id Nothing) =<< getRichmanStake epoch id
-    when (stake < threshold) $ throwError $ mkNotRichman id (Just stake)
+    thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
+    let threshold = applyCoinPortion thresholdPortion totalStake
+    let errNotRichman mbStake = PollNotRichman
+            { pnrStakeholder = id
+            , pnrThreshold   = threshold
+            , pnrStake       = mbStake }
+    stake <- note (errNotRichman Nothing) =<< getRichmanStake epoch id
+    when (stake < threshold) $
+        throwError $ errNotRichman (Just stake)
     return stake
-  where
-    threshold = applyCoinPortion genesisUpdateVoteThd totalStake
-    mkNotRichman id stake =
-        PollNotRichman
-        {pnrStakeholder = id, pnrThreshold = threshold, pnrStake = stake}
 
 -- Do all necessary checks of new proposal and votes for it.
 -- If it's valid, apply. Specifically, these checks are done:
@@ -194,8 +196,8 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
 
--- Here we check that proposal has at least 'genesisUpdateProposalThd'
--- stake of total stake in all positive votes for it.
+-- Here we check that proposal has at least 'bvdUpdateProposalThd' stake of
+-- total stake in all positive votes for it.
 verifyProposalStake
     :: (MonadPollRead m, MonadError PollVerFailure m)
     => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()

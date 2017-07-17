@@ -13,15 +13,15 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple)
 import Explorer.Api.Helper (decodeResult)
-import Explorer.Api.Types (Endpoint, EndpointError(..) )
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..))
+import Explorer.Api.Types (Endpoint, EndpointError(..))
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..), CGenesisAddressInfos)
 import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
 import Pos.Core.Lenses.Types (_EpochIndex, _LocalSlotIndex, getEpochIndex, getSlotIndex)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CHash(..), CTxId, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CGenesisAddressInfo, CGenesisSummary, CHash(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
 endpointPrefix :: String
@@ -84,3 +84,12 @@ searchEpoch epoch mSlot = get $ "search/epoch/" <> show epochIndex <> slotQuery 
       slotQuery (Just slot) = "?slot=" <> show (slot ^. (_LocalSlotIndex <<< getSlotIndex))
 
       epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
+
+-- genesis block
+fetchGenesisSummary :: forall eff. Aff (ajax::AJAX | eff) CGenesisSummary
+fetchGenesisSummary = get "genesis/summary/"
+
+-- TODO: use page / pageNumber if API has been updated
+fetchGenesisAddressInfo :: forall eff. Int -> Int -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
+fetchGenesisAddressInfo limit offset =
+    get $ "genesis/address/?limit" <> show limit <> "&offset=" <> show offset

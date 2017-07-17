@@ -76,16 +76,16 @@ instance MessageLimitedPure a => MessageLimitedPure (AsBinary a) where
     msgLenLimit = coerce (msgLenLimit @a) + maxAsBinaryOverhead
 
 instance MessageLimitedPure SecretProof where
-    msgLenLimit = 64
+    msgLenLimit = 66
 
 instance MessageLimitedPure VssPublicKey where
-    msgLenLimit = 33
+    msgLenLimit = 35
 
 instance MessageLimitedPure EncShare where
-    msgLenLimit = 101
+    msgLenLimit = 103
 
 instance MessageLimitedPure Share where
-    msgLenLimit = 101 --4+33+64
+    msgLenLimit = 103 --4+35+64
 
 instance MessageLimitedPure PVSS.Commitment where
     msgLenLimit = 33

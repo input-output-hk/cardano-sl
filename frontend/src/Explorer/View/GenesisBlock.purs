@@ -13,10 +13,10 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cGenesis, cAddresses, cOf, common, cLoading, cSummary, gblAddressesEmpty, gblAddressHash, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, genesisBlock) as I18nL
-import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressesInfo, currentCGenesisSummary, gblAddressPagination, gblAddressPaginationEditable, genesisBlockViewState, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary, gblAddressPagination, gblAddressPaginationEditable, genesisBlockViewState, lang, viewStates)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CGenesisAddressesInfo, PageNumber(..), State)
+import Explorer.Types.State (CGenesisAddressInfos, PageNumber(..), State)
 import Explorer.View.Common (getMaxPaginationNumber, paginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo, CGenesisSummary)
@@ -46,7 +46,7 @@ genesisBlockView state =
             S.div ! S.className "explorer-genesis__container" $ do
                 S.h3  ! S.className "headline"
                       $ S.text (translate (I18nL.common <<< I18nL.cAddresses) lang')
-                case state ^. currentCGenesisAddressesInfo of
+                case state ^. currentCGenesisAddressInfos of
                     NotAsked  -> emptyView ""
                     Loading   -> emptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
                     Failure _ -> emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesNotFound) lang'
@@ -102,7 +102,7 @@ addressesHeaderItemView props =
 maxAddrRows :: Int
 maxAddrRows = 5
 
-addressesView :: CGenesisAddressesInfo -> State -> P.HTML Action
+addressesView :: CGenesisAddressInfos -> State -> P.HTML Action
 addressesView addresses state =
     if null addresses then
         emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesEmpty) (state ^. lang)

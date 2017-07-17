@@ -10,9 +10,9 @@ import Data.Maybe (Maybe)
 import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem, CGenesisAddressInfos)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CGenesisSummary(..), CHash, CTxId, CTxSummary)
 import Pux.DOM.Events (DOMEvent)
 import Signal.Channel (Channel)
 
@@ -56,6 +56,10 @@ data Action
     | ReceiveAddressSummary (Either Error CAddressSummary)
     | RequestSearchBlocks EpochIndex (Maybe LocalSlotIndex)
     | ReceiveSearchBlocks (Either Error CBlockEntries)
+    | RequestGenesisSummary
+    | ReceiveGenesisSummary (Either Error CGenesisSummary)
+    | RequestAddressInfo Int Int
+    | ReceiveAddressInfo (Either Error CGenesisAddressInfos)
     -- global view states
     | GlobalToggleMobileMenu Boolean
     | GlobalSearch DOMEvent                          -- search for address + transaction

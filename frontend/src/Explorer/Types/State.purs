@@ -33,7 +33,7 @@ type State =
     , currentAddressSummary :: RemoteData Error CAddressSummary
     , currentBlocksResult :: RemoteData Error CBlockEntries
     , currentCGenesisSummary :: RemoteData Error CGenesisSummary
-    , currentCGenesisAddressesInfo :: RemoteData Error CGenesisAddressesInfo
+    , currentCGenesisAddressInfos :: RemoteData Error CGenesisAddressInfos
     , errors :: Errors
     , loading :: Boolean
     , now :: DateTime
@@ -78,7 +78,7 @@ type CBlockEntries = Array CBlockEntry
 type CTxEntries = Array CTxEntry
 type CTxBriefs = Array CTxBrief
 
-type CGenesisAddressesInfo = Array CGenesisAddressInfo
+type CGenesisAddressInfos = Array CGenesisAddressInfo
 
 type Errors = Array String
 

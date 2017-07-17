@@ -26,10 +26,10 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
-import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gblAddressPagination, gblAddressPaginationEditable, genesisBlockViewState, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressPagination, gblAddressPaginationEditable, genesisBlockViewState, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -343,6 +343,7 @@ update (GenesisBlockInvalidAddressesPageNumber event) state =
           [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
+
 
 -- DOM side effects
 
@@ -708,10 +709,12 @@ update (RequestTxSummary id) state =
           state
     , effects: [ attempt (fetchTxSummary id) >>= pure <<< Just <<< ReceiveTxSummary ]
     }
+
 update (ReceiveTxSummary (Right tx)) state =
     noEffects $
     set loading false $
     set currentTxSummary (Success tx) state
+
 update (ReceiveTxSummary (Left error)) state =
     noEffects $
     set loading false $
@@ -725,6 +728,7 @@ update (RequestAddressSummary address) state =
           state
     , effects: [ attempt (fetchAddressSummary address) >>= pure <<< Just <<< ReceiveAddressSummary ]
     }
+
 update (ReceiveAddressSummary (Right address)) state =
     { state:
         set loading false $
@@ -741,12 +745,52 @@ update (ReceiveAddressSummary (Right address)) state =
         caAddress' = address ^. (_CAddressSummary <<< caAddress)
         subItem = mkSocketSubscriptionItem (SocketSubscription SubAddr) (SocketCAddressData caAddress')
 
-
-
 update (ReceiveAddressSummary (Left error)) state =
     noEffects $
     set loading false $
     set currentAddressSummary (Failure error) $
+    over errors (\errors' -> (show error) : errors') state
+
+update RequestGenesisSummary state =
+    { state:
+          set loading true $
+          set currentCGenesisSummary Loading
+          state
+    , effects:  [ attempt fetchGenesisSummary
+                      >>= pure <<< Just <<< ReceiveGenesisSummary
+                ]
+    }
+
+update (ReceiveGenesisSummary (Right summary)) state =
+    noEffects $
+    set loading false $
+    set currentCGenesisSummary (Success summary) state
+
+update (ReceiveGenesisSummary (Left error)) state =
+    noEffects $
+    set loading false $
+    set currentCGenesisSummary (Failure error) $
+    over errors (\errors' -> (show error) : errors') state
+
+update (RequestAddressInfo limit offset) state =
+    { state:
+          set loading true $
+          set currentCGenesisSummary Loading
+          state
+    , effects:  [ attempt (fetchGenesisAddressInfo limit offset)
+                      >>= pure <<< Just <<< ReceiveAddressInfo
+                ]
+    }
+
+update (ReceiveAddressInfo (Right infos)) state =
+    noEffects $
+    set loading false $
+    set currentCGenesisAddressInfos (Success infos) state
+
+update (ReceiveAddressInfo (Left error)) state =
+    noEffects $
+    set loading false $
+    set currentCGenesisAddressInfos (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 -- clock
@@ -872,6 +916,8 @@ update (UpdateView r@(GenesisBlock)) state =
         [ pure $ Just ScrollTop
         , pure $ Just ClearWaypoints
         , pure $ Just SocketClearSubscriptions
+        , pure $ Just RequestGenesisSummary
+        , pure $ Just $ RequestAddressInfo 0 10
         ]
     }
 

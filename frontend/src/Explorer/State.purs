@@ -71,7 +71,7 @@ initialState =
     , currentAddressSummary: NotAsked
     , currentBlocksResult: NotAsked
     , currentCGenesisSummary: NotAsked
-    , currentCGenesisAddressesInfo: NotAsked
+    , currentCGenesisAddressInfos: NotAsked
     , errors: []
     , loading: false
     , now: toDateTime $ unsafePartial $ fromJust $ instant $ Milliseconds 0.0

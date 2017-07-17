@@ -18,8 +18,8 @@ import           System.Wlog                 (WithLogger, logDebug)
 
 import           Pos.Core                    (HeaderHash, Timestamp)
 import           Pos.DB.Class                (MonadDBRead, MonadGState)
-import qualified Pos.DB.GState               as GS
 import qualified Pos.Explorer.DB             as ExDB
+import qualified Pos.GState                  as GS
 import           Pos.Slotting                (MonadSlots (currentTimeSlotting))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, toaOut,
                                               txOutAddress)

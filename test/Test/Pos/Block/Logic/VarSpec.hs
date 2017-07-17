@@ -16,11 +16,12 @@ import           Test.QuickCheck.Monadic   (assert, pre)
 
 import           Pos.Block.Logic           (applyBlocks, verifyBlocksPrefix)
 import           Pos.Core                  (SlotId (..), epochIndexL)
-import           Pos.DB.Pure               (cloneDBPure)
-import           Pos.Util                  (_neLast)
+import           Pos.DB.Pure               (DBPureVar)
+import qualified Pos.GState                as GS
+import           Pos.Util                  (lensOf, _neLast)
 import           Pos.Util.Chrono           (OldestFirst (..))
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, btcDBPureVar_L)
+import           Test.Pos.Block.Logic.Mode (BlockProperty)
 import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
                                             withCurrentSlot)
 import           Test.Pos.Util             (stopProperty)
@@ -95,13 +96,12 @@ applyByOneOrAllAtOnce = do
     blunds <- getOldestFirst <$> bpGenBlocks Nothing
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    dbPureVar <- lift (view btcDBPureVar_L)
-    clonedDBPureVar <- cloneDBPure dbPureVar
-    lift (applyBlocks True Nothing blundsNE)
-    dbPure <- readIORef dbPureVar
+    let readDB = readIORef =<< view (lensOf @DBPureVar)
     dbPureCloned <-
         lift $
-        local (set btcDBPureVar_L clonedDBPureVar) $ do
-            applyBlocks True Nothing blundsNE
-            readIORef dbPureVar
+        GS.withClonedGState $ do
+            mapM_ (applyBlocks True Nothing . one) (getOldestFirst blundsNE)
+            readDB
+    lift (applyBlocks True Nothing blundsNE)
+    dbPure <- lift readDB
     assert (dbPure == dbPureCloned)

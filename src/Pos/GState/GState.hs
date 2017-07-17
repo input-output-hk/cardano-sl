@@ -2,7 +2,7 @@
 
 -- | Higher-level functions working with GState DB.
 
-module Pos.DB.GState.GState
+module Pos.GState.GState
        ( prepareGStateDB
        , sanityCheckGStateDB
        , usingGStateSnapshot
@@ -20,12 +20,12 @@ import           Pos.Context.Functions      (genesisUtxoM)
 import           Pos.Core                   (HeaderHash)
 import           Pos.DB.Class               (MonadDB, MonadDBRead)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
-import           Pos.DB.GState.BlockExtra   (initGStateBlockExtra)
 import           Pos.DB.GState.Common       (initGStateCommon, isInitialized,
                                              setInitialized)
 import           Pos.DB.Rocks               (DB (..), MonadRealDB, NodeDBs (..),
                                              Snapshot (..), gStateDB, getNodeDBs,
                                              usingReadOptions, usingSnapshot)
+import           Pos.GState.BlockExtra      (initGStateBlockExtra)
 import           Pos.Ssc.GodTossing.DB      (initGtDB)
 import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
 import           Pos.Txp.DB                 (initGStateBalances, initGStateUtxo,

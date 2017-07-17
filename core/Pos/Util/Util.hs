@@ -31,7 +31,9 @@ module Pos.Util.Util
        , ether
        , Ether.TaggedTrans
        , HasLens(..)
+       , HasLens'
        , lensOf'
+       , lensOfProxy
 
        -- * Lifting monads
        , PowerLift(..)
@@ -304,14 +306,24 @@ leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
 ether :: trans m a -> Ether.TaggedTrans tag trans m a
 ether = Ether.TaggedTrans
 
-lensOf' :: forall tag a b. HasLens tag a b => Proxy tag -> Lens' a b
-lensOf' _ = lensOf @tag
+-- | Convenient shortcut for 'HasLens' constraint when lens is to the
+-- same type as the tag.
+type HasLens' s a = HasLens a s a
+
+-- | Version of 'lensOf' which is used when lens is to the same type
+-- as the tag.
+lensOf' :: forall s a. HasLens' s a => Lens' s a
+lensOf' = lensOf @a
+
+-- | Version of 'lensOf' which uses proxy.
+lensOfProxy :: forall proxy tag a b. HasLens tag a b => proxy tag -> Lens' a b
+lensOfProxy _ = lensOf @tag
 
 class PowerLift m n where
-  powerLift :: m a -> n a
+    powerLift :: m a -> n a
 
 instance {-# OVERLAPPING #-} PowerLift m m where
-  powerLift = identity
+    powerLift = identity
 
 instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
   powerLift = lift . powerLift @m @n

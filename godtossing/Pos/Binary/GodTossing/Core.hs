@@ -53,15 +53,15 @@ instance Bi Opening where
 instance Bi GtPayload where
   encode input = case input of
     CommitmentsPayload  cmap vss -> encodeListLen 3 <> encode (0 :: Word8)
-                                                         <> encode cmap <> encode vss
+                                                    <> encode cmap <> encode vss
     OpeningsPayload     omap vss -> encodeListLen 3 <> encode (1 :: Word8)
-                                                         <> encode omap <> encode vss
+                                                    <> encode omap <> encode vss
     SharesPayload       smap vss -> encodeListLen 3 <> encode (2 :: Word8)
-                                                         <> encode smap <> encode vss
+                                                    <> encode smap <> encode vss
     CertificatesPayload vss      -> encodeListLen 2 <> encode (3 :: Word8)
-                                                         <> encode vss
+                                                    <> encode vss
   decode = do
-    len   <- decodeListLen
+    len <- decodeListLen
     tag <- decode @Word8
     case tag of
       0 -> do
@@ -81,13 +81,13 @@ instance Bi GtPayload where
 instance Bi GtProof where
   encode input = case input of
     CommitmentsProof  cmap vss -> encodeListLen 3 <> encode (0 :: Word8)
-                                                       <> encode cmap <> encode vss
+                                                  <> encode cmap <> encode vss
     OpeningsProof     omap vss -> encodeListLen 3 <> encode (1 :: Word8)
-                                                       <> encode omap <> encode vss
+                                                  <> encode omap <> encode vss
     SharesProof       smap vss -> encodeListLen 3 <> encode (2 :: Word8)
-                                                       <> encode smap <> encode vss
+                                                  <> encode smap <> encode vss
     CertificatesProof vss      -> encodeListLen 2 <> encode (3 :: Word8)
-                                                       <> encode vss
+                                                  <> encode vss
   decode = do
     len   <- decodeListLen
     tag <- decode @Word8

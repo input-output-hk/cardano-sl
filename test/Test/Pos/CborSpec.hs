@@ -222,12 +222,8 @@ spec = describe "Cbor.Bi instances" $ do
         prop "ApplicationName" (soundInstanceProperty @ApplicationName Proxy)
         prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion Proxy)
         prop "BlockVersion" (soundInstanceProperty @BlockVersion Proxy)
-        -- These runs extremely slow. For now the quickest
-        -- course of action is to decrease the number of tests performed, but it's probably
-        -- a hot trail for performance testing.
-        modifyMaxSuccess (const 10) $ do
-          prop "Attributes X1" (soundInstanceProperty @(Attributes X1) Proxy)
-          prop "Attributes X2" (soundInstanceProperty @(Attributes X2) Proxy)
+        prop "Attributes X1" (soundInstanceProperty @(Attributes X1) Proxy)
+        prop "Attributes X2" (soundInstanceProperty @(Attributes X2) Proxy)
         prop "AbstractHash " (soundInstanceProperty @(Attributes X2) Proxy)
         prop "VssPublicKey" (soundInstanceProperty @VssPublicKey Proxy)
         prop "VssKeyPair" (soundInstanceProperty @VssKeyPair Proxy)
@@ -303,8 +299,11 @@ spec = describe "Cbor.Bi instances" $ do
         prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U) Proxy)
         prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U) Proxy)
         prop "TxExtra" (soundInstanceProperty @TxExtra Proxy)
-        prop "GenesisCoreData" (soundInstanceProperty @GenesisCoreData Proxy)
-        prop "TxPayload" (soundInstanceProperty @TxPayload Proxy)
+        -- This runs extremely slow. For now the quickest
+        -- course of action is to decrease the number of tests performed, but it's probably
+        -- a hot trail for performance testing.
+        modifyMaxSuccess (const 10) $
+          prop "TxPayload" (soundInstanceProperty @TxPayload Proxy)
         prop "TxAux" (soundInstanceProperty @TxAux Proxy)
         prop "Tx" (soundInstanceProperty @Tx Proxy)
         prop "TxOutAux" (soundInstanceProperty @TxOutAux Proxy)

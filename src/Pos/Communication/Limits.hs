@@ -68,9 +68,11 @@ instance MessageLimitedPure PublicKey where
     msgLenLimit = 66
 
 -- Sometimes 'AsBinary a' is serialized with some overhead compared to
--- 'a'. This overhead is estimated as at most 20.
+-- 'a'. This is tricky to estimate as CBOR uses a number of bytes at
+-- the beginning of a BS to encode the length, which depends by the
+-- length itself. This overhead is (conservatively) estimated as at most 64.
 maxAsBinaryOverhead :: Limit a
-maxAsBinaryOverhead = 20
+maxAsBinaryOverhead = 64
 
 instance MessageLimitedPure a => MessageLimitedPure (AsBinary a) where
     msgLenLimit = coerce (msgLenLimit @a) + maxAsBinaryOverhead
@@ -94,13 +96,13 @@ instance MessageLimitedPure PVSS.ExtraGen where
     msgLenLimit = 33
 
 instance MessageLimitedPure (AbstractHash Blake2b_224 a) where
-    msgLenLimit = 30
+    msgLenLimit = 32
 
 instance MessageLimitedPure (AbstractHash Blake2b_256 a) where
     msgLenLimit = 34
 
 instance MessageLimitedPure EpochIndex where
-    msgLenLimit = 10
+    msgLenLimit = 12
 
 -----------------------------------------------------------------
 -- Delegation
@@ -157,18 +159,18 @@ instance MessageLimited SignedCommitment where
         return $ (,,) <$> msgLenLimit <+> commLimit <+> msgLenLimit
 
 instance MessageLimitedPure Opening where
-    msgLenLimit = 33
+    msgLenLimit = 35
 
 instance MessageLimited InnerSharesMap where
     getMsgLenLimit _ = do
         numLimit <- commitmentsNumLimit
         return $ multiMap numLimit
 
--- There is some precaution in this limit. 171 means that epoch is
+-- There is some precaution in this limit. 179 means that epoch is
 -- extremely large. It shouldn't happen in practice, but adding few
 -- bytes to the limit is harmless.
 instance MessageLimitedPure VssCertificate where
-    msgLenLimit = 171
+    msgLenLimit = 179
 
 instance MessageLimitedPure MCOpening where
     msgLenLimit = MCOpening <$> msgLenLimit <+> msgLenLimit
@@ -225,9 +227,10 @@ updateVoteNumLimit =
     DB.gsAdoptedBVData
 
 instance MessageLimitedPure UpdateVote where
+    -- Add `1` byte of serialization overhead.
     msgLenLimit =
-        UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
-                   <+> msgLenLimit
+        (UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
+                    <+> msgLenLimit) + 1
 
 instance MessageLimited UpdateVote
 

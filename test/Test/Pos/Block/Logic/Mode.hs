@@ -248,7 +248,7 @@ initBlockTestContext tp@TestParams {..} callback = do
         initBlockTestContextDo = do
             let btcDBPureVar = dbPureVar
             systemStart <- Timestamp <$> currentTime
-            initNodeDBs @SscGodTossing systemStart
+            initNodeDBs @SscGodTossing
             slottingData <- GState.getSlottingData
             btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
             putSlottingVar btcSlottingVar

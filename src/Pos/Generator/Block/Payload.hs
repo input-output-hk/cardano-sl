@@ -10,30 +10,30 @@ module Pos.Generator.Block.Payload
 
 import           Universum
 
-import           Control.Lens               (at, uses, (.=), (?=))
+import           Control.Lens               (at, uses, (%=), (.=), (?=))
 import           Control.Lens.TH            (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
 import           Data.Default               (def)
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  ((!!))
+import           Data.List                  (notElem, (!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
+import           Formatting                 (sformat, (%))
 import           System.Random              (RandomGen (..))
 
-import           Pos.Core                   (Coin, SlotId (..), addressHash,
-                                             coinToInteger, makePubKeyAddress, sumCoins,
+import           Pos.Core                   (Address (..), Coin, SlotId (..),
+                                             addressDetailedF, coinToInteger,
+                                             makePubKeyAddress, sumCoins,
                                              unsafeIntegerToCoin)
-import           Pos.Crypto                 (WithHash (..), hash, toPublic)
-import           Pos.Generator.Block.Mode   (BlockGenMode, BlockGenRandMode,
-                                             MonadBlockGen, MonadBlockGenBase,
-                                             mkBlockGenContext, usingPrimaryKey,
-                                             withCurrentSlot)
-import           Pos.Generator.Block.Param  (AllSecrets, HasBlockGenParams (..),
-                                             asSecretKeys)
+import           Pos.Crypto                 (SignTag (SignTxIn), WithHash (..), hash,
+                                             sign, toPublic)
+import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
+import           Pos.Generator.Block.Param  (HasBlockGenParams (..), asSecretKeys)
 import qualified Pos.GState                 as DB
-import           Pos.Txp.Core               (Tx, TxAux (..), TxIn (..), TxOut (..),
-                                             TxOutAux (..), mkTx)
+import           Pos.Txp.Core               (Tx, TxAux (..), TxDistribution (..),
+                                             TxIn (..), TxInWitness (..), TxOut (..),
+                                             TxOutAux (..), TxSigData (..), mkTx)
 import           Pos.Txp.Logic              (txProcessTransaction)
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types         (Utxo)
@@ -84,9 +84,8 @@ instance (Monad m) => MonadUtxo (StateT GenTxData m) where
     utxoPut txIn txOutAux = gtdUtxo . at txIn ?= txOutAux
     utxoDel txIn = gtdUtxo . at txIn .= Nothing
 
--- TODO: add randomness, implement, move to txp, think how to unite it
--- with 'Pos.Txp.Arbitrary'.
--- Generate valid 'TxPayload' using current global state.
+-- TODO: move to txp, think how to unite it with 'Pos.Arbitrary.Txp'.
+-- | Generate valid 'TxPayload' using current global state.
 genTxPayload ::
        forall g m. (RandomGen g, MonadBlockGenBase m)
     => BlockGenRandMode g m ()
@@ -101,13 +100,17 @@ genTxPayload = do
     genTransaction = do
         utxoSize <- uses gtdUtxoKeys V.length
         -- at most 5 inputs
-        inputsN <- getRandomR (0, min 5 utxoSize)
+        inputsN <- getRandomR (1, min 5 utxoSize)
         inputsIxs <- selectDistinct inputsN (0, utxoSize - 1)
         txIns <- forM inputsIxs $ \i -> uses gtdUtxoKeys (`V.unsafeIndex` i)
-        (inputsSum :: Integer) <- fmap sumCoins $ forM txIns $ \txIn -> do
-            out <- fromMaybe (error "genTxPayload: inputsSum") <$> utxoGet txIn
-            pure $ txOutValue $ toaOut out
+        inputsResolved <- forM txIns $ \txIn ->
+            toaOut . fromMaybe (error "genTxPayload: inputsSum") <$> utxoGet txIn
+        let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
         secrets <- view asSecretKeys <$> view blockGenParams
+        let resolveSecret stId =
+                fromMaybe (error $ "can't find stakeholderId " <>
+                           pretty stId <> " in secrets map")
+                          (HM.lookup stId secrets)
         let utxoAddresses = map (makePubKeyAddress . toPublic) $ HM.elems secrets
         -- at most 5 outputs too, but not bigger than amount of coins
         -- (to send 1 coin to everybody at least)
@@ -115,21 +118,35 @@ genTxPayload = do
         outputsIxs <- selectDistinct outputsN (0, length utxoAddresses - 1)
         let outputAddrs = map (utxoAddresses !!) outputsIxs
         coins <- splitCoins outputsN (unsafeIntegerToCoin inputsSum)
-        let txOuts = map (uncurry TxOut) $ outputAddrs `zip` coins
+        let txOuts = NE.fromList $ map (uncurry TxOut) $ outputAddrs `zip` coins
         let txE :: Either Text Tx
-            txE = mkTx (NE.fromList txIns) (NE.fromList txOuts) def
+            txE = mkTx (NE.fromList txIns) txOuts def
         let tx = either (\e -> error $ "genTransaction: couldn't create tx: " <> e)
                         identity
                         txE
-        let txAux = undefined tx
         let txId = hash tx
+        let txIn = TxIn txId 0
+        let taDistribution = TxDistribution $ [] :| replicate (inputsN - 1) []
+        let toWitness = \case
+                PubKeyAddress stId _ ->
+                    let sk = resolveSecret stId
+                        txSig =
+                            sign SignTxIn sk TxSigData { txSigInput = txIn
+                                                       , txSigOutsHash = hash txOuts
+                                                       , txSigDistrHash = hash taDistribution }
+                    in PkWitness (toPublic sk) txSig
+                other -> error $
+                    sformat ("Found non-pubkey address: "%addressDetailedF) other
+        let taWitness = V.fromList $ map (toWitness . txOutAddress) inputsResolved
+        let txAux = TxAux { taTx = tx, .. }
         res <- lift . lift $ runExceptT $ txProcessTransaction (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right () -> do
-                let (TxAux tx _ distr) = txAux
-                Utxo.applyTxToUtxo (WithHash tx txId) distr
-                -- todo also modify gtdUtxoKeys
+                Utxo.applyTxToUtxo (WithHash tx txId) taDistribution
+                gtdUtxoKeys %= V.filter (`notElem` txIns)
+                let outsAsIns = map (TxIn txId) [0..(fromIntegral outputsN)-1]
+                gtdUtxoKeys %= (V.++) (V.fromList outsAsIns)
 
 
 ----------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import           Universum
 
 import           Test.QuickCheck.Gen       (sized)
 import           Test.QuickCheck.Monadic   (pick)
+import           Test.QuickCheck.Random    (newQCGen)
 
 import           Pos.Block.Core            (Block)
 import           Pos.Block.Types           (Blund)
@@ -38,7 +39,8 @@ bpGenBlocks blkCnt = do
                 , _bgpBlockCount = fromMaybe (fromIntegral s) blkCnt
                 }
     params <- pick $ sized genBlockGenParams
-    lift (genBlocks params)
+    g <- liftIO newQCGen
+    lift (genBlocks params g)
 
 -- | Go to arbitrary global state in 'BlockProperty'.
 bpGoToArbitraryState :: BlockProperty ()

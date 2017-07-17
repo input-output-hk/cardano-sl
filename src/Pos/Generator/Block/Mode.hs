@@ -22,6 +22,7 @@ import           Control.Lens                (coerced)
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Random        (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Data.Map                    as M
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -33,8 +34,8 @@ import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
-                                              getEpochOrSlot)
-import           Pos.Crypto                  (SecretKey)
+                                              getEpochOrSlot, makePubKeyAddress, mkCoin)
+import           Pos.Crypto                  (SecretKey, toPublic, unsafeHash)
 import           Pos.DB                      (DBPureVar, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
                                               MonadDBRead)
@@ -47,7 +48,8 @@ import           Pos.Discovery               (DiscoveryContextSum (..),
                                               MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
 import           Pos.Exception               (reportFatalError)
-import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
+import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..),
+                                              asSecretKeys)
 import qualified Pos.GState                  as GS
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
@@ -62,7 +64,8 @@ import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDa
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
-import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
+import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), TxOut (..),
+                                              TxOutAux (..), TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
 import           Pos.Txp.Toil.Types          (GenesisUtxo (..), Utxo)
@@ -172,8 +175,15 @@ mkBlockGenContext bgcParams = do
         bgcUpdateContext <- mkUpdateContext
         bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
-        let bgcCustomUtxo = undefined
         return BlockGenContext {..}
+  where
+    bgcCustomUtxo =
+        let addrs = map (makePubKeyAddress . toPublic) . toList $
+                    view (bgpSecrets . asSecretKeys) bgcParams
+            utxoTxHash = unsafeHash ("randomutxotx" :: Text)
+            txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
+            txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
+        in M.fromList $ txIns `zip` txOuts
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBPureVar

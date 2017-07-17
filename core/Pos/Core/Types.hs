@@ -1,23 +1,24 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Core types. TODO: we need to have a meeting, come up with project
 -- structure and follow it.
 
 module Pos.Core.Types
        (
-        -- * Address
+       -- * Address
          Address (..)
        , AddrPkAttrs (..)
        , AddressHash
        , StakeholderId
+       , StakesMap
+       , GenesisStakeholders (..)
 
        , Timestamp (..)
 
-        -- * ChainDifficulty
+       -- * ChainDifficulty
        , ChainDifficulty (..)
 
-        -- * Version
+       -- * Version
        , ApplicationName
        , getApplicationName
        , BlockVersion (..)
@@ -27,6 +28,7 @@ module Pos.Core.Types
        , mkApplicationName
 
        -- * Update system
+       , SoftforkRule (..)
        , BlockVersionData (..)
 
        -- * HeaderHash related types and functions
@@ -38,12 +40,11 @@ module Pos.Core.Types
        , ProxySKLight
        , ProxySigHeavy
        , ProxySKHeavy
-       , ProxySKEither
 
        , SharedSeed (..)
        , SlotLeaders
 
-         -- * Coin
+       -- * Coin
        , Coin
        , CoinPortion
        , coinF
@@ -54,23 +55,33 @@ module Pos.Core.Types
        , mkCoinPortion
        , unsafeCoinPortionFromDouble
 
-        -- * Slotting
+       -- * Slotting
        , EpochIndex (..)
        , FlatSlotId
-       , LocalSlotIndex (..)
+       , LocalSlotIndex (getSlotIndex)
+       , mkLocalSlotIndex
+       , addLocalSlotIndex
        , SlotId (..)
-       , EpochOrSlot (..)
+       , siEpochL
+       , siSlotL
        , slotIdF
-       , epochOrSlot
+       , EpochOrSlot (..)
 
        -- * Scripting
        , Script(..)
        , Script_v0
        , ScriptVersion
+
+       -- * Newtypes
+       -- ** for amounts
+       , BlockCount(..)
+       , SlotCount(..)
        ) where
 
 import           Universum
 
+import           Control.Lens               (makeLensesFor)
+import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
 import           Data.Data                  (Data)
@@ -87,7 +98,10 @@ import qualified Prelude
 import           Serokell.AcidState         ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
+import           System.Random              (Random (..))
 
+import           Pos.Core.Constants.Raw     (epochSlotsRaw)
+import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
@@ -97,6 +111,12 @@ import           Pos.Data.Attributes        (Attributes)
 ----------------------------------------------------------------------------
 -- Address
 ----------------------------------------------------------------------------
+
+-- | Hash used to identify address.
+type AddressHash = AbstractHash Blake2b_224
+
+-- | Stakeholder identifier (stakeholders are identified by their public keys)
+type StakeholderId = AddressHash PublicKey
 
 -- | Address is where you can send coins.
 data Address
@@ -110,6 +130,8 @@ data Address
     | UnknownAddressType !Word8 !ByteString
     deriving (Eq, Ord, Generic, Typeable, Show)
 
+instance NFData Address
+
 newtype AddrPkAttrs = AddrPkAttrs
     { addrPkDerivationPath :: Maybe HDAddressPayload
     } deriving (Eq, Ord, Show, Generic, Typeable, NFData)
@@ -117,12 +139,12 @@ newtype AddrPkAttrs = AddrPkAttrs
 instance Default AddrPkAttrs where
     def = AddrPkAttrs Nothing
 
--- | Stakeholder identifier (stakeholders are identified by their public keys)
-type StakeholderId = AddressHash PublicKey
+-- | A mapping between stakeholders and they stakes.
+type StakesMap = HashMap StakeholderId Coin
 
-type AddressHash = AbstractHash Blake2b_224
-
-instance NFData Address
+-- | Newtype over 'StakesMap' to be used in genesis.
+newtype GenesisStakeholders =
+    GenesisStakeholders { unGenesisStakeholders :: HashSet StakeholderId }
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty
@@ -131,7 +153,7 @@ instance NFData Address
 -- | Chain difficulty represents necessary effort to generate a
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
-    { getChainDifficulty :: Word64
+    { getChainDifficulty :: BlockCount
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
 
 ----------------------------------------------------------------------------
@@ -195,6 +217,24 @@ instance NFData SoftwareVersion
 -- Values updatable by update system
 ----------------------------------------------------------------------------
 
+-- | Values defining softfork resolution rule.
+-- If a proposal is adopted at the 's'-th epoch, softfork resolution threshold
+-- at the 't'-th epoch will be
+-- 'max spMinThd (spInitThd - (t - s) * spThdDecrement)'.
+--
+-- Softfork resolution threshold is the portion of total stake such
+-- that if total stake of issuers of blocks with some block version is
+-- greater than this portion, this block version becomes adopted.
+data SoftforkRule = SoftforkRule
+    { srInitThd      :: !CoinPortion
+    -- ^ Initial threshold (right after proposal is confirmed).
+    , srMinThd       :: !CoinPortion
+    -- ^ Minimal threshold (i. e. threshold can't become less than
+    -- this one).
+    , srThdDecrement :: !CoinPortion
+    -- ^ Theshold will be decreased by this value after each epoch.
+    } deriving (Show, Eq, Generic)
+
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
     { bvdScriptVersion     :: !ScriptVersion
@@ -208,7 +248,9 @@ data BlockVersionData = BlockVersionData
     , bvdUpdateVoteThd     :: !CoinPortion
     , bvdUpdateProposalThd :: !CoinPortion
     , bvdUpdateImplicit    :: !FlatSlotId
-    , bvdUpdateSoftforkThd :: !CoinPortion
+    , bvdSoftforkRule      :: !SoftforkRule
+    , bvdTxFeePolicy       :: !TxFeePolicy
+    , bvdUnlockStakeEpoch  :: !EpochIndex
     } deriving (Show, Eq, Generic, Typeable)
 
 ----------------------------------------------------------------------------
@@ -228,8 +270,8 @@ headerHashF = build
 -- Proxy signatures and delegation
 ----------------------------------------------------------------------------
 
--- | Proxy signature used in csl -- holds a pair of epoch
--- indices. Block is valid if its epoch index is inside this range.
+-- | Proxy signature, that holds a pair of epoch indices. Block is
+-- valid if its epoch index is inside this range.
 type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 
 -- | Same alias for the proxy secret key (see 'ProxySigLight').
@@ -237,14 +279,12 @@ type ProxySKLight = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Simple proxy signature without ttl/epoch index
 -- constraints. 'EpochIndex' inside is needed for replay attack
--- prevention.
+-- prevention (it should match epoch of the block psk is announced
+-- in).
 type ProxySigHeavy a = ProxySignature EpochIndex a
 
--- | Correspondent SK for no-ttl proxy signature scheme.
+-- | Heavy delegation psk.
 type ProxySKHeavy = ProxySecretKey EpochIndex
-
--- | Some proxy secret key.
-type ProxySKEither = Either ProxySKLight ProxySKHeavy
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
@@ -283,6 +323,7 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
+-- FIXME: This operation is unsafe because it doesn't check 'maxCoinVal'.
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin
 mkCoin = Coin
@@ -341,7 +382,7 @@ unsafeCoinPortionFromDouble x
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -352,7 +393,41 @@ instance Buildable EpochIndex where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, Typeable, NFData)
+    } deriving (Show, Eq, Ord, Ix, Generic, Hashable, Buildable, Typeable, NFData)
+
+instance Bounded LocalSlotIndex where
+    minBound = LocalSlotIndex 0
+    maxBound = LocalSlotIndex (epochSlotsRaw - 1)
+
+instance Enum LocalSlotIndex where
+    toEnum i | i >= epochSlotsRaw = error "toEnum @LocalSlotIndex: greater than maxBound"
+             | i < 0 = error "toEnum @LocalSlotIndex: less than minBound"
+             | otherwise = LocalSlotIndex (fromIntegral i)
+    fromEnum = fromIntegral . getSlotIndex
+
+instance Random LocalSlotIndex where
+    random = randomR (minBound, maxBound)
+    randomR (LocalSlotIndex lo, LocalSlotIndex hi) g =
+        let (r, g') = randomR (lo, hi) g
+        in  (LocalSlotIndex r, g')
+
+mkLocalSlotIndex :: MonadError Text m => Word16 -> m LocalSlotIndex
+mkLocalSlotIndex idx
+    | idx < epochSlotsRaw = pure (LocalSlotIndex idx)
+    | otherwise =
+        throwError $
+        "local slot is greater than or equal to the number of slots in epoch: " <>
+        show idx
+
+-- | Shift slot index by given amount, and return 'Nothing' if it has
+-- overflowed past 'epochSlots'.
+addLocalSlotIndex :: SlotCount -> LocalSlotIndex -> Maybe LocalSlotIndex
+addLocalSlotIndex x (LocalSlotIndex i)
+    | s < epochSlotsRaw = Just (LocalSlotIndex (fromIntegral s))
+    | otherwise         = Nothing
+  where
+    s :: Word64
+    s = fromIntegral x + fromIntegral i
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -363,7 +438,7 @@ data SlotId = SlotId
 
 instance Buildable SlotId where
     build SlotId {..} =
-        bprint (ords%" slot of "%ords%" epoch") siSlot siEpoch
+        bprint (ords%" slot of "%ords%" epoch") (getSlotIndex siSlot) siEpoch
 
 -- | Specialized formatter for 'SlotId'.
 slotIdF :: Format r (SlotId -> r)
@@ -377,10 +452,6 @@ type FlatSlotId = Word64
 newtype EpochOrSlot = EpochOrSlot
     { unEpochOrSlot :: Either EpochIndex SlotId
     } deriving (Show, Eq, Generic, NFData)
-
--- | Apply one of the function depending on content of EpochOrSlot.
-epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
-epochOrSlot f g = either f g . unEpochOrSlot
 
 instance Ord EpochOrSlot where
     compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of
@@ -419,3 +490,24 @@ instance Buildable Script where
 
 -- | Deserialized script (i.e. an AST), version 0.
 type Script_v0 = PLCore.Program
+
+----------------------------------------------------------------------------
+-- Newtypes
+----------------------------------------------------------------------------
+
+newtype BlockCount = BlockCount {getBlockCount :: Word64}
+    deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
+              Buildable, Generic, Typeable, NFData, Hashable, Random)
+
+newtype SlotCount = SlotCount {getSlotCount :: Word64}
+    deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
+              Buildable, Generic, Typeable, NFData, Hashable, Random)
+
+----------------------------------------------------------------------------
+-- Template Haskell invocations, banished to the end of the module because
+-- we don't want to topsort the whole module
+----------------------------------------------------------------------------
+
+flip makeLensesFor ''SlotId [
+    ("siEpoch", "siEpochL"),
+    ("siSlot" , "siSlotL") ]

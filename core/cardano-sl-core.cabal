@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -11,9 +11,11 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 data-files:
-  constants-dev.yaml
-  constants-prod.yaml
-  constants-wallet-prod.yaml
+  constants.yaml
+
+flag asserts
+  default:     True
+  manual:      True
 
 flag dev-mode
   default:     True
@@ -30,18 +32,30 @@ flag embed-config
 library
   exposed-modules:     Pos.Core
                        Pos.Core.Address
+                       Pos.Core.Arbitrary
+                       Pos.Core.Arbitrary.Unsafe
                        Pos.Core.Block
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
+                       Pos.Core.Context
+                       Pos.Core.Fee
+                       Pos.Core.Fee.Config
                        Pos.Core.Script
+                       Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
                        Pos.Core.Version
 
+                       Pos.Core.Genesis
+                       Pos.Core.Genesis.Parser
+                       Pos.Core.Genesis.Types
+
                        Pos.Crypto
+                       Pos.Crypto.Arbitrary
+                       Pos.Crypto.Arbitrary.Unsafe
                        Pos.Crypto.Encryption
                        Pos.Crypto.AsBinary
                        Pos.Crypto.HD
@@ -58,60 +72,81 @@ library
                        Pos.Exception
 
                        Pos.Binary.Class
+                       Pos.Binary.Class.Core
+                       Pos.Binary.Class.Instances
+                       Pos.Binary.Class.Numbers
+                       Pos.Binary.Class.Primitive
+                       Pos.Binary.Class.Store
+                       Pos.Binary.Class.TH
                        Pos.Binary.Crypto
+                       Pos.Binary.Merkle
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
+                       Pos.Binary.Core.Block
                        Pos.Binary.Core.Coin
+                       Pos.Binary.Core.Fee
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
+                       Pos.Binary.Core.Genesis
 
+                       Pos.Util.Arbitrary
+                       Pos.Util.Concurrent
+                       Pos.Util.Concurrent.RWLock
+                       Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
                        Pos.Util.Config
                        Pos.Util.HVect
-                       Pos.Util.Iterator
+                       Pos.Util.Limits
+                       Pos.Util.LRU
+                       Pos.Util.Mnemonics
                        Pos.Util.Modifier
                        Pos.Util.Util
-                       Pos.Util.Mnemonics
 
-  other-modules:       Pos.Util.Config.Path
+  other-modules:
+                       Pos.Core.Constants.Raw
+                       Pos.Core.Constants.Typed
+                       Pos.Util.Config.Path
+                       Pos.Util.Config.Contents
+                       Pos.Util.Config.Get
 
-  build-depends:      QuickCheck
-                    , aeson
-                    , autoexporter
-                    , base
-                    , base58-bytestring
-                    , ether >= 0.5
-                    , log-warper >= 1.0.3
-                    , transformers
-                    , transformers-base
-                    , transformers-lift
-                    , mmorph
-                    , resourcet
-                      -- This constraint on 'binary' is so strict because
-                      -- we're relying on the internal representation of
-                      -- 'Get' in Pos.Binary.Class. So, if you need to bump
-                      -- this constraint, first check that all code in
-                      -- Pos.Binary.Class that has been ripped from 'binary'
-                      -- hasn't changed upstream.
-                     , binary == 0.8.3.*
+  build-depends:       QuickCheck
+                     , aeson
+                     , autoexporter
+                     , base
+                     , base58-bytestring
+                     , concurrent-extra
+                     , ether >= 0.5
+                     , log-warper >= 1.0.3
+                     , mmorph
+                     , reflection
+                     , resourcet
+                     , stm
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
+                     , binary
                      , bytestring
                      , cardano-crypto
                      , cereal
+                     , concurrent-extra
                      , containers
+                     , contravariant
                      , cryptonite
                      , cryptonite-openssl >= 0.5
                      , data-default
                      , deepseq
-                     , derive
                      , deriving-compat
                      , digest
                      , directory
                      , ed25519
+                     , file-embed
                      , filepath
                      , formatting
+                     , generic-arbitrary
                      , hashable
                      , lens
+                     , lrucache
                      , memory
                      , mtl
                      , node-sketch
@@ -123,10 +158,14 @@ library
                      , safecopy
                      , semigroups
                      , serokell-util
+                     , stm
+                     , store
+                     , store-core
                      , tagged
                      , template-haskell
                      , text
                      , text-format
+                     , th-utilities
                      , time
                      , time-units
                      , universum
@@ -157,6 +196,7 @@ library
                        ConstraintKinds
                        UndecidableInstances
                        BangPatterns
+                       TemplateHaskell
 
   ghc-options:         -Wall
                        -fno-warn-orphans
@@ -164,7 +204,9 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON
   if flag(dev-mode)
-    cpp-options: -DDEV_MODE
+    cpp-options: -DDEV_MODE -DCONFIG=dev
   if flag(embed-config) || !flag(dev-mode)
     cpp-options: -DEMBED_CONFIG

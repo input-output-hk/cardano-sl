@@ -11,12 +11,13 @@ module Pos.Util.BackupPhrase
        , safeKeysFromPhrase
        ) where
 
-import           Data.Text.Buildable (Buildable (..))
-import qualified Prelude
 import           Universum
 
+import           Data.Text.Buildable (Buildable (..))
+import qualified Prelude
+
 import           Crypto.Hash         (Blake2b_256)
-import           Pos.Binary          (Bi, encodeStrict)
+import           Pos.Binary          (Bi (..), encode, label, labelS, putField)
 import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
                                       SecretKey, VssKeyPair, deterministicKeyGen,
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
@@ -28,6 +29,10 @@ import           Pos.Util.Mnemonics  (fromMnemonic, toMnemonic)
 newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
+
+instance Bi BackupPhrase where
+    sizeNPut = labelS "BackupPhrase" $ putField bpToList
+    get = label "BackupPhrase" $ BackupPhrase <$> get
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int
@@ -58,15 +63,14 @@ toSeed :: BackupPhrase -> Either Text ByteString
 toSeed = first toText . fromMnemonic . unwords . bpToList
 
 toHashSeed :: BackupPhrase -> Either Text ByteString
-toHashSeed bp = encodeStrict . blake2b <$> toSeed bp
+toHashSeed bp = encode . blake2b <$> toSeed bp
   where blake2b :: Bi a => a -> AbstractHash Blake2b_256 b
         blake2b = unsafeAbstractHash
 
 keysFromPhrase :: BackupPhrase -> Either Text (SecretKey, VssKeyPair)
 keysFromPhrase ph = (,) <$> sk <*> vss
   where hashSeed = toHashSeed ph
-        errorMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
-        sk = maybe (Left errorMsg) (Right . snd) . deterministicKeyGen =<< hashSeed
+        sk = snd . deterministicKeyGen <$> hashSeed
         vss = deterministicVssKeyGen <$> hashSeed
 
 safeKeysFromPhrase
@@ -75,6 +79,5 @@ safeKeysFromPhrase
     -> Either Text (EncryptedSecretKey, VssKeyPair)
 safeKeysFromPhrase pp ph = (,) <$> esk <*> vss
   where hashSeed = toHashSeed ph
-        errorMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
-        esk = maybe (Left errorMsg) (Right . snd) . flip safeDeterministicKeyGen pp =<< hashSeed
+        esk = snd . flip safeDeterministicKeyGen pp <$> hashSeed
         vss = deterministicVssKeyGen <$> hashSeed

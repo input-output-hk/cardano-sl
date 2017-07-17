@@ -1,20 +1,16 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Infra.Constants
        ( InfraConstants (..)
        , infraConstants
        , neighborsSendThreshold
        ) where
 
-import           Data.Aeson                 (FromJSON (..), genericParseJSON)
-import           Data.Tagged                (Tagged (..))
-import           Serokell.Aeson.Options     (defaultOptions)
-import           Serokell.Data.Memory.Units (Byte)
+import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import           Data.Tagged            (Tagged (..))
+import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
-import           Pos.Util.Config            (IsConfig (..), configParser,
-                                             parseFromCslConfig)
-import           Pos.Util.Util              ()
+import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
+import           Pos.Util.Util          ()
 
 ----------------------------------------------------------------------------
 -- Parsing
@@ -41,17 +37,18 @@ data InfraConstants = InfraConstants
     -- ^ We consider node as known if it was pinged at most @ccEnhancedMessageTimeout@ sec ago
     , ccEnhancedMessageBroadcast :: !Word
       -- ^ Number of nodes from batch for enhanced bessage broadcast
-    , ccNetworkReceiveTimeout    :: !Int
-      -- ^ Network timeout on `recv` in milliseconds
+    , ccNetworkWaitLogInterval   :: !Int
+      -- ^ Network wait logging interval in seconds
+      --   (logging that some recv/send takes significant amount of time)
 
     --------------------------------------------------------------------------
     -- -- Relay
     --------------------------------------------------------------------------
-    , ccMaxReqSize               :: !Byte
+    , ccMaxReqSize               :: !Word32
       -- ^ Maximum `ReqMsg` size in bytes
-    , ccMaxInvSize               :: !Byte
+    , ccMaxInvSize               :: !Word32
       -- ^ Maximum `InvMsg` size in bytes
-    , ccMaxMempoolMsgSize        :: !Byte
+    , ccMaxMempoolMsgSize        :: !Word32
       -- ^ Maximum `MempoolMsg` size in bytes
     } deriving (Show, Generic)
 

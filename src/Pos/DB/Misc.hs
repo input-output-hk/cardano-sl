@@ -6,7 +6,7 @@ module Pos.DB.Misc
        (
          prepareMiscDB
 
-       , getProxySecretKeys
+       , getProxySecretKeysLight
        , addProxySecretKey
        , removeProxySecretKey
        , dropOldProxySecretKeys
@@ -36,9 +36,10 @@ prepareMiscDB = pass
 -- Delegation and proxy signing
 ----------------------------------------------------------------------------
 
--- | Gets proxy secret keys stored by node
-getProxySecretKeys :: MonadDB m => m [ProxySKLight]
-getProxySecretKeys = do
+-- | Gets proxy secret keys stored by node. We store only "related"
+-- psks: those who have pskIssuer or pskDelegate matching our pk.
+getProxySecretKeysLight :: MonadDB m => m [ProxySKLight]
+getProxySecretKeysLight = do
     curCerts <- miscGetBi @([ProxySKLight]) proxySKKey
     maybe onNothing pure curCerts
   where
@@ -46,24 +47,28 @@ getProxySecretKeys = do
         miscPutBi proxySKKey ([] :: [ProxySKLight])
         pure []
 
--- | Adds proxy secret key if not present. Nothing if present.
+-- | Adds proxy secret key if not present. Nothing if present. Call
+-- this under write lock only (see 'miscLock').
 addProxySecretKey :: MonadDB m => ProxySKLight -> m ()
 addProxySecretKey psk = do
-    keys <- getProxySecretKeys
+    keys <- getProxySecretKeysLight
     miscPutBi proxySKKey $ ordNub $ psk:keys
 
--- | Removes proxy secret key if present by issuer pk.
+-- | Removes proxy secret key if present by issuer pk. Call it under
+-- write lock only (see 'miscLock').
 removeProxySecretKey :: MonadDB m => PublicKey -> m ()
 removeProxySecretKey pk = do
-    keys <- getProxySecretKeys
+    keys <- getProxySecretKeysLight
     miscPutBi proxySKKey $ filter ((/= pk) . pskIssuerPk) keys
 
+-- TODO it's not used anywhere yet. Should it be?
 -- | Given epochindex, throws away all outdated PSKs. Remark: it
--- doesn't remove keys that can be used in future.
+-- doesn't remove keys that can be used in future. Call it under write
+-- lock only (see 'miscLock').
 dropOldProxySecretKeys :: MonadDB m => EpochIndex -> m ()
 dropOldProxySecretKeys eId = do
     keys <- filter (\p -> eId <= snd (pskOmega p)) <$>
-            getProxySecretKeys
+            getProxySecretKeysLight
     miscPutBi proxySKKey keys
 
 ----------------------------------------------------------------------------

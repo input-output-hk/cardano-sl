@@ -1,5 +1,5 @@
 name:                cardano-sl-update
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - update
 description:         Cardano SL - update
 license:             MIT
@@ -12,19 +12,46 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Update.Error
+  exposed-modules:     Pos.Update.Arbitrary
+                       Pos.Update.Error
+
+                       -- Core
                        Pos.Update.Core
+                       Pos.Update.Core.BlockVersion
                        Pos.Update.Core.Types
+
                        Pos.Update.Mode
                        Pos.Update.DB
                        Pos.Update.Constants
+                       Pos.Update.RichmenComponent
+                       Pos.Update.Lrc
 
                        Pos.Binary.Update
 
+                       -- Logic
+                       Pos.Update.Logic
+                       Pos.Update.Logic.Global
+                       Pos.Update.Logic.Local
+
                        -- Poll
+                       Pos.Update.Poll
+                       Pos.Update.Poll.Class
                        Pos.Update.Poll.Types
                        Pos.Update.Poll.Modifier
                        Pos.Update.Poll.PollState
+                       Pos.Update.Poll.Trans
+                       Pos.Update.Poll.RollTrans
+                       Pos.Update.Poll.Failure
+                       Pos.Update.Poll.Pure
+                       Pos.Update.Poll.DBPoll
+                       -- Poll.Logic
+                       Pos.Update.Poll.Logic
+                       Pos.Update.Poll.Logic.Apply
+                       Pos.Update.Poll.Logic.Base
+                       Pos.Update.Poll.Logic.Version
+                       Pos.Update.Poll.Logic.Normalize
+                       Pos.Update.Poll.Logic.Rollback
+                       Pos.Update.Poll.Logic.Softfork
 
                        -- MemState
                        Pos.Update.MemState
@@ -35,6 +62,12 @@ library
                        Pos.Update.Context
                        Pos.Update.Params
 
+  other-modules:
+                       Pos.Update.Arbitrary.Core
+                       Pos.Update.Arbitrary.MemState
+                       Pos.Update.Arbitrary.Network
+                       Pos.Update.Arbitrary.Poll
+
   build-depends:       QuickCheck
                      , aeson
                      , base
@@ -44,17 +77,21 @@ library
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , concurrent-extra
+                     , containers
+                     , conduit
                      , data-default
                      , ether >= 0.5
                      , exceptions
                      , formatting
+                     , generic-arbitrary
                      , hashable
                      , lens
                      , log-warper
                      , mtl
                      , node-sketch
                      , parsec
-                     , rocksdb
+                     , resourcet
+                     , rocksdb-haskell >= 1.0.0
                      , safecopy
                      , serokell-util
                      , stm
@@ -90,6 +127,7 @@ library
                        ConstraintKinds
                        UndecidableInstances
                        BangPatterns
+                       TemplateHaskell
 
   ghc-options:         -Wall
                        -fno-warn-orphans

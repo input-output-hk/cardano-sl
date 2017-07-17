@@ -18,89 +18,69 @@ module Test.Pos.Util
        , shouldThrowException
        , showRead
        , showReadTest
+       , storeEncodeDecode
+       , storeTest
        , (.=.)
        , (>=.)
+
+       -- * Monadic properties
+       , stopProperty
+       , maybeStopProperty
        ) where
-
-import           Data.Binary.Get       (Decoder (..), isEmpty, runGetIncremental)
-import qualified Data.Binary.Get       as Bin
-import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Lazy  as LBS
-import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
-import qualified Data.Semigroup        as Semigroup
-import           Data.Serialize        (runGet, runPut)
-import           Data.Typeable         (typeRep)
-import           Formatting            (formatToString, int, (%))
-import           Prelude               (read)
-
-import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode, encodeStrict)
-import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
-
-import           Test.Hspec            (Expectation, Selector, Spec, describe,
-                                        shouldThrow)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin,
-                                        counterexample, forAll, property, resize,
-                                        suchThat, vectorOf, (.&&.), (===))
 
 import           Universum
 
+import qualified Data.ByteString          as BS
+import           Data.SafeCopy            (SafeCopy, safeGet, safePut)
+import qualified Data.Semigroup           as Semigroup
+import           Data.Serialize           (runGet, runPut)
+import qualified Data.Store               as Store
+import           Data.Tagged              (Tagged (..))
+import           Data.Typeable            (typeRep)
+import           Formatting               (formatToString, int, (%))
+import           Prelude                  (read)
+import           Test.Hspec               (Expectation, Selector, Spec, describe,
+                                           shouldThrow)
+import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
+import           Test.QuickCheck          (Arbitrary (arbitrary), Property, conjoin,
+                                           counterexample, forAll, property, resize,
+                                           suchThat, vectorOf, (.&&.), (===))
+import           Test.QuickCheck.Monadic  (PropertyM, stop)
+import           Test.QuickCheck.Property (Result (..), failed)
+
+import           Pos.Binary               (AsBinaryClass (..), Bi (..), decodeOrFail,
+                                           encode, isEmptyPeek)
+import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
+
+instance Arbitrary a => Arbitrary (Tagged s a) where
+    arbitrary = Tagged <$> arbitrary
+
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-binaryEncodeDecode a = Bin.runGet parser (encode a) === a
+binaryEncodeDecode a = Store.decodeExWith parser (encode a) === a
   where
-    parser = get <* unlessM isEmpty (fail "Unconsumed input")
+    -- CSL-1122: is 'isEmptyPeek' needed here?
+    parser = get <* unlessM isEmptyPeek (fail "Unconsumed input")
 
--- | This check is indended to be used for all messages sent via
+storeEncodeDecode :: (Show a, Eq a, Store.Store a) => a -> Property
+storeEncodeDecode a = Store.decodeEx (Store.encode a) === a
+
+-- | This check is intended to be used for all messages sent via
 -- networking.
--- Except correctness, it also checks that parser requires exactly
--- needed amount of data to be parsed, without knowing anything about
--- what's going next, or whether is it going at all.
--- So, using e.g. `lookAhead` at the end of given bytestring would lead
--- to error.
+-- TODO @pva701: should we write more clever stuff here?
+-- TODO [CSL-1122] this test used to test that the message doesn't encode
+--      into an empty string, but after pva's changes it doesn't
 networkBinaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
-  where
-    failText why = counterexample why False
-
-    -- nothing has been put yet
-    stage1 (Done remaining _ _) =
-        if BS.null remaining
-        then failText
-             "Serializes to \"\", networking may not work with such data"
-        else failText "Unconsumed input"
-    stage1 (Fail _ _ why)    =
-        failText $ "parse error: " ++ why
-    stage1 (Partial continue)   =
-        stage2 $ continue $ Just (encodeStrict a)
-
-    -- all data has been put
-    stage2 (Done remaining _ b) =
-        if BS.null remaining
-        then a === b          -- the only nice outcome
-        else failText "Unconsumed input"
-    stage2 (Fail _ _ why) =
-        failText $ "parse error: " ++ why
-    stage2 (Partial continue) =
-        stage3 $ continue Nothing
-
-    -- all data consumed, but parser wants more input
-    stage3 (Done {}) =
-        failText "Parser tried to check, at end of the input, \
-            \whether input ends - this is not allowed"
-    stage3 (Fail _ _ why) =
-        failText $ "parse error: " ++ why
-    stage3 (Partial _) =
-        failText "Parser required extra input"
+networkBinaryEncodeDecode a = decodeOrFail (encode a) === a
 
 msgLenLimitedCheck
     :: (Show a, Bi a) => Limit a -> a -> Property
 msgLenLimitedCheck limit msg =
-    let size = LBS.length . encode $ msg
-    in if size <= fromIntegral limit
+    let sz = BS.length . encode $ msg
+    in if sz <= fromIntegral limit
         then property True
         else flip counterexample False $
             formatToString ("Message size (max found "%int%") exceedes \
-            \limit ("%int%")") size limit
+            \limit ("%int%")") sz limit
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
@@ -126,6 +106,9 @@ identityTest fun = prop (typeName @a) fun
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 binaryTest = identityTest @Bi @a binaryEncodeDecode
 
+storeTest :: forall a. IdTestingRequiredClasses Store.Store a => Spec
+storeTest = identityTest @Store.Store @a storeEncodeDecode
+
 networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
 
@@ -147,7 +130,7 @@ msgLenLimitedTest' limit desc whetherTest =
     findLargestCheck =
         forAll (resize 1 $ vectorOf 50 genNice) $
             \samples -> counterexample desc $ msgLenLimitedCheck limit $
-                maximumBy (comparing $ LBS.length . encode) samples
+                maximumBy (comparing $ BS.length . encode) samples
 
     -- In this test we increase length of lists, maps, etc. generated
     -- by `arbitrary` (by default lists sizes are bounded by 100).
@@ -233,3 +216,23 @@ isCommutative m1 m2 =
 formsCommutativeMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
 formsCommutativeMonoid m1 m2 m3 =
     (formsMonoid m1 m2 m3) .&&. (isCommutative m1 m2)
+
+----------------------------------------------------------------------------
+-- Monadic testing
+----------------------------------------------------------------------------
+
+-- Note, 'fail' does the same thing, but:
+-- • it's quite trivial, almost no copy-paste;
+-- • it's 'fail' from 'Monad', not 'MonadFail';
+-- • I am not a fan of 'fail'.
+-- | Stop 'PropertyM' execution with given reason. The property will fail.
+stopProperty :: Monad m => Text -> PropertyM m a
+stopProperty msg = stop failed {reason = toString msg}
+
+-- | Use 'stopProperty' if the value is 'Nothing' or return something
+-- it the value is 'Just'.
+maybeStopProperty :: Monad m => Text -> Maybe a -> PropertyM m a
+maybeStopProperty msg =
+    \case
+        Nothing -> stopProperty msg
+        Just x -> pure x

@@ -1,0 +1,191 @@
+##############################################################################
+##                                                                          ##
+##   Development config                                                     ##
+##                                                                          ##
+##############################################################################
+
+dev: &dev
+
+  # Fundamental constants for core protocol
+  k: 2
+
+  # Genesis constants
+  genesisN: 12
+  genesisSlotDurationSec: 7
+  genesisMaxBlockSize: 2000000
+  genesisMaxHeaderSize: 200000
+  genesisMaxTxSize: 4096 # 4 Kb
+  maxReqSize: 100 # 100 bytes
+  maxMempoolMsgSize: 100 # 100 bytes
+  maxInvSize: 100 # 100 bytes
+  genesisMpcThd: 0.01 # 1% of stake
+  genesisHeavyDelThd: 0.005 # 0.5% of stake
+  genesisUpdateVoteThd: 0.001 # 0.1% of total stake
+  genesisMaxUpdateProposalSize: 700 # 700 bytes
+  genesisUpdateProposalThd: 0.1 # 10% of total stake
+  genesisUpdateImplicit: 10 # slots
+  genesisSoftforkInit: 0.9 # 90% of total stake
+  genesisSoftforkMin: 0.6 # 60% of total stake
+  genesisSoftforkDec: 0.05 # 5% of total stake
+  genesisTxFeePolicy:
+    txSizeLinear:
+      a: 0
+      b: 0
+  genesisUnlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
+
+
+  # P2P, networking
+  defaultPeers: []
+  kademliaDumpInterval: 4
+  neighboursSendThreshold: 2
+  networkDiameter: 3
+  networkConnectionTimeout: 2000
+  networkWaitLogInterval: 1 # 1s
+
+  ## P2P Security
+  mdNoBlocksSlotThreshold: 3 # should be less than 2 * k
+  mdNoCommitmentsEpochThreshold: 3
+
+  # GodTossing
+  vssMaxTTL: 6 # epochs
+  vssMinTTL: 2 # epochs
+  mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
+
+  # Delegation
+  lightDlgConfirmationTimeout: 500
+
+  # This value parameterizes size of dlg cache. There are two types of
+  # messages: normal messages and confirmation messages. Both of them are
+  # limited in size by this value multiplied by some constant. You are
+  # advised to look at code if you need exact values, because it may change
+  # and most likely nobody will update this comment. 
+  #
+  # The size is number of elements, not bytes.
+  dlgCacheParam: 500
+
+  # Update system
+  applicationName: cardano-sl
+  applicationVersion: 0
+  lastKnownBVMajor: 0
+  lastKnownBVMinor: 0
+  lastKnownBVAlt: 0
+
+  # Production start time
+  productionNetworkStartTime: 0
+
+  # NTP
+  ntpResponseTimeout: 7000000 # 7 sec
+  ntpPollDelay: 300000000 # 300 sec
+  ntpMaxError: 120000000 # 2 mins
+
+  # Misc
+  protocolMagic: 50987834
+  enhancedMessageTimeout: 360 # 6 mins
+  enhancedMessageBroadcast: 2
+  messageCacheTimeout: 30
+  blockRetrievalQueueSize: 100
+  propagationQueueSize: 100
+  recoveryHeadersMessage: 20 # should be greater than k
+
+  # Chain quality thresholds
+  nonCriticalCQBootstrap: 0.95
+  criticalCQBootstrap: 0.8888
+  nonCriticalCQ: 0.8
+  criticalCQ: 0.654321
+
+  # These constants mostly depend on hardware capabilities
+  memPoolLimitRatio: 2 # mem pool will be limited by this value
+                       # muliplied by block size limit
+
+  genesisBinSuffix: qa # qa is set here arbitrarily, it won't be actually used
+
+
+##############################################################################
+##                                                                          ##
+##   Production config                                                      ##
+##                                                                          ##
+##############################################################################
+
+prod_base: &prod_base
+  <<: *dev
+
+  # the production config is a modification of the development config,
+  # so we merge it into the production config using YAML's << syntax
+
+  genesisN: 30000
+  genesisMpcThd: 0.02 # 2% of stake
+  genesisHeavyDelThd: 0.0003 # 0.03% of stake
+  genesisUpdateImplicit: 10000 # slots
+
+  mpcSendInterval: 100
+  productionNetworkStartTime: 1490824920
+  ntpResponseTimeout: 10000000 # 10 sec
+  ntpPollDelay: 60000000 # 1 min
+
+  blockRetrievalQueueSize: 100
+
+qanet_upd: &qanet_upd
+  <<: *prod_base
+
+  k: 9
+  genesisSlotDurationSec: 15
+  networkDiameter: 10
+  mdNoBlocksSlotThreshold: 10
+
+  protocolMagic: 50987900
+  recoveryHeadersMessage: 100
+  genesisBinSuffix: qa
+
+testnet: &testnet
+  <<: *prod_base
+
+  k: 2160
+  genesisSlotDurationSec: 20
+  networkDiameter: 18
+  mdNoBlocksSlotThreshold: 18
+
+  protocolMagic: 60987800
+
+  networkWaitLogInterval: 32 # 32s
+  recoveryHeadersMessage: 2200
+
+  genesisBinSuffix: tn
+
+testnet_staging: &testnet_staging
+  <<: *testnet
+  protocolMagic: 60987900
+
+qanet_tns: &qanet_tns
+  <<: *testnet_staging
+
+  protocolMagic: 50987900
+  genesisBinSuffix: qa
+
+travis: &travis
+  <<: *qanet_tns
+
+##############################################################################
+##                                                                          ##
+##   Wallet config                                                          ##
+##                                                                          ##
+##############################################################################
+
+testnet_wallet: &testnet_wallet
+  <<: *testnet
+  applicationName: csl-daedalus
+
+testnet_staging_wallet: &testnet_staging_wallet
+  <<: *testnet_staging
+  applicationName: csl-daedalus
+
+qanet_tns_wallet: &qanet_tns_wallet
+  <<: *qanet_tns
+  applicationName: csl-daedalus
+
+qanet_upd_wallet: &qanet_upd_wallet
+  <<: *qanet_upd
+  applicationName: csl-daedalus
+
+travis_wallet: &travis_wallet
+  <<: *travis
+  applicationName: csl-daedalus

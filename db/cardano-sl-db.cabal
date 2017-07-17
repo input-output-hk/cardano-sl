@@ -1,5 +1,5 @@
 name:                cardano-sl-db
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - basic DB interfaces
 description:         Cardano SL - basic DB interfaces
 license:             MIT
@@ -13,32 +13,37 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Pos.DB
+                       Pos.DB.BatchOp
                        Pos.DB.Class
                        Pos.DB.Error
                        Pos.DB.Functions
                        Pos.DB.GState.Common
                        Pos.DB.GState.Balances
-                       Pos.DB.Iterator
-                       Pos.DB.Iterator.Class
-                       Pos.DB.Iterator.DBIterator
-                       Pos.DB.Limits
                        Pos.DB.Misc.Common
-                       Pos.DB.Types
+                       Pos.DB.Pure
+                       Pos.DB.Rocks
+                       Pos.DB.Rocks.Functions
+                       Pos.DB.Rocks.Types
 
   build-depends:       base
                      , bytestring
                      , cardano-sl-core
                      , concurrent-extra
+                     , conduit
+                     , containers
                      , data-default
+                     , directory
                      , ether >= 0.5
+                     , filepath
                      , formatting
                      , lens
                      , log-warper
+                     , monad-control
                      , mmorph
                      , mtl
                      , node-sketch
                      , resourcet
-                     , rocksdb
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , text-format
                      , transformers
@@ -68,6 +73,7 @@ library
                        ConstraintKinds
                        UndecidableInstances
                        BangPatterns
+                       TemplateHaskell
 
   ghc-options:         -Wall
                        -fno-warn-orphans

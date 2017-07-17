@@ -1,14 +1,12 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Shutdown.Class
-       ( MonadShutdownMem
-       , askShutdownMem
+       ( HasShutdownContext(..)
        ) where
 
-import qualified Ether
+import           Universum
+
 import           Pos.Shutdown.Types (ShutdownContext)
 
-type MonadShutdownMem = Ether.MonadReader' ShutdownContext
-
-askShutdownMem :: MonadShutdownMem m => m ShutdownContext
-askShutdownMem = Ether.ask'
+class HasShutdownContext ctx where
+    shutdownContext :: Lens' ctx ShutdownContext

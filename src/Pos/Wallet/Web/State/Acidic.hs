@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/AcidState.hs
 
 module Pos.Wallet.Web.State.Acidic
@@ -13,21 +12,46 @@ module Pos.Wallet.Web.State.Acidic
        , update
 
        , GetProfile (..)
+       , GetWAddressIds (..)
+       , GetAccountMetas (..)
+       , GetAccountMeta (..)
        , GetWalletMetas (..)
        , GetWalletMeta (..)
+       , GetWalletPassLU (..)
+       , GetWalletSyncTip (..)
+       , GetWalletAddresses (..)
+       , GetWalletUtxo (..)
+       , SetWalletUtxo (..)
+       , GetAccountWAddresses (..)
+       , DoesWAddressExist (..)
        , GetTxMeta (..)
        , GetUpdates (..)
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
+       , GetCustomAddresses (..)
+       , GetCustomAddress (..)
+       , AddCustomAddress (..)
+       , CreateAccount (..)
+       , AddWAddress (..)
+       , AddRemovedAccount (..)
        , CreateWallet (..)
        , SetProfile (..)
+       , SetAccountMeta (..)
        , SetWalletMeta (..)
-       , SetWalletTransactionMeta (..)
-       , SetWalletHistory (..)
-       , GetWalletHistory (..)
+       , SetWalletPassLU (..)
+       , SetWalletSyncTip (..)
+       , SetWalletTxMeta (..)
+       , SetWalletTxHistory (..)
+       , GetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
+       , RemoveTxMetas (..)
+       , RemoveHistoryCache (..)
+       , RemoveAccount (..)
+       , RemoveWAddress (..)
+       , RemoveCustomAddress (..)
+       , TotallyRemoveWAddress (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
        , UpdateHistoryCache (..)
@@ -73,20 +97,45 @@ makeAcidic ''WalletStorage
     [
       'WS.testReset
     , 'WS.getProfile
+    , 'WS.getWAddressIds
+    , 'WS.getAccountMetas
+    , 'WS.getAccountMeta
     , 'WS.getWalletMetas
     , 'WS.getWalletMeta
+    , 'WS.getWalletPassLU
+    , 'WS.getWalletSyncTip
+    , 'WS.getWalletAddresses
+    , 'WS.getWalletUtxo
+    , 'WS.setWalletUtxo
+    , 'WS.getAccountWAddresses
+    , 'WS.doesWAddressExist
     , 'WS.getTxMeta
     , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
+    , 'WS.getCustomAddresses
+    , 'WS.getCustomAddress
+    , 'WS.addCustomAddress
+    , 'WS.removeCustomAddress
+    , 'WS.createAccount
     , 'WS.createWallet
+    , 'WS.addWAddress
+    , 'WS.addRemovedAccount
     , 'WS.setProfile
+    , 'WS.setAccountMeta
     , 'WS.setWalletMeta
-    , 'WS.setWalletTransactionMeta
-    , 'WS.setWalletHistory
-    , 'WS.getWalletHistory
+    , 'WS.setWalletPassLU
+    , 'WS.setWalletSyncTip
+    , 'WS.setWalletTxMeta
+    , 'WS.setWalletTxHistory
+    , 'WS.getWalletTxHistory
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
+    , 'WS.removeTxMetas
+    , 'WS.removeHistoryCache
+    , 'WS.removeAccount
+    , 'WS.removeWAddress
+    , 'WS.totallyRemoveWAddress
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache

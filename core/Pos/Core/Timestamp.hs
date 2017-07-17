@@ -3,6 +3,9 @@
 module Pos.Core.Timestamp
        ( Timestamp (..)
        , timestampF
+       , getCurrentTimestamp
+       , diffTimestamp
+       , addMicrosecondsToTimestamp
        ) where
 
 import           Universum
@@ -11,6 +14,7 @@ import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Time.Units     (Microsecond)
 import           Formatting          (Format, build)
+import           Mockable            (CurrentTime, Mockable, currentTime)
 import qualified Prelude
 
 -- | Timestamp is a number which represents some point in time. It is
@@ -39,3 +43,13 @@ instance NFData Timestamp where
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)
 timestampF = build
+
+-- Get the current time as a timestamp
+getCurrentTimestamp :: Mockable CurrentTime m => m Timestamp
+getCurrentTimestamp = Timestamp <$> currentTime
+
+diffTimestamp :: Timestamp -> Timestamp -> Microsecond
+diffTimestamp t1 t2 = getTimestamp t1 - getTimestamp t2
+
+addMicrosecondsToTimestamp :: Microsecond -> Timestamp -> Timestamp
+addMicrosecondsToTimestamp m t = Timestamp { getTimestamp = (getTimestamp t) + m }

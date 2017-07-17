@@ -2,8 +2,13 @@ module Pos.Communication.MessagePart
        ( MessagePart (..)
        ) where
 
-import           Node.Message (MessageName (..))
+import           Data.Tagged        (Tagged)
+import           Node.Message.Class (MessageName (..))
 import           Universum
 
 class MessagePart a where
     pMessageName :: Proxy a -> MessageName
+
+instance MessagePart s => MessagePart (Tagged s a) where
+    pMessageName p = pMessageName $
+        (const Proxy :: Proxy (Tagged s a) -> Proxy s) p

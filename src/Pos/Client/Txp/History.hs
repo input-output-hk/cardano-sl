@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -9,250 +10,262 @@ module Pos.Client.Txp.History
        ( TxHistoryEntry(..)
        , thTxId
        , thTx
-       , thIsOutput
        , thInputs
        , thDifficulty
-
-       , TxHistoryAnswer(..)
+       , thInputAddrs
+       , thOutputAddrs
+       , thTimestamp
+       , runGenesisToil
 
        , MonadTxHistory(..)
 
        -- * History derivation
-       , getRelatedTxs
+       , getRelatedTxsByAddrs
        , deriveAddrHistory
-       , deriveAddrHistoryPartial
-       , TxHistoryRedirect
-       , runTxHistoryRedirect
+       , deriveAddrHistoryBlk
+       , getBlockHistoryDefault
+       , getLocalHistoryDefault
+       , saveTxDefault
        ) where
 
 import           Universum
 
-import           Control.Lens                 (makeLenses, (%=))
-import           Control.Monad.Loops          (unfoldrM)
+import           Control.Lens                 (makeLenses)
 import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Control.Monad.Trans.Maybe    (MaybeT (..))
 import           Data.Coerce                  (coerce)
+import           Data.DList                   (DList)
 import qualified Data.DList                   as DL
-import           Data.Tagged                  (Tagged (..))
+import qualified Data.Map.Strict              as M (lookup)
+import qualified Data.Text.Buildable
 import qualified Ether
+import           Ether.Internal               (HasLens (..))
+import           Formatting                   (bprint, build, (%))
 import           System.Wlog                  (WithLogger)
 
-import           Pos.Constants                (blkSecurityParam)
-import           Pos.Context.Context          (GenesisUtxo (..))
+import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
+                                               mainBlockTxPayload)
+import           Pos.Block.Types              (Blund)
+import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
+import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
+                                               Timestamp (..), difficultyL)
 import           Pos.Crypto                   (WithHash (..), withHash)
-import           Pos.DB                       (MonadDB)
-import qualified Pos.DB.Block                 as DB
-import           Pos.DB.Error                 (DBError (..))
+import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
+import           Pos.DB.Block                 (MonadBlockDB)
 import qualified Pos.DB.GState                as GS
-import           Pos.Slotting                 (MonadSlots)
+import           Pos.Slotting                 (MonadSlots, getSlotStartPure)
 import           Pos.Ssc.Class                (SscHelpersClass)
-import           Pos.WorkMode.Class           (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                 (eTxProcessTransaction)
+import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
-import           Pos.Txp                      (MonadTxpMem, txProcessTransaction)
+import           Pos.Txp                      (txProcessTransaction)
 #endif
-import           Pos.Txp                      (MonadUtxoRead, Tx (..), TxAux,
-                                               TxDistribution, TxId, TxOut, TxOutAux (..),
-                                               TxWitness, Utxo, UtxoStateT, applyTxToUtxo,
-                                               evalUtxoStateT, filterUtxoByAddr,
-                                               getLocalTxs, runUtxoStateT, topsortTxs,
+import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
+                                               ToilT, Tx (..), TxAux (..), TxDistribution,
+                                               TxId, TxOut, TxOutAux (..), TxWitness,
+                                               TxpError (..), applyTxToUtxo,
+                                               evalToilTEmpty, flattenTxPayload,
+                                               getLocalTxs, runDBToil, topsortTxs,
                                                txOutAddress, utxoGet)
-import           Pos.Types                    (Address, Block, ChainDifficulty,
-                                               HeaderHash, blockTxas, difficultyL,
-                                               prevBlockL)
-import           Pos.Util                     (ether, maybeThrow)
+import           Pos.Util                     (eitherToThrow, maybeThrow)
+import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
-
-data TxHistoryAnswer = TxHistoryAnswer
-    { taLastCachedHash :: HeaderHash
-    , taCachedNum      :: Int
-    , taCachedUtxo     :: Utxo
-    , taHistory        :: [TxHistoryEntry]
-    } deriving (Show)
 
 ----------------------------------------------------------------------
 -- Deduction of history
 ----------------------------------------------------------------------
 
--- | Check if given 'Address' is one of the receivers of 'Tx'
-hasReceiver :: Tx -> Address -> Bool
-hasReceiver UnsafeTx {..} addr = any ((== addr) . txOutAddress) _txOutputs
-
--- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
-hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
-hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput $ toList _txInputs
-  where hasCorrespondingOutput txIn =
-            fmap toBool $ ((== addr) . txOutAddress . toaOut) <<$>> utxoGet txIn
-        toBool Nothing  = False
-        toBool (Just b) = b
+-- | For given tx, gives list of source addresses of this tx, with respective 'TxIn's
+getSenders :: MonadUtxoRead m => Tx -> m [TxOut]
+getSenders UnsafeTx {..} = do
+    utxo <- catMaybes <$> mapM utxoGet (toList _txInputs)
+    return $ toaOut <$> utxo
 
 -- | Datatype for returning info about tx history
 data TxHistoryEntry = THEntry
-    { _thTxId       :: !TxId
-    , _thTx         :: !Tx
-    , _thIsOutput   :: !Bool
-    , _thInputs     :: ![TxOut]
-    , _thDifficulty :: !(Maybe ChainDifficulty)
+    { _thTxId        :: !TxId
+    , _thTx          :: !Tx
+    , _thInputs      :: ![TxOut]
+    , _thDifficulty  :: !(Maybe ChainDifficulty)
+    , _thInputAddrs  :: ![Address]  -- TODO: remove in favor of _thInputs
+    , _thOutputAddrs :: ![Address]
+    , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic)
+
+instance Buildable TxHistoryEntry where
+    build THEntry{..} =
+        bprint ("TxId "%build%", timestamp "%build) _thTxId _thTimestamp
 
 makeLenses ''TxHistoryEntry
 
--- | Type of monad used to deduce history
-type TxSelectorT m = UtxoStateT (MaybeT m)
-
--- | Select transactions related to given address. `Bool` indicates
--- whether the transaction is outgoing (i. e. is sent from given address)
-getRelatedTxs
-    :: Monad m
-    => Address
+-- | Select transactions by predicate on related addresses
+getTxsByPredicate
+    :: MonadUtxo m
+    => ([Address] -> Bool)
+    -> Maybe ChainDifficulty
+    -> Maybe Timestamp
     -> [(WithHash Tx, TxWitness, TxDistribution)]
-    -> TxSelectorT m [TxHistoryEntry]
-getRelatedTxs addr txs = fmap DL.toList $
-    lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
-    foldlM step DL.empty
+    -> m [TxHistoryEntry]
+getTxsByPredicate pr mDiff mTs txs = go txs []
   where
-    step ls (WithHash tx txId, _wit, dist) = do
-        let isIncoming = tx `hasReceiver` addr
-        isOutgoing <- tx `hasSender` addr
-        let allToAddr = all ((== addr) . txOutAddress) $ _txOutputs tx
-            isToItself = isOutgoing && allToAddr
-        lsAdd <- if isOutgoing || isIncoming
-            then handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist)
-            else return mempty
-        return (ls <> lsAdd)
+    go [] acc = return acc
+    go ((wh@(WithHash tx txId), _wit, dist) : rest) acc = do
+        inputs <- getSenders tx
+        let outgoings = toList $ txOutAddress <$> _txOutputs tx
+        let incomings = ordNub $ map txOutAddress inputs
 
-    handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist) = do
-        applyTxToUtxo (WithHash tx txId) dist
-        ether $ identity %= filterUtxoByAddr addr
-        inputs <- (map toaOut . catMaybes) <$> mapM utxoGet (toList $ _txInputs tx)
+        applyTxToUtxo wh dist
 
-        -- Workaround to present A to A transactions as a pair of
-        -- self-cancelling transactions in history
-        let resEntry = THEntry txId tx isOutgoing inputs Nothing
-        return $ if isToItself
-            then DL.fromList [resEntry & thIsOutput .~ False, resEntry]
-            else DL.singleton resEntry
+        let acc' = if pr (incomings ++ outgoings)
+                   then (THEntry txId tx inputs mDiff incomings outgoings mTs : acc)
+                   else acc
+        go rest acc'
+
+-- | Select transactions related to one of given addresses
+getRelatedTxsByAddrs
+    :: MonadUtxo m
+    => [Address]
+    -> Maybe ChainDifficulty
+    -> Maybe Timestamp
+    -> [(WithHash Tx, TxWitness, TxDistribution)]
+    -> m [TxHistoryEntry]
+getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
 -- blockchains when wallet state is ready, but some metadata for
 -- Tx will be required.
 deriveAddrHistory
-    -- :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
-    :: (Monad m) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistory addr chain = do
-    ether $ identity %= filterUtxoByAddr addr
-    deriveAddrHistoryPartial [] addr chain
+    :: MonadUtxo m
+    => [Address] -> [Block ssc] -> m [TxHistoryEntry]
+deriveAddrHistory addrs chain =
+    DL.toList <$> foldrM (flip $ deriveAddrHistoryBlk addrs $ const Nothing) mempty chain
 
-deriveAddrHistoryPartial
-    :: (Monad m)
-    => [TxHistoryEntry]
-    -> Address
-    -> [Block ssc]
-    -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistoryPartial hist addr chain =
-    DL.toList <$> foldrM updateAll (DL.fromList hist) chain
-  where
-    updateAll (Left _) hst = pure hst
-    updateAll (Right blk) hst = do
-        txs <- getRelatedTxs addr $
-                   map (over _1 withHash) (blk ^. blockTxas)
-        let difficulty = blk ^. difficultyL
-            txs' = map (thDifficulty .~ Just difficulty) txs
-        return $ DL.fromList txs' <> hst
+deriveAddrHistoryBlk
+    :: MonadUtxo m
+    => [Address]
+    -> (MainBlock ssc -> Maybe Timestamp)
+    -> DList TxHistoryEntry
+    -> Block ssc
+    -> m (DList TxHistoryEntry)
+deriveAddrHistoryBlk _ _ hist (Left _) = pure hist
+deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
+    let mapper TxAux {..} = (withHash taTx, taWitness, taDistribution)
+        difficulty = blk ^. difficultyL
+        mTimestamp = getTs blk
+    txs <- getRelatedTxsByAddrs addrs (Just difficulty) mTimestamp $
+           map mapper . flattenTxPayload $
+           blk ^. mainBlockTxPayload
+    return $ DL.fromList txs <> hist
+
+----------------------------------------------------------------------------
+-- GenesisToil
+----------------------------------------------------------------------------
+
+-- | Identity wrapper to use genesis utxo in context as `MonadUtxoRead` instance
+-- TODO: probably should be moved elsewhere; `Pos.Txp.Toil` is not possible, because
+-- of dependency on `Pos.Context` from main package
+data GenesisToilTag
+
+type GenesisToil = Ether.TaggedTrans GenesisToilTag IdentityT
+
+runGenesisToil :: GenesisToil m a -> m a
+runGenesisToil = coerce
+
+instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
+         MonadUtxoRead (GenesisToil m) where
+    utxoGet txIn = M.lookup txIn <$> genesisUtxoM
 
 ----------------------------------------------------------------------------
 -- MonadTxHistory
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class Monad m => MonadTxHistory m where
-    getTxHistory
+class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
+    getBlockHistory
         :: SscHelpersClass ssc
-        => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
+        => [Address] -> m (DList TxHistoryEntry)
+    getLocalHistory
+        :: [Address] -> m (DList TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory
-        :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-    getTxHistory = fmap lift <<$>> getTxHistory
+    default getBlockHistory
+        :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
+        => [Address] -> m (DList TxHistoryEntry)
+    getBlockHistory = lift . getBlockHistory
 
-    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
+    default getLocalHistory
+        :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
+        => [Address] -> m (DList TxHistoryEntry)
+    getLocalHistory = lift . getLocalHistory
+
+    default saveTx :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
 
 instance {-# OVERLAPPABLE #-}
-    (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
-        MonadTxHistory (t m)
+    (MonadTxHistory ssc m, MonadTrans t, Monad (t m)) =>
+        MonadTxHistory ssc (t m)
 
-data TxHistoryRedirectTag
-
-type TxHistoryRedirect =
-    Ether.TaggedTrans TxHistoryRedirectTag IdentityT
-
-runTxHistoryRedirect :: TxHistoryRedirect m a -> m a
-runTxHistoryRedirect = coerce
-
-instance
-    ( MonadDB m
+type TxHistoryEnv ctx m =
+    ( MonadRealDB ctx m
+    , MonadDBRead m
+    , MonadGState m
     , MonadThrow m
     , WithLogger m
     , MonadSlots m
-    , Ether.MonadReader' GenesisUtxo m
-    , MonadTxpMem TxpExtra_TMP m
-    , t ~ IdentityT
-    ) => MonadTxHistory (Ether.TaggedTrans TxHistoryRedirectTag t m)
-  where
-    getTxHistory :: forall ssc. SscHelpersClass ssc
-                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxHistoryRedirect m TxHistoryAnswer)
-    getTxHistory = Tagged $ \addr mInit -> do
-        tip <- GS.getTip
+    , MonadReader ctx m
+    , HasLens GenesisUtxo ctx GenesisUtxo
+    , MonadTxpMem TxpExtra_TMP ctx m
+    , MonadBaseControl IO m
+    )
 
-        let getGenUtxo = Ether.asks' (filterUtxoByAddr addr . unGenesisUtxo)
-        (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
+type TxHistoryEnv' ssc ctx m =
+    ( MonadBlockDB ssc m
+    , TxHistoryEnv ctx m
+    )
 
-        -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
-        hashList <- flip unfoldrM tip $ \h ->
-            if h == bot
-            then return Nothing
-            else do
-                header <- DB.getBlockHeader @ssc h >>=
-                    maybeThrow (DBMalformed "Best blockchain is non-continuous")
-                let prev = header ^. prevBlockL
-                return $ Just (h, prev)
+type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
-        -- Determine last block which txs should be cached
-        let cachedHashes = drop blkSecurityParam hashList
-            nonCachedHashes = take blkSecurityParam hashList
+getBlockHistoryDefault
+    :: forall ssc ctx m. TxHistoryEnv' ssc ctx m
+    => [Address] -> m (DList TxHistoryEntry)
+getBlockHistoryDefault addrs = do
+    bot <- GS.getBot
+    sd <- GS.getSlottingData
 
-        let blockFetcher h txs = do
-                blk <- lift . lift $ DB.getBlock @ssc h >>=
-                       maybeThrow (DBMalformed "A block mysteriously disappeared!")
-                deriveAddrHistoryPartial txs addr [blk]
-            localFetcher blkTxs = do
-                let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
-                ltxs <- lift . lift $ getLocalTxs
-                txs <- getRelatedTxs addr $ map mp ltxs
-                return $ txs ++ blkTxs
+    let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
+        fromBlund = pure . fst
 
-        mres <- runMaybeT $ do
-            (cachedTxs, cachedUtxo) <- runUtxoStateT
-                (foldrM blockFetcher [] cachedHashes) genUtxo
+        getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
+        getBlockTimestamp blk = getSlotStartPure True (blk ^. mainBlockSlot) sd
 
-            result <- evalUtxoStateT
-                (foldrM blockFetcher cachedTxs nonCachedHashes >>= localFetcher)
-                cachedUtxo
+        blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (DList TxHistoryEntry)
+        blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
+            (deriveAddrHistoryBlk addrs getBlockTimestamp) mempty
 
-            let lastCachedHash = fromMaybe bot $ head cachedHashes
-            return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
+    runGenesisToil . evalToilTEmpty $ blockFetcher bot
 
-        maybe (error "deriveAddrHistory: Nothing") pure mres
+getLocalHistoryDefault
+    :: forall ctx m. TxHistoryEnv ctx m
+    => [Address] -> m (DList TxHistoryEntry)
+getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
+    let mapper (txid, TxAux {..}) =
+            (WithHash taTx txid, taWitness, taDistribution)
+        topsortErr = TxpInternalError
+            "getLocalHistory: transactions couldn't be topsorted!"
+    ltxs <- lift $ map mapper <$> getLocalTxs
+    txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
+           maybeThrow topsortErr (topsortTxs (view _1) ltxs)
+    return $ DL.fromList txs
 
+saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
+saveTxDefault txw = do
 #ifdef WITH_EXPLORER
-    saveTx txw = () <$ runExceptT (eTxProcessTransaction txw)
+    res <- runExceptT (eTxProcessTransaction txw)
 #else
-    saveTx txw = () <$ runExceptT (txProcessTransaction txw)
+    res <- runExceptT (txProcessTransaction txw)
 #endif
+    eitherToThrow identity res

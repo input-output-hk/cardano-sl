@@ -4,16 +4,18 @@ module Test.Pos.Genesis.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
+import           Test.Hspec                   (Spec, describe)
 import           Universum
 
-import qualified Pos.Genesis           as T
-import           Pos.Genesis.Arbitrary ()
+import qualified Pos.Genesis                  as T
+import           Pos.Core.Arbitrary           ()
+import           Pos.Ssc.GodTossing           ()
 
-import           Test.Pos.Util         (binaryTest)
+import           Test.Pos.Util                (binaryTest)
 
 spec :: Spec
 spec = describe "Genesis" $ do
     describe "Bi instances" $ do
         binaryTest @T.StakeDistribution
-        binaryTest @T.GenesisData
+        binaryTest @T.GenesisCoreData
+        binaryTest @T.GenesisGtData

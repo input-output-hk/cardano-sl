@@ -9,30 +9,30 @@ module Pos.Block.Network.Announce
 
 import           Universum
 
-import           Data.Reflection            (Reifies)
-import qualified Ether
+import           Control.Monad.Except       (runExceptT)
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
 
 import           Pos.Binary.Communication   ()
+import           Pos.Block.Core             (Block, BlockHeader, MainBlockHeader,
+                                             blockHeader)
 import           Pos.Block.Logic            (getHeadersFromManyTo)
 import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Limits   (Limit, LimitedLength, recvLimited,
-                                             reifyMsgLimit)
+import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Message  ()
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
-import           Pos.Context                (NodeParams, npAttackTypes,
-                                             recoveryInProgress)
+import           Pos.Context                (recoveryInProgress)
+import           Pos.Core                   (headerHash, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
-                                             shouldIgnoreAddress)
-import           Pos.Types                  (MainBlockHeader, headerHash)
+                                             SecurityParams (..), shouldIgnoreAddress)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -42,62 +42,66 @@ announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
                                ]
 
 announceBlock
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => SendActions m -> MainBlockHeader ssc -> m ()
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    nodeParams <- Ether.ask @NodeParams
-    let throwOnIgnored (NodeId (_, nId)) =
+    SecurityParams{..} <- view (lensOf @SecurityParams)
+    let throwOnIgnored nId =
             whenJust (nodeIdToAddress nId) $ \addr ->
-                when (shouldIgnoreAddress nodeParams addr) $
-                throw AttackNoBlocksTriggered
+                whenM (shouldIgnoreAddress addr) $
+                    throw AttackNoBlocksTriggered
         sendActions' =
-            if AttackNoBlocks `elem` npAttackTypes nodeParams
+            if AttackNoBlocks `elem` spAttackTypes
                 then sendActions
-                     { sendTo =
-                           \nId msg -> do
-                               throwOnIgnored nId
-                               sendTo sendActions nId msg
-                     , withConnectionTo =
+                     { withConnectionTo =
                            \nId handler -> do
                                throwOnIgnored nId
                                withConnectionTo sendActions nId handler
                      }
                 else sendActions
-    reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy -> do
-        converseToNeighbors sendActions' $ announceBlockDo limitProxy
+    converseToNeighbors sendActions' announceBlockDo
   where
-    announceBlockDo limitProxy nodeId conv = do
+    announceBlockDo nodeId = pure $ Conversation $ \cA -> do
         logDebug $
             sformat
                 ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId
-        send conv $ MsgHeaders (one (Right header))
-        handleHeadersCommunication conv limitProxy
+        send cA $ MsgHeaders (one (Right header))
+        handleHeadersCommunication cA
 
 handleHeadersCommunication
-    :: forall ssc m s.
-       (WorkMode ssc m, Reifies s (Limit MsgGetHeaders))
-    => ConversationActions (MsgHeaders ssc) (LimitedLength s MsgGetHeaders) m
-    -> Proxy s
+    :: forall ssc ctx m .
+       (WorkMode ssc ctx m)
+    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m
     -> m ()
-handleHeadersCommunication conv _ = do
+handleHeadersCommunication conv = do
     whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM recoveryInProgress onRecovery $ do
             headers <- case (mghFrom,mghTo) of
-                ([], Nothing) -> Right . one <$> DB.getTipBlockHeader @ssc
+                ([], Nothing) -> Right . one <$> getLastMainHeader
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
-                    DB.getBlockHeader @ssc h
-                (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
+                    DB.blkGetHeader @ssc h
+                (c1:cxs, _)   -> runExceptT
+                    (getHeadersFromManyTo (c1:|cxs) mghTo)
             either onNoHeaders handleSuccess headers
   where
+    -- retrieves header of the newest main block if there's any,
+    -- genesis otherwise.
+    getLastMainHeader :: m (BlockHeader ssc)
+    getLastMainHeader = do
+        (tip :: Block ssc) <- DB.getTipBlock
+        let tipHeader = tip ^. blockHeader
+        case tip of
+            Left _  -> fromMaybe tipHeader <$> DB.blkGetHeader (tip ^. prevBlockL)
+            Right _ -> pure tipHeader
     handleSuccess h = do
-        onSuccess
         send conv (MsgHeaders h)
-        handleHeadersCommunication conv Proxy
+        onSuccess
+        handleHeadersCommunication conv
     onSuccess =
         logDebug "handleGetHeaders: responded successfully"
     onRecovery =

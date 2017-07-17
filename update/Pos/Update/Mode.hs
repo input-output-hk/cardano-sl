@@ -5,28 +5,28 @@ module Pos.Update.Mode
 import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
-import qualified Ether
+import           Ether.Internal              (HasLens (..))
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.Limits               (MonadDBLimits)
+import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
 
-type UpdateMode m
+type UpdateMode ctx m
     = ( WithLogger m
       , MonadMockable m
       , MonadIO m
       , WithPeerState m
       , MonadMask m
+      , MonadGState m
       , MonadDB m
-      , MonadDBLimits m
-      , MonadRelayMem m
-      , Ether.MonadReader' UpdateContext m
-      , Ether.MonadReader' LrcContext m
-      , Ether.MonadReader' UpdateParams m
+      , MonadRelayMem ctx m
+      , MonadReader ctx m
+      , HasLens UpdateContext ctx UpdateContext
+      , HasLens LrcContext ctx LrcContext
+      , HasLens UpdateParams ctx UpdateParams
       )

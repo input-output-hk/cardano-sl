@@ -12,53 +12,47 @@ import           Universum
 import           Control.Lens                (at, (%=), (.=))
 import           Control.Monad.Trans.Class   (MonadTrans)
 
-import           Pos.Core                    (Address)
-import           Pos.DB.Class                (MonadDB)
+import           Pos.Core                    (Address, Coin)
+import           Pos.DB.Class                (MonadDBRead)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra)
 import qualified Pos.Explorer.DB             as DB
-import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrHistories,
-                                              eeLocalTxsExtra)
+import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrBalances,
+                                              eeAddrHistories, eeLocalTxsExtra)
 import           Pos.Txp.Core                (TxId)
-import           Pos.Txp.Toil                (DBTxp, ToilT, tmExtra)
+import           Pos.Txp.Toil                (DBToil, ToilT, tmExtra)
 import           Pos.Util                    (ether)
 import qualified Pos.Util.Modifier           as MM
 
 class Monad m => MonadTxExtraRead m where
     getTxExtra :: TxId -> m (Maybe TxExtra)
     getAddrHistory :: Address -> m AddrHistory
-
-    default getTxExtra
-        :: (MonadTrans t, MonadTxExtraRead m', t m' ~ m) => TxId -> m (Maybe TxExtra)
-    getTxExtra = lift . getTxExtra
-
-    default getAddrHistory
-        :: (MonadTrans t, MonadTxExtraRead m', t m' ~ m) => Address -> m AddrHistory
-    getAddrHistory = lift . getAddrHistory
+    getAddrBalance :: Address -> m (Maybe Coin)
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxExtraRead m, MonadTrans t, Monad (t m)) =>
         MonadTxExtraRead (t m)
+  where
+    getTxExtra = lift . getTxExtra
+    getAddrHistory = lift . getAddrHistory
+    getAddrBalance = lift . getAddrBalance
+
 
 class MonadTxExtraRead m => MonadTxExtra m where
     putTxExtra :: TxId -> TxExtra -> m ()
     delTxExtra :: TxId -> m ()
     updateAddrHistory :: Address -> AddrHistory -> m ()
-
-    default putTxExtra
-        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> TxExtra -> m ()
-    putTxExtra id = lift . putTxExtra id
-
-    default delTxExtra
-        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> m ()
-    delTxExtra = lift . delTxExtra
-
-    default updateAddrHistory
-        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => Address -> AddrHistory -> m ()
-    updateAddrHistory addr = lift . updateAddrHistory addr
+    putAddrBalance :: Address -> Coin -> m ()
+    delAddrBalance :: Address -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxExtra m, MonadTrans t, Monad (t m)) =>
         MonadTxExtra (t m)
+  where
+    putTxExtra id = lift . putTxExtra id
+    delTxExtra = lift . delTxExtra
+    updateAddrHistory addr = lift . updateAddrHistory addr
+    putAddrBalance addr = lift . putAddrBalance addr
+    delAddrBalance = lift . delAddrBalance
 
 ----------------------------------------------------------------------------
 -- ToilT instances
@@ -69,6 +63,8 @@ instance MonadTxExtraRead m => MonadTxExtraRead (ToilT ExplorerExtra m) where
         MM.lookupM getTxExtra id =<< use (tmExtra . eeLocalTxsExtra)
     getAddrHistory addr = ether $
         maybe (getAddrHistory addr) pure =<< use (tmExtra . eeAddrHistories . at addr)
+    getAddrBalance addr = ether $
+        MM.lookupM getAddrBalance addr =<< use (tmExtra . eeAddrBalances)
 
 instance MonadTxExtraRead m => MonadTxExtra (ToilT ExplorerExtra m) where
     putTxExtra id extra = ether $
@@ -77,11 +73,16 @@ instance MonadTxExtraRead m => MonadTxExtra (ToilT ExplorerExtra m) where
         tmExtra . eeLocalTxsExtra %= MM.delete id
     updateAddrHistory addr hist = ether $
         tmExtra . eeAddrHistories . at addr .= Just hist
+    putAddrBalance addr coin = ether $
+        tmExtra . eeAddrBalances %= MM.insert addr coin
+    delAddrBalance addr = ether $
+        tmExtra . eeAddrBalances %= MM.delete addr
 
 ----------------------------------------------------------------------------
--- DBTxp instances
+-- DBToil instances
 ----------------------------------------------------------------------------
 
-instance (Monad m, MonadDB m) => MonadTxExtraRead (DBTxp m) where
+instance (MonadDBRead m) => MonadTxExtraRead (DBToil m) where
     getTxExtra = DB.getTxExtra
     getAddrHistory = DB.getAddrHistory
+    getAddrBalance = DB.getAddrBalance

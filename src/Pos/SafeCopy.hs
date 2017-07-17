@@ -1,22 +1,35 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | SafeCopy serialization of Pos.Types.* modules, required for wallet
 
 module Pos.SafeCopy
        (
        ) where
 
-import           Data.SafeCopy                   (SafeCopy (..), base, contain,
-                                                  deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Serialize                  as Cereal (getWord8, putWord8)
 import           Universum
 
 import qualified Cardano.Crypto.Wallet           as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
 import qualified Crypto.ECC.Edwards25519         as ED25519
 import qualified Crypto.Sign.Ed25519             as EDS25519
+import           Data.SafeCopy                   (SafeCopy (..), base, contain,
+                                                  deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Serialize                  as Cereal (getWord8, putWord8)
+
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
+import           Pos.Block.Core
+import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
+                                                  TxSizeLinear (..))
+import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
+                                                  ApplicationName (..), BlockCount (..),
+                                                  BlockVersion (..),
+                                                  BlockVersionData (..),
+                                                  ChainDifficulty (..), Coin,
+                                                  CoinPortion (..), EpochIndex (..),
+                                                  EpochOrSlot (..), LocalSlotIndex (..),
+                                                  Script (..), SharedSeed (..),
+                                                  SlotCount (..), SlotId (..),
+                                                  SoftforkRule (..), SoftwareVersion (..))
+import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
                                                   RedeemSecretKey (..),
@@ -25,20 +38,11 @@ import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey
                                                   ProxySignature (..), PublicKey (..),
                                                   SecretKey (..), Signature (..),
                                                   Signed (..))
-import           Pos.Ssc.Class.Types             (Ssc (..))
-
-import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
-                                                  ApplicationName (..), BlockVersion (..),
-                                                  BlockVersionData (..),
-                                                  ChainDifficulty (..), Coin,
-                                                  CoinPortion (..), EpochIndex (..),
-                                                  EpochOrSlot (..), LocalSlotIndex (..),
-                                                  Script (..), SharedSeed (..),
-                                                  SlotId (..), SoftwareVersion (..))
-import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Data.Attributes             (Attributes (..))
+import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
+import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
                                                   GtPayload (..), GtProof (..),
                                                   Opening (..), VssCertificate (..))
@@ -46,8 +50,8 @@ import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), 
                                                   TxInWitness (..), TxOut (..),
                                                   TxOutAux (..), TxPayload (..),
                                                   TxProof (..))
-import           Pos.Types.Block
-import           Pos.Update.Core.Types           (SystemTag (..), UpdateData (..),
+import           Pos.Update.Core.Types           (BlockVersionModifier (..),
+                                                  SystemTag (..), UpdateData (..),
                                                   UpdatePayload (..), UpdateProposal (..),
                                                   UpdateVote (..))
 
@@ -104,6 +108,8 @@ deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''EpochOrSlot
+deriveSafeCopySimple 0 'base ''BlockCount
+deriveSafeCopySimple 0 'base ''SlotCount
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrPkAttrs
@@ -120,6 +126,8 @@ deriveSafeCopySimple 0 'base ''TxProof
 deriveSafeCopySimple 0 'base ''TxPayload
 deriveSafeCopySimple 0 'base ''SharedSeed
 
+deriveSafeCopySimple 0 'base ''DlgPayload
+
 deriveSafeCopySimple 0 'base ''MainExtraBodyData
 deriveSafeCopySimple 0 'base ''MainExtraHeaderData
 deriveSafeCopySimple 0 'base ''GenesisExtraHeaderData
@@ -127,7 +135,12 @@ deriveSafeCopySimple 0 'base ''GenesisExtraBodyData
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData
+deriveSafeCopySimple 0 'base ''Coeff
+deriveSafeCopySimple 0 'base ''TxSizeLinear
+deriveSafeCopySimple 0 'base ''TxFeePolicy
+deriveSafeCopySimple 0 'base ''SoftforkRule -- 💋
 deriveSafeCopySimple 0 'base ''BlockVersionData
+deriveSafeCopySimple 0 'base ''BlockVersionModifier
 deriveSafeCopySimple 0 'base ''UpdateProposal
 deriveSafeCopySimple 0 'base ''UpdateVote
 deriveSafeCopySimple 0 'base ''UpdatePayload
@@ -153,8 +166,8 @@ instance ( SafeCopy (BHeaderHash b)
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
-           return $! GenericBlockHeader {..}
-    putCopy GenericBlockHeader {..} =
+           return $! UnsafeGenericBlockHeader {..}
+    putCopy UnsafeGenericBlockHeader {..} =
         contain $
         do safePut _gbhPrevBlock
            safePut _gbhBodyProof
@@ -174,8 +187,8 @@ instance ( SafeCopy (BHeaderHash b)
         do _gbHeader <- safeGet
            _gbBody <- safeGet
            _gbExtra <- safeGet
-           return $! GenericBlock {..}
-    putCopy GenericBlock {..} =
+           return $! UnsafeGenericBlock {..}
+    putCopy UnsafeGenericBlock {..} =
         contain $
         do safePut _gbHeader
            safePut _gbBody
@@ -209,12 +222,12 @@ instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
 instance SafeCopy (BlockSignature ssc) where
     getCopy = contain $ Cereal.getWord8 >>= \case
         0 -> BlockSignature <$> safeGet
-        1 -> BlockPSignatureEpoch <$> safeGet
-        2 -> BlockPSignatureSimple <$> safeGet
+        1 -> BlockPSignatureLight <$> safeGet
+        2 -> BlockPSignatureHeavy <$> safeGet
         t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
     putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
-    putCopy (BlockPSignatureEpoch proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
-    putCopy (BlockPSignatureSimple proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
+    putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+    putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
 instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
     getCopy =
@@ -246,14 +259,14 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
          SafeCopy (Body (MainBlockchain ssc)) where
     getCopy = contain $ do
         _mbTxPayload     <- safeGet
-        _mbMpc           <- safeGet
-        _mbProxySKs      <- safeGet
+        _mbSscPayload    <- safeGet
+        _mbDlgPayload    <- safeGet
         _mbUpdatePayload <- safeGet
         return $! MainBody{..}
     putCopy MainBody {..} = contain $ do
         safePut _mbTxPayload
-        safePut _mbMpc
-        safePut _mbProxySKs
+        safePut _mbSscPayload
+        safePut _mbDlgPayload
         safePut _mbUpdatePayload
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where
@@ -278,7 +291,7 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
     getCopy = contain $ do
         bs <- safeGet
         case Bi.decodeFull bs of
-            Left err    -> fail $ "getCopy@SafeCopy: " ++ err
+            Left err    -> fail $ toString $ "getCopy@SafeCopy: " <> err
             Right (v,s) -> pure $ Signed v s
 
 instance SafeCopy (ProxyCert w) where
@@ -287,12 +300,9 @@ instance SafeCopy (ProxyCert w) where
 
 instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
     putCopy ProxySignature{..} = contain $ do
-        safePut pdOmega
-        safePut pdDelegatePk
-        safePut pdCert
-        safePut pdSig
-    getCopy = contain $
-        ProxySignature <$> safeGet <*> safeGet <*> safeGet <*> safeGet
+        safePut psigPsk
+        safePut psigSig
+    getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
 
 instance Bi (MerkleRoot a) => SafeCopy (MerkleRoot a) where
     getCopy = Bi.getCopyBi "MerkleRoot"

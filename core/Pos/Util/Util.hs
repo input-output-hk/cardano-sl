@@ -1,8 +1,8 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Util.Util
@@ -15,14 +15,29 @@ module Pos.Util.Util
        , liftGetterSome
 
        , maybeThrow
+       , eitherToFail
+       , eitherToThrow
        , getKeys
+       , sortWithMDesc
+       , leftToPanic
+
+       -- * Lenses
+       , _neHead
+       , _neTail
+       , _neLast
+       , postfixLFields
 
        -- * Ether
        , ether
        , Ether.TaggedTrans
+       , HasLens(..)
+       , lensOf'
 
        -- * Lifting monads
        , PowerLift(..)
+
+       -- * Asserts
+       , inAssertMode
 
        -- * Instances
        -- ** Lift Byte
@@ -44,26 +59,35 @@ module Pos.Util.Util
        -- ** Buildable Week
        -- ** Buildable Fortnight
 
-       -- ** Ether instances
-       -- *** CanLog Ether.StateT
-       -- *** HasLoggerName Ether.StateT
+       , dumpSplices
        ) where
 
-import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
+import           Universum
+import           Unsafe                         (unsafeInit, unsafeLast)
+
+import           Control.Lens                   (ALens', Getter, Getting, LensRules,
+                                                 cloneLens, lensField, lensRules,
+                                                 mappingNamer, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource (..))
+import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
+                                                 transResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
+import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
                                                  Hour, Microsecond, Millisecond, Minute,
                                                  Nanosecond, Picosecond, Second, Week,
                                                  toMicroseconds)
+import           Data.Typeable                  (typeRep)
 import qualified Ether
+import           Ether.Internal                 (HasLens (..))
+import qualified Formatting                     as F
+import qualified Language.Haskell.TH            as TH
 import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
@@ -73,7 +97,6 @@ import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
-import           Universum
 
 ----------------------------------------------------------------------------
 -- Some
@@ -157,7 +180,27 @@ instance Buildable Microsecond where
     build = build . (++ "mcs") . show . toMicroseconds
 
 ----------------------------------------------------------------------------
--- Ether instances
+-- MonadResource/ResourceT
+----------------------------------------------------------------------------
+
+instance LiftLocal ResourceT where
+    liftLocal _ l f = hoist (l f)
+
+instance {-# OVERLAPPABLE #-}
+    (MonadResource m, MonadTrans t, Applicative (t m),
+     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
+        MonadResource (t m)
+  where
+    liftResourceT = lift . liftResourceT
+
+-- TODO Move it to log-warper
+instance CanLog m => CanLog (ResourceT m)
+instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
+    getLoggerName = lift getLoggerName
+    modifyLoggerName = transResourceT . modifyLoggerName
+
+----------------------------------------------------------------------------
+-- Instances required by 'ether'
 ----------------------------------------------------------------------------
 
 instance
@@ -180,13 +223,6 @@ instance
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
-
-instance {-# OVERLAPPABLE #-}
-    (MonadResource m, MonadTrans t, Applicative (t m),
-     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
-        MonadResource (t m)
-  where
-    liftResourceT = lift . liftResourceT
 
 instance {-# OVERLAPPABLE #-}
     (Monad m, MFunctor t) => MFunctor' t m n
@@ -235,14 +271,41 @@ type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
 
+-- | Fail or return result depending on what is stored in 'Either'.
+eitherToFail :: (MonadFail m, ToString s) => Either s a -> m a
+eitherToFail = either (fail . toString) pure
+
+-- | Throw exception or return result depending on what is stored in 'Either'
+eitherToThrow
+    :: (MonadThrow m, Exception e)
+    => (s -> e) -> Either s a -> m a
+eitherToThrow f = either (throwM . f) pure
+
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
+
+-- | Use some monadic action to evaluate priority of value and sort a
+-- list of values based on this priority. The order is descending
+-- because I need it.
+sortWithMDesc :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
+sortWithMDesc f = fmap (map fst . sortWith (Down . snd)) . mapM f'
+  where
+    f' x = (x, ) <$> f x
+
+-- | Partial function which calls 'error' with meaningful message if
+-- given 'Left' and returns some value if given 'Right'.
+-- Intended usage is when you're sure that value must be right.
+leftToPanic :: Buildable a => Text -> Either a b -> b
+leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
 
 -- | Make a Reader or State computation work in an Ether transformer. Useful
 -- to make lenses work with Ether.
 ether :: trans m a -> Ether.TaggedTrans tag trans m a
 ether = Ether.TaggedTrans
+
+lensOf' :: forall tag a b. HasLens tag a b => Proxy tag -> Lens' a b
+lensOf' _ = lensOf @tag
 
 class PowerLift m n where
   powerLift :: m a -> n a
@@ -252,3 +315,59 @@ instance {-# OVERLAPPING #-} PowerLift m m where
 
 instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
   powerLift = lift . powerLift @m @n
+
+instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
+    build tt@(Tagged v) = F.bprint ("Tagged " F.% F.shown F.% " " F.% F.build) ts v
+      where
+        ts = typeRep proxy
+        proxy = (const Proxy :: Tagged s a -> Proxy s) tt
+
+-- | This function performs checks at compile-time for different actions.
+-- May slowdown implementation. To disable such checks (especially in benchmarks)
+-- one should compile with: @stack build --flag cardano-sl-core:-asserts@
+inAssertMode :: Applicative m => m a -> m ()
+#ifdef ASSERTS_ON
+inAssertMode x = x *> pure ()
+#else
+inAssertMode _ = pure ()
+#endif
+{-# INLINE inAssertMode #-}
+
+----------------------------------------------------------------------------
+-- Lenses
+----------------------------------------------------------------------------
+
+-- | Lens for the head of 'NonEmpty'.
+--
+-- We can't use '_head' because it doesn't work for 'NonEmpty':
+-- <https://github.com/ekmett/lens/issues/636#issuecomment-213981096>.
+-- Even if we could though, it wouldn't be a lens, only a traversal.
+_neHead :: Lens' (NonEmpty a) a
+_neHead f (x :| xs) = (:| xs) <$> f x
+
+-- | Lens for the tail of 'NonEmpty'.
+_neTail :: Lens' (NonEmpty a) [a]
+_neTail f (x :| xs) = (x :|) <$> f xs
+
+-- | Lens for the last element of 'NonEmpty'.
+_neLast :: Lens' (NonEmpty a) a
+_neLast f (x :| []) = (:| []) <$> f x
+_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+
+-- | Print splices generated by a TH splice (the printing will happen during
+-- compilation, as a GHC warning). Useful for debugging.
+--
+-- For instance, you can dump splices generated with 'makeLenses' by
+-- replacing a top-level invocation of 'makeLenses' in your code with:
+--
+-- @dumpSplices $ makeLenses ''Foo@
+--
+dumpSplices :: TH.DecsQ -> TH.DecsQ
+dumpSplices x = do
+    ds <- x
+    let code = Prelude.lines (TH.pprint ds)
+    TH.reportWarning ("\n" ++ Prelude.unlines (map ("    " ++) code))
+    return ds
+
+postfixLFields :: LensRules
+postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])

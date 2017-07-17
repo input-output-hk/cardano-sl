@@ -1,7 +1,5 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Miscellaneous unclassified utility functions.
@@ -12,41 +10,24 @@ module Pos.Util
        -- * Stuff for testing and benchmarking
        , module Pos.Util.Arbitrary
        , module Pos.Util.TimeLimit
+       -- * Concurrency helpers
+       , module Pos.Util.Concurrent
 
        -- * Various
        , mappendPair
        , mconcatPair
        , (<//>)
+       , eitherToVerRes
        , readerToState
-       , eitherPanic
-       , inAssertMode
        , diffDoubleMap
-       , maybeThrow'
+       , withMaybeFile
+       , mapEither
+       , microsecondsToUTC
 
        -- * NonEmpty
        , neZipWith3
+       , neZipWith4
        , spanSafe
-
-       -- * Lenses
-       , makeLensesData
-       , _neHead
-       , _neTail
-       , _neLast
-
-       -- * LRU
-       , clearLRU
-
-       , eitherToVerRes
-
-       -- * Concurrency
-       , clearMVar
-       , forcePutMVar
-       , readMVarConditional
-       , readUntilEqualMVar
-       , readTVarConditional
-       , readUntilEqualTVar
-       , withReadLifted
-       , withWriteLifted
 
        -- * Instances
        -- ** MonadFail ParsecT
@@ -57,32 +38,30 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Universum                        hiding (bracket, finally)
+import           Universum                    hiding (finally)
 
-import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
-                                                   releaseRead, releaseWrite)
-import           Control.Lens                     (lensRules)
-import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
-import qualified Control.Monad                    as Monad (fail)
-import           Control.Monad.STM                (retry)
-import           Control.Monad.Trans.Resource     (ResourceT)
-import qualified Data.Cache.LRU                   as LRU
-import           Data.Hashable                    (Hashable)
-import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (span, zipWith3)
-import qualified Data.Text                        as T
-import qualified Language.Haskell.TH              as TH
-import           Mockable                         (Mockable, Throw, throw)
-import           Serokell.Util                    (VerificationRes (..))
-import           System.Wlog                      (LoggerNameBox (..))
-import           Text.Parsec                      (ParsecT)
-import           Unsafe                           (unsafeInit, unsafeLast)
+import qualified Control.Monad                as Monad (fail)
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Either                  (rights)
+import           Data.Hashable                (Hashable)
+import qualified Data.HashMap.Strict          as HM
+import           Data.List                    (span, zipWith3, zipWith4)
+import           Data.Ratio                   ((%))
+import qualified Data.Text                    as T
+import           Data.Time.Clock              (UTCTime)
+import           Data.Time.Clock.POSIX        (posixSecondsToUTCTime)
+import           Data.Time.Units              (Microsecond, toMicroseconds)
+import           Serokell.Util                (VerificationRes (..))
+import           System.IO                    (hClose)
+import           System.Wlog                  (LoggerNameBox (..))
+import           Text.Parsec                  (ParsecT)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState               ()
+import           Serokell.AcidState           ()
 
 import           Pos.Util.Arbitrary
+import           Pos.Util.Concurrent
 import           Pos.Util.TimeLimit
-import           Pos.Util.Undefined               ()
+import           Pos.Util.Undefined           ()
 import           Pos.Util.Util
 
 -- | Specialized version of 'mappend' for restricted to pair type.
@@ -109,21 +88,6 @@ readerToState
     => Reader s a -> m a
 readerToState = gets . runReader
 
--- | A helper for simple error handling in executables
-eitherPanic :: Show a => Text -> Either a b -> b
-eitherPanic msgPrefix = either (error . (msgPrefix <>) . show) identity
-
--- | This function performs checks at compile-time for different actions.
--- May slowdown implementation. To disable such checks (especially in benchmarks)
--- one should compile with: @stack build --flag cardano-sl:-asserts@
-inAssertMode :: Applicative m => m a -> m ()
-#ifdef ASSERTS_ON
-inAssertMode x = x *> pure ()
-#else
-inAssertMode _ = pure ()
-#endif
-{-# INLINE inAssertMode #-}
-
 -- | Remove elements which are in 'b' from 'a'
 diffDoubleMap
     :: forall k1 k2 v.
@@ -146,8 +110,16 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                        then res
                        else HM.insert extKey diff res
 
-maybeThrow' :: (Mockable Throw m, Exception e) => e -> Maybe a -> m a
-maybeThrow' e = maybe (throw e) pure
+withMaybeFile :: (MonadIO m, MonadMask m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m r) -> m r
+withMaybeFile Nothing     _    f = f Nothing
+withMaybeFile (Just file) mode f =
+    bracket (openFile file mode) (liftIO . hClose) (f . Just)
+
+mapEither :: (a -> Either b c) -> [a] -> [c]
+mapEither f = rights . map f
+
+microsecondsToUTC :: Microsecond -> UTCTime
+microsecondsToUTC = posixSecondsToUTCTime . fromRational . (% 1000000) . toMicroseconds
 
 ----------------------------------------------------------------------------
 -- NonEmpty
@@ -156,66 +128,20 @@ maybeThrow' e = maybe (throw e) pure
 neZipWith3 :: (x -> y -> z -> q) -> NonEmpty x -> NonEmpty y -> NonEmpty z -> NonEmpty q
 neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
 
+neZipWith4 ::
+       (x -> y -> i -> z -> q)
+    -> NonEmpty x
+    -> NonEmpty y
+    -> NonEmpty i
+    -> NonEmpty z
+    -> NonEmpty q
+neZipWith4 f (x :| xs) (y :| ys) (i :| is) (z :| zs) = f x y i z :| zipWith4 f xs ys is zs
+
 -- | Makes a span on the list, considering tail only. Predicate has
 -- list head as first argument. Used to take non-null prefix that
 -- depends on the first element.
 spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
 spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
-
-----------------------------------------------------------------------------
--- Lens utils
-----------------------------------------------------------------------------
-
--- | Make lenses for a data family instance.
-makeLensesData :: TH.Name -> TH.Name -> TH.DecsQ
-makeLensesData familyName typeParamName = do
-    info <- TH.reify familyName
-    ins <- case info of
-        TH.FamilyI _ ins -> return ins
-        _                -> fail "makeLensesIndexed: expected data family name"
-    typeParamInfo <- TH.reify typeParamName
-    typeParam <- case typeParamInfo of
-        TH.TyConI dec -> decToType dec
-        _             -> fail "makeLensesIndexed: expected a type"
-    let mbInsDec = find ((== Just typeParam) . getTypeParam) ins
-    case mbInsDec of
-        Nothing -> fail ("makeLensesIndexed: an instance for " ++
-                         TH.nameBase typeParamName ++ " not found")
-        Just insDec -> makeFieldOpticsForDec lensRules insDec
-  where
-    getTypeParam (TH.NewtypeInstD _ _ [t] _ _ _) = Just t
-    getTypeParam (TH.DataInstD    _ _ [t] _ _ _) = Just t
-    getTypeParam _                               = Nothing
-
-    decToType (TH.DataD    _ n _ _ _ _) = return (TH.ConT n)
-    decToType (TH.NewtypeD _ n _ _ _ _) = return (TH.ConT n)
-    decToType other                     =
-        fail ("makeLensesIndexed: decToType failed on: " ++ show other)
-
--- | Lens for the head of 'NonEmpty'.
---
--- We can't use '_head' because it doesn't work for 'NonEmpty':
--- <https://github.com/ekmett/lens/issues/636#issuecomment-213981096>.
--- Even if we could though, it wouldn't be a lens, only a traversal.
-_neHead :: Lens' (NonEmpty a) a
-_neHead f (x :| xs) = (:| xs) <$> f x
-
--- | Lens for the tail of 'NonEmpty'.
-_neTail :: Lens' (NonEmpty a) [a]
-_neTail f (x :| xs) = (x :|) <$> f xs
-
--- | Lens for the last element of 'NonEmpty'.
-_neLast :: Lens' (NonEmpty a) a
-_neLast f (x :| []) = (:| []) <$> f x
-_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
-
-----------------------------------------------------------------------------
--- LRU cache
-----------------------------------------------------------------------------
-
--- | Remove all items from LRU, retaining maxSize property.
-clearLRU :: Ord k => LRU.LRU k v -> LRU.LRU k v
-clearLRU = LRU.newLRU . LRU.maxSize
 
 ----------------------------------------------------------------------------
 -- Deserialized wrapper
@@ -234,56 +160,3 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail m => MonadFail (ResourceT m) where
     fail = lift . fail
-
-----------------------------------------------------------------------------
--- Concurrency utilites (MVar/TVar/RWLock..)
-----------------------------------------------------------------------------
-
-clearMVar :: MonadIO m => MVar a -> m ()
-clearMVar = void . tryTakeMVar
-
-forcePutMVar :: MonadIO m => MVar a -> a -> m ()
-forcePutMVar mvar val = do
-    unlessM (tryPutMVar mvar val) $ do
-        _ <- tryTakeMVar mvar
-        forcePutMVar mvar val
-
--- | Block until value in MVar satisfies given predicate. When value
--- satisfies, it is returned.
-readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
-readMVarConditional predicate mvar = do
-    rData <- readMVar mvar -- first we try to read for optimization only
-    if predicate rData then pure rData
-    else do
-        tData <- takeMVar mvar         -- now take data
-        if predicate tData then do     -- check again
-            _ <- tryPutMVar mvar tData -- try to put taken value
-            pure tData
-        else
-            readMVarConditional predicate mvar
-
--- | Read until value is equal to stored value comparing by some function.
-readUntilEqualMVar
-    :: (Eq a, MonadIO m)
-    => (x -> a) -> MVar x -> a -> m x
-readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
-
--- | Block until value in TVar satisfies given predicate. When value
--- satisfies, it is returned.
-readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
-readTVarConditional predicate tvar = atomically $ do
-    res <- readTVar tvar
-    if predicate res then pure res
-    else retry
-
--- | Read until value is equal to stored value comparing by some function.
-readUntilEqualTVar
-    :: (Eq a, MonadIO m)
-    => (x -> a) -> TVar x -> a -> m x
-readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
-
-withReadLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
-withReadLifted l = bracket_ (liftIO $ acquireRead l) (liftIO $ releaseRead l)
-
-withWriteLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
-withWriteLifted l = bracket_ (liftIO $ acquireWrite l) (liftIO $ releaseWrite l)

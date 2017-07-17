@@ -3,69 +3,61 @@
 -- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 
 module Pos.Slotting.MemState.Holder
-       ( SlottingVar
-       , MonadSlotting
-       , askSlotting
-       , askSlottingVar
-       , askSlottingTimestamp
-       , SlotsDataRedirect
-       , runSlotsDataRedirect
+       ( HasSlottingVar(..)
+       , SlottingVar
+       , cloneSlottingVar
+       , getSystemStartDefault
+       , getSlottingDataDefault
+       , waitPenultEpochEqualsDefault
+       , putSlottingDataDefault
        ) where
 
 import           Universum
 
-import           Control.Monad.STM            (retry)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
-import qualified Ether
-import           Pos.Core.Types               (Timestamp)
+import           Control.Monad.STM  (retry)
 
-import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))
+import           Pos.Core.Types     (EpochIndex, Timestamp)
+import           Pos.Slotting.Types (SlottingData (sdPenultEpoch))
 
 ----------------------------------------------------------------------------
--- Transformer
+-- Context
 ----------------------------------------------------------------------------
+
+type SlottingVar = TVar SlottingData
+
+-- | Create a new 'SlottingVar' with the same contents as the given
+-- variable has.
+cloneSlottingVar :: MonadIO m => SlottingVar -> m SlottingVar
+cloneSlottingVar = readTVarIO >=> newTVarIO
 
 -- | System start and slotting data
-type SlottingVar = (Timestamp, TVar SlottingData)
-
-type MonadSlotting = Ether.MonadReader' SlottingVar
-
-askSlotting :: MonadSlotting m => m SlottingVar
-askSlotting = Ether.ask'
-
-askSlottingVar :: MonadSlotting m => m (TVar SlottingData)
-askSlottingVar = snd <$> askSlotting
-
-askSlottingTimestamp :: MonadSlotting m => m Timestamp
-askSlottingTimestamp  = fst <$> askSlotting
+class HasSlottingVar ctx where
+    slottingTimestamp :: Lens' ctx Timestamp
+    slottingVar :: Lens' ctx SlottingVar
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation
 ----------------------------------------------------------------------------
 
-data SlotsDataRedirectTag
+type SlotsDefaultEnv ctx m =
+    (MonadReader ctx m, HasSlottingVar ctx, MonadIO m)
 
-type SlotsDataRedirect =
-    Ether.TaggedTrans SlotsDataRedirectTag IdentityT
+getSystemStartDefault :: SlotsDefaultEnv ctx m => m Timestamp
+getSystemStartDefault = view slottingTimestamp
 
-runSlotsDataRedirect :: SlotsDataRedirect m a -> m a
-runSlotsDataRedirect = coerce
+getSlottingDataDefault :: SlotsDefaultEnv ctx m => m SlottingData
+getSlottingDataDefault = atomically . readTVar =<< view slottingVar
 
-instance
-    (MonadSlotting m, MonadIO m, t ~ IdentityT) =>
-         MonadSlotsData (Ether.TaggedTrans SlotsDataRedirectTag t m)
-  where
-    getSystemStart = askSlottingTimestamp
-    getSlottingData = atomically . readTVar =<< askSlottingVar
-    waitPenultEpochEquals target = do
-        var <- askSlottingVar
-        atomically $ do
-            penultEpoch <- sdPenultEpoch <$> readTVar var
-            when (penultEpoch /= target) retry
-    putSlottingData sd = do
-        var <- askSlottingVar
-        atomically $ do
-            penultEpoch <- sdPenultEpoch <$> readTVar var
-            when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
+waitPenultEpochEqualsDefault :: SlotsDefaultEnv ctx m => EpochIndex -> m ()
+waitPenultEpochEqualsDefault target = do
+    var <- view slottingVar
+    atomically $ do
+        penultEpoch <- sdPenultEpoch <$> readTVar var
+        when (penultEpoch /= target) retry
+
+putSlottingDataDefault :: SlotsDefaultEnv ctx m => SlottingData -> m ()
+putSlottingDataDefault sd = do
+    var <- view slottingVar
+    atomically $ do
+        penultEpoch <- sdPenultEpoch <$> readTVar var
+        when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd

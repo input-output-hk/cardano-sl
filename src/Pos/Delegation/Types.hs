@@ -1,64 +1,74 @@
-{-# LANGUAGE TemplateHaskell #-}
-
--- | Delegation-related network and local types.
+-- | Delegation-related local types.
 
 module Pos.Delegation.Types
-       ( SendProxySK (..)
-       , ConfirmProxySK (..)
-       -- if you uncomment these, also uncomment tests
-       -- in Test.Pos.Communication.Identity.BinarySpec
-       --, CheckProxySKConfirmed (..)
-       --, CheckProxySKConfirmedRes (..)
+       ( DlgPayload (..)
+       , mkDlgPayload
+       , ProxySKLightConfirmation
+       , DlgUndo
+       , DlgMemPool
+       , ProxySKBlockInfo
        ) where
 
-import           Data.DeriveTH   (derive, makeArbitrary)
-import           Test.QuickCheck (Arbitrary (..), choose)
 import           Universum
 
-import           Pos.Types       (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Control.Monad.Except (MonadError (throwError))
+import           Data.Default         (Default (def))
+import           Data.List            (groupBy)
+import qualified Data.Text.Buildable
+import           Formatting           (bprint, int, sformat, (%))
+import           Serokell.Util        (listJson)
 
-----------------------------------------------------------------------------
--- Generic PSKs propagation
-----------------------------------------------------------------------------
+import           Pos.Binary.Core      ()
+import           Pos.Core             (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Crypto           (ProxySecretKey (..), PublicKey, verifyPsk)
 
--- | Message with delegated proxy secret key. Is used to propagate
--- both epoch-oriented psks (lightweight) and simple (heavyweight).
-data SendProxySK
-    = SendProxySKLight !ProxySKLight
-    | SendProxySKHeavy !ProxySKHeavy
-    deriving (Show, Eq, Generic)
+-- Consider making this a set.
+-- | 'DlgPayload' is put into 'MainBlock' and consists of a list of
+-- heavyweight proxy signing keys. There must be no duplicates
+-- (comparing by issuer) in this list. The order of PSKs doesn't
+-- matter, as it's checked for cycles after bulk application. So it's
+-- technically a set.
+newtype DlgPayload = UnsafeDlgPayload
+    { getDlgPayload :: [ProxySKHeavy]
+    } deriving (Show, Eq, Generic, NFData)
 
-instance Hashable SendProxySK
+instance Default DlgPayload where
+    def = UnsafeDlgPayload []
 
-----------------------------------------------------------------------------
--- Lightweight PSKs confirmation mechanism
-----------------------------------------------------------------------------
+instance Buildable DlgPayload where
+    build (UnsafeDlgPayload psks) =
+        bprint
+            ("proxy signing keys ("%int%" items): "%listJson%"\n")
+            (length psks) psks
 
--- | Confirmation of proxy signature delivery. Delegate should take
--- the proxy signing key he has and sign this key with itself. If the
--- signature is correct, then it was done by delegate (guaranteed by
--- PSK scheme). Checking @w@ can be done with @(const True)@
--- predicate, because certificate may be sent in epoch id that's
--- before lower cert's @EpochIndex@.
-data ConfirmProxySK =
-    ConfirmProxySK !ProxySKLight !(ProxySigLight ProxySKLight)
-    deriving (Show, Eq, Generic)
+-- | Constructor of 'DlgPaylod' which ensures absence of duplicates.
+mkDlgPayload :: MonadError Text m => [ProxySKHeavy] -> m DlgPayload
+mkDlgPayload proxySKs = do
+    unless (null duplicates) $
+        throwError "Some of block's PSKs have the same issuer, which is prohibited"
+    unless (null wrongPSKs) $ throwError $
+        sformat ("At least some PSKs in the block are corrupted/broken: "%listJson)
+                (take 5 wrongPSKs)
 
----- | Request to check if a node has any info about PSK delivery.
---data CheckProxySKConfirmed =
---    CheckProxySKConfirmed !ProxySKLight
---    deriving (Show, Eq, Generic)
---
----- | Response to the @CheckProxySKConfirmed@ call.
---data CheckProxySKConfirmedRes =
---    CheckProxySKConfirmedRes !Bool
---    deriving (Show, Eq, Generic)
+    return $ UnsafeDlgPayload proxySKs
+  where
+    proxySKsDups psks =
+        filter (\x -> length x > 1) $
+        groupBy ((==) `on` pskIssuerPk) $ sortOn pskIssuerPk psks
+    duplicates = proxySKsDups proxySKs
+    wrongPSKs = filter (not . verifyPsk) proxySKs
 
-----------------------------------------------------------------------------
--- Arbitrary instances
-----------------------------------------------------------------------------
+-- | PSKs we've overwritten/deleted.
+type DlgUndo = [ProxySKHeavy]
 
-derive makeArbitrary ''SendProxySK
-derive makeArbitrary ''ConfirmProxySK
---derive makeArbitrary ''CheckProxySKConfirmed
---derive makeArbitrary ''CheckProxySKConfirmedRes
+-- | Map from issuer public keys to related heavy certs.
+type DlgMemPool = HashMap PublicKey ProxySKHeavy
+
+-- | Confirmation of light cert type.
+type ProxySKLightConfirmation = (ProxySKLight, ProxySigLight ProxySKLight)
+
+-- | Lightweight PSK or heavyweight PSK with real leader public key
+-- (because heavyweight psks have redelegation feature, so pskIssuerPk
+-- hPsk /= leader in general case). This is used to create a block
+-- header only.
+type ProxySKBlockInfo = Maybe (Either ProxySKLight (ProxySKHeavy, PublicKey))

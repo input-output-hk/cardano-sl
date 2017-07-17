@@ -20,10 +20,10 @@ module Pos.Lrc.DB.RichmenBase
 
 import           Universum
 
-import           Pos.Binary.Class  (encodeStrict)
+import           Pos.Binary.Class  (encode)
 import           Pos.Binary.Core   ()
 import           Pos.Core.Types    (EpochIndex)
-import           Pos.DB.Class      (MonadDB)
+import           Pos.DB.Class      (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class     (RichmenComponent (..))
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Lrc.Types     (FullRichmenData)
@@ -34,13 +34,13 @@ import           Pos.Lrc.Types     (FullRichmenData)
 
 getRichmen
     :: forall c m.
-       (RichmenComponent c, MonadDB m)
+       (RichmenComponent c, MonadDBRead m)
     => EpochIndex -> m (Maybe (RichmenData c))
 getRichmen = getBi . richmenKey @c
 
 getRichmenP
     :: forall c m.
-       (RichmenComponent c, MonadDB m)
+       (RichmenComponent c, MonadDBRead m)
     => Proxy c -> EpochIndex -> m (Maybe (RichmenData c))
 getRichmenP Proxy = getRichmen @c
 
@@ -70,4 +70,4 @@ richmenKeyP
     :: forall c.
        RichmenComponent c
     => Proxy c -> EpochIndex -> ByteString
-richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", encodeStrict e]
+richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", encode e]

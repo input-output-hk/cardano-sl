@@ -5,7 +5,7 @@
 
 module Pos.Web.Server
        ( MyWorkMode
-       , WebHandler
+       , WebMode
        , serveImpl
        , nat
        , serveWebBase
@@ -18,8 +18,7 @@ import           Universum
 
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
-import           Data.Tagged                          (Tagged (..))
-import qualified Ether
+import qualified Control.Monad.Reader                 as Mtl
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (defaultSettings, setHost, setPort)
@@ -31,18 +30,19 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
-import           Pos.Context                          (MonadNodeContext, NodeContext,
-                                                       NodeContextTag, SscContextTag,
-                                                       npPublicKey)
+import           Pos.Context                          (HasNodeContext (..),
+                                                       HasSscContext (..), NodeContext,
+                                                       getOurPublicKey)
+import           Pos.Core                             (EpochIndex (..), SlotLeaders)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                              (TxOut (..), toaOut)
-import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolderTag,
-                                                       askTxpMem, getLocalTxs)
-import           Pos.Types                            (EpochIndex (..), SlotLeaders)
+import           Pos.Txp.MemState                     (GenericTxpLocalData, askTxpMem,
+                                                       getLocalTxs, ignoreTxpMetrics)
+import           Pos.Web.Mode                         (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
@@ -54,24 +54,24 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
 ----------------------------------------------------------------------------
 
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
-type MyWorkMode ssc m =
-    ( WorkMode ssc m
+type MyWorkMode ssc ctx m =
+    ( WorkMode ssc ctx m
     , SscConstraint ssc
-    , MonadNodeContext ssc m -- for ConvertHandler
+    , HasNodeContext ssc ctx -- for ConvertHandler
     )
 
-serveWebBase :: MyWorkMode ssc m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
+serveWebBase :: MyWorkMode ssc ctx m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
 
-applicationBase :: MyWorkMode ssc m => m Application
+applicationBase :: MyWorkMode ssc ctx m => m Application
 applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
+serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
 
-applicationGT :: MyWorkMode SscGodTossing m => m Application
+applicationGT :: MyWorkMode SscGodTossing ctx m => m Application
 applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
@@ -89,66 +89,55 @@ serveImpl application host port walletTLSCert walletTLSKey walletTLSca =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc =
-    Ether.ReadersT
-        ( Tagged DB.NodeDBs DB.NodeDBs
-        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
-        ) (
-    Ether.ReadersT (NodeContext ssc) Production
-    )
-
 convertHandler
     :: forall ssc a.
        NodeContext ssc
     -> DB.NodeDBs
     -> GenericTxpLocalData TxpExtra_TMP
-    -> WebHandler ssc a
+    -> WebMode ssc a
     -> Handler a
-convertHandler nc nodeDBs wrap handler =
-    liftIO (runProduction .
-            flip Ether.runReadersT nc .
-            flip Ether.runReadersT
-              ( Tagged @DB.NodeDBs nodeDBs
-              , Tagged @TxpHolderTag wrap
-              ) $
-            handler)
-    `Catch.catches`
+convertHandler nc nodeDBs txpData handler =
+    liftIO
+        (runProduction $
+         Mtl.runReaderT
+             handler
+             (WebModeContext nodeDBs (txpData, ignoreTxpMetrics) nc)) `Catch.catches`
     excHandlers
   where
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: forall ssc m . MyWorkMode ssc m => m (WebHandler ssc :~> Handler)
+nat :: forall ssc ctx m . MyWorkMode ssc ctx m => m (WebMode ssc :~> Handler)
 nat = do
-    nc <- Ether.ask @NodeContextTag
+    nc <- view nodeContext
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)
 
-servantServerBase :: forall ssc m . MyWorkMode ssc m => m (Server (BaseNodeApi ssc))
-servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @m)
+servantServerBase :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server (BaseNodeApi ssc))
+servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @ctx @m)
 
-servantServerGT :: forall m . MyWorkMode SscGodTossing m => m (Server GtNodeApi)
+servantServerGT :: forall ctx m . MyWorkMode SscGodTossing ctx m => m (Server GtNodeApi)
 servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
-    (nat @SscGodTossing @m)
+    (nat @SscGodTossing @ctx @m)
 
 ----------------------------------------------------------------------------
 -- Base handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebHandler ssc)
+baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebMode ssc)
 baseServantHandlers =
     getLeaders
     :<|>
     getUtxo
     :<|>
-    (Ether.asks' npPublicKey)
+    getOurPublicKey
     :<|>
     GS.getTip
     :<|>
     getLocalTxsNum
 
-getLeaders :: Maybe EpochIndex -> WebHandler ssc SlotLeaders
+getLeaders :: Maybe EpochIndex -> WebMode ssc SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -156,25 +145,25 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: WebHandler ssc [TxOut]
+getUtxo :: WebMode ssc [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
-getLocalTxsNum :: WebHandler ssc Word
+getLocalTxsNum :: WebMode ssc Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 
 ----------------------------------------------------------------------------
 -- GodTossing handlers
 ----------------------------------------------------------------------------
 
-type GtWebHandler = WebHandler SscGodTossing
+type GtWebMode = WebMode SscGodTossing
 
-gtServantHandlers :: ServerT GodTossingApi GtWebHandler
+gtServantHandlers :: ServerT GodTossingApi GtWebMode
 gtServantHandlers =
     toggleGtParticipation {- :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage -}
 
-toggleGtParticipation :: Bool -> GtWebHandler ()
+toggleGtParticipation :: Bool -> GtWebMode ()
 toggleGtParticipation enable =
-    Ether.ask @SscContextTag >>=
+    view sscContext >>=
     atomically . flip writeTVar enable . gtcParticipateSsc
 
 -- gtHasSecret :: GtWebHandler Bool

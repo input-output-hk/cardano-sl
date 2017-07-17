@@ -6,17 +6,19 @@ import Control.Monad.Aff (Aff, makeAff)
 import Control.Monad.Eff.Exception (error, Error, throwException)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Error.Class (throwError)
-import Daedalus.Types (CAddress, _address, _ccoin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem)
-import Data.Array (last)
+import Control.Monad.Aff (Aff)
+import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta)
 import Data.Argonaut (Json)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap, lmap)
 import Data.Either (either, Either(Left))
+import Data.FormURLEncoded (fromArray, encode)
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(GET, POST, PUT, DELETE))
 import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
+import Data.Monoid (mempty)
 import Data.String (joinWith)
 import Data.Tuple (Tuple (..))
 import Data.StrMap (fromFoldable)
@@ -29,17 +31,26 @@ import Node.HTTP (HTTP)
 
 -- HELPERS
 
-type URLPath = Array String
+type URLPath = Tuple (Array String) QueryParams
 type URL = String
+type QueryParam = Tuple String (Maybe String)
+type QueryParams = Array QueryParam
+type FilePath = String
+
+noQueryParam :: Array String -> URLPath
+noQueryParam = flip Tuple mempty
+
+queryParams :: Array String -> QueryParams -> URLPath
+queryParams = Tuple
+
+qParam :: String -> Maybe String -> QueryParam
+qParam = Tuple
 
 mkUrl :: URLPath -> URL
-mkUrl = joinWith "/"
+mkUrl (Tuple urlPath params) = joinWith "/" urlPath <> "?" <> encode (fromArray params)
 
 backendApi :: URLPath -> URL
-backendApi path = mkUrl $ ["/api"] <> path <> ifEmptyEnd
-  where
-    -- Workaround for passing empty passphrases as last capture in URL
-    ifEmptyEnd = if last path == Just "" then [""] else []
+backendApi = mkUrl <<< lmap ((<>) ["/api"])
 
 data ApiError
     = HTTPStatusError Response
@@ -103,84 +114,140 @@ deleteR tls = plainRequest $ tls <> method := (show DELETE)
 
 -- REQUESTS
 --------------------------------------------------------------------------------
--- TEST ------------------------------------------------------------------------
+-- Test ------------------------------------------------------------------------
 testReset :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
-testReset tls = postR tls ["test", "reset"]
+testReset tls = postR tls $ noQueryParam ["test", "reset"]
 --------------------------------------------------------------------------------
--- WALLETS ---------------------------------------------------------------------
+-- Wallets ---------------------------------------------------------------------
+getWallet :: forall eff. TLSOptions -> CId Wal -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+getWallet tls addr = getR tls $ noQueryParam ["wallets", _address addr]
+
 getWallets :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Array CWallet)
-getWallets tls = getR tls ["wallets"]
+getWallets tls = getR tls $ noQueryParam ["wallets"]
 
-getWallet :: forall eff. TLSOptions -> CAddress -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
-getWallet tls addr = getR tls ["wallets", _address addr]
+newWallet :: forall eff. TLSOptions -> Maybe CPassPhrase -> CWalletInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+newWallet tls pass = postRBody tls $ queryParams ["wallets", "new"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-updateWallet :: forall eff. TLSOptions -> CAddress -> CWalletMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
-updateWallet tls addr = putRBody tls ["wallets", _address addr]
+updateWallet :: forall eff. TLSOptions -> CId Wal -> CWalletMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+updateWallet tls wId = putRBody tls $ noQueryParam ["wallets", _address wId]
 
-newWallet :: forall eff. TLSOptions -> CPassPhrase -> CWalletInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
-newWallet tls pass = postRBody tls ["wallets", _passPhrase pass]
+restoreWallet :: forall eff. TLSOptions -> Maybe CPassPhrase -> CWalletInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+restoreWallet tls pass = postRBody tls $ queryParams ["wallets", "restore"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-deleteWallet :: forall eff. TLSOptions -> CAddress -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
-deleteWallet tls addr = deleteR tls ["wallets", _address addr]
+renameWalletSet :: forall eff. TLSOptions -> CId Wal -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+renameWalletSet tls wSetId name = postR tls $ noQueryParam ["wallets", "rename", _address wSetId, name]
 
-importKey :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
-importKey tls = postRBody tls ["wallets", "keys"]
+importWallet :: forall eff. TLSOptions -> Maybe CPassPhrase -> FilePath -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+importWallet tls pass = postRBody tls $ queryParams ["wallets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-restoreWallet :: forall eff. TLSOptions -> CPassPhrase -> CWalletInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
-restoreWallet tls pass = postRBody tls ["wallets", "restore", _passPhrase pass]
+changeWalletPass :: forall eff. TLSOptions -> CId Wal -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+changeWalletPass tls wSetId old new = postR tls $ queryParams ["wallets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
+
+deleteWallet :: forall eff. TLSOptions -> CId Wal -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+deleteWallet tls wSetId = deleteR tls $ noQueryParam ["wallets", _address wSetId]
 --------------------------------------------------------------------------------
--- ADDRESSSES ------------------------------------------------------------------
-isValidAddress :: forall eff. TLSOptions -> CCurrency -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) Boolean
-isValidAddress tls cCurrency addr = getR tls ["addresses", addr, "currencies", showCCurrency cCurrency]
+-- Accounts --------------------------------------------------------------------
+
+getAccount :: forall eff. TLSOptions -> CAccountId -> Aff (http :: HTTP, err :: EXCEPTION | eff) CAccount
+getAccount tls wId = getR tls $ noQueryParam ["accounts", walletAddressToUrl wId]
+
+getAccounts :: forall eff. TLSOptions -> Maybe (CId Wal) -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Array CAccount)
+getAccounts tls addr = getR tls $ queryParams ["accounts"] [qParam "accountId" $ _address <$> addr]
+
+updateAccount :: forall eff. TLSOptions -> CAccountId -> CAccountMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) CAccount
+updateAccount tls wId = putRBody tls $ noQueryParam ["accounts", walletAddressToUrl wId]
+
+newAccount :: forall eff. TLSOptions -> Maybe CPassPhrase -> CAccountInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CAccount
+newAccount tls pass = postRBody tls $ queryParams ["accounts"] [qParam "passphrase" $ _passPhrase <$> pass]
+
+deleteAccount :: forall eff. TLSOptions -> CAccountId -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+deleteAccount tls wId = deleteR tls $ noQueryParam ["accounts", walletAddressToUrl wId]
+
 --------------------------------------------------------------------------------
--- PROFILES --------------------------------------------------------------------
+-- Wallet addresses ------------------------------------------------------------
+
+newAddress :: forall eff. TLSOptions -> Maybe CPassPhrase -> CAccountId -> Aff (http :: HTTP, err :: EXCEPTION | eff) CAddress
+newAddress tls pass = postRBody tls $ queryParams ["addresses"] [qParam "passphrase" $ _passPhrase <$> pass]
+
+--------------------------------------------------------------------------------
+-- Addresses -------------------------------------------------------------------
+
+isValidAddress :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) Boolean
+isValidAddress tls addr = getR tls $ noQueryParam ["addresses", addr]
+
+--------------------------------------------------------------------------------
+-- Profiles --------------------------------------------------------------------
 getProfile :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) CProfile
-getProfile tls = getR tls ["profile"]
+getProfile tls = getR tls $ noQueryParam ["profile"]
 
 updateProfile :: forall eff. TLSOptions -> CProfile -> Aff (http :: HTTP, err :: EXCEPTION | eff) CProfile
-updateProfile tls = postRBody tls ["profile"]
+updateProfile tls = postRBody tls $ noQueryParam ["profile"]
 --------------------------------------------------------------------------------
--- TRANSACTIONS ----------------------------------------------------------------
-send :: forall eff. TLSOptions -> CPassPhrase -> CAddress -> CAddress -> CCoin -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
-send tls pass addrFrom addrTo amount = postR tls ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount]
+-- Transactions ----------------------------------------------------------------
+newPayment :: forall eff. TLSOptions -> Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+newPayment tls pass addrFrom addrTo amount = postR tls $ queryParams ["txs", "payments", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
 
-sendExtended :: forall eff. TLSOptions -> CPassPhrase -> CAddress -> CAddress -> CCoin -> CCurrency -> String -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
-sendExtended tls pass addrFrom addrTo amount curr title desc = postR tls ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount, showCCurrency curr, title, desc]
+txFee :: forall eff. TLSOptions -> CAccountId -> CId Addr -> CCoin -> Aff (http :: HTTP, err :: EXCEPTION | eff) CCoin
+txFee tls addrFrom addrTo amount = getR tls $ noQueryParam ["txs", "fee", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount]
 
-updateTransaction :: forall eff. TLSOptions -> CAddress -> CTxId -> CTxMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
-updateTransaction tls addr ctxId = postRBody tls ["txs", "payments", _address addr, _ctxIdValue ctxId]
+updateTransaction :: forall eff. TLSOptions -> CAccountId -> CTxId -> CTxMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+updateTransaction tls addr ctxId = postRBody tls $ noQueryParam ["txs", "payments", walletAddressToUrl addr, _ctxIdValue ctxId]
 
-getHistory :: forall eff. TLSOptions -> CAddress -> Int -> Int -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Tuple (Array CTx) Int)
-getHistory tls addr skip limit = getR tls ["txs", "histories", _address addr <> "?skip=" <> show skip <> "&limit=" <> show limit]
+getHistory
+  :: forall eff.
+     TLSOptions
+  -> Maybe (CId Wal)
+  -> Maybe CAccountId
+  -> Maybe (CId Addr)
+  -> Maybe Int
+  -> Maybe Int
+  -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Tuple (Array CTx) Int)
+getHistory tls walletId accountId addr skip limit =
+  getR tls $ queryParams
+  ["txs", "histories"]
+  [ qParam "walletId" $ _address <$> walletId
+  , qParam "accountId" $ walletAddressToUrl <$> accountId
+  , qParam "address" $ _address <$> addr
+  , qParam "skip" $ show <$> skip
+  , qParam "limit" $ show <$> limit
+  ]
 
-searchHistory :: forall eff. TLSOptions -> CAddress -> String -> Int -> Int -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Tuple (Array CTx) Int)
-searchHistory tls addr search skip limit = getR tls ["txs", "histories", _address addr, search <> "?skip=" <> show skip <> "&limit=" <> show limit]
 --------------------------------------------------------------------------------
--- UPDATES ---------------------------------------------------------------------
+-- Updates ---------------------------------------------------------------------
 nextUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) CUpdateInfo
-nextUpdate tls = getR tls ["update"]
+nextUpdate tls = getR tls $ noQueryParam ["update"]
 
 applyUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
-applyUpdate tls = postR tls ["update"]
---------------------------------------------------------------------------------
--- REDEMPTIONS -----------------------------------------------------------------
-redeemAda :: forall eff. TLSOptions -> CWalletRedeem -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
-redeemAda tls = postRBody tls ["redemptions", "ada"]
+applyUpdate tls = postR tls $ noQueryParam ["update"]
 
-redeemAdaPaperVend :: forall eff. TLSOptions -> CPaperVendWalletRedeem -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
-redeemAdaPaperVend tls = postRBody tls ["papervend", "redemptions", "ada"]
 --------------------------------------------------------------------------------
--- REPORTING ---------------------------------------------------------------------
+-- Redemptions -----------------------------------------------------------------
+redeemAda :: forall eff. TLSOptions -> Maybe CPassPhrase -> CWalletRedeem -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+redeemAda tls pass = postRBody tls $ queryParams ["redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
+
+redeemAdaPaperVend :: forall eff. TLSOptions -> Maybe CPassPhrase -> CPaperVendWalletRedeem -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+redeemAdaPaperVend tls pass = postRBody tls $ queryParams ["papervend", "redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
+
+--------------------------------------------------------------------------------
+-- REPORTING -------------------------------------------------------------------
 reportInit :: forall eff. TLSOptions -> CInitialized -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
-reportInit tls = postRBody tls ["reporting", "initialized"]
+reportInit tls = postRBody tls $ noQueryParam ["reporting", "initialized"]
+
 --------------------------------------------------------------------------------
--- SETTINGS ---------------------------------------------------------------------
+-- SETTINGS --------------------------------------------------------------------
 blockchainSlotDuration :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Int
-blockchainSlotDuration tls = getR tls ["settings", "slots", "duration"]
+blockchainSlotDuration tls = getR tls $ noQueryParam ["settings", "slots", "duration"]
 
 systemVersion :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) SoftwareVersion
-systemVersion tls = getR tls ["settings", "version"]
+systemVersion tls = getR tls $ noQueryParam ["settings", "version"]
 
 syncProgress :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) SyncProgress
-syncProgress tls = getR tls ["settings", "sync", "progress"]
+syncProgress tls = getR tls $ noQueryParam ["settings", "sync", "progress"]
+
 --------------------------------------------------------------------------------
+-- JSON BACKUP -----------------------------------------------------------------
+importBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Array CWallet)
+importBackupJSON tls = postRBody tls $ noQueryParam ["backup", "import"]
+
+exportBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+exportBackupJSON tls = postRBody tls $ noQueryParam ["backup", "export"]

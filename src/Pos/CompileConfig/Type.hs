@@ -14,36 +14,19 @@ import           Pos.Util  ()
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
     {
-
-----------------------------------------------------------------------------
--- Genesis
-----------------------------------------------------------------------------
-      ccGenesisN                      :: !Int
-      -- ^ Number of pre-generated keys
-
-----------------------------------------------------------------------------
--- Other
-----------------------------------------------------------------------------
-    , ccNetworkDiameter               :: !Int
+      ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccMaxLocalTxs                   :: !Word
-      -- ^ Max number of transactions in Storage
     , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
-    , ccSysTimeBroadcastSlots         :: !Int
-      -- ^ Number of slots to broadcast system time
-    , ccMpcSendInterval               :: !Word
-      -- ^ Length of interval for sending MPC message
     , ccMdNoBlocksSlotThreshold       :: !Int
       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int
       -- ^ Threshold of epochs for malicious activity detection
-    , ccVssMaxTTL                     :: !Word64
-      -- ^ VSS certificates max timeout to live (number of epochs)
-    , ccVssMinTTL                     :: !Word64
-      -- ^ VSS certificates min timeout to live (number of epochs)
     , ccLightDlgConfirmationTimeout   :: !Int
       -- ^ Timeout for holding light psks confirmations
+    , ccDlgCacheParam                 :: !Int
+      -- ^ This value parameterizes size of cache used in Delegation.
+      -- Not bytes, but number of elements.
     , ccEnhancedMessageTimeout        :: !Word
       -- ^ We consider node as known if it was pinged at most 10 sec ago.
     , ccRecoveryHeadersMessage        :: !Int

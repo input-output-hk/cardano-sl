@@ -1,0 +1,126 @@
+name:                cardano-sl-godtossing
+version:             0.5.1
+synopsis:            Cardano SL - GodTossing implementation of SSC
+description:         Cardano SL - GodTossing implementation of SSC
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+    Pos.Ssc.GodTossing.Arbitrary
+
+    Pos.Ssc.GodTossing.Core
+    Pos.Ssc.GodTossing.Core.Types
+    Pos.Ssc.GodTossing.Core.Core
+
+    Pos.Ssc.GodTossing.Types
+    Pos.Ssc.GodTossing.Types.Types
+    Pos.Ssc.GodTossing.Types.Message
+
+    Pos.Ssc.GodTossing.Genesis
+    Pos.Ssc.GodTossing.Genesis.Types
+    Pos.Ssc.GodTossing.Genesis.Parser
+
+    Pos.Ssc.GodTossing.Toss
+    Pos.Ssc.GodTossing.Toss.Logic
+    Pos.Ssc.GodTossing.Toss.Pure
+    Pos.Ssc.GodTossing.Toss.Base
+    Pos.Ssc.GodTossing.Toss.Class
+    Pos.Ssc.GodTossing.Toss.Failure
+    Pos.Ssc.GodTossing.Toss.Trans
+    Pos.Ssc.GodTossing.Toss.Types
+
+    Pos.Ssc.GodTossing.LocalData
+    Pos.Ssc.GodTossing.LocalData.Types
+    Pos.Ssc.GodTossing.LocalData.Logic
+
+    Pos.Ssc.GodTossing.VssCertData
+    Pos.Ssc.GodTossing.Error
+    Pos.Ssc.GodTossing.SecretStorage
+    Pos.Ssc.GodTossing.Constants
+    Pos.Ssc.GodTossing.Functions
+    Pos.Ssc.GodTossing.Type
+    Pos.Ssc.GodTossing.DB
+    Pos.Ssc.GodTossing.GState
+    Pos.Ssc.GodTossing.Richmen
+    Pos.Ssc.GodTossing.Seed
+    Pos.Ssc.GodTossing.Shares
+    Pos.Ssc.GodTossing.Listeners
+    Pos.Ssc.GodTossing.Workers
+    Pos.Ssc.GodTossing.Network.Constraint
+
+    Pos.Binary.GodTossing
+    Pos.Binary.GodTossing.Core
+    Pos.Binary.GodTossing.Types
+    Pos.Binary.GodTossing.Toss
+    Pos.Binary.GodTossing.Relay
+
+  build-depends:       QuickCheck
+                     , aeson
+                     , base
+                     , bytestring
+                     , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , cardano-sl-ssc
+                     , containers
+                     , cryptonite
+                     , data-default
+                     , ether
+                     , file-embed
+                     , formatting
+                     , generic-arbitrary
+                     , lens
+                     , log-warper
+                     , mmorph
+                     , mono-traversable
+                     , mtl
+                     , node-sketch
+                     , rocksdb-haskell >= 1.0.0
+                     , serokell-util
+                     , stm
+                     , tagged
+                     , text
+                     , text-format
+                     , time-units
+                     , transformers
+                     , universum
+                     , unordered-containers
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

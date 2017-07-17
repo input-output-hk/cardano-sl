@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 
 -- | Secret key file storage and management functions based on file
 -- locking.
@@ -12,7 +11,9 @@ module Pos.Util.UserSecret
        ( UserSecret
        , usKeys
        , usVss
+       , usWalletSet
        , usPrimKey
+       , HasUserSecret(..)
        , getUSPath
        , simpleUserSecret
        , initializeUserSecret
@@ -21,38 +22,43 @@ module Pos.Util.UserSecret
        , takeUserSecret
        , writeUserSecret
        , writeUserSecretRelease
+
+       , UserSecretDecodingError (..)
+       , ensureModeIs600
        ) where
 
-import           Control.Exception    (onException)
-import           Control.Lens         (makeLenses, to)
-import           Data.Binary.Get      (label)
-import qualified Data.ByteString.Lazy as BSL
-import           Data.Default         (Default (..))
-import           Formatting           (build, formatToString, (%))
+import           Control.Exception     (onException)
+import           Control.Lens          (makeLenses, to)
+import qualified Data.ByteString       as BS
+import           Data.Default          (Default (..))
+import qualified Data.Text.Buildable
+import           Formatting            (bprint, build, formatToString, (%))
 import qualified Prelude
-import           Serokell.Util.Text   (listJson)
-import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
-                                       unlockFile, withFileLock)
-import qualified Turtle               as T
+import           Serokell.Util.Text    (listJson)
+import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
+                                        unlockFile, withFileLock)
+import qualified Turtle                as T
 import           Universum
 
-import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
-import           Pos.Binary.Crypto    ()
-import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair)
+import           Pos.Binary.Class      (Bi (..), decodeFull, encode, label, labelS,
+                                        putField)
+import           Pos.Binary.Crypto     ()
+import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
-import           System.Directory     (renameFile)
-import           System.FilePath      (takeDirectory, takeFileName)
-import           System.IO            (hClose)
-import           System.IO.Temp       (openBinaryTempFile)
-import           System.Wlog          (WithLogger)
+import           Pos.Types             (Address)
+import           System.Directory      (renameFile)
+import           System.FilePath       (takeDirectory, takeFileName)
+import           System.IO             (hClose)
+import           System.IO.Temp        (openBinaryTempFile)
+import           System.Wlog           (WithLogger)
 
-import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.Secret (WalletUserSecret)
 
 #ifdef POSIX
-import           Formatting           (oct, sformat)
-import qualified System.Posix.Files   as PSX
-import qualified System.Posix.Types   as PSX (FileMode)
-import           System.Wlog          (logWarning)
+import           Formatting            (oct, sformat)
+import qualified System.Posix.Files    as PSX
+import qualified System.Posix.Types    as PSX (FileMode)
+import           System.Wlog           (logWarning)
 #endif
 
 -- Because of the Formatting import
@@ -61,20 +67,40 @@ import           System.Wlog          (logWarning)
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
 data UserSecret = UserSecret
-    { _usKeys    :: [EncryptedSecretKey]
-    , _usPrimKey :: Maybe SecretKey
-    , _usVss     :: Maybe VssKeyPair
-    , _usPath    :: FilePath
-    , _usLock    :: Maybe FileLock
+    { _usKeys      :: [EncryptedSecretKey]
+    , _usPrimKey   :: Maybe SecretKey
+    , _usVss       :: Maybe VssKeyPair
+    , _usWalletSet :: Maybe WalletUserSecret
+    , _usPath      :: FilePath
+    , _usLock      :: Maybe FileLock
     }
 
 makeLenses ''UserSecret
 
+class HasUserSecret ctx where
+    -- if you're going to mock this TVar, look how it's done for peer state.
+    userSecret :: Lens' ctx (TVar UserSecret)
+
 -- | Show instance to be able to include it into NodeParams
-instance Show UserSecret where
+instance Bi Address => Show UserSecret where
     show UserSecret {..} =
-        formatToString ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%", _usPath = "%build%"}")
-            _usKeys _usVss _usPath
+        formatToString
+            ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%
+             ", _usPath = "%build%", _usWalletSet = "%build%"}")
+            _usKeys
+            _usVss
+            _usPath
+            _usWalletSet
+
+newtype UserSecretDecodingError = UserSecretDecodingError Text
+    deriving (Show)
+
+instance Exception UserSecretDecodingError
+
+instance Buildable UserSecretDecodingError where
+    build (UserSecretDecodingError msg) =
+        "Failed to decode user secret: " <> bprint build msg
+
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
@@ -94,17 +120,26 @@ simpleUserSecret :: SecretKey -> FilePath -> UserSecret
 simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 
 instance Default UserSecret where
-    def = UserSecret [] Nothing Nothing "" Nothing
+    def = UserSecret [] Nothing Nothing Nothing "" Nothing
 
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
-    put UserSecret{..} = put _usVss >> put _usPrimKey >> put _usKeys
+    sizeNPut = labelS "UserSecret" $
+        putField _usVss <>
+        putField _usPrimKey <>
+        putField _usKeys <>
+        putField _usWalletSet
     get = label "UserSecret" $ do
         vss <- get
         pkey <- get
         keys <- get
-        return $ def & usVss .~ vss & usPrimKey .~ pkey & usKeys .~ keys
+        wset <- get
+        return $ def
+            & usVss .~ vss
+            & usPrimKey .~ pkey
+            & usKeys .~ keys
+            & usWalletSet .~ wset
 
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).
@@ -120,8 +155,10 @@ getAccessMode path = do
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
+#endif
 
 ensureModeIs600 :: (MonadIO m, WithLogger m) => FilePath -> m ()
+#ifdef POSIX
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
@@ -129,6 +166,9 @@ ensureModeIs600 path = do
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
+#else
+ensureModeIs600 _ = do
+    pure ()
 #endif
 
 -- | Create user secret file at the given path, but only when one doesn't
@@ -157,7 +197,8 @@ readUserSecret path = do
     ensureModeIs600 path
 #endif
     takeReadLock path $ do
-        content <- either (throwM . Internal . toText) pure . decodeFull =<< BSL.readFile path
+        content <- either (throwM . UserSecretDecodingError . toText) pure .
+                   decodeFull =<< BS.readFile path
         pure $ content & usPath .~ path
 
 -- | Reads user secret from the given file.
@@ -166,7 +207,7 @@ peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
     initializeUserSecret path
     takeReadLock path $ do
-        econtent <- decodeFull <$> BSL.readFile path
+        econtent <- decodeFull <$> BS.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
@@ -176,7 +217,7 @@ takeUserSecret path = do
     initializeUserSecret path
     liftIO $ do
         l <- lockFile (lockFilePath path) Exclusive
-        econtent <- decodeFull <$> BSL.readFile path
+        econtent <- decodeFull <$> BS.readFile path
         pure $ either (const def) identity econtent
             & usPath .~ path
             & usLock .~ Just l
@@ -210,7 +251,7 @@ writeRaw u = do
         openBinaryTempFile (takeDirectory path) (takeFileName path)
 
     -- onException rethrows the exception after calling the handler.
-    BSL.hPut tempHandle (encode u) `onException` do
+    BS.hPut tempHandle (encode u) `onException` do
         hClose tempHandle
 
     hClose tempHandle

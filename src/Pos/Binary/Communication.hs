@@ -1,4 +1,6 @@
+{-# LANGUAGE BinaryLiterals      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Communication-related serialization -- messages mostly.
 
 module Pos.Binary.Communication () where
@@ -6,30 +8,21 @@ module Pos.Binary.Communication () where
 import           Universum
 
 import           Data.Bits                        (Bits (..))
-import qualified Data.ByteString                  as BS
-import qualified Data.ByteString.Lazy             as BSL
-import           Formatting                       (int, sformat, (%))
-import           Node.Message                     (MessageName (..))
+import           Node.Message.Class               (MessageName (..))
 
 import           Pos.Binary.Block                 ()
-import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
-                                                   decodeFull, encodeStrict,
-                                                   getByteString, getRemainingByteString,
-                                                   getSmallWithLength, getWithLength,
-                                                   getWord8, label, putByteString,
-                                                   putSmallWithLength, putWithLength,
-                                                   putWord8)
+import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
+                                                   UnsignedVarInt (..), convertToSizeNPut,
+                                                   decodeFull, deriveSimpleBi, encode,
+                                                   getBytes, getSmallWithLength, getWord8,
+                                                   label, labelS, putBytesS, putField,
+                                                   putS, putSmallWithLengthS, putWord8S)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), PeerId (..),
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    VerInfo (..))
-import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.DHT.Model.Types              (meaningPartLength)
+import           Pos.Core                         (BlockVersion, HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
-import           Pos.Ssc.Class.Types              (Ssc (..))
-import           Pos.Txp.Network.Types            (TxMsgTag (..))
-import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
-
 
 ----------------------------------------------------------------------------
 -- MessageName
@@ -37,116 +30,75 @@ import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgT
 
 deriving instance Bi MessageName
 
+-- TODO: move into each component
+
 ----------------------------------------------------------------------------
 -- Blocks
 ----------------------------------------------------------------------------
 
-instance Bi MsgGetHeaders where
-    put (MsgGetHeaders f t) = put f >> put t
-    get = label "MsgGetHeaders" $ MsgGetHeaders <$> get <*> get
+deriveSimpleBi ''MsgGetHeaders [
+    Cons 'MsgGetHeaders [
+        Field [| mghFrom :: [HeaderHash]     |],
+        Field [| mghTo   :: Maybe HeaderHash |]
+    ]]
 
-instance Bi MsgGetBlocks where
-    put (MsgGetBlocks f t) = put f >> put t
-    get = label "MsgGetBlocks" $ MsgGetBlocks <$> get <*> get
+deriveSimpleBi ''MsgGetBlocks [
+    Cons 'MsgGetBlocks [
+        Field [| mgbFrom :: HeaderHash |],
+        Field [| mgbTo   :: HeaderHash |]
+    ]]
 
-instance Ssc ssc => Bi (MsgHeaders ssc) where
-    put (MsgHeaders b) = put b
+instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
+    sizeNPut = labelS "MsgHeaders" $ putField $ \(MsgHeaders b) -> b
     get = label "MsgHeaders" $ MsgHeaders <$> get
 
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
-    -- We encode block size and then the block itself so that we'd be able to
-    -- reject the block if it's of the wrong size without consuming the whole
-    -- block.
-    put (MsgBlock b) =
-        -- NB: When serializing, we don't check that the size of the
-        -- serialized block is smaller than the allowed size. Note that
-        -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
-        -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
-        putWithLength (put b)
-    get = label "MsgBlock" $ getWithLength $ MsgBlock <$> get
+    sizeNPut = labelS "MsgBlock" $ putField $ \(MsgBlock b) -> b
+    get = label "MsgBlock" $ MsgBlock <$> get
 
 ----------------------------------------------------------------------------
--- Transaction processing
+-- Protocol version info and related
 ----------------------------------------------------------------------------
 
-instance Bi TxMsgTag where
-    put TxMsgTag = pure ()
-    get = pure TxMsgTag
+{- Encoding of HandlerSpec is as follows:
 
-----------------------------------------------------------------------------
--- Delegation/PSK
-----------------------------------------------------------------------------
+| Type                                 | Size     | Value    | Following data |
+|--------------------------------------|----------|----------|----------------|
+| <reserved for future usage>          | Fixed    | 00000000 | <none>         |
+| ConvHandler m, m:UnsignedVarInt < 64 | Fixed    | 01xxxxxx | <none>         |
+| ConvHandler m, m:Unknown             | Variable | 00000001 | MessageName    |
+| UnknownHandler w8 bytes              | Variable | w8       | len, bytes     |
 
-instance Bi SendProxySK where
-    put (SendProxySKLight pSk) = putWord8 0 >> put pSk
-    put (SendProxySKHeavy pSk) = putWord8 1 >> put pSk
-    get = label "SendProxySK" $ getWord8 >>= \case
-        0 -> SendProxySKLight <$> get
-        1 -> SendProxySKHeavy <$> get
-        t -> fail $ "get@SendProxySK: unknown tag " <> show t
+-}
 
-instance Bi ConfirmProxySK where
-    put (ConfirmProxySK pSk proof) = put pSk >> put proof
-    get = label "ConfirmProxySK" $ liftA2 ConfirmProxySK get get
-
---instance Bi CheckProxySKConfirmed where
---    put (CheckProxySKConfirmed pSk) = put pSk
---    get = CheckProxySKConfirmed <$> get
---
---instance Bi CheckProxySKConfirmedRes where
---    put (CheckProxySKConfirmedRes res) = put res
---    get = CheckProxySKConfirmedRes <$> get
---
-----------------------------------------------------------------------------
--- Update system
-----------------------------------------------------------------------------
-
-instance Bi ProposalMsgTag where
-    put ProposalMsgTag = pure ()
-    get = pure ProposalMsgTag
-
-instance Bi VoteMsgTag where
-    put VoteMsgTag = pure ()
-    get = pure VoteMsgTag
-
--- Encoding of HandlerSpec is as follow:
---
--- | Type                                        | Size     | Value     | Following data |
--- |---------------------------------------------|----------|-----------|----------------|
--- | OneMessageHandler                           | Fixed    | 0000 0000 | none           |
--- | ConvHandler m where m : UnsignedVarInt < 64 | Fixed    | 01xx xxxx | none           |
--- | ConvHandler m where m : Unknown             | Variable | 0000 0001 | EncodeString   |
--- | UnknownHandler w8 bs                        | Variable | w8        | bs             |
 instance Bi HandlerSpec where
-    put OneMsgHandler = putWord8 0
-    put (ConvHandler (MessageName m)) =
-        case decodeFull $ BSL.fromStrict m of
-            Right (UnsignedVarInt a)
-                | a < 64 -> putWord8 (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
-            _ -> putWord8 1 >> putSmallWithLength (put m)
-    put (UnknownHandler t b) =
-        putWord8 t >> putSmallWithLength (putByteString b)
+    sizeNPut = labelS "HandlerSpec" $ convertToSizeNPut f
+      where
+        -- CSL-1122: finish with binary literals
+        f (ConvHandler (MessageName m)) =
+            case decodeFull m of
+                Right (UnsignedVarInt a)
+                    | a < 64 -> putWord8S (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
+                _ -> putWord8S 1 <> putS m
+        f (UnknownHandler t b) = putWord8S t <> putSmallWithLengthS (putBytesS b)
+
     get = label "HandlerSpec" $ getWord8 >>= \case
-        0                        -> pure OneMsgHandler
-        1                        -> getSmallWithLength (ConvHandler <$> get)
-        t | (t .&. 0xc0) == 0x40 ->
-            pure . ConvHandler . MessageName . encodeStrict $
-            UnsignedVarInt (fromIntegral (t .&. 0x3f) :: Word)
-          | otherwise            ->
-            getSmallWithLength (UnknownHandler t <$> getRemainingByteString)
+        -- 0000 0000: reserved
+        0 -> pure $ UnknownHandler 0 mempty
+        -- 0000 0001: ConvHandler with a message name
+        1 -> ConvHandler <$> get
+        -- 01xx xxxx: ConvHandler (MessageName xxxxxx)
+        t | (t .&. 0b11000000) == 0b01000000 ->
+            pure . ConvHandler . MessageName . encode $
+            UnsignedVarInt (fromIntegral (t .&. 0b00111111) :: Word)
+        -- none of the above: unknown handler
+          | otherwise -> UnknownHandler t <$>
+                getSmallWithLength (getBytes . fromIntegral)
 
-instance Bi VerInfo where
-    put VerInfo {..} = put vIMagic
-                    <> put vIBlockVersion
-                    <> put vIInHandlers
-                    <> put vIOutHandlers
-    get = label "VerInfo" $ VerInfo <$> get <*> get <*> get <*> get
-
-peerIdLength :: Int
-peerIdLength = meaningPartLength
-
-instance Bi PeerId where
-    put (PeerId b) = if BS.length b /= peerIdLength
-                        then error $ sformat ("Wrong PeerId length "%int) (BS.length b)
-                        else putByteString b
-    get = label "PeerId" $ PeerId <$> getByteString peerIdLength
+deriveSimpleBi ''VerInfo [
+    Cons 'VerInfo [
+        Field [| vIMagic        :: Int32        |],
+        Field [| vIBlockVersion :: BlockVersion |],
+        Field [| vIInHandlers   :: HandlerSpecs |],
+        Field [| vIOutHandlers  :: HandlerSpecs |]
+    ]]

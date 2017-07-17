@@ -6,130 +6,55 @@
 
 module Pos.Genesis
        (
+         module Pos.Core.Genesis
+       , module Pos.Ssc.GodTossing.Genesis
+
        -- * Static state
-         StakeDistribution (..)
-       , GenesisData (..)
-       , getTotalStake
-       , compileGenData
-       , genesisStakeDistribution
+       , stakeDistribution
        , genesisUtxo
        , genesisDelegation
-       , genesisAddresses
        , genesisSeed
-       , genesisBalances
-       -- ** Genesis data used in development mode
-       , genesisDevKeyPairs
-       , genesisDevPublicKeys
-       , genesisDevSecretKeys
-
-       -- * Ssc
        , genesisLeaders
+
+       -- * Dev mode genesis
+       , accountGenesisIndex
+       , wAddressGenesisIndex
+       , devStakesDistr
+       , devAddrDistr
        ) where
 
-import           Data.Default       (Default (..))
-import           Data.List          (genericLength, genericReplicate)
-import qualified Data.Map.Strict    as M
-import qualified Data.Text          as T
-import           Formatting         (int, sformat, (%))
-import           Serokell.Util      (enumerate)
 import           Universum
 
-import qualified Pos.Constants      as Const
-import           Pos.Core.Types     (StakeholderId)
-import           Pos.Crypto         (PublicKey, SecretKey, deterministicKeyGen,
-                                     unsafeHash)
-import           Pos.Genesis.Parser (compileGenData)
-import           Pos.Genesis.Types  (GenesisData (..), StakeDistribution (..),
-                                     getTotalStake)
-import           Pos.Lrc.FtsPure    (followTheSatoshi)
-import           Pos.Lrc.Genesis    (genesisSeed)
-import           Pos.Txp.Core.Types (TxIn (..), TxOut (..), TxOutAux (..),
-                                     TxOutDistribution)
-import           Pos.Txp.Toil.Types (Utxo)
-import           Pos.Types          (Address (..), Coin, SlotLeaders, applyCoinPortion,
-                                     coinToInteger, divCoin, makePubKeyAddress, mkCoin,
-                                     unsafeAddCoin, unsafeMulCoin)
+import qualified Data.HashMap.Strict        as HM
+import           Data.List                  (genericLength, genericReplicate)
+import qualified Data.Map.Strict            as M
+import           Serokell.Util              (enumerate)
+
+import qualified Pos.Constants              as Const
+import           Pos.Core                   (Address, Coin, SlotLeaders, StakeholderId,
+                                             applyCoinPortion, coinToInteger,
+                                             deriveLvl2KeyPair, divCoin,
+                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                             unsafeMulCoin)
+import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
+                                             firstNonHardened, unsafeHash)
+import           Pos.Lrc.FtsPure            (followTheSatoshi)
+import           Pos.Lrc.Genesis            (genesisSeed)
+import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),
+                                             TxOutDistribution)
+import           Pos.Txp.Toil               (Utxo, utxoToStakes)
+
+-- reexports
+import           Pos.Core.Genesis
+import           Pos.Ssc.GodTossing.Genesis
 
 ----------------------------------------------------------------------------
 -- Static state
 ----------------------------------------------------------------------------
 
-generateGenesisKeyPair :: Int -> (PublicKey, SecretKey)
-generateGenesisKeyPair =
-    fromMaybe (error "deterministicKeyGen failed in Genesis") .
-    deterministicKeyGen .
-    encodeUtf8 .
-    T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
-
--- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
-genesisDevKeyPairs :: [(PublicKey, SecretKey)]
-genesisDevKeyPairs = map generateGenesisKeyPair [0 .. Const.genesisN - 1]
-
--- | List of 'PublicKey's in genesis.
-genesisDevPublicKeys :: [PublicKey]
-genesisDevPublicKeys = map fst genesisDevKeyPairs
-
--- | List of 'SecretKey's in genesis.
-genesisDevSecretKeys :: [SecretKey]
-genesisDevSecretKeys = map snd genesisDevKeyPairs
-
--- | List of addresses in genesis. See 'genesisPublicKeys'.
-genesisAddresses :: [Address]
-genesisAddresses
-    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
-    | otherwise           = gdAddresses compileGenData
-
-genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution
-    | Const.isDevelopment = def
-    | otherwise           = gdDistribution compileGenData
-
-genesisBalances :: HashMap StakeholderId Coin
-genesisBalances
-    | Const.isDevelopment = mempty
-    | otherwise           = gdBootstrapBalances compileGenData
-
-instance Default StakeDistribution where
-    def = FlatStakes Const.genesisN
-              (mkCoin 10000 `unsafeMulCoin` (Const.genesisN :: Int))
-
--- 10000 coins in total. For thresholds testing.
--- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001
-expTwoDistribution :: [Coin]
-expTwoDistribution =
-    map mkCoin [5000,2500,1250,625,312,156,78,39,19,8,6,4,2,1]
-
 bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = map mkCoin
     [200,163,120,105,78,76,57,50,46,31,26,13,11,11,7,4,2,0,0,0]
-
-stakeDistribution :: StakeDistribution -> [(Coin, TxOutDistribution)]
-stakeDistribution (FlatStakes stakeholders coins) =
-    genericReplicate stakeholders val
-  where
-    val = (coins `divCoin` stakeholders, [])
-stakeDistribution (BitcoinStakes stakeholders coins) =
-    map ((, []) . normalize) $ bitcoinDistribution1000Coins stakeholders
-  where
-    normalize x = x `unsafeMulCoin`
-                  coinToInteger (coins `divCoin` (1000 :: Int))
-stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
-stakeDistribution ts@RichPoorStakes {..} =
-    checkMpcThd (getTotalStake ts) sdRichStake $
-    map (, []) basicDist
-  where
-    -- Node won't start if richmen cannot participate in MPC
-    checkMpcThd total richs =
-        if richs < applyCoinPortion Const.genesisMpcThd total
-        then error "Pos.Genesis: RichPoorStakes: richmen stake \
-                   \is less than MPC threshold"
-        else identity
-    basicDist = genericReplicate sdRichmen sdRichStake ++
-                genericReplicate sdPoor sdPoorStake
-stakeDistribution (ExplicitStakes balances) =
-    toList balances
-stakeDistribution (CombinedStakes distA distB) =
-    stakeDistribution distA <> stakeDistribution distB
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders
@@ -158,26 +83,146 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
     toAddValMax = coin `unsafeAddCoin`
                   (toAddValMin `unsafeMulCoin` (toAddNum - 1))
 
--- | Genesis 'Utxo'.
-genesisUtxo :: StakeDistribution -> Utxo
-genesisUtxo sd =
-    M.fromList . zipWith zipF (stakeDistribution sd) $
-    genesisAddresses <> tailAddresses
+-- | Given the stake distribution, produces map from coin to txDistr
+-- (which may be empty list).
+stakeDistribution :: StakeDistribution -> [(Coin, TxOutDistribution)]
+stakeDistribution (FlatStakes stakeholders coins) =
+    genericReplicate stakeholders val
   where
-    zipF (coin, distr) addr =
-        ( TxIn (unsafeHash addr) 0
-        , TxOutAux (TxOut addr coin) distr
-        )
-    tailAddresses = map (makePubKeyAddress . fst . generateGenesisKeyPair)
-        [Const.genesisN ..]
+    val = (coins `divCoin` stakeholders, [])
+stakeDistribution (BitcoinStakes stakeholders coins) =
+    map ((, []) . normalize) $ bitcoinDistribution1000Coins stakeholders
+  where
+    normalize x =
+        x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
+stakeDistribution (ExponentialStakes n) =
+    [(mkCoin (2 ^ i), []) | i <- [n - 1, n - 2 .. 0]]
+stakeDistribution ts@RichPoorStakes {..} =
+    checkMpcThd (getTotalStake ts) sdRichStake $
+    map (, []) basicDist
+  where
+    -- Node won't start if richmen cannot participate in MPC
+    checkMpcThd total richs =
+        if richs < applyCoinPortion Const.genesisMpcThd total
+        then error "Pos.Genesis: RichPoorStakes: richmen stake \
+                   \is less than MPC threshold"
+        else identity
+    basicDist = genericReplicate sdRichmen sdRichStake ++
+                genericReplicate sdPoor sdPoorStake
+stakeDistribution (CustomStakes coins) = map (,[]) coins
 
-genesisDelegation :: HashMap StakeholderId [StakeholderId]
+-- | Generates genesis 'Utxo' given optional boot stakeholders list
+-- and address distribution. In case boot stakeholders are supplied,
+-- all the balance is distributed among them. Otherwise, txDistr is
+-- set to @[]@ or left as it is (in case of 'ExplicitStakes').
+genesisUtxo :: Maybe (HashMap StakeholderId Word16) -> [AddrDistribution] -> Utxo
+genesisUtxo bootStakeholders ad =
+    M.fromList $ concatMap (uncurry toUtxo . second stakeDistribution) ad
+  where
+    defaultStakeDistr coin distr
+        = maybe distr
+                (\genDistr -> genesisSplitBoot genDistr coin)
+                bootStakeholders
+    toUtxo :: [Address] -> [(Coin, TxOutDistribution)] -> [(TxIn, TxOutAux)]
+    toUtxo addr distrs =
+        let utxoEntry a (coin,txOutDistr) =
+                ( TxIn (unsafeHash a) 0
+                , TxOutAux (TxOut a coin) (defaultStakeDistr coin txOutDistr)
+                )
+        in zipWith utxoEntry addr distrs
+
+-- This is probably 100% useless.
+genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty
 
+-- | Compute leaders of the 0-th epoch from stake distribution.
+genesisLeaders :: Utxo -> SlotLeaders
+genesisLeaders utxo =
+    followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
+
 ----------------------------------------------------------------------------
--- Slot leaders
+-- Development mode genesis
 ----------------------------------------------------------------------------
 
--- | Leaders of genesis. See 'followTheSatoshi'.
-genesisLeaders :: Utxo -> SlotLeaders
-genesisLeaders = followTheSatoshi genesisSeed
+-- | First index in derivation path for HD account, which is put to genesis utxo
+accountGenesisIndex :: Word32
+accountGenesisIndex = firstNonHardened
+
+-- | Second index in derivation path for HD account, which is put to genesis
+-- utxo
+wAddressGenesisIndex :: Word32
+wAddressGenesisIndex = firstNonHardened
+
+-- | Chooses among common distributions for dev mode.
+devStakesDistr
+    :: Maybe (Int, Int)                   -- flat distr
+    -> Maybe (Int, Int)                   -- bitcoin distr
+    -> Maybe (Int, Int, Integer, Double)  -- rich/poor distr
+    -> Maybe Int                          -- exp distr
+    -> StakeDistribution
+devStakesDistr Nothing Nothing Nothing Nothing = genesisDevFlatDistr
+devStakesDistr (Just (nodes, coins)) Nothing Nothing Nothing =
+    FlatStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
+devStakesDistr Nothing (Just (nodes, coins)) Nothing Nothing =
+    BitcoinStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
+devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) Nothing =
+    checkConsistency $ RichPoorStakes {..}
+  where
+    sdRichmen = fromIntegral richs
+    sdPoor = fromIntegral poors
+
+    totalRichStake = round $ richShare * fromIntegral coins
+    totalPoorStake = coins - totalRichStake
+    richStake = totalRichStake `div` fromIntegral richs
+    poorStake = totalPoorStake `div` fromIntegral poors
+    sdRichStake = mkCoin $ fromIntegral richStake
+    sdPoorStake = mkCoin $ fromIntegral poorStake
+
+    checkConsistency =
+        if poorStake <= 0 || richStake <= 0
+        then error "Impossible to make RichPoorStakes with given parameters."
+        else identity
+devStakesDistr Nothing Nothing Nothing (Just n) =
+    ExponentialStakes (fromIntegral n)
+devStakesDistr _ _ _ _ =
+    error "Conflicting distribution options were enabled. \
+          \Choose one at most or nothing."
+
+-- | Addresses and secret keys of genesis HD wallets' /addresses/.
+-- It's important to return 'Address' here, not 'PublicKey', since valid HD
+-- wallet address keeps 'HDAddressPayload' attribute which value depends on
+-- secret key.
+genesisDevHdwAccountKeyDatas :: [(Address, EncryptedSecretKey)]
+genesisDevHdwAccountKeyDatas =
+    genesisDevHdwSecretKeys <&> \key ->
+        fromMaybe (error "Passphrase doesn't match in Genesis") $
+        deriveLvl2KeyPair
+            emptyPassphrase
+            key
+            accountGenesisIndex
+            wAddressGenesisIndex
+
+-- | Address distribution for dev mode. It's supposed that you pass
+-- the distribution from 'devStakesDistr' here. This function will add
+-- dev genesis addresses and hd addrs/distr.
+devAddrDistr :: StakeDistribution -> [AddrDistribution]
+devAddrDistr distr =
+    [ (mainAddrs, distr)        -- Addresses from passed stake
+    , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
+    ]
+  where
+    distrSize = length $ stakeDistribution distr
+    mainAddrs =
+        take distrSize $ genesisDevAddresses <> tailAddresses
+    tailAddresses =
+        map (makePubKeyAddress . fst . generateGenesisKeyPair)
+            [Const.genesisKeysN ..]
+    hdwSize = 2 -- should be positive
+    -- 200 coins split among hdwSize users. Should be small sum enough
+    -- to avoid making wallets slot leaders.
+    hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 200)
+    -- should be enough for testing.
+    hdwAddresses = take hdwSize genesisDevHdwAccountAddresses
+
+    genesisDevHdwAccountAddresses :: [Address]
+    genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas

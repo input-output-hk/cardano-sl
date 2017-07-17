@@ -1,33 +1,41 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Extra information for blocks.
---   * Forward links
---   * InMainChain flags
+--   * Forward links.
+--   * InMainChain flags.
+--   * Slots of the last 'blkSecurityParam' (at most) blocks
+--     (for chain quality check).
 
 module Pos.DB.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
+       , getLastSlots
        , BlockExtraOp (..)
+       , foldlUpWhileM
        , loadHeadersUpWhile
        , loadBlocksUpWhile
-       , prepareGStateBlockExtra
+       , initGStateBlockExtra
        ) where
 
-import qualified Data.Text.Buildable
-import qualified Database.RocksDB      as Rocks
-import           Formatting            (bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class      (encodeStrict)
-import           Pos.Block.Types       (Blund)
-import           Pos.Crypto            (shortHashF)
-import           Pos.DB.Block          (getBlockWithUndo)
-import           Pos.DB.Class          (MonadDB, getUtxoDB)
-import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBi, rocksPutBi)
-import           Pos.Ssc.Class.Helpers (SscHelpersClass)
-import           Pos.Types             (Block, BlockHeader, HasHeaderHash, HeaderHash,
-                                        blockHeader, headerHash)
-import           Pos.Util.Chrono       (OldestFirst (..))
+import qualified Data.Text.Buildable
+import qualified Database.RocksDB     as Rocks
+import           Formatting           (bprint, build, (%))
+import           Serokell.Util.Text   (listJson)
+
+import           Pos.Binary.Class     (encode)
+import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
+import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
+import           Pos.Block.Types      (Blund)
+import           Pos.Constants        (genesisHash)
+import           Pos.Core             (FlatSlotId, HasHeaderHash, HeaderHash, headerHash,
+                                       slotIdF, unflattenSlotId)
+import           Pos.Crypto           (shortHashF)
+import           Pos.DB               (MonadDB, MonadDBRead, RocksBatchOp (..))
+import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
+import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
+import           Pos.Util.Chrono      (OldestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -35,30 +43,37 @@ import           Pos.Util.Chrono       (OldestFirst (..))
 
 -- | Tries to retrieve next block using current one (given a block/header).
 resolveForwardLink
-    :: (HasHeaderHash a, MonadDB m)
+    :: (HasHeaderHash a, MonadDBRead m)
     => a -> m (Maybe HeaderHash)
-resolveForwardLink x =
-    rocksGetBi (forwardLinkKey $ headerHash x) =<< getUtxoDB
+resolveForwardLink x = gsGetBi (forwardLinkKey $ headerHash x)
 
 -- | Check if given hash representing block is in main chain.
 isBlockInMainChain
-    :: (HasHeaderHash a, MonadDB m)
+    :: (HasHeaderHash a, MonadDBRead m)
     => a -> m Bool
-isBlockInMainChain h = do
-    db <- getUtxoDB
-    maybe False (\() -> True) <$> rocksGetBi (mainChainKey $ headerHash h) db
+isBlockInMainChain h =
+    maybe False (\() -> True) <$> gsGetBi (mainChainKey $ headerHash h)
+
+-- | This function returns 'FlatSlotId's of the blocks whose depth is
+-- less than 'blkSecurityParam'.
+getLastSlots :: forall m . MonadDBRead m => m LastBlkSlots
+getLastSlots = fromMaybe noLastBlkSlots <$> gsGetBi lastSlotsKey
 
 ----------------------------------------------------------------------------
 -- BlockOp
 ----------------------------------------------------------------------------
 
 data BlockExtraOp
-    = AddForwardLink HeaderHash HeaderHash
+    = AddForwardLink HeaderHash
+                     HeaderHash
       -- ^ Adds or overwrites forward link
     | RemoveForwardLink HeaderHash
       -- ^ Removes forward link
-    | SetInMainChain Bool HeaderHash
+    | SetInMainChain Bool
+                     HeaderHash
       -- ^ Enables or disables "in main chain" status of the block
+    | SetLastSlots (OldestFirst [] FlatSlotId)
+      -- ^ Updates list of slots for last blocks.
     deriving (Show)
 
 instance Buildable BlockExtraOp where
@@ -68,45 +83,70 @@ instance Buildable BlockExtraOp where
         bprint ("RemoveForwardLink from "%shortHashF) from
     build (SetInMainChain flag h) =
         bprint ("SetInMainChain for "%shortHashF%": "%build) h flag
+    build (SetLastSlots slots) =
+        bprint ("SetLastSlots: "%listJson)
+        (map (bprint slotIdF . unflattenSlotId) slots)
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
-        [Rocks.Put (forwardLinkKey from) (encodeStrict to)]
+        [Rocks.Put (forwardLinkKey from) (encode to)]
     toBatchOp (RemoveForwardLink from) =
         [Rocks.Del $ forwardLinkKey from]
     toBatchOp (SetInMainChain False h) =
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
-        [Rocks.Put (mainChainKey h) (encodeStrict ()) ]
+        [Rocks.Put (mainChainKey h) (encode ()) ]
+    toBatchOp (SetLastSlots slots) =
+        [Rocks.Put lastSlotsKey (encode slots)]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links
 ----------------------------------------------------------------------------
 
+foldlUpWhileM
+    :: forall a b ssc m r .
+    ( MonadBlockDB ssc m
+    , HasHeaderHash a
+    )
+    => (Blund ssc -> m b)
+    -> a
+    -> ((Blund ssc, b) -> Int -> Bool)
+    -> (r -> b -> m r)
+    -> r
+    -> m r
+foldlUpWhileM morphM start condition accM init =
+    loadUpWhileDo (headerHash start) 0 init
+  where
+    loadUpWhileDo :: HeaderHash -> Int -> r -> m r
+    loadUpWhileDo curH height !res = blkGetBlund curH >>= \case
+        Nothing -> pure res
+        Just x@(block,_) -> do
+            curB <- morphM x
+            mbNextLink <- fmap headerHash <$> resolveForwardLink block
+            if | not (condition (x, curB) height) -> pure res
+               | Just nextLink <- mbNextLink -> do
+                     newRes <- accM res curB
+                     loadUpWhileDo nextLink (succ height) newRes
+               | otherwise -> accM res curB
+
 -- Loads something from old to new.
 loadUpWhile
-    :: forall a b ssc m . (SscHelpersClass ssc, MonadDB m, HasHeaderHash a)
+    :: forall a b ssc m . (MonadBlockDB ssc m, HasHeaderHash a)
     => (Blund ssc -> b)
     -> a
     -> (b -> Int -> Bool)
     -> m (OldestFirst [] b)
-loadUpWhile morph start condition =
-    OldestFirst <$> loadUpWhileDo (headerHash start) 0
-  where
-    loadUpWhileDo :: HeaderHash -> Int -> m [b]
-    loadUpWhileDo curH height = getBlockWithUndo curH >>= \case
-        Nothing -> pure []
-        Just x@(block,_) -> do
-            mbNextLink <- fmap headerHash <$> resolveForwardLink block
-            let curB = morph x
-            if | not (condition curB height) -> pure []
-               | Just nextLink <- mbNextLink ->
-                     (curB :) <$> loadUpWhileDo nextLink (succ height)
-               | otherwise -> pure [curB]
+loadUpWhile morph start condition = OldestFirst . reverse <$>
+    foldlUpWhileM
+        (pure . morph)
+        start
+        (\b h -> condition (snd b) h)
+        (\l e -> pure (e : l))
+        []
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile
-    :: (SscHelpersClass ssc, MonadDB m, HasHeaderHash a)
+    :: (MonadBlockDB ssc m, HasHeaderHash a)
     => a
     -> (BlockHeader ssc -> Int -> Bool)
     -> m (OldestFirst [] (BlockHeader ssc))
@@ -115,7 +155,7 @@ loadHeadersUpWhile start condition =
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
-    :: (SscHelpersClass ssc, MonadDB m, HasHeaderHash a)
+    :: (MonadBlockDB ssc m, HasHeaderHash a)
     => a
     -> (Block ssc -> Int -> Bool)
     -> m (OldestFirst [] (Block ssc))
@@ -125,16 +165,20 @@ loadBlocksUpWhile start condition = loadUpWhile fst start condition
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
-prepareGStateBlockExtra firstGenesisHash =
-    rocksPutBi (mainChainKey firstGenesisHash) () =<< getUtxoDB
+initGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
+initGStateBlockExtra firstGenesisHash = do
+    gsPutBi (mainChainKey firstGenesisHash) ()
+    gsPutBi (forwardLinkKey genesisHash) firstGenesisHash
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
 
 forwardLinkKey :: HeaderHash -> ByteString
-forwardLinkKey h = "e/fl/" <> encodeStrict h
+forwardLinkKey h = "e/fl/" <> encode h
 
 mainChainKey :: HeaderHash -> ByteString
-mainChainKey h = "e/mc/" <> encodeStrict h
+mainChainKey h = "e/mc/" <> encode h
+
+lastSlotsKey :: ByteString
+lastSlotsKey = "e/ls/"

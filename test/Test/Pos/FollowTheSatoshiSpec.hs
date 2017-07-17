@@ -13,12 +13,12 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
 import           Universum
 
-import           Pos.Constants         (epochSlots)
+import           Pos.Constants         (blkSecurityParam, epochSlots)
 import           Pos.Core              (Address (..), Coin, SharedSeed, StakeholderId,
                                         mkCoin, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin)
 import           Pos.Crypto            (unsafeHash)
-import           Pos.Lrc               (followTheSatoshi)
+import           Pos.Lrc               (followTheSatoshiUtxo)
 import           Pos.Txp               (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                                         txOutStake)
 
@@ -26,7 +26,7 @@ spec :: Spec
 spec = do
     let smaller = modifyMaxSuccess (const 1)
     describe "FollowTheSatoshi" $ do
-        describe "followTheSatoshi" $ do
+        describe "followTheSatoshiUtxo" $ do
             describe "deterministic" $ do
                 prop description_ftsListLength ftsListLength
                 prop description_ftsNoStake ftsNoStake
@@ -92,14 +92,14 @@ instance Arbitrary StakeAndHolder where
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
 ftsListLength fts (getNoStake -> (_, utxo)) =
-    length (followTheSatoshi fts utxo) == epochSlots
+    length (followTheSatoshiUtxo fts utxo) == fromIntegral epochSlots
 
 ftsNoStake
     :: SharedSeed
     -> StakeAndHolder
     -> Bool
 ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
-    not (addrHash `elem` followTheSatoshi fts utxo)
+    not (addrHash `elem` followTheSatoshiUtxo fts utxo)
 
 -- | This test looks useless, but since transactions with zero coins are not
 -- allowed, the Utxo map will never have any addresses with 0 coins to them,
@@ -113,12 +113,14 @@ ftsAllStake
     -> Bool
 ftsAllStake fts key ah v =
     let utxo = M.singleton key (TxOutAux (TxOut (PubKeyAddress ah def) v) [])
-    in all (== ah) $ followTheSatoshi fts utxo
+    in all (== ah) $ followTheSatoshiUtxo fts utxo
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
-numberOfRuns :: Num a => a
-numberOfRuns = 3000
+numberOfRuns :: Int
+-- The higher is 'blkSecurityParam', the longer epochs will be and the more
+-- time FTS will take
+numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
 
 newtype FtsStream = Stream
     { getStream :: [SharedSeed]
@@ -134,13 +136,13 @@ newtype UtxoStream = UtxoStream
 instance Arbitrary UtxoStream where
     arbitrary = UtxoStream . take numberOfRuns <$> infiniteListOf arbitrary
 
--- | This test is a sanity check to verify that 'followTheSatoshi' does not
+-- | This test is a sanity check to verify that 'followTheSatoshiUtxo' does not
 -- behave too extremely, i.e. someone with 2% of stake won't be chosen a
 -- disproportionate number of times, and someone with 98% of it will be
 -- chosen almost every time.
 --
 -- For an infinite list of Utxo maps and an infinite list of 'SharedSeed's, the
--- 'followTheSatoshi' function will be ran many times with a different seed and
+-- 'followTheSatoshiUtxo' function will be ran many times with a different seed and
 -- map each time and the absolute frequency of the choice of a given address
 -- as stakeholder will be compared to a low/high threshold, depending on whether
 -- the address has a low/high stake, respectively.
@@ -184,10 +186,10 @@ ftsReasonableStake
                            (1 - stakeProbability)
         txOut        = TxOut (PubKeyAddress adrH def) newStake
         newUtxo      = M.insert key (TxOutAux txOut []) utxo
-        picks        = followTheSatoshi fts newUtxo
+        picks        = followTheSatoshiUtxo fts newUtxo
         pLen         = length picks
         newPresent   = present +
-            if adrH `elem` picks then 1 / numberOfRuns else 0
+            if adrH `elem` picks then 1 / (fromIntegral numberOfRuns) else 0
         newChosen    = chosen +
             fromIntegral (length (filter (== adrH) (toList picks))) /
-            (numberOfRuns * fromIntegral pLen)
+            (fromIntegral numberOfRuns * fromIntegral pLen)

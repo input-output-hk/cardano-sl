@@ -10,40 +10,39 @@ import           Control.Concurrent.STM     (TVar, newTVar, readTVar, writeTVar)
 import qualified Data.HashMap.Strict        as HM
 import           Data.Tagged                (Tagged (..))
 import           Data.Time.Units            (Millisecond, convertUnit)
-import qualified Ether
 import           Formatting                 (build, int, sformat, (%))
 import           Mockable                   (delay)
-import           Paths_cardano_sl           (version)
 import           Serokell.Util              (sec)
 import           System.Wlog                (logWarning)
 
 import           Pos.Binary.Ssc             ()
+import           Pos.Block.Core             (Block, BlockHeader, MainBlock,
+                                             mainBlockSscPayload)
 import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
-import           Pos.Block.Pure             (genesisHash)
 import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
                                              localWorker, worker)
-import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
+import           Pos.Constants              (blkSecurityParam, genesisHash,
+                                             mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
-import           Pos.Context                (getUptime, npPublicKey, recoveryInProgress)
+import           Pos.Context                (getOurPublicKey, getOurStakeholderId,
+                                             getUptime, recoveryCommGuard)
+import           Pos.Core                   (EpochIndex, SlotId (..), epochIndexL,
+                                             flattenEpochOrSlot, flattenSlotId,
+                                             headerHash, headerLeaderKeyL, prevBlockL)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
-import           Pos.DB.Block               (getBlockHeader)
-import           Pos.DB.Class               (MonadDB)
-import           Pos.DB.DB                  (getTipBlockHeader, loadBlundsFromTipByDepth)
-import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
+import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
+import           Pos.DB.DB                  (getTipHeader, loadBlundsFromTipByDepth)
+import           Pos.Reporting.Methods      (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Security.Class         (SecurityWorkersClass (..))
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getLastKnownSlotDuration,
                                              onNewSlot)
-import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              getCommitmentsMap)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
-import           Pos.Types                  (Block, BlockHeader, EpochIndex, MainBlock,
-                                             SlotId (..), addressHash, blockMpc,
-                                             blockSlot, flattenEpochOrSlot, flattenSlotId,
-                                             headerHash, headerLeaderKey, prevBlockL)
 import           Pos.Util                   (mconcatPair)
 import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
@@ -52,7 +51,9 @@ import           Pos.WorkMode.Class         (WorkMode)
 instance SecurityWorkersClass SscGodTossing where
     securityWorkers =
         Tagged $
-        merge [checkForReceivedBlocksWorker, checkForIgnoredCommitmentsWorker]
+        merge [ checkForReceivedBlocksWorker
+              , checkForIgnoredCommitmentsWorker
+              ]
       where
         merge = mconcatPair . map (first pure)
 
@@ -60,13 +61,13 @@ instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
 
 checkForReceivedBlocksWorker ::
-    (SscWorkersClass ssc, WorkMode ssc m)
+    (SscWorkersClass ssc, WorkMode ssc ctx m)
     => (WorkerSpec m, OutSpecs)
 checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m)
     => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
 checkEclipsed ourPk slotId x = notEclipsed x
   where
@@ -88,7 +89,7 @@ checkEclipsed ourPk slotId x = notEclipsed x
     -- been eclipsed.  Here's how we determine that a block is good
     -- (i.e. main block generated not by us):
     isGoodBlock (Left _)   = False
-    isGoodBlock (Right mb) = mb ^. headerLeaderKey /= ourPk
+    isGoodBlock (Right mb) = mb ^. headerLeaderKeyL /= ourPk
     -- Okay, now let's iterate until we see a good blocks or until we
     -- go past the threshold and there's no point in looking anymore:
     notEclipsed header = do
@@ -97,22 +98,21 @@ checkEclipsed ourPk slotId x = notEclipsed x
            | prevBlock == genesisHash -> pure True
            | isGoodBlock header       -> pure True
            | otherwise                ->
-                 getBlockHeader prevBlock >>= \case
+                 blkGetHeader prevBlock >>= \case
                      Just h  -> notEclipsed h
                      Nothing -> onBlockLoadFailure header $> True
 
 checkForReceivedBlocksWorkerImpl
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . reportingFatal version $
-        whenM (needRecovery @ssc) $
-            triggerRecovery sendActions
-    repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
-        ourPk <- Ether.asks' npPublicKey
+    repeatOnInterval (const (sec' 4)) . reportingFatal . recoveryCommGuard $
+        whenM (needRecovery @ssc) $ triggerRecovery sendActions
+    repeatOnInterval (min (sec' 20)) . reportingFatal . recoveryCommGuard $ do
+        ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
-                header <- getTipBlockHeader @ssc
+                header <- getTipHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         whenJustM getCurrentSlot onSlotDefault
   where
@@ -133,26 +133,26 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     reportEclipse = do
         bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime
-        isRecovery <- recoveryInProgress
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
-        when (nonTrivialUptime && not isRecovery) $
-            reportMisbehaviourMasked version reason
-
+        -- TODO [CSL-1340]: should it be critical or not? Is it
+        -- misbehavior or error?
+        when nonTrivialUptime $ recoveryCommGuard $
+            reportMisbehaviourSilent True reason
 
 checkForIgnoredCommitmentsWorker
-    :: forall m.
-       WorkMode SscGodTossing m
+    :: forall ctx m.
+       WorkMode SscGodTossing ctx m
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     epochIdx <- atomically (newTVar 0)
     void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl epochIdx)
 
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall m. (WorkMode SscGodTossing m)
+    :: forall ctx m. (WorkMode SscGodTossing ctx m)
     => TVar EpochIndex -> SlotId -> m ()
-checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
+checkForIgnoredCommitmentsWorkerImpl tvar slotId = recoveryCommGuard $ do
     -- Check prev blocks
     (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
         map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam
@@ -169,10 +169,10 @@ checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
   where
     checkCommitmentsInBlock :: MainBlock SscGodTossing -> m ()
     checkCommitmentsInBlock block = do
-        ourId <- Ether.asks' (addressHash . npPublicKey)
-        let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. blockMpc)
+        ourId <- getOurStakeholderId
+        let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. mainBlockSscPayload)
         when commitmentInBlockchain $
-            atomically $ writeTVar tvar $ siEpoch $ block ^. blockSlot
+            atomically $ writeTVar tvar $ block ^. epochIndexL
     isCommitmentInPayload addr (CommitmentsPayload commitments _) =
         HM.member addr $ getCommitmentsMap commitments
     isCommitmentInPayload _ _ = False

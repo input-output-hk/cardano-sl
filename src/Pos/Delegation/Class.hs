@@ -1,49 +1,59 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Definitions for class of monads that capture logic of processing
 -- delegate certificates (proxy secret keys).
 
 module Pos.Delegation.Class
-       ( DelegationWrap (..)
+       ( DlgMemPool
+       , DelegationWrap (..)
        , dwMessageCache
        , dwConfirmationCache
        , dwProxySKPool
+       , dwPoolSize
        , dwEpochId
        , dwThisEpochPosted
+
+       , DelegationVar
        , MonadDelegation
        , askDelegationState
        ) where
 
-import           Control.Concurrent.STM (TVar)
-import           Control.Lens           (makeLenses)
-import           Data.Default           (Default (def))
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.HashSet           as HS
-import           Data.Time.Clock        (UTCTime)
-import qualified Ether
 import           Universum
 
-import           Pos.Crypto             (PublicKey)
-import           Pos.Delegation.Types   (SendProxySK)
-import           Pos.Types              (EpochIndex, ProxySKHeavy, ProxySKLight)
+import           Control.Lens               (makeLenses)
+import qualified Data.Cache.LRU             as LRU
+import           Data.Time.Clock            (UTCTime)
+import           Serokell.Data.Memory.Units (Byte)
+
+import           Pos.Core                   (EpochIndex, ProxySKHeavy, ProxySKLight)
+import           Pos.Crypto                 (PublicKey)
+import           Pos.Delegation.Types       (DlgMemPool)
+import           Pos.Util.Concurrent.RWVar  (RWVar)
+import           Pos.Util.Util              (HasLens (..))
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
 ----------------------------------------------------------------------------
 
--- | In-memory storage needed for delegation logic
--- Maybe ncProxyCache should be LRU instead of hashmap, but that's not
--- urgent optimization idea.
+-- Notice: LRU caches in datatypes are only there to emulate
+-- throw-away-old-entries queue behaviour, we don't ever update LRUs
+-- with LRU.lookup.
+-- | In-memory storage needed for delegation logic.
 data DelegationWrap = DelegationWrap
-    { _dwMessageCache      :: HashMap SendProxySK UTCTime
+    { _dwMessageCache      :: LRU.LRU (Either ProxySKLight ProxySKHeavy) UTCTime
       -- ^ Message cache to prevent infinite propagation of useless
       -- certs.
-    , _dwConfirmationCache :: HashMap ProxySKLight UTCTime
-      -- ^ Confirmation cache for lightweight PSKs.
-    , _dwProxySKPool       :: HashMap PublicKey ProxySKHeavy
+    , _dwConfirmationCache :: LRU.LRU ProxySKLight UTCTime
+      -- ^ Confirmation cache for lightweight PSKs. Not used in endpoints tho.
+    , _dwProxySKPool       :: DlgMemPool
       -- ^ Memory pool of hardweight proxy secret keys. Keys of this
       -- map are issuer public keys.
+    , _dwPoolSize          :: !Byte
+      -- ^ Size of '_dwProxySKPool' in bytes.
+      -- It's not exact size for a variety of reasons, but it should be
+      -- a good approximation.
     , _dwEpochId           :: EpochIndex
       -- ^ Epoch index 'DelegationWrap' is correct in relation to.
     , _dwThisEpochPosted   :: HashSet PublicKey
@@ -53,18 +63,16 @@ data DelegationWrap = DelegationWrap
 
 makeLenses ''DelegationWrap
 
-instance Default DelegationWrap where
-    def = DelegationWrap HM.empty HM.empty HM.empty 0 HS.empty
+type DelegationVar = RWVar DelegationWrap
 
 ----------------------------------------------------------------------------
 -- Class definition
 ----------------------------------------------------------------------------
 
--- | Equivalent of @MonadReader (TVar DelegationWrap) m@. Currently
--- we're locking on the whole delegation wrap at once. Locking on
+-- | We're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place
 -- for optimization here.
-type MonadDelegation = Ether.MonadReader' (TVar DelegationWrap)
+type MonadDelegation ctx m = (MonadReader ctx m, HasLens DelegationVar ctx DelegationVar)
 
-askDelegationState :: MonadDelegation m => m (TVar DelegationWrap)
-askDelegationState = Ether.ask'
+askDelegationState :: MonadDelegation ctx m => m DelegationVar
+askDelegationState = view (lensOf @DelegationVar)

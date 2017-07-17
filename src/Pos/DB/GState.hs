@@ -11,8 +11,8 @@ module Pos.DB.GState
        ) where
 
 import           Pos.DB.GState.BlockExtra
-import           Pos.DB.GState.Common     (CommonOp (..), getBot, getTip,
-                                           writeBatchGState)
+import           Pos.DB.GState.Common     (CommonOp (..), getBot, getMaxSeenDifficulty,
+                                           getTip, writeBatchGState)
 import           Pos.DB.GState.GState
 import           Pos.Delegation.DB
 import           Pos.Txp.DB

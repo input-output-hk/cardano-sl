@@ -5,17 +5,20 @@
 module Pos.Lrc.FtsPure
        ( followTheSatoshi
        , followTheSatoshiM
+       , followTheSatoshiUtxo
        ) where
 
-import qualified Data.HashMap.Strict as HM
 import           Universum
 
+import           Data.Conduit        (runConduitPure, (.|))
+import qualified Data.Conduit.List   as CL
+import qualified Data.HashMap.Strict as HM
+import           Formatting          (int, sformat, (%))
+
+import           Pos.Core            (Coin, SharedSeed (..), SlotLeaders, StakeholderId,
+                                      coinToInteger, mkCoin, sumCoins)
 import           Pos.Lrc.Fts         (followTheSatoshiM)
-import           Pos.Txp.Toil.Types  (Utxo)
-import           Pos.Txp.Toil.Utxo   (utxoToStakes)
-import           Pos.Types           (Coin, SharedSeed (..), StakeholderId, coinToInteger,
-                                      mkCoin, sumCoins)
-import           Pos.Util.Iterator   (runListHolder)
+import           Pos.Txp.Toil        (Utxo, utxoToStakes)
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').
@@ -35,17 +38,20 @@ import           Pos.Util.Iterator   (runListHolder)
 -- to them. Therefore, P2SH addresses can contain 'addrDestination' which
 -- specifies which addresses should count as “owning” funds for the purposes
 -- of follow-the-satoshi.
-followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty StakeholderId
-followTheSatoshi seed utxo
-    | null stakes =
-          error "followTheSatoshi: utxo is empty"
-    | totalCoins > coinToInteger (maxBound @Coin) =
-          error "followTheSatoshi: totalCoins exceeds Word64"
+followTheSatoshi :: SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
+followTheSatoshi seed stakes
+    | totalCoins > coinToInteger maxBound =
+        error $ sformat
+        ("followTheSatoshi: total stake exceeds limit ("%int%" > "%int%")")
+        totalCoins (coinToInteger maxBound)
+    | totalCoinsCoin == minBound = error "followTheSatoshi: no stake"
     | otherwise =
-          runListHolder
-              (followTheSatoshiM seed
-                   (mkCoin (fromInteger totalCoins)))
-              stakes
+          runConduitPure $ CL.sourceList stakes .|
+                           followTheSatoshiM seed totalCoinsCoin
   where
-    stakes = HM.toList $ utxoToStakes utxo
     totalCoins = sumCoins $ map snd stakes
+    totalCoinsCoin = mkCoin $ fromInteger totalCoins
+
+followTheSatoshiUtxo :: SharedSeed -> Utxo -> SlotLeaders
+followTheSatoshiUtxo seed utxo =
+    followTheSatoshi seed $ HM.toList $ utxoToStakes utxo

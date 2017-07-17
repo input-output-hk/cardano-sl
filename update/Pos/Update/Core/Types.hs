@@ -1,11 +1,12 @@
-{-# LANGUAGE DeriveLift           #-}
+{-# LANGUAGE DeriveLift #-}
 
 -- | This module contains all basic types for @cardano-sl@ update system.
 
 module Pos.Update.Core.Types
        (
          -- * UpdateProposal and related
-         UpdateProposal (..)
+         BlockVersionModifier (..)
+       , UpdateProposal (..)
        , UpId
        , UpAttributes
        , UpdateData (..)
@@ -16,8 +17,6 @@ module Pos.Update.Core.Types
        , mkUpdateProposalWSign
        , mkSystemTag
        , systemTagMaxLength
-       , patakUpdateData
-       , skovorodaUpdateData
        , upScriptVersion
        , upSlotDuration
        , upMaxBlockSize
@@ -57,27 +56,89 @@ import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
 import           Data.Text.Lazy.Builder     (Builder)
 import           Data.Time.Units            (Millisecond)
-import           Formatting                 (Format, bprint, build, builder, later, (%))
+import           Formatting                 (Format, bprint, build, builder, int, later,
+                                             (%))
 import           Instances.TH.Lift          ()
 import           Language.Haskell.TH.Syntax (Lift)
-import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text         (listJson)
 
 import           Pos.Binary.Class           (Bi, Raw)
 import           Pos.Binary.Crypto          ()
 import           Pos.Core                   (BlockVersion, BlockVersionData (..),
+                                             CoinPortion, EpochIndex, FlatSlotId,
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
-                                             SoftwareVersion, addressHash)
+                                             SoftforkRule, SoftwareVersion, TxFeePolicy,
+                                             addressHash)
 import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
                                              SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,
-                                             shortHashF, unsafeHash)
+                                             shortHashF)
 import           Pos.Data.Attributes        (Attributes (attrRemain))
 import           Pos.Util.Util              (Some)
+
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related
 ----------------------------------------------------------------------------
+
+-- | Data which represents modifications of block (aka protocol) version.
+data BlockVersionModifier = BlockVersionModifier
+    { bvmScriptVersion     :: !ScriptVersion
+    , bvmSlotDuration      :: !Millisecond
+    , bvmMaxBlockSize      :: !Byte
+    , bvmMaxHeaderSize     :: !Byte
+    , bvmMaxTxSize         :: !Byte
+    , bvmMaxProposalSize   :: !Byte
+    , bvmMpcThd            :: !CoinPortion
+    , bvmHeavyDelThd       :: !CoinPortion
+    , bvmUpdateVoteThd     :: !CoinPortion
+    , bvmUpdateProposalThd :: !CoinPortion
+    , bvmUpdateImplicit    :: !FlatSlotId
+    , bvmSoftforkRule      :: !(Maybe SoftforkRule)
+    , bvmTxFeePolicy       :: !(Maybe TxFeePolicy)
+    , bvmUnlockStakeEpoch  :: !(Maybe EpochIndex)
+    } deriving (Show, Eq, Generic, Typeable)
+
+instance NFData BlockVersionModifier
+
+instance Buildable BlockVersionModifier where
+    build BlockVersionModifier {..} =
+      bprint ("{ scripts v"%build%
+              ", slot duration: "%int%" mcs"%
+              ", block size limit: "%memory%
+              ", header size limit: "%memory%
+              ", tx size limit: "%memory%
+              ", proposal size limit: "%memory%
+              ", mpc threshold: "%build%
+              ", heavyweight delegation threshold: "%build%
+              ", update vote threshold: "%build%
+              ", update proposal threshold: "%build%
+              ", update implicit period: "%int%" slots"%
+              ", "%builder%
+              ", "%builder%
+              ", unlock stake epoch: "%build%
+              " }")
+        bvmScriptVersion
+        bvmSlotDuration
+        bvmMaxBlockSize
+        bvmMaxHeaderSize
+        bvmMaxTxSize
+        bvmMaxProposalSize
+        bvmMpcThd
+        bvmHeavyDelThd
+        bvmUpdateVoteThd
+        bvmUpdateProposalThd
+        bvmUpdateImplicit
+        softforkRuleBuilder
+        feePolicyBuilder
+        bvmUnlockStakeEpoch
+      where
+        feePolicyBuilder =
+            maybe "no tx fee policy" (bprint build) bvmTxFeePolicy
+        softforkRuleBuilder =
+            maybe "no softfork rule" (mappend "softfork rule: " . bprint build)
+                  bvmSoftforkRule
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
@@ -102,32 +163,32 @@ type UpAttributes = Attributes ()
 data UpdateProposalToSign
     = UpdateProposalToSign
     { upsBV   :: !BlockVersion
-    , upsBVD  :: !BlockVersionData
+    , upsBVM  :: !BlockVersionModifier
     , upsSV   :: !SoftwareVersion
     , upsData :: !(HM.HashMap SystemTag UpdateData)
     , upsAttr :: !UpAttributes
-    }
+    } deriving (Eq, Show, Generic)
 
 -- | Proposal for software update
 data UpdateProposal = UnsafeUpdateProposal
-    { upBlockVersion     :: !BlockVersion
-    , upBlockVersionData :: !BlockVersionData
-    , upSoftwareVersion  :: !SoftwareVersion
-    , upData             :: !(HM.HashMap SystemTag UpdateData)
+    { upBlockVersion    :: !BlockVersion
+    , upBlockVersionMod :: !BlockVersionModifier
+    , upSoftwareVersion :: !SoftwareVersion
+    , upData            :: !(HM.HashMap SystemTag UpdateData)
     -- ^ UpdateData for each system which this update affects.
     -- It must be non-empty.
-    , upAttributes       :: !UpAttributes
+    , upAttributes      :: !UpAttributes
     -- ^ Attributes which are currently empty, but provide
     -- extensibility.
-    , upFrom             :: !PublicKey
+    , upFrom            :: !PublicKey
     -- ^ Who proposed this UP.
-    , upSignature        :: !(Signature UpdateProposalToSign)
+    , upSignature       :: !(Signature UpdateProposalToSign)
     } deriving (Eq, Show, Generic, Typeable)
 
 mkUpdateProposal
     :: (MonadFail m, Bi UpdateProposalToSign)
     => BlockVersion
-    -> BlockVersionData
+    -> BlockVersionModifier
     -> SoftwareVersion
     -> HM.HashMap SystemTag UpdateData
     -> UpAttributes
@@ -136,7 +197,7 @@ mkUpdateProposal
     -> m UpdateProposal
 mkUpdateProposal
     upBlockVersion
-    upBlockVersionData
+    upBlockVersionMod
     upSoftwareVersion
     upData
     upAttributes
@@ -147,7 +208,7 @@ mkUpdateProposal
         let toSign =
                 UpdateProposalToSign
                     upBlockVersion
-                    upBlockVersionData
+                    upBlockVersionMod
                     upSoftwareVersion
                     upData
                     upAttributes
@@ -158,7 +219,7 @@ mkUpdateProposal
 mkUpdateProposalWSign
     :: (MonadFail m, Bi UpdateProposalToSign)
     => BlockVersion
-    -> BlockVersionData
+    -> BlockVersionModifier
     -> SoftwareVersion
     -> HM.HashMap SystemTag UpdateData
     -> UpAttributes
@@ -166,7 +227,7 @@ mkUpdateProposalWSign
     -> m UpdateProposal
 mkUpdateProposalWSign
     upBlockVersion
-    upBlockVersionData
+    upBlockVersionMod
     upSoftwareVersion
     upData
     upAttributes
@@ -176,7 +237,7 @@ mkUpdateProposalWSign
         let toSign =
                 UpdateProposalToSign
                     upBlockVersion
-                    upBlockVersionData
+                    upBlockVersionMod
                     upSoftwareVersion
                     upData
                     upAttributes
@@ -196,7 +257,7 @@ instance Bi UpdateProposal => Buildable UpdateProposal where
         upSoftwareVersion
         upBlockVersion
         (hash up)
-        upBlockVersionData
+        upBlockVersionMod
         (HM.keys upData)
         attrsBuilder
       where
@@ -214,13 +275,13 @@ instance (Bi UpdateProposal) =>
             (map formatVoteShort votes)
 
 upScriptVersion :: UpdateProposal -> ScriptVersion
-upScriptVersion = bvdScriptVersion . upBlockVersionData
+upScriptVersion = bvmScriptVersion . upBlockVersionMod
 
 upSlotDuration :: UpdateProposal -> Millisecond
-upSlotDuration = bvdSlotDuration . upBlockVersionData
+upSlotDuration = bvmSlotDuration . upBlockVersionMod
 
 upMaxBlockSize :: UpdateProposal -> Byte
-upMaxBlockSize = bvdMaxBlockSize . upBlockVersionData
+upMaxBlockSize = bvmMaxBlockSize . upBlockVersionMod
 
 -- | Data which describes update. It is specific for each system.
 data UpdateData = UpdateData
@@ -240,17 +301,6 @@ data UpdateData = UpdateData
     -- (maybe). Anyway, we can always use `unsafeHash`.
     } deriving (Eq, Show, Generic, Typeable)
 
-
-patakUpdateData :: HM.HashMap SystemTag UpdateData
-patakUpdateData =
-    let b = "linux64"
-        h = unsafeHash b
-    in  HM.fromList [(SystemTag b, UpdateData h h h h)]
-
-skovorodaUpdateData :: Hash Raw -> HM.HashMap SystemTag UpdateData
-skovorodaUpdateData h =
-    let b = "linux64"
-    in  HM.fromList [(SystemTag b, UpdateData h h h h)]
 
 instance NFData SystemTag
 instance NFData UpdateProposal

@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Types related to Poll monad.
 
 module Pos.Update.Poll.Types
@@ -20,6 +18,7 @@ module Pos.Update.Poll.Types
 
          -- * BlockVersion state
        , BlockVersionState (..)
+       , bvsIsConfirmed
        , bvsScriptVersion
        , bvsSlotDuration
        , bvsMaxBlockSize
@@ -44,21 +43,25 @@ module Pos.Update.Poll.Types
        , unLastAdoptedBVL
        , unChangedConfPropsL
        , unPrevProposersL
+       , unSlottingDataL
        ) where
+
+import           Universum
 
 import           Control.Lens               (makeLensesFor)
 import           Data.Default               (Default (def))
 import qualified Data.Text.Buildable
 import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
-import           Universum
 
 import           Pos.Core.Types             (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, HeaderHash,
-                                             NumSoftwareVersion, ScriptVersion, SlotId,
-                                             SoftwareVersion, StakeholderId, mkCoin)
+                                             ChainDifficulty, Coin, EpochIndex,
+                                             HeaderHash, NumSoftwareVersion,
+                                             ScriptVersion, SlotId, SoftwareVersion,
+                                             StakeholderId, mkCoin)
 import           Pos.Slotting.Types         (SlottingData)
-import           Pos.Update.Core            (BlockVersionData (..), StakeholderVotes,
+import           Pos.Update.Core            (BlockVersionData (..),
+                                             BlockVersionModifier (..), StakeholderVotes,
                                              UpId, UpdateProposal (..))
 import           Pos.Util.Modifier          (MapModifier)
 
@@ -134,13 +137,13 @@ cpsSoftwareVersion = upSoftwareVersion . cpsUpdateProposal
 
 -- | State of UpdateProposal.
 data ProposalState
-    = PSUndecided !UndecidedProposalState
-    | PSDecided !DecidedProposalState
+    = PSUndecided { unPSUndecided :: !UndecidedProposalState }
+    | PSDecided   { unPSDecided   :: !DecidedProposalState }
       deriving (Eq, Generic, Show)
 
 propStateToEither :: ProposalState -> Either UndecidedProposalState DecidedProposalState
 propStateToEither (PSUndecided ups) = Left ups
-propStateToEither (PSDecided dps) = Right dps
+propStateToEither (PSDecided dps)   = Right dps
 
 psProposal :: ProposalState -> UpdateProposal
 psProposal (PSUndecided ups) = upsProposal ups
@@ -174,10 +177,11 @@ instance NFData ProposalState
 
 -- | State of BlockVersion from update proposal.
 data BlockVersionState = BlockVersionState
-    { bvsData              :: !BlockVersionData
-    -- ^ 'BlockVersioData' associated with this block version.
-    , bvsIsConfirmed       :: !Bool
-    -- ^ Whether proposal with this block version is confirmed.
+    { bvsModifier          :: !BlockVersionModifier
+    -- ^ 'BlockVersionModifier' associated with this block version.
+    , bvsConfirmedEpoch    :: !(Maybe EpochIndex)
+    -- ^ Epoch when proposal which generated this block block version
+    -- was confirmed.
     , bvsIssuersStable     :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued stable blocks with this
     -- 'BlockVersion'. Stability is checked by the same rules as used in LRC.
@@ -193,14 +197,19 @@ data BlockVersionState = BlockVersionState
     -- ^ Identifier of last block which modified set of 'bvsIssuersUnstable'.
     } deriving (Eq, Show, Generic)
 
+-- | Check whether proposal which generated given 'BlockVersionState'
+-- is confirmed.
+bvsIsConfirmed :: BlockVersionState -> Bool
+bvsIsConfirmed = isJust . bvsConfirmedEpoch
+
 bvsScriptVersion :: BlockVersionState -> ScriptVersion
-bvsScriptVersion = bvdScriptVersion . bvsData
+bvsScriptVersion = bvmScriptVersion . bvsModifier
 
 bvsSlotDuration :: BlockVersionState -> Millisecond
-bvsSlotDuration = bvdSlotDuration . bvsData
+bvsSlotDuration = bvmSlotDuration . bvsModifier
 
 bvsMaxBlockSize :: BlockVersionState -> Byte
-bvsMaxBlockSize = bvdMaxBlockSize . bvsData
+bvsMaxBlockSize = bvmMaxBlockSize . bvsModifier
 
 ----------------------------------------------------------------------------
 -- Modifier
@@ -217,7 +226,7 @@ data PollModifier = PollModifier
     , pmActiveProps    :: !(MapModifier UpId ProposalState)
     , pmSlottingData   :: !(Maybe SlottingData)
     , pmEpochProposers :: !(Maybe (HashSet StakeholderId))
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 flip makeLensesFor ''PollModifier
     [ ("pmBVs", "pmBVsL")
@@ -235,7 +244,7 @@ flip makeLensesFor ''PollModifier
 
 -- | Previous value of something that could be missing.
 data PrevValue a = PrevValue a | NoExist
-    deriving (Generic,Show)
+    deriving (Generic, Show, Eq)
 
 
 maybeToPrev :: Maybe a -> PrevValue a
@@ -250,7 +259,11 @@ data USUndo = USUndo
     , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
     , unPrevProposers    :: !(Maybe (HashSet StakeholderId))
-    } deriving (Generic, Show)
+    , unSlottingData     :: !(Maybe SlottingData)
+    -- ^ Previous slotting data, i. e. data which should be in GState
+    -- if this 'USUndo' is applied (i. e. corresponding block is
+    -- rolled back).
+    } deriving (Generic, Show, Eq)
 
 
 makeLensesFor [ ("unChangedBV", "unChangedBVL")
@@ -259,6 +272,7 @@ makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unChangedSV", "unChangedSVL")
               , ("unChangedConfProps", "unChangedConfPropsL")
               , ("unPrevProposers", "unPrevProposersL")
+              , ("unSlottingData", "unSlottingDataL")
               ]
   ''USUndo
 
@@ -266,7 +280,7 @@ instance Buildable USUndo where
     build _ = "BSUndo"
 
 instance Default USUndo where
-    def = USUndo mempty Nothing mempty mempty mempty Nothing
+    def = USUndo mempty Nothing mempty mempty mempty Nothing Nothing
 
 ----------------------------------------------------------------------------
 -- NFData instances

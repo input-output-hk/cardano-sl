@@ -12,13 +12,13 @@ module Pos.Lrc.DB.Seed
 
 import           Universum
 
-import           Pos.Binary.Class  (encodeStrict)
+import           Pos.Binary.Class  (encode)
 import           Pos.Core.Types    (EpochIndex (..), SharedSeed)
-import           Pos.DB.Class      (MonadDB)
+import           Pos.DB.Class      (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Lrc.Genesis   (genesisSeed)
 
-getSeed :: MonadDB m => EpochIndex -> m (Maybe SharedSeed)
+getSeed :: MonadDBRead m => EpochIndex -> m (Maybe SharedSeed)
 getSeed epoch = getBi (seedKey epoch)
 
 putSeed :: MonadDB m => EpochIndex -> SharedSeed -> m ()
@@ -28,7 +28,7 @@ prepareLrcSeed :: MonadDB m => m ()
 prepareLrcSeed =
     unlessM isInitialized $ putSeed (EpochIndex 0) genesisSeed
 
-isInitialized :: MonadDB m => m Bool
+isInitialized :: MonadDBRead m => m Bool
 isInitialized = isJust <$> getSeed (EpochIndex 0)
 
 ----------------------------------------------------------------------------
@@ -36,4 +36,4 @@ isInitialized = isJust <$> getSeed (EpochIndex 0)
 ----------------------------------------------------------------------------
 
 seedKey :: EpochIndex -> ByteString
-seedKey = mappend "s/" . encodeStrict
+seedKey = mappend "s/" . encode

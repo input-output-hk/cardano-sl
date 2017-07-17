@@ -1,11 +1,10 @@
-{-# LANGUAGE TemplateHaskell      #-}
-
 -- | Signing done with public/private keys.
 module Pos.Crypto.Signing
        (
        -- * Keys
          PublicKey (..)
        , SecretKey (..)
+       , emptyPass
        , keyGen
        , deterministicKeyGen
        , toPublic
@@ -29,11 +28,10 @@ module Pos.Crypto.Signing
 
        -- * Proxy signature scheme
        , ProxyCert (..)
-       , createProxyCert
        , verifyProxyCert
        , ProxySecretKey (..)
-       , createProxySecretKey
-       , verifyProxySecretKey
+       , verifyPsk
+       , isSelfSignedPsk
        , ProxySignature (..)
        , proxySign
        , proxyVerify
@@ -44,12 +42,13 @@ import qualified Cardano.Crypto.Wallet  as CC
 -- import qualified Crypto.ECC.Edwards25519         as Ed25519
 import           Data.ByteArray         (ScrubbedBytes)
 import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
+import qualified Data.Hashable          as Hashable
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, fitLeft, later, (%), (%.))
+import           Formatting             (Format, bprint, build, fitLeft, later, sformat,
+                                         (%), (%.))
 import           Prelude                (show)
 import qualified Serokell.Util.Base16   as B16
 import qualified Serokell.Util.Base64   as Base64 (decode, formatBase64)
@@ -60,7 +59,23 @@ import           Pos.Binary.Class       (Bi, Raw)
 import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash)
 import           Pos.Crypto.Random      (secureRandomBS)
-import           Pos.Crypto.SignTag     (SignTag, signTag)
+import           Pos.Crypto.SignTag     (SignTag (SignProxySK), signTag)
+
+----------------------------------------------------------------------------
+-- Orphan instances
+----------------------------------------------------------------------------
+
+instance Eq CC.XPub where
+    a == b = CC.unXPub a == CC.unXPub b
+
+instance Ord CC.XPub where
+    compare = comparing CC.unXPub
+
+instance Show CC.XPub where
+    show = show . CC.unXPub
+
+instance Hashable CC.XPub where
+    hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
@@ -113,33 +128,29 @@ shortPublicKeyHexF = fitLeft 8 %. fullPublicKeyHexF
 parseFullPublicKey :: (Bi PublicKey) => Text -> Maybe PublicKey
 parseFullPublicKey s = do
     b <- rightToMaybe $ Base64.decode s
-    (unconsumed, _, a) <- rightToMaybe $ Bi.decodeOrFail (BSL.fromStrict b)
-    guard $ BSL.null unconsumed
-    pure a
+    rightToMaybe $ Bi.decodeFull b
 
 emptyPass :: ScrubbedBytes
 emptyPass = mempty
 
 -- TODO: this is just a placeholder for actual (not ready yet) derivation
 -- of keypair from seed in cardano-crypto API
-createKeypairFromSeed :: BS.ByteString -> Maybe (CC.XPub, CC.XPrv)
-createKeypairFromSeed seed = do
-    prv <- CC.generate seed emptyPass
-    return (CC.toXPub prv, prv)
+createKeypairFromSeed :: BS.ByteString -> (CC.XPub, CC.XPrv)
+createKeypairFromSeed seed =
+    let prv = CC.generate seed emptyPass
+    in  (CC.toXPub prv, prv)
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)
 keyGen = liftIO $ do
     seed <- secureRandomBS 32
-    case createKeypairFromSeed seed of
-        Nothing -> error "Pos.Crypto.Signing.keyGen:\
-                         \ createKeypairFromSeed_ failed"
-        Just (pk, sk) -> return (PublicKey pk, SecretKey sk)
+    let (pk, sk) = createKeypairFromSeed seed
+    return (PublicKey pk, SecretKey sk)
 
 -- | Create key pair deterministically from 32 bytes.
-deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
+deterministicKeyGen :: BS.ByteString -> (PublicKey, SecretKey)
 deterministicKeyGen seed =
-    bimap PublicKey SecretKey <$> createKeypairFromSeed seed
+    bimap PublicKey SecretKey (createKeypairFromSeed seed)
 
 ----------------------------------------------------------------------------
 -- Signatures
@@ -164,7 +175,7 @@ sign
     -> SecretKey
     -> a
     -> Signature a
-sign t k = coerce . signRaw (Just t) k . Bi.encodeStrict
+sign t k = coerce . signRaw (Just t) k . Bi.encode
 
 -- | Sign a bytestring.
 signRaw
@@ -182,7 +193,7 @@ signRaw mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
 -- | Verify a signature.
 -- #verifyRaw
 checkSig :: Bi a => SignTag -> PublicKey -> a -> Signature a -> Bool
-checkSig t k x s = verifyRaw (Just t) k (Bi.encodeStrict x) (coerce s)
+checkSig t k x s = verifyRaw (Just t) k (Bi.encode x) (coerce s)
 
 -- CHECK: @verifyRaw
 -- | Verify raw 'ByteString'.
@@ -212,23 +223,12 @@ newtype ProxyCert w = ProxyCert { unProxyCert :: CC.XSignature }
 instance B.Buildable (ProxyCert w) where
     build _ = "<proxy_cert>"
 
--- | Proxy certificate creation from secret key of issuer, public key
--- of delegate and the message space ω.
-createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
-createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
-    coerce $
-    ProxyCert $
-    CC.sign emptyPass issuerSk $
-    mconcat
-        ["00", CC.unXPub delegatePk, Bi.encodeStrict o]
-
 -- | Checks if certificate is valid, given issuer pk, delegate pk and ω.
 verifyProxyCert :: (Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
-verifyProxyCert (PublicKey issuerPk) (PublicKey delegatePk) o (ProxyCert sig) =
-    CC.verify
-        issuerPk
-        (mconcat ["00", CC.unXPub delegatePk, Bi.encodeStrict o])
-        sig
+verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
+    checkSig SignProxySK issuerPk
+        (mconcat ["00", CC.unXPub delegatePk, Bi.encode o])
+        (Signature sig)
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
@@ -251,25 +251,27 @@ instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) whe
     build (ProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%pairF%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
 
--- | Creates proxy secret key
-createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
-createProxySecretKey issuerSk delegatePk w =
-    ProxySecretKey w (toPublic issuerSk) delegatePk $ createProxyCert issuerSk delegatePk w
-
 -- | Checks if proxy secret key is valid (the signature/cert inside is
 -- correct).
-verifyProxySecretKey :: (Bi w) => ProxySecretKey w -> Bool
-verifyProxySecretKey ProxySecretKey{..} =
+verifyPsk :: (Bi w) => ProxySecretKey w -> Bool
+verifyPsk ProxySecretKey{..} =
     verifyProxyCert pskIssuerPk pskDelegatePk pskOmega pskCert
 
--- | Delegate signature made with certificate-based permission. @a@
+-- | Checks if delegate and issuer fields of proxy secret key are
+-- equal.
+isSelfSignedPsk :: ProxySecretKey w -> Bool
+isSelfSignedPsk ProxySecretKey{..} = pskIssuerPk == pskDelegatePk
+
+-- | Delegate signature made with certificate-based permission. @w@
 -- stays for message type used in proxy (ω in the implementation
--- notes), @b@ for type of message signed.
+-- notes), @a@ for type of message signed.
+--
+-- We add whole psk as a field because otherwise we can't verify sig
+-- in heavyweight psk transitive delegation: i → x → d, we have psk
+-- from x to d, slot leader is i.
 data ProxySignature w a = ProxySignature
-    { pdOmega      :: w
-    , pdDelegatePk :: PublicKey
-    , pdCert       :: ProxyCert w
-    , pdSig        :: CC.XSignature
+    { psigPsk :: ProxySecretKey w
+    , psigSig :: CC.XSignature
     } deriving (Eq, Ord, Show, Generic)
 
 instance NFData w => NFData (ProxySignature w a)
@@ -277,31 +279,27 @@ instance Hashable w => Hashable (ProxySignature w a)
 
 instance {-# OVERLAPPABLE #-}
          (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
-    build ProxySignature{..} =
-        bprint ("Proxy signature { w = "%build%", delegatePk = "%build%" }")
-               pdOmega pdDelegatePk
+    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
 
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) where
-    build ProxySignature{..} =
-        bprint ("Proxy signature { w = "%pairF%", delegatePk = "%build%" }")
-               pdOmega pdDelegatePk
+    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
 
 -- | Make a proxy delegate signature with help of certificate. If the
 -- delegate secret key passed doesn't pair with delegate public key in
 -- certificate inside, we panic. Please check this condition outside
 -- of this function.
 proxySign
-    :: (Bi a)
+    :: (Bi a, Bi PublicKey)
     => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
-proxySign t sk@(SecretKey delegateSk) ProxySecretKey{..} m
+proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
     | toPublic sk /= pskDelegatePk =
-        error "proxySign called with irrelevant certificate"
+        error $ sformat ("proxySign called with irrelevant certificate "%
+                         "(psk delegatePk: "%build%", real delegate pk: "%build%")")
+                        pskDelegatePk (toPublic sk)
     | otherwise =
         ProxySignature
-        { pdOmega = pskOmega
-        , pdDelegatePk = pskDelegatePk
-        , pdCert = pskCert
-        , pdSig = sigma
+        { psigPsk = psk
+        , psigSig = sigma
         }
   where
     PublicKey issuerPk = pskIssuerPk
@@ -310,20 +308,22 @@ proxySign t sk@(SecretKey delegateSk) ProxySecretKey{..} m
         mconcat
             -- it's safe to put the tag after issuerPk because `CC.unXPub
             -- issuerPk` always takes 64 bytes
-            ["01", CC.unXPub issuerPk, signTag t, Bi.encodeStrict m]
+            ["01", CC.unXPub issuerPk, signTag t, Bi.encode m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
 proxyVerify
     :: (Bi w, Bi a)
-    => SignTag -> PublicKey -> ProxySignature w a -> (w -> Bool) -> a -> Bool
-proxyVerify t iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
-    and [predCorrect, certValid, sigValid]
+    => SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
+proxyVerify t ProxySignature{..} omegaPred m =
+    and [predCorrect, pskValid, sigValid]
   where
-    PublicKey pdDelegatePkRaw = pdDelegatePk
-    predCorrect = omegaPred pdOmega
-    certValid = verifyProxyCert iPk pdDelegatePk pdOmega pdCert
+    ProxySecretKey{..} = psigPsk
+    PublicKey issuerPk = pskIssuerPk
+    PublicKey pdDelegatePkRaw = pskDelegatePk
+    predCorrect = omegaPred pskOmega
+    pskValid = verifyPsk psigPsk
     sigValid =
         CC.verify
             pdDelegatePkRaw
@@ -331,6 +331,6 @@ proxyVerify t iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
                  [ "01"
                  , CC.unXPub issuerPk
                  , signTag t
-                 , Bi.encodeStrict m
+                 , Bi.encode m
                  ])
-            pdSig
+            psigSig

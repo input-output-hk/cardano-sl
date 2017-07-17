@@ -11,26 +11,29 @@ module Pos.Crypto.HD
        , decryptChaChaPoly
        , encryptChaChaPoly
        , toEither
+
+       , firstHardened
+       , firstNonHardened
+       , isHardened
        ) where
 
-import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub,
-                                               unXPub)
+import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPub, unXPub)
 import qualified Crypto.Cipher.ChaChaPoly1305 as C
 import           Crypto.Error
 import           Crypto.Hash                  (SHA512 (..))
 import qualified Crypto.KDF.PBKDF2            as PBKDF2
 import qualified Crypto.MAC.Poly1305          as Poly
-import           Data.ByteArray               as BA (ByteArrayAccess, convert)
+import           Data.ByteArray               as BA (convert)
 import           Data.ByteString.Char8        as B
-import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
-import           Pos.Binary.Class             (decodeFull, encodeStrict)
-import           Pos.Crypto.Signing           (PublicKey (..), SecretKey (..))
+import           Pos.Binary.Class             (Bi, decodeFull, encode)
+import           Pos.Crypto.Hashing           (hash)
+import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..), PassPhrase)
+import           Pos.Crypto.Signing           (PublicKey (..))
 
 -- | Passphrase is a hash of root public key.
---- We don't use root public key to store money, we use hash of it
---- instead.
+--- We don't use root public key to store money, we use its hash instead.
 data HDPassphrase = HDPassphrase !ByteString
     deriving Show
 
@@ -43,8 +46,10 @@ data HDPassphrase = HDPassphrase !ByteString
 -- * cryptographic tag
 --
 -- For more information see 'packHDAddressAttr' and 'encryptChaChaPoly'.
-data HDAddressPayload = HDAddressPayload !ByteString
-    deriving (Eq, Ord, Show, Generic)
+data HDAddressPayload
+    = HDAddressPayload
+    { getHDAddressPayload :: !ByteString
+    } deriving (Eq, Ord, Show, Generic)
 
 instance NFData HDAddressPayload
 
@@ -62,29 +67,37 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
     -- Password length in bytes
     passLen = 32
 
--- Direct children of node are numbered from 0 to 2^32-1.
--- Child with index less or equal @maxHardened@ is a hardened child.
-maxHardened :: Word32
-maxHardened = 2 ^ (31 :: Word32) - 1
+-- Direct children of node are numbered from 0 to 2^32-1. Children with
+-- indices less than @firstHardened@ are non-hardened children.
+firstHardened :: Word32
+firstHardened = 2 ^ (31 :: Word32)
 
--- | Derive public key from public key in non-hardened (normal) way.
--- If you try to pass index more than @maxHardened@, error will be called.
+firstNonHardened :: Word32
+firstNonHardened = 0
+
+isHardened :: Word32 -> Bool
+isHardened = ( >= firstHardened)
+
+-- | Derive public key from public key in non-hardened (normal) way. If you
+-- try to pass an 'isHardened' index, error will be called.
 deriveHDPublicKey :: PublicKey -> Word32 -> PublicKey
 deriveHDPublicKey (PublicKey xpub) childIndex
-    -- Is it the best solution?
-    | childIndex <= maxHardened = error "Wrong index for non-hardened derivation"
-    | otherwise = PublicKey $ deriveXPub xpub (childIndex - maxHardened - 1)
+    | isHardened childIndex =
+        error "Wrong index for non-hardened derivation"
+    | otherwise =
+        maybe (error "deriveHDPublicKey: deriveXPub failed") PublicKey $
+          deriveXPub xpub (childIndex - 1)
 
 -- | Derive secret key from secret key.
--- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
 deriveHDSecretKey
-    :: ByteArrayAccess passPhrase
-    => passPhrase -> SecretKey -> Word32 -> SecretKey
-deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
-  | childIndex <= maxHardened =
-      SecretKey $ deriveXPrvHardened passPhrase xprv childIndex
-  | otherwise =
-      SecretKey $ deriveXPrv passPhrase xprv (childIndex - maxHardened - 1)
+    :: Bi PassPhrase
+    => PassPhrase -> EncryptedSecretKey -> Word32 -> Maybe EncryptedSecretKey
+deriveHDSecretKey passPhrase (EncryptedSecretKey xprv pph) childIndex
+    | hash passPhrase /= pph = Nothing
+    | otherwise = Just $
+        EncryptedSecretKey
+            (deriveXPrv passPhrase xprv childIndex)
+            pph
 
 addrAttrNonce :: ByteString
 addrAttrNonce = "serokellfore"
@@ -92,7 +105,7 @@ addrAttrNonce = "serokellfore"
 -- | Serialize tree path and encrypt it using passphrase via ChaChaPoly1305.
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
 packHDAddressAttr (HDPassphrase passphrase) path = do
-    let !pathSer = encodeStrict path
+    let !pathSer = encode path
     let !packCF =
           encryptChaChaPoly
               addrAttrNonce
@@ -114,7 +127,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
     case unpackCF of
         Left er ->
             fail $ "Error in unpackHDAddressAttr, during decryption: " <> show er
-        Right p -> case decodeFull $ BSL.fromStrict p of
+        Right p -> case decodeFull p of
             Left er ->
                 fail $ "Error in unpackHDAddressAttr, during deserialization: " <> show er
             Right path -> pure path

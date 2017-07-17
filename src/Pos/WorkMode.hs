@@ -1,5 +1,8 @@
-{-# LANGUAGE CPP           #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 module Pos.WorkMode
        ( WorkMode
@@ -8,86 +11,203 @@ module Pos.WorkMode
        , TxpExtra_TMP
 
        -- * Actual modes
-       , RawRealModeK
-       , ProductionMode
-       , RawRealMode
-       , ServiceMode
-       , StatsMode
-       , StaticMode
+       , RealMode
+       , RealModeContext(..)
        ) where
-
 
 import           Universum
 
-import           Data.Tagged                  (Tagged)
-import qualified Ether
-import           Mockable.Production          (Production)
-import           System.Wlog                  (LoggerNameBox (..))
+import           Control.Lens                (makeLensesWith)
+import qualified Control.Monad.Reader        as Mtl
+import           Ether.Internal              (HasLens (..))
+import           Mockable                    (Production, SharedAtomicT)
+import           System.Wlog                 (HasLoggerName (..), LoggerName)
 
-import           Pos.Client.Txp.Balances      (BalancesRedirect)
-import           Pos.Client.Txp.History       (TxHistoryRedirect)
-import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
-                                               PeerStateTag)
-import           Pos.Context                  (NodeContext)
-import           Pos.DB                       (NodeDBs)
-import           Pos.DB.DB                    (DbCoreRedirect)
-import           Pos.Delegation.Class         (DelegationWrap)
-import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
-import           Pos.Slotting.MemState        (SlottingVar)
-import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
-import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
-import           Pos.Ssc.Extra                (SscMemTag, SscState)
-import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
-import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag)
-import           Pos.Update.DB                (DbLimitsRedirect)
-import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
-import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
+import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
+                                              onRollbackBlocksStub)
+import           Pos.Block.Core              (Block, BlockHeader)
+import           Pos.Block.Slog.Types        (HasSlogContext (..))
+import           Pos.Block.Types             (Undo)
+import           Pos.Communication.PeerState (HasPeerState (..), PeerStateCtx,
+                                              WithPeerState (..), clearPeerStateDefault,
+                                              getAllStatesDefault, getPeerStateDefault)
+import           Pos.Context                 (HasNodeContext (..), HasPrimaryKey (..),
+                                              HasSscContext (..), NodeContext)
+import           Pos.Core                    (IsHeader)
+import           Pos.DB                      (MonadGState (..), NodeDBs)
+import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDefault,
+                                              dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                              dbGetUndoDefault, dbGetUndoSscDefault,
+                                              dbPutBlundDefault)
+import           Pos.DB.Class                (MonadBlockDBGeneric (..),
+                                              MonadBlockDBGenericWrite (..), MonadDB (..),
+                                              MonadDBRead (..))
+import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
+import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
+                                              dbIterSourceDefault, dbPutDefault,
+                                              dbWriteBatchDefault)
+import           Pos.Delegation.Class        (DelegationVar)
+import           Pos.Discovery               (HasDiscoveryContextSum (..),
+                                              MonadDiscovery (..), findPeersSum,
+                                              getPeersSum)
+import           Pos.Reporting               (HasReportingContext (..))
+import           Pos.Shutdown                (HasShutdownContext (..))
+import           Pos.Slotting.Class          (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
+                                              getCurrentSlotBlockingSum,
+                                              getCurrentSlotInaccurateSum,
+                                              getCurrentSlotSum)
+import           Pos.Slotting.MemState       (HasSlottingVar (..), MonadSlotsData (..),
+                                              getSlottingDataDefault,
+                                              getSystemStartDefault,
+                                              putSlottingDataDefault,
+                                              waitPenultEpochEqualsDefault)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
+import           Pos.Ssc.Class.Types         (SscBlock)
+import           Pos.Ssc.Extra               (SscMemTag, SscState)
+import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag,
+                                              TxpMetrics)
+import           Pos.Util                    (Some (..))
+import           Pos.Util.JsonLog            (HasJsonLogConfig (..), JsonLogConfig,
+                                              jsonLogDefault)
+import           Pos.Util.LoggerName         (HasLoggerName' (..), getLoggerNameDefault,
+                                              modifyLoggerNameDefault)
+import           Pos.Util.TimeWarp           (CanJsonLog (..))
+import           Pos.Util.UserSecret         (HasUserSecret (..))
+import           Pos.Util.Util               (postfixLFields)
+import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
+data RealModeContext ssc = RealModeContext
+    { rmcNodeDBs       :: !(NodeDBs)
+    , rmcSscState      :: !(SscState ssc)
+    , rmcTxpLocalData  :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , rmcDelegationVar :: !DelegationVar
+    , rmcPeerState     :: !(PeerStateCtx Production)
+    , rmcJsonLogConfig :: !JsonLogConfig
+    , rmcLoggerName    :: !LoggerName
+    , rmcNodeContext   :: !(NodeContext ssc)
+    }
 
-----------------------------------------------------------------------------
--- Concrete types
-----------------------------------------------------------------------------
+makeLensesWith postfixLFields ''RealModeContext
 
--- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode ssc =
-    BlockchainInfoRedirect (
-    UpdatesRedirect (
-    DbCoreRedirect (
-    DbLimitsRedirect (
-    PeerStateRedirect (
-    TxHistoryRedirect (
-    BalancesRedirect (
-    SlotsRedirect (
-    SlotsDataRedirect (
-    Ether.ReadersT
-        ( Tagged NodeDBs NodeDBs
-        , Tagged SlottingVar SlottingVar
-        , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
-        , Tagged SscMemTag (SscState ssc)
-        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
-        , Tagged (TVar DelegationWrap) (TVar DelegationWrap)
-        , Tagged PeerStateTag (PeerStateCtx Production)
-        ) (
-    Ether.ReadersT (NodeContext ssc) (
-    LoggerNameBox Production
-    )))))))))))
+instance HasLens NodeDBs (RealModeContext ssc) NodeDBs where
+    lensOf = rmcNodeDBs_L
 
--- | RawRealMode + kademlia. Used in wallet too.
-type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)
+instance HasLens SscMemTag (RealModeContext ssc) (SscState ssc) where
+    lensOf = rmcSscState_L
 
--- | ProductionMode is an instance of WorkMode which is used
--- (unsurprisingly) in production.
-type ProductionMode ssc = NoStatsT $ RawRealModeK ssc
+instance HasLens TxpHolderTag (RealModeContext ssc) ( GenericTxpLocalData TxpExtra_TMP
+                                                    , TxpMetrics) where
+    lensOf = rmcTxpLocalData_L
 
--- | StatsMode is used for remote benchmarking.
-type StatsMode ssc = StatsT $ RawRealModeK ssc
+instance HasLens DelegationVar (RealModeContext ssc) DelegationVar where
+    lensOf = rmcDelegationVar_L
 
--- | Fixed peer discovery without stats.
-type StaticMode ssc = NoStatsT $ DiscoveryConstT (RawRealMode ssc)
+instance {-# OVERLAPPABLE #-}
+    HasLens tag (NodeContext ssc) r =>
+    HasLens tag (RealModeContext ssc) r
+  where
+    lensOf = rmcNodeContext_L . lensOf @tag
 
--- | ServiceMode is the mode in which support nodes work.
-type ServiceMode =
-    PeerStateRedirect (
-    Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
-    LoggerNameBox Production
-    ))
+instance HasSscContext ssc (RealModeContext ssc) where
+    sscContext = rmcNodeContext_L . sscContext
+
+instance HasPrimaryKey (RealModeContext ssc) where
+    primaryKey = rmcNodeContext_L . primaryKey
+
+instance HasDiscoveryContextSum (RealModeContext ssc) where
+    discoveryContextSum = rmcNodeContext_L . discoveryContextSum
+
+instance HasReportingContext (RealModeContext ssc) where
+    reportingContext = rmcNodeContext_L . reportingContext
+
+instance HasUserSecret (RealModeContext ssc) where
+    userSecret = rmcNodeContext_L . userSecret
+
+instance HasShutdownContext (RealModeContext ssc) where
+    shutdownContext = rmcNodeContext_L . shutdownContext
+
+instance HasSlottingVar (RealModeContext ssc) where
+    slottingTimestamp = rmcNodeContext_L . slottingTimestamp
+    slottingVar = rmcNodeContext_L . slottingVar
+
+instance HasSlogContext (RealModeContext ssc) where
+    slogContextL = rmcNodeContext_L . slogContextL
+
+instance HasNodeContext ssc (RealModeContext ssc) where
+    nodeContext = rmcNodeContext_L
+
+instance HasLoggerName' (RealModeContext ssc) where
+    loggerName = rmcLoggerName_L
+
+instance HasJsonLogConfig (RealModeContext ssc) where
+    jsonLogConfig = rmcJsonLogConfig_L
+
+instance sa ~ SharedAtomicT Production => HasPeerState sa (RealModeContext ssc) where
+    peerState = rmcPeerState_L
+
+type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
+
+instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
+    getLoggerName = getLoggerNameDefault
+    modifyLoggerName = modifyLoggerNameDefault
+
+instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
+    jsonLog = jsonLogDefault
+
+instance MonadSlotsData (RealMode ssc) where
+    getSystemStart = getSystemStartDefault
+    getSlottingData = getSlottingDataDefault
+    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    putSlottingData = putSlottingDataDefault
+
+instance MonadSlots (RealMode ssc) where
+    getCurrentSlot = getCurrentSlotSum
+    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
+    currentTimeSlotting = currentTimeSlottingSum
+
+instance MonadDiscovery (RealMode ssc) where
+    getPeers = getPeersSum
+    findPeers = findPeersSum
+
+instance MonadGState (RealMode ssc) where
+    gsAdoptedBVData = gsAdoptedBVDataDefault
+
+instance MonadDBRead (RealMode ssc) where
+    dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
+
+instance MonadDB (RealMode ssc) where
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
+
+instance MonadBListener (RealMode ssc) where
+    onApplyBlocks = onApplyBlocksStub
+    onRollbackBlocks = onRollbackBlocksStub
+
+instance WithPeerState (RealMode ssc) where
+    getPeerState = getPeerStateDefault
+    clearPeerState = clearPeerStateDefault
+    getAllStates = getAllStatesDefault
+
+instance
+    SscHelpersClass ssc =>
+    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (RealMode ssc)
+  where
+    dbGetBlock  = dbGetBlockDefault @ssc
+    dbGetUndo   = dbGetUndoDefault @ssc
+    dbGetHeader = dbGetHeaderDefault @ssc
+
+instance
+    SscHelpersClass ssc =>
+    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (RealMode ssc)
+  where
+    dbGetBlock  = dbGetBlockSscDefault @ssc
+    dbGetUndo   = dbGetUndoSscDefault @ssc
+    dbGetHeader = dbGetHeaderSscDefault @ssc
+
+instance SscHelpersClass ssc =>
+         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc) where
+    dbPutBlund = dbPutBlundDefault

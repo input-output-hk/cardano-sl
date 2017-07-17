@@ -2,7 +2,6 @@
 
 module Pos.DHT.Real.Types
        ( KademliaDHTInstance (..)
-       , KademliaDHTInstanceConfig (..)
        , DHTHandle
        ) where
 
@@ -10,25 +9,28 @@ import           Universum              hiding (fromStrict, toStrict)
 
 import           Control.Concurrent.STM (TVar)
 import qualified Data.ByteString        as BS
-import           Data.ByteString.Lazy   (fromStrict, toStrict)
 
+import           Data.Store             (PeekException (..), decodeIOPortionWith)
 import qualified Network.Kademlia       as K
 
-import           Pos.Binary.Class       (Bi (..), decodeOrFail, encodeStrict)
-import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..))
+import           Pos.Binary.Class       (Bi (..), encode)
+import           Pos.DHT.Model.Types    (DHTData, DHTKey)
+import           Pos.Util.TimeWarp      (NetworkAddress)
+import           System.IO.Unsafe       (unsafePerformIO)
 
 fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
-fromBSBinary bs =
-    case decodeOrFail $ fromStrict bs of
-        Left (_, _, errMsg)  -> Left errMsg
-        Right (rest, _, res) -> Right (res, toStrict rest)
+fromBSBinary bs = unsafePerformIO $
+    (decodeIOPortionWith get bs >>= \(off, res) -> return $ Right (res, BS.drop off bs))
+      `catch` handler
+  where
+    handler (PeekException {..}) = return $ Left (toString peekExMessage)
 
 instance Bi DHTData => K.Serialize DHTData where
-  toBS = encodeStrict
+  toBS = encode
   fromBS = fromBSBinary
 
 instance Bi DHTKey => K.Serialize DHTKey where
-  toBS = encodeStrict
+  toBS = encode
   fromBS = fromBSBinary
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData
@@ -37,19 +39,8 @@ type DHTHandle = K.KademliaInstance DHTKey DHTData
 data KademliaDHTInstance = KademliaDHTInstance
     { kdiHandle          :: !DHTHandle
     , kdiKey             :: !DHTKey
-    , kdiInitialPeers    :: ![DHTNode]
+    , kdiInitialPeers    :: ![NetworkAddress]
     , kdiExplicitInitial :: !Bool
-    , kdiKnownPeersCache :: !(TVar [K.Node DHTKey])
+    , kdiKnownPeersCache :: !(TVar [NetworkAddress])
     , kdiDumpPath        :: !FilePath
     }
-
--- | Instance of part of config.
-data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
-    { kdcHost            :: !BS.ByteString
-    , kdcPort            :: !Word16
-    , kdcKey             :: !(Maybe DHTKey)
-    , kdcInitialPeers    :: ![DHTNode]
-    , kdcExplicitInitial :: !Bool
-    , kdcDumpPath        :: !FilePath
-    }
-    deriving (Show)

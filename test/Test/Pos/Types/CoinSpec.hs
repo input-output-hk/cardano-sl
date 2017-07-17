@@ -6,12 +6,13 @@ module Test.Pos.Types.CoinSpec
 
 import           Universum
 
-import           Control.Exception     (ErrorCall)
-import           Test.Hspec            (Expectation, Selector, Spec, describe, it,
+
+import           Test.Hspec            (Expectation, Spec, anyErrorCall, describe, it,
                                         shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===))
 
+import qualified Pos.Core.Arbitrary    as C
 import qualified Pos.Types             as C
 
 import           Test.Pos.Util         (shouldThrowException, (.=.), (>=.))
@@ -81,16 +82,13 @@ spec = describe "Coin properties" $ do
     portionToWordToPortionDesc = "Converting a coin portion into a 64-bit word and this\
     \ word into a portion changes nothing"
 
-fatalException :: Selector ErrorCall
-fatalException = const True
-
 ------------------------------------------------------------------------------------------
 -- Coin
 ------------------------------------------------------------------------------------------
 
 overflowInSumCausesError :: C.CoinPairOverflowSum -> Expectation
 overflowInSumCausesError =
-    shouldThrowException (uncurry C.unsafeAddCoin . C.get2CSum) fatalException
+    shouldThrowException (uncurry C.unsafeAddCoin . C.get2CSum) anyErrorCall
 
 coinAdditionWorks :: C.SafeCoinPairSum -> Property
 coinAdditionWorks =
@@ -103,7 +101,7 @@ coinAdditionWorks =
 
 underflowInSubCausesError :: C.CoinPairOverflowSub -> Expectation
 underflowInSubCausesError =
-    shouldThrowException (uncurry C.unsafeSubCoin . C.get2CSub) fatalException
+    shouldThrowException (uncurry C.unsafeSubCoin . C.get2CSub) anyErrorCall
 
 coinSubtractionWorks :: C.SafeCoinPairSub -> Property
 coinSubtractionWorks =
@@ -116,7 +114,7 @@ coinSubtractionWorks =
 
 overflowInMulCausesError :: C.CoinPairOverflowMul -> Expectation
 overflowInMulCausesError =
-    shouldThrowException (uncurry C.unsafeMulCoin . C.get2CMul) fatalException
+    shouldThrowException (uncurry C.unsafeMulCoin . C.get2CMul) anyErrorCall
 
 coinProductWorks :: C.SafeCoinPairMul -> Property
 coinProductWorks =
@@ -129,7 +127,7 @@ coinProductWorks =
 
 overflowIntegerCausesError :: C.IntegerToCoinOverflow -> Expectation
 overflowIntegerCausesError =
-    shouldThrowException (C.unsafeIntegerToCoin . C.getLargeInteger) fatalException
+    shouldThrowException (C.unsafeIntegerToCoin . C.getLargeInteger) anyErrorCall
 
 coinToIntegralToCoin :: C.Coin -> Property
 coinToIntegralToCoin = C.mkCoin . C.unsafeGetCoin .=. identity
@@ -153,7 +151,7 @@ sumCoinsIsNeverNegative = (>= 0) . C.sumCoins .=. const True
 
 overOrUnderflowDoubleCausesError :: C.LessThanZeroOrMoreThanOne -> Expectation
 overOrUnderflowDoubleCausesError =
-    shouldThrowException (C.unsafeCoinPortionFromDouble . C.getDouble) fatalException
+    shouldThrowException (C.unsafeCoinPortionFromDouble . C.getDouble) anyErrorCall
 
 coinPortionToDoubleToPortion :: C.CoinPortion -> Property
 coinPortionToDoubleToPortion =

@@ -6,15 +6,16 @@ module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
 
 import           Control.Monad.Except  (runExcept)
 import qualified Data.HashMap.Strict   as HM
-import           Data.Reflection       (Reifies (..))
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
 import           Pos.Constants         (genesisMpcThd)
-import           Pos.Core              (CoinPortion, mkCoin)
+import           Pos.Core              (mkCoin)
 import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
-import           Pos.Lrc               (InvalidRichmenStake (..), ValidRichmenStake (..))
+import           Pos.Lrc               (RichmenStake)
+import           Pos.Lrc.Arbitrary     (GenesisMpcThd, InvalidRichmenStake (..),
+                                        ValidRichmenStake (..))
 import qualified Pos.Ssc.GodTossing    as T
 
 spec :: Spec
@@ -37,19 +38,17 @@ spec = describe "computeSharesDistr" $ do
     validRichmenStakeWorksDesc = "Given a valid distribution of stake, calculating the\
     \ distribution of shares successfully works."
 
+computeShares' :: RichmenStake -> Either T.TossVerFailure T.SharesDistribution
+computeShares' stake = runExcept $ T.computeSharesDistrPure stake genesisMpcThd
+
 emptyRichmenStake :: Expectation
 emptyRichmenStake =
-    let emptyRes = runExcept $ T.computeSharesDistr mempty
+    let emptyRes = computeShares' mempty
     in isLeft emptyRes `shouldBe` True
-
-data GenesisMpcThd
-
-instance Reifies GenesisMpcThd CoinPortion where
-    reflect _ = genesisMpcThd
 
 allRichmenGetShares :: ValidRichmenStake GenesisMpcThd -> Bool
 allRichmenGetShares (getValid -> richmen) =
-    let outputStakeholder = runExcept $ T.computeSharesDistr richmen
+    let outputStakeholder = computeShares' richmen
     in case outputStakeholder of
         Left _ -> False
         Right result ->
@@ -57,7 +56,7 @@ allRichmenGetShares (getValid -> richmen) =
 
 validRichmenStakeWorks :: ValidRichmenStake GenesisMpcThd -> Bool
 validRichmenStakeWorks (getValid -> richmen) =
-    let outputStakeholder = runExcept $ T.computeSharesDistr richmen
+    let outputStakeholder = computeShares' richmen
         totalCoins = sumCoins $ HM.elems richmen
         mpcThreshold = coinPortionToDouble genesisMpcThd
         minStake = mkCoin . ceiling $ (fromIntegral totalCoins) * mpcThreshold
@@ -68,8 +67,8 @@ validRichmenStakeWorks (getValid -> richmen) =
 totalStakeIsZero :: ValidRichmenStake GenesisMpcThd -> Bool
 totalStakeIsZero (getValid -> richmen) =
     let zeroStake = richmen $> (mkCoin 0)
-    in isLeft $ runExcept $ T.computeSharesDistr zeroStake
+    in isLeft $ computeShares' zeroStake
 
 invalidStakeErrors :: InvalidRichmenStake GenesisMpcThd -> Bool
 invalidStakeErrors (getInvalid -> richmen) =
-    isLeft $ runExcept $ T.computeSharesDistr richmen
+    isLeft $ computeShares' richmen

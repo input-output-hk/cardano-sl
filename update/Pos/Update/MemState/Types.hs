@@ -7,30 +7,33 @@ module Pos.Update.MemState.Types
 
        , MemState (..)
        , MemVar (..)
-       , mkMemState
        , newMemVar
        ) where
 
 import           Universum
 
-import           Control.Concurrent.Lock  (Lock, new)
-import           Data.Default             (Default (def))
+import           Control.Concurrent.Lock    (Lock, new)
+import           Data.Default               (Default (def))
+import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core.Types           (HeaderHash, SlotId (..))
-import           Pos.Crypto               (unsafeHash)
-import           Pos.Update.Core          (LocalVotes, UpdateProposals)
-import           Pos.Update.Poll.Modifier ()
-import           Pos.Update.Poll.Types    (PollModifier)
+import           Pos.Core                   (HeaderHash, SlotId (..))
+import           Pos.DB.Class               (MonadDBRead)
+import           Pos.DB.GState.Common       (getTip)
+import           Pos.Slotting               (MonadSlots (getCurrentSlot))
+import           Pos.Update.Core            (LocalVotes, UpdateProposals)
+import           Pos.Update.Poll.Modifier   ()
+import           Pos.Update.Poll.Types      (PollModifier)
 
 -- | MemPool is data maintained by node to be included into block and
 -- relayed to other nodes.
 data MemPool = MemPool
     { mpProposals  :: !UpdateProposals
     , mpLocalVotes :: !LocalVotes
+    , mpSize       :: !Byte
     } deriving (Show)
 
 instance Default MemPool where
-    def = MemPool mempty mempty
+    def = MemPool mempty mempty 2
 
 -- | MemState contains all in-memory data necesary for Update System.
 data MemState = MemState
@@ -46,21 +49,17 @@ data MemState = MemState
     -- ^ Modifier of GState corresponding to 'msPool'.
     }
 
-mkMemState :: MemState
-mkMemState = MemState
-    { msSlot = SlotId 0 0
-    , msTip = unsafeHash ("dratuti" :: Text)
-    , msPool = def
-    , msModifier = def
-    }
-
 -- | MemVar uses concurrency primitives and stores MemState.
 data MemVar = MemVar
     { mvState :: !(TVar MemState)  -- ^ MemState itself.
     , mvLock  :: !Lock             -- ^ Lock for modifting MemState.
     }
 
-newMemVar
-    :: MonadIO m
-    => m MemVar
-newMemVar = liftIO $ MemVar <$> newTVarIO mkMemState <*> new
+-- | Create new 'MemVar' using slotting and read-only access to DB.
+newMemVar :: (MonadIO m, MonadDBRead m, MonadSlots m) => m MemVar
+newMemVar = do
+    let slot0 = SlotId 0 minBound
+    msSlot <- fromMaybe slot0 <$> getCurrentSlot
+    msTip <- getTip
+    let ms = MemState { msPool = def, msModifier = mempty, .. }
+    liftIO $ MemVar <$> newTVarIO ms <*> new

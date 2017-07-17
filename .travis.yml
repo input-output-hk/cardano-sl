@@ -3,31 +3,62 @@ language: nix
 sudo: true
 matrix:
   include:
+    - env: MODE=hlint
+    - env: MODE=normal
+    - env: MODE=nix
+    - env: MODE=stack2nix
     - os: osx
-      osx_image: xcode8.3
-    - env: HLINT=true
-env:
-- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
+      osx_image: xcode8
+      # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
+
+  allow_failures:
+    - os: osx
+    - env: MODE=nix
+    # https://github.com/input-output-hk/stack2nix/issues/15
+    # stack2nix will randomly omit sections of the generated file
+    - env: MODE=stack2nix
+
 cache:
   directories:
   - "$HOME/.stack"
-  #- "$HOME/build/input-output-hk/cardano-sl/.stack-work"
+  - /nix/store
+  # we need to cache nix store as well to have system libraries for stack files
 
 before_install:
 - echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
+- export DCONFIG=travis
 - mkdir -p ~/.local/bin s3
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
   xz --strip-components=1 -C ~/.local/bin
+- sudo service --status-all || true
+- sudo /etc/init.d/memcached stop || true
+- sudo /etc/init.d/mysql stop || true
+- sudo /etc/init.d/postgresql stop || true
+- (cat /etc/nix/nix.conf || echo "") > ~/nix.conf
+- echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" >> ~/nix.conf
+- echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" >> ~/nix.conf
+- export NIX_CONF_DIR=~
+
+install:
+- source scripts/set_nixpath.sh
+
+after_failure:
+- sudo dmesg
 
 script:
-- if [[ "$HLINT" == "true" ]]; then
-    nix-shell -p haskellPackages.hlint moreutils --run "util-scripts/lint.sh --nix | ts";
+# DEVOPS-107: wait 20min for output due to haddock generation
+- if [[ "$MODE" == "nix" ]]; then
+    nix-build -A cardano-sl-static --no-build-output --keep-going || nix-build -A cardano-sl -j 1 ;
+  elif [[ "$MODE" == "hlint" ]]; then
+    nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
+  elif [[ "$MODE" == "stack2nix" ]]; then
+    nix-shell -p cabal2nix stack cabal-install ghc -Q -j 4 --run scripts/check-stack2nix.sh ;
   else
-    nix-shell -p moreutils --run "./util-scripts/travis.sh | ts";
+    nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
 
 deploy:

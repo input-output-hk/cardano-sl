@@ -54,7 +54,8 @@ import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
 import qualified Pos.GState                   as GS
-import           Pos.Slotting                 (MonadSlots, getSlotStartPure)
+import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
+                                               getSystemStart)
 import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
@@ -235,12 +236,13 @@ getBlockHistoryDefault
 getBlockHistoryDefault addrs = do
     bot <- GS.getBot
     sd <- GS.getSlottingData
+    systemStart <- getSystemStart
 
     let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
         fromBlund = pure . fst
 
         getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
-        getBlockTimestamp blk = getSlotStartPure True (blk ^. mainBlockSlot) sd
+        getBlockTimestamp blk = getSlotStartPure systemStart True (blk ^. mainBlockSlot) sd
 
         blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (DList TxHistoryEntry)
         blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)

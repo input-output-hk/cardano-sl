@@ -419,6 +419,7 @@ instance Arbitrary Microsecond where
     shrink = shrinkIntegral
 
 deriving instance Arbitrary Types.Timestamp
+deriving instance Arbitrary Types.TimeDiff
 
 newtype SmallHashMap =
     SmallHashMap (HashMap PublicKey (HashMap PublicKey (AsBinary Share)))

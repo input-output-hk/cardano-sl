@@ -245,7 +245,7 @@ initBlockTestContext tp@TestParams {..} callback = do
                 systemStart
                 futureLrcCtx
         initBlockTestContextDo = do
-            initNodeDBs @SscGodTossing systemStart
+            initNodeDBs @SscGodTossing
             _gscSlottingVar <- newTVarIO =<< GState.getSlottingData
             putSlottingVar _gscSlottingVar
             btcSSlottingVar <- mkSimpleSlottingVar

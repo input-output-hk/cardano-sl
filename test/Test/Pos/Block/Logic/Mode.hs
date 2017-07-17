@@ -13,7 +13,6 @@ module Test.Pos.Block.Logic.Mode
        , BlockTestContextTag
        , BlockTestContext(..)
        , btcSlotId_L
-       , btcDBPureVar_L
        , BlockTestMode
        , runBlockTestMode
 
@@ -40,8 +39,7 @@ import           Test.QuickCheck.Monadic        (PropertyM, monadic)
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
                                                  onRollbackBlocksStub)
 import           Pos.Block.Core                 (Block, BlockHeader)
-import           Pos.Block.Slog                 (HasSlogContext (..), SlogContext,
-                                                 mkSlogContext)
+import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
 import           Pos.Context                    (GenesisUtxo (..))
 import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
@@ -185,7 +183,8 @@ instance Arbitrary TestParams where
 data TestInitModeContext ssc = TestInitModeContext
     { timcDBPureVar   :: DBPureVar
     , timcGenesisUtxo :: GenesisUtxo
-    , timcSlottingVar :: (Timestamp, TVar SlottingData)
+    , timcSlottingVar :: TVar SlottingData
+    , timcSystemStart :: !Timestamp
     , timcLrcContext  :: LrcContext
     }
 
@@ -201,16 +200,14 @@ runTestInitMode ctx = runProduction . flip runReaderT ctx
 ----------------------------------------------------------------------------
 
 data BlockTestContext = BlockTestContext
-    { btcDBPureVar         :: !DBPureVar
-    , btcSlottingVar       :: !(Timestamp, TVar SlottingData)
+    { btcGState            :: !GState.GStateContextPure
+    , btcSystemStart       :: !Timestamp
     , btcLoggerName        :: !LoggerName
-    , btcLrcContext        :: !LrcContext
     , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !(SscState SscGodTossing)
     , btcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
-    , btcSlogContext       :: !SlogContext
     , btcSlotId            :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
@@ -239,38 +236,37 @@ initBlockTestContext tp@TestParams {..} callback = do
     dbPureVar <- newDBPureVar
     (futureLrcCtx, putLrcCtx) <- newInitFuture
     (futureSlottingVar, putSlottingVar) <- newInitFuture
+    systemStart <- Timestamp <$> currentTime
     let initCtx =
             TestInitModeContext
                 dbPureVar
                 _tpGenUtxo
                 futureSlottingVar
+                systemStart
                 futureLrcCtx
         initBlockTestContextDo = do
-            let btcDBPureVar = dbPureVar
-            systemStart <- Timestamp <$> currentTime
             initNodeDBs @SscGodTossing systemStart
-            slottingData <- GState.getSlottingData
-            btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
-            putSlottingVar btcSlottingVar
+            _gscSlottingVar <- newTVarIO =<< GState.getSlottingData
+            putSlottingVar _gscSlottingVar
             btcSSlottingVar <- mkSimpleSlottingVar
             let btcLoggerName = "testing"
             lcLrcSync <- mkLrcSyncData >>= newTVarIO
-            let btcLrcContext = LrcContext {..}
-            putLrcCtx btcLrcContext
+            let _gscLrcContext = LrcContext {..}
+            putLrcCtx _gscLrcContext
             btcUpdateContext <- mkUpdateContext
             btcSscState <- mkSscState @SscGodTossing
-            btcSlogContext <- mkSlogContext
-            btcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
+            _gscSlogContext <- mkSlogContext
+            btcTxpMem <- (, ignoreTxpMetrics) <$> mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings
             let btcReportingContext = emptyReportingContext
             let btcDiscoveryContext = DCStatic mempty
             let btcSlotId = Nothing
             let btcParams = tp
+            let btcGState = GState.GStateContext {_gscDB = dbPureVar, ..}
             btcDelegation <- mkDelegationVar @SscGodTossing
-            liftIO $ flip runReaderT clockVar $ unEmulation $
-                callback BlockTestContext {..}
-    sudoLiftIO $ runTestInitMode @SscGodTossing initCtx $
-        initBlockTestContextDo
+            let btCtx = BlockTestContext {btcSystemStart = systemStart, ..}
+            liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
+    sudoLiftIO $ runTestInitMode @SscGodTossing initCtx $ initBlockTestContextDo
 
 ----------------------------------------------------------------------------
 -- ExecMode
@@ -313,8 +309,8 @@ instance HasLens LrcContext (TestInitModeContext ssc) LrcContext where
     lensOf = timcLrcContext_L
 
 instance HasSlottingVar (TestInitModeContext ssc) where
-    slottingTimestamp = timcSlottingVar_L . _1
-    slottingVar = timcSlottingVar_L . _2
+    slottingTimestamp = timcSystemStart_L
+    slottingVar = timcSlottingVar_L
 
 instance MonadDBRead (TestInitMode ssc) where
     dbGet = DB.dbGetPureDefault
@@ -361,14 +357,17 @@ instance MonadSlots (TestInitMode ssc) where
 -- Boilerplate BlockTestContext instances
 ----------------------------------------------------------------------------
 
+instance GState.HasGStateContext BlockTestContext DBPureVar where
+    gStateContext = btcGState_L
+
 instance HasLens DBPureVar BlockTestContext DBPureVar where
-      lensOf = btcDBPureVar_L
+    lensOf = GState.gStateContext . GState.gscDB
 
 instance HasLens LoggerName BlockTestContext LoggerName where
       lensOf = btcLoggerName_L
 
 instance HasLens LrcContext BlockTestContext LrcContext where
-      lensOf = btcLrcContext_L
+    lensOf = GState.gStateContext . GState.gscLrcContext
 
 instance HasLens UpdateContext BlockTestContext UpdateContext where
       lensOf = btcUpdateContext_L
@@ -392,11 +391,11 @@ instance HasDiscoveryContextSum BlockTestContext where
     discoveryContextSum = btcDiscoveryContext_L
 
 instance HasSlottingVar BlockTestContext where
-    slottingTimestamp = btcSlottingVar_L . _1
-    slottingVar = btcSlottingVar_L . _2
+    slottingTimestamp = btcSystemStart_L
+    slottingVar = GState.gStateContext . GState.gscSlottingVar
 
 instance HasSlogContext BlockTestContext where
-    slogContextL = btcSlogContext_L
+    slogContextL = GState.gStateContext . GState.gscSlogContext
 
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L

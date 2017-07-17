@@ -26,8 +26,7 @@ import           System.Wlog                 (WithLogger, logWarning)
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
                                               onRollbackBlocksStub)
 import           Pos.Block.Core              (Block, BlockHeader)
-import           Pos.Block.Slog              (HasSlogContext (..), SlogContext,
-                                              cloneSlogContext)
+import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
@@ -46,14 +45,14 @@ import           Pos.Discovery               (DiscoveryContextSum (..),
                                               getPeersSum)
 import           Pos.Exception               (reportFatalError)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
+import qualified Pos.GState                  as GS
 import           Pos.Launcher.Mode           (newInitFuture)
-import           Pos.Lrc                     (LrcContext (..), cloneLrcContext)
+import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
 import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
                                               SlottingData, currentTimeSlottingSimple)
-import           Pos.Slotting.MemState       (MonadSlotsData (..), cloneSlottingVar,
-                                              getSlottingDataDefault,
+import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDataDefault,
                                               getSystemStartDefault,
                                               putSlottingDataDefault,
                                               waitPenultEpochEqualsDefault)
@@ -94,14 +93,8 @@ type MonadBlockGenBase m
 type MonadBlockGen ctx m
      = ( MonadBlockGenBase m
        , MonadReader ctx m
-       -- TODO: we don't really need to require pure db from the
-       -- outside. We can clone real DB into a pure one. Or we can use
-       -- 'DBProxyT' approach. Currently we require pure DB because
-       -- it's easier.
-       , HasLens DBPureVar ctx DBPureVar
+       , GS.HasGStateContext ctx DBPureVar
        , HasSlottingVar ctx
-       , HasLens LrcContext ctx LrcContext
-       , HasSlogContext ctx
        )
 
 ----------------------------------------------------------------------------
@@ -118,16 +111,12 @@ data BlockGenContext = BlockGenContext
     -- primary key, but it would lead to enormous amount of
     -- boilerplate. Also it could be put into mutable reference, but
     -- it's complicated too.
-    , bgcDB                :: !DBPureVar
-    -- ^ Pure DB used by block generation. Currently we always use
-    -- pure DB and assume it always fits in memory. It allows us to
-    -- simply clone existing DB.
-    , bgcSlogContext       :: !SlogContext
+    , bgcGState            :: !GS.GStateContextPure
+    -- ^ Currently we always use pure DB and assume it always fits in
+    -- memory. It allows us to simply clone existing DB.
     , bgcSystemStart       :: !Timestamp
-    , bgcSlottingVar       :: !(TVar SlottingData)
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
-    , bgcLrcContext        :: !LrcContext
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -154,11 +143,8 @@ type BlockGenMode m = ReaderT BlockGenContext m
 mkBlockGenContext :: MonadBlockGen ctx m => BlockGenParams -> m BlockGenContext
 mkBlockGenContext bgcParams = do
     let bgcPrimaryKey = error "bgcPrimaryKey was forced before being set"
-    bgcDB <- DB.cloneDBPure =<< view (lensOf @DBPureVar)
+    bgcGState <- GS.cloneGStateContext =<< view GS.gStateContext
     bgcSystemStart <- view slottingTimestamp
-    bgcSlottingVar <- cloneSlottingVar =<< view slottingVar
-    bgcLrcContext <- cloneLrcContext =<< view (lensOf @LrcContext)
-    bgcSlogContext <- cloneSlogContext =<< view slogContextL
     (initSlot, putInitSlot) <- newInitFuture
     let bgcSlotId = Nothing
     let bgcTxpGlobalSettings = txpGlobalSettings
@@ -166,10 +152,10 @@ mkBlockGenContext bgcParams = do
     let bgcDiscoveryContext = DCStatic mempty
     let initCtx =
             InitBlockGenContext
-                bgcDB
+                (bgcGState ^. GS.gscDB)
                 bgcSystemStart
-                bgcSlottingVar
-                bgcLrcContext
+                (bgcGState ^. GS.gscSlottingVar)
+                (bgcGState ^. GS.gscLrcContext)
                 initSlot
     usingReaderT initCtx $ do
         tipEOS <- getEpochOrSlot <$> getTipHeader @SscGodTossing
@@ -238,6 +224,9 @@ instance MonadBlockGenBase m => MonadSlots (InitBlockGenMode m) where
 -- Boilerplate instances
 ----------------------------------------------------------------------------
 
+instance GS.HasGStateContext BlockGenContext DBPureVar where
+    gStateContext = bgcGState_L
+
 instance HasLens BlockGenContext BlockGenContext BlockGenContext where
     lensOf = identity
 
@@ -246,10 +235,10 @@ instance HasBlockGenParams BlockGenContext where
 
 instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
-    slottingVar = bgcSlottingVar_L
+    slottingVar = GS.gStateContext . GS.gscSlottingVar
 
 instance HasLens DBPureVar BlockGenContext DBPureVar where
-    lensOf = bgcDB_L
+    lensOf = GS.gStateContext . GS.gscDB
 
 instance HasLens UpdateContext BlockGenContext UpdateContext where
     lensOf = bgcUpdateContext_L
@@ -258,13 +247,13 @@ instance HasLens DelegationVar BlockGenContext DelegationVar where
     lensOf = bgcDelegation_L
 
 instance HasLens LrcContext BlockGenContext LrcContext where
-    lensOf = bgcLrcContext_L
+    lensOf = GS.gStateContext . GS.gscLrcContext
 
 instance HasPrimaryKey BlockGenContext where
     primaryKey = bgcPrimaryKey_L
 
 instance HasSlogContext BlockGenContext where
-    slogContextL = bgcSlogContext_L
+    slogContextL = GS.gStateContext . GS.gscSlogContext
 
 instance HasLens TxpHolderTag BlockGenContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
     lensOf = bgcTxpMem_L

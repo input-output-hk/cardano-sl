@@ -42,6 +42,8 @@ translation =
         , cNotAvailable: "データがありません"
         , cLoading: "ロード中..."
         , cBack2Dashboard: "ダッシュボードに戻る"
+        , cYes: "JP - yes"
+        , cNo: "JP - no"
         , cDays: "日"
         , cHours: "時間"
         , cMinutes: "分"
@@ -120,7 +122,6 @@ translation =
         , gblNumberRedeemedAddresses: "JP - Redeemed addresses"
         , gblAddressesEmpty: "JP - No addresses"
         , gblAddressesNotFound: "JP - Addresses do not exists."
-        , gblAddressHash: "JP - Id"
         , gblAddressRedeemAmount: "JP - Redeem amount"
         , gblAddressIsRedeemed: "JP - Is redeemed"
         }

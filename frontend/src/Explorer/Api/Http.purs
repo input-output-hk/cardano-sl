@@ -13,7 +13,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple)
 import Explorer.Api.Helper (decodeResult)
-import Explorer.Api.Types (Endpoint, EndpointError(..))
+import Explorer.Api.Types (Endpoint, EndpointError(..), RequestLimit(..), RequestOffset(..))
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..), CGenesisAddressInfos)
 import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
@@ -90,6 +90,6 @@ fetchGenesisSummary :: forall eff. Aff (ajax::AJAX | eff) CGenesisSummary
 fetchGenesisSummary = get "genesis/summary/"
 
 -- TODO: use page / pageNumber if API has been updated
-fetchGenesisAddressInfo :: forall eff. Int -> Int -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
-fetchGenesisAddressInfo limit offset =
+fetchGenesisAddressInfo :: forall eff. RequestLimit -> RequestOffset -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
+fetchGenesisAddressInfo (RequestLimit limit) (RequestOffset offset) =
     get $ "genesis/address/?limit" <> show limit <> "&offset=" <> show offset

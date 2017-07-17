@@ -133,8 +133,9 @@ type BlocksViewState =
     }
 
 type GenesisBlockViewState =
-    { gblAddressPagination :: PageNumber
-    , gblAddressPaginationEditable :: Boolean
+    { gblAddressInfosPagination :: PageNumber
+    , gblAddressInfosPaginationEditable :: Boolean
+    , gblLoadingAddressInfosPagination :: Boolean
     }
 
 newtype PageNumber = PageNumber Int

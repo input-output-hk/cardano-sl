@@ -55,6 +55,8 @@ type Common =
     , cNotAvailable :: String
     , cLoading :: String
     , cBack2Dashboard :: String
+    , cYes :: String
+    , cNo :: String
     , cDays :: String
     , cHours :: String
     , cMinutes :: String
@@ -154,7 +156,6 @@ type GenesisBlock =
     , gblNumberRedeemedAddresses :: String
     , gblAddressesEmpty :: String
     , gblAddressesNotFound :: String
-    , gblAddressHash :: String
     , gblAddressRedeemAmount :: String
     , gblAddressIsRedeemed :: String
     }

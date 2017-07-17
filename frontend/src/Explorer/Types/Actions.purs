@@ -8,6 +8,7 @@ import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
 import Data.Tuple (Tuple)
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..))
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem, CGenesisAddressInfos)
@@ -58,8 +59,8 @@ data Action
     | ReceiveSearchBlocks (Either Error CBlockEntries)
     | RequestGenesisSummary
     | ReceiveGenesisSummary (Either Error CGenesisSummary)
-    | RequestAddressInfo Int Int
-    | ReceiveAddressInfo (Either Error CGenesisAddressInfos)
+    | RequestPaginatedAddressInfo RequestLimit RequestOffset
+    | ReceivePaginatedAddressInfo (Either Error CGenesisAddressInfos)
     -- global view states
     | GlobalToggleMobileMenu Boolean
     | GlobalSearch DOMEvent                          -- search for address + transaction

@@ -58,8 +58,9 @@ initialState =
             , blsViewPaginationEditable: false
             }
         , genesisBlockViewState:
-            { gblAddressPagination: PageNumber minPagination
-            , gblAddressPaginationEditable: false
+            { gblAddressInfosPagination: PageNumber minPagination
+            , gblAddressInfosPaginationEditable: false
+            , gblLoadingAddressInfosPagination: false
             }
         }
     , latestBlocks: NotAsked

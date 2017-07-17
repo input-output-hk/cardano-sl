@@ -42,6 +42,8 @@ translation =
         , cNotAvailable: "not available"
         , cLoading: "Loading..."
         , cBack2Dashboard: "Back to Dashboard"
+        , cYes: "yes"
+        , cNo: "no"
         , cDays: "Days"
         , cHours: "Hours"
         , cMinutes: "Minutes"
@@ -120,9 +122,8 @@ translation =
         , gblNumberRedeemedAddresses: "Redeemed addresses"
         , gblAddressesEmpty: "No addresses"
         , gblAddressesNotFound: "Addresses do not exists."
-        , gblAddressHash: "Id"
         , gblAddressRedeemAmount: "Redeemed amount"
-        , gblAddressIsRedeemed: "Is redeemed"
+        , gblAddressIsRedeemed: "Redeemed"
         }
     , footer:
         { fooResources: "Resources"

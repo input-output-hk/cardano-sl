@@ -1,5 +1,6 @@
 
 .explorer-genesis {
+
   &__wrapper {
     background-color: var(--color4);
 
@@ -25,7 +26,11 @@
     color: var(--color8);
     font-size: 10px;
     font-weight: bold;
-    padding: 10px 24px;
+    padding: 10px 18px;
+
+    @media (--md) {
+        padding: 10px 24px;
+    }
   }
 
   .summary-empty {
@@ -46,37 +51,157 @@
     }
   }
 
+
   .row__summary {
 
-      padding: 0 18px;
-      lost-utility: clearfix;
-      background-color: var(--color6);
+    lost-utility: clearfix;
+    background-color: var(--color6);
+    padding: 0 18px;
 
-      .column {
-        padding: 10px 0;
-        font-family: var(--fontFamily0-Regular);
-        color: var(--color8);
-        font-size: 10px;
-        font-weight: normal;
-        overflow: hidden;
+    @media (--md) {
+      padding: 0 24px;
+    }
 
-        &__label {
+    .column {
+      padding: 10px 0;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color8);
+      font-size: 10px;
+      font-weight: normal;
+      overflow: hidden;
+
+      &__label {
+        lost-column: 1/2;
+
+        @media (--md) {
           lost-column: 3/12;
         }
 
-        &__amount {
+      }
+
+      &__amount {
+        lost-column: 1/2;
+
+        @media (--md) {
           lost-column: 9/12;
         }
+
       }
+    }
+
+    &:nth-child(even) {
+      background-color: transparent;
+    };
+  }
+
+
+  .address-infos {
+    background-color: transparent;
+
+    &__header,
+    &__body--row {
+
+      lost-utility: clearfix;
+      padding: 10px 18px;
+
+      @media (--md) {
+        padding: 10px 24px;
+      }
+
+      .hash {
+        lost-column: 10/12;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        @media (--md) {
+          lost-column: 7/12;
+        }
+      }
+
+      .amount {
+        @extend .hide;
+
+      }
+
+      @media (--md) {
+        .amount {
+          @extend .show;
+          lost-column: 3/12;
+        }
+      }
+
+      .redeemed {
+        lost-column: 2/12;
+      }
+
+    }
+
+    &__header {
+      font-family: var(--fontFamily0-Bold);
+      color: var(--color8);
+      font-size: 10px;
+      font-weight: bold;
+    }
+
+
+    &__body--wrapper {
+      position: relative;
+    }
+
+    &__body--cover {
+      @extend .hide;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: color(var(--color3) a(0.5));
+    }
+
+    &__body--cover-label {
+      position: relative;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: center;
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color8);
+    }
+
+    &__body--row {
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color8);
+      font-size: 10px;
+      font-weight: normal;
+      background-color: var(--color7);
 
       &:nth-child(even) {
         background-color: transparent;
       };
-  }
 
-  @media (--md) {
-    .row__summary {
-        padding: 0 24px;
+    }
+
+    &__body--column {
+        /* don't remove this transparent */
+        background-color: transparent;
+
+        .ada {
+          padding-right: 10px;
+          background-repeat: no-repeat;
+          background-position: right center;
+          background-size: 8px 7px;
+        }
+
+        &.hash {
+          button: standard-button;
+          button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+        }
+    }
+
+    &__footer {
+      padding-top: 24px;
+      text-align: center;
     }
   }
+
 }

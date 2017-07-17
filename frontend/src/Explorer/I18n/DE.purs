@@ -42,6 +42,8 @@ translation =
         , cNotAvailable: "nicht verfügbar"
         , cLoading: "Lade..."
         , cBack2Dashboard: "Zurück zum Dashboard"
+        , cYes: "ja"
+        , cNo: "nein"
         , cDays: "Tage"
         , cHours: "Stunden"
         , cMinutes: "Minuten"
@@ -120,7 +122,6 @@ translation =
         , gblNumberRedeemedAddresses: "Anzahl eingelöster Adressen"
         , gblAddressesEmpty: "Keine Adressen"
         , gblAddressesNotFound: "Adressen existieren nicht."
-        , gblAddressHash: "Id"
         , gblAddressRedeemAmount: "Einzulösender Wert"
         , gblAddressIsRedeemed: "eingelöst"
         }

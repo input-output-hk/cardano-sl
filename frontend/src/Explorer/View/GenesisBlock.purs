@@ -3,6 +3,7 @@
 
 module Explorer.View.GenesisBlock
     ( genesisBlockView
+    , maxAddressInfoRows
     )
     where
 
@@ -11,21 +12,24 @@ import Prelude
 import Data.Array (length, null, slice)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
+import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cGenesis, cAddresses, cOf, common, cLoading, cSummary, gblAddressesEmpty, gblAddressHash, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
-import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary, gblAddressPagination, gblAddressPaginationEditable, genesisBlockViewState, lang, viewStates)
+import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesEmpty, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
+import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, genesisBlockViewState, lang, viewStates)
+import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CGenesisAddressInfos, PageNumber(..), State)
-import Explorer.View.Common (getMaxPaginationNumber, paginationView)
+import Explorer.Types.State (CCurrency(..), CGenesisAddressInfos, PageNumber(..), State)
+import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, paginationView)
 import Network.RemoteData (RemoteData(..))
-import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo, CGenesisSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cgsNumRedeemed)
+import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo(..), CGenesisSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CCoin, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed, getCoin)
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
-import Text.Smolder.HTML (div, h3) as S
-import Text.Smolder.HTML.Attributes (className) as S
-import Text.Smolder.Markup ((!))
+import Pux.DOM.Events (onClick) as P
+import Text.Smolder.HTML (a, div, h3, p, span) as S
+import Text.Smolder.HTML.Attributes (className, href) as S
+import Text.Smolder.Markup ((!), (#!))
 import Text.Smolder.Markup (text) as S
 
 genesisBlockView :: State -> P.HTML Action
@@ -51,7 +55,7 @@ genesisBlockView state =
                     NotAsked  -> emptyView ""
                     Loading   -> emptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
                     Failure _ -> emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesNotFound) lang'
-                    Success addresses -> addressesView addresses state
+                    Success infos -> addressInfosView infos state
 
 
 emptyView :: String -> P.HTML Action
@@ -94,68 +98,90 @@ summaryView summary lang =
                   $ S.text (translate (I18nL.common <<< I18nL.cSummary) lang)
             S.div $ for_ (mkSummaryItems lang summary) summaryRow
 
-
-type AddressesHeaderProps =
-    { id :: String
-    , label :: String
+type AddressInfosHeaderProps =
+    { label :: String
     , clazz :: String
     }
 
-mkAddressesHeaderProps :: Language -> Array AddressesHeaderProps
-mkAddressesHeaderProps lang =
-    [ { id: "0"
-      , label: translate (I18nL.genesisBlock <<< I18nL.gblAddressHash) lang
+mkAddressInfosHeaderProps :: Language -> Array AddressInfosHeaderProps
+mkAddressInfosHeaderProps lang =
+    [ { label: translate (I18nL.common <<< I18nL.cAddress) lang
       , clazz: "hash"
       }
-    , { id: "1"
-      , label: translate (I18nL.genesisBlock <<< I18nL.gblAddressRedeemAmount) lang
+    , { label: translate (I18nL.genesisBlock <<< I18nL.gblAddressRedeemAmount) lang
       , clazz: "amount"
       }
-    , { id: "2"
-      , label: translate (I18nL.genesisBlock <<< I18nL.gblAddressIsRedeemed) lang
+    , { label: translate (I18nL.genesisBlock <<< I18nL.gblAddressIsRedeemed) lang
       , clazz: "redeemed"
       }
     ]
 
 addressesHeaderView :: Language -> P.HTML Action
 addressesHeaderView lang =
-    S.div ! S.className "addresses-header"
-          $ for_ (mkAddressesHeaderProps lang) addressesHeaderItemView
+    S.div ! S.className "address-infos__header"
+          $ for_ (mkAddressInfosHeaderProps lang) addressesHeaderItemView
 
-addressesHeaderItemView :: AddressesHeaderProps -> P.HTML Action
+addressesHeaderItemView :: AddressInfosHeaderProps -> P.HTML Action
 addressesHeaderItemView props =
     S.div ! S.className props.clazz
-          ! P.key props.id
           $ S.text props.label
 
-maxAddrRows :: Int
-maxAddrRows = 5
+addressInfosBodyView :: Language -> CGenesisAddressInfo -> P.HTML Action
+addressInfosBodyView lang (CGenesisAddressInfo info) =
+    let addrLink = toUrl $ Address (info ^. cgaiCardanoAddress) in
+    S.div ! S.className "address-infos__body--row"
+          $ do
+          -- hash
+          S.a ! S.className "address-infos__body--column hash"
+              ! S.href addrLink
+              #! P.onClick (Navigate addrLink)
+              $ S.text (info ^. (cgaiCardanoAddress <<< _CAddress))
+          -- amount
+          S.div ! S.className "address-infos__body--column amount"
+                $ S.span ! S.className (currencyCSSClass $ Just ADA)
+                          $ S.text (info ^. (cgaiGenesisAmount <<< _CCoin <<< getCoin))
+          -- is redeemed
+          S.div ! S.className "address-infos__body--column redeemed"
+                $ S.text (if (info ^. cgaiIsRedeemed)
+                              then translate (I18nL.common <<< I18nL.cYes) lang
+                              else translate (I18nL.common <<< I18nL.cNo) lang)
 
-addressesView :: CGenesisAddressInfos -> State -> P.HTML Action
-addressesView addresses state =
-    if null addresses then
+maxAddressInfoRows :: Int
+maxAddressInfoRows = 5
+
+addressInfosView :: CGenesisAddressInfos -> State -> P.HTML Action
+addressInfosView infos state =
+    if null infos then
         emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesEmpty) (state ^. lang)
     else
-        let addrPagination = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressPagination <<< _PageNumber)
+        let addrPagination = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination <<< _PageNumber)
             lang' = state ^. lang
-            minAddrIndex = (addrPagination - minPagination) * maxAddrRows
-            currentAddrs = slice minAddrIndex (minAddrIndex + maxAddrRows) addresses
+            minInfoIndex = (addrPagination - minPagination) * maxAddressInfoRows
+            currentInfos = slice minInfoIndex (minInfoIndex + maxAddressInfoRows) infos
         in
         do
-            addressesHeaderView lang'
-            for_ currentAddrs (\address -> addressView address lang')
-            paginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                              , currentPage: PageNumber addrPagination
-                              , minPage: PageNumber minPagination
-                              , maxPage: PageNumber $ getMaxPaginationNumber (length addresses) maxAddrRows
-                              , changePageAction: GenesisBlockPaginateAddresses
-                              , editable: state ^. (viewStates <<< genesisBlockViewState <<< gblAddressPaginationEditable)
-                              , editableAction: GenesisBlockEditAddressesPageNumber
-                              , invalidPageAction: GenesisBlockInvalidAddressesPageNumber
-                              , disabled: false
-                              }
-
-addressView :: CGenesisAddressInfo -> Language -> P.HTML Action
-addressView address state =
-    S.div ! S.className "explorer-genesis__address-container"
-          $ S.text "Address"
+            S.div
+                ! S.className "address-infos__wrapper"
+                $ do
+                    addressesHeaderView lang'
+                    S.div ! S.className "address-infos__body--wrapper"
+                          $ do
+                          for_ currentInfos (addressInfosBodyView lang')
+                          S.div ! S.className ("address-infos__body--cover"
+                                      <>  if  state ^. (viewStates <<< genesisBlockViewState <<< gblLoadingAddressInfosPagination)
+                                          then " show"
+                                          else "")
+                                $ S.p ! S.className "address-infos__body--cover-label"
+                                      $ S.text (translate (I18nL.common <<< I18nL.cLoading) lang')
+            S.div
+                ! S.className "address-infos__footer"
+                $  paginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                    , currentPage: PageNumber addrPagination
+                                    , minPage: PageNumber minPagination
+                                    , maxPage: PageNumber $ getMaxPaginationNumber (length infos) maxAddressInfoRows
+                                    , changePageAction: GenesisBlockPaginateAddresses
+                                    , editable: state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPaginationEditable)
+                                    , editableAction: GenesisBlockEditAddressesPageNumber
+                                    , invalidPageAction: GenesisBlockInvalidAddressesPageNumber
+                                    , disabled: false
+                                    }

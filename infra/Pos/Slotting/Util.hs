@@ -31,8 +31,8 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
 import           Universum
 
 import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
-                                         addMicrosecondsToTimestamp, diffTimestamp,
-                                         flattenSlotId, getSlotIndex, slotIdF)
+                                         addTimeDiffToTimestamp, flattenSlotId,
+                                         getSlotIndex, slotIdF, subTimeDiffSafe)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
@@ -61,25 +61,26 @@ getSlotStart sid = do
 getSlotStartPure :: Timestamp -> Bool -> SlotId -> SlottingData -> Maybe Timestamp
 getSlotStartPure systemStart imprecise SlotId{..} SlottingData{..} = do
     if | imprecise && siEpoch < sdPenultEpoch ->
-         Just $ slotTimestamp systemStart siSlot $ extrapolateSlottingData siEpoch
-       | siEpoch == sdPenultEpoch -> Just $ slotTimestamp systemStart siSlot sdPenult
-       | siEpoch == sdPenultEpoch + 1 -> Just $ slotTimestamp systemStart siSlot sdLast
+         Just $ slotTimestamp siSlot $ extrapolateSlottingData siEpoch
+       | siEpoch == sdPenultEpoch -> Just $ slotTimestamp siSlot sdPenult
+       | siEpoch == sdPenultEpoch + 1 -> Just $ slotTimestamp siSlot sdLast
        | otherwise -> Nothing
   where
     -- Extrapolate slotting data for arbitrary epochs
     extrapolateSlottingData desiredEpoch =
       let
         -- Assuming these durations stay constant
-        epochDuration = diffTimestamp (esdStartDiff sdLast) (esdStartDiff sdPenult)
+        epochDuration = esdStartDiff sdLast `subTimeDiffSafe` esdStartDiff sdPenult
         slotDuration = esdSlotDuration sdPenult
         msDiff = fromIntegral (toInteger epochDuration * (toInteger desiredEpoch - toInteger sdPenultEpoch))
       in
         EpochSlottingData { esdSlotDuration = slotDuration
-                          , esdStartDiff = addMicrosecondsToTimestamp msDiff (esdStartDiff sdPenult)
+                          , esdStartDiff = msDiff + (esdStartDiff sdPenult)
                           }
     -- Calculate timestamp normally
-    slotTimestamp systemStart (getSlotIndex -> locSlot) EpochSlottingData{..} =
-        systemStart + esdStartDiff + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration)
+    slotTimestamp (getSlotIndex -> locSlot) EpochSlottingData{..} =
+        esdStartDiff `addTimeDiffToTimestamp`
+        (systemStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration))
 
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.

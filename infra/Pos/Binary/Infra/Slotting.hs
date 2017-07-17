@@ -8,14 +8,14 @@ import           Data.Time.Units    (Millisecond)
 
 import           Pos.Binary.Class   (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Core    ()
-import           Pos.Core.Timestamp (Timestamp)
+import           Pos.Core.Timestamp (TimeDiff)
 import           Pos.Core.Types     (EpochIndex)
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
 
 deriveSimpleBi ''EpochSlottingData [
     Cons 'EpochSlottingData [
         Field [| esdSlotDuration :: Millisecond |],
-        Field [| esdStartDiff    :: Timestamp   |]
+        Field [| esdStartDiff    :: TimeDiff    |]
     ]]
 
 -- CSL-1122: add a test for serialization of 'SlottingData'

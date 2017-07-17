@@ -12,6 +12,7 @@ import           NTP.Example                 ()
 
 import qualified Pos.Core.Constants          as C
 import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Timestamp          (addTimeDiffToTimestamp)
 import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..),
                                               mkLocalSlotIndex)
 import           Pos.Util.Util               (leftToPanic)
@@ -24,14 +25,14 @@ approxSlotUsingOutdated :: MonadSlotsData m => EpochIndex -> Timestamp -> m Slot
 approxSlotUsingOutdated penult t = do
     SlottingData {..} <- getSlottingData
     systemStart <- getSystemStart
-    let epochStart = systemStart + esdStartDiff sdLast
+    let epochStart = esdStartDiff sdLast `addTimeDiffToTimestamp` systemStart
     pure $
         if | t < epochStart -> SlotId (penult + 1) minBound
            | otherwise      -> outdatedEpoch systemStart t (penult + 1) sdLast
   where
     outdatedEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..} =
         let duration = convertUnit esdSlotDuration
-            start = getTimestamp (systemStart + esdStartDiff) in
+            start = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart) in
         unflattenSlotId $
         flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
 
@@ -59,7 +60,7 @@ computeSlotUsingEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {.
     | curTime < epochStart + epochDuration = Just $ SlotId epoch localSlot
     | otherwise = Nothing
   where
-    epochStart = getTimestamp (esdStartDiff + systemStart)
+    epochStart = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart)
     localSlotNumeric = fromIntegral $ (curTime - epochStart) `div` slotDuration
     localSlot =
         leftToPanic "computeSlotUsingEpoch: " $

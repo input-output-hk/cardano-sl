@@ -42,7 +42,7 @@ import           System.Wlog             (WithLogger, logDebug, logNotice)
 import           Pos.Binary.Update       ()
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
                                           IsMainHeader (..), ScriptVersion, SlotId,
-                                          SoftforkRule (..), Timestamp (..), addressHash,
+                                          SoftforkRule (..), TimeDiff (..), addressHash,
                                           applyCoinPortion, coinPortionDenominator,
                                           coinToInteger, difficultyL, getCoinPortion,
                                           headerHashG, isBootstrapEra, mkCoinPortion,
@@ -226,7 +226,7 @@ updateSlottingData epoch = do
         let epochDuration = fromIntegral epochSlots *
                             convertUnit (esdSlotDuration sdLast)
         let newLastStartDiff =
-                esdStartDiff sdLast + Timestamp epochDuration
+                esdStartDiff sdLast + TimeDiff epochDuration
         let newLast =
                 EpochSlottingData
                 {esdSlotDuration = latestSlotDuration, esdStartDiff = newLastStartDiff}

@@ -14,6 +14,7 @@ module Pos.Core.Types
        , GenesisStakeholders (..)
 
        , Timestamp (..)
+       , TimeDiff (..)
 
        -- * ChainDifficulty
        , ChainDifficulty (..)
@@ -103,7 +104,7 @@ import           System.Random              (Random (..))
 
 import           Pos.Core.Constants.Raw     (epochSlotsRaw)
 import           Pos.Core.Fee               (TxFeePolicy)
-import           Pos.Core.Timestamp         (Timestamp (..))
+import           Pos.Core.Timestamp         (Timestamp (..), TimeDiff (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
                                              RedeemPublicKey)

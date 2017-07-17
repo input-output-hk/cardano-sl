@@ -1,0 +1,27 @@
+# These owners will be the default owners for everything in the repo.
+# Unless a later match takes precedence, @global-owner1 and @global-owner2
+# will be requested for review when someone opens a pull request.
+*             @gromakovsky
+
+# Order is important; the last matching pattern takes the most precedence.
+# When someone opens a pull request that only modifies PURS files, only
+# @akegalj and not the global owner(s) will be requested for a review.
+*.purs        @akegalj
+daedalus/     @akegalj
+
+# CI, Nix
+*.nix         @domenkozar
+.travis.yml   @domenkozar
+appveyor.yml  @domenkozar
+
+*.md          @denisshevchenko
+
+HLint.hs      @neongreen
+
+Delegation/   @volhovm
+
+Wallet/       @akegalj @flyingleafe
+
+txp/          @gromakovsky @pva701 @neongreen
+update/       @gromakovsky @pva701
+lrc/          @pva701

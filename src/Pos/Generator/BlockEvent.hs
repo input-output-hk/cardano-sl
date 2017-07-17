@@ -125,7 +125,7 @@ type BlockEvent = BlockEvent' BlundDefault
 ----------------------------------------------------------------------------
 
 {- |
-  Block indices. They're not 0-based or 1-based, they can start from an
+  Block indices. They're neither 0-based nor 1-based, they can start from any
   index (even negative). Therefore it's necessary to adjust them before using
   for lookup in a data structure.
 -}
@@ -156,10 +156,10 @@ data BlockEventGenParams = BlockEventGenParams
 makeLenses ''BlockEventGenParams
 
 {- |
-  Return the range of block indices as half-open interval (closed on the lower
-  bound, open on the upper bound). For example, for block indices
-  @[0, -2, 4, 7]@ the range is a tuple @(-2, 8)@. The reasons to have a
-  half-open interval are:
+  Return the range of block indices as a half-open interval (closed on the
+  lower bound, open on the upper bound). For example, for block indices
+  @[0, -2, 4, 7]@ the range is a tuple @(-2, 8)@. The reasons for the interval
+  to be half-open:
     * it's possible to encode an empty range as @(k, k)@
     * to compute the amount of elements, one can use simple subtraction
 -}
@@ -171,7 +171,7 @@ getBlockIndexRange =
     let minMax a = Smg.Option (Just (Smg.Min a, Smg.Max a))
     in maybe (0, 0) (over _2 (+1)) . coerce . foldMap minMax . Compose
 
--- Generate a random sequence of block events. The final event is either an
+-- | Generate a random sequence of block events. The final event is either an
 -- expected failure or a rollback of the entire chain to the initial (empty)
 -- state. There's no forking at the moment.
 genBlockEvents ::
@@ -410,12 +410,15 @@ genBlockEvent begp = do
 {- NOTE: Reordering corner cases
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The corner case for reordering blocks to get an invalid sequence occurs when
-there's only one block, so it's impossible to get an invalid ordering.
+When reordering blocks to get an invalid sequence, there's a corner case:
+if there's only one block, it's impossible to get an invalid ordering.
 The reason one might have only one block depends on the means of generation,
 but for 'genBlockIndices' there are two possible causes:
 
 * we rolled 'blockIndexEnd' equal to 'blockIndexStart'
 * 'blockIndexMax' is 1
+
+To avoid dealing with this, we may append one more block. The downside is that
+appending this block may cause the sequence to be longer than 'blockIndexMax'.
 
 -}

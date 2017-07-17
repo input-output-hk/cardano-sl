@@ -76,8 +76,19 @@ instance Bi T.TxInWitness where
         T.UnknownWitnessType tag <$> decode
 
 instance Bi T.TxDistribution where
-  encode = encode . T.getTxDistribution
-  decode = T.TxDistribution <$> decode
+  encode = encode . go
+    where
+      go (T.TxDistribution ds) =
+          if all null ds then Left (length ds)
+          else Right ds
+  decode = T.TxDistribution <$> parseDistribution
+    where
+      parseDistribution =
+          decode >>= \case
+              Left n ->
+                  maybe (fail "decode@TxDistribution: empty distribution") pure $
+                  nonEmpty $ replicate n []
+              Right ds -> pure ds
 
 deriveSimpleBi ''T.TxSigData [
     Cons 'T.TxSigData [

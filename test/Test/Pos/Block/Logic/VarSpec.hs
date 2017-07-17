@@ -10,22 +10,22 @@ import           Unsafe                    (unsafeHead)
 import           Data.List                 (span)
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
+import           Serokell.Util             (throwText)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Monadic   (assert, pre)
 
-import           Pos.Block.Logic           (applyBlocks, verifyBlocksPrefix)
+import           Pos.Block.Logic           (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (SlotId (..), epochIndexL)
 import           Pos.DB.Pure               (DBPureVar)
 import qualified Pos.GState                as GS
 import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Util                  (lensOf, _neLast)
+import           Pos.Util                  (lensOf)
 import           Pos.Util.Chrono           (NE, OldestFirst (..))
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
-                                            withCurrentSlot)
+                                            satisfySlotCheck)
 import           Test.Pos.Util             (stopProperty)
 
 spec :: Spec
@@ -33,6 +33,7 @@ spec :: Spec
 -- Maybe we will optimize it in future.
 spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (const 3) $ do
     describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
+    describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
     describe "applyBlocks" applyBlocksSpec
 
 ----------------------------------------------------------------------------
@@ -67,31 +68,54 @@ verifyValidBlocks = do
     blocks <- map fst . toList <$> bpGenBlocks Nothing
     pre (not $ null blocks)
     let blocksToVerify =
+            OldestFirst $
             case blocks of
                 -- impossible because of precondition (see 'pre' above)
                 [] -> error "verifyValidBlocks: impossible"
                 (block0:otherBlocks) ->
                     let (otherBlocks', _) = span isRight otherBlocks
                     in block0 :| otherBlocks'
-    let lastEpoch = blocksToVerify ^. _neLast . epochIndexL
     verRes <-
-        lift $ withCurrentSlot (SlotId (lastEpoch + 1) minBound) $
-        verifyBlocksPrefix $
-        OldestFirst blocksToVerify
+        lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix $
+        blocksToVerify
     whenLeft verRes stopProperty
+
+----------------------------------------------------------------------------
+-- verifyAndApplyBlocks
+----------------------------------------------------------------------------
+
+verifyAndApplyBlocksSpec :: Spec
+verifyAndApplyBlocksSpec = do
+    prop applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
+  where
+    applier blunds =
+        let blocks = map fst blunds
+        in satisfySlotCheck blocks $
+           whenLeftM (verifyAndApplyBlocks True blocks) throwText
+    applyByOneOrAllAtOnceDesc =
+        "verifying and applying blocks one by one leads " <>
+        "to the same GState as verifying and applying them all at once"
 
 ----------------------------------------------------------------------------
 -- applyBlocks
 ----------------------------------------------------------------------------
 
+-- Commented out because tests are slow.
+-- We can enable it later if we make tests much faster.
+
 applyBlocksSpec :: Spec
-applyBlocksSpec = do
-    prop applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
-  where
-    applier = applyBlocks True Nothing
-    applyByOneOrAllAtOnceDesc =
-        "applying blocks one by one leads to the same GState as " <>
-        "applying them all at once"
+applyBlocksSpec = pass
+-- applyBlocksSpec = do
+--     prop applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
+--   where
+--     applier = applyBlocks True Nothing
+--     applyByOneOrAllAtOnceDesc =
+--         "applying blocks one by one leads to the same GState as " <>
+--         "applying them all at once"
+
+----------------------------------------------------------------------------
+-- General functions
+----------------------------------------------------------------------------
 
 applyByOneOrAllAtOnce ::
        (OldestFirst NE (Blund SscGodTossing) -> BlockTestMode ())

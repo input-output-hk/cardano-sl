@@ -117,6 +117,7 @@ translation =
         }
     , genesisBlock:
         { gblNotFound: "JP - Genesis block not found."
+        , gblNumberRedeemedAddresses: "JP - Redeemed addresses"
         , gblAddressesEmpty: "JP - No addresses"
         , gblAddressesNotFound: "JP - Addresses do not exists."
         , gblAddressHash: "JP - Id"

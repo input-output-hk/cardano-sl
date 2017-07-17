@@ -45,4 +45,38 @@
       }
     }
   }
+
+  .row__summary {
+
+      padding: 0 18px;
+      lost-utility: clearfix;
+      background-color: var(--color6);
+
+      .column {
+        padding: 10px 0;
+        font-family: var(--fontFamily0-Regular);
+        color: var(--color8);
+        font-size: 10px;
+        font-weight: normal;
+        overflow: hidden;
+
+        &__label {
+          lost-column: 3/12;
+        }
+
+        &__amount {
+          lost-column: 9/12;
+        }
+      }
+
+      &:nth-child(even) {
+        background-color: transparent;
+      };
+  }
+
+  @media (--md) {
+    .row__summary {
+        padding: 0 24px;
+    }
+  }
 }

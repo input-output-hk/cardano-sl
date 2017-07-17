@@ -117,10 +117,11 @@ translation =
         }
     , genesisBlock:
         { gblNotFound: "Genesis block not found."
+        , gblNumberRedeemedAddresses: "Redeemed addresses"
         , gblAddressesEmpty: "No addresses"
         , gblAddressesNotFound: "Addresses do not exists."
         , gblAddressHash: "Id"
-        , gblAddressRedeemAmount: "Redeem amount"
+        , gblAddressRedeemAmount: "Redeemed amount"
         , gblAddressIsRedeemed: "Is redeemed"
         }
     , footer:

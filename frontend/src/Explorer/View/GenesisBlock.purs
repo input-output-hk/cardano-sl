@@ -12,14 +12,15 @@ import Data.Array (length, null, slice)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cGenesis, cAddresses, cOf, common, cLoading, cSummary, gblAddressesEmpty, gblAddressHash, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, genesisBlock) as I18nL
+import Explorer.I18n.Lenses (cGenesis, cAddresses, cOf, common, cLoading, cSummary, gblAddressesEmpty, gblAddressHash, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
 import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary, gblAddressPagination, gblAddressPaginationEditable, genesisBlockViewState, lang, viewStates)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CGenesisAddressInfos, PageNumber(..), State)
 import Explorer.View.Common (getMaxPaginationNumber, paginationView)
 import Network.RemoteData (RemoteData(..))
-import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo, CGenesisSummary)
+import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo, CGenesisSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (cgsNumRedeemed)
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
 import Text.Smolder.HTML (div, h3) as S
@@ -58,12 +59,40 @@ emptyView message =
     S.div ! S.className "summary-empty__container"
           $ S.text message
 
+type SummaryRowItem =
+    { id :: String
+    , label :: String
+    , amount :: String
+    }
+
+type SummaryItems = Array SummaryRowItem
+
+mkSummaryItems :: Language -> CGenesisSummary -> SummaryItems
+mkSummaryItems lang (CGenesisSummary summary) =
+    [ { id: "0"
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberRedeemedAddresses) lang
+      , amount: show $ summary ^. cgsNumRedeemed
+      }
+    ]
+
+summaryRow :: SummaryRowItem -> P.HTML Action
+summaryRow item =
+    S.div
+        ! S.className "row row__summary"
+        ! P.key item.id
+        $ do
+            S.div ! S.className "column column__label"
+                  $ S.text item.label
+            S.div ! S.className "column column__amount"
+                  $ S.text item.amount
+
 summaryView :: CGenesisSummary -> Language -> P.HTML Action
 summaryView summary lang =
     S.div ! S.className "summary-wrapper" $ do
         S.div ! S.className "summary-container" $ do
             S.h3  ! S.className "subheadline"
                   $ S.text (translate (I18nL.common <<< I18nL.cSummary) lang)
+            S.div $ for_ (mkSummaryItems lang summary) summaryRow
 
 
 type AddressesHeaderProps =

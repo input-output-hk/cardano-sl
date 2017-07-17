@@ -13,8 +13,8 @@ translation =
         , cTransaction: "Transaktion"
         , cTransactions: "Transaktionen"
         , cTransactionFeed: "Transaktionen Feed"
-        , cAddress: "Addresse"
-        , cAddresses: "Addressen"
+        , cAddress: "Adresse"
+        , cAddresses: "Adressen"
         , cCalculator: "Rechner"
         , cNetwork: "Netzwerk"
         , cVersion: "Version"
@@ -59,7 +59,7 @@ translation =
         }
     , hero:
         { hrSubtitle: "Suche Adressen, Transaktionen, Epochen und Slots im Cardano Netzwerk"
-        , hrSearch: "Suche Addressen, Transaktionen, Slots und Epochen"
+        , hrSearch: "Suche Adressen, Transaktionen, Slots und Epochen"
         , hrTime: "Zeit"
         }
     , dashboard:
@@ -82,7 +82,7 @@ translation =
         , dbTransactionSearch: "Transaktionssuche"
         , dbTransactionSearchDescription: "Transaktion ist der Transfer von Münzem vom Benutzer 'A' zum Benutzer 'B'."
         , dbApiDescription: "Unsere robuste API ist in unterschiedlichen Sprachen und SDKs verfügbar."
-        , dbGetAddress: "Addresse abfragen"
+        , dbGetAddress: "Adresse abfragen"
         , dbResponse: "Antwort"
         , dbCurl: "Curl"
         , dbNode: "Node"
@@ -96,7 +96,7 @@ translation =
         { addScan: "Scannen Sie hier den QR Code, um die Adresse in die Zwischenablage zu kopieren."
         , addQrCode: "QR-Code"
         , addFinalBalance: "Aktueller Kontostand"
-        , addNotFound: "Addresse existiert nicht."
+        , addNotFound: "Adresse existiert nicht."
         }
     , tx:
         { txTime: "Eingangszeit"
@@ -117,8 +117,9 @@ translation =
         }
     , genesisBlock:
         { gblNotFound: "Genesis Block existiert nicht."
-        , gblAddressesEmpty: "Keine Addressen"
-        , gblAddressesNotFound: "Addressen existieren nicht."
+        , gblNumberRedeemedAddresses: "Anzahl eingelöster Adressen"
+        , gblAddressesEmpty: "Keine Adressen"
+        , gblAddressesNotFound: "Adressen existieren nicht."
         , gblAddressHash: "Id"
         , gblAddressRedeemAmount: "Einzulösender Wert"
         , gblAddressIsRedeemed: "eingelöst"

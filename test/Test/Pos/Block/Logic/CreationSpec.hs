@@ -53,8 +53,9 @@ spec = describe "Block.Logic.Creation" $ do
         prop "empty block size is sane" $ emptyBlk $ \blk0 -> leftToCounter blk0 $ \blk ->
             let s = biSize blk
             in counterexample ("Real block size: " <> show s) $ do
-               -- 500 + 1 serialization overhead.
-               s <= 501 && s <= genesisMaxBlockSize
+               -- 500 + 16 of serialization overhead. Note how being CBOR a var-len encoding,
+               -- so 32 is an upper bound here.
+               s <= 516 && s <= genesisMaxBlockSize
         prop "doesn't create blocks bigger than the limit" $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload) ->

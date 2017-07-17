@@ -125,10 +125,10 @@ shortPublicKeyHexF :: Format r (PublicKey -> r)
 shortPublicKeyHexF = fitLeft 8 %. fullPublicKeyHexF
 
 -- | Parse 'PublicKey' from base64 encoded string.
-parseFullPublicKey :: (Bi PublicKey) => Text -> Maybe PublicKey
+parseFullPublicKey :: Text -> Maybe PublicKey
 parseFullPublicKey s = do
     b <- rightToMaybe $ Base64.decode s
-    rightToMaybe $ Bi.decodeFull b
+    PublicKey <$> rightToMaybe (CC.xpub b)
 
 emptyPass :: ScrubbedBytes
 emptyPass = mempty

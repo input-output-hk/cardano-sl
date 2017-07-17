@@ -15,13 +15,15 @@ import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Monadic   (assert, pre)
 
 import           Pos.Block.Logic           (applyBlocks, verifyBlocksPrefix)
+import           Pos.Block.Types           (Blund)
 import           Pos.Core                  (SlotId (..), epochIndexL)
 import           Pos.DB.Pure               (DBPureVar)
 import qualified Pos.GState                as GS
+import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Util                  (lensOf, _neLast)
-import           Pos.Util.Chrono           (OldestFirst (..))
+import           Pos.Util.Chrono           (NE, OldestFirst (..))
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
                                             withCurrentSlot)
 import           Test.Pos.Util             (stopProperty)
@@ -84,14 +86,17 @@ verifyValidBlocks = do
 
 applyBlocksSpec :: Spec
 applyBlocksSpec = do
-    prop applyByOneOrAllAtOnceDesc applyByOneOrAllAtOnce
+    prop applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
   where
+    applier = applyBlocks True Nothing
     applyByOneOrAllAtOnceDesc =
         "applying blocks one by one leads to the same GState as " <>
         "applying them all at once"
 
-applyByOneOrAllAtOnce :: BlockProperty ()
-applyByOneOrAllAtOnce = do
+applyByOneOrAllAtOnce ::
+       (OldestFirst NE (Blund SscGodTossing) -> BlockTestMode ())
+    -> BlockProperty ()
+applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
     blunds <- getOldestFirst <$> bpGenBlocks Nothing
     pre (not $ null blunds)
@@ -100,8 +105,8 @@ applyByOneOrAllAtOnce = do
     dbPureCloned <-
         lift $
         GS.withClonedGState $ do
-            mapM_ (applyBlocks True Nothing . one) (getOldestFirst blundsNE)
+            mapM_ (applier . one) (getOldestFirst blundsNE)
             readDB
-    lift (applyBlocks True Nothing blundsNE)
+    lift $ applier blundsNE
     dbPure <- lift readDB
     assert (dbPure == dbPureCloned)

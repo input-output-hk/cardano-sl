@@ -12,7 +12,7 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
-import           Control.Lens        (each, to, views, _tail)
+import           Control.Lens        (views)
 import           Development.GitRev  (gitBranch, gitHash)
 import           Ether.Internal      (HasLens (..))
 import           Formatting          (build, sformat, shown, (%))
@@ -25,14 +25,9 @@ import           System.Wlog         (WithLogger, getLoggerName, logError, logIn
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import qualified Pos.Constants       as Const
-import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
-                                      HasPrimaryKey (..), NodeContext,
+import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
                                       getOurPubKeyAddress, getOurPublicKey)
-import           Pos.Crypto          (createPsk, encToPublic)
-import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
-import           Pos.DB.Misc         (addProxySecretKey)
-import           Pos.Delegation      (initDelegation)
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
@@ -42,7 +37,7 @@ import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Types           (addressHash)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.LogSafe    (logInfoS)
-import           Pos.Util.UserSecret (HasUserSecret (..), usKeys)
+import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Worker          (allWorkers, allWorkersCount)
 import           Pos.WorkMode.Class  (WorkMode)
 
@@ -78,8 +73,6 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                     lastKnownEpoch leaders
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
 
-    putProxySecretKeys
-    initDelegation @ssc
     initSemaphore
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
@@ -131,21 +124,29 @@ nodeStartMsg = logInfo msg
 -- Details
 ----------------------------------------------------------------------------
 
-putProxySecretKeys ::
-       ( MonadDB m
-       , MonadReader ctx m
-       , MonadIO m
-       , HasUserSecret ctx
-       , HasPrimaryKey ctx )
-    => m ()
-putProxySecretKeys = do
-    uSecret <- atomically . readTVar =<< view userSecret
-    secretKey <- view primaryKey
-    let eternity = (minBound, maxBound)
-        makeOwnPSK =
-            flip (createPsk secretKey) eternity . encToPublic
-        ownPSKs = uSecret ^.. usKeys . _tail . each . to makeOwnPSK
-    for_ ownPSKs addProxySecretKey
+-- TODO @pva701: somebody who knows what is going on here fix it.
+-- We delegate the right to produce block to node @encToPublic encryptedSK@,
+-- why does such node exist?
+-- If this function is correct:
+-- 1. explain me why it's correct.
+-- 2. please don't run it in dev mode, because of there is not a node with delegated PK
+-- and node2 doesn't produce blocks and the error about poor chain quality appears in the log.
+
+-- putProxySecretKeys ::
+--        ( MonadDB m
+--        , MonadReader ctx m
+--        , MonadIO m
+--        , HasUserSecret ctx
+--        , HasPrimaryKey ctx )
+--     => m ()
+-- putProxySecretKeys = do
+--     uSecret <- atomically . readTVar =<< view userSecret
+--     secretKey <- view primaryKey
+--     let eternity = (minBound, maxBound)
+--         makeOwnPSK =
+--             flip (createPsk secretKey) eternity . encToPublic
+--         ownPSKs = uSecret ^.. usKeys . _tail . each . to makeOwnPSK
+--     for_ ownPSKs addProxySecretKey
 
 initSemaphore :: (WorkMode ssc ctx m) => m ()
 initSemaphore = do

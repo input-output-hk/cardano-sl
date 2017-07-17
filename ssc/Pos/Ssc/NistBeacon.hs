@@ -30,7 +30,8 @@ data SscNistBeacon
 deriving instance Show SscNistBeacon
 deriving instance Eq SscNistBeacon
 
--- FIXME Why is it here at all?
+-- FIXME this is needed because 'Ssc' puts the Buildable constraint on
+-- things. However, this instance should really be in Pos.Util.Util instead.
 instance Buildable () where
     build _ = "()"
 
@@ -68,7 +69,7 @@ instance SscGStateClass SscNistBeacon where
     sscLoadGlobalState = pass
     sscGlobalStateToBatch _ = Tagged []
     sscRollbackU _ = pass
-    sscVerifyAndApplyBlocks _ _ = pass
+    sscVerifyAndApplyBlocks _ _ _ = pass
     sscCalculateSeedQ i _ = do
         let h :: ByteString
             h = ByteArray.convert $ Hash.hashlazy @SHA256 (serialize i)

@@ -66,7 +66,6 @@ module Pos.Core.Types
        , siSlotL
        , slotIdF
        , EpochOrSlot (..)
-       , epochOrSlot
 
        -- * Scripting
        , Script(..)
@@ -453,10 +452,6 @@ type FlatSlotId = Word64
 newtype EpochOrSlot = EpochOrSlot
     { unEpochOrSlot :: Either EpochIndex SlotId
     } deriving (Show, Eq, Generic, NFData)
-
--- | Apply one of the function depending on content of EpochOrSlot.
-epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
-epochOrSlot f g = either f g . unEpochOrSlot
 
 instance Ord EpochOrSlot where
     compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of

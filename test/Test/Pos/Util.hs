@@ -20,7 +20,12 @@ module Test.Pos.Util
        , showReadTest
        , (.=.)
        , (>=.)
+       -- * Monadic properties
+       , stopProperty
+       , maybeStopProperty
        ) where
+
+import Universum
 
 import qualified Data.ByteString       as BS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
@@ -41,7 +46,11 @@ import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin
                                         counterexample, forAll, property, resize,
                                         suchThat, vectorOf, (.&&.), (===))
 
-import           Universum
+import           Test.QuickCheck.Monadic  (PropertyM, stop)
+import           Test.QuickCheck.Property (Result (..), failed)
+
+import           Pos.Binary               (AsBinaryClass (..), Bi (..))
+import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary
@@ -198,3 +207,23 @@ isCommutative m1 m2 =
 formsCommutativeMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
 formsCommutativeMonoid m1 m2 m3 =
     (formsMonoid m1 m2 m3) .&&. (isCommutative m1 m2)
+
+----------------------------------------------------------------------------
+-- Monadic testing
+----------------------------------------------------------------------------
+
+-- Note, 'fail' does the same thing, but:
+-- • it's quite trivial, almost no copy-paste;
+-- • it's 'fail' from 'Monad', not 'MonadFail';
+-- • I am not a fan of 'fail'.
+-- | Stop 'PropertyM' execution with given reason. The property will fail.
+stopProperty :: Monad m => Text -> PropertyM m a
+stopProperty msg = stop failed {reason = toString msg}
+
+-- | Use 'stopProperty' if the value is 'Nothing' or return something
+-- it the value is 'Just'.
+maybeStopProperty :: Monad m => Text -> Maybe a -> PropertyM m a
+maybeStopProperty msg =
+    \case
+        Nothing -> stopProperty msg
+        Just x -> pure x

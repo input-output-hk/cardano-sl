@@ -217,23 +217,9 @@ instance Bi Text.Text where
     encode = encodeString
     decode = decodeString
 
-encodeChunked :: Bi c
-              => Encoding
-              -> ((c -> Encoding -> Encoding) -> Encoding -> a -> Encoding)
-              -> a
-              -> Encoding
-encodeChunked encodeIndef foldrChunks a =
-    encodeIndef
- <> foldrChunks (\x r -> encode x <> r) encodeBreak a
-
-decodeChunked :: Bi c => Decoder s () -> ([c] -> a) -> Decoder s a
-decodeChunked decodeIndef fromChunks = do
-  decodeIndef
-  decodeSequenceLenIndef (flip (:)) [] (fromChunks . reverse) decode
-
 instance Bi BS.Lazy.ByteString where
-    encode = encodeChunked encodeBytesIndef BS.Lazy.foldrChunks
-    decode = decodeChunked decodeBytesIndef BS.Lazy.fromChunks
+    encode = encode . BS.Lazy.toStrict
+    decode = BS.Lazy.fromStrict <$> decode
 
 instance Bi a => Bi [a] where
     encode = encodeList

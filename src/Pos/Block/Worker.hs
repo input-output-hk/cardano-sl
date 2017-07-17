@@ -19,8 +19,9 @@ import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (calcChainQualityM, createGenesisBlock,
-                                              createMainBlock)
+import           Pos.Block.Logic             (calcChainQualityM,
+                                              createGenesisBlockAndApply,
+                                              createMainBlockAndApply)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (slogGetLastSlots)
@@ -37,7 +38,7 @@ import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
 import           Pos.DB.GState               (getPskByIssuer)
-import           Pos.DB.Misc                 (getProxySecretKeys)
+import           Pos.DB.Misc                 (getProxySecretKeysLight)
 import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
@@ -96,7 +97,7 @@ blockCreator
 blockCreator (slotId@SlotId {..}) sendActions = do
 
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlock siEpoch
+    mGenBlock <- createGenesisBlockAndApply siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jsonLog $ jlCreatedBlock (Left createdBlk)
@@ -140,7 +141,7 @@ blockCreator (slotId@SlotId {..}) sendActions = do
             else logDebug $ sformat ("Trimmed leaders: "%listJson) $
                             dropAround (fromIntegral $ fromEnum $ siSlot) 10 strLeaders
 
-        proxyCerts <- getProxySecretKeys -- TODO rename it with "light" suffix
+        proxyCerts <- getProxySecretKeysLight
         let validCerts =
                 filter (\pSk -> let (w0,w1) = pskOmega pSk
                                 in and [ siEpoch >= w0
@@ -207,7 +208,7 @@ onNewSlotWhenLeader slotId pske sendActions = do
   where
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
-        createdBlock <- createMainBlock slotId pske
+        createdBlock <- createMainBlockAndApply slotId pske
         either whenNotCreated whenCreated createdBlock
         logInfoS "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do

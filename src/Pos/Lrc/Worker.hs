@@ -4,7 +4,8 @@
 -- | Workers responsible for Leaders and Richmen computation.
 
 module Pos.Lrc.Worker
-       ( LrcModeFull
+       ( LrcModeFullNoSemaphore
+       , LrcModeFull
        , lrcOnNewSlotWorker
        , lrcSingleShot
        , lrcSingleShotNoLock
@@ -25,12 +26,12 @@ import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe,
+import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              rollbackBlocksUnsafe)
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Context                (BlkSemaphore, GenesisUtxo, recoveryCommGuard)
+import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              EpochOrSlot (..), HeaderHash, SharedSeed,
                                              SlotId (..), StakeholderId, crucialSlot,
@@ -80,18 +81,23 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
         reportMisbehaviourSilent False $
         "Lrc worker failed with error: " <> show e
 
--- | 'LrcModeFull' contains all constraints necessary to launch LRC.
-type LrcModeFull ssc ctx m =
+type LrcModeFullNoSemaphore ssc ctx m =
     ( LrcMode ssc ctx m
     , SscWorkersClass ssc
     , SscHelpersClass ssc
     , MonadSscMem ssc ctx m
     , MonadSlots m
-    , BlockApplyMode ssc ctx m
+    , MonadBlockApply ssc ctx m
     , MonadReader ctx m
-    , HasLens BlkSemaphore ctx BlkSemaphore
-    , HasLens GenesisUtxo ctx GenesisUtxo
     )
+
+-- | 'LrcModeFull' contains all constraints necessary to launch LRC.
+type LrcModeFull ssc ctx m =
+    ( LrcModeFullNoSemaphore ssc ctx m
+    , HasLens BlkSemaphore ctx BlkSemaphore
+    )
+
+type WithBlkSemaphore_ m = (HeaderHash -> m HeaderHash) -> m ()
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
@@ -99,18 +105,20 @@ lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc True epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc withBlkSemaphore_ epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
-    :: forall ssc ctx m. (LrcModeFull ssc ctx m)
+    :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShotNoLock epoch =
-    lrcSingleShotImpl @ssc False epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc withSemaphore epoch (allLrcConsumers @ssc)
+  where
+    withSemaphore action = void . action =<< GS.getTip
 
 lrcSingleShotImpl
-    :: forall ssc ctx m. (LrcModeFull ssc ctx m)
-    => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
+    :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
+    => WithBlkSemaphore_ m -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
     lock <- views (lensOf @LrcContext) lcLrcSync
     tryAcquireExclusiveLock epoch lock onAcquiredLock
@@ -129,10 +137,7 @@ lrcSingleShotImpl withSemaphore epoch consumers = do
                     , expectedRichmenComp)
         when need $ do
             logInfo "LRC is starting"
-            if withSemaphore
-                then withBlkSemaphore_ $ lrcDo @ssc epoch filteredConsumers
-            -- we don't change/use it in lcdDo in fact
-                else void . lrcDo @ssc epoch filteredConsumers =<< GS.getTip
+            withSemaphore $ lrcDo @ssc epoch filteredConsumers
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"
@@ -157,7 +162,7 @@ tryAcquireExclusiveLock epoch lock action =
 
 lrcDo
     :: forall ssc ctx m.
-       LrcModeFull ssc ctx m
+       LrcModeFullNoSemaphore ssc ctx m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis

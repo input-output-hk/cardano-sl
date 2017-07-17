@@ -34,6 +34,7 @@ module Pos.DB.Block
 
        -- * MonadBlockDB
        , MonadBlockDB
+       , MonadSscBlockDB
        , MonadBlockDBWrite
        , dbGetBlockDefault
        , dbGetUndoDefault
@@ -320,7 +321,10 @@ blockIndexKey h = "b" <> convert h
 -- | Specialization of 'MonadBlockDBGeneric' for block processing.
 type MonadBlockDB ssc m
      = ( MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
-       , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
+       , SscHelpersClass ssc)
+
+type MonadSscBlockDB ssc m
+     = ( MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , SscHelpersClass ssc)
 
 -- | 'MonadBlocksDB' with write options

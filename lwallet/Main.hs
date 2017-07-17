@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE QuasiQuotes         #-}
@@ -8,6 +9,7 @@ module Main
        ( main
        ) where
 
+import           Control.Concurrent.STM.TQueue (newTQueue, writeTQueue, tryReadTQueue)
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Trans.Either (EitherT (..))
 import qualified Data.ByteString            as BS
@@ -18,11 +20,18 @@ import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S (fromList, toList)
 import           Data.String.QQ             (s)
 import qualified Data.Text                  as T
-import           Data.Time.Units            (convertUnit)
-import           Formatting                 (build, int, sformat, stext, string, (%))
-import           Mockable                   (Production, delay, runProduction)
+import qualified Data.Text.IO               as T
+import           Formatting                 (build, int, sformat, stext, shown, string, (%))
+import           Data.Time.Units            (convertUnit, toMicroseconds)
+import           Data.Void                  (absurd)
+import           Mockable                   (Mockable, SharedAtomic, SharedAtomicT,
+                                             bracket,
+                                             currentTime, delay,
+                                             modifySharedAtomic, newSharedAtomic,
+                                             Production, race, runProduction, forConcurrently)
 import           Network.Transport.Abstract (Transport, hoistTransport)
-import           System.IO                  (hFlush, stdout)
+import           System.IO                  (BufferMode (LineBuffering),
+                                             hClose, hFlush, hSetBuffering, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
 import           System.Exit                (ExitCode (ExitSuccess))
@@ -33,16 +42,20 @@ import           Universum
 
 import           Pos.Binary                 (Raw, serialize')
 import qualified Pos.CLI                    as CLI
+import           Pos.Client.Txp.Util        (createTx)
+import           Pos.Client.Txp.Balances    (getOwnUtxo)
 import           Pos.Communication          (NodeId, OutSpecs, SendActions, Worker',
                                              WorkerSpec, dataFlow, delegationRelays,
-                                             relayPropagateOut, submitTx,
+                                             relayPropagateOut, submitTx, submitTxRaw,
                                              submitUpdateProposal, submitVote, txRelays,
                                              usRelays, worker)
-import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
+import           Pos.Constants              (genesisBlockVersionData, genesisSlotDuration,
+                                             isDevelopment)
+import           Pos.Core.Types             (Timestamp (..), mkCoin)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
                                              emptyPassphrase, encToPublic, fakeSigner,
                                              hash, hashHexF, noPassEncrypt, safeCreatePsk,
-                                             safeSign, toPublic, unsafeHash,
+                                             safeSign, safeToPublic, toPublic, unsafeHash,
                                              withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Discovery              (findPeers, getPeers)
@@ -69,7 +82,8 @@ import           Pos.Wallet.Light           (LightWalletMode, WalletParams (..),
 import           Pos.WorkMode               (RealMode, RealModeContext)
 
 import           Command                    (Command (..), ProposeUpdateSystem (..),
-                                             parseCommand)
+                                             SendMode (..), parseCommand)
+import           System.Random              (randomRIO)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
                                              getWalletOptions)
@@ -80,16 +94,19 @@ data CmdCtx =
     , na    :: [NodeId]
     }
 
-
 helpMsg :: Text
 helpMsg = [s|
 Avaliable commands:
    balance <address>              -- check balance on given address (may be any address)
    send <N> [<address> <coins>]+  -- create and send transaction with given outputs
                                      from own address #N
-   send-to-all-genesis <coins> <delay>
-                                  -- create and send transactions from all genesis addresses,
-                                     delay in ms to themselves with the given amount of coins
+   send-to-all-genesis <duration> <conc> <delay> <cooldown> <sendmode> <csvfile>
+                                  -- create and send transactions from all genesis addresses for <duration>
+                                     seconds, delay in ms.  conc is the number of threads that send
+                                     transactions concurrently. sendmode can be one of "neighbours",
+                                     "round-robin", and "send-random".
+                                     After all transactions are being sent, wait for cooldown slots to
+                                     give the system time to cool down."
    vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and
                                      decision, from own address #N
    propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
@@ -107,7 +124,20 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
-runCmd :: MonadWallet ssc ctx m => SendActions m -> Command -> CmdCtx -> m ()
+-- | Count submitted and failed transactions.
+--
+-- This is used in the benchmarks using send-to-all-genesis
+data TxCount = TxCount
+    { _txcSubmitted :: !Int
+    , _txcFailed :: !Int }
+
+addTxSubmit :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
+addTxSubmit mvar = modifySharedAtomic mvar (\(TxCount submitted failed) -> return (TxCount (submitted + 1) failed, ()))
+
+addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
+addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed) -> return (TxCount submitted (failed + 1), ()))
+
+runCmd :: forall ssc ctx m. MonadWallet ssc ctx m => SendActions m -> Command -> CmdCtx -> m ()
 runCmd _ (Balance addr) _ =
     getBalance addr >>=
     putText . sformat ("Current balance: "%coinF)
@@ -125,20 +155,66 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd sendActions (SendToAllGenesis amount delay_) CmdCtx{..} = do
-    for_ skeys $ \key -> do
-        let txOut = TxOut {
-            txOutAddress = makePubKeyAddress (toPublic key),
-            txOutValue = amount
-        }
-        tx <-
-            submitTx
-                sendActions
-                (fakeSigner key)
-                na
-                (NE.fromList [TxOutAux txOut []])
-        putText $ sformat ("Submitted transaction: "%txaF) tx
-        delay $ ms delay_
+runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsSentFile) CmdCtx{..} = do
+    let nNeighbours = length na
+    let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
+    tpsMVar <- newSharedAtomic $ TxCount 0 0
+    startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
+    Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
+        liftIO $ hSetBuffering h LineBuffering
+        liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> show slotDuration
+                                                   , "sendMode=" <> show sendMode
+                                                   , "conc=" <> show conc
+                                                   , "startTime=" <> startTime
+                                                   , "delay=" <> show delay_
+                                                   , "cooldown=" <> show cooldown]
+        liftIO $ T.hPutStrLn h "time,txCount,txType"
+        txQueue <- atomically $ newTQueue
+        -- prepare a queue with all transactions
+        forM_ (zip skeys [0..]) $ \(key, n) -> do
+            let txOut = TxOut {
+                    txOutAddress = makePubKeyAddress (toPublic key),
+                    txOutValue = mkCoin 1
+                    }
+            neighbours <- case sendMode of
+                    SendNeighbours -> return na
+                    SendRoundRobin -> return [na !! (n `mod` nNeighbours)]
+                    SendRandom -> do
+                        i <- liftIO $ randomRIO (0, nNeighbours - 1)
+                        return [na !! i]
+            atomically $ writeTQueue txQueue (key, txOut, neighbours)
+
+        let writeTPS :: m void
+            -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
+            writeTPS = do
+                delay (sec slotDuration)
+                currentTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
+                modifySharedAtomic tpsMVar $ \(TxCount submitted failed) -> do
+                    -- CSV is formatted like this:
+                    -- time,txCount,txType
+                    liftIO $ T.hPutStrLn h $ T.intercalate "," [currentTime, show $ submitted, "submitted"]
+                    liftIO $ T.hPutStrLn h $ T.intercalate "," [currentTime, show $ failed, "failed"]
+                    return (TxCount 0 0, ())
+                writeTPS
+        let sendTxs :: m ()
+            -- repeatedly take transactions from the queue and send them
+            sendTxs = (atomically $ tryReadTQueue txQueue) >>= \case
+                Just (key, txOut, neighbours) -> do
+                    utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic (fakeSigner key)
+                    let tx = createTx utxo (fakeSigner key) (NE.fromList [TxOutAux txOut []])
+                    case tx of
+                        Left err -> addTxFailed tpsMVar >> logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
+                        Right tx -> do
+                            submitTxRaw sendActions neighbours tx
+                            addTxSubmit tpsMVar >> logInfo (sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours)
+                    delay $ ms delay_
+                    sendTxs
+                Nothing -> return ()
+        let sendTxsConcurrently = void $ forConcurrently [1..conc] (const sendTxs)
+        let sendTxsConcurrentlyFor n = race (delay (sec n)) sendTxsConcurrently
+        either absurd identity <$> race
+            writeTPS
+            (sendTxsConcurrentlyFor duration >> delay (sec $ cooldown * slotDuration))
 runCmd sendActions v@(Vote idx decision upid) CmdCtx{na} = do
     logDebug $ "Submitting a vote :" <> show v
     skey <- (!! idx) <$> getSecretKeys

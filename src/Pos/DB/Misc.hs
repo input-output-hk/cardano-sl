@@ -6,7 +6,7 @@ module Pos.DB.Misc
        (
          prepareMiscDB
 
-       , getProxySecretKeys
+       , getProxySecretKeysLight
        , addProxySecretKey
        , removeProxySecretKey
        , dropOldProxySecretKeys
@@ -38,8 +38,8 @@ prepareMiscDB = pass
 
 -- | Gets proxy secret keys stored by node. We store only "related"
 -- psks: those who have pskIssuer or pskDelegate matching our pk.
-getProxySecretKeys :: MonadDB m => m [ProxySKLight]
-getProxySecretKeys = do
+getProxySecretKeysLight :: MonadDB m => m [ProxySKLight]
+getProxySecretKeysLight = do
     curCerts <- miscGetBi @([ProxySKLight]) proxySKKey
     maybe onNothing pure curCerts
   where
@@ -51,14 +51,14 @@ getProxySecretKeys = do
 -- this under write lock only (see 'miscLock').
 addProxySecretKey :: MonadDB m => ProxySKLight -> m ()
 addProxySecretKey psk = do
-    keys <- getProxySecretKeys
+    keys <- getProxySecretKeysLight
     miscPutBi proxySKKey $ ordNub $ psk:keys
 
 -- | Removes proxy secret key if present by issuer pk. Call it under
 -- write lock only (see 'miscLock').
 removeProxySecretKey :: MonadDB m => PublicKey -> m ()
 removeProxySecretKey pk = do
-    keys <- getProxySecretKeys
+    keys <- getProxySecretKeysLight
     miscPutBi proxySKKey $ filter ((/= pk) . pskIssuerPk) keys
 
 -- TODO it's not used anywhere yet. Should it be?
@@ -68,7 +68,7 @@ removeProxySecretKey pk = do
 dropOldProxySecretKeys :: MonadDB m => EpochIndex -> m ()
 dropOldProxySecretKeys eId = do
     keys <- filter (\p -> eId <= snd (pskOmega p)) <$>
-            getProxySecretKeys
+            getProxySecretKeysLight
     miscPutBi proxySKKey keys
 
 ----------------------------------------------------------------------------

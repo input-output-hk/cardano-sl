@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -7,12 +8,13 @@ module Pos.Delegation.Logic.VAR
        ( dlgVerifyBlocks
        , dlgApplyBlocks
        , dlgRollbackBlocks
+       , dlgNormalizeOnRollback
        ) where
 
 import           Universum
 
-import           Control.Lens                 (at, makeLenses, non, (%=), (.=), (?=),
-                                               _Wrapped)
+import           Control.Lens                 (at, makeLenses, non, uses, (%=), (.=),
+                                               (?=), _Wrapped)
 import           Control.Monad.Except         (runExceptT, throwError)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
@@ -20,6 +22,7 @@ import           Data.List                    (partition, (\\))
 import qualified Data.Text.Buildable          as B
 import           Ether.Internal               (HasLens (..))
 import           Formatting                   (bprint, build, sformat, (%))
+import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util                (listJson, mapJson)
 import           System.Wlog                  (WithLogger, logDebug)
 
@@ -38,6 +41,7 @@ import           Pos.DB                       (DBError (DBMalformed), MonadDBRea
                                                SomeBatchOp (..))
 import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
+import qualified Pos.DB.DB                    as DB
 import qualified Pos.DB.GState                as GS
 import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..), MapCede,
                                                MonadCedeRead (getPsk),
@@ -45,17 +49,17 @@ import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..),
                                                dlgReachesIssuance, evalMapCede,
                                                getPskChain, getPskPk, modPsk,
                                                pskToDlgEdgeAction, runDBCede)
-import           Pos.Delegation.Class         (MonadDelegation, dwEpochId,
+import           Pos.Delegation.Class         (MonadDelegation, dwEpochId, dwProxySKPool,
                                                dwThisEpochPosted)
 import           Pos.Delegation.Helpers       (isRevokePsk)
 import           Pos.Delegation.Logic.Common  (DelegationError (..), getPSKsFromThisEpoch,
                                                runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
-                                               deleteFromDlgMemPool, modifyDlgMemPool)
+                                               deleteFromDlgMemPool, processProxySKHeavy)
 import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo)
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
-import           Pos.Util                     (getKeys, _neHead, _neLast)
+import           Pos.Util                     (getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
 
@@ -555,31 +559,8 @@ dlgRollbackBlocks
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 dlgRollbackBlocks blunds = do
-    tipBlockAfterRollback <-
-        maybe (throwM malformedLastParent) pure =<<
-        DB.blkGetBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
-    let epochAfterRollback = tipBlockAfterRollback ^. epochIndexL
-    richmen <-
-        HS.fromList . toList <$>
-        lrcActionOnEpochReason
-        (tipBlockAfterRollback ^. epochIndexL)
-        "delegationRollbackBlocks: there are no richmen for last rollbacked block epoch"
-        LrcDB.getRichmenDlg
-    fromGenesisIssuers <-
-        HS.fromList . map pskIssuerPk <$> getPSKsFromThisEpoch @ssc tipAfterRollbackHash
-    runDelegationStateAction $ do
-        modifyDlgMemPool
-            (HM.filterWithKey $ \pk psk ->
-                 not (pk `HS.member` fromGenesisIssuers) &&
-                 (addressHash pk) `HS.member` richmen &&
-                 pskOmega psk == epochAfterRollback)
-        dwThisEpochPosted .= fromGenesisIssuers
-        dwEpochId .= tipBlockAfterRollback ^. epochIndexL
     getNewestFirst <$> mapM rollbackBlund blunds
   where
-    malformedLastParent = DBMalformed $
-        "delegationRollbackBlocks: parent of last rollbacked block is not in blocks db"
-    tipAfterRollbackHash = blunds ^. _Wrapped . _neLast . _1 . prevBlockL
     rollbackBlund :: Blund ssc -> m SomeBatchOp
     rollbackBlund (Left _, _) = pure $ SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) = do
@@ -591,3 +572,31 @@ dlgRollbackBlocks blunds = do
                        <> map DlgEdgeAdd toUndo
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
         pure $ SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
+
+-- | Normalizes the memory state after the rollback.
+dlgNormalizeOnRollback ::
+       forall ssc ctx m.
+       ( MonadDelegation ctx m
+       , DB.MonadBlockDB ssc m
+       , DB.MonadDBRead m
+       , DB.MonadGState m
+       , MonadIO m
+       , MonadMask m
+       , WithLogger m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
+       , Mockable CurrentTime m
+       )
+    => m ()
+dlgNormalizeOnRollback = do
+    tip <- DB.getTipHeader @ssc
+    let tipEpoch = tip ^. epochIndexL
+    fromGenesisPsks <-
+        map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
+    oldPool <- runDelegationStateAction $ do
+        dwEpochId .= tipEpoch
+        dwThisEpochPosted .= HS.fromList fromGenesisPsks
+        pool <- uses dwProxySKPool toList
+        dwProxySKPool .= mempty
+        pure pool
+    forM_ oldPool (processProxySKHeavy @ssc)

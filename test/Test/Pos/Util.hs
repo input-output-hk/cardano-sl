@@ -26,6 +26,7 @@ module Test.Pos.Util
        -- * Monadic properties
        , stopProperty
        , maybeStopProperty
+       , splitIntoChunks
        ) where
 
 import           Universum
@@ -45,7 +46,8 @@ import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
 import           Test.QuickCheck          (Arbitrary (arbitrary), Property, conjoin,
                                            counterexample, forAll, property, resize,
                                            suchThat, vectorOf, (.&&.), (===))
-import           Test.QuickCheck.Monadic  (PropertyM, stop)
+import           Test.QuickCheck.Gen      (choose)
+import           Test.QuickCheck.Monadic  (PropertyM, pick, stop)
 import           Test.QuickCheck.Property (Result (..), failed)
 
 import           Pos.Binary               (AsBinaryClass (..), Bi (..), decodeOrFail,
@@ -236,3 +238,13 @@ maybeStopProperty msg =
     \case
         Nothing -> stopProperty msg
         Just x -> pure x
+
+-- | Split given list into chunks with size up to given value.
+splitIntoChunks :: Monad m => Word -> [a] -> PropertyM m [NonEmpty a]
+splitIntoChunks 0 _ = error "splitIntoChunks: maxSize is 0"
+splitIntoChunks maxSize items = do
+    sizeMinus1 <- pick $ choose (0, maxSize - 1)
+    let (chunk, rest) = splitAt (fromIntegral sizeMinus1 + 1) items
+    case nonEmpty chunk of
+        Nothing      -> return []
+        Just chunkNE -> (chunkNE :) <$> splitIntoChunks maxSize rest

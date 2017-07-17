@@ -26,7 +26,7 @@ import           Pos.Util.Chrono           (NE, OldestFirst (..))
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
                                             satisfySlotCheck)
-import           Test.Pos.Util             (stopProperty)
+import           Test.Pos.Util             (splitIntoChunks, stopProperty)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is currently extremely slow.
@@ -94,7 +94,8 @@ verifyAndApplyBlocksSpec = do
            whenLeftM (verifyAndApplyBlocks True blocks) throwText
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
-        "to the same GState as verifying and applying them all at once"
+        "to the same GState as verifying and applying them all at once " <>
+        "as well as applying in chunks"
 
 ----------------------------------------------------------------------------
 -- applyBlocks
@@ -126,11 +127,21 @@ applyByOneOrAllAtOnce applier = do
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
     let readDB = readIORef =<< view (lensOf @DBPureVar)
-    dbPureCloned <-
+    stateAfter1by1 <-
         lift $
         GS.withClonedGState $ do
             mapM_ (applier . one) (getOldestFirst blundsNE)
             readDB
-    lift $ applier blundsNE
-    dbPure <- lift readDB
-    assert (dbPure == dbPureCloned)
+    chunks <- splitIntoChunks 5 (blunds)
+    stateAfterInChunks <-
+        lift $
+        GS.withClonedGState $ do
+            mapM_ (applier . OldestFirst) chunks
+            readDB
+    stateAfterAllAtOnce <-
+        lift $ do
+            applier blundsNE
+            readDB
+    assert
+        (stateAfter1by1 == stateAfterInChunks &&
+         stateAfterInChunks == stateAfterAllAtOnce)

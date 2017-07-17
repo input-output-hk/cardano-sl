@@ -122,7 +122,12 @@ instance Bi (UnsignedVarInt Word64) where
   decode = UnsignedVarInt <$> decode
 
 -- TinyVarInt
-
+-- The new CBOR instance is going to automatically offload on the `encodeWord16` from the CBOR library.
+-- The reasoning behind this is that the old implementation was taking 1 or 2 bytes according to the size,
+-- but due to the fact we need flat-term encoding for CBOR instances, we need (in case the TinyVarInt occupies
+-- two bytes) to store this as a list, so the space-saving would be lost anyway due to the list size, even
+-- in the case the `Int` occupies only 1 byte. Therefore, it's simpler to always encode this as a `Word16`
+-- directly.
 instance Bi TinyVarInt where
   encode = encode . getTinyVarInt
   decode = TinyVarInt <$> decode

@@ -59,13 +59,13 @@ import           Pos.Communication.Limits.Types
 ----------------------------------------------------------------------------
 
 instance MessageLimitedPure CC.XSignature where
-    msgLenLimit = 64
+    msgLenLimit = 66
 
 instance MessageLimitedPure (Signature a) where
     msgLenLimit = Signature <$> msgLenLimit
 
 instance MessageLimitedPure PublicKey where
-    msgLenLimit = 64
+    msgLenLimit = 66
 
 -- Sometimes 'AsBinary a' is serialized with some overhead compared to
 -- 'a'. This overhead is estimated as at most 20.
@@ -94,10 +94,10 @@ instance MessageLimitedPure PVSS.ExtraGen where
     msgLenLimit = 33
 
 instance MessageLimitedPure (AbstractHash Blake2b_224 a) where
-    msgLenLimit = 28
+    msgLenLimit = 30
 
 instance MessageLimitedPure (AbstractHash Blake2b_256 a) where
-    msgLenLimit = 32
+    msgLenLimit = 34
 
 instance MessageLimitedPure EpochIndex where
     msgLenLimit = 10

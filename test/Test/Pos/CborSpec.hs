@@ -219,7 +219,10 @@ spec = describe "Cbor.Bi instances" $ do
         prop "ChainDifficulty" (soundInstanceProperty @ChainDifficulty Proxy)
         prop "StakeDistribution" (soundInstanceProperty @StakeDistribution Proxy)
         prop "GenesisCoreData" (soundInstanceProperty @GenesisCoreData Proxy)
-        prop "ApplicationName" (soundInstanceProperty @ApplicationName Proxy)
+        -- For (no good) reason this prop runs extremely slow. For now the quickest
+        -- course of action is to decrease the number of tests performed, but it's probably
+        -- a hot trail for performance testing.
+        modifyMaxSuccess (const 10) $ prop "ApplicationName" (soundInstanceProperty @ApplicationName Proxy)
         prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion Proxy)
         prop "BlockVersion" (soundInstanceProperty @BlockVersion Proxy)
         prop "Attributes X1" (soundInstanceProperty @(Attributes X1) Proxy)

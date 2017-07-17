@@ -30,7 +30,6 @@ import           Network.Transport.Concrete           (concrete)
 import qualified Network.Transport.TCP                as TCP
 import           Node
 import           Node.Conversation
-import           Node.OutboundQueue
 import           Node.Message.Binary                  (BinaryP, binaryPacking)
 import           System.Environment                   (getArgs)
 import           System.Random
@@ -49,11 +48,15 @@ worker
     :: NodeId
     -> StdGen
     -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production
-    -> Worker Packing BS.ByteString NodeId () Production
+    -> Converse Packing BS.ByteString Production
+    -> Production ()
 worker anId generator discovery = pingWorker generator
     where
-    pingWorker :: StdGen -> SendActions Packing BS.ByteString NodeId () Production -> Production ()
-    pingWorker gen sendActions = loop gen
+    pingWorker
+       :: StdGen
+       -> Converse Packing BS.ByteString Production
+       -> Production ()
+    pingWorker gen converse = loop gen
         where
         loop g = do
             let (i, gen') = randomR (1000,2000000) g
@@ -63,7 +66,7 @@ worker anId generator discovery = pingWorker generator
             _ <- discoverPeers discovery
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
-            forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
+            forM_ (S.toList peerSet) $ \addr -> converseWith converse (NodeId addr) $
                 \_peerData -> Conversation $ \(cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions maxBound
                     case received of
@@ -71,11 +74,14 @@ worker anId generator discovery = pingWorker generator
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> BS.ByteString -> [Listener Packing BS.ByteString NodeId () Production]
+listeners
+    :: NodeId
+    -> BS.ByteString
+    -> [Listener Packing BS.ByteString Production]
 listeners anId peerData = [pongListener]
     where
-    pongListener :: Listener Packing BS.ByteString NodeId () Production
-    pongListener = Listener $ \_ peerId _ (cactions :: ConversationActions Pong Void Production) -> do
+    pongListener :: Listener Packing BS.ByteString Production
+    pongListener = Listener $ \_ peerId (cactions :: ConversationActions Pong Void Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions Pong
 
@@ -97,16 +103,12 @@ makeNode transport i = do
         prng1 = mkStdGen (2 * i)
         prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
-    let mkOutboundQueue
-            :: Converse BinaryP B8.ByteString Production
-            -> Production (OutboundQueue BinaryP B8.ByteString NodeId () Production)
-        mkOutboundQueue converse = pure (freeForAll id converse)
     fork $ node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-                mkOutboundQueue prng1 binaryPacking (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
-        NodeAction (listeners . nodeId $ node') $ \sactions -> do
+                prng1 binaryPacking (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
+        NodeAction (listeners . nodeId $ node') $ \converse -> do
             liftIO . putStrLn $ "Making discovery for node " ++ show i
             discovery <- K.kademliaDiscovery kademliaConfig initialPeer (nodeEndPointAddress node')
-            worker (nodeId node') prng2 discovery sactions `finally` closeDiscovery discovery
+            worker (nodeId node') prng2 discovery converse `finally` closeDiscovery discovery
     where
     makeId anId
         | anId < 10 = B8.pack ("node_identifier_0" ++ show anId)

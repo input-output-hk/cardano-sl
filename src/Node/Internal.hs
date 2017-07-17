@@ -249,7 +249,7 @@ closeChannel (ChannelOut conn) = NT.close conn
 -- | Do multiple sends on a 'ChannelOut'.
 writeMany
     :: forall m .
-       ( Monad m, Mockable Throw m, WithLogger m )
+       ( Monad m, Mockable Throw m )
     => Word32 -- ^ Split into chunks of at most this size in bytes. 0 means no split.
     -> ChannelOut m
     -> LBS.ByteString
@@ -1477,7 +1477,6 @@ disconnectFromPeer
        , Mockable SharedAtomic m
        , Mockable Bracket m
        , Mockable Throw m
-       , WithLogger m
        )
     => Node packingType peerData m
     -> NodeId

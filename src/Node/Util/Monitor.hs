@@ -18,8 +18,6 @@ import qualified Mockable.Metrics as Metrics
 import qualified System.Remote.Monitoring as Monitoring
 import qualified System.Metrics as Monitoring
 import qualified System.Metrics.Distribution as Monitoring.Distribution
-import qualified System.Metrics.Gauge as Monitoring.Gauge
-import qualified System.Metrics.Counter as Monitoring.Counter
 import Node
 
 -- | Put time-warp related metrics into an EKG store.
@@ -28,8 +26,6 @@ import Node
 setupMonitor
     :: ( Mockable Metrics.Metrics m
        , Metrics.Distribution m ~ Monitoring.Distribution.Distribution
-       , Metrics.Gauge m ~ Monitoring.Gauge.Gauge
-       , Metrics.Counter m ~ Monitoring.Counter.Counter
        , MonadIO m
        )
     => (forall t . m t -> IO t)
@@ -54,8 +50,6 @@ setupMonitor lowerIO node store = do
 startMonitor
     :: ( Mockable Metrics.Metrics m
        , Metrics.Distribution m ~ Monitoring.Distribution.Distribution
-       , Metrics.Gauge m ~ Monitoring.Gauge.Gauge
-       , Metrics.Counter m ~ Monitoring.Counter.Counter
        , MonadIO m
        )
     => Int

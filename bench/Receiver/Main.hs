@@ -25,8 +25,6 @@ import           Network.Transport.Concrete (concrete)
 import           Node                       (Listener (..), NodeAction (..), node,
                                              defaultNodeEnvironment, ConversationActions (..),
                                              simpleNodeEndPoint, noReceiveDelay, NodeId)
-import           Node.Conversation
-import           Node.OutboundQueue
 import           Node.Message.Binary        (BinaryP, binaryPacking)
 import           ReceiverOptions            (Args (..), argsParser)
 
@@ -49,18 +47,13 @@ main = do
 
     let prng = mkStdGen 0
 
-    let mkOutboundQueue
-            :: Converse BinaryP () (LoggerNameBox Production)
-            -> LoggerNameBox Production (OutboundQueue BinaryP () NodeId () (LoggerNameBox Production))
-        mkOutboundQueue converse = pure (freeForAll id converse)
-
     runProduction $ usingLoggerName "receiver" $ do
-        node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prng binaryPacking () defaultNodeEnvironment $ \_ ->
+        node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
             NodeAction (const [pingListener noPong]) $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where
     pingListener noPong =
-        Listener $ \_ _ _ cactions -> do
+        Listener $ \_ _ cactions -> do
             Just (Ping mid payload) <- recv cactions maxBound
             logMeasure PingReceived mid payload
             unless noPong $ do

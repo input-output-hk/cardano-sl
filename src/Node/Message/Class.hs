@@ -99,7 +99,7 @@ data Packing packingType m = Packing
     , unpackM :: forall t . UnpackM packingType t -> m t
     }
 
-pack :: ( Functor m, Serializable packingType t ) => Packing packingType m -> t -> m LBS.ByteString
+pack :: ( Serializable packingType t ) => Packing packingType m -> t -> m LBS.ByteString
 pack Packing {..} = packM . packMsg packingType
 
 unpack :: ( Functor m, Serializable packingType t ) => Packing packingType m -> Decoder m t

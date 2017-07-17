@@ -29,14 +29,11 @@ import           Mockable                       (Production, delay, fork, realTi
 import qualified Network.Transport.Abstract     as NT
 import           Network.Transport.Concrete     (concrete)
 import           Node                           (NodeAction (..), node, Node(Node),
-                                                 SendActions (..),
                                                  Conversation (..), ConversationActions (..),
                                                  defaultNodeEnvironment, simpleNodeEndPoint,
-                                                 noReceiveDelay)
+                                                 noReceiveDelay, converseWith)
 import           Node.Internal                  (NodeId (..))
 import           Node.Message.Binary            (BinaryP, binaryPacking)
-import           Node.Conversation
-import           Node.OutboundQueue
 
 
 import           Bench.Network.Commons          (MeasureEvent (..), Payload (..),
@@ -70,11 +67,6 @@ main = do
     Right transport_ <- TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "3432") TCP.defaultTCPParameters
     let transport = concrete transport_
 
-    let mkOutboundQueue
-            :: Converse BinaryP () (LoggerNameBox Production)
-            -> LoggerNameBox Production (OutboundQueue BinaryP () NodeId () (LoggerNameBox Production))
-        mkOutboundQueue converse = pure (freeForAll id converse)
-
     let prngNode = mkStdGen 0
     let prngWork = mkStdGen 1
     let nodeIds  = [ NodeId $ TCP.encodeEndPointAddress host (show port) 0
@@ -89,24 +81,25 @@ main = do
             let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
                                      tasksIds
                                      (zip [0, msgNum..] nodeIds)
-            node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prngNode binaryPacking () defaultNodeEnvironment $ \node' ->
-                NodeAction (const []) $ \sactions -> do
+
+            node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode binaryPacking () defaultNodeEnvironment $ \node' ->
+                NodeAction (const []) $ \converse -> do
                     drones <- forM nodeIds (startDrone node')
-                    _ <- forM pingWorkers (fork . flip ($) sactions)
+                    _ <- forM pingWorkers (fork . flip ($) converse)
                     delay (fromIntegral duration :: Second)
                     forM_ drones stopDrone
 
     runProduction $ usingLoggerName "sender" $ action
   where
 
-    pingSender gen payloadBound startTimeMcs msgRate msgIds (msgStartId, peerId) sendActions =
+    pingSender gen payloadBound startTimeMcs msgRate msgIds (msgStartId, peerId) converse =
         (`evalRandT` gen) . (`evalStateT` PingState startTimeMcs 0) . forM_ msgIds $ \msgId -> do
             let sMsgId = msgStartId + msgId
             payload   <- liftIO $ Payload <$> getRandomR (0, payloadBound)
             lift . lift $ logMeasure PingSent sMsgId payload
             -- TODO: better to use `connect` + `send`,
             -- but `connect` is not implemented yet
-            lift . lift $ withConnectionTo sendActions peerId $
+            lift . lift $ converseWith converse peerId $
                 \_ -> Conversation $ \cactions -> do
                     send cactions (Ping sMsgId payload)
                     Just (Pong _ _) <- recv cactions maxBound

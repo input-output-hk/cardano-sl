@@ -100,7 +100,7 @@ applyByOneOrAllAtOnce = do
     dbPureCloned <-
         lift $
         GS.withClonedGState $ do
-            applyBlocks True Nothing blundsNE
+            mapM_ (applyBlocks True Nothing . one) (getOldestFirst blundsNE)
             readDB
     lift (applyBlocks True Nothing blundsNE)
     dbPure <- lift readDB

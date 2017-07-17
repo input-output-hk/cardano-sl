@@ -6,7 +6,9 @@
 module Pos.Util.Chrono
        ( Chrono
        , NewestFirst(..)
+       , _NewestFirst
        , OldestFirst(..)
+       , _OldestFirst
        , toNewestFirst
        , toOldestFirst
        , NE
@@ -14,7 +16,7 @@ module Pos.Util.Chrono
 
 import           Universum          hiding (mapMaybe)
 
-import           Control.Lens       (makeWrapped, _Wrapped)
+import           Control.Lens       (makeWrapped, _Wrapped, makePrisms)
 import qualified Control.Lens       as Lens (Each (..))
 import           Data.Binary        (Binary)
 import qualified Data.List.NonEmpty as NE
@@ -37,7 +39,10 @@ newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
             Binary, Bi,
             Arbitrary)
 
+makePrisms  ''NewestFirst
 makeWrapped ''NewestFirst
+
+makePrisms  ''OldestFirst
 makeWrapped ''OldestFirst
 
 instance Witherable t => Witherable (NewestFirst t) where

@@ -137,7 +137,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             futureSlottingContext
             futureLrcContext
     runInitMode initModeContext $ do
-        initNodeDBs @ssc npSystemStart
+        initNodeDBs @ssc
         ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
         putLrcContext ncLrcContext
         setupLoggers $ bpLoggingParams npBaseParams

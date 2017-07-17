@@ -6,6 +6,10 @@ module Pos.Core.Timestamp
        , getCurrentTimestamp
        , diffTimestamp
        , addMicrosecondsToTimestamp
+
+       , TimeDiff (..)
+       , addTimeDiffToTimestamp
+       , subTimeDiffSafe
        ) where
 
 import           Universum
@@ -53,3 +57,28 @@ diffTimestamp t1 t2 = getTimestamp t1 - getTimestamp t2
 
 addMicrosecondsToTimestamp :: Microsecond -> Timestamp -> Timestamp
 addMicrosecondsToTimestamp m t = Timestamp { getTimestamp = (getTimestamp t) + m }
+
+-- | Difference between two timestamps
+newtype TimeDiff = TimeDiff
+    { getTimeDiff :: Microsecond
+    } deriving (Eq, Ord, Num, Enum, Real, Integral)
+
+instance Show TimeDiff where
+    show = show . toInteger . getTimeDiff
+
+instance Read TimeDiff where
+    readsPrec i = fmap (first (TimeDiff . fromInteger)) . Prelude.readsPrec i
+
+instance Buildable TimeDiff where
+    build = Buildable.build . toInteger
+
+instance NFData TimeDiff where
+    rnf TimeDiff{..} = rnf (toInteger getTimeDiff)
+
+addTimeDiffToTimestamp :: TimeDiff -> Timestamp -> Timestamp
+addTimeDiffToTimestamp = addMicrosecondsToTimestamp . getTimeDiff
+
+subTimeDiffSafe :: TimeDiff -> TimeDiff -> TimeDiff
+subTimeDiffSafe (TimeDiff t1) (TimeDiff t2)
+    | t1 >= t2  = TimeDiff (t1 - t2)
+    | otherwise = error "subTimeDiffSafe: first TimeDiff must be more or equal second TimeDiff"

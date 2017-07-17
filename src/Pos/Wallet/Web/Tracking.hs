@@ -69,10 +69,9 @@ import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
-import qualified Pos.DB.GState              as GS
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.DB.Rocks               (MonadRealDB)
-import           Pos.Slotting               (getSlotStartPure)
+import           Pos.Slotting               (getSlotStartPure, MonadSlotsData (..))
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxIn (..),
                                              TxOutAux (..), TxUndo, flattenTxPayload,
                                              getTxDistribution, toaOut, topsortTxs,
@@ -175,6 +174,7 @@ type WalletTrackingEnv ext ctx m =
      , MonadTxpMem ext ctx m
      , HasLens GenesisUtxo ctx GenesisUtxo
      , WS.MonadWalletWebDB ctx m
+     , MonadSlotsData m
      , WithLogger m
      , HasLens GenesisUtxo ctx GenesisUtxo)
 
@@ -207,7 +207,8 @@ syncWalletsWithGState
     :: forall ssc ctx m . (
       WebWalletModeDB ctx m
     , BlockLockMode ssc ctx m
-    , HasLens GenesisUtxo ctx GenesisUtxo)
+    , HasLens GenesisUtxo ctx GenesisUtxo
+    , MonadSlotsData m)
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
     tip <$ mapM_ (syncWalletWithGStateUnsafe @ssc) encSKs
@@ -221,16 +222,17 @@ syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
 syncWalletWithGStateUnsafe
     :: forall ssc ctx m .
     ( WebWalletModeDB ctx m
-    , MonadRealDB ctx m
     , DB.MonadBlockDB ssc m
     , WithLogger m
+    , MonadSlotsData m
     , HasLens GenesisUtxo ctx GenesisUtxo
     )
     => EncryptedSecretKey
     -> m ()
 syncWalletWithGStateUnsafe encSK = do
     tipHeader <- DB.getTipHeader @ssc
-    slottingData <- GS.getSlottingData
+    slottingData <- getSlottingData
+    systemStart <- getSystemStart
 
     let wAddr = encToCId encSK
         constTrue = \_ _ -> True
@@ -240,7 +242,7 @@ syncWalletWithGStateUnsafe encSK = do
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
         mainBlkHeaderTs mBlkH =
-            getSlotStartPure True (mBlkH ^. headerSlotL) slottingData
+            getSlotStartPure systemStart True (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier

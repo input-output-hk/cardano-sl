@@ -430,6 +430,7 @@ library
                       , wai
                       , wai-extra
                       , warp
+                      , warp-tls
                       , websockets
                       , wai-websockets
   hs-source-dirs:       src

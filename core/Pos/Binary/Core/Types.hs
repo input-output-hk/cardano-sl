@@ -22,8 +22,8 @@ instance Bi T.Timestamp where
   decode = T.Timestamp . fromIntegral <$> decode @Integer
 
 instance Bi T.TimeDiff where
-    sizeNPut = labelS "TimeDiff" $ putField toInteger
-    get = label "TimeDiff" $ fromInteger <$> get
+    encode = encode . toInteger
+    decode = fromInteger <$> decode
 
 instance Bi T.EpochIndex where
   encode (T.EpochIndex epoch) = encode epoch

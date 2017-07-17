@@ -207,6 +207,7 @@ spec = describe "Cbor.Bi instances" $ do
         prop "TxSizeLinear" (soundInstanceProperty @TxSizeLinear Proxy)
         prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy Proxy .&&. extensionProperty @TxFeePolicy Proxy)
         prop "Timestamp" (soundInstanceProperty @Timestamp Proxy)
+        prop "TimeDiff"  (soundInstanceProperty @TimeDiff Proxy)
         prop "EpochIndex" (soundInstanceProperty @EpochIndex Proxy)
         prop "Attributes" (soundInstanceProperty @(Attributes ()) Proxy)
         prop "Address" (soundInstanceProperty @Address Proxy)

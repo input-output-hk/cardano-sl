@@ -7,6 +7,7 @@ module Pos.Binary.GodTossing.Core
 import qualified Data.HashMap.Strict           as HM
 import           Universum
 
+import           Pos.Core.Address              (addressHash)
 import           Pos.Binary.Class              (Bi (..), enforceSize, encodeListLen, decodeListLen, matchSize)
 import           Pos.Binary.Crypto             ()
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),
@@ -28,7 +29,7 @@ instance Bi Commitment where
     return $ Commitment commExtra commProof commShares
 
 instance Bi CommitmentsMap where
-  encode = encode . HM.elems . getCommitmentsMap
+  encode = encode . toList . getCommitmentsMap
   decode = mkCommitmentsMap <$> decode
 
 instance Bi VssCertificate where
@@ -53,30 +54,33 @@ instance Bi Opening where
 instance Bi GtPayload where
   encode input = case input of
     CommitmentsPayload  cmap vss -> encodeListLen 3 <> encode (0 :: Word8)
-                                                    <> encode cmap <> encode vss
+                                                    <> encode cmap <> encode (toList vss)
     OpeningsPayload     omap vss -> encodeListLen 3 <> encode (1 :: Word8)
-                                                    <> encode omap <> encode vss
+                                                    <> encode omap <> encode (toList vss)
     SharesPayload       smap vss -> encodeListLen 3 <> encode (2 :: Word8)
-                                                    <> encode smap <> encode vss
+                                                    <> encode smap <> encode (toList vss)
     CertificatesPayload vss      -> encodeListLen 2 <> encode (3 :: Word8)
-                                                    <> encode vss
+                                                    <> encode (toList vss)
   decode = do
     len <- decodeListLen
     tag <- decode @Word8
     case tag of
       0 -> do
         matchSize len "GtPayload.CommitmentsPayload" 3
-        CommitmentsPayload  <$> decode <*> decode
+        liftM2 CommitmentsPayload decode getVssCerts
       1 -> do
         matchSize len "GtPayload.OpeningsPayload" 3
-        OpeningsPayload     <$> decode <*> decode
+        liftM2 OpeningsPayload decode getVssCerts
       2 -> do
         matchSize len "GtPayload.SharesPayload" 3
-        SharesPayload       <$> decode <*> decode
+        liftM2 SharesPayload decode getVssCerts
       3 -> do
         matchSize len "GtPayload.CertificatesPayload" 2
-        CertificatesPayload <$> decode
-      _ -> fail ("get@GtPayload: invalid tag: " ++ show tag)
+        CertificatesPayload <$> getVssCerts
+      _ -> fail ("decode@GtPayload: invalid tag: " <> show tag)
+    where
+      getVssCerts = HM.fromList . map toCertPair <$> decode
+      toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 
 instance Bi GtProof where
   encode input = case input of

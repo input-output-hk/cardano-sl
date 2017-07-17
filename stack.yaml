@@ -55,7 +55,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport
-    commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
+    commit: 0b8f5a7bec389a4ffa653792cfd203c742a0857b
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto

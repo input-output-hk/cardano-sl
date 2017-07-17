@@ -363,7 +363,7 @@ main = do
                 Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    walletServeWebLite sendActions webDaedalusDbPath False webPort
+                    walletServeWebLite sendActions webDaedalusDbPath False webPort woTLSCertPath woTLSKeyPath woTLSCAPath
 #endif
 
         case CLI.sscAlgo woCommonArgs of

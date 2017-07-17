@@ -27,10 +27,13 @@ walletServeWebLite
     :: SscHelpersClass WalletSscType
     => SendActions LightWalletMode
     -> FilePath
-    -> Bool
-    -> Word16
+    -> Bool      -- whether to include genesis keys
+    -> Word16    -- ^ Port to listen
+    -> FilePath  -- ^ TLS Certificate path
+    -> FilePath  -- ^ TLS Key file
+    -> FilePath  -- ^ TLS ca file
     -> LightWalletMode ()
-walletServeWebLite __sendActions __dbPath __dbRebuild __port =
+walletServeWebLite __sendActions __dbPath __dbRebuild __port __tlsCert __tlsKey __tlsCa =
     error "lite wallet's web server is not implemented, sorry about that"
     -- bracketWalletWebDB dbPath dbRebuild $ \db ->
     --     bracketWalletWS $ \conn -> do

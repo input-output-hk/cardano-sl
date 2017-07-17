@@ -63,7 +63,10 @@ walletServeWebFull
     :: SscConstraint WalletSscType
     => SendActions WalletRealWebMode
     -> Bool      -- whether to include genesis keys
-    -> Word16
+    -> Word16    -- ^ Port to listen
+    -> FilePath  -- ^ TLS Certificate path
+    -> FilePath  -- ^ TLS Key file
+    -> FilePath  -- ^ TLS ca file
     -> WalletRealWebMode ()
 walletServeWebFull sendActions debug = walletServeImpl action
   where

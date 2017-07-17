@@ -140,7 +140,6 @@ action peerHolder args@Args {..} transport = do
 #ifdef WITH_WEB
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
-
     transportW ::
         forall ssc t0 t1 .
         ( Each '[MonadTrans] [t0, t1]
@@ -158,7 +157,7 @@ pluginsGT ::
     , MonadNodeContext SscGodTossing m
     ) => Args -> [m ()]
 pluginsGT Args {..}
-    | enableWeb = [serveWebGT webPort]
+    | enableWeb = [serveWebGT webPort walletTLSCertPath walletTLSKeyPath walletTLSCAPath]
     | otherwise = []
 #endif
 
@@ -182,7 +181,9 @@ walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
         sendActions
         walletDebug
         walletPort
-
+        walletTLSCertPath
+        walletTLSKeyPath
+        walletTLSCAPath
 #endif
 
 printFlags :: IO ()

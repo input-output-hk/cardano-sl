@@ -1,32 +1,38 @@
 module Daedalus.BackendApi where
 
 import Prelude
-import Control.Monad.Aff (Aff)
-import Control.Monad.Eff.Exception (Error, error)
+import Control.Monad.Eff (Eff)
+import Control.Monad.Aff (Aff, makeAff)
+import Control.Monad.Eff.Exception (error, Error, throwException)
+import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Error.Class (throwError)
-import Daedalus.Constants (backendPrefix)
+import Control.Monad.Aff (Aff)
 import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta)
 import Data.Argonaut (Json)
+import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
-import Data.Array (catMaybes)
-import Data.Bifunctor (lmap, bimap)
+import Data.Bifunctor (bimap, lmap)
 import Data.Either (either, Either(Left))
 import Data.FormURLEncoded (fromArray, encode)
 import Data.Generic (class Generic, gShow)
-import Data.HTTP.Method (Method(POST, PUT, DELETE))
+import Data.HTTP.Method (Method(GET, POST, PUT, DELETE))
 import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
 import Data.Monoid (mempty)
 import Data.String (joinWith)
-import Data.Tuple (Tuple(..))
-import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
-import Network.HTTP.Affjax.Request (class Requestable)
-import Network.HTTP.RequestHeader (RequestHeader(ContentType))
-import Network.HTTP.StatusCode (StatusCode(..))
+import Data.Tuple (Tuple (..))
+import Data.StrMap (fromFoldable)
+import Daedalus.TLS (TLSOptions)
+import Node.HTTP.Client (method, path, request, statusCode, statusMessage, Response, responseAsStream, headers, RequestHeaders (..), Request, requestAsStream)
+import Data.Options ((:=))
+import Node.Encoding (Encoding (UTF8))
+import Node.Stream (onDataString, writeString, end)
+import Node.HTTP (HTTP)
 
 -- HELPERS
 
 type URLPath = Tuple (Array String) QueryParams
+type URL = String
 type QueryParam = Tuple String (Maybe String)
 type QueryParams = Array QueryParam
 type FilePath = String
@@ -44,16 +50,16 @@ mkUrl :: URLPath -> URL
 mkUrl (Tuple urlPath params) = joinWith "/" urlPath <> "?" <> encode (fromArray params)
 
 backendApi :: URLPath -> URL
-backendApi = mkUrl <<< lmap ((<>) [backendPrefix, "api"])
+backendApi = mkUrl <<< lmap ((<>) ["/api"])
 
 data ApiError
-    = HTTPStatusError (AffjaxResponse Json)
+    = HTTPStatusError Response
     | JSONDecodingError String
     | ServerError WalletError
 
 instance showApiError :: Show ApiError where
     show (HTTPStatusError res) =
-        "HTTPStatusError: " <> show res.status <> " msg: " <> show res.response
+        "HTTPStatusError: " <> show (statusCode res) <> " msg: " <> statusMessage res
     show (JSONDecodingError e) =
         "JSONDecodingError: " <> show e
     show (ServerError e) =
@@ -61,132 +67,140 @@ instance showApiError :: Show ApiError where
 
 -- REQUESTS HELPERS
 
-decodeResult :: forall a eff. Generic a => {response :: Json | eff} -> Either Error a
-decodeResult = either (Left <<< mkJSONError) (bimap mkServerError id) <<< decodeJson <<< _.response
+decodeResult :: forall a eff. Generic a => String -> Either Error a
+decodeResult = either (Left <<< mkJSONError) (lmap mkServerError) <<< decodeJson <=< lmap error <<< jsonParser
   where
     mkJSONError = error <<< show <<< JSONDecodingError
     mkServerError = error <<< show <<< ServerError
 
-makeRequest :: forall eff a r. (Generic a, Requestable r) => AffjaxRequest r -> URLPath -> Aff (ajax :: AJAX | eff) a
-makeRequest request urlPath = do
-    res <- affjax $ request { url = backendApi urlPath }
-    when (isHttpError res.status) $
+makeRequest :: forall eff a. (Generic a) => (Request -> Eff (http :: HTTP, err :: EXCEPTION | eff) Unit) -> TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+makeRequest withReq tls urlPath = do
+    -- FIXME: exceptin shouldn't happen here?
+    res <- makeAff $ const $ withReq <=< request (tls <> path := backendApi urlPath)
+    when (isHttpError res) $
         throwError <<< error <<< show $ HTTPStatusError res
-    either throwError pure $ decodeResult res
+    rawData <- makeAff $ const $ onDataString (responseAsStream res) UTF8
+    either throwError pure $ decodeResult rawData
   where
-    isHttpError (StatusCode c) = c >= 400
+    isHttpError res = statusCode res >= 400
 
-getR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
-getR = makeRequest defaultRequest
+plainRequest :: forall eff a r. (Generic a) => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+plainRequest = makeRequest $ flip end (pure unit) <<< requestAsStream
 
-postR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
-postR = makeRequest $ defaultRequest { method = Left POST }
+bodyRequest :: forall eff a b. (Generic a, Generic b) => TLSOptions -> URLPath -> b -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+bodyRequest tls urlPath body = makeRequest flushBody (tls <> headers := reqHeaders) urlPath
+  where
+    flushBody req = do
+        let writeStream = requestAsStream req
+        writeString writeStream UTF8 (show $ encodeJson body) $ pure unit
+        end writeStream $ pure unit
+    -- TODO: use Data.MediaType.Common here
+    reqHeaders = RequestHeaders $ fromFoldable [Tuple "Content-Type" "application/json"]
 
-postRBody :: forall eff a b. (Generic a, Generic b) => URLPath -> b -> Aff (ajax :: AJAX | eff) a
-postRBody urlPath content = flip makeRequest urlPath $
-    defaultRequest { method = Left POST
-                   , content = Just <<< show $ encodeJson content
-                   , headers = [ContentType applicationJSON]
-                   }
+getR :: forall eff a. Generic a => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+getR tls = plainRequest $ tls <> method := (show GET)
 
-putRBody :: forall eff a b. (Generic a, Generic b) => URLPath -> b -> Aff (ajax :: AJAX | eff) a
-putRBody urlPath content = flip makeRequest urlPath $
-    defaultRequest { method = Left PUT
-                   , content = Just <<< show $ encodeJson content
-                   , headers = [ContentType applicationJSON]
-                   }
+postR :: forall eff a. Generic a => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+postR tls = plainRequest $ tls <> method := (show POST)
 
-deleteR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
-deleteR = makeRequest $ defaultRequest { method = Left DELETE }
+postRBody :: forall eff a b. (Generic a, Generic b) => TLSOptions -> URLPath -> b -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+postRBody tls urlPath = flip bodyRequest urlPath $ tls <> method  := (show POST)
+
+putRBody :: forall eff a b. (Generic a, Generic b) => TLSOptions -> URLPath -> b -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+putRBody tls urlPath = flip bodyRequest urlPath $ tls <> method  := (show PUT)
+
+deleteR :: forall eff a. Generic a => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+deleteR tls = plainRequest $ tls <> method := (show DELETE)
 
 -- REQUESTS
 --------------------------------------------------------------------------------
 -- Test ------------------------------------------------------------------------
-testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
-testReset = postR $ noQueryParam ["test", "reset"]
+testReset :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+testReset tls = postR tls $ noQueryParam ["test", "reset"]
 --------------------------------------------------------------------------------
 -- Wallets ---------------------------------------------------------------------
-getWallet :: forall eff. CId Wal -> Aff (ajax :: AJAX | eff) CWallet
-getWallet addr = getR $ noQueryParam ["wallets", _address addr]
+getWallet :: forall eff. TLSOptions -> CId Wal -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+getWallet tls addr = getR tls $ noQueryParam ["wallets", _address addr]
 
-getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
-getWallets = getR $ noQueryParam ["wallets"]
+getWallets :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Array CWallet)
+getWallets tls = getR tls $ noQueryParam ["wallets"]
 
-newWallet :: forall eff. Maybe CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-newWallet pass = postRBody $ queryParams ["wallets", "new"] [qParam "passphrase" $ _passPhrase <$> pass]
+newWallet :: forall eff. TLSOptions -> Maybe CPassPhrase -> CWalletInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+newWallet tls pass = postRBody tls $ queryParams ["wallets", "new"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-updateWallet :: forall eff. CId Wal -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
-updateWallet wId = putRBody $ noQueryParam ["wallets", _address wId]
+updateWallet :: forall eff. TLSOptions -> CId Wal -> CWalletMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+updateWallet tls wId = putRBody tls $ noQueryParam ["wallets", _address wId]
 
-restoreWallet :: forall eff. Maybe CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-restoreWallet pass = postRBody $ queryParams ["wallets", "restore"] [qParam "passphrase" $ _passPhrase <$> pass]
+restoreWallet :: forall eff. TLSOptions -> Maybe CPassPhrase -> CWalletInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+restoreWallet tls pass = postRBody tls $ queryParams ["wallets", "restore"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-renameWalletSet :: forall eff. CId Wal -> String -> Aff (ajax :: AJAX | eff) CWallet
-renameWalletSet wSetId name = postR $ noQueryParam ["wallets", "rename", _address wSetId, name]
+renameWalletSet :: forall eff. TLSOptions -> CId Wal -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+renameWalletSet tls wSetId name = postR tls $ noQueryParam ["wallets", "rename", _address wSetId, name]
 
-importWallet :: forall eff. Maybe CPassPhrase -> FilePath -> Aff (ajax :: AJAX | eff) CWallet
-importWallet pass = postRBody $ queryParams ["wallets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
+importWallet :: forall eff. TLSOptions -> Maybe CPassPhrase -> FilePath -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+importWallet tls pass = postRBody tls $ queryParams ["wallets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-changeWalletPass :: forall eff. CId Wal -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) Unit
-changeWalletPass wSetId old new = postR $ queryParams ["wallets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
+changeWalletPass :: forall eff. TLSOptions -> CId Wal -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+changeWalletPass tls wSetId old new = postR tls $ queryParams ["wallets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
 
-deleteWallet :: forall eff. CId Wal -> Aff (ajax :: AJAX | eff) Unit
-deleteWallet wSetId = deleteR $ noQueryParam ["wallets", _address wSetId]
+deleteWallet :: forall eff. TLSOptions -> CId Wal -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+deleteWallet tls wSetId = deleteR tls $ noQueryParam ["wallets", _address wSetId]
 --------------------------------------------------------------------------------
 -- Accounts --------------------------------------------------------------------
 
-getAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) CAccount
-getAccount wId = getR $ noQueryParam ["accounts", walletAddressToUrl wId]
+getAccount :: forall eff. TLSOptions -> CAccountId -> Aff (http :: HTTP, err :: EXCEPTION | eff) CAccount
+getAccount tls wId = getR tls $ noQueryParam ["accounts", walletAddressToUrl wId]
 
-getAccounts :: forall eff. Maybe (CId Wal) -> Aff (ajax :: AJAX | eff) (Array CAccount)
-getAccounts addr = getR $ queryParams ["accounts"] [qParam "accountId" $ _address <$> addr]
+getAccounts :: forall eff. TLSOptions -> Maybe (CId Wal) -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Array CAccount)
+getAccounts tls addr = getR tls $ queryParams ["accounts"] [qParam "accountId" $ _address <$> addr]
 
-updateAccount :: forall eff. CAccountId -> CAccountMeta -> Aff (ajax :: AJAX | eff) CAccount
-updateAccount wId = putRBody $ noQueryParam ["accounts", walletAddressToUrl wId]
+updateAccount :: forall eff. TLSOptions -> CAccountId -> CAccountMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) CAccount
+updateAccount tls wId = putRBody tls $ noQueryParam ["accounts", walletAddressToUrl wId]
 
-newAccount :: forall eff. Maybe CPassPhrase -> CAccountInit -> Aff (ajax :: AJAX | eff) CAccount
-newAccount pass = postRBody $ queryParams ["accounts"] [qParam "passphrase" $ _passPhrase <$> pass]
+newAccount :: forall eff. TLSOptions -> Maybe CPassPhrase -> CAccountInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CAccount
+newAccount tls pass = postRBody tls $ queryParams ["accounts"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-deleteAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) Unit
-deleteAccount wId = deleteR $ noQueryParam ["accounts", walletAddressToUrl wId]
+deleteAccount :: forall eff. TLSOptions -> CAccountId -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+deleteAccount tls wId = deleteR tls $ noQueryParam ["accounts", walletAddressToUrl wId]
 
 --------------------------------------------------------------------------------
 -- Wallet addresses ------------------------------------------------------------
 
-newAddress :: forall eff. Maybe CPassPhrase -> CAccountId -> Aff (ajax :: AJAX | eff) CAddress
-newAddress pass = postRBody $ queryParams ["addresses"] [qParam "passphrase" $ _passPhrase <$> pass]
+newAddress :: forall eff. TLSOptions -> Maybe CPassPhrase -> CAccountId -> Aff (http :: HTTP, err :: EXCEPTION | eff) CAddress
+newAddress tls pass = postRBody tls $ queryParams ["addresses"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 --------------------------------------------------------------------------------
 -- Addresses -------------------------------------------------------------------
 
-isValidAddress :: forall eff. String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress addr = getR $ noQueryParam ["addresses", addr]
+isValidAddress :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) Boolean
+isValidAddress tls addr = getR tls $ noQueryParam ["addresses", addr]
 
 --------------------------------------------------------------------------------
 -- Profiles --------------------------------------------------------------------
-getProfile :: forall eff. Aff (ajax :: AJAX | eff) CProfile
-getProfile = getR $ noQueryParam ["profile"]
+getProfile :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) CProfile
+getProfile tls = getR tls $ noQueryParam ["profile"]
 
-updateProfile :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
-updateProfile = postRBody $ noQueryParam ["profile"]
+updateProfile :: forall eff. TLSOptions -> CProfile -> Aff (http :: HTTP, err :: EXCEPTION | eff) CProfile
+updateProfile tls = postRBody tls $ noQueryParam ["profile"]
 --------------------------------------------------------------------------------
 -- Transactions ----------------------------------------------------------------
-newPayment :: forall eff. Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Aff (ajax :: AJAX | eff) CTx
-newPayment pass addrFrom addrTo amount = postR $ queryParams ["txs", "payments", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
+newPayment :: forall eff. TLSOptions -> Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+newPayment tls pass addrFrom addrTo amount = postR tls $ queryParams ["txs", "payments", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
 
-updateTransaction :: forall eff. CAccountId -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
-updateTransaction addr ctxId = postRBody $ noQueryParam ["txs", "payments", walletAddressToUrl addr, _ctxIdValue ctxId]
+updateTransaction :: forall eff. TLSOptions -> CAccountId -> CTxId -> CTxMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+updateTransaction tls addr ctxId = postRBody tls $ noQueryParam ["txs", "payments", walletAddressToUrl addr, _ctxIdValue ctxId]
 
 getHistory
   :: forall eff.
-     Maybe (CId Wal)
+     TLSOptions
+  -> Maybe (CId Wal)
   -> Maybe CAccountId
   -> Maybe (CId Addr)
   -> Maybe Int
   -> Maybe Int
-  -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-getHistory walletId accountId addr skip limit =
-  getR $ queryParams
+  -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Tuple (Array CTx) Int)
+getHistory tls walletId accountId addr skip limit =
+  getR tls $ queryParams
   ["txs", "histories"]
   [ qParam "walletId" $ _address <$> walletId
   , qParam "accountId" $ walletAddressToUrl <$> accountId
@@ -197,40 +211,40 @@ getHistory walletId accountId addr skip limit =
 
 --------------------------------------------------------------------------------
 -- Updates ---------------------------------------------------------------------
-nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
-nextUpdate = getR $ noQueryParam ["update"]
+nextUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) CUpdateInfo
+nextUpdate tls = getR tls $ noQueryParam ["update"]
 
-applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
-applyUpdate = postR $ noQueryParam ["update"]
+applyUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+applyUpdate tls = postR tls $ noQueryParam ["update"]
 
 --------------------------------------------------------------------------------
 -- Redemptions -----------------------------------------------------------------
-redeemAda :: forall eff. Maybe CPassPhrase -> CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-redeemAda pass = postRBody $ queryParams ["redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
+redeemAda :: forall eff. TLSOptions -> Maybe CPassPhrase -> CWalletRedeem -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+redeemAda tls pass = postRBody tls $ queryParams ["redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-redeemAdaPaperVend :: forall eff. Maybe CPassPhrase -> CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-redeemAdaPaperVend pass = postRBody $ queryParams ["papervend", "redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
+redeemAdaPaperVend :: forall eff. TLSOptions -> Maybe CPassPhrase -> CPaperVendWalletRedeem -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+redeemAdaPaperVend tls pass = postRBody tls $ queryParams ["papervend", "redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 --------------------------------------------------------------------------------
 -- REPORTING -------------------------------------------------------------------
-reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit
-reportInit = postRBody $ noQueryParam ["reporting", "initialized"]
+reportInit :: forall eff. TLSOptions -> CInitialized -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+reportInit tls = postRBody tls $ noQueryParam ["reporting", "initialized"]
 
 --------------------------------------------------------------------------------
 -- SETTINGS --------------------------------------------------------------------
-blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
-blockchainSlotDuration = getR $ noQueryParam ["settings", "slots", "duration"]
+blockchainSlotDuration :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Int
+blockchainSlotDuration tls = getR tls $ noQueryParam ["settings", "slots", "duration"]
 
-systemVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
-systemVersion = getR $ noQueryParam ["settings", "version"]
+systemVersion :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) SoftwareVersion
+systemVersion tls = getR tls $ noQueryParam ["settings", "version"]
 
-syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
-syncProgress = getR $ noQueryParam ["settings", "sync", "progress"]
+syncProgress :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) SyncProgress
+syncProgress tls = getR tls $ noQueryParam ["settings", "sync", "progress"]
 
 --------------------------------------------------------------------------------
 -- JSON BACKUP -----------------------------------------------------------------
-importBackupJSON :: forall eff. String -> Aff (ajax :: AJAX | eff) (Array CWallet)
-importBackupJSON = postRBody $ noQueryParam ["backup", "import"]
+importBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Array CWallet)
+importBackupJSON tls = postRBody tls $ noQueryParam ["backup", "import"]
 
-exportBackupJSON :: forall eff. String -> Aff (ajax :: AJAX | eff) Unit
-exportBackupJSON = postRBody $ noQueryParam ["backup", "export"]
+exportBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+exportBackupJSON tls = postRBody tls $ noQueryParam ["backup", "export"]

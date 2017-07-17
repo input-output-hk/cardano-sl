@@ -29,6 +29,10 @@ module.exports = {
     umdNamedDefine: true,
     pathinfo: isDev,
   },
+  node: {
+    // see https://github.com/webpack-contrib/css-loader/issues/447
+    fs: "empty"
+  },
   plugins: [
     new ProgressPlugin(),
     new HtmlWebpackPlugin({

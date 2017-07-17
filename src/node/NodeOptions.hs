@@ -29,8 +29,8 @@ import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyO
                                                dhtNetworkAddressOption,
                                                dhtPeersFileOption)
 import           Pos.Security                 (AttackTarget, AttackType)
-import           Pos.Statistics               (EkgParams, StatsdParams,
-                                               ekgParamsOption, statsdParamsOption)
+import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
+                                               statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
 
@@ -63,6 +63,9 @@ data Args = Args
 #ifdef WITH_WEB
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
+    , walletTLSCertPath         :: !FilePath
+    , walletTLSKeyPath          :: !FilePath
+    , walletTLSCAPath           :: !FilePath
 #ifdef WITH_WALLET
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
@@ -150,7 +153,22 @@ argsParser = do
         long "web" <>
         help "Activate web API (it’s not linked with a wallet web API)."
     webPort <-
-        CLI.webPortOption 8080 "Port for web API."
+        CLI.webPortOption 8080 "Port for web api"
+    walletTLSCertPath <- strOption $
+        long    "tlscert" <>
+        metavar "FILEPATH" <>
+        value   "server.crt" <>
+        help    "Path to file with TLS certificate"
+    walletTLSKeyPath <- strOption $
+        long    "tlskey" <>
+        metavar "FILEPATH" <>
+        value   "server.key" <>
+        help    "Path to file with TLS key"
+    walletTLSCAPath <- strOption $
+        long    "tlsca" <>
+        metavar "FILEPATH" <>
+        value   "ca.crt" <>
+        help    "Path to file with TLS certificate authority"
 #ifdef WITH_WALLET
     enableWallet <- switch $
         long "wallet" <>

@@ -215,6 +215,7 @@ library
 
                         -- GState
                         Pos.GState.BlockExtra
+                        Pos.GState.Context
                         Pos.GState.GState
 
                         -- Launcher

@@ -1,7 +1,8 @@
 -- | Functions operation on 'SlogContext'.
 
 module Pos.Block.Slog.Context
-       ( mkSlogContext
+       ( SlogContext (..)
+       , mkSlogContext
        , cloneSlogContext
        , slogGetLastSlots
        , slogPutLastSlots
@@ -9,10 +10,10 @@ module Pos.Block.Slog.Context
 
 import           Universum
 
-import           Pos.Block.Slog.Types (HasSlogContext (..), LastBlkSlots,
-                                       SlogContext (..), scLastBlkSlots)
-import           Pos.DB.Class         (MonadDBRead)
-import           Pos.GState           (getLastSlots)
+import           Pos.Block.Slog.Types  (HasSlogContext (..), LastBlkSlots,
+                                        SlogContext (..), scLastBlkSlots)
+import           Pos.DB.Class          (MonadDBRead)
+import           Pos.GState.BlockExtra (getLastSlots)
 
 -- | Make new 'SlogContext' using data from DB.
 mkSlogContext :: (MonadIO m, MonadDBRead m) => m SlogContext

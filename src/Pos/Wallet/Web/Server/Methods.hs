@@ -179,10 +179,13 @@ makeLenses ''SyncProgress
 walletServeImpl
     :: WalletWebMode m
     => m Application     -- ^ Application getter
-    -> Word16                             -- ^ Port to listen
+    -> Word16            -- ^ Port to listen
+    -> FilePath          -- ^ TLS Certificate path
+    -> FilePath          -- ^ TLS Key file
+    -> FilePath          -- ^ TLS ca file
     -> m ()
-walletServeImpl app port =
-    serveImpl app "127.0.0.1" port
+walletServeImpl app =
+    serveImpl app "127.0.0.1"
 
 walletApplication
     :: WalletWebMode m

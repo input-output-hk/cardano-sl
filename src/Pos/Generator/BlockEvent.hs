@@ -1,6 +1,6 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor  #-}
 
-{-# OPTIONS -fno-warn-unused-imports #-} -- FIXME
 module Pos.Generator.BlockEvent
        (
        -- * Block apply
@@ -32,21 +32,23 @@ module Pos.Generator.BlockEvent
 
 import           Universum
 
-import           Control.Monad.State     (MonadState(..))
-import           Control.Lens            (makeLenses)
-import           Control.Monad.Random.Strict (RandT, RandomGen, Random(..), MonadRandom(..), weighted, uniform, runRand)
-import qualified Data.Semigroup as Smg
-import qualified Data.List.NonEmpty as NE
-import           Data.List ((!!))
-import           Data.Coerce  (coerce)
-import           Data.Functor.Compose  (Compose(..))
+import           Control.Lens                (makeLenses)
+import           Control.Monad.Random.Strict (MonadRandom (..), RandT, Random (..),
+                                              RandomGen, runRand, uniform, weighted)
+import           Control.Monad.State         (MonadState (..))
+import           Data.Coerce                 (coerce)
+import           Data.Functor.Compose        (Compose (..))
+import           Data.List                   ((!!))
+import qualified Data.List.NonEmpty          as NE
+import qualified Data.Semigroup              as Smg
 
-import           Pos.Core                  (BlockCount(..))
-import           Pos.Block.Types           (Blund)
-import           Pos.Ssc.GodTossing.Type   (SscGodTossing)
-import           Pos.Generator.Block       (AllSecrets, MonadBlockGen, BlockGenParams(..), genBlocks)
-import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..), _OldestFirst, _NewestFirst,
-                                           toNewestFirst, toOldestFirst)
+import           Pos.Block.Types             (Blund)
+import           Pos.Core                    (BlockCount (..))
+import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..),
+                                              MonadBlockGen, genBlocks)
+import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
+import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
+                                              toNewestFirst, _NewestFirst, _OldestFirst)
 
 type BlundDefault = Blund SscGodTossing
 

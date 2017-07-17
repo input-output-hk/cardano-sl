@@ -16,8 +16,8 @@ import           Test.QuickCheck.Monadic   (assert, pre)
 
 import           Pos.Block.Logic           (applyBlocks, verifyBlocksPrefix)
 import           Pos.Core                  (SlotId (..), epochIndexL)
-import           Pos.DB.Pure               (DBPureVar, cloneDBPure)
-import           Pos.Util                  (lensOf, _neLast)
+import           Pos.DB.Pure               (cloneDBPure)
+import           Pos.Util                  (lensOf', _neLast)
 import           Pos.Util.Chrono           (OldestFirst (..))
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty)
@@ -95,13 +95,13 @@ applyByOneOrAllAtOnce = do
     blunds <- getOldestFirst <$> bpGenBlocks Nothing
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    dbPureVar <- lift (view (lensOf @DBPureVar))
+    dbPureVar <- lift (view lensOf')
     clonedDBPureVar <- cloneDBPure dbPureVar
     lift (applyBlocks True Nothing blundsNE)
     dbPure <- readIORef dbPureVar
     dbPureCloned <-
         lift $
-        local (set (lensOf @DBPureVar) clonedDBPureVar) $ do
+        local (set lensOf' clonedDBPureVar) $ do
             applyBlocks True Nothing blundsNE
             readIORef dbPureVar
     assert (dbPure == dbPureCloned)

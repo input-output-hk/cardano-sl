@@ -29,7 +29,7 @@ import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
-import           Pos.Crypto                         (AbstractHash, EncShare,
+import           Pos.Crypto                         (AbstractHash, EncShare, Secret,
                                                      ProxyCert (..), ProxySecretKey (..),
                                                      ProxySignature (..), PublicKey,
                                                      SecretProof, SecretSharingExtra (..),
@@ -81,6 +81,9 @@ instance MessageLimitedPure SecretProof where
     msgLenLimit = 66
 
 instance MessageLimitedPure VssPublicKey where
+    msgLenLimit = 35
+
+instance MessageLimitedPure Secret where
     msgLenLimit = 35
 
 instance MessageLimitedPure EncShare where
@@ -159,7 +162,7 @@ instance MessageLimited SignedCommitment where
         return $ (,,) <$> msgLenLimit <+> commLimit <+> msgLenLimit
 
 instance MessageLimitedPure Opening where
-    msgLenLimit = 35
+    msgLenLimit = 37 -- 35 for `Secret` + 2 for the `AsBinary` wrapping
 
 instance MessageLimited InnerSharesMap where
     getMsgLenLimit _ = do

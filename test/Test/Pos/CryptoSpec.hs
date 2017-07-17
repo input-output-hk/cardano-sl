@@ -135,6 +135,7 @@ spec = describe "Crypto" $ do
             describe "msgLenLimitedTest" $ do
                 msgLenLimitedTest @Crypto.PublicKey
                 msgLenLimitedTest @Crypto.EncShare
+                msgLenLimitedTest @Crypto.Secret
                 -- msgLenLimitedTest @(C.MaxSize SecretSharingExtra)
                 msgLenLimitedTest @(Crypto.Signature ())
                 msgLenLimitedTest @(Crypto.AbstractHash Blake2b_224 Void)

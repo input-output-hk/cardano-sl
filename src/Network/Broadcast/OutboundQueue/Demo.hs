@@ -83,28 +83,29 @@ relayDemo = do
     -- Set up some test nodes
 
     nodeC1 <- newNode (C 1) NodeCore  (CommsDelay 0)
+    nodeC2 <- newNode (C 2) NodeCore  (CommsDelay 0)
     nodeR  <- newNode (R 1) NodeRelay (CommsDelay 0)
     nodeEs <- forM [1 .. 9] $ \n -> newNode (E n) NodeEdge (CommsDelay 0)
 
-    setPeers nodeR  (nodeC1 : nodeEs)
+    setPeers nodeR  (nodeC1 : nodeC2 : nodeEs)
     setPeers nodeC1 [nodeR]
     forM_ nodeEs $ \nodeE -> setPeers nodeE [nodeR]
 
     -- Two core nodes that communicate directly with each other
     -- (disjoint from the nodes we set up above)
 
-    nodeC2 <- newNode (C 2) NodeCore (CommsDelay 0)
-    nodeC3 <- newNode (C 3) NodeCore (CommsDelay 1000000)
+    nodeC3 <- newNode (C 3) NodeCore (CommsDelay 0)
+    nodeC4 <- newNode (C 4) NodeCore (CommsDelay 1000000)
 
-    setPeers nodeC2 [nodeC3]
+    setPeers nodeC3 [nodeC4]
 
     runEnqueue $ do
 
       block "* Basic relay test: edge to core" [nodeR] $ do
-        send (nodeEs !! 0) MsgTransaction (MsgId 0)
+        send Asynchronous (nodeEs !! 0) MsgTransaction (MsgId 0)
 
       block "* Basic relay test: code to edge" [nodeR] $ do
-        send nodeC1 MsgBlockHeader (MsgId 100)
+        send Asynchronous nodeC1 MsgAnnounceBlockHeader (MsgId 100)
 
       -- In order to test rate limiting, we send a message from all of the edge
       -- nodes at once. These should then arrive at the (single) core node one
@@ -117,16 +118,16 @@ relayDemo = do
       -- a message from the queue and it actually adding to the in-flight).
       block "* Rate limiting" [nodeR] $ do
         forM_ (zip nodeEs [200..209]) $ \(nodeE, n) ->
-          send nodeE MsgTransaction (MsgId n)
+          send Asynchronous nodeE MsgTransaction (MsgId n)
 
       block "* Priorities" [nodeR] $ do
         -- We schedule two transactions and a block header in quick succession.
         -- Although we enqueue the transactions before the block header, we
         -- should see in the output that the block headers are given priority.
         forM_ [300, 303 .. 309] $ \n -> do
-          send nodeR MsgTransaction (MsgId n)
-          send nodeR MsgTransaction (MsgId (n + 1))
-          send nodeR MsgBlockHeader (MsgId (n + 2))
+          send Asynchronous nodeR MsgTransaction         (MsgId n)
+          send Asynchronous nodeR MsgTransaction         (MsgId (n + 1))
+          send Asynchronous nodeR MsgAnnounceBlockHeader (MsgId (n + 2))
           liftIO $ threadDelay 2500000
 
       block "* Latency masking (and sync API)" [nodeC2] $ do
@@ -134,8 +135,14 @@ relayDemo = do
         -- (We cannot send two blocks at a time though, because then MaxAhead
         -- would not be satisfiable).
         forM_ [400, 402 .. 408] $ \n -> do
-          send     nodeC2 MsgBlockHeader (MsgId n)
-          sendSync nodeC2 MsgMPC         (MsgId (n + 1))
+          send Asynchronous nodeC3 MsgAnnounceBlockHeader (MsgId n)
+          send Synchronous  nodeC3 MsgMPC                 (MsgId (n + 1))
+
+      block "* Sending to specific nodes" nodeEs $ do
+        -- This will send to the relay node
+        sendTo Asynchronous nodeC1 [nodeC2, nodeR] MsgRequestBlock (MsgId 500)
+        -- Edge nodes can never send to core nodes
+        sendTo Asynchronous (nodeEs !! 0) [nodeC1] MsgRequestBlock (MsgId 501)
 
       logNotice "End of demo"
 
@@ -185,40 +192,54 @@ nodeForwardListener node = forever $ do
       logDebug $ discarded msgObj
     else do
       logNotice $ received msgObj
-      OutQ.enqueue (nodeOutQ node)
-                   (msgType msgData)
-                   msgObj
-                   (OutQ.OriginForward (msgSender msgData))
-                   mempty
+      unless (msgType msgData == MsgRequestBlock) $ void $
+        OutQ.enqueue (nodeOutQ node)
+                     (msgType msgData)
+                     msgObj
+                     (OutQ.OriginForward (msgSender msgData))
+                     mempty
   where
     received, discarded :: MsgObj -> Text
     received  = sformat (shown % ": received "  % formatMsg) (nodeId node)
     discarded = sformat (shown % ": discarded " % formatMsg) (nodeId node)
 
 setPeers :: Node -> [Node] -> IO ()
-setPeers peersOf nids =
-    OutQ.subscribe (nodeOutQ peersOf) $
-      OutQ.simplePeers (map (\n -> (nodeType n, nodeId n)) nids)
+setPeers peersOf = OutQ.subscribe (nodeOutQ peersOf) . simplePeers
 
--- | Send a message from the specified node (asynchronous send)
-send :: Node -> MsgType -> MsgId -> Enqueue ()
-send Node{..} msgType msgId = do
-    logNotice $ sformat (shown % ": enqueue " % formatMsg) nodeId msgObj
-    True <- addToMsgPool nodeMsgPool msgData
-    OutQ.enqueue nodeOutQ msgType msgObj OutQ.OriginSender mempty
-  where
-    msgData = MsgData nodeId msgType msgId
-    msgObj  = mkMsgObj msgData
+simplePeers :: [Node] -> OutQ.Peers NodeId
+simplePeers = OutQ.simplePeers . map (\n -> (nodeType n, nodeId n))
 
--- | Send a message from the specified node (synchronous send)
-sendSync :: Node -> MsgType -> MsgId -> Enqueue ()
-sendSync Node{..} msgType msgId = do
-    logNotice $ sformat (shown % ": enqueueSync " % formatMsg) nodeId msgObj
-    True <- addToMsgPool nodeMsgPool msgData
-    OutQ.enqueueSync nodeOutQ msgType msgObj OutQ.OriginSender mempty
+{-------------------------------------------------------------------------------
+  Sending messages
+-------------------------------------------------------------------------------}
+
+data Sync = Synchronous | Asynchronous
+
+-- | Send a message from the specified node
+send :: Sync -> Node -> MsgType -> MsgId -> Enqueue ()
+send sync from msgType msgId = do
+    logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
+    True <- addToMsgPool (nodeMsgPool from) msgData
+    enqueue (nodeOutQ from) msgType msgObj OutQ.OriginSender mempty
   where
-    msgData = MsgData nodeId msgType msgId
+    msgData = MsgData (nodeId from) msgType msgId
     msgObj  = mkMsgObj msgData
+    enqueue = \oq mt conv origin peers -> case sync of
+                Synchronous  -> void $ OutQ.enqueueSync oq mt conv origin peers
+                Asynchronous -> void $ OutQ.enqueue oq mt conv origin peers
+
+-- | Send a message to and from the specified nodes
+sendTo :: Sync -> Node -> [Node] -> MsgType -> MsgId -> Enqueue ()
+sendTo sync from to msgType msgId = do
+    logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
+    True <- addToMsgPool (nodeMsgPool from) msgData
+    enqueue (nodeOutQ from) msgType msgObj OutQ.OriginSender (simplePeers to)
+  where
+    msgData = MsgData (nodeId from) msgType msgId
+    msgObj  = mkMsgObj msgData
+    enqueue = \oq mt conv origin peers -> case sync of
+                Synchronous  -> void $ OutQ.enqueueSyncTo oq mt conv origin peers
+                Asynchronous -> void $ OutQ.enqueueTo oq mt conv origin peers
 
 {-------------------------------------------------------------------------------
   Message pool

@@ -16,9 +16,13 @@ import Formatting
 -- | Message types
 data MsgType =
     -- | Announcement of a new block
-    --
-    -- This is a block header, not the actual value of the block.
-    MsgBlockHeader
+    MsgAnnounceBlockHeader
+
+    -- | Request block headers (either specific range or the tip)
+  | MsgRequestBlockHeaders
+
+    -- | Request for a specific block
+  | MsgRequestBlock
 
     -- | New transaction
   | MsgTransaction

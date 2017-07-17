@@ -53,7 +53,7 @@ import           Pos.Core                     (Address, ChainDifficulty, HeaderH
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
-import qualified Pos.DB.GState                as GS
+import qualified Pos.GState                   as GS
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure)
 import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER

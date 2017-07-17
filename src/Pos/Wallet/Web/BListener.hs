@@ -24,8 +24,8 @@ import           Pos.Core                   (HeaderHash, difficultyL, headerHash
                                              headerSlotL, prevBlockL)
 import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.DB.Class               (MonadDBRead)
-import qualified Pos.DB.GState              as GS
 import           Pos.DB.Rocks               (MonadRealDB)
+import qualified Pos.GState                 as GS
 import           Pos.Slotting               (SlottingData, getSlotStartPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)

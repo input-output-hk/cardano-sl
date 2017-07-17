@@ -33,14 +33,13 @@ import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
-import qualified Pos.DB.GState            as GS
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
+import qualified Pos.GState               as GS
 import           Pos.Lrc.Worker           (LrcModeFullNoSemaphore, lrcSingleShotNoLock)
 import           Pos.Reporting            (reportingFatal)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
-import qualified Pos.Update.DB            as UDB
 import           Pos.Update.Logic         (usVerifyBlocks)
 import           Pos.Update.Poll          (PollModifier)
 import           Pos.Util                 (neZipWith4, spanSafe, _neHead)
@@ -69,7 +68,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         throwError "the first block isn't based on the tip"
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.
-    adoptedBV <- UDB.getAdoptedBV
+    adoptedBV <- GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     -- And then we run verification of each component.
     slogUndos <- slogVerifyBlocks blocks

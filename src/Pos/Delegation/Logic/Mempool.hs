@@ -40,7 +40,8 @@ import           Pos.Binary.Class            (biSize)
 import           Pos.Binary.Communication    ()
 import           Pos.Constants               (memPoolLimitRatio)
 import           Pos.Context                 (lrcActionOnEpochReason)
-import           Pos.Core                    (HasPrimaryKey (..), addressHash,
+import           Pos.Core                    (HasPrimaryKey (..), ProxySKHeavy,
+                                              ProxySKLight, ProxySigLight, addressHash,
                                               bvdMaxBlockSize, epochIndexL)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
@@ -50,7 +51,6 @@ import           Pos.DB                      (MonadDB, MonadDBRead, MonadGState,
 import qualified Pos.DB                      as DB
 import           Pos.DB.Block                (MonadBlockDB)
 import qualified Pos.DB.DB                   as DB
-import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Misc                 as Misc
 import           Pos.Delegation.Cede         (detectCycleOnAddition, evalMapCede,
                                               pskToDlgEdgeAction)
@@ -62,9 +62,9 @@ import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction,
                                               runDelegationStateAction)
 import           Pos.Delegation.Types        (DlgPayload, DlgUndo, mkDlgPayload)
+import qualified Pos.GState                  as GS
 import           Pos.Lrc.Context             (LrcContext)
 import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Types                   (ProxySKHeavy, ProxySKLight, ProxySigLight)
 import           Pos.Util                    (leftToPanic, microsecondsToUTC)
 import qualified Pos.Util.Concurrent.RWLock  as RWL
 import qualified Pos.Util.Concurrent.RWVar   as RWV

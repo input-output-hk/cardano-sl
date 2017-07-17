@@ -39,12 +39,12 @@ import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epo
                                               gbBody, gbHeader, headerHash)
 import           Pos.DB                      (MonadDB, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block                (MonadBlockDB, MonadSscBlockDB)
-import qualified Pos.DB.GState               as GS
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgNormalizeOnRollback,
                                               dlgRollbackBlocks)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Exception               (assertionFailed)
+import qualified Pos.GState                  as GS
 import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Reporting               (HasReportingContext, reportingFatal)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)

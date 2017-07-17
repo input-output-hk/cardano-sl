@@ -69,9 +69,9 @@ import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
-import qualified Pos.DB.GState              as GS
-import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.DB.Rocks               (MonadRealDB)
+import qualified Pos.GState                 as GS
+import           Pos.GState.BlockExtra      (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting               (getSlotStartPure)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxIn (..),
                                              TxOutAux (..), TxUndo, flattenTxPayload,

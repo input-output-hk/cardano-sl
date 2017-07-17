@@ -55,7 +55,6 @@ import           Pos.DB                         (MonadBlockDBGeneric (..),
 import qualified Pos.DB                         as DB
 import qualified Pos.DB.Block                   as DB
 import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
-import qualified Pos.DB.GState                  as GState
 import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
 import           Pos.Discovery                  (DiscoveryContextSum (..),
@@ -64,6 +63,7 @@ import           Pos.Discovery                  (DiscoveryContextSum (..),
                                                  getPeersSum)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..))
 import           Pos.Genesis                    (stakeDistribution)
+import qualified Pos.GState                     as GState
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),

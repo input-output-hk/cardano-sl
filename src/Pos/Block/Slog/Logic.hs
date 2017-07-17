@@ -46,8 +46,8 @@ import           Pos.DB                 (SomeBatchOp (..))
 import           Pos.DB.Block           (MonadBlockDBWrite, blkGetHeader)
 import           Pos.DB.Class           (MonadDBRead, dbPutBlund)
 import           Pos.DB.DB              (sanityCheckDB)
-import qualified Pos.DB.GState          as GS
 import           Pos.Exception          (assertionFailed, reportFatalError)
+import qualified Pos.GState             as GS
 import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
 import           Pos.Slotting           (MonadSlots (getCurrentSlot), putSlottingData)

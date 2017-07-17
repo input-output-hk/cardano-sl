@@ -27,7 +27,7 @@ import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
 import qualified Pos.Constants       as Const
 import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
                                       getOurPubKeyAddress, getOurPublicKey)
-import qualified Pos.DB.GState       as GS
+import qualified Pos.GState          as GS
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)

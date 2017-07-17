@@ -12,7 +12,7 @@ import           Universum
 import           Pos.Block.Slog.Types (HasSlogContext (..), LastBlkSlots,
                                        SlogContext (..), scLastBlkSlots)
 import           Pos.DB.Class         (MonadDBRead)
-import           Pos.DB.GState        (getLastSlots)
+import           Pos.GState           (getLastSlots)
 
 -- | Make new 'SlogContext' using data from DB.
 mkSlogContext :: (MonadIO m, MonadDBRead m) => m SlogContext

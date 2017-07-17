@@ -96,12 +96,12 @@ applyByOneOrAllAtOnce = do
     blunds <- getOldestFirst <$> bpGenBlocks Nothing
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    lift (applyBlocks True Nothing blundsNE)
     let readDB = readIORef =<< view (lensOf @DBPureVar)
-    dbPure <- lift readDB
     dbPureCloned <-
         lift $
         GS.withClonedGState $ do
             applyBlocks True Nothing blundsNE
             readDB
+    lift (applyBlocks True Nothing blundsNE)
+    dbPure <- lift readDB
     assert (dbPure == dbPureCloned)

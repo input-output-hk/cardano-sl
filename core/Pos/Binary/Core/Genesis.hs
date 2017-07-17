@@ -16,10 +16,10 @@ instance Bi StakeDistribution where
     FlatStakes w c             -> encodeListLen 3 <> encode (0 :: Word8) <> encode w <> encode c
     BitcoinStakes w c          -> encodeListLen 3 <> encode (1 :: Word8) <> encode w <> encode c
     RichPoorStakes w1 c1 w2 c2 -> encodeListLen 5 <> encode (2 :: Word8)
-                                                       <> encode w1
-                                                       <> encode c1
-                                                       <> encode w2
-                                                       <> encode c2
+                                                  <> encode w1
+                                                  <> encode c1
+                                                  <> encode w2
+                                                  <> encode c2
     ExponentialStakes w        -> encodeListLen 2 <> encode (3 :: Word8) <> encode w
     CustomStakes c             -> encodeListLen 2 <> encode (4 :: Word8) <> encode c
   decode = do
@@ -33,7 +33,7 @@ instance Bi StakeDistribution where
         matchSize 3 "StakeDistribution.BitcoinStakes" len
         BitcoinStakes     <$> decode <*> decode
       2 -> do
-        matchSize 5 "StakeDistribution.BitcoinStakes" len
+        matchSize 5 "StakeDistribution.RichPoorStakes" len
         RichPoorStakes    <$> decode <*> decode <*> decode <*> decode
       3 -> do
         matchSize 2 "StakeDistribution.ExponentialStakes" len

@@ -46,7 +46,7 @@ instance Bi T.LocalSlotIndex where
   decode = do
     word16 <- decode @Word16
     case T.mkLocalSlotIndex word16 of
-      Left err        -> fail (toString err)
+      Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)
       Right slotIndex -> return slotIndex
 
 deriveSimpleBi ''T.SlotId [

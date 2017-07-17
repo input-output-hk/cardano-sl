@@ -181,7 +181,7 @@ asBinaryIdempotencyProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \
 
 spec :: Spec
 spec = describe "Cbor.Bi instances" $ do
-    modifyMaxSuccess (const 50) $ do
+    modifyMaxSuccess (const 1000) $ do
       describe "Test instances are sound" $ do
         prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
         prop "MyScript" (soundInstanceProperty @MyScript Proxy)

@@ -82,7 +82,6 @@ import           Pos.Update.Context          (mkUpdateContext)
 import qualified Pos.Update.DB               as GState
 import           Pos.Util.Concurrent.RWVar   as RWV
 import           Pos.Util.Util               (powerLift)
-import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -260,11 +259,11 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    let ctx shutdownQueue =
+    let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
-            , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
+            , ncShutdownContext = ShutdownContext ncShutdownFlag
             , ncNodeParams = np
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
@@ -273,10 +272,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
 #endif
             , ..
             }
-    -- This queue won't be used.
-    fakeQueue <- liftIO (newTBQueueIO 100500)
-    let allWorkersNum = allWorkersCount @ssc (ctx fakeQueue)
-    ctx <$> liftIO (newTBQueueIO allWorkersNum)
+    pure ctx
 
 releaseNodeContext :: forall ssc m . MonadIO m => NodeContext ssc -> m ()
 releaseNodeContext NodeContext {..} =

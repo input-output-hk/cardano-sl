@@ -38,7 +38,7 @@ import           Pos.Exception          (CardanoException)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
 import           Pos.Reporting.MemState (HasReportingContext)
 import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
-import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
+import           Pos.Shutdown           (HasShutdownContext)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
@@ -145,14 +145,14 @@ onNewSlotImpl withLogging startImmediately action =
 onNewSlotDo
     :: OnNewSlot ctx m
     => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdown $ do
+onNewSlotDo withLogging expectedSlotId startImmediately action = do
     curSlot <- waitUntilExpectedSlot
 
     -- Fork is necessary because action can take more time than duration of slot.
     when startImmediately $ void $ fork $ action curSlot
 
     -- check for shutdown flag again to not wait a whole slot
-    runIfNotShutdown $ do
+    do
         let nextSlot = succ curSlot
         Timestamp curTime <- currentTimeSlotting
         Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot

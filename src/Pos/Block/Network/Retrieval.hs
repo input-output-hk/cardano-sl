@@ -41,7 +41,6 @@ import           Pos.Core                   (HasHeaderHash (..), HeaderHash, dif
                                              isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.Reporting.Methods      (reportingFatal)
-import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
@@ -80,7 +79,7 @@ retrievalWorkerImpl sendActions =
         logDebug "Starting retrievalWorker loop"
         mainLoop
   where
-    mainLoop = runIfNotShutdown $ reportingFatal $ do
+    mainLoop = reportingFatal $ do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"

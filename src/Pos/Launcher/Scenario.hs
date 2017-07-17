@@ -30,20 +30,20 @@ import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
                                       getOurPubKeyAddress, getOurPublicKey)
 import           Pos.Crypto          (createPsk, encToPublic)
 import           Pos.DB              (MonadDB)
+import Pos.Shutdown.Logic (waitForShutdown)
 import qualified Pos.DB.GState       as GS
 import           Pos.DB.Misc         (addProxySecretKey)
 import           Pos.Delegation      (initDelegation)
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
-import           Pos.Shutdown        (waitForWorkers)
 import           Pos.Slotting        (waitSystemStart)
 import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Types           (addressHash)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.LogSafe    (logInfoS)
 import           Pos.Util.UserSecret (HasUserSecret (..), usKeys)
-import           Pos.Worker          (allWorkers, allWorkersCount)
+import           Pos.Worker          (allWorkers)
 import           Pos.WorkMode.Class  (WorkMode)
 
 -- | Entry point of full node.
@@ -82,15 +82,16 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     initDelegation @ssc
     initSemaphore
     waitSystemStart
-    nc <- view nodeContext
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
 
-    -- Instead of sleeping forever, we wait until graceful shutdown
+    -- Either all the plugins are cancelled in the case one of them
+    -- throws an error, or otherwise when the shutdown signal comes,
+    -- they are killed automatically.
     void
       (race
            (void (mapConcurrently (unpackPlugin) plugins'))
-           (waitForWorkers (allWorkersCount @ssc nc)))
+           waitForShutdown)
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?

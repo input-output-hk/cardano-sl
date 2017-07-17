@@ -101,18 +101,9 @@ type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: (BlockLrcMode ssc ctx m)
-    => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
-verifyAndApplyBlocks rollback =
-    reportingFatal . verifyAndApplyBlocksInternal True rollback
-
--- See the description for verifyAndApplyBlocks. This method also
--- parameterizes LRC calculation which can be turned on/off with the first
--- flag.
-verifyAndApplyBlocksInternal
     :: forall ssc ctx m. (BlockLrcMode ssc ctx m)
-    => Bool -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
-verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
+    => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
+verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwError $
@@ -146,9 +137,6 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         logDebug "verifyAndapply failed, rolling back"
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
-    -- Calculates LRC if it's needed (no lock)
-    calculateLrc epochIx =
-        when lrc $ lrcSingleShotNoLock epochIx
     -- This function tries to apply a new portion of blocks (prefix
     -- and suffix). It also has aggregating parameter blunds which is
     -- collected to rollback blocks if correspondent flag is on. First
@@ -162,13 +150,14 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
         logDebug "Rolling: Calculating LRC if needed"
-        when (isLeft prefixHead) $ lift $ calculateLrc (prefixHead ^. epochIndexL)
+        when (isLeft prefixHead) $
+            lift $ lrcSingleShotNoLock (prefixHead ^. epochIndexL)
         logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
                 | otherwise -> do
-                      lift $ logDebug "Rolling: Applying AMAP"
+                      logDebug "Rolling: Applying AMAP"
                       applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (null blunds)
@@ -180,7 +169,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
                 case getOldestFirst suffix of
                     [] -> GS.getTip
                     (genesis:xs) -> do
-                        lift $ logDebug "Rolling: Applying done, next portion"
+                        logDebug "Rolling: Applying done, next portion"
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
 

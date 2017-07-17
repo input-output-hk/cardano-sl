@@ -6,6 +6,7 @@ module Pos.GState.Context
 
        , GStateContextPure
        , cloneGStateContext
+       , withClonedGState
        ) where
 
 import           Universum
@@ -44,3 +45,17 @@ cloneGStateContext GStateContext {..} =
     GStateContext <$> cloneDBPure _gscDB <*> cloneLrcContext _gscLrcContext <*>
     cloneSlogContext _gscSlogContext <*>
     cloneSlottingVar _gscSlottingVar
+
+-- | Make a full copy of GState and run given action with this copy.
+withClonedGState ::
+       ( MonadIO m
+       , WithLogger m
+       , MonadThrow m
+       , MonadReader ctx m
+       , HasGStateContext ctx DBPureVar
+       )
+    => m a
+    -> m a
+withClonedGState action = do
+    cloned <- cloneGStateContext =<< view gStateContext
+    local (set gStateContext cloned) action

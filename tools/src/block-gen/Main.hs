@@ -6,6 +6,8 @@ import           Mockable            (runProduction)
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map            as M
+import           System.Directory    (doesDirectoryExist)
+
 import           Pos.Core            (StakeDistribution (..), addressHash,
                                       genesisDevKeyPairs, makePubKeyAddress, mkCoin)
 import           Pos.Crypto          (toPublic, unsafeHash)
@@ -14,7 +16,6 @@ import           Pos.Generator.Block (AllSecrets (..), BlockGenParams (..), genB
 import           Pos.Genesis         (stakeDistribution)
 import           Pos.Txp.Core        (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil        (GenesisUtxo (..))
-import           System.Directory    (doesDirectoryExist)
 
 import           Context             (initTBlockGenMode)
 import           Options             (BlockGenOptions (..), getBlockGenOptions)
@@ -33,6 +34,8 @@ main = do
                 zipF
                 (toList secretsMap)
                 (stakeDistribution dummyDistr)
+    --seed <- maybe randomIO pure bgoSeed
+    -- TODO use seed in the future
 
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $

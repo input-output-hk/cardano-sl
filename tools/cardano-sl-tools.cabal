@@ -540,6 +540,7 @@ executable cardano-block-gen
                      , mtl
                      , node-sketch
                      , optparse-applicative
+                     , random
                      , string-qq
                      , universum >= 0.1.11
                      , unordered-containers

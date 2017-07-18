@@ -27,6 +27,7 @@ data BlockGenOptions = BlockGenOptions
     -- ^ Location of generated database.
     , bgoAppend :: !Bool
     -- ^ Whether to append to existing db.
+    , bgoSeed   :: !(Maybe Int)
     }
 
 optionsParser :: Parser BlockGenOptions
@@ -51,6 +52,11 @@ optionsParser = do
         long "append" <>
         help "If database already exists, append to it."
 
+    bgoSeed <- optional $ option auto $
+        long    "seed" <>
+        metavar "INT" <>
+        help    "Custom seed to generate blocks."
+
     return BlockGenOptions{..}
 
 getBlockGenOptions :: IO BlockGenOptions
@@ -73,4 +79,5 @@ Command example:
     --blocks 5000                           \
     --nodes 3                               \
     --db-path /path/to/existed/db           \
+    --seed 123
     --append|]

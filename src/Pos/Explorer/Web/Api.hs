@@ -88,6 +88,14 @@ type GenesisSummary = API
     :> "summary"
     :> Get '[JSON] (Either ExplorerError CGenesisSummary)
 
+type GenesisPagesTotal = API
+    :> "genesis"
+    :> "address"
+    :> "pages"
+    :> "total"
+    :> QueryParam "pageSize" Word
+    :> Get '[JSON] (Either ExplorerError Integer)
+
 type GenesisAddressInfo = API
     :> "genesis"
     :> "address"
@@ -106,6 +114,7 @@ type ExplorerApi =
     :<|> AddressSummary
     :<|> EpochSlotSearch
     :<|> GenesisSummary
+    :<|> GenesisPagesTotal
     :<|> GenesisAddressInfo
 
 -- | Helper Proxy

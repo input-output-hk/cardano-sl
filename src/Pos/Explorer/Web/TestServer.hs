@@ -61,6 +61,8 @@ explorerHandlers =
     :<|>
       apiGenesisSummary
     :<|>
+      apiGenesisPagesTotal
+    :<|>
       apiGenesisAddressInfo
   where
     apiBlocksPages        = testBlocksPages
@@ -72,6 +74,7 @@ explorerHandlers =
     apiAddressSummary     = testAddressSummary
     apiEpochSlotSearch    = testEpochSlotSearch
     apiGenesisSummary     = testGenesisSummary
+    apiGenesisPagesTotal  = testGenesisPagesTotal
     apiGenesisAddressInfo = testGenesisAddressInfo
 
 --------------------------------------------------------------------------------
@@ -199,6 +202,11 @@ testGenesisSummary = pure . pure $ CGenesisSummary
     { cgsNumTotal    = 2
     , cgsNumRedeemed = 1
     }
+
+testGenesisPagesTotal
+    :: Maybe Word
+    -> Handler (Either ExplorerError Integer)
+testGenesisPagesTotal _ = pure $ pure 2
 
 testGenesisAddressInfo
     :: Maybe Word

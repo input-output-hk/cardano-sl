@@ -120,6 +120,8 @@ explorerHandlers _sendActions =
     :<|>
       apiGenesisSummary
     :<|>
+      apiGenesisPagesTotal
+    :<|>
       apiGenesisAddressInfo
   where
     apiBlocksPages        = getBlocksPagesDefault
@@ -131,6 +133,7 @@ explorerHandlers _sendActions =
     apiAddressSummary     = catchExplorerError . getAddressSummary
     apiEpochSlotSearch    = tryEpochSlotSearch
     apiGenesisSummary     = catchExplorerError getGenesisSummary
+    apiGenesisPagesTotal  = getGenesisPagesTotalDefault
     apiGenesisAddressInfo = getGenesisAddressInfoDefault
 
     catchExplorerError    = try
@@ -146,6 +149,9 @@ explorerHandlers _sendActions =
 
     tryEpochSlotSearch epoch maybeSlot =
         catchExplorerError $ epochSlotSearch epoch maybeSlot
+
+    getGenesisPagesTotalDefault size =
+        catchExplorerError $ getGenesisPagesTotal (defaultPageSize size)
 
     getGenesisAddressInfoDefault page size =
         catchExplorerError $ getGenesisAddressInfo page (defaultPageSize size)
@@ -525,6 +531,14 @@ getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = 
             , cgaiGenesisAmount  = mkCCoin coin
             , ..
             }
+
+getGenesisPagesTotal
+    :: ExplorerMode m
+    => Word
+    -> m Integer
+getGenesisPagesTotal (fromIntegral -> pageSize) = do
+    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    pure $ fromIntegral $ (length redeemAddressCoinPairs + pageSize - 1) `div` pageSize
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

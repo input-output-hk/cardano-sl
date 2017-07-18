@@ -17,6 +17,7 @@ module Pos.DB.Pure
        , pureBlocksStorage
 
        , MonadPureDB
+       , dbPureDump
 
        , DBPureVar
        , newDBPureVar
@@ -93,6 +94,9 @@ type MonadPureDB ctx m =
     , MonadBaseControl IO m
     , MonadIO m
     )
+
+dbPureDump :: MonadPureDB ctx m => m DBPure
+dbPureDump = view (lensOf @DBPureVar) >>= readIORef
 
 ----------------------------------------------------------------------------
 -- MonadDBRead / MonadDB

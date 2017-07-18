@@ -95,6 +95,7 @@ import           Mockable                       (ChannelT, Counter, Distribution
                                                  MFunctor' (..), Mockable (..), Promise,
                                                  SharedAtomicT, SharedExclusiveT,
                                                  ThreadId)
+import           Test.QuickCheck.Monadic        (PropertyM (..))
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
@@ -141,6 +142,11 @@ liftGetterSome l = \f (Some a) -> Some <$> to (view l) f a
 ----------------------------------------------------------------------------
 -- Instances
 ----------------------------------------------------------------------------
+
+instance MonadReader r m => MonadReader r (PropertyM m) where
+    ask = lift ask
+    local f (MkPropertyM propertyM) =
+        MkPropertyM $ \hole -> local f <$> propertyM hole
 
 instance TH.Lift Byte where
     lift x = let b = toBytes x in [|fromBytes b :: Byte|]

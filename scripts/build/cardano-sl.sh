@@ -58,6 +58,7 @@ projects="core db lrc infra update ssc godtossing txp"
 args=''
 
 test=false
+coverage=false
 clean=false
 
 spec_prj=''
@@ -88,6 +89,9 @@ do
   # -t = run tests
   if [[ $var == "-t" ]]; then
     test=true
+  # --coverage = Produce test coverage report
+  elif [[ $var == "--coverage" ]]; then
+      coverage=true
   # -c = clean
   elif [[ $var == "-c" ]]; then
     clean=true
@@ -275,4 +279,15 @@ if [[ $test == true ]]; then
       $fast                                 \
       $args                                 \
       cardano-sl
+fi
+
+if [[ $coverage == true ]]; then
+  stack build                               \
+      --ghc-options="$ghc_opts"             \
+      $commonargs                           \
+      --no-run-benchmarks                   \
+      $fast                                 \
+      $args                                 \
+      --coverage;
+  stack hpc report $to_build
 fi

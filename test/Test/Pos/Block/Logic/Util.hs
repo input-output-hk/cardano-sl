@@ -4,6 +4,7 @@ module Test.Pos.Block.Logic.Util
        ( bpGenBlocks
        , bpGoToArbitraryState
        , withCurrentSlot
+       , satisfySlotCheck
        ) where
 
 import           Universum
@@ -11,12 +12,13 @@ import           Universum
 import           Test.QuickCheck.Gen       (sized)
 import           Test.QuickCheck.Monadic   (pick)
 
+import           Pos.Block.Core            (Block)
 import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (BlockCount, SlotId)
+import           Pos.Core                  (BlockCount, SlotId (..), epochIndexL)
 import           Pos.Generator.Block       (BlockGenParams (..), genBlocks)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Util.Chrono           (OldestFirst)
-import           Pos.Util.Util             (HasLens (..))
+import           Pos.Util.Chrono           (NE, OldestFirst (..))
+import           Pos.Util.Util             (HasLens (..), _neLast)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext,
                                             BlockTestContextTag, btcSlotId_L,
@@ -47,3 +49,16 @@ bpGoToArbitraryState = pass
 -- | Perform action pretending current slot is the given one.
 withCurrentSlot :: MonadReader BlockTestContext m => SlotId -> m a -> m a
 withCurrentSlot slot = local (set btcSlotId_L $ Just slot)
+
+-- | This simple helper is useful when one needs to verify
+-- blocks. Blocks verification checks that blocks are not from
+-- future. This function pretends that current slot is after the last
+-- slot of the given blocks.
+satisfySlotCheck ::
+       MonadReader BlockTestContext m
+    => OldestFirst NE (Block SscGodTossing)
+    -> m a
+    -> m a
+satisfySlotCheck (OldestFirst blocks) action =
+    let lastEpoch = blocks ^. _neLast . epochIndexL
+    in withCurrentSlot (SlotId (lastEpoch + 1) minBound) action

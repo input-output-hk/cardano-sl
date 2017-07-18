@@ -109,7 +109,7 @@
       }
 
       .hash {
-        lost-column: 10/12;
+        lost-column: 9/12;
         overflow: hidden;
         text-overflow: ellipsis;
 
@@ -120,7 +120,6 @@
 
       .amount {
         @extend .hide;
-
       }
 
       @media (--md) {
@@ -131,7 +130,13 @@
       }
 
       .redeemed {
-        lost-column: 2/12;
+        lost-column: 3/12;
+      }
+
+      @media (--md) {
+        .redeemed {
+          lost-column: 2/12;
+        }
       }
 
     }

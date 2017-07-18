@@ -525,19 +525,24 @@ executable cardano-block-gen
    build-depends:      QuickCheck
                      , base
                      , ansi-wl-pprint
+                     , containers
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-lrc
                      , cardano-sl-infra
                      , cardano-sl-ssc
+                     , cardano-sl-txp
                      , cardano-sl
+                     , directory
                      , ether
                      , lens
                      , mmorph
                      , mtl
                      , node-sketch
                      , optparse-applicative
+                     , string-qq
                      , universum >= 0.1.11
+                     , unordered-containers
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -554,6 +559,8 @@ executable cardano-block-gen
                         MultiParamTypeClasses
                         FlexibleInstances
                         LambdaCase
+                        OverloadedStrings
+                        FlexibleContexts
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

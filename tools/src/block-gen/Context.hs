@@ -5,7 +5,7 @@
 -- | Initial context satisfing MonadBlockGen.
 
 module Context
-       ( bracketTBlockGenMode
+       ( initTBlockGenMode
        ) where
 
 import           Universum
@@ -27,7 +27,6 @@ import           Pos.DB               (MonadBlockDBGeneric (..),
 import qualified Pos.DB               as DB
 import qualified Pos.DB.Block         as BDB
 import           Pos.DB.DB            (initNodeDBs)
-import           Pos.DB.Pure          (newDBPureVar)
 import           Pos.GState           (DBSum (..), GStateContext (..), eitherDB)
 import qualified Pos.GState           as GS
 import           Pos.Launcher         (newInitFuture)
@@ -44,24 +43,22 @@ data TBlockGenContext = TBlockGenContext
 
 makeLensesWith postfixLFields ''TBlockGenContext
 
-
 type TBlockGenMode = ReaderT TBlockGenContext Production
 
 runTBlockGenMode :: TBlockGenContext -> TBlockGenMode a -> Production a
 runTBlockGenMode = flip Mtl.runReaderT
 
-bracketTBlockGenMode :: TBlockGenMode a -> Production a
-bracketTBlockGenMode action = do
-    _gscDB <- PureDB <$> newDBPureVar
+initTBlockGenMode :: DB.NodeDBs -> GenesisUtxo -> TBlockGenMode a -> Production a
+initTBlockGenMode nodeDBs genUtxo action = do
+    let _gscDB = RealDB nodeDBs
+    (_gscSlogContext, putSlogContext) <- newInitFuture
     (_gscLrcContext, putLrcCtx) <- newInitFuture
     (_gscSlottingVar, putSlottingVar) <- newInitFuture
-    (_gscSlogContext, putSlogContext) <- newInitFuture
     let tbgcGState = GStateContext {..}
 
     tbgcSystemStart <- Timestamp <$> currentTime
-    let tbgcGenesisUtxo = undefined
+    let tbgcGenesisUtxo = genUtxo
     let tblockCtx = TBlockGenContext {..}
-
     runTBlockGenMode tblockCtx $ do
         initNodeDBs @SscGodTossing
         slotVar <- newTVarIO =<< GS.getSlottingData
@@ -125,3 +122,4 @@ instance
     MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
     dbPutBlund b = eitherDB (BDB.dbPutBlundDefault b) (BDB.dbPutBlundPureDefault b)
+

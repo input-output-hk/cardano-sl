@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE QuasiQuotes     #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Command line options
@@ -10,34 +11,45 @@ module Options
 
 import           Universum
 
+import           Data.String.QQ               (s)
 import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
-                                               progDesc, short, strOption, value)
+                                               progDesc, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-import           Pos.Constants                (blkSecurityParam, genesisSlotDuration)
-import           Pos.Core                     (Timestamp (..))
-
 data BlockGenOptions = BlockGenOptions
-    { bgoN    :: !Int
+    { bgoBlockN :: !Word32
     -- ^ Number of blocks to generate.
-    , bgoPath :: !FilePath
+    , bgoNodesN :: !Word32
+    -- ^ Number of nodes.
+    , bgoPath   :: !FilePath
     -- ^ Location of generated database.
+    , bgoAppend :: !Bool
+    -- ^ Whether to append to existing db.
     }
 
 optionsParser :: Parser BlockGenOptions
 optionsParser = do
-    bgoN <- option auto $
-        long    "n" <>
+    bgoBlockN <- option auto $
+        long    "blocks" <>
         metavar "INT" <>
         help "Length of blockchain."
+
+    bgoNodesN <- option auto $
+        long    "nodes" <>
+        metavar "INT" <>
+        help "Number of nodes."
 
     bgoPath <- strOption $
         long    "db-path" <>
         metavar "FILEPATH" <>
-        value   "generated-db" <>
+        value   "db-path" <>
         help    "Location of generated database."
+
+    bgoAppend <- switch $
+        long "append" <>
+        help "If database already exists, append to it."
 
     return BlockGenOptions{..}
 
@@ -54,10 +66,11 @@ getBlockGenOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = undefined
--- usageExample = Just [s|
--- Command example:
+usageExample = Just [s|
+Command example:
 
---   stack exec -- cardano-block-gen           \
---     -n 5000                                 \
---     --db-path generated-db|]
+  stack exec -- cardano-block-gen           \
+    --blocks 5000                           \
+    --nodes 3                               \
+    --db-path /path/to/existed/db           \
+    --append|]

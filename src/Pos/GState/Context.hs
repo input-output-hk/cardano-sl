@@ -31,9 +31,9 @@ data DBSum = RealDB NodeDBs | PureDB DBPureVar
 -- [CSL-1390] FIXME: add SSC GState here too!
 data GStateContext = GStateContext
     { _gscDB          :: !DBSum
-    , _gscLrcContext  :: !LrcContext
-    , _gscSlogContext :: !SlogContext
-    , _gscSlottingVar :: !(TVar SlottingData)
+    , _gscLrcContext  :: LrcContext
+    , _gscSlogContext :: SlogContext
+    , _gscSlottingVar :: (TVar SlottingData)
     }
 
 makeClassy ''GStateContext

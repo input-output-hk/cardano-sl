@@ -33,9 +33,9 @@ import           Pos.Core                    (HasPrimaryKey (..), IsHeader, Slot
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
-import           Pos.DB                      (DBPureVar, MonadBlockDBGeneric (..),
+import           Pos.DB                      (MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
-                                              MonadDBRead, NodeDBs)
+                                              MonadDBRead)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as BDB
 import           Pos.DB.DB                   (getTipHeader, gsAdoptedBVDataDefault)

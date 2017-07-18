@@ -40,8 +40,9 @@ import Explorer.Lenses.State (addressDetail, addressTxPagination
       , dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused
       , gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints
       , gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblLoadingAddressInfosPagination
-      , genesisBlockViewState, globalViewState, lang, latestBlocks, latestTransactions
-      , loading, route, socket, subscriptions, syncAction, viewStates)
+      , gblViewMaxAddressInfosPagination, genesisBlockViewState, globalViewState
+      , lang, latestBlocks, latestTransactions, loading, route, socket
+      , subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -804,6 +805,8 @@ update (ReceivePaginatedAddressInfo (Right infos)) state =
     noEffects $
     set loading false $
     set (viewStates <<< genesisBlockViewState <<< gblLoadingAddressInfosPagination) false $
+    -- TODO (jk) Set `gblViewMaxAddressInfosPagination` if API has been updated
+    -- set (viewStates <<< genesisBlockViewState <<< gblViewMaxAddressInfosPagination) (PageNumber maxInfos) $
     set currentCGenesisAddressInfos (Success infos) state
 
 update (ReceivePaginatedAddressInfo (Left error)) state =

@@ -15,7 +15,9 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesEmpty, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
-import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, genesisBlockViewState, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary
+    , gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable
+    , gblViewMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -179,7 +181,7 @@ addressInfosView infos state =
                 $  paginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                     , currentPage: PageNumber addressInfosPagination
                                     , minPage: PageNumber minPagination
-                                    , maxPage: PageNumber $ getMaxPaginationNumber (length infos) maxAddressInfoRows
+                                    , maxPage: state ^. (viewStates <<< genesisBlockViewState <<< gblViewMaxAddressInfosPagination)
                                     , changePageAction: GenesisBlockPaginateAddresses
                                     , editable: state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPaginationEditable)
                                     , editableAction: GenesisBlockEditAddressesPageNumber

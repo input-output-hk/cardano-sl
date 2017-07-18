@@ -134,6 +134,7 @@ type BlocksViewState =
 
 type GenesisBlockViewState =
     { gblAddressInfosPagination :: PageNumber
+    , gblViewMaxAddressInfosPagination :: PageNumber
     , gblAddressInfosPaginationEditable :: Boolean
     , gblLoadingAddressInfosPagination :: Boolean
     }

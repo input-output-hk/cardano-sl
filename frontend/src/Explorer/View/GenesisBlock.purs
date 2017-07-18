@@ -9,24 +9,22 @@ module Explorer.View.GenesisBlock
 
 import Prelude
 
-import Data.Array (length, null, slice)
+import Data.Array (null, slice)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesEmpty, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
-import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary
-    , gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable
-    , gblViewMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), CGenesisAddressInfos, PageNumber(..), State)
 import Explorer.Util.String (formatADA)
-import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, paginationView)
-import Network.RemoteData (RemoteData(..))
+import Explorer.View.Common (currencyCSSClass, paginationView)
+import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo(..), CGenesisSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CCoin, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed, getCoin)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed)
 import Pux.DOM.Events (onClick) as P
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
@@ -181,7 +179,9 @@ addressInfosView infos state =
                 $  paginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                     , currentPage: PageNumber addressInfosPagination
                                     , minPage: PageNumber minPagination
-                                    , maxPage: state ^. (viewStates <<< genesisBlockViewState <<< gblViewMaxAddressInfosPagination)
+                                    , maxPage: withDefault
+                                                  (PageNumber minPagination)
+                                                  (state ^. (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination))
                                     , changePageAction: GenesisBlockPaginateAddresses
                                     , editable: state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPaginationEditable)
                                     , editableAction: GenesisBlockEditAddressesPageNumber

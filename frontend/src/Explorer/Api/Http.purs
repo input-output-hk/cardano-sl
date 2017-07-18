@@ -13,7 +13,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple)
 import Explorer.Api.Helper (decodeResult)
-import Explorer.Api.Types (Endpoint, EndpointError(..), RequestLimit(..), RequestOffset(..))
+import Explorer.Api.Types (Endpoint, EndpointError(..))
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..), CGenesisAddressInfos)
 import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
@@ -21,7 +21,7 @@ import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
 import Pos.Core.Lenses.Types (_EpochIndex, _LocalSlotIndex, getEpochIndex, getSlotIndex)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CGenesisAddressInfo, CGenesisSummary, CHash(..), CTxId, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CGenesisSummary, CHash(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
 endpointPrefix :: String
@@ -92,3 +92,6 @@ fetchGenesisSummary = get "genesis/summary/"
 fetchGenesisAddressInfo :: forall eff. PageNumber -> PageSize -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
 fetchGenesisAddressInfo (PageNumber pNumber) (PageSize pSize) =
     get $ "genesis/address/?page" <> show pNumber <> "&pageSize=" <> show pSize
+
+fetchGenesisAddressInfoTotalPages :: forall eff. PageSize -> Aff (ajax::AJAX | eff) Int
+fetchGenesisAddressInfoTotalPages (PageSize pSize)= get $ "genesis/address/pages/total?pageSize=" <> show pSize

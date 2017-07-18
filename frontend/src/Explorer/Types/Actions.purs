@@ -8,12 +8,11 @@ import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
 import Data.Tuple (Tuple)
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..))
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem, CGenesisAddressInfos)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CGenesisSummary(..), CHash, CTxId, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CGenesisSummary, CHash, CTxId, CTxSummary)
 import Pux.DOM.Events (DOMEvent)
 import Signal.Channel (Channel)
 
@@ -59,6 +58,8 @@ data Action
     | ReceiveSearchBlocks (Either Error CBlockEntries)
     | RequestGenesisSummary
     | ReceiveGenesisSummary (Either Error CGenesisSummary)
+    | RequestGenesisAddressInfoTotalPages
+    | ReceiveGenesisAddressInfoTotalPages (Either Error Int)
     | RequestPaginatedAddressInfo PageNumber PageSize
     | ReceivePaginatedAddressInfo (Either Error CGenesisAddressInfos)
     -- global view states

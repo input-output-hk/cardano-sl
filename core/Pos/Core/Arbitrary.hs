@@ -121,7 +121,7 @@ instance Arbitrary Types.EpochOrSlot where
         ]
     shrink = genericShrink
 
--- | TODO: Replace with code from Pos.Binary.Cbo.Test:arbitraryUnparsedFields
+-- | TODO: Replace with code from Test.Pos.CborSpec:arbitraryUnparsedFields
 -- after transition to CBOR serialization.
 instance Arbitrary UnparsedFields where
     arbitrary = fromRaw <$> arbitrary

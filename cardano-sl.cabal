@@ -51,7 +51,6 @@ library
 
                         Pos.DB.DB
                         Pos.DB.Block
-                        Pos.DB.GState
 
                         Pos.Delegation
 
@@ -62,6 +61,9 @@ library
 
                         -- Genesis data
                         Pos.Genesis
+
+                        -- GState
+                        Pos.GState
 
                         -- LRC
                         Pos.Lrc
@@ -192,6 +194,9 @@ library
                         -- Crypto
                         Pos.Crypto.HDDiscovery
 
+                        -- DB
+                        Pos.DB.Misc
+
                         -- Heavy delegation
                         Pos.Delegation.Cede
                         Pos.Delegation.Cede.Class
@@ -215,6 +220,11 @@ library
                         Pos.Generator.Block.Mode
                         Pos.Generator.Block.Param
 
+                        -- GState
+                        Pos.GState.BlockExtra
+                        Pos.GState.Context
+                        Pos.GState.GState
+
                         -- Launcher
                         Pos.Launcher.Launcher
                         Pos.Launcher.Mode
@@ -231,11 +241,6 @@ library
                         Pos.Communication.Server
                         Pos.Communication.Limits
                         Pos.Communication.Update
-
-                        -- DB
-                        Pos.DB.GState.BlockExtra
-                        Pos.DB.GState.GState
-                        Pos.DB.Misc
 
                         -- LRC
                         Pos.Lrc.Consumers

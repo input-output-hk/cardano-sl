@@ -40,7 +40,7 @@ import           Pos.Crypto                (hash)
 import           Pos.DB                    (MonadDBRead)
 import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
-import qualified Pos.DB.GState             as GS
+import qualified Pos.GState                as GS
 import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class             (SscHelpersClass)
 import           Pos.Util                  (_neHead, _neLast)

@@ -42,7 +42,6 @@ import           Pos.DB                       (DBError (DBMalformed), MonadDBRea
 import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.DB                    as DB
-import qualified Pos.DB.GState                as GS
 import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..), MapCede,
                                                MonadCedeRead (getPsk),
                                                detectCycleOnAddition, dlgEdgeActionIssuer,
@@ -57,6 +56,7 @@ import           Pos.Delegation.Logic.Common  (DelegationError (..), getPSKsFrom
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
                                                deleteFromDlgMemPool, processProxySKHeavy)
 import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo)
+import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Util                     (getKeys, _neHead)

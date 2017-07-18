@@ -10,26 +10,30 @@ import           Unsafe                    (unsafeHead)
 import           Data.List                 (span)
 import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
+import           Serokell.Util             (throwText)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Monadic   (assert, pre)
 
-import           Pos.Block.Logic           (applyBlocks, verifyBlocksPrefix)
-import           Pos.Core                  (SlotId (..), epochIndexL)
-import           Pos.DB.Pure               (cloneDBPure)
-import           Pos.Util                  (_neLast)
-import           Pos.Util.Chrono           (OldestFirst (..))
+import           Pos.Block.Logic           (verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.Block.Types           (Blund)
+import           Pos.DB.Pure               (DBPureVar)
+import qualified Pos.GState                as GS
+import           Pos.Ssc.GodTossing        (SscGodTossing)
+import           Pos.Util                  (lensOf)
+import           Pos.Util.Chrono           (NE, OldestFirst (..))
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, btcDBPureVar_L)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
-                                            withCurrentSlot)
-import           Test.Pos.Util             (stopProperty)
+                                            satisfySlotCheck)
+import           Test.Pos.Util             (splitIntoChunks, stopProperty)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is currently extremely slow.
 -- Maybe we will optimize it in future.
 spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (const 3) $ do
     describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
+    describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
     describe "applyBlocks" applyBlocksSpec
 
 ----------------------------------------------------------------------------
@@ -64,44 +68,80 @@ verifyValidBlocks = do
     blocks <- map fst . toList <$> bpGenBlocks Nothing
     pre (not $ null blocks)
     let blocksToVerify =
+            OldestFirst $
             case blocks of
                 -- impossible because of precondition (see 'pre' above)
                 [] -> error "verifyValidBlocks: impossible"
                 (block0:otherBlocks) ->
                     let (otherBlocks', _) = span isRight otherBlocks
                     in block0 :| otherBlocks'
-    let lastEpoch = blocksToVerify ^. _neLast . epochIndexL
     verRes <-
-        lift $ withCurrentSlot (SlotId (lastEpoch + 1) minBound) $
-        verifyBlocksPrefix $
-        OldestFirst blocksToVerify
+        lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix $
+        blocksToVerify
     whenLeft verRes stopProperty
+
+----------------------------------------------------------------------------
+-- verifyAndApplyBlocks
+----------------------------------------------------------------------------
+
+verifyAndApplyBlocksSpec :: Spec
+verifyAndApplyBlocksSpec = do
+    prop applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
+  where
+    applier blunds =
+        let blocks = map fst blunds
+        in satisfySlotCheck blocks $
+           whenLeftM (verifyAndApplyBlocks True blocks) throwText
+    applyByOneOrAllAtOnceDesc =
+        "verifying and applying blocks one by one leads " <>
+        "to the same GState as verifying and applying them all at once " <>
+        "as well as applying in chunks"
 
 ----------------------------------------------------------------------------
 -- applyBlocks
 ----------------------------------------------------------------------------
 
-applyBlocksSpec :: Spec
-applyBlocksSpec = do
-    prop applyByOneOrAllAtOnceDesc applyByOneOrAllAtOnce
-  where
-    applyByOneOrAllAtOnceDesc =
-        "applying blocks one by one leads to the same GState as " <>
-        "applying them all at once"
+-- Commented out because tests are slow.
+-- We can enable it later if we make tests much faster.
 
-applyByOneOrAllAtOnce :: BlockProperty ()
-applyByOneOrAllAtOnce = do
+applyBlocksSpec :: Spec
+applyBlocksSpec = pass
+-- applyBlocksSpec = do
+--     prop applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
+--   where
+--     applier = applyBlocks True Nothing
+--     applyByOneOrAllAtOnceDesc =
+--         "applying blocks one by one leads to the same GState as " <>
+--         "applying them all at once"
+
+----------------------------------------------------------------------------
+-- General functions
+----------------------------------------------------------------------------
+
+applyByOneOrAllAtOnce ::
+       (OldestFirst NE (Blund SscGodTossing) -> BlockTestMode ())
+    -> BlockProperty ()
+applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
     blunds <- getOldestFirst <$> bpGenBlocks Nothing
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    dbPureVar <- lift (view btcDBPureVar_L)
-    clonedDBPureVar <- cloneDBPure dbPureVar
-    lift (applyBlocks True Nothing blundsNE)
-    dbPure <- readIORef dbPureVar
-    dbPureCloned <-
+    let readDB = readIORef =<< view (lensOf @DBPureVar)
+    stateAfter1by1 <-
         lift $
-        local (set btcDBPureVar_L clonedDBPureVar) $ do
-            applyBlocks True Nothing blundsNE
-            readIORef dbPureVar
-    assert (dbPure == dbPureCloned)
+        GS.withClonedGState $ do
+            mapM_ (applier . one) (getOldestFirst blundsNE)
+            readDB
+    chunks <- splitIntoChunks 5 (blunds)
+    stateAfterInChunks <-
+        lift $
+        GS.withClonedGState $ do
+            mapM_ (applier . OldestFirst) chunks
+            readDB
+    stateAfterAllAtOnce <-
+        lift $ do
+            applier blundsNE
+            readDB
+    assert
+        (stateAfter1by1 == stateAfterInChunks &&
+         stateAfterInChunks == stateAfterAllAtOnce)

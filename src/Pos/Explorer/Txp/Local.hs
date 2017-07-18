@@ -18,8 +18,8 @@ import           System.Wlog                 (WithLogger, logDebug)
 
 import           Pos.Core                    (HeaderHash, Timestamp)
 import           Pos.DB.Class                (MonadDBRead, MonadGState)
-import qualified Pos.DB.GState               as GS
 import qualified Pos.Explorer.DB             as ExDB
+import qualified Pos.GState                  as GS
 import           Pos.Slotting                (MonadSlots (currentTimeSlotting))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, toaOut,
                                               txOutAddress)
@@ -47,7 +47,6 @@ type ETxpLocalWorkMode ctx m =
     , MonadGState m
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
-    , MonadError ToilVerFailure m
     , MonadSlots m
     )
 
@@ -72,10 +71,10 @@ instance Monad m => MonadTxExtraRead (ExplorerReaderWrapper (ReaderT ExplorerExt
 
 eTxProcessTransaction
     :: ETxpLocalWorkMode ctx m
-    => (TxId, TxAux) -> m ()
+    => (TxId, TxAux) -> ExceptT ToilVerFailure m ()
 eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     tipBefore <- GS.getTip
-    localUM <- getUtxoModifier
+    localUM <- lift getUtxoModifier
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
     -- possible that invalid transaction will appear in
@@ -100,7 +99,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     -- with data to update. In case of `TxExtra` data is only added, but never updated,
     -- hence `mempty` here.
     let eet = ExplorerExtraTxp mempty hmHistories hmBalances
-    pRes <- modifyTxpLocalData "eTxProcessTransaction" $
+    pRes <- lift $ modifyTxpLocalData "eTxProcessTransaction" $
             processTxDo resolved toilEnv tipBefore itw curTime eet
     case pRes of
         Left er -> do

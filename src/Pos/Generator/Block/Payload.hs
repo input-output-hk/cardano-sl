@@ -138,7 +138,7 @@ genTxPayload = do
                 (length outputAddrs)
                 outputsN
         coins <- splitCoins outputsN (unsafeIntegerToCoin inputsSum)
-        let txOuts = NE.fromList $ map (uncurry TxOut) $ outputAddrs `zip` coins
+        let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
         let txE :: Either Text Tx
             txE = mkTx (NE.fromList txIns) txOuts def
         let tx = either (\e -> error $ "genTransaction: couldn't create tx: " <> e)

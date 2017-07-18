@@ -10,11 +10,7 @@ module Pos.Generator.Block.Logic
 import           Universum
 
 import           Control.Lens                (at, ix, _Wrapped)
-import           Control.Monad.Except        (runExceptT)
 import           Control.Monad.Random        (evalRandT)
-import           Control.Monad.Random.Class  (MonadRandom (..))
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Mockable                    (CurrentTime, Mockable)
 import           System.Random               (RandomGen (..))
 
 import           Pos.Block.Core              (mkGenesisBlock)
@@ -25,8 +21,7 @@ import           Pos.Core                    (EpochOrSlot (..), SlotId (..), epo
                                               getEpochOrSlot, getSlotIndex)
 import           Pos.DB.DB                   (getTipHeader)
 import           Pos.Generator.Block.Error   (BlockGenError (..))
-import           Pos.Generator.Block.Mode    (BlockGenMode, BlockGenRandMode,
-                                              MonadBlockGen, MonadBlockGenBase,
+import           Pos.Generator.Block.Mode    (BlockGenRandMode, MonadBlockGen,
                                               mkBlockGenContext, usingPrimaryKey,
                                               withCurrentSlot)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasAllSecrets (..),

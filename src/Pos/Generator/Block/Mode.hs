@@ -49,7 +49,7 @@ import           Pos.Discovery               (DiscoveryContextSum (..),
                                               getPeersSum)
 import           Pos.Exception               (reportFatalError)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..),
-                                              asSecretKeys)
+                                              HasTxGenParams (..), asSecretKeys)
 import qualified Pos.GState                  as GS
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
@@ -251,6 +251,9 @@ instance HasLens BlockGenContext BlockGenContext BlockGenContext where
 
 instance HasBlockGenParams BlockGenContext where
     blockGenParams = bgcParams_L
+
+instance HasTxGenParams BlockGenContext where
+    txGenParams = bgcParams_L . txGenParams
 
 instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L

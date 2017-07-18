@@ -29,7 +29,8 @@ import           Pos.Core                   (Address (..), Coin, SlotId (..),
 import           Pos.Crypto                 (SignTag (SignTxIn), WithHash (..), hash,
                                              sign, toPublic)
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
-import           Pos.Generator.Block.Param  (HasBlockGenParams (..), asSecretKeys)
+import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..),
+                                             asSecretKeys)
 import qualified Pos.GState                 as DB
 import           Pos.Txp.Core               (Tx, TxAux (..), TxDistribution (..),
                                              TxIn (..), TxInWitness (..), TxOut (..),
@@ -45,10 +46,11 @@ import qualified Pos.Txp.Toil.Utxo          as Utxo
 
 -- Generates list of distinct ints in the given range.
 selectDistinct :: (MonadRandom m) => Int -> (Int,Int) -> m [Int]
-selectDistinct n p@(a, b)
+selectDistinct n0 p@(a, b)
     | b - a < 0 = error $ "selectDistinct: b < a " <> show p
-    | otherwise = selectDistinct' [] (min (b - a) n)
+    | otherwise = selectDistinct' [] n
   where
+    n = min (b - a) n0
     selectDistinct' cur leftN = do
         leftItems <- take leftN <$> getRandomRs (a, b)
         let nubbed = ordNub $ cur ++ leftItems
@@ -93,28 +95,47 @@ genTxPayload = do
     utxo <- lift DB.getAllPotentiallyHugeUtxo
     let gtd = GenTxData utxo (V.fromList $ M.keys utxo)
     flip evalStateT gtd $ do
-        txsN <- getRandomR (1, 100)
-        void $ replicateM txsN genTransaction
+        (a,d) <- lift $ view tgpTxCountRange
+        txsN <- fromIntegral <$> getRandomR (a, a + d)
+        void $ replicateM txsN $ do
+            genTransaction
   where
     genTransaction :: StateT GenTxData (BlockGenRandMode g m) ()
     genTransaction = do
         utxoSize <- uses gtdUtxoKeys V.length
-        -- at most 5 inputs
-        inputsN <- getRandomR (1, min 5 utxoSize)
-        inputsIxs <- selectDistinct inputsN (0, utxoSize - 1)
-        txIns <- forM inputsIxs $ \i -> uses gtdUtxoKeys (`V.unsafeIndex` i)
-        inputsResolved <- forM txIns $ \txIn ->
-            toaOut . fromMaybe (error "genTxPayload: inputsSum") <$> utxoGet txIn
-        let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
+        canExhaustUtxo <- lift $ view tgpAllowExhaustUtxo
+        when (not canExhaustUtxo && utxoSize == 0) $
+            error "Utxo exhaustion is not allowed but utxo is empty already"
+
         secrets <- view asSecretKeys <$> view blockGenParams
         let resolveSecret stId =
                 fromMaybe (error $ "can't find stakeholderId " <>
                            pretty stId <> " in secrets map")
                           (HM.lookup stId secrets)
         let utxoAddresses = map (makePubKeyAddress . toPublic) $ HM.elems secrets
+
+        -- INPUTS
+
+        inputsN <- getRandomR (1, min 5 utxoSize)
+        inputsIxs <- selectDistinct inputsN (0, utxoSize - 1)
+        txIns <- forM inputsIxs $ \i -> uses gtdUtxoKeys (`V.unsafeIndex` i)
+        inputsResolved <- forM txIns $ \txIn ->
+            toaOut . fromMaybe (error "genTxPayload: inputsSum") <$> utxoGet txIn
+        let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
         -- at most 5 outputs too, but not bigger than amount of coins
         -- (to send 1 coin to everybody at least)
-        (outputsN :: Int) <- fromIntegral <$> getRandomR (1, min 5 inputsSum)
+
+        -- OUTPUTS
+
+        -- if we've just taken all the inputs from utxo, we must
+        -- produce at least one output to avoid utxo exhaustion.
+        outputsMaxN <-
+            fromIntegral .
+            (\m -> if (not canExhaustUtxo && utxoSize - inputsN == 0)
+                   then max 1 m
+                   else m) <$>
+            lift (view tgpMaxOutputs)
+        (outputsN :: Int) <- fromIntegral <$> getRandomR (0, min outputsMaxN inputsSum)
         outputsIxs <- selectDistinct outputsN (0, length utxoAddresses - 1)
         let outputAddrs = map (utxoAddresses !!) outputsIxs
         coins <- splitCoins outputsN (unsafeIntegerToCoin inputsSum)

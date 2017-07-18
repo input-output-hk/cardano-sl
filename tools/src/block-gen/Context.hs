@@ -11,6 +11,7 @@ module Context
 import           Universum
 
 import           Control.Lens         (makeLensesWith)
+import           Control.Monad.Morph  (hoist)
 import qualified Control.Monad.Reader as Mtl
 import           Ether.Internal       (HasLens (..))
 import           Mockable             (Production, currentTime)
@@ -24,10 +25,10 @@ import           Pos.DB               (MonadBlockDBGeneric (..),
                                        MonadBlockDBGenericWrite (..), MonadDB (..),
                                        MonadDBRead (..))
 import qualified Pos.DB               as DB
-import qualified Pos.DB.Block         as DB
+import qualified Pos.DB.Block         as BDB
 import           Pos.DB.DB            (initNodeDBs)
-import           Pos.DB.Pure          (DBPureVar, newDBPureVar)
-import           Pos.GState           (GStateContext (..), GStateContextPure)
+import           Pos.DB.Pure          (newDBPureVar)
+import           Pos.GState           (DBSum (..), GStateContext (..), eitherDB)
 import qualified Pos.GState           as GS
 import           Pos.Launcher         (newInitFuture)
 import           Pos.Lrc.Context      (LrcContext (..), mkLrcSyncData)
@@ -36,12 +37,13 @@ import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Util.Util        (postfixLFields)
 
 data TBlockGenContext = TBlockGenContext
-    { tbgcGState      :: GStateContextPure
+    { tbgcGState      :: GStateContext
     , tbgcGenesisUtxo :: GenesisUtxo
     , tbgcSystemStart :: Timestamp
     }
 
 makeLensesWith postfixLFields ''TBlockGenContext
+
 
 type TBlockGenMode = ReaderT TBlockGenContext Production
 
@@ -50,7 +52,7 @@ runTBlockGenMode = flip Mtl.runReaderT
 
 bracketTBlockGenMode :: TBlockGenMode a -> Production a
 bracketTBlockGenMode action = do
-    _gscDB <- newDBPureVar
+    _gscDB <- PureDB <$> newDBPureVar
     (_gscLrcContext, putLrcCtx) <- newInitFuture
     (_gscSlottingVar, putSlottingVar) <- newInitFuture
     (_gscSlogContext, putSlogContext) <- newInitFuture
@@ -78,42 +80,48 @@ bracketTBlockGenMode action = do
 
 -- Sno^W The God of Contexts requires more bOILeRpLaTE.
 
-instance GS.HasGStateContext TBlockGenContext DBPureVar where
+instance GS.HasGStateContext TBlockGenContext where
     gStateContext = tbgcGState_L
 
-instance HasLens DBPureVar TBlockGenContext DBPureVar where
+instance HasLens DBSum TBlockGenContext DBSum where
     lensOf = tbgcGState_L . GS.gscDB
 
 instance HasLens SlogContext TBlockGenContext SlogContext where
     lensOf = tbgcGState_L . GS.gscSlogContext
 
-instance HasLens GenesisUtxo TBlockGenContext GenesisUtxo where
-    lensOf = tbgcGenesisUtxo_L
-
 instance HasLens LrcContext TBlockGenContext LrcContext where
     lensOf = tbgcGState_L . GS.gscLrcContext
+
+instance HasLens GenesisUtxo TBlockGenContext GenesisUtxo where
+    lensOf = tbgcGenesisUtxo_L
 
 instance HasSlottingVar TBlockGenContext where
     slottingTimestamp = tbgcSystemStart_L
     slottingVar = tbgcGState_L . GS.gscSlottingVar
 
+
 instance MonadDBRead TBlockGenMode where
-    dbGet = DB.dbGetPureDefault
-    dbIterSource = DB.dbIterSourcePureDefault
+    dbGet tag key = eitherDB (DB.dbGetDefault tag key) (DB.dbGetPureDefault tag key)
+    dbIterSource tag proxy = view (lensOf @GS.DBSum) >>= \case
+        GS.RealDB dbs -> hoist (flip runReaderT dbs) (DB.dbIterSourceDefault tag proxy)
+        GS.PureDB pdb -> hoist (hoist $ flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)
 
 instance MonadDB TBlockGenMode where
-    dbPut = DB.dbPutPureDefault
-    dbWriteBatch = DB.dbWriteBatchPureDefault
-    dbDelete = DB.dbDeletePureDefault
+    dbPut tag k v = eitherDB (DB.dbPutDefault tag k v) (DB.dbPutPureDefault tag k v)
+    dbWriteBatch tag b =
+        eitherDB (DB.dbWriteBatchDefault tag b) (DB.dbWriteBatchPureDefault tag b)
+    dbDelete tag k =
+        eitherDB (DB.dbDeleteDefault tag k) (DB.dbDeletePureDefault tag k)
 
 instance
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
-    dbGetBlock  = DB.dbGetBlockPureDefault @SscGodTossing
-    dbGetUndo   = DB.dbGetUndoPureDefault @SscGodTossing
-    dbGetHeader = DB.dbGetHeaderPureDefault @SscGodTossing
+    dbGetBlock hh = eitherDB (BDB.dbGetBlockDefault hh) (BDB.dbGetBlockPureDefault hh)
+    dbGetUndo hh =
+        eitherDB (BDB.dbGetUndoDefault @SscGodTossing hh) (BDB.dbGetUndoPureDefault @SscGodTossing hh)
+    dbGetHeader hh = eitherDB (BDB.dbGetHeaderPureDefault hh) (BDB.dbGetHeaderPureDefault hh)
 
 instance
     MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
-    dbPutBlund = DB.dbPutBlundPureDefault
+    dbPutBlund b = eitherDB (BDB.dbPutBlundDefault b) (BDB.dbPutBlundPureDefault b)

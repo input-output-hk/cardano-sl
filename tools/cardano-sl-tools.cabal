@@ -533,6 +533,7 @@ executable cardano-block-gen
                      , cardano-sl
                      , ether
                      , lens
+                     , mmorph
                      , mtl
                      , node-sketch
                      , optparse-applicative
@@ -552,6 +553,7 @@ executable cardano-block-gen
                         NoImplicitPrelude
                         MultiParamTypeClasses
                         FlexibleInstances
+                        LambdaCase
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

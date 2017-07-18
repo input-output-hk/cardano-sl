@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
--- | Initial context satisfing MonadBlockGen.
+-- | Initial context satisfying MonadBlockGen.
 
 module Context
        ( initTBlockGenMode
@@ -35,6 +35,8 @@ import           Pos.Slotting         (HasSlottingVar (..))
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Util.Util        (postfixLFields)
 
+-- | Enough context for generation of blocks.
+-- "T" means tool
 data TBlockGenContext = TBlockGenContext
     { tbgcGState      :: GStateContext
     , tbgcGenesisUtxo :: GenesisUtxo
@@ -116,7 +118,7 @@ instance
     dbGetBlock hh = eitherDB (BDB.dbGetBlockDefault hh) (BDB.dbGetBlockPureDefault hh)
     dbGetUndo hh =
         eitherDB (BDB.dbGetUndoDefault @SscGodTossing hh) (BDB.dbGetUndoPureDefault @SscGodTossing hh)
-    dbGetHeader hh = eitherDB (BDB.dbGetHeaderPureDefault hh) (BDB.dbGetHeaderPureDefault hh)
+    dbGetHeader hh = eitherDB (BDB.dbGetHeaderDefault hh) (BDB.dbGetHeaderPureDefault hh)
 
 instance
     MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode

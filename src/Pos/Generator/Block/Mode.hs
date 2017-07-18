@@ -298,7 +298,7 @@ instance MonadBlockGenBase m =>
     dbGetBlock hh = eitherDB (BDB.dbGetBlockDefault hh) (BDB.dbGetBlockPureDefault hh)
     dbGetUndo hh =
         eitherDB (BDB.dbGetUndoDefault @SscGodTossing hh) (BDB.dbGetUndoPureDefault @SscGodTossing hh)
-    dbGetHeader hh = eitherDB (BDB.dbGetHeaderPureDefault hh) (BDB.dbGetHeaderPureDefault hh)
+    dbGetHeader hh = eitherDB (BDB.dbGetHeaderDefault hh) (BDB.dbGetHeaderPureDefault hh)
 
 instance MonadBlockGenBase m =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (BlockGenMode m)
@@ -308,7 +308,7 @@ instance MonadBlockGenBase m =>
         eitherDB (BDB.dbGetUndoSscDefault @SscGodTossing hh)
                  (BDB.dbGetUndoSscPureDefault @SscGodTossing hh)
     dbGetHeader hh =
-        eitherDB (BDB.dbGetHeaderSscPureDefault @SscGodTossing hh)
+        eitherDB (BDB.dbGetHeaderSscDefault @SscGodTossing hh)
                  (BDB.dbGetHeaderSscPureDefault @SscGodTossing hh)
 
 instance MonadBlockGenBase m =>

@@ -44,13 +44,11 @@ instance Buildable AllSecrets where
 
 -- | Parameters for transactions payload generation.
 data TxGenParams = TxGenParams
-    { _tgpTxCountRange     :: !(Word, Word)
+    { _tgpTxCountRange :: !(Word, Word)
     -- ^ Such (a, d), that there block will include some x ∈ [a, a+d)
     -- transactions. Set to (y,y) to disable tx generation.
-    , _tgpMaxOutputs       :: !Word
+    , _tgpMaxOutputs   :: !Word
     -- ^ Maximum number of tx outputs.
-    , _tgpAllowExhaustUtxo :: !Bool
-    -- ^ Allow utxo to become completely empty.
     }
 
 makeClassy ''TxGenParams
@@ -61,19 +59,16 @@ instance Buildable TxGenParams where
         bprint ("TxGenParams {\n"%
                 "  tx count (from,to): "%pairF%"\n"%
                 "  max outputs: "%int%"\n"%
-                "  utxo exhaust: "%build%"\n"%
                 "}\n")
             (a,a+d)
             _tgpMaxOutputs
-            _tgpAllowExhaustUtxo
 
 instance Show TxGenParams where
     show = formatToString build
 
 instance Default TxGenParams where
-    def = TxGenParams { _tgpTxCountRange = (5,100)
-                      , _tgpMaxOutputs = 8
-                      , _tgpAllowExhaustUtxo = False
+    def = TxGenParams { _tgpTxCountRange = (0,100)
+                      , _tgpMaxOutputs = 5
                       }
 
 -- | Parameters for blockchain generation. Probably they come from the outside.

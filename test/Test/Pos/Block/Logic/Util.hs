@@ -10,9 +10,8 @@ module Test.Pos.Block.Logic.Util
 import           Universum
 
 import           Data.Default              (def)
-import           Test.QuickCheck.Gen       (sized)
+import           Test.QuickCheck.Gen       (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic   (pick)
-import           Test.QuickCheck.Random    (newQCGen)
 
 import           Pos.Block.Core            (Block)
 import           Pos.Block.Types           (Blund)
@@ -46,8 +45,8 @@ bpGenBlocks blkCnt enableTxPayload = do
                       def & tgpTxCountRange %~ bool (const (0,0)) identity enableTxPayload
                 }
     params <- pick $ sized genBlockGenParams
-    g <- liftIO newQCGen -- this seems to be a hack, must be integrated with Gen (@volhovm)
-    lift (genBlocks params g)
+    g <- pick $ MkGen $ \qc _ -> qc
+    lift $ genBlocks params g
 
 -- | Go to arbitrary global state in 'BlockProperty'.
 bpGoToArbitraryState :: BlockProperty ()

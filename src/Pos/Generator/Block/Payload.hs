@@ -98,15 +98,12 @@ genTxPayload = do
     flip evalStateT gtd $ do
         (a,d) <- lift $ view tgpTxCountRange
         txsN <- fromIntegral <$> getRandomR (a, a + d)
-        void $ replicateM txsN $ do
-            genTransaction
+        void $ replicateM txsN genTransaction
   where
     genTransaction :: StateT GenTxData (BlockGenRandMode g m) ()
     genTransaction = do
         utxoSize <- uses gtdUtxoKeys V.length
-        canExhaustUtxo <- lift $ view tgpAllowExhaustUtxo
-        when (not canExhaustUtxo && utxoSize == 0) $
-            error "Utxo exhaustion is not allowed but utxo is empty already"
+        when (utxoSize == 0) $ error "Utxo is empty already which is weir"
 
         secrets <- view asSecretKeys <$> view blockGenParams
         let resolveSecret stId =

@@ -147,8 +147,8 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch epoch maybeSlot =
         catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    getGenesisAddressInfoDefault limit skip =
-        catchExplorerError $ getGenesisAddressInfo (defaultLimit limit) (defaultSkip skip)
+    getGenesisAddressInfoDefault page size =
+        catchExplorerError $ getGenesisAddressInfo page (defaultPageSize size)
 
     defaultPageSize size = (fromIntegral $ fromMaybe 10 size)
     defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
@@ -504,13 +504,15 @@ getGenesisSummary = do
 
 getGenesisAddressInfo
     :: (ExplorerMode m)
-    => Word  -- ^ limit
-    -> Word  -- ^ skip
+    => Maybe Word  -- ^ pageNumber
+    -> Word        -- ^ pageSize
     -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fromIntegral -> lim) (fromIntegral -> skip) = do
+getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = do
     redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    let genesisWithLimitAndOffset = take lim $ drop skip redeemAddressCoinPairs
-    mapM toGenesisAddressInfo genesisWithLimitAndOffset
+    let pageNumber    = fromMaybe 1 mPage
+        skipItems     = (pageNumber - 1) * pageSize
+        requestedPage = take pageSize $ drop skipItems redeemAddressCoinPairs
+    mapM toGenesisAddressInfo requestedPage
   where
     toGenesisAddressInfo :: ExplorerMode m => (Address, Coin) -> m CGenesisAddressInfo
     toGenesisAddressInfo (address, coin) = do

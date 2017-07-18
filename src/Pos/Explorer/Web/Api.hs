@@ -91,8 +91,8 @@ type GenesisSummary = API
 type GenesisAddressInfo = API
     :> "genesis"
     :> "address"
-    :> QueryParam "limit" Word
-    :> QueryParam "offset" Word
+    :> QueryParam "page" Word
+    :> QueryParam "pageSize" Word
     :> Get '[JSON] (Either ExplorerError [CGenesisAddressInfo])
 
 -- | Servant API which provides access to explorer

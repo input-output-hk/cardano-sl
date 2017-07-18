@@ -5,11 +5,9 @@ import           Universum
 
 import           Data.Digest.CRC32   (CRC32 (..))
 import           Pos.Binary.Crypto   ()
-import           Pos.Core.Types      (Address)
 import           Data.Default        (def)
 import           Data.Word           (Word8)
 import           Pos.Binary.Class    (Bi (..), serialize', deserialize', encodeListLen, enforceSize)
-import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes (Attributes, encodeAttributes, decodeAttributes)
 

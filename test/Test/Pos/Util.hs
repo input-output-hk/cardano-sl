@@ -49,11 +49,7 @@ import           Test.QuickCheck          (Arbitrary (arbitrary), Property, conj
 import           Test.QuickCheck.Gen      (choose)
 import           Test.QuickCheck.Monadic  (PropertyM, pick, stop)
 
-import           Test.QuickCheck.Monadic  (PropertyM, stop)
 import           Test.QuickCheck.Property (Result (..), failed)
-
-import           Pos.Binary               (AsBinaryClass (..), Bi (..))
-import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary

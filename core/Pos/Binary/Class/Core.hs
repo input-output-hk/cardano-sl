@@ -106,9 +106,9 @@ instance Bi Char where
                   else fail "expected a single char, found a string"
 
     -- For [Char]/String we have a special encoding
-    encodeList cs = encodeString (Text.pack cs)
+    encodeList cs = encodeString (toText cs)
     decodeList    = do txt <- decodeString
-                       return (Text.unpack txt) -- unpack lazily
+                       return (toString txt) -- unpack lazily
 
 ----------------------------------------------------------------------------
 -- Numeric data
@@ -325,7 +325,7 @@ instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
   encode = encodeMapSkel HM.size $ \f acc ->
       -- We need to encode the list with keys sorted in ascending order as
       -- that's the only representation we accept during decoding.
-      Universum.foldr (uncurry f) acc . sortBy (comparing fst) . HM.toList
+      Universum.foldr (uncurry f) acc . sortWith fst . HM.toList
   decode = decodeMapSkel HM.fromList
 
 instance (Ord k, Bi k, Bi v) => Bi (Map k v) where

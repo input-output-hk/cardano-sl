@@ -35,32 +35,27 @@ import           Servant.Server                 (Server, ServerT, serve)
 import           System.Wlog                    (logDebug)
 
 import           Pos.Communication              (SendActions)
-import           Pos.Crypto                     (WithHash (..), hash,
-                                                 redeemPkBuild, withHash)
+import           Pos.Crypto                     (WithHash (..), hash, redeemPkBuild,
+                                                 withHash)
 
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
 
-import           Pos.Block.Core                 (Block, MainBlock,
-                                                 mainBlockSlot,
+import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (Tx (..), TxAux, TxId, TxMap,
-                                                 TxOutAux (..), getLocalTxs,
-                                                 getMemPool, mpLocalTxs, taTx,
-                                                 topsortTxs, txOutValue,
+                                                 TxOutAux (..), getLocalTxs, getMemPool,
+                                                 mpLocalTxs, taTx, topsortTxs, txOutValue,
                                                  _txOutputs)
 import           Pos.Txp                        (MonadTxpMem, txpTxs)
-import           Pos.Types                      (Address (..), EpochIndex,
-                                                 HeaderHash, Timestamp,
-                                                 difficultyL, gbHeader,
-                                                 gbhConsensus,
-                                                 getChainDifficulty,
-                                                 makeRedeemAddress, mkCoin,
-                                                 siEpoch, siSlot, sumCoins,
-                                                 unsafeIntegerToCoin,
+import           Pos.Types                      (Address (..), EpochIndex, HeaderHash,
+                                                 Timestamp, difficultyL, gbHeader,
+                                                 gbhConsensus, getChainDifficulty,
+                                                 makeRedeemAddress, mkCoin, siEpoch,
+                                                 siSlot, sumCoins, unsafeIntegerToCoin,
                                                  unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
@@ -68,28 +63,22 @@ import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
-                                                 getLastTransactions,
-                                                 getPageBlocks, getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrBalance,
-                                                       getAddrHistory,
+                                                 getLastTransactions, getPageBlocks,
+                                                 getTxExtra)
+import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
                                                        getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CAddressType (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash,
-                                                 CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 TxInternal (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CAddressType (..), CBlockEntry (..),
+                                                 CBlockSummary (..), CHash, CTxBrief (..),
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
-                                                 fromCHash, fromCTxId,
-                                                 getEpochIndex, getSlotIndex,
-                                                 mkCCoin, tiToTxEntry,
-                                                 toBlockEntry, toBlockSummary,
-                                                 toCHash, toPosixTime,
-                                                 toTxBrief)
+                                                 fromCHash, fromCTxId, getEpochIndex,
+                                                 getSlotIndex, mkCCoin, tiToTxEntry,
+                                                 toBlockEntry, toBlockSummary, toCHash,
+                                                 toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -612,15 +601,13 @@ cAddrToAddr cAddr@(CAddress rawAddrText) =
             -- * cardano-sl/tools/src/addr-convert/Main.hs
             unless (BS.length addr == 32) $
                 throwM badAddressLength
-            let cardanoAddr = pretty $ makeRedeemAddress $ redeemPkBuild addr
-            either badRSCoinAddress pure (fromCAddress $ CAddress cardanoAddr)
+            pure $ makeRedeemAddress $ redeemPkBuild addr
         Nothing ->
             -- cAddr is in Cardano address format
             either badCardanoAddress pure (fromCAddress cAddr)
   where
     badAddressLength = Internal "Address length is not equal to 32, can't be redeeming pk"
     badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
-    badRSCoinAddress  = const $ throwM $ Internal "Invalid RSCoin address!"
 
 -- | Deserialize transaction ID.
 -- Throw exception on failure.

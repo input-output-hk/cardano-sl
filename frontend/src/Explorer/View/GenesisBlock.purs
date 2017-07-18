@@ -20,13 +20,14 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), CGenesisAddressInfos, PageNumber(..), State)
+import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, paginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo(..), CGenesisSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CCoin, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed, getCoin)
+import Pux.DOM.Events (onClick) as P
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
-import Pux.DOM.Events (onClick) as P
 import Text.Smolder.HTML (a, div, h3, p, span) as S
 import Text.Smolder.HTML.Attributes (className, href) as S
 import Text.Smolder.Markup ((!), (#!))
@@ -139,7 +140,7 @@ addressInfosBodyView lang (CGenesisAddressInfo info) =
           -- amount
           S.div ! S.className "address-infos__body--column amount"
                 $ S.span ! S.className (currencyCSSClass $ Just ADA)
-                          $ S.text (info ^. (cgaiGenesisAmount <<< _CCoin <<< getCoin))
+                          $ S.text (formatADA (info ^. cgaiGenesisAmount) lang)
           -- is redeemed
           S.div ! S.className "address-infos__body--column redeemed"
                 $ S.text (if (info ^. cgaiIsRedeemed)

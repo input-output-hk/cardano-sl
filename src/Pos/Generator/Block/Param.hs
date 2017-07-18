@@ -71,8 +71,8 @@ instance Show TxGenParams where
     show = formatToString build
 
 instance Default TxGenParams where
-    def = TxGenParams { _tgpTxCountRange = (1,100)
-                      , _tgpMaxOutputs = 5
+    def = TxGenParams { _tgpTxCountRange = (5,100)
+                      , _tgpMaxOutputs = 8
                       , _tgpAllowExhaustUtxo = False
                       }
 

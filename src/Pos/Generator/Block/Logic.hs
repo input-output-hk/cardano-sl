@@ -77,9 +77,9 @@ genBlock eos = do
             let slot0 = SlotId epoch minBound
             let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders
             withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
-        EpochOrSlot (Right slot@SlotId {..}) -> do
+        EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
             genPayload slot
-                    -- We need to know leader's secret key to create a block.
+            -- We need to know leader's secret key to create a block.
             leader <-
                 lift $ maybeThrow
                     (BGInternal "no leader")
@@ -88,7 +88,7 @@ genBlock eos = do
             leaderSK <-
                 lift $ maybeThrow (BGUnknownSecret leader) (secrets ^. at leader)
                     -- When we know the secret key we can proceed to the actual creation.
-            withCurrentSlot slot $ usingPrimaryKey leaderSK (genMainBlock slot)
+            usingPrimaryKey leaderSK (genMainBlock slot)
   where
     genMainBlock slot =
         lift $ createMainBlockInternal @SscGodTossing slot Nothing >>= \case

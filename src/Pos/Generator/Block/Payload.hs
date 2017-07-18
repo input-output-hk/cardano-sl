@@ -19,7 +19,7 @@ import           Data.List                  (notElem, (!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
-import           Formatting                 (sformat, (%))
+import           Formatting                 (int, sformat, (%))
 import           System.Random              (RandomGen (..))
 
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
@@ -44,29 +44,30 @@ import qualified Pos.Txp.Toil.Utxo          as Utxo
 -- Tx payload generation
 ----------------------------------------------------------------------------
 
--- Generates list of distinct ints in the given range.
-selectDistinct :: (MonadRandom m) => Int -> (Int,Int) -> m [Int]
+-- | Generates list of distinct ints in the given range [a,b].
+selectDistinct :: (MonadRandom m, MonadIO m) => Int -> (Int,Int) -> m [Int]
 selectDistinct n0 p@(a, b)
     | b - a < 0 = error $ "selectDistinct: b < a " <> show p
     | otherwise = selectDistinct' [] n
   where
-    n = min (b - a) n0
+    n = min (b + 1 - a) n0
     selectDistinct' cur leftN = do
         leftItems <- take leftN <$> getRandomRs (a, b)
         let nubbed = ordNub $ cur ++ leftItems
         if length nubbed < n
-            then selectDistinct' nubbed (leftN - length nubbed)
+            then selectDistinct' nubbed (n - length nubbed)
             else pure nubbed
 
--- Separate coin into provided number of coins. All resulting coins
+-- | Separates coin into provided number of coins. All resulting coins
 -- are nonzero.
-splitCoins :: (MonadRandom m) => Int -> Coin -> m [Coin]
+splitCoins :: (MonadRandom m, MonadIO m) => Int -> Coin -> m [Coin]
 splitCoins n (fromIntegral . coinToInteger -> c)
     | c < n = error $ "splitCoins: can't split " <> pretty c <>
                       " on " <> show n <> " parts"
     | otherwise = do
           splitPoints <- sort <$> selectDistinct n (0, c - 1)
-          let amounts = map (uncurry (+)) $ (0 : splitPoints) `zip` splitPoints
+          -- calculate length of intervals
+          let amounts = map (\(a,b) -> b - a + 1) $ (0 : splitPoints) `zip` splitPoints
           pure $ map (unsafeIntegerToCoin . fromIntegral) amounts
 
 -- | State datatype for transaction payload generation
@@ -119,6 +120,10 @@ genTxPayload = do
         inputsN <- getRandomR (1, min 5 utxoSize)
         inputsIxs <- selectDistinct inputsN (0, utxoSize - 1)
         txIns <- forM inputsIxs $ \i -> uses gtdUtxoKeys (`V.unsafeIndex` i)
+        unless (inputsN == length txIns) $
+            error $ sformat ("txIns length "%int%" doesn't match inputsN "%int)
+                            (length txIns)
+                            inputsN
         inputsResolved <- forM txIns $ \txIn ->
             toaOut . fromMaybe (error "genTxPayload: inputsSum") <$> utxoGet txIn
         let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
@@ -127,17 +132,14 @@ genTxPayload = do
 
         -- OUTPUTS
 
-        -- if we've just taken all the inputs from utxo, we must
-        -- produce at least one output to avoid utxo exhaustion.
-        outputsMaxN <-
-            fromIntegral .
-            (\m -> if (not canExhaustUtxo && utxoSize - inputsN == 0)
-                   then max 1 m
-                   else m) <$>
-            lift (view tgpMaxOutputs)
-        (outputsN :: Int) <- fromIntegral <$> getRandomR (0, min outputsMaxN inputsSum)
-        outputsIxs <- selectDistinct outputsN (0, length utxoAddresses - 1)
-        let outputAddrs = map (utxoAddresses !!) outputsIxs
+        outputsMaxN <- fromIntegral . max 1 <$> lift (view tgpMaxOutputs)
+        (outputsN :: Int) <- fromIntegral <$> getRandomR (1, min outputsMaxN inputsSum)
+        outputsIxs <- selectDistinct outputsN (0, max outputsN (length utxoAddresses - 1))
+        let outputAddrs = map ((cycle utxoAddresses) !!) outputsIxs
+        unless (length outputAddrs == outputsN) $
+            error $ sformat ("outputAddrs length "%int%" doesn't match outputsN "%int)
+                (length outputAddrs)
+                outputsN
         coins <- splitCoins outputsN (unsafeIntegerToCoin inputsSum)
         let txOuts = NE.fromList $ map (uncurry TxOut) $ outputAddrs `zip` coins
         let txE :: Either Text Tx
@@ -146,9 +148,9 @@ genTxPayload = do
                         identity
                         txE
         let txId = hash tx
-        let txIn = TxIn txId 0
-        let taDistribution = TxDistribution $ [] :| replicate (inputsN - 1) []
-        let toWitness = \case
+        let taDistribution = TxDistribution $ NE.fromList $ replicate outputsN []
+        let toWitness :: TxIn -> Address -> TxInWitness
+            toWitness txIn = \case
                 PubKeyAddress stId _ ->
                     let sk = resolveSecret stId
                         txSig =
@@ -158,7 +160,9 @@ genTxPayload = do
                     in PkWitness (toPublic sk) txSig
                 other -> error $
                     sformat ("Found non-pubkey address: "%addressDetailedF) other
-        let taWitness = V.fromList $ map (toWitness . txOutAddress) inputsResolved
+        let taWitness =
+                V.fromList $ map (uncurry toWitness . second txOutAddress)
+                                 (txIns `zip` inputsResolved)
         let txAux = TxAux { taTx = tx, .. }
         res <- lift . lift $ runExceptT $ txProcessTransaction (txId, txAux)
         case res of

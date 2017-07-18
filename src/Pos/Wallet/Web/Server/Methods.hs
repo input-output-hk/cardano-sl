@@ -813,7 +813,7 @@ selectSrcAddresses allAddrs outputCoins (TxFee fee) =
         | reqCoins == mkCoin 0 =
             Left "Spending non-positive amount of money!"
         | [] <- addresses =
-            Left $ sformat ("Not enough money (need " %build % " more)") reqCoins
+            Left "It's not allowed to send money to the same address you are sending from. Make sure you have enough addresses with money in this account or send to a different address."
         | (ad, balance):addrs <- addresses = do
             if | balance == mkCoin 0 ->
                    selectSrcAddressesDo reqCoins addrs

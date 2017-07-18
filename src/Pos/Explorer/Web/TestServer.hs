@@ -149,7 +149,7 @@ testTxsSummary
     -> Handler (Either ExplorerError CTxSummary)
 testTxsSummary _       = pure . pure $ CTxSummary
     { ctsId              = CTxId $ CHash "8aac4a6b18fafa2783071c66519332157ce96c67e88fc0cc3cb04ba0342d12a1"
-    , ctsTxTimeIssued    = posixTime
+    , ctsTxTimeIssued    = Just posixTime
     , ctsBlockTimeIssued = Nothing
     , ctsBlockHeight     = Just 13
     , ctsBlockEpoch      = Just 0

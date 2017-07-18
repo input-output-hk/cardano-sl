@@ -264,7 +264,7 @@ newtype CNetworkAddress = CNetworkAddress Text
 
 data CTxSummary = CTxSummary
     { ctsId              :: !CTxId
-    , ctsTxTimeIssued    :: !POSIXTime
+    , ctsTxTimeIssued    :: !(Maybe POSIXTime)
     , ctsBlockTimeIssued :: !(Maybe POSIXTime)
     , ctsBlockHeight     :: !(Maybe Word)
     , ctsBlockEpoch      :: !(Maybe Word64)

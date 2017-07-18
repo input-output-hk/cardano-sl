@@ -19,7 +19,7 @@ import           Data.List                  (notElem, (!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
-import           Formatting                 (int, sformat, (%))
+import           Formatting                 (sformat, (%))
 import           System.Random              (RandomGen (..))
 
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
@@ -45,12 +45,18 @@ import qualified Pos.Txp.Toil.Utxo          as Utxo
 ----------------------------------------------------------------------------
 
 -- | Generates list of distinct ints in the given range [a,b].
-selectDistinct :: (MonadRandom m, MonadIO m) => Int -> (Int,Int) -> m [Int]
+selectDistinct :: forall m. (MonadRandom m, MonadIO m) => Int -> (Int,Int) -> m [Int]
 selectDistinct n0 p@(a, b)
     | b - a < 0 = error $ "selectDistinct: b < a " <> show p
-    | otherwise = selectDistinct' [] n
+    | otherwise = do
+          res <- selectDistinct' [] n
+          if fromIntegral (length res) /= n
+              then error "selectDistinct is broken"
+              else pure res
   where
+    n :: Int
     n = min (b + 1 - a) n0
+    selectDistinct' :: [Int] -> Int -> m [Int]
     selectDistinct' cur leftN = do
         leftItems <- take leftN <$> getRandomRs (a, b)
         let nubbed = ordNub $ cur ++ leftItems
@@ -68,6 +74,8 @@ splitCoins n (fromIntegral . coinToInteger -> c)
           splitPoints <- sort <$> selectDistinct n (0, c - 1)
           -- calculate length of intervals
           let amounts = map (\(a,b) -> b - a + 1) $ (0 : splitPoints) `zip` splitPoints
+          -- here we can use unsafeIntegerToCoin, because amount of
+          -- subcoin is less than 'c' by design.
           pure $ map (unsafeIntegerToCoin . fromIntegral) amounts
 
 -- | State datatype for transaction payload generation
@@ -103,45 +111,50 @@ genTxPayload = do
     genTransaction :: StateT GenTxData (BlockGenRandMode g m) ()
     genTransaction = do
         utxoSize <- uses gtdUtxoKeys V.length
-        when (utxoSize == 0) $ error "Utxo is empty already which is weir"
+        when (utxoSize == 0) $
+            -- Empty utxo means misconfigured testing settings most
+            -- probably, so that's a critical error
+            error "Utxo is empty already which is weird"
 
         secrets <- view asSecretKeys <$> view blockGenParams
+        -- Unsafe hashmap resolving is used here because we suppose
+        -- utxo contains only related to these secret keys only.
         let resolveSecret stId =
                 fromMaybe (error $ "can't find stakeholderId " <>
                            pretty stId <> " in secrets map")
                           (HM.lookup stId secrets)
         let utxoAddresses = map (makePubKeyAddress . toPublic) $ HM.elems secrets
 
-        -- INPUTS
+        ----- INPUTS
 
         inputsN <- getRandomR (1, min 5 utxoSize)
         inputsIxs <- selectDistinct inputsN (0, utxoSize - 1)
+        -- It's alright to use unsafeIndex because length of
+        -- gtdUtxoKeys must match utxo size and inputsIxs is selected
+        -- prior to length limitation.
         txIns <- forM inputsIxs $ \i -> uses gtdUtxoKeys (`V.unsafeIndex` i)
-        unless (inputsN == length txIns) $
-            error $ sformat ("txIns length "%int%" doesn't match inputsN "%int)
-                            (length txIns)
-                            inputsN
         inputsResolved <- forM txIns $ \txIn ->
-            toaOut . fromMaybe (error "genTxPayload: inputsSum") <$> utxoGet txIn
+            -- we're selecting from utxo by 'gtdUtxoKeys'. Inability to resolve
+            -- txin means that 'GenTxData' is malformed.
+            toaOut . fromMaybe (error "genTxPayload: inputsSum can't happen") <$> utxoGet txIn
         let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
-        -- at most 5 outputs too, but not bigger than amount of coins
-        -- (to send 1 coin to everybody at least)
 
-        -- OUTPUTS
+        ----- OUTPUTS
 
         outputsMaxN <- fromIntegral . max 1 <$> lift (view tgpMaxOutputs)
         (outputsN :: Int) <- fromIntegral <$> getRandomR (1, min outputsMaxN inputsSum)
         outputsIxs <- selectDistinct outputsN (0, max outputsN (length utxoAddresses - 1))
         let outputAddrs = map ((cycle utxoAddresses) !!) outputsIxs
-        unless (length outputAddrs == outputsN) $
-            error $ sformat ("outputAddrs length "%int%" doesn't match outputsN "%int)
-                (length outputAddrs)
-                outputsN
+        -- We operate small coins values so any input sum mush be less
+        -- than coin maxbound.
         coins <- splitCoins outputsN (unsafeIntegerToCoin inputsSum)
         let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
+
+        ----- TX
+
         let txE :: Either Text Tx
             txE = mkTx (NE.fromList txIns) txOuts def
-        let tx = either (\e -> error $ "genTransaction: couldn't create tx: " <> e)
+        let tx = either (\e -> error $ "genTransaction impossible: couldn't create tx: " <> e)
                         identity
                         txE
         let txId = hash tx

@@ -9,6 +9,7 @@ module Test.Pos.Block.Logic.Util
 
 import           Universum
 
+import           Control.Monad.Random      (evalRandT)
 import           Data.Default              (def)
 import           Test.QuickCheck.Gen       (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic   (pick)
@@ -46,7 +47,7 @@ bpGenBlocks blkCnt enableTxPayload = do
                 }
     params <- pick $ sized genBlockGenParams
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ genBlocks params g
+    lift $ evalRandT (genBlocks params) g
 
 -- | Go to arbitrary global state in 'BlockProperty'.
 bpGoToArbitraryState :: BlockProperty ()

@@ -10,7 +10,7 @@ module Pos.Generator.Block.Logic
 import           Universum
 
 import           Control.Lens                (at, ix, _Wrapped)
-import           Control.Monad.Random        (evalRandT)
+import           Control.Monad.Random        (RandT, mapRandT)
 import           System.Random               (RandomGen (..))
 
 import           Pos.Block.Core              (mkGenesisBlock)
@@ -44,11 +44,10 @@ import           Pos.Util.Util               (maybeThrow, _neHead)
 genBlocks ::
        (MonadBlockGen ctx m, RandomGen g)
     => BlockGenParams
-    -> g
-    -> m (OldestFirst [] (Blund SscGodTossing))
-genBlocks params gen = do
-    ctx <- mkBlockGenContext params
-    runReaderT (evalRandT genBlocksDo gen) ctx
+    -> RandT g m (OldestFirst [] (Blund SscGodTossing))
+genBlocks params = do
+    ctx <- lift $ mkBlockGenContext params
+    mapRandT (`runReaderT` ctx) genBlocksDo
   where
     genBlocksDo =
         OldestFirst <$> do

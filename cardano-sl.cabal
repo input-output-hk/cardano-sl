@@ -635,6 +635,7 @@ test-suite cardano-test
                      , kademlia
                      , lens
                      , log-warper
+                     , MonadRandom
                      , memory
                      , monad-control
                      , mtl

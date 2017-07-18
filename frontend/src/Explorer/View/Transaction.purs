@@ -70,7 +70,9 @@ summaryItems :: CTxSummary -> Language -> SummaryItems
 summaryItems (ctxSum@CTxSummary txSummary) lang =
     [ { label: translate (I18nL.tx <<< I18nL.txTime) lang
       , value: let  dateFormat = translate (I18nL.common <<< I18nL.cDateFormat) lang
-                    dateValue = fromMaybe noData <<< prettyDate dateFormat $ txSummary ^. ctsTxTimeIssued
+                    mDate      = txSummary ^. ctsTxTimeIssued
+                    mDateValue = mDate >>= prettyDate dateFormat
+                    dateValue  = fromMaybe noData mDateValue
                 in summaryRowSimpleValue dateValue
       }
     , { label: translate (I18nL.tx <<< I18nL.txIncluded) lang

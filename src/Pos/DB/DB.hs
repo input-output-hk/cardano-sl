@@ -66,7 +66,6 @@ initNodeDBs = do
     prepareGStateDB initialTip
     prepareLrcDB
     prepareMiscDB
-    pure ()
 #ifdef WITH_EXPLORER
     prepareExplorerDB
 #endif

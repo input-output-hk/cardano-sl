@@ -154,9 +154,9 @@ addressInfosView infos state =
     if null infos then
         emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesEmpty) (state ^. lang)
     else
-        let addrPagination = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination <<< _PageNumber)
+        let addressInfosPagination = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination <<< _PageNumber)
             lang' = state ^. lang
-            minInfoIndex = (addrPagination - minPagination) * maxAddressInfoRows
+            minInfoIndex = (addressInfosPagination - minPagination) * maxAddressInfoRows
             currentInfos = slice minInfoIndex (minInfoIndex + maxAddressInfoRows) infos
         in
         do
@@ -176,7 +176,7 @@ addressInfosView infos state =
             S.div
                 ! S.className "address-infos__footer"
                 $  paginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                    , currentPage: PageNumber addrPagination
+                                    , currentPage: PageNumber addressInfosPagination
                                     , minPage: PageNumber minPagination
                                     , maxPage: PageNumber $ getMaxPaginationNumber (length infos) maxAddressInfoRows
                                     , changePageAction: GenesisBlockPaginateAddresses

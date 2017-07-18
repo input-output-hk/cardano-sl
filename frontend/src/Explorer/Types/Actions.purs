@@ -59,7 +59,7 @@ data Action
     | ReceiveSearchBlocks (Either Error CBlockEntries)
     | RequestGenesisSummary
     | ReceiveGenesisSummary (Either Error CGenesisSummary)
-    | RequestPaginatedAddressInfo RequestLimit RequestOffset
+    | RequestPaginatedAddressInfo PageNumber PageSize
     | ReceivePaginatedAddressInfo (Either Error CGenesisAddressInfos)
     -- global view states
     | GlobalToggleMobileMenu Boolean

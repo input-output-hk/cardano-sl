@@ -28,7 +28,7 @@ import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
+import Explorer.Api.Types (SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.Lenses.State (addressDetail, addressTxPagination
       , addressTxPaginationEditable, blockDetail, blockTxPagination
       , blockTxPaginationEditable, blocksViewState, blsViewPagination
@@ -781,7 +781,7 @@ update (ReceiveGenesisSummary (Left error)) state =
     set currentCGenesisSummary (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
-update (RequestPaginatedAddressInfo limit offset) state =
+update (RequestPaginatedAddressInfo pageNumber pageSize) state =
     { state:
           set loading true $
           -- Note: Set `Loading` for first request only!
@@ -795,7 +795,7 @@ update (RequestPaginatedAddressInfo limit offset) state =
           ) $
           set currentCGenesisSummary Loading
           state
-    , effects:  [ attempt (fetchGenesisAddressInfo limit offset)
+    , effects:  [ attempt (fetchGenesisAddressInfo pageNumber pageSize)
                       >>= pure <<< Just <<< ReceivePaginatedAddressInfo
                 ]
     }
@@ -937,8 +937,9 @@ update (UpdateView r@(GenesisBlock)) state =
         , pure $ Just ClearWaypoints
         , pure $ Just SocketClearSubscriptions
         , pure $ Just RequestGenesisSummary
-        -- TODO(jk) Use "real" PageNumbers (instead of `limit`/ `offset` values) if API has been updated
-        , pure <<< Just $ RequestPaginatedAddressInfo (RequestLimit maxAddressInfoRows) (RequestOffset 0)
+        , pure <<< Just $ RequestPaginatedAddressInfo
+                              (state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination))
+                              (PageSize maxAddressInfoRows)
         ]
     }
 

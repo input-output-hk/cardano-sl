@@ -89,7 +89,6 @@ searchEpoch epoch mSlot = get $ "search/epoch/" <> show epochIndex <> slotQuery 
 fetchGenesisSummary :: forall eff. Aff (ajax::AJAX | eff) CGenesisSummary
 fetchGenesisSummary = get "genesis/summary/"
 
--- TODO: use page / pageNumber if API has been updated
-fetchGenesisAddressInfo :: forall eff. RequestLimit -> RequestOffset -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
-fetchGenesisAddressInfo (RequestLimit limit) (RequestOffset offset) =
-    get $ "genesis/address/?limit" <> show limit <> "&offset=" <> show offset
+fetchGenesisAddressInfo :: forall eff. PageNumber -> PageSize -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
+fetchGenesisAddressInfo (PageNumber pNumber) (PageSize pSize) =
+    get $ "genesis/address/?page" <> show pNumber <> "&pageSize=" <> show pSize

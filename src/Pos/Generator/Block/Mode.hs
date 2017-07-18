@@ -45,7 +45,7 @@ import           Pos.Discovery               (DiscoveryContextSum (..),
                                               MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
 import           Pos.Exception               (reportFatalError)
-import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
+import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..))
 import qualified Pos.GState                  as GS
 import           Pos.GState                  (eitherDB)
 import           Pos.Launcher.Mode           (newInitFuture)
@@ -143,9 +143,11 @@ type BlockGenMode m = ReaderT BlockGenContext m
 -- context. Persistent data (DB) is cloned. Other mutable data is
 -- recreated.
 mkBlockGenContext :: MonadBlockGen ctx m => BlockGenParams -> m BlockGenContext
-mkBlockGenContext bgcParams = do
+mkBlockGenContext bgcParams@BlockGenParams{..} = do
     let bgcPrimaryKey = error "bgcPrimaryKey was forced before being set"
-    bgcGState <- GS.cloneGStateContext =<< view GS.gStateContext
+    bgcGState <- if _bgpInplaceDB
+                 then view GS.gStateContext
+                 else GS.cloneGStateContext =<< view GS.gStateContext
     bgcSystemStart <- view slottingTimestamp
     (initSlot, putInitSlot) <- newInitFuture
     let bgcSlotId = Nothing

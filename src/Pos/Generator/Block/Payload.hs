@@ -22,12 +22,13 @@ import qualified Data.Vector                as V
 import           Formatting                 (sformat, (%))
 import           System.Random              (RandomGen (..))
 
+import           Pos.Client.Txp.Util        (makeAbstractTx)
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
                                              addressDetailedF, coinToInteger,
                                              makePubKeyAddress, sumCoins,
                                              unsafeIntegerToCoin)
-import           Pos.Crypto                 (SignTag (SignTxIn), WithHash (..), hash,
-                                             sign, toPublic)
+import           Pos.Crypto                 (SecretKey, SignTag (SignTxIn), WithHash (..),
+                                             hash, sign, toPublic)
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..),
                                              asSecretKeys)
@@ -149,36 +150,27 @@ genTxPayload = do
         -- than coin maxbound.
         coins <- splitCoins outputsN (unsafeIntegerToCoin inputsSum)
         let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
+        let txOutAuxs = map (\o -> TxOutAux o []) txOuts
 
         ----- TX
 
-        let txE :: Either Text Tx
-            txE = mkTx (NE.fromList txIns) txOuts def
-        let tx = either (\e -> error $ "genTransaction impossible: couldn't create tx: " <> e)
-                        identity
-                        txE
-        let txId = hash tx
-        let taDistribution = TxDistribution $ NE.fromList $ replicate outputsN []
-        let toWitness :: TxIn -> Address -> TxInWitness
-            toWitness txIn = \case
-                PubKeyAddress stId _ ->
-                    let sk = resolveSecret stId
-                        txSig =
-                            sign SignTxIn sk TxSigData { txSigInput = txIn
-                                                       , txSigOutsHash = hash txOuts
-                                                       , txSigDistrHash = hash taDistribution }
-                    in PkWitness (toPublic sk) txSig
+        let resolveSk :: Address -> SecretKey
+            resolveSk = \case
+                PubKeyAddress stId _ -> resolveSecret stId
                 other -> error $
                     sformat ("Found non-pubkey address: "%addressDetailedF) other
-        let taWitness =
-                V.fromList $ map (uncurry toWitness . second txOutAddress)
-                                 (txIns `zip` inputsResolved)
-        let txAux = TxAux { taTx = tx, .. }
+        let resolvedSks = map (resolveSk . txOutAddress) inputsResolved
+        let txInsWithSks = NE.fromList $ resolvedSks `zip` txIns
+        let mkWit :: SecretKey -> TxSigData -> TxInWitness
+            mkWit sk txSigData = PkWitness (toPublic sk) (sign SignTxIn sk txSigData)
+        let txAux = makeAbstractTx mkWit txInsWithSks txOutAuxs
+        let tx = taTx txAux
+        let txId = hash tx
         res <- lift . lift $ runExceptT $ txProcessTransaction (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right () -> do
-                Utxo.applyTxToUtxo (WithHash tx txId) taDistribution
+                Utxo.applyTxToUtxo (WithHash tx txId) (taDistribution txAux)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
                 let outsAsIns = map (TxIn txId) [0..(fromIntegral outputsN)-1]
                 gtdUtxoKeys %= (V.++) (V.fromList outsAsIns)

@@ -7,6 +7,7 @@ module Pos.Client.Txp.Util
        , makeMPubKeyTx
        , makeMOfNTx
        , makeRedemptionTx
+       , makeAbstractTx
        , createTx
        , createMTx
        , createMOfNTx
@@ -196,4 +197,3 @@ createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either Text TxAux
 createRedemptionTx utxo rsk outputs =
     uncurry (makeRedemptionTx rsk) <$>
     prepareInpOuts utxo (makeRedeemAddress $ redeemToPublic rsk) outputs
-

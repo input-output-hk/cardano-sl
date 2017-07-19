@@ -133,10 +133,10 @@ instance Monoid CAccModifier where
 instance Buildable CAccModifier where
     build CAccModifier{..} =
         bprint
-            (  "added accounts: "%listJson
-            %",\n deleted accounts: "%listJson
-            %",\n used address: "%listJson
-            %",\n change address: "%listJson
+            (    "added addresses: "%listJson
+            %",\n deleted addresses: "%listJson
+            %",\n used addresses: "%listJson
+            %",\n change addresses: "%listJson
             %",\n local utxo (difference): "%build
             %",\n added history entries: "%listJson
             %",\n deleted history entries: "%listJson)
@@ -216,7 +216,8 @@ syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
         handleAll (onErr encSK) $
         syncWalletWithGStateUnsafe @ssc encSK)
   where
-    onErr encSK = logWarning . sformat ("Sync of wallet "%build%" failed: "%build) (encToCId encSK)
+    onErr encSK = logWarning . sformat fmt (encToCId encSK)
+    fmt = "Sync of wallet "%build%" failed: "%build
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.
@@ -554,4 +555,4 @@ getWalletAddrMetasDB lookupMode cWalId = do
     getAccountAddrsOrThrowDB mode accId =
         WS.getAccountWAddresses mode accId >>= maybeThrow (noWallet accId)
     noWallet accId = DBMalformed $
-        sformat ("No account with address "%build%" found") accId
+        sformat ("No account with id "%build%" found") accId

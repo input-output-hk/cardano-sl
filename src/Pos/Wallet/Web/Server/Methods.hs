@@ -427,7 +427,7 @@ getAccountAddrsOrThrow mode accId =
   where
     noWallet =
         RequestError $
-        sformat ("No account with address "%build%" found") accId
+        sformat ("No account with id "%build%" found") accId
 
 getAccount :: WalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
@@ -442,7 +442,7 @@ getAccount accId = do
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
     noWallet =
-        RequestError $ sformat ("No account with address "%build%" found") accId
+        RequestError $ sformat ("No account with id "%build%" found") accId
     gatherAddresses modifier dbAddrs = do
         let memAddrs = sortedInsertions modifier
             relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
@@ -499,7 +499,7 @@ getAccounts mCAddr = do
     mapM getAccount =<< maybe getWAddressIds getWalletAccountIds mCAddr
   where
     noWSet cAddr = throwM . RequestError $
-        sformat ("No account with address "%build%" found") cAddr
+        sformat ("No account with id "%build%" found") cAddr
 
 getWallets :: WalletWebMode m => m [CWallet]
 getWallets = getWalletAddresses >>= mapM getWallet

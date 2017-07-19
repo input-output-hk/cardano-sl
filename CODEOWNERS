@@ -15,6 +15,7 @@ daedalus/                      @akegalj
 *.nix                          @domenkozar
 .travis.yml                    @domenkozar
 appveyor.yml                   @domenkozar
+nixpkgs-src.json               @domenkozar
 
 # Documentation
 *.md                           @denisshevchenko

@@ -18,11 +18,13 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                progDesc, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
+import           Pos.Core                     (isDevelopment)
+
 data BlockGenOptions = BlockGenOptions
     { bgoBlockN :: !Word32
     -- ^ Number of blocks to generate.
-    , bgoNodesN :: !Word32
-    -- ^ Number of nodes.
+    , bgoNodes  :: !(Either Word32 [FilePath])
+    -- ^ Secret files.
     , bgoPath   :: !FilePath
     -- ^ Location of generated database.
     , bgoAppend :: !Bool
@@ -37,10 +39,9 @@ optionsParser = do
         metavar "INT" <>
         help "Length of blockchain."
 
-    bgoNodesN <- option auto $
-        long    "nodes" <>
-        metavar "INT" <>
-        help "Number of nodes."
+    bgoNodes <-
+        if isDevelopment then Left <$> nodesCountParser
+        else Right <$> secretsParser
 
     bgoPath <- strOption $
         long    "generated-db" <>
@@ -58,6 +59,16 @@ optionsParser = do
         help    "Custom seed to generate blocks."
 
     return BlockGenOptions{..}
+  where
+    secretsParser = many $ strOption $
+        long    "secret" <>
+        metavar "FILEPATH" <>
+        help    "Path to secret"
+
+    nodesCountParser = option auto $
+        long    "nodes" <>
+        metavar "INT" <>
+        help "Length of blockchain."
 
 getBlockGenOptions :: IO BlockGenOptions
 getBlockGenOptions = execParser programInfo
@@ -78,6 +89,7 @@ Command example:
   stack exec -- cardano-block-gen           \
     --blocks 5000                           \
     --nodes 3                               \
+    --coins 100
     --generated-db /path/to/existed/db      \
     --seed 123
     --append|]

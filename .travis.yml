@@ -5,17 +5,10 @@ matrix:
   include:
     - env: MODE=hlint
     - env: MODE=normal
-    - env: MODE=nix
     - env: MODE=stack2nix
     - os: osx
       osx_image: xcode8.3
       # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
-
-  allow_failures:
-    - env: MODE=nix
-    # https://github.com/input-output-hk/stack2nix/issues/15
-    # stack2nix will randomly omit sections of the generated file
-    - env: MODE=stack2nix
 
 cache:
   directories:
@@ -37,10 +30,12 @@ before_install:
 - sudo /etc/init.d/memcached stop || true
 - sudo /etc/init.d/mysql stop || true
 - sudo /etc/init.d/postgresql stop || true
-- (cat /etc/nix/nix.conf || echo "") > ~/nix.conf
-- echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" >> ~/nix.conf
-- echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" >> ~/nix.conf
-- export NIX_CONF_DIR=~
+- sudo mkdir -p /etc/nix/
+- sudo touch /etc/nix/nix.conf
+- echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" | sudo tee -a /etc/nix/nix.conf
+- echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" | sudo tee -a /etc/nix/nix.conf
+- echo os $OSTYPE
+- if [ "x$OSTYPE" == xdarwin16 ]; then sudo launchctl stop org.nixos.nix-daemon ; sudo launchctl start org.nixos.nix-daemon ; fi
   # workaround https://github.com/NixOS/nixpkgs/issues/27493
 - nix-env -i bash
 
@@ -52,9 +47,7 @@ after_failure:
 
 script:
 # DEVOPS-107: wait 20min for output due to haddock generation
-- if [[ "$MODE" == "nix" ]]; then
-    nix-build -A cardano-sl-static --no-build-output --keep-going || nix-build -A cardano-sl -j 1 ;
-  elif [[ "$MODE" == "hlint" ]]; then
+- if [[ "$MODE" == "hlint" ]]; then
     nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   elif [[ "$MODE" == "stack2nix" ]]; then
     nix-shell -p cabal2nix stack cabal-install ghc -Q -j 4 --run scripts/check-stack2nix.sh ;

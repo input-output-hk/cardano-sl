@@ -154,6 +154,7 @@ testnet: &testnet
 testnet_staging: &testnet_staging
   <<: *testnet
   protocolMagic: 60987900
+  genesisBinSuffix: tns
 
 qanet_tns: &qanet_tns
   <<: *testnet_staging

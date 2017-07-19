@@ -3,24 +3,24 @@
 -- | Useful functions for serialization/deserialization.
 
 module Pos.Binary.Class.Primitive
-    ( serialize
-    , serialize'
-    , deserialize
-    , deserialize'
-    , deserializeOrFail
-    , deserializeOrFail'
-    , putCopyBi
-    , getCopyBi
-    , Raw(..)
-    -- * Binary serialization
-    , AsBinary (..)
-    , AsBinaryClass (..)
-    , fromBinaryM
-    -- * Temporary functions
-    , biSize
-    -- * Backward-compatible functions
-    , decodeFull
-    ) where
+       ( serialize
+       , serialize'
+       , deserialize
+       , deserialize'
+       , deserializeOrFail
+       , deserializeOrFail'
+       , putCopyBi
+       , getCopyBi
+       , Raw(..)
+       -- * Binary serialization
+       , AsBinary (..)
+       , AsBinaryClass (..)
+       , fromBinaryM
+       -- * Temporary functions
+       , biSize
+       -- * Backward-compatible functions
+       , decodeFull
+       ) where
 
 import qualified Codec.CBOR.Read                  as CBOR.Read
 import qualified Codec.CBOR.Write                 as CBOR.Write

@@ -69,7 +69,7 @@ instance Bi T.TxInWitness where
         matchSize len "TxInWitness.ScriptWitness" 2
         uncurry T.ScriptWitness . deserialize' <$> decode
       2 -> do
-        matchSize len "TxInWitness.ScriptWitness" 2
+        matchSize len "TxInWitness.RedeemWitness" 2
         uncurry T.RedeemWitness . deserialize' <$> decode
       _ -> do
         matchSize len "TxInWitness.UnknownWitnessType" 2

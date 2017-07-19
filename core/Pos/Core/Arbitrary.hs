@@ -349,7 +349,6 @@ instance Arbitrary Fee.TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
--- Unsafe? How is it used?
 instance Arbitrary G.GenesisCoreData where
     arbitrary = do
         -- This number'll be the length of every address list in the first argument of
@@ -385,9 +384,9 @@ instance Arbitrary G.GenesisCoreData where
                 , G.CustomStakes <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
-        hashSetOfHolders <- arbitrary :: Gen (HashSet Types.StakeholderId)
+        hashmapOfHolders <- arbitrary :: Gen (HashMap Types.StakeholderId Word16)
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
-            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs) hashSetOfHolders
+            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs) hashmapOfHolders
 
 instance Arbitrary G.StakeDistribution where
     arbitrary = oneof
@@ -420,6 +419,7 @@ instance Arbitrary Microsecond where
     shrink = shrinkIntegral
 
 deriving instance Arbitrary Types.Timestamp
+deriving instance Arbitrary Types.TimeDiff
 
 newtype SmallHashMap =
     SmallHashMap (HashMap PublicKey (HashMap PublicKey (AsBinary Share)))

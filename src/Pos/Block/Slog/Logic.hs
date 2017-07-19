@@ -10,11 +10,11 @@
 module Pos.Block.Slog.Logic
        ( mustDataBeKnown
 
-       , SlogMode
-       , SlogVerifyMode
+       , MonadSlogBase
+       , MonadSlogVerify
        , slogVerifyBlocks
 
-       , SlogApplyMode
+       , MonadSlogApply
        , slogApplyBlocks
        , slogRollbackBlocks
        ) where
@@ -39,15 +39,15 @@ import           Pos.Block.Slog.Types   (HasSlogContext, LastBlkSlots, SlogUndo 
 import           Pos.Block.Types        (Blund, Undo (..))
 import           Pos.Constants          (blkSecurityParam, lastKnownBlockVersion)
 import           Pos.Context            (lrcActionOnEpochReason)
-import           Pos.Core               (BlockVersion (..), FlatSlotId, epochIndexL,
-                                         flattenSlotId, headerHash, headerHashG,
-                                         prevBlockL)
+import           Pos.Core               (BlockVersion (..), FlatSlotId, difficultyL,
+                                         epochIndexL, flattenSlotId, headerHash,
+                                         headerHashG, prevBlockL)
 import           Pos.DB                 (SomeBatchOp (..))
-import           Pos.DB.Block           (MonadBlockDBWrite)
+import           Pos.DB.Block           (MonadBlockDBWrite, blkGetHeader)
 import           Pos.DB.Class           (MonadDBRead, dbPutBlund)
 import           Pos.DB.DB              (sanityCheckDB)
-import qualified Pos.DB.GState          as GS
-import           Pos.Exception          (assertionFailed)
+import           Pos.Exception          (assertionFailed, reportFatalError)
+import qualified Pos.GState             as GS
 import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
 import           Pos.Slotting           (MonadSlots (getCurrentSlot), putSlottingData)
@@ -97,18 +97,17 @@ mustDataBeKnown adoptedBV =
 ----------------------------------------------------------------------------
 
 -- | Set of basic constraints needed by Slog.
-type SlogMode ssc m =
+type MonadSlogBase ssc m =
     ( MonadSlots m
+    , MonadIO m
     , SscHelpersClass ssc
     , MonadDBRead m
     , WithLogger m
     )
 
 -- | Set of constraints needed for Slog verification.
-type SlogVerifyMode ssc ctx m =
-    ( SlogMode ssc m
-    , MonadError Text m
-    , MonadIO m
+type MonadSlogVerify ssc ctx m =
+    ( MonadSlogBase ssc m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
     )
@@ -117,7 +116,7 @@ type SlogVerifyMode ssc ctx m =
 -- All blocks must be from the same epoch.
 slogVerifyBlocks
     :: forall ssc ctx m.
-       SlogVerifyMode ssc ctx m
+       (MonadSlogVerify ssc ctx m, MonadError Text m)
     => OldestFirst NE (Block ssc)
     -> m (OldestFirst NE SlogUndo)
 slogVerifyBlocks blocks = do
@@ -173,12 +172,11 @@ slogVerifyBlocks blocks = do
     return $ over _Wrapped NE.fromList $ map SlogUndo slogUndo
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
-type SlogApplyMode ssc ctx m =
-    ( SlogMode ssc m
+type MonadSlogApply ssc ctx m =
+    ( MonadSlogBase ssc m
     , MonadBlockDBWrite ssc m
     , MonadBListener m
     , MonadMask m
-    , MonadIO m
     , MonadReader ctx m
     , HasSlogContext ctx
     )
@@ -194,7 +192,7 @@ type SlogApplyMode ssc ctx m =
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
 slogApplyBlocks ::
-       forall ssc ctx m. SlogApplyMode ssc ctx m
+       forall ssc ctx m. MonadSlogApply ssc ctx m
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogApplyBlocks blunds = do
@@ -209,12 +207,19 @@ slogApplyBlocks blunds = do
     -- problem.
     bListenerBatch <- onApplyBlocks blunds
 
-    let putTip =
-            SomeBatchOp $
-            GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
+    let newestBlock = NE.last $ getOldestFirst blunds
+        newestDifficulty = newestBlock ^. difficultyL
+    let putTip = SomeBatchOp $ GS.PutTip $ headerHash newestBlock
     lastSlots <- slogGetLastSlots
     slogCommon @ssc (newLastSlots lastSlots)
-    return $ SomeBatchOp [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
+    putDifficulty <- GS.getMaxSeenDifficulty <&> \x ->
+        SomeBatchOp [GS.PutMaxSeenDifficulty newestDifficulty
+                        | newestDifficulty > x]
+    return $ SomeBatchOp
+        [ putTip
+        , putDifficulty
+        , bListenerBatch
+        , SomeBatchOp (blockExtraBatch lastSlots) ]
   where
     blocks = fmap fst blunds
     forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
@@ -240,18 +245,28 @@ slogApplyBlocks blunds = do
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
 slogRollbackBlocks ::
-       forall ssc ctx m. SlogApplyMode ssc ctx m
+       forall ssc ctx m. MonadSlogApply ssc ctx m
     => NewestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogRollbackBlocks blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
+    -- We should never allow a situation when we summarily roll back by more
+    -- than 'k' blocks
+    maxSeenDifficulty <- GS.getMaxSeenDifficulty
+    resultingDifficulty <-
+        maybe 0 (view difficultyL) <$>
+        blkGetHeader @ssc (NE.head (getNewestFirst blunds) ^. prevBlockL)
+    when (maxSeenDifficulty >
+          fromIntegral blkSecurityParam + resultingDifficulty) $
+        reportFatalError "slogRollbackBlocks: the attempted rollback would \
+                         \lead to a more than 'k' distance between tip and \
+                         \last seen block, which is a security risk. Aborting."
     bListenerBatch <- onRollbackBlocks blunds
     let putTip =
-            SomeBatchOp $ GS.PutTip $ headerHash $
-            (NE.last $ getNewestFirst blunds) ^.
-            prevBlockL
+            SomeBatchOp $ GS.PutTip $
+            (NE.last $ getNewestFirst blunds) ^. prevBlockL
     lastSlots <- slogGetLastSlots
     slogCommon @ssc (newLastSlots lastSlots)
     return $
@@ -275,7 +290,7 @@ slogRollbackBlocks blunds = do
         mconcat [forwardLinksBatch, inMainBatch]
 
 -- Common actions for rollback and apply.
-slogCommon :: SlogApplyMode ssc ctx m => LastBlkSlots -> m ()
+slogCommon :: MonadSlogApply ssc ctx m => LastBlkSlots -> m ()
 slogCommon newLastSlots = do
     sanityCheckDB
     slogPutLastSlots newLastSlots

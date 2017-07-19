@@ -99,6 +99,9 @@ walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
         sendActions
         walletDebug
         walletPort
+        walletTLSCertPath
+        walletTLSKeyPath
+        walletTLSCAPath
 
 #else
 
@@ -113,7 +116,7 @@ pluginsGT ::
     , HasNodeContext SscGodTossing ctx
     ) => Args -> [m ()]
 pluginsGT Args {..}
-    | enableWeb = [serveWebGT webPort]
+    | enableWeb = [serveWebGT webPort walletTLSCertPath walletTLSKeyPath walletTLSCAPath]
     | otherwise = []
 #endif
 

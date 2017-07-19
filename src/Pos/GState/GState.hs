@@ -2,7 +2,7 @@
 
 -- | Higher-level functions working with GState DB.
 
-module Pos.DB.GState.GState
+module Pos.GState.GState
        ( prepareGStateDB
        , sanityCheckGStateDB
        , usingGStateSnapshot
@@ -17,15 +17,15 @@ import           System.Wlog                (WithLogger)
 
 import           Pos.Context.Context        (GenesisUtxo (..))
 import           Pos.Context.Functions      (genesisUtxoM)
-import           Pos.Core                   (HeaderHash, Timestamp)
+import           Pos.Core                   (HeaderHash)
 import           Pos.DB.Class               (MonadDB, MonadDBRead)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
-import           Pos.DB.GState.BlockExtra   (initGStateBlockExtra)
 import           Pos.DB.GState.Common       (initGStateCommon, isInitialized,
                                              setInitialized)
 import           Pos.DB.Rocks               (DB (..), MonadRealDB, NodeDBs (..),
                                              Snapshot (..), gStateDB, getNodeDBs,
                                              usingReadOptions, usingSnapshot)
+import           Pos.GState.BlockExtra      (initGStateBlockExtra)
 import           Pos.Ssc.GodTossing.DB      (initGtDB)
 import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
 import           Pos.Txp.DB                 (initGStateBalances, initGStateUtxo,
@@ -36,17 +36,16 @@ import           Pos.Update.DB              (initGStateUS)
 prepareGStateDB ::
        forall ctx m.
        (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m)
-    => Timestamp
-    -> HeaderHash
+    => HeaderHash
     -> m ()
-prepareGStateDB systemStart initialTip = unlessM isInitialized $ do
+prepareGStateDB initialTip = unlessM isInitialized $ do
     genesisUtxo <- genesisUtxoM
 
     initGStateCommon initialTip
     initGStateUtxo genesisUtxo
     initGtDB genesisCertificates
     initGStateBalances genesisUtxo
-    initGStateUS systemStart
+    initGStateUS
     initGStateBlockExtra initialTip
 
     setInitialized

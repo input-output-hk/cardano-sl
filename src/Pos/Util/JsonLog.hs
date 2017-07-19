@@ -29,7 +29,7 @@ import qualified Data.ByteString.Lazy          as LBS
 import           Formatting                    (sformat)
 import           JsonLog.JsonLogT              (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT              as JL
-import           Mockable                      (Catch, Mockable)
+import           Mockable                      (Catch, Mockable, realTime)
 import           Serokell.Aeson.Options        (defaultOptions)
 import           System.Wlog                   (WithLogger)
 
@@ -47,7 +47,6 @@ import           Pos.Ssc.Class.Helpers         (SscHelpersClass)
 import           Pos.Txp.Core                  (txpTxs)
 import           Pos.Txp.MemState.Types        (MemPoolModifyReason)
 import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
-import           Pos.Util.TimeWarp             (currentTime)
 
 type BlockId = Text
 type TxId = Text
@@ -152,7 +151,7 @@ showHeaderHash = sformat headerHashF
 -- | Append event into log by given 'FilePath'.
 appendJL :: (MonadIO m) => FilePath -> JLEvent -> m ()
 appendJL path ev = liftIO $ do
-  time <- currentTime
+  time <- realTime -- TODO: Do we want to mock time in logs?
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Returns event of created 'Block'.

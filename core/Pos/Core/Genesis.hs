@@ -32,7 +32,7 @@ import           Universum
 
 import           Control.Lens            (ix)
 import           Data.Hashable           (hash)
-import qualified Data.HashSet            as HS
+import qualified Data.HashMap.Strict     as HM
 import qualified Data.Text               as T
 import           Formatting              (int, sformat, (%))
 
@@ -95,7 +95,7 @@ genesisProdAddrDistribution :: [AddrDistribution]
 genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
 
 -- | Bootstrap era stakeholders for production mode.
-genesisProdBootStakeholders :: HashSet StakeholderId
+genesisProdBootStakeholders :: HashMap StakeholderId Word16
 genesisProdBootStakeholders =
     gcdBootstrapStakeholders compileGenCoreData
 
@@ -116,12 +116,14 @@ generateHdwGenesisSecretKey =
     encodeUtf8 .
     T.take 32 . sformat ("My 32-byte hdw seed #" %int % "                  ")
 
+-- TODO CSL-1351 It doesn't consider boot stakeholders weight
 -- | Returns a distribution sharing coins to given boot
 -- stakeholders. If number of addresses @n@ is more than coins @c@, we
 -- give 1 coin to every addr in the prefix of length @n@. Otherwise we
 -- give quotient to every boot addr and assign remainder randomly
 -- based on passed coin hash among addresses.
-genesisSplitBoot :: HashSet StakeholderId -> Coin -> [(StakeholderId, Coin)]
+genesisSplitBoot ::
+       HashMap StakeholderId Word16 -> Coin -> [(StakeholderId, Coin)]
 genesisSplitBoot bootHolders0 c
     | cval <= 0 =
       error $ "sendMoney#splitBoot: cval <= 0: " <> show cval
@@ -144,4 +146,4 @@ genesisSplitBoot bootHolders0 c
     addrsNum :: Int
     addrsNum = length bootHolders
     bootHolders :: [StakeholderId]
-    bootHolders = HS.toList bootHolders0
+    bootHolders = toList $ HM.keys bootHolders0

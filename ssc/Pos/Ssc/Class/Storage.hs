@@ -15,7 +15,7 @@ import           Data.Tagged          (Tagged)
 import           System.Wlog          (WithLogger)
 import           Universum
 
-import           Pos.Core             (EpochIndex, SharedSeed)
+import           Pos.Core             (BlockVersionData, EpochIndex, SharedSeed)
 import           Pos.DB               (MonadDBRead, SomeBatchOp)
 import           Pos.Lrc.Types        (RichmenStake)
 import           Pos.Ssc.Class.Types  (Ssc (..), SscBlock)
@@ -53,6 +53,7 @@ class Ssc ssc => SscGStateClass ssc where
     -- Blocks must be from the same epoch.
     sscVerifyAndApplyBlocks
         :: RichmenStake
+        -> BlockVersionData
         -> OldestFirst NE (SscBlock ssc)
         -> SscVerifier ssc ()
     -- | Calculate 'SharedSeed' for given epoch using 'SscGlobalState'.

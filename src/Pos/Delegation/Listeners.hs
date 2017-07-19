@@ -97,6 +97,7 @@ pskHeavyRelay = Data $ DataParams $ handlePsk
                 void $ readMVar blkSemaphore
                 handlePsk pSk
             PHAdded -> pure True
+            PHRemoved -> pure True
             _ -> pure False
 
 confirmPskRelay

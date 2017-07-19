@@ -14,6 +14,7 @@ module Pos.Core.Types
        , GenesisStakeholders (..)
 
        , Timestamp (..)
+       , TimeDiff (..)
 
        -- * ChainDifficulty
        , ChainDifficulty (..)
@@ -66,7 +67,6 @@ module Pos.Core.Types
        , siSlotL
        , slotIdF
        , EpochOrSlot (..)
-       , epochOrSlot
 
        -- * Scripting
        , Script(..)
@@ -103,7 +103,7 @@ import           System.Random              (Random (..))
 
 import           Pos.Core.Constants.Raw     (epochSlotsRaw)
 import           Pos.Core.Fee               (TxFeePolicy)
-import           Pos.Core.Timestamp         (Timestamp (..))
+import           Pos.Core.Timestamp         (Timestamp (..), TimeDiff (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
                                              RedeemPublicKey)
@@ -453,10 +453,6 @@ type FlatSlotId = Word64
 newtype EpochOrSlot = EpochOrSlot
     { unEpochOrSlot :: Either EpochIndex SlotId
     } deriving (Show, Eq, Generic, NFData)
-
--- | Apply one of the function depending on content of EpochOrSlot.
-epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
-epochOrSlot f g = either f g . unEpochOrSlot
 
 instance Ord EpochOrSlot where
     compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of

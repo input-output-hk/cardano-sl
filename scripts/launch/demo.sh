@@ -94,7 +94,7 @@ while [[ $i -lt $panesCnt ]]; do
   fi
 
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start") $static_peers" C-m
+    tmux send-keys "$(node_cmd $i "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start") $static_peers --no-ntp" C-m
   else
     tmux send-keys "NODE_COUNT=$n $base/../bench/run-smart-generator.sh 0 -R 1 -N 2 -t $TPS -S 3 --init-money 100000 --recipients-share 0" C-m
   fi

@@ -1,23 +1,30 @@
 -- | Functions operation on 'SlogContext'.
 
 module Pos.Block.Slog.Context
-       ( mkSlogContext
+       ( SlogContext (..)
+       , mkSlogContext
+       , cloneSlogContext
        , slogGetLastSlots
        , slogPutLastSlots
        ) where
 
 import           Universum
 
-import           Pos.Block.Slog.Types (HasSlogContext (..), LastBlkSlots,
-                                       SlogContext (..), scLastBlkSlots)
-import           Pos.DB.Class         (MonadDBRead)
-import           Pos.DB.GState        (getLastSlots)
+import           Pos.Block.Slog.Types  (HasSlogContext (..), LastBlkSlots,
+                                        SlogContext (..), scLastBlkSlots)
+import           Pos.DB.Class          (MonadDBRead)
+import           Pos.GState.BlockExtra (getLastSlots)
 
 -- | Make new 'SlogContext' using data from DB.
 mkSlogContext :: (MonadIO m, MonadDBRead m) => m SlogContext
 mkSlogContext = do
     _scLastBlkSlots <- getLastSlots >>= newIORef
     return SlogContext {..}
+
+-- | Make a copy of existing 'SlogContext'.
+cloneSlogContext :: (MonadIO m) => SlogContext -> m SlogContext
+cloneSlogContext SlogContext {..} =
+    SlogContext <$> (readIORef _scLastBlkSlots >>= newIORef)
 
 -- | Read 'LastBlkSlots' from in-memory state.
 slogGetLastSlots ::

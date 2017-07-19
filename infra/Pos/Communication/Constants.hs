@@ -1,20 +1,18 @@
 module Pos.Communication.Constants
-       ( networkReceiveTimeout
+       ( networkWaitLogInterval
        , maxReqSize
        , maxMempoolMsgSize
        , maxInvSize
        ) where
 
-import           Data.Time.Units            (Microsecond)
-import           Serokell.Util              (ms)
+import           Data.Time.Units     (Second)
 import           Universum
 
-import           Pos.Infra.Constants        (ccMaxInvSize, ccMaxMempoolMsgSize,
-                                             ccMaxReqSize, ccNetworkReceiveTimeout,
-                                             infraConstants)
+import           Pos.Infra.Constants (ccMaxInvSize, ccMaxMempoolMsgSize, ccMaxReqSize,
+                                      ccNetworkWaitLogInterval, infraConstants)
 
-networkReceiveTimeout :: Microsecond
-networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ infraConstants
+networkWaitLogInterval :: Second
+networkWaitLogInterval = fromIntegral . ccNetworkWaitLogInterval $ infraConstants
 
 -- | See 'Pos.CompileConfig.ccMaxReqSize'.
 maxReqSize :: Word32

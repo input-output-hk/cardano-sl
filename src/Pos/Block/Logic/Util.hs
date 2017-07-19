@@ -38,8 +38,8 @@ import           Pos.Crypto             (shortHashF)
 import           Pos.DB                 (MonadDBRead)
 import           Pos.DB.Block           (MonadBlockDB)
 import qualified Pos.DB.DB              as DB
-import qualified Pos.DB.GState          as GS
 import           Pos.Exception          (reportFatalError)
+import qualified Pos.GState             as GS
 import           Pos.Slotting.Class     (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Util               (_neHead)

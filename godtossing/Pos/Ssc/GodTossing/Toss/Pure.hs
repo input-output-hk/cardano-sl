@@ -2,52 +2,63 @@
 
 module Pos.Ssc.GodTossing.Toss.Pure
        ( PureToss (..)
+       , PureTossWithEnv (..)
        , MultiRichmenStake
        , MultiRichmenSet
        , runPureToss
        , runPureTossWithLogger
        , evalPureTossWithLogger
        , execPureTossWithLogger
+       , supplyPureTossEnv
        ) where
 
-import           Control.Lens                   (at, (%=), (.=))
-import           Control.Monad.RWS.Strict       (RWS, runRWS)
-import qualified Data.HashMap.Strict            as HM
+import           Control.Lens                   (at, sequenceAOf, (%=), (.=))
 import           System.Wlog                    (CanLog, HasLoggerName (..), LogEvent,
                                                  NamedPureLogger (..), WithLogger,
                                                  launchNamedPureLog, runNamedPureLog)
 import           Universum
 
-import           Pos.Core                       (EpochIndex, crucialSlot)
+import           Pos.Core                       (BlockVersionData, EpochIndex,
+                                                 crucialSlot)
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStake)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
-import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))
+import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossEnv (..),
+                                                 MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, gsOpenings,
                                                  gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 
 type MultiRichmenStake = HashMap EpochIndex RichmenStake
-type MultiRichmenSet = HashMap EpochIndex RichmenSet
+type MultiRichmenSet   = HashMap EpochIndex RichmenSet
 
 newtype PureToss a = PureToss
-    { getPureToss :: NamedPureLogger (RWS MultiRichmenStake () GtGlobalState) a
+    { getPureToss ::
+          NamedPureLogger (State GtGlobalState) a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
+
+newtype PureTossWithEnv a = PureTossWithEnv
+    { getPureTossWithEnv ::
+          ReaderT (MultiRichmenStake, BlockVersionData) PureToss a
+    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName,
+                MonadTossRead, MonadToss)
 
 instance MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
     getOpenings = PureToss $ use gsOpenings
     getShares = PureToss $ use gsShares
-    getVssCertificates = VCD.certs <$> getVssCertData
-    getVssCertData = PureToss $ use $ gsVssCertificates
+    getVssCertificates = PureToss $ VCD.certs <$> use gsVssCertificates
     getStableCertificates epoch
         | epoch == 0 = pure genesisCertificates
         | otherwise =
             PureToss $
             VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch) <$>
             use gsVssCertificates
-    getRichmen epoch = PureToss $ asks (HM.lookup epoch)
+
+instance MonadTossEnv PureTossWithEnv where
+    getRichmen epoch = PureTossWithEnv $ view (_1 . at epoch)
+    getAdoptedBVData = PureTossWithEnv $ view _2
 
 instance MonadToss PureToss where
     putCommitment signedComm =
@@ -67,35 +78,42 @@ instance MonadToss PureToss where
     setEpochOrSlot eos = PureToss $ gsVssCertificates %= VCD.setLastKnownEoS eos
 
 runPureToss
-    :: MultiRichmenStake
-    -> GtGlobalState
+    :: GtGlobalState
     -> PureToss a
     -> (a, GtGlobalState, [LogEvent])
-runPureToss richmenData gs =
-    convertRes . (\a -> runRWS a richmenData gs) . runNamedPureLog . getPureToss
+runPureToss gs =
+    reorder . (`runState` gs) . runNamedPureLog . getPureToss
   where
-    convertRes :: ((a, [LogEvent]), GtGlobalState, ())
-               -> (a, GtGlobalState, [LogEvent])
-    convertRes ((res, logEvents), newGs, ()) = (res, newGs, logEvents)
+    reorder :: ((a, [LogEvent]), GtGlobalState)
+            -> (a, GtGlobalState, [LogEvent])
+    reorder ((res, logEvents), newGs) = (res, newGs, logEvents)
 
 runPureTossWithLogger
     :: WithLogger m
-    => MultiRichmenStake
-    -> GtGlobalState
+    => GtGlobalState
     -> PureToss a
     -> m (a, GtGlobalState)
-runPureTossWithLogger richmenData gs action = do
-    let traverse' (fa, b, c) = (, b, c) <$> fa
-    let unwrapLower a = return $ traverse' $ runRWS a richmenData gs
-    (res, newGS, ()) <- launchNamedPureLog unwrapLower $ getPureToss action
+runPureTossWithLogger gs action = do
+    let unwrapLower a = return $ sequenceAOf _1 $ runState a gs
+    (res, newGS) <- launchNamedPureLog unwrapLower $ getPureToss action
     return (res, newGS)
 
 evalPureTossWithLogger
     :: WithLogger m
-    => MultiRichmenStake -> GtGlobalState -> PureToss a -> m a
-evalPureTossWithLogger r g = fmap fst . runPureTossWithLogger r g
+    => GtGlobalState
+    -> PureToss a
+    -> m a
+evalPureTossWithLogger g = fmap fst . runPureTossWithLogger g
 
 execPureTossWithLogger
     :: WithLogger m
-    => MultiRichmenStake -> GtGlobalState -> PureToss a -> m GtGlobalState
-execPureTossWithLogger r g = fmap snd . runPureTossWithLogger r g
+    => GtGlobalState
+    -> PureToss a
+    -> m GtGlobalState
+execPureTossWithLogger g = fmap snd . runPureTossWithLogger g
+
+supplyPureTossEnv
+    :: (MultiRichmenStake, BlockVersionData)
+    -> PureTossWithEnv a
+    -> PureToss a
+supplyPureTossEnv env = flip runReaderT env . getPureTossWithEnv

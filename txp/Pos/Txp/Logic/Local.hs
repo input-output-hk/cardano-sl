@@ -46,14 +46,13 @@ type TxpLocalWorkMode ctx m =
     , MonadTxpMem () ctx m
     , WithLogger m
     , HasLens GenesisUtxo ctx GenesisUtxo
-    , MonadError ToilVerFailure m
     )
 
 -- CHECK: @processTx
 -- #processTxDo
 txProcessTransaction
     :: TxpLocalWorkMode ctx m
-    => (TxId, TxAux) -> m ()
+    => (TxId, TxAux) -> ExceptT ToilVerFailure m ()
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
@@ -63,7 +62,7 @@ txProcessTransaction itw@(txId, txAux) = do
         getCurrentSlotInaccurate
     bootEra <- gsIsBootstrapEra epoch
     bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . utxoToStakes . unGenesisUtxo
-    localUM <- getUtxoModifier @()
+    localUM <- lift $ getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
     -- possible that invalid transaction will appear in
@@ -78,7 +77,8 @@ txProcessTransaction itw@(txId, txAux) = do
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData "txProcessTransaction" $
+    pRes <- lift $
+            modifyTxpLocalData "txProcessTransaction" $
             processTxDo resolved bootHolders toilEnv tipDB itw bootEra
     case pRes of
         Left er -> do

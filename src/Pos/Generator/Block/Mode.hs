@@ -18,7 +18,6 @@ module Pos.Generator.Block.Mode
 import           Universum
 
 import           Control.Lens.TH             (makeLensesWith)
-import           Control.Monad.Morph         (hoist)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)

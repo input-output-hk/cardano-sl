@@ -161,6 +161,10 @@
       left: 0;
       right: 0;
       background-color: color(var(--color3) a(0.5));
+
+      &.show {
+        @extend .show;
+      }
     }
 
     &__body--cover-label {

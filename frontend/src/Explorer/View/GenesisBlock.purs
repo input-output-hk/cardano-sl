@@ -159,6 +159,7 @@ addressInfosView infos state =
             lang' = state ^. lang
             minInfoIndex = (addressInfosPagination - minPagination) * maxAddressInfoRows
             currentInfos = slice minInfoIndex (minInfoIndex + maxAddressInfoRows) infos
+            isLoading = state ^. (viewStates <<< genesisBlockViewState <<< gblLoadingAddressInfosPagination)
         in
         do
             S.div
@@ -168,10 +169,7 @@ addressInfosView infos state =
                     S.div ! S.className "address-infos__body--wrapper"
                           $ do
                           for_ currentInfos (addressInfosBodyView lang')
-                          S.div ! S.className ("address-infos__body--cover"
-                                      <>  if  state ^. (viewStates <<< genesisBlockViewState <<< gblLoadingAddressInfosPagination)
-                                          then " show"
-                                          else "")
+                          S.div ! S.className ("address-infos__body--cover" <>  if isLoading then " show" else "")
                                 $ S.p ! S.className "address-infos__body--cover-label"
                                       $ S.text (translate (I18nL.common <<< I18nL.cLoading) lang')
             S.div
@@ -186,5 +184,5 @@ addressInfosView infos state =
                                     , editable: state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPaginationEditable)
                                     , editableAction: GenesisBlockEditAddressesPageNumber
                                     , invalidPageAction: GenesisBlockInvalidAddressesPageNumber
-                                    , disabled: false
+                                    , disabled: isLoading
                                     }

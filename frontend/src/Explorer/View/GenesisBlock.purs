@@ -13,6 +13,7 @@ import Data.Array (null, slice)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
+import Debug.Trace (trace, traceAny)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesError, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
 import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
@@ -155,10 +156,7 @@ addressInfosView infos state =
     if null infos then
         emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesNotFound) (state ^. lang)
     else
-        let addressInfosPagination = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination <<< _PageNumber)
-            lang' = state ^. lang
-            minInfoIndex = (addressInfosPagination - minPagination) * maxAddressInfoRows
-            currentInfos = slice minInfoIndex (minInfoIndex + maxAddressInfoRows) infos
+        let lang' = state ^. lang
             isLoading = state ^. (viewStates <<< genesisBlockViewState <<< gblLoadingAddressInfosPagination)
         in
         do
@@ -168,14 +166,14 @@ addressInfosView infos state =
                     addressesHeaderView lang'
                     S.div ! S.className "address-infos__body--wrapper"
                           $ do
-                          for_ currentInfos (addressInfosBodyView lang')
+                          for_ infos (addressInfosBodyView lang')
                           S.div ! S.className ("address-infos__body--cover" <>  if isLoading then " show" else "")
                                 $ S.p ! S.className "address-infos__body--cover-label"
                                       $ S.text (translate (I18nL.common <<< I18nL.cLoading) lang')
             S.div
                 ! S.className "address-infos__footer"
                 $  paginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                    , currentPage: PageNumber addressInfosPagination
+                                    , currentPage: state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
                                     , minPage: PageNumber minPagination
                                     , maxPage: withDefault
                                                   (PageNumber minPagination)

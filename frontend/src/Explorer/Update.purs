@@ -811,8 +811,7 @@ update (RequestPaginatedAddressInfo pageNumber pageSize) state =
           (if (isNotAsked $ state ^. currentCGenesisAddressInfos)
               then set currentCGenesisAddressInfos Loading
               else set (viewStates <<< genesisBlockViewState <<< gblLoadingAddressInfosPagination) true
-          ) $
-          set currentCGenesisSummary Loading
+          )
           state
     , effects:  [ attempt (fetchGenesisAddressInfo pageNumber pageSize)
                       >>= pure <<< Just <<< ReceivePaginatedAddressInfo

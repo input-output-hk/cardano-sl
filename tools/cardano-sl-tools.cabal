@@ -536,7 +536,6 @@ executable cardano-block-gen
                      , directory
                      , ether
                      , lens
-                     , mmorph
                      , mtl
                      , node-sketch
                      , optparse-applicative

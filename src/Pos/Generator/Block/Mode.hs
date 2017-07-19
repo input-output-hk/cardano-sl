@@ -35,7 +35,7 @@ import           Pos.Core                    (HasPrimaryKey (..), IsHeader, Slot
 import           Pos.Crypto                  (SecretKey)
 import           Pos.DB                      (MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
-                                              MonadDBRead)
+                                              MonadDBRead, DBSum)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as BDB
 import           Pos.DB.DB                   (getTipHeader, gsAdoptedBVDataDefault)
@@ -47,7 +47,6 @@ import           Pos.Discovery               (DiscoveryContextSum (..),
 import           Pos.Exception               (reportFatalError)
 import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..))
 import qualified Pos.GState                  as GS
-import           Pos.GState                  (eitherDB)
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
@@ -171,7 +170,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         return BlockGenContext {..}
 
 data InitBlockGenContext = InitBlockGenContext
-    { ibgcDB          :: !GS.DBSum
+    { ibgcDB          :: !DBSum
     , ibgcSystemStart :: !Timestamp
     , ibgcSlottingVar :: !(TVar SlottingData)
     , ibgcLrcContext  :: !LrcContext
@@ -184,7 +183,7 @@ makeLensesWith postfixLFields ''InitBlockGenContext
 
 type InitBlockGenMode m = ReaderT InitBlockGenContext m
 
-instance HasLens GS.DBSum InitBlockGenContext GS.DBSum where
+instance HasLens DBSum InitBlockGenContext DBSum where
     lensOf = ibgcDB_L
 
 instance HasLens LrcContext InitBlockGenContext LrcContext where
@@ -195,25 +194,20 @@ instance HasSlottingVar InitBlockGenContext where
     slottingVar = ibgcSlottingVar_L
 
 instance MonadBlockGenBase m => MonadDBRead (InitBlockGenMode m) where
-    dbGet tag key = eitherDB (DB.dbGetDefault tag key) (DB.dbGetPureDefault tag key)
-    dbIterSource tag proxy = view (lensOf @GS.DBSum) >>= \case
-        GS.RealDB dbs -> hoist (flip runReaderT dbs) (DB.dbIterSourceDefault tag proxy)
-        GS.PureDB pdb -> hoist (hoist $ flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)
+    dbGet = DB.dbGetSumDefault
+    dbIterSource = DB.dbIterSourceSumDefault
 
 instance MonadBlockGenBase m => MonadDB (InitBlockGenMode m) where
-    dbPut tag k v = eitherDB (DB.dbPutDefault tag k v) (DB.dbPutPureDefault tag k v)
-    dbWriteBatch tag b =
-        eitherDB (DB.dbWriteBatchDefault tag b) (DB.dbWriteBatchPureDefault tag b)
-    dbDelete tag k =
-        eitherDB (DB.dbDeleteDefault tag k) (DB.dbDeletePureDefault tag k)
+    dbPut = DB.dbPutSumDefault
+    dbWriteBatch = DB.dbWriteBatchSumDefault
+    dbDelete = DB.dbDeleteSumDefault
 
 instance MonadBlockGenBase m =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (InitBlockGenMode m)
   where
-    dbGetBlock hh = eitherDB (BDB.dbGetBlockDefault hh) (BDB.dbGetBlockPureDefault hh)
-    dbGetUndo hh =
-        eitherDB (BDB.dbGetUndoDefault @SscGodTossing hh) (BDB.dbGetUndoPureDefault @SscGodTossing hh)
-    dbGetHeader hh = eitherDB (BDB.dbGetHeaderPureDefault hh) (BDB.dbGetHeaderPureDefault hh)
+    dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
+    dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
+    dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance MonadBlockGenBase m => MonadSlotsData (InitBlockGenMode m) where
     getSystemStart = getSystemStartDefault
@@ -246,7 +240,7 @@ instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
-instance HasLens GS.DBSum BlockGenContext GS.DBSum where
+instance HasLens DBSum BlockGenContext DBSum where
     lensOf = GS.gStateContext . GS.gscDB
 
 instance HasLens UpdateContext BlockGenContext UpdateContext where
@@ -280,40 +274,31 @@ instance HasDiscoveryContextSum BlockGenContext where
     discoveryContextSum = bgcDiscoveryContext_L
 
 instance MonadBlockGenBase m => MonadDBRead (BlockGenMode m) where
-    dbGet tag k = eitherDB (DB.dbGetDefault tag k) (DB.dbGetPureDefault tag k)
-    dbIterSource tag proxy = view (lensOf @GS.DBSum) >>= \case
-        GS.RealDB dbs -> hoist (flip runReaderT dbs) (DB.dbIterSourceDefault tag proxy)
-        GS.PureDB pdb -> hoist (hoist $ flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)
+    dbGet = DB.dbGetSumDefault
+    dbIterSource = DB.dbIterSourceSumDefault
 
 instance MonadBlockGenBase m => MonadDB (BlockGenMode m) where
-    dbPut tag k v = eitherDB (DB.dbPutDefault tag k v) (DB.dbPutPureDefault tag k v)
-    dbWriteBatch tag b =
-        eitherDB (DB.dbWriteBatchDefault tag b) (DB.dbWriteBatchPureDefault tag b)
-    dbDelete tag k =
-        eitherDB (DB.dbDeleteDefault tag k) (DB.dbDeletePureDefault tag k)
+    dbPut = DB.dbPutSumDefault
+    dbWriteBatch = DB.dbWriteBatchSumDefault
+    dbDelete = DB.dbDeleteSumDefault
 
 instance MonadBlockGenBase m =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode m)
   where
-    dbGetBlock hh = eitherDB (BDB.dbGetBlockDefault hh) (BDB.dbGetBlockPureDefault hh)
-    dbGetUndo hh =
-        eitherDB (BDB.dbGetUndoDefault @SscGodTossing hh) (BDB.dbGetUndoPureDefault @SscGodTossing hh)
-    dbGetHeader hh = eitherDB (BDB.dbGetHeaderDefault hh) (BDB.dbGetHeaderPureDefault hh)
+    dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
+    dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
+    dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance MonadBlockGenBase m =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (BlockGenMode m)
   where
-    dbGetBlock hh = eitherDB (BDB.dbGetBlockSscDefault hh) (BDB.dbGetBlockSscPureDefault hh)
-    dbGetUndo hh =
-        eitherDB (BDB.dbGetUndoSscDefault @SscGodTossing hh)
-                 (BDB.dbGetUndoSscPureDefault @SscGodTossing hh)
-    dbGetHeader hh =
-        eitherDB (BDB.dbGetHeaderSscDefault @SscGodTossing hh)
-                 (BDB.dbGetHeaderSscPureDefault @SscGodTossing hh)
+    dbGetBlock = BDB.dbGetBlockSscSumDefault @SscGodTossing
+    dbGetUndo = BDB.dbGetUndoSscSumDefault @SscGodTossing
+    dbGetHeader = BDB.dbGetHeaderSscSumDefault @SscGodTossing
 
 instance MonadBlockGenBase m =>
          MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode m) where
-    dbPutBlund b = eitherDB (BDB.dbPutBlundDefault b) (BDB.dbPutBlundPureDefault b)
+    dbPutBlund = BDB.dbPutBlundSumDefault
 
 instance MonadBlockGenBase m => MonadSlotsData (BlockGenMode m) where
     getSystemStart = getSystemStartDefault

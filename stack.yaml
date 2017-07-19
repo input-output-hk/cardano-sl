@@ -81,6 +81,7 @@ extra-deps:
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
+- active-0.2.0.13
 - base58-bytestring-0.1.0
 - log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
@@ -96,6 +97,7 @@ extra-deps:
 - transformers-lift-0.2.0.1
 - store-0.4.3.1
 - lens-4.15.3                     # not yet in lts-8
+- pipes-interleave-1.1.1
 - th-abstraction-0.2.2.0          # needed for lens
 - rocksdb-haskell-1.0.0
 - generic-arbitrary-0.1.0

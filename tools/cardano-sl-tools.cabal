@@ -521,6 +521,7 @@ executable cardano-block-gen
   main-is:             Main.hs
   other-modules:       Options
                        Context
+                       Error
   if !flag(for-installer)
    build-depends:      QuickCheck
                      , base
@@ -535,6 +536,7 @@ executable cardano-block-gen
                      , cardano-sl
                      , directory
                      , ether
+                     , formatting
                      , lens
                      , mtl
                      , node-sketch
@@ -542,6 +544,7 @@ executable cardano-block-gen
                      , optparse-simple
                      , random
                      , string-qq
+                     , text-format
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010

@@ -4,6 +4,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map            as M
+import           Formatting          (build, sformat, (%))
 import           Mockable            (runProduction)
 import           System.Directory    (doesDirectoryExist)
 
@@ -19,10 +20,11 @@ import           Pos.Txp.Toil        (GenesisUtxo (..), Utxo)
 import           Pos.Util.UserSecret (peekUserSecret, usPrimKey)
 
 import           Context             (initTBlockGenMode)
+import           Error               (TBlockGenError (..))
 import           Options             (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
-main = do
+main = flip catch catchEx $ do
     BlockGenOptions{..} <- getBlockGenOptions
     when bgoAppend $ checkExistence bgoPath
     secretsMap <- case bgoNodes of
@@ -31,7 +33,8 @@ main = do
             let secretsMap = HM.fromList $ map (first addressHash) keys
             pure secretsMap
         Right bgoSecretFiles -> do
-            when (null bgoSecretFiles) $ emptySecrets
+            when (null bgoSecretFiles) $
+                throwM NoOneSecrets
             secrets <- runProduction $ mapM parseSecret bgoSecretFiles
             let secretsMap = HM.fromList $
                                 map (first (addressHash . toPublic) . join (,)) secrets
@@ -46,6 +49,8 @@ main = do
             if isDevelopment
             then genesisUtxo Nothing (devAddrDistr flatDistr)
             else genesisUtxo (Just bootStakeholders) genesisProdAddrDistribution
+    when (M.null $ unGenesisUtxo genUtxo) $
+        throwM EmptyUtxo
 
     let bgenParams = BlockGenParams (AllSecrets secretsMap) (fromIntegral bgoBlockN) True
     --seed <- maybe randomIO pure bgoSeed
@@ -55,6 +60,10 @@ main = do
         runProduction $
         initTBlockGenMode db genUtxo $
         void $ genBlocks bgenParams
+    if isDevelopment then
+        putText $ "Generated in DEV mode"
+    else
+        putText $ "Generated in PROD mode"
   where
     catchEx :: TBlockGenError -> IO ()
     catchEx e = putText $ sformat ("Error: "%build) e
@@ -66,11 +75,9 @@ main = do
         M.filter inAddrs utxo
 
     parseSecret p = (^. usPrimKey) <$> peekUserSecret p >>= \case
-        Nothing -> error $ "No secret in one file"
+        Nothing -> throwM $ SecretNotFound p
         Just sk -> pure sk
 
-    emptySecrets =
-        error $ "You passed no one secrets"
     checkExistence p =
         unlessM (doesDirectoryExist p) $
-            error $ "You specified --append flag, but DB doesn't exist"
+            throwM AppendToNonexistDB

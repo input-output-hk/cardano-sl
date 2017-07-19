@@ -12,7 +12,7 @@ module Pos.Launcher.Param
 
 import           Universum
 
-import           Control.Lens            (coerced, makeLensesWith)
+import           Control.Lens            (makeLensesWith)
 import           Ether.Internal          (HasLens (..))
 import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
@@ -25,7 +25,7 @@ import           Pos.DHT.Real            (KademliaParams)
 import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
 import           Pos.Statistics          (EkgParams, StatsdParams)
-import           Pos.Txp.Toil.Types      (GenesisUtxo (..), Utxo)
+import           Pos.Txp.Toil.Types      (GenesisUtxo (..))
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.UserSecret     (UserSecret)
 import           Pos.Util.Util           (postfixLFields)
@@ -61,7 +61,7 @@ data NodeParams = NodeParams
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
-    , npCustomUtxo     :: !Utxo                 -- ^ Predefined genesis utxo
+    , npGenesisUtxo    :: !GenesisUtxo                 -- ^ Predefined genesis utxo
     , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
     , npPropagation    :: !Bool                 -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
@@ -83,7 +83,7 @@ instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npSecurityParams_L
 
 instance HasLens GenesisUtxo NodeParams GenesisUtxo where
-    lensOf = npCustomUtxo_L . coerced
+    lensOf = npGenesisUtxo_L
 
 instance HasReportServers NodeParams where
     reportServers = npReportServers_L

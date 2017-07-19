@@ -18,7 +18,6 @@ module Pos.Generator.Block.Mode
 
 import           Universum
 
-import           Control.Lens                (coerced)
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Random        (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -69,7 +68,7 @@ import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), Tx
                                               TxOutAux (..), TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
-import           Pos.Txp.Toil.Types          (GenesisUtxo (..), Utxo)
+import           Pos.Txp.Toil.Types          (GenesisUtxo (..))
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -125,7 +124,7 @@ data BlockGenContext = BlockGenContext
     , bgcSystemStart       :: !Timestamp
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
-    , bgcCustomUtxo        :: !Utxo
+    , bgcGenesisUtxo       :: !GenesisUtxo
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -178,13 +177,13 @@ mkBlockGenContext bgcParams = do
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
   where
-    bgcCustomUtxo =
+    bgcGenesisUtxo =
         let addrs = map (makePubKeyAddress . toPublic) . toList $
                     view (bgpSecrets . asSecretKeys) bgcParams
             utxoTxHash = unsafeHash ("randomutxotx" :: Text)
             txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
             txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
-        in M.fromList $ txIns `zip` txOuts
+        in GenesisUtxo $ M.fromList $ txIns `zip` txOuts
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBPureVar
@@ -288,7 +287,7 @@ instance HasLens TxpGlobalSettings BlockGenContext TxpGlobalSettings where
     lensOf = bgcTxpGlobalSettings_L
 
 instance HasLens GenesisUtxo BlockGenContext GenesisUtxo where
-    lensOf = bgcCustomUtxo_L . coerced
+    lensOf = bgcGenesisUtxo_L
 
 instance HasReportingContext BlockGenContext where
     reportingContext = bgcReportingContext_L

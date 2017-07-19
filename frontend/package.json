@@ -33,6 +33,7 @@
     "babel-polyfill": "^6.23.0",
     "bignumber.js": "^4.0.2",
     "js-polyfills": "^0.1.33",
+    "purescript": "^0.11.5",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
     "socket.io-client": "^2.0.3",

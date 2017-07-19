@@ -37,6 +37,7 @@ module Pos.Wallet.Web.Tracking
 import           Universum
 
 import           Control.Lens               (to)
+import           Control.Monad.Catch        (handleAll)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.DList                 (DList)
 import qualified Data.DList                 as DL
@@ -211,7 +212,11 @@ syncWalletsWithGState
     , MonadSlotsData m)
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
-    tip <$ mapM_ (syncWalletWithGStateUnsafe @ssc) encSKs
+    tip <$ forM_ encSKs (\encSK ->
+        handleAll (onErr encSK) $
+        syncWalletWithGStateUnsafe @ssc encSK)
+  where
+    onErr encSK = logWarning . sformat ("Sync of wallet "%build%" failed: "%build) (encToCId encSK)
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.

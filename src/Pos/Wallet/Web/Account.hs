@@ -20,6 +20,7 @@ module Pos.Wallet.Web.Account
 import           Data.List                  (elemIndex)
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (randomIO)
+import           System.Wlog                (WithLogger)
 import           Universum
 
 import           Pos.Core                   (Address (..), deriveLvl2KeyPair)
@@ -33,7 +34,12 @@ import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
 
-type AccountMode ctx m = (MonadKeys ctx m, WebWalletModeDB ctx m, MonadThrow m)
+type AccountMode ctx m =
+    ( MonadCatch m
+    , WithLogger m
+    , MonadKeys ctx m
+    , WebWalletModeDB ctx m
+    )
 
 myRootAddresses :: MonadKeys ctx m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeys

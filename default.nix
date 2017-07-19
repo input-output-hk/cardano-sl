@@ -27,6 +27,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
     cardano-sl = overrideCabal super.cardano-sl (drv: {
       src = cleanSource2 drv.src;
       testTarget = "--test-option='--skip=Block.Logic.Var'";
+      doHaddock = false;
       patchPhase = ''
        export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
       '';
@@ -75,7 +76,6 @@ in ((import ./pkgs { inherit pkgs; }).override {
     fsnotify = if pkgs.stdenv.isDarwin
       then addBuildDepend (dontCheck super.fsnotify) pkgs.darwin.apple_sdk.frameworks.Cocoa
       else dontCheck super.fsnotify;
-
 
     mkDerivation = args: super.mkDerivation (args // {
       #enableLibraryProfiling = true;

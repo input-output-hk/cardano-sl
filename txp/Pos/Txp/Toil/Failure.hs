@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting                 (bprint, build, int, sformat,
-                                             string, stext, (%))
+                                             shown, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text         (listJson, pairF)
 import           Serokell.Util.Verify       (formatAllErrors)
@@ -80,7 +80,7 @@ instance Buildable ToilVerFailure where
             tifFee
             tifMinFee
     build (ToilUnknownAttributes uf) =
-        bprint ("transaction has unknown attributes: "%string) (show uf)
+        bprint ("transaction has unknown attributes: "%shown) uf
     build (ToilBootDifferentStake distr) =
         bprint ("transaction has non-boot stake distr in boot era: "%listJson)
                (map (sformat pairF) distr)

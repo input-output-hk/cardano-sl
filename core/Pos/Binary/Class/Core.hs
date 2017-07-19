@@ -40,8 +40,7 @@ import           Data.Time.Units             (Microsecond, Millisecond)
 import qualified Data.Vector                 as Vector
 import qualified Data.Vector.Generic         as Vector.Generic
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
-import           Universum                   hiding (foldr)
-import qualified Universum
+import           Universum
 
 encodeBinary :: Binary.Binary a => a -> E.Encoding
 encodeBinary = encode . BS.Lazy.toStrict . Binary.encode
@@ -61,10 +60,9 @@ enforceSize label requestedSize = D.decodeListLen >>= matchSize requestedSize la
 
 -- | Compare two sizes, failing if they are not equal.
 matchSize :: Int -> String -> Int -> D.Decoder s ()
-matchSize requestedSize label actualSize = do
-  case actualSize == requestedSize of
-    True  -> return ()
-    False -> fail (label <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
+matchSize requestedSize label actualSize =
+  when (actualSize /= requestedSize) $
+    fail (label <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
 
 ----------------------------------------
 
@@ -266,8 +264,8 @@ encodeContainerSkel :: (Word -> E.Encoding)
                     -> accumFunc
                     -> container
                     -> E.Encoding
-encodeContainerSkel encodeLen size foldr f  c =
-    encodeLen (fromIntegral (size c)) <> foldr f mempty c
+encodeContainerSkel encodeLen size foldFunction f  c =
+    encodeLen (fromIntegral (size c)) <> foldFunction f mempty c
 {-# INLINE encodeContainerSkel #-}
 
 decodeContainerSkelWithReplicate
@@ -328,7 +326,7 @@ instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
   encode = encodeMapSkel HM.size $ \f acc ->
       -- We need to encode the list with keys sorted in ascending order as
       -- that's the only representation we accept during decoding.
-      Universum.foldr (uncurry f) acc . sortWith fst . HM.toList
+      foldr (uncurry f) acc . sortWith fst . HM.toList
   decode = decodeMapSkel HM.fromList
 
 instance (Ord k, Bi k, Bi v) => Bi (Map k v) where
@@ -340,8 +338,8 @@ encodeSetSkel :: Bi a
               -> ((a -> E.Encoding -> E.Encoding) -> E.Encoding -> s -> E.Encoding)
               -> s
               -> E.Encoding
-encodeSetSkel size foldr =
-    encodeContainerSkel E.encodeListLen size foldr (\a b -> encode a <> b)
+encodeSetSkel size foldFunction =
+    encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
 {-# INLINE encodeSetSkel #-}
 
 decodeSetSkel :: Bi a => ([a] -> c) -> D.Decoder s c
@@ -354,7 +352,7 @@ instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
   encode = encodeSetSkel HS.size $ \f acc ->
       -- We need to encode the list sorted in ascending order as that's the only
       -- representation we accept during decoding.
-      Universum.foldr f acc . sort . HS.toList
+      foldr f acc . sort . HS.toList
   decode = decodeSetSkel HS.fromList
 
 instance (Ord a, Bi a) => Bi (Set a) where

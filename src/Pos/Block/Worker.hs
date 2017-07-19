@@ -177,7 +177,7 @@ onNewSlotWhenLeader
     => SlotId
     -> ProxySKBlockInfo
     -> Worker m
-onNewSlotWhenLeader slotId pske sendActions = do
+onNewSlotWhenLeader slotId pske SendActions {..} = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
@@ -206,7 +206,7 @@ onNewSlotWhenLeader slotId pske sendActions = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
             jsonLog $ jlCreatedBlock (Right createdBlk)
-            void $ announceBlock (enqueueMsg sendActions) $ createdBlk ^. gbHeader
+            void $ announceBlock enqueueMsg $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 
 ----------------------------------------------------------------------------

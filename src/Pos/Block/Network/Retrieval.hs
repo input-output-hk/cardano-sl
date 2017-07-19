@@ -79,13 +79,11 @@ retrievalWorkerImpl
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
-retrievalWorkerImpl sendActions =
+retrievalWorkerImpl SendActions {..} =
     handleAll mainLoopE $ do
         logDebug "Starting retrievalWorker loop"
         mainLoop
   where
-    enqueue :: EnqueueMsg m
-    enqueue = enqueueMsg sendActions
     mainLoop = runIfNotShutdown $ reportingFatal $ do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -113,7 +111,7 @@ retrievalWorkerImpl sendActions =
             brtHeader
     handleContinues nodeId header = do
         endedRecoveryVar <- newEmptyMVar
-        processContHeader enqueue endedRecoveryVar nodeId header
+        processContHeader enqueueMsg endedRecoveryVar nodeId header
     handleAlternative nodeId header = do
         mhrr <- mkHeadersRequest (headerHash header)
         case mhrr of
@@ -127,9 +125,9 @@ retrievalWorkerImpl sendActions =
         endedRecoveryVar <- newEmptyMVar
         let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
                 let firstHeader = headers ^. _Wrapped . _neLast
-                in handleCHsValid enqueue endedRecoveryVar nodeId
+                in handleCHsValid enqueueMsg endedRecoveryVar nodeId
                                   firstHeader (headerHash header)
-        void $ enqueue (MsgRequestBlock (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $ \conv ->
+        void $ enqueueMsg (MsgRequestBlock (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $ \conv ->
             requestHeaders cont mgh nodeId conv
                 `finally` void (tryPutMVar endedRecoveryVar False)
         -- Block until the conversation has ended.
@@ -140,7 +138,7 @@ retrievalWorkerImpl sendActions =
             ("Error handling nodeId="%build%", header="%build%": "%shown)
             nodeId (headerHash header) e
         dropUpdateHeader
-        dropRecoveryHeaderAndRepeat enqueue nodeId
+        dropRecoveryHeaderAndRepeat enqueueMsg nodeId
 
     handleHeadersRecovery nodeId rHeader = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\

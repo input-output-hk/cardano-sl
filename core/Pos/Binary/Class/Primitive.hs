@@ -58,15 +58,7 @@ serialize' = BSL.toStrict . serialize
 -- representation is invalid or does not correspond to a value of the
 -- expected type.
 deserialize :: Bi a => BSL.ByteString -> a
-deserialize bs0 =
-    runST (supplyAllInput bs0 =<< deserializeIncremental)
-  where
-    supplyAllInput _bs (CBOR.Read.Done _ _ x) = return x
-    supplyAllInput  bs (CBOR.Read.Partial k)  =
-      case bs of
-        BSL.Chunk chunk bs' -> k (Just chunk) >>= supplyAllInput bs'
-        BSL.Empty           -> k Nothing      >>= supplyAllInput BSL.Empty
-    supplyAllInput _ (CBOR.Read.Fail _ _ exn) = throw exn
+deserialize = either throw identity . deserializeOrFail
 
 -- | Strict variant of 'deserialize'.
 deserialize' :: Bi a => BS.ByteString -> a

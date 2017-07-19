@@ -11,9 +11,9 @@ import           Pos.Merkle         (MerkleRoot (..), MerkleTree (..), mkMerkleT
 -- This instance is both faster and more space-efficient (as confirmed by a
 -- benchmark). Hashing turns out to be faster than decoding extra data.
 instance (Bi a, Bi (Hash Raw)) => Bi (MerkleTree a) where
-  encode = encode . toList
-  decode = mkMerkleTree <$> decode
+    encode = encode . toList
+    decode = mkMerkleTree <$> decode
 
 instance (Bi a, Bi (Hash Raw)) => Bi (MerkleRoot a) where
-  encode = encode . getMerkleRoot
-  decode = MerkleRoot <$> decode
+    encode = encode . getMerkleRoot
+    decode = MerkleRoot <$> decode

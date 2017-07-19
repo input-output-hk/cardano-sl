@@ -156,19 +156,7 @@ soundSerializationAttributesOfAsProperty _ _ = forAll arbitraryAttrs $ \input ->
     in encoded === input
     where
       arbitraryAttrs :: Gen aa
-      arbitraryAttrs = Attributes <$> arbitrary <*> arbitraryUnparsedFields
-
--- TODO: Use as a main Arbitrary instance for UnparsedFields after transition to
--- CBOR.
-arbitraryUnparsedFields :: Gen UnparsedFields
-arbitraryUnparsedFields = sized $ go M.empty
-  where
-    go !acc 0 = pure $ UnparsedFields acc
-    go !acc n = do
-        -- Assume that data type doesn't have more than 100 constructors.
-        k <- choose (100, maxBound)
-        v <- arbitrary
-        go (M.insert k v acc) (n - 1)
+      arbitraryAttrs = Attributes <$> arbitrary <*> arbitrary
 
 soundInstanceProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
 soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->

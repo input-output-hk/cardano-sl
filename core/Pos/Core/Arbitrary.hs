@@ -20,12 +20,13 @@ module Pos.Core.Arbitrary
 import           Universum
 
 import qualified Data.ByteString                   as BS (pack)
+import qualified Data.Map                          as M
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     TimeUnit (..))
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
                                                     choose, oneof, scale, shrinkIntegral,
-                                                    suchThat, vector, vectorOf)
+                                                    suchThat, vector, vectorOf, sized)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
@@ -44,8 +45,7 @@ import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
 import           Pos.Crypto.Arbitrary              ()
-import           Pos.Data.Attributes               (Attributes (..), UnparsedFields,
-                                                    fromRaw)
+import           Pos.Data.Attributes               (Attributes (..), UnparsedFields(..))
 import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -121,10 +121,15 @@ instance Arbitrary Types.EpochOrSlot where
         ]
     shrink = genericShrink
 
--- | TODO: Replace with code from Test.Pos.CborSpec:arbitraryUnparsedFields
--- after transition to CBOR serialization.
 instance Arbitrary UnparsedFields where
-    arbitrary = fromRaw <$> arbitrary
+    arbitrary = sized $ go M.empty
+        where
+            go !acc 0 = pure $ UnparsedFields acc
+            go !acc n = do
+                -- Assume that data type doesn't have more than 100 constructors.
+                k <- choose (100, maxBound)
+                v <- arbitrary
+                go (M.insert k v acc) (n - 1)
     shrink = genericShrink
 
 instance Arbitrary h => Arbitrary (Attributes h) where

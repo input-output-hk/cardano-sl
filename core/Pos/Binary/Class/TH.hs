@@ -33,23 +33,26 @@ will generate:
 
 instance Bi User where
     encode = \x -> case x of
-        val@Login{} -> encode (0 :: Word8)
-                    <> encode (login val)
-                    <> encode (age val)
-        val@FullName{} -> encode (1 :: Word8)
-                       <> encode (firstName val)
-                       <> encode (age val)
-    get = label "User" $ do
-        tag <- get @Word8
+        val@Login{} -> encodeListLen 3 <> encode (0 :: Word8)
+                                       <> encode (login val)
+                                       <> encode (age val)
+        val@FullName{} -> encodeListLen 3 <> encode (1 :: Word8)
+                                          <> encode (firstName val)
+                                          <> encode (age val)
+    decode = do
+        expectedLen <- decodeListLen
+        tag <- decode @Word8
         case tag of
             0 -> do
-                login <- get
-                age <- get
+                matchSize 3 "Login" expectedLen
+                login <- decode
+                age <- decode
                 pure $ Login {..}
             1 -> do
-                firstName <- get
-                age <- get
-                let secondName = def
+                matchSize 3 "FullName" expectedLen
+                firstName <- decode
+                lastName <- decode
+                let sex = def
                 pure $ FullName {..}
             _ -> fail ("Found invalid tag while getting User")
 -}
@@ -192,7 +195,8 @@ deriveSimpleBi headTy constrs = do
               imap biEncodeConstr filteredConstrs
 
     -- Generate the following code:
-    -- val@Constr{} -> encode (3 :: Word8)
+    -- val@Constr{} -> encodeListLen 4
+    --              <> encode (3 :: Word8)
     --              <> encode (field1 val)
     --              <> encode (field2 val)
     --              <> encode (field3 val)
@@ -220,38 +224,50 @@ deriveSimpleBi headTy constrs = do
         [| Bi.encode ($(varE fName) $val) |]
     encodeField _  (Unused _) = fail "Something went wrong: encode Unused field"
 
+    actualLen :: Name
+    actualLen = mkName "actualLen"
+
     -- Decode definition --
     biDecodeExpr :: Q Exp
     biDecodeExpr = case constrs of
         []     ->
             failText $ sformat ("Attempting to decode type without constructors "%shown) headTy
         [cons] -> do
-          let unused = mkName "_"
-          doE [ bindS (varP unused)  [| Cbor.decodeListLen |]
+          doE [ bindS (varP actualLen)  [| Cbor.decodeListLen |]
               , noBindS (biDecodeConstr cons) -- There is one constructor
               ]
         _      -> do
             let tagName = mkName "tag"
-            let unused  = mkName "_"
             let getMatch ix con = match (litP (IntegerL (fromIntegral ix)))
-                                        (normalB (biDecodeConstr con)) []
+                                              (normalB (biDecodeConstr con)) []
             let mismatchConstr =
                     match wildP (normalB
                         [| fail $ toString ("Found invalid tag while decoding " <> shortNameTy) |]) []
             doE
-                -- Unfortunately we cannot do any size-checking here as the incoming length won't
-                -- be known a-priori as this is machine-generated code.
-                [ bindS (varP unused)  [| Cbor.decodeListLen |]
-                , bindS (varP tagName) [| Bi.decode |]
+                [ bindS (varP actualLen)  [| Cbor.decodeListLen |]
+                , bindS (varP tagName)    [| Bi.decode |]
                 , noBindS (caseE
                                 (sigE (varE tagName) tagType)
                                 (imap getMatch constrs ++ [mismatchConstr]))
                 ]
 
     biDecodeConstr :: Cons -> Q Exp
-    biDecodeConstr (Cons name []) = appE (varE 'pure) (conE name)
+    biDecodeConstr (Cons name []) = do
+        let expectedLen          = varE actualLen
+        let prettyName :: String = show name
+        let tagsIfAny :: Int = if length constrs >= 2 then 1 else 0
+        doE [ noBindS [| Bi.matchSize tagsIfAny ("biDecodeConstr(no_fields)@" <> prettyName) $expectedLen |]
+            , noBindS (appE (varE 'pure) (conE name))
+            ]
     biDecodeConstr Cons{..} = do
         let (usedFields, unusedFields) = partition isUsed cFields
+
+        let usedFieldsNum        = length usedFields
+        let prettyName :: String = show cName
+        let expectedLen          = varE actualLen
+        -- We need to take into account the possibility we are dealing
+        -- with a "tagged" encoding or not.
+        let tagsIfAny :: Int = if length constrs >= 2 then 1 else 0
 
         fieldNames :: [Name] <- mapM (fmap fst . fieldToPair) usedFields
         varNames   :: [Name] <- mapM (newName . nameBase) fieldNames
@@ -260,11 +276,14 @@ deriveSimpleBi headTy constrs = do
         bindExprs :: [Stmt] <- mapM (uncurry bindS . bimap pure pure) (zip varPs biGets)
         let recWildUsedVars = map (\(f, ex) -> (f,) <$> varE ex) $ zip fieldNames varNames
         let recWildUnusedVars = map (\f -> (fName f,) <$> [| def |]) unusedFields
+        -- The +1 is because we need to take into account the tag we used to discriminate on the
+        -- different constructors in the encoding phase.
+        let lenCheck = noBindS [| Bi.matchSize (usedFieldsNum + tagsIfAny) ("biDecodeConstr@" <> prettyName) $expectedLen |]
         recordWildCardReturn <- noBindS $
                                 appE (varE 'pure) $
                                 recConE cName $
                                 recWildUsedVars ++ recWildUnusedVars
-        doE $ map pure bindExprs ++ [pure recordWildCardReturn]
+        doE $ lenCheck : (map pure bindExprs ++ [pure recordWildCardReturn])
 
 makeBiInstanceTH :: Type -> Exp -> Exp -> [Dec]
 makeBiInstanceTH ty encodeE decodeE = one $

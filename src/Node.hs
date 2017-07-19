@@ -493,7 +493,7 @@ recvNext packing limit (LL.ChannelIn channel) = do
             when (remaining <= 0) (throw LimitExceeded)
             mbs <- Channel.readChannel channel
             case mbs of
-                Nothing -> return (BS.empty, End)
+                Nothing -> go remaining (next Nothing)
                 Just bs ->
                     let !remaining' = remaining - BS.length bs
                     in  go remaining' (next (Just bs))

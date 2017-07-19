@@ -20,6 +20,7 @@ import           Control.Lens       (makePrisms, makeWrapped, _Wrapped)
 import qualified Control.Lens       as Lens (Each (..))
 import           Data.Binary        (Binary)
 import qualified Data.List.NonEmpty as NE
+import           Data.Semigroup     (Semigroup)
 import           Data.Witherable    (Witherable (..))
 import qualified GHC.Exts           as IL
 import           Test.QuickCheck    (Arbitrary)
@@ -44,6 +45,9 @@ makeWrapped ''NewestFirst
 
 makePrisms  ''OldestFirst
 makeWrapped ''OldestFirst
+
+deriving instance Semigroup (f a) => Semigroup (NewestFirst f a)
+deriving instance Semigroup (f a) => Semigroup (OldestFirst f a)
 
 instance Witherable t => Witherable (NewestFirst t) where
     mapMaybe f = over _Wrapped (mapMaybe f)

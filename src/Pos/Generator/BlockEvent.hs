@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveFunctor  #-}
+{-# LANGUAGE DeriveFoldable      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Generator.BlockEvent
        (
@@ -32,12 +33,11 @@ module Pos.Generator.BlockEvent
 
 import           Universum
 
-import           Control.Lens                (makeLenses)
+import           Control.Lens                (folded, makeLenses)
 import           Control.Monad.Random.Strict (MonadRandom (..), RandT, Random (..),
                                               RandomGen, runRand, uniform, weighted)
 import           Control.Monad.State         (MonadState (..))
 import           Data.Coerce                 (coerce)
-import           Data.Functor.Compose        (Compose (..))
 import           Data.List                   ((!!))
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Semigroup              as Smg
@@ -48,7 +48,9 @@ import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..),
                                               MonadBlockGen, genBlocks)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
-                                              toNewestFirst, _NewestFirst, _OldestFirst)
+                                              toNewestFirst, toOldestFirst, _NewestFirst,
+                                              _OldestFirst)
+import           Pos.Util.Util               (minMaxOf)
 
 type BlundDefault = Blund SscGodTossing
 
@@ -56,6 +58,7 @@ type BlundDefault = Blund SscGodTossing
 -- Block event types
 ----------------------------------------------------------------------------
 
+-- | Determine whether the result of a block event is an expected failure.
 class IsBlockEventFailure a where
     isBlockEventFailure :: a -> Bool
 
@@ -147,7 +150,10 @@ byChance (Chance c) = weighted [(False, 1 - c), (True, c)]
 
 data BlockEventGenParams = BlockEventGenParams
     { _begpSecrets         :: !AllSecrets
-    , _begpBlockCountMax   :: !BlockCount
+    , _begpBlockCountMax   :: !BlockCount {- ^ the maximum possible amount of
+    blocks in a BlockApply event. Must be 1 or more. Can be violated by 1 in
+    some cases (see Note on reordering corner cases), so if you specify '52'
+    here, some rare events may contain up to '53' blocks. -}
     , _begpBlockEventCount :: !BlockEventCount
     , _begpRollbackChance  :: !Chance
     , _begpFailureChance   :: !Chance
@@ -168,8 +174,7 @@ getBlockIndexRange ::
        [BlockEvent' BlockIndex]
     -> (BlockIndex, BlockIndex)
 getBlockIndexRange =
-    let minMax a = Smg.Option (Just (Smg.Min a, Smg.Max a))
-    in maybe (0, 0) (over _2 (+1)) . coerce . foldMap minMax . Compose
+    maybe (0, 0) (\(lower, upper) -> (lower, upper+1)) . minMaxOf (folded.folded)
 
 -- | Generate a random sequence of block events. The final event is either an
 -- expected failure or a rollback of the entire chain to the initial (empty)
@@ -205,6 +210,8 @@ data GenBlockEventState
     | GbesBlockchain (OldestFirst NE BlockIndex)
     | GbesExpectedFailure
 
+-- | A worker for 'genBlockEvents' that generates event with block indices
+-- instead of actual blocks.
 genBlockEvents' ::
        (Monad m, RandomGen g)
     => BlockEventGenParams
@@ -252,160 +259,210 @@ instance Random ApplyFailureType where
     random = randomR (minBound, maxBound)
     randomR (lo,hi) = runRand $ uniform [lo..hi]
 
+newtype IsFailure = IsFailure Bool
+newtype IsRollback = IsRollback Bool
+
 genBlockEvent ::
        (Monad m, RandomGen g)
     => BlockEventGenParams
     -> StateT GenBlockEventState (RandT g m) (Maybe (BlockEvent' BlockIndex))
 genBlockEvent begp = do
     gbes <- get
-    failure <- lift $ byChance (begp ^. begpFailureChance)
-    when failure $ put GbesExpectedFailure
-    rollback <- lift $ byChance (begp ^. begpRollbackChance)
-    case gbes of
-        GbesExpectedFailure -> return Nothing
-        GbesStartingState -> Just <$> case (failure, rollback) of
-            (True, True) -> do
-                -- Fail with rollback. In the starting state it's easy,
-                -- because any rollback will fail when we don't have any
-                -- blocks yet.
-                blockIndices <- genBlockIndices 0
-                return . BlkEvRollback $ BlockEventRollback
-                    { _berInput    = toNewestFirst blockIndices
-                    , _berOutValid = BlockRollbackFailure
-                    }
-            (True, False) -> do
-                -- Fail without rollback (with apply). In the starting state,
-                -- the only way to do this is to generate a sequence of blocks
-                -- invalid by itself.
-                blockIndices <- genBlockIndices 1
-                let
-                    blkZeroth     = BlockIndex 0 :| []
-                    blockIndices' =
-                        -- Those block indices are broken by construction
-                        -- because we append the 0-th block to the end.
-                        -- Sometimes we can violate the maximum bound on
-                        -- block count, but this is fine. See NOTE
-                        -- on reordering corner cases.
-                        over _OldestFirst (Smg.<> blkZeroth) blockIndices
-                return . BlkEvApply $ BlockEventApply
-                    { _beaInput    = blockIndices'
-                    , _beaOutValid = BlockApplyFailure
-                    }
-            (False, _) -> do
-                -- Succeed with or without rollback. Unfortunately, it's
-                -- impossible to successfully rollback any blocks when
-                -- there are no blocks, so we will generate a block apply
-                -- event in both cases.
-                blockIndices <- genBlockIndices 0
-                put (GbesBlockchain blockIndices)
-                return . BlkEvApply $ BlockEventApply
-                    { _beaInput    = blockIndices
-                    , _beaOutValid = BlockApplySuccess
-                    }
-        GbesBlockchain blockchain -> Just <$> case (failure, rollback) of
-            (True, True) -> do
-                -- Fail with rollback.
-                rft <- getRandom
-                case rft of
-                    RftRollbackExcess -> do
-                        -- Attempt to rollback the entire blockchain and then
-                        -- some more.
-                        let
-                            blockIndices = blockchain & over _OldestFirst
-                                (\(x :| xs) -> x-1 :| x : xs)
-                        return . BlkEvRollback $ BlockEventRollback
-                            { _berInput    = toNewestFirst blockIndices
-                            , _berOutValid = BlockRollbackFailure
-                            }
-                    RftRollbackDrop -> do
-                        -- Attempt to rollback a part of the blockchain which
-                        -- is not its prefix (drop some blocks from the tip).
-                        -- The corner case here is that we may have a
-                        -- one-element blockchain: then we ensure failure by
-                        -- asking to rollback more blocks.
-                        case blockchain of
-                            OldestFirst (x :| []) -> -- oops, the corner case
-                                return . BlkEvRollback $ BlockEventRollback
-                                    { _berInput    = NewestFirst $ x :| [x-1]
-                                    , _berOutValid = BlockRollbackFailure
-                                    }
-                            _ -> do
-                                -- Here we decide how many blocks to rollback.
-                                -- This will yield a valid rollback, so we're
-                                -- going to drop a single block from the tip.
-                                -- Therefore, 'len' should be no less than 2,
-                                -- otherwise we won't have a non-empty list
-                                -- after the drop.
-                                len <- getRandomR (2, length blockchain)
-                                let
-                                    -- 'NE.fromList' is valid here because:
-                                    --    * the input has more than two elements
-                                    --    * 'len >= 2'
-                                    select = NE.fromList . drop 1 . NE.take len
-                                    blockIndices = toNewestFirst blockchain &
-                                        over _NewestFirst select
-                                return . BlkEvRollback $ BlockEventRollback
-                                    { _berInput    = blockIndices
-                                    , _berOutValid = BlockRollbackFailure
-                                    }
-            (True, False) -> do
-                -- Fail without rollback (with apply).
-                aft <- getRandom
-                case aft of
-                    AftApplyBad -> do
-                        -- Attempt to apply an invalid sequence of blocks.
-                        let tip = NE.last (getOldestFirst blockchain)
-                        blockIndices <- genBlockIndices (tip + 1)
-                        let
-                            blockIndices' =
-                                -- Those block indices are broken by construction
-                                -- because we append the current tip to the end.
-                                -- Sometimes we can violate the maximum bound on
-                                -- block count, but this is fine. See NOTE
-                                -- on reordering corner cases.
-                                over _OldestFirst (Smg.<> pure tip) blockIndices
-                        return . BlkEvApply $ BlockEventApply
-                            { _beaInput    = blockIndices'
-                            , _beaOutValid = BlockApplyFailure
-                            }
-                    AftApplyNonCont -> do
-                        -- Attempt to apply blocks which are not a valid
-                        -- contuniation of our chain.
-                        let
-                            tip  = NE.last (getOldestFirst blockchain)
-                            -- The amount of blocks to skip. One is enough.
-                            skip = 1
-                        blockIndices <- genBlockIndices (tip + 1 + skip)
-                        return . BlkEvApply $ BlockEventApply
-                            { _beaInput    = blockIndices
-                            , _beaOutValid = BlockApplyFailure
-                            }
-            (False, True) -> do
-                -- Success with rollback.
-                len <- getRandomR (1, length blockchain)
-                let
-                    -- 'NE.fromList' is valid here because 'len >= 1'.
-                    select = NE.fromList . NE.take len
-                    blockIndices = toNewestFirst blockchain &
-                        over _NewestFirst select
-                return . BlkEvRollback $ BlockEventRollback
-                    { _berInput    = blockIndices
-                    , _berOutValid = BlockRollbackSuccess
-                    }
-            (False, False) -> do
-                -- Success without rollback (with apply).
-                let tip = NE.last (getOldestFirst blockchain)
-                blockIndices <- genBlockIndices (tip + 1)
-                return . BlkEvApply $ BlockEventApply
-                    { _beaInput = blockIndices
-                    , _beaOutValid = BlockApplySuccess
-                    }
+    failure <- lift $ IsFailure <$> byChance (begp ^. begpFailureChance)
+    rollback <- lift $ IsRollback <$> byChance (begp ^. begpRollbackChance)
+    (mBlockEvent, gbes') <- case gbes of
+        GbesExpectedFailure ->
+            return (Nothing, gbes)
+        GbesStartingState ->
+            genBlockStartingState failure rollback
+        GbesBlockchain blockchain ->
+            genBlockInBlockchain blockchain failure rollback
+    put gbes' $> mBlockEvent
   where
     genBlockIndices blockIndexStart = do
-        let blockIndexEndMax = blockIndexStart +
-                               fromIntegral (begp ^. begpBlockCountMax)
-        blockIndexEnd <- getRandomR (blockIndexStart,blockIndexEndMax)
-        return $ OldestFirst . NE.fromList $ [blockIndexStart..blockIndexEnd]
+        len <- getRandomR (1, fromIntegral $ begp ^. begpBlockCountMax)
+        -- 'NE.fromList' assumes that 'len >= 1', which holds because we require
+        -- 'begpBlockCountMax >= 1'.
+        return $ OldestFirst . NE.fromList . take len $ [blockIndexStart..]
+
+    -- Fail with rollback. In the starting state it's easy,
+    -- because any rollback will fail when we don't have any
+    -- blocks yet.
+    genBlockStartingState (IsFailure True) (IsRollback True) = do
+        blockIndices <- genBlockIndices 0
+        let
+            ev = BlkEvRollback $ BlockEventRollback
+                { _berInput    = toNewestFirst blockIndices
+                , _berOutValid = BlockRollbackFailure
+                }
+            gbes = GbesExpectedFailure
+        return (Just ev, gbes)
+    -- Fail without rollback (with apply). In the starting state,
+    -- the only way to do this is to generate a sequence of blocks
+    -- invalid by itself.
+    genBlockStartingState (IsFailure True) (IsRollback False) = do
+        blockIndices <- genBlockIndices 1
+        let
+            blkZeroth = BlockIndex 0 :| []
+            blockIndices' =
+                -- Those block indices are broken by construction
+                -- because we append the 0-th block to the end.
+                -- Sometimes we can violate the maximum bound on
+                -- block count, but this is a documented infelicity.
+                -- See NOTE on reordering corner cases.
+                over _OldestFirst (Smg.<> blkZeroth) blockIndices
+            ev =
+                BlkEvApply $ BlockEventApply
+                { _beaInput    = blockIndices'
+                , _beaOutValid = BlockApplyFailure
+                }
+            gbes = GbesExpectedFailure
+        return (Just ev, gbes)
+    -- Succeed with or without rollback. Unfortunately, it's
+    -- impossible to successfully rollback any blocks when
+    -- there are no blocks, so we will generate a block apply
+    -- event in both cases.
+    genBlockStartingState (IsFailure False) (IsRollback _) = do
+        blockIndices <- genBlockIndices 0
+        let
+            ev = BlkEvApply $ BlockEventApply
+                { _beaInput    = blockIndices
+                , _beaOutValid = BlockApplySuccess
+                }
+            gbes = GbesBlockchain blockIndices
+        return (Just ev, gbes)
+
+    -- Fail with rollback.
+    genBlockInBlockchain blockchain (IsFailure True) (IsRollback True) = do
+        rft <- getRandom
+        case rft of
+            RftRollbackExcess -> do
+                -- Attempt to rollback the entire blockchain and then
+                -- some more. Example: suppose we have blockchain [0, 1, 2],
+                -- we may generate rollback [2, 1, 0, -1], rollback of the
+                -- -1-st block will be unsuccessful.
+                let
+                    blockIndices = blockchain & over _OldestFirst
+                        (\(x :| xs) -> x-1 :| x : xs)
+                    ev = BlkEvRollback $ BlockEventRollback
+                        { _berInput    = toNewestFirst blockIndices
+                        , _berOutValid = BlockRollbackFailure
+                        }
+                    gbes = GbesExpectedFailure
+                return (Just ev, gbes)
+            RftRollbackDrop -> do
+                -- Attempt to rollback a part of the blockchain which
+                -- is not its prefix (drop some blocks from the tip).
+                -- The corner case here is that we may have a
+                -- one-element blockchain: then we ensure failure by
+                -- asking to rollback more blocks.
+                case blockchain of
+                    OldestFirst (x :| []) -> do -- oops, the corner case
+                        let
+                            gbes = GbesExpectedFailure
+                            ev = BlkEvRollback $ BlockEventRollback
+                                { _berInput    = NewestFirst $ x :| [x-1]
+                                , _berOutValid = BlockRollbackFailure
+                                }
+                        return (Just ev, gbes)
+                    _ -> do
+                        -- Here we decide how many blocks to rollback.
+                        -- This will yield a valid rollback, so we're
+                        -- going to drop a single block from the tip.
+                        -- Therefore, 'len' should be no less than 2,
+                        -- otherwise we won't have a non-empty list
+                        -- after the drop.
+                        len <- getRandomR (2, length blockchain)
+                        let
+                            -- 'NE.fromList' is valid here because:
+                            --    * the input has more than two elements
+                            --    * 'len >= 2'
+                            select = NE.fromList . drop 1 . NE.take len
+                            blockIndices = toNewestFirst blockchain &
+                                over _NewestFirst select
+                            ev = BlkEvRollback $ BlockEventRollback
+                                { _berInput    = blockIndices
+                                , _berOutValid = BlockRollbackFailure
+                                }
+                            gbes = GbesExpectedFailure
+                        return (Just ev, gbes)
+    -- Fail without rollback (with apply).
+    genBlockInBlockchain blockchain (IsFailure True) (IsRollback False) = do
+        aft <- getRandom
+        case aft of
+            AftApplyBad -> do
+                -- Attempt to apply an invalid sequence of blocks.
+                let tip = NE.last (getOldestFirst blockchain)
+                blockIndices <- genBlockIndices (tip + 1)
+                let
+                    blockIndices' =
+                        -- Those block indices are broken by construction
+                        -- because we append the current tip to the end.
+                        -- Sometimes we can violate the maximum bound on
+                        -- block count, but this is a documented infelicity.
+                        -- See NOTE on reordering corner cases.
+                        over _OldestFirst (Smg.<> pure tip) blockIndices
+                    ev = BlkEvApply $ BlockEventApply
+                        { _beaInput    = blockIndices'
+                        , _beaOutValid = BlockApplyFailure
+                        }
+                    gbes = GbesExpectedFailure
+                return (Just ev, gbes)
+            AftApplyNonCont -> do
+                -- Attempt to apply blocks which are not a valid
+                -- contuniation of our chain.
+                let
+                    tip  = NE.last (getOldestFirst blockchain)
+                    -- The amount of blocks to skip. One is enough.
+                    skip = 1
+                blockIndices <- genBlockIndices (tip + 1 + skip)
+                let
+                    ev = BlkEvApply $ BlockEventApply
+                        { _beaInput    = blockIndices
+                        , _beaOutValid = BlockApplyFailure
+                        }
+                    gbes = GbesExpectedFailure
+                return (Just ev, gbes)
+    -- Success with rollback.
+    genBlockInBlockchain blockchain (IsFailure False) (IsRollback True) = do
+        len <- getRandomR (1, length blockchain)
+        let
+            (blockIndices, remainingBlockchain) = splitAtNewestFirst len $
+                toNewestFirst blockchain
+            -- 'NE.fromList' is valid here because 'len >= 1'.
+            blockIndices' = over _NewestFirst NE.fromList blockIndices
+            remainingBlockchain' = nonEmptyOldestFirst $
+                toOldestFirst remainingBlockchain
+            ev = BlkEvRollback $ BlockEventRollback
+                { _berInput    = blockIndices'
+                , _berOutValid = BlockRollbackSuccess
+                }
+            gbes = maybe GbesStartingState GbesBlockchain remainingBlockchain'
+        return (Just ev, gbes)
+    -- Success without rollback (with apply).
+    genBlockInBlockchain blockchain (IsFailure False) (IsRollback False) = do
+        let tip = NE.last (getOldestFirst blockchain)
+        blockIndices <- genBlockIndices (tip + 1)
+        let
+            ev = BlkEvApply $ BlockEventApply
+                { _beaInput = blockIndices
+                , _beaOutValid = BlockApplySuccess
+                }
+            gbes = GbesBlockchain (blockchain Smg.<> blockIndices)
+        return (Just ev, gbes)
+
+splitAtNewestFirst ::
+    forall a.
+       Int
+    -> NewestFirst NE a
+    -> (NewestFirst [] a, NewestFirst [] a)
+splitAtNewestFirst = coerce (NE.splitAt @a)
+
+nonEmptyOldestFirst ::
+    forall a.
+       OldestFirst [] a
+    -> Maybe (OldestFirst NE a)
+nonEmptyOldestFirst = coerce (NE.nonEmpty @a)
 
 {- NOTE: Reordering corner cases
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -418,7 +475,7 @@ but for 'genBlockIndices' there are two possible causes:
 * we rolled 'blockIndexEnd' equal to 'blockIndexStart'
 * 'blockIndexMax' is 1
 
-To avoid dealing with this, we may append one more block. The downside is that
+To avoid dealing with this, we append one more block. The downside is that
 appending this block may cause the sequence to be longer than 'blockIndexMax'.
 
 -}

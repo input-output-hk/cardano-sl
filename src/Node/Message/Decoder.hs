@@ -17,9 +17,9 @@ data Decoder t =
 
 continueDecoding
     :: Decoder t
-    -> [BS.ByteString]
+    -> BS.ByteString
     -> Decoder t
-continueDecoding decoder bss = case decoder of
-    Done trailing offset t -> Done (BS.concat $ trailing : bss) offset t
-    Fail trailing offset err -> Fail (BS.concat $ trailing : bss) offset err
-    Partial k -> k $ Just (BS.concat bss)
+continueDecoding decoder bs = case decoder of
+    Done trailing offset t -> Done (BS.append trailing bs) offset t
+    Fail trailing offset err -> Fail (BS.append trailing bs) offset err
+    Partial k -> k $ Just bs

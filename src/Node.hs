@@ -481,7 +481,7 @@ recvNext packing limit (LL.ChannelIn channel) = do
             -- some limited number of bytes, so 'go' may bring in at most this
             -- many more than the limit.
             let limit' = limit - BS.length bs
-            (trailing, outcome) <- go limit' (continueDecoding (unpackMsg packing) [bs])
+            (trailing, outcome) <- go limit' (continueDecoding (unpackMsg packing) bs)
             unless (BS.null trailing) (Channel.unGetChannel channel (Just trailing))
             return outcome
   where

@@ -14,7 +14,7 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesEmpty, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
+import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesError, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
 import Explorer.Lenses.State (_PageNumber, currentCGenesisAddressInfos, currentCGenesisSummary, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
@@ -55,7 +55,7 @@ genesisBlockView state =
                 case state ^. currentCGenesisAddressInfos of
                     NotAsked  -> emptyView ""
                     Loading   -> emptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                    Failure _ -> emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesNotFound) lang'
+                    Failure _ -> emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesError) lang'
                     Success infos -> addressInfosView infos state
 
 
@@ -153,7 +153,7 @@ maxAddressInfoRows = 5
 addressInfosView :: CGenesisAddressInfos -> State -> P.HTML Action
 addressInfosView infos state =
     if null infos then
-        emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesEmpty) (state ^. lang)
+        emptyView $ translate (I18nL.genesisBlock <<< I18nL.gblAddressesNotFound) (state ^. lang)
     else
         let addressInfosPagination = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination <<< _PageNumber)
             lang' = state ^. lang

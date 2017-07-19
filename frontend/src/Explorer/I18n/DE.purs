@@ -120,8 +120,8 @@ translation =
     , genesisBlock:
         { gblNotFound: "Genesis Block existiert nicht."
         , gblNumberRedeemedAddresses: "Anzahl eingelöster Adressen"
-        , gblAddressesEmpty: "Keine Adressen"
         , gblAddressesNotFound: "Adressen existieren nicht."
+        , gblAddressesError: "Error beim Laden der Addressen"
         , gblAddressRedeemAmount: "Einzulösender Wert"
         , gblAddressIsRedeemed: "eingelöst"
         }

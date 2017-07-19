@@ -675,15 +675,13 @@ cAddrToAddr cAddr@(CAddress rawAddrText) =
             -- * cardano-sl/tools/src/addr-convert/Main.hs
             unless (BS.length addr == 32) $
                 throwM badAddressLength
-            let cardanoAddr = pretty $ makeRedeemAddress $ redeemPkBuild addr
-            either badRSCoinAddress pure (fromCAddress $ CAddress cardanoAddr)
+            pure $ makeRedeemAddress $ redeemPkBuild addr
         Nothing ->
             -- cAddr is in Cardano address format
             either badCardanoAddress pure (fromCAddress cAddr)
   where
     badAddressLength = Internal "Address length is not equal to 32, can't be redeeming pk"
     badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
-    badRSCoinAddress  = const $ throwM $ Internal "Invalid RSCoin address!"
 
 -- | Deserialize transaction ID.
 -- Throw exception on failure.

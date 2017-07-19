@@ -80,8 +80,8 @@ import qualified Network.Transport             as NT (EventErrorCode (..))
 import qualified Network.Transport.Abstract    as NT
 import           System.Random                 (Random, StdGen, random)
 import           System.Wlog                   (WithLogger, logDebug, logError, logWarning)
-import           Node.Message.Class            (Serializable (..))
-import           Node.Message.Decoder          (Decoder (..), continueDecoding)
+import           Node.Message.Class            (Serializable (..), Packing, unpack, pack)
+import           Node.Message.Decoder          (Decoder (..), DecoderStep (..), continueDecoding)
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
@@ -196,7 +196,7 @@ data Node packingType peerData (m :: * -> *) = Node {
      , nodeDispatcherThread :: Promise m ()
      , nodeEnvironment      :: NodeEnvironment m
      , nodeState            :: SharedAtomicT m (NodeState peerData m)
-     , nodePackingType      :: packingType
+     , nodePacking          :: Packing packingType m
      , nodePeerData         :: peerData
        -- | How long to wait before dequeueing an event from the
        --   network-transport receive queue, where Nothing means
@@ -633,7 +633,7 @@ startNode
        , Mockable Delay m
        , Serializable packingType peerData
        , MonadFix m, WithLogger m )
-    => packingType
+    => Packing packingType m
     -> peerData
     -> (Node packingType peerData m -> NodeEndPoint m)
     -> (Node packingType peerData m -> ReceiveDelay m)
@@ -648,7 +648,7 @@ startNode
     -> (peerData -> NodeId -> ChannelIn m -> ChannelOut m -> m ())
     -- ^ Handle incoming bidirectional connections.
     -> m (Node packingType peerData m)
-startNode packingType peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
+startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
           prng nodeEnv handlerInOut = do
     rec { let nodeEndPoint = mkNodeEndPoint node
         ; mEndPoint <- newNodeEndPoint nodeEndPoint
@@ -665,7 +665,7 @@ startNode packingType peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
                                 , nodeDispatcherThread = dispatcherThread
                                 , nodeEnvironment      = nodeEnv
                                 , nodeState            = sharedState
-                                , nodePackingType      = packingType
+                                , nodePacking          = packing
                                 , nodePeerData         = peerData
                                 , nodeReceiveDelay     = receiveDelay
                                 , nodeConnectDelay     = connectDelay
@@ -735,26 +735,26 @@ instance Show (ConnectionState peerData m) where
         HandshakeFailure -> "HandshakeFailure"
         FeedingApplicationHandler _ _ -> "FeedingApplicationHandler"
 
-data PeerState peerData =
+data PeerState peerData m =
 
       -- | Peer data is expected from one of these lightweight connections.
       --   If the second component is 'Just', then there's a lightweight
       --   connection which has given a partial parse of the peer data.
       ExpectingPeerData
           !(NonEmptySet NT.ConnectionId)
-          !(Maybe (NT.ConnectionId, Maybe BS.ByteString -> Decoder peerData))
+          !(Maybe (NT.ConnectionId, Maybe BS.ByteString -> Decoder m peerData))
 
       -- | Peer data has been received and parsed.
     | GotPeerData !peerData !(NonEmptySet NT.ConnectionId)
 
-instance Show (PeerState peerData) where
+instance Show (PeerState peerData m) where
     show term = case term of
         ExpectingPeerData peers mleader -> "ExpectingPeerData " ++ show peers ++ " " ++ show (fmap fst mleader)
         GotPeerData _ peers -> "GotPeerData " ++ show peers
 
 data DispatcherState peerData m = DispatcherState {
       dsConnections :: Map NT.ConnectionId (NT.EndPointAddress, ConnectionState peerData m)
-    , dsPeers :: Map NT.EndPointAddress (PeerState peerData)
+    , dsPeers :: Map NT.EndPointAddress (PeerState peerData m)
     }
 
 deriving instance Show (DispatcherState peerData m)
@@ -970,9 +970,9 @@ nodeDispatcher node handlerInOut =
                 -- There's no leader. This connection is now the leader. Begin
                 -- the attempt to decode the peer data.
                 Nothing -> do
-                    let decoder :: Decoder peerData
-                        decoder = unpackMsg (nodePackingType node)
-                    case continueDecoding decoder (BS.concat chunks) of
+                    decoderStep :: DecoderStep m peerData <- runDecoder (unpack (nodePacking node))
+                    decoderStep' <- continueDecoding decoderStep (BS.concat chunks)
+                    case decoderStep' of
                         Fail _ _ err -> do
                             logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
                             return $ state {
@@ -997,26 +997,27 @@ nodeDispatcher node handlerInOut =
                         logWarning $ sformat ("peer data protocol error from " % shown) peer
                         return state
 
-                    True -> case decoderContinuation (Just (BS.concat chunks)) of
+                    True -> do
+                        decoderStep <- runDecoder (decoderContinuation (Just (BS.concat chunks)))
+                        case decoderStep of
+                            Fail _ _ err -> do
+                                logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
+                                return $ state {
+                                        dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
+                                      }
 
-                        Fail _ _ err -> do
-                            logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
-                            return $ state {
-                                    dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
-                                  }
+                            Done trailing _ peerData -> do
+                                let state' = state {
+                                          dsConnections = foldl' (awaitHandshake peerData) (dsConnections state) (NESet.toList connids)
+                                        , dsPeers = Map.insert peer (GotPeerData peerData connids) (dsPeers state)
+                                        }
+                                received state' connid [trailing]
 
-                        Done trailing _ peerData -> do
-                            let state' = state {
-                                      dsConnections = foldl' (awaitHandshake peerData) (dsConnections state) (NESet.toList connids)
-                                    , dsPeers = Map.insert peer (GotPeerData peerData connids) (dsPeers state)
+                            Partial decoderContinuation' -> do
+                                return $ state {
+                                        dsPeers = Map.insert peer (ExpectingPeerData connids (Just (connid, decoderContinuation'))) (dsPeers state)
+
                                     }
-                            received state' connid [trailing]
-
-                        Partial decoderContinuation' -> do
-                            return $ state {
-                                    dsPeers = Map.insert peer (ExpectingPeerData connids (Just (connid, decoderContinuation'))) (dsPeers state)
-
-                                }
 
                 where
 
@@ -1624,7 +1625,7 @@ connectToPeer
     => Node packingType peerData m
     -> NodeId
     -> m (NT.Connection m)
-connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData, nodeEnvironment} (NodeId peer) = do
+connectToPeer Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, nodeEnvironment} (NodeId peer) = do
     conn <- establish
     sendPeerDataIfNecessary conn
     return conn
@@ -1645,7 +1646,7 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData, nodeE
         True -> sendPeerData conn
 
     sendPeerData conn = do
-        let serializedPeerData = packMsg nodePackingType nodePeerData
+        serializedPeerData <- pack nodePacking nodePeerData
         writeMany mtu (ChannelOut conn) serializedPeerData
 
     getPeerDataResponsibility = do

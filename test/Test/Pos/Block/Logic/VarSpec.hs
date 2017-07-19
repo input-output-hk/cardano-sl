@@ -17,13 +17,13 @@ import           Test.QuickCheck.Monadic   (assert, pre)
 
 import           Pos.Block.Logic           (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types           (Blund)
+import           Pos.DB.Pure               (DBPureVar)
 import qualified Pos.GState                as GS
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Util                  (lensOf)
 import           Pos.Util.Chrono           (NE, OldestFirst (..))
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode,
-                                            realDBInTestsError)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
                                             satisfySlotCheck)
 import           Test.Pos.Util             (splitIntoChunks, stopProperty)
@@ -126,9 +126,7 @@ applyByOneOrAllAtOnce applier = do
     blunds <- getOldestFirst <$> bpGenBlocks Nothing
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    let readDB = view (lensOf @GS.DBSum) >>= \case
-            GS.RealDB _   -> realDBInTestsError
-            GS.PureDB pdb -> readIORef pdb
+    let readDB = view (lensOf @DBPureVar) >>= readIORef
     stateAfter1by1 <-
         lift $
         GS.withClonedGState $ do

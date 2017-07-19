@@ -149,7 +149,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    createWallet, getAccountMeta,
                                                    getAccountWAddresses, getHistoryCache,
                                                    getNextUpdate, getProfile, getTxMeta,
-                                                   getWAddressIds, getWalletAddresses,
+                                                   getAccountIds, getWalletAddresses,
                                                    getWalletMeta, getWalletPassLU,
                                                    isCustomAddress, openState,
                                                    removeAccount, removeHistoryCache,
@@ -517,7 +517,7 @@ getAccounts
     => Maybe (CId Wal) -> m [CAccount]
 getAccounts mCAddr = do
     whenJust mCAddr $ \cAddr -> getWalletMeta cAddr `whenNothingM_` noWSet cAddr
-    accIds <- maybe getWAddressIds getWalletAccountIds mCAddr
+    accIds <- maybe getAccountIds getWalletAccountIds mCAddr
     let groupedAccIds = HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) ->

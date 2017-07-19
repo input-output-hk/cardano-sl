@@ -43,9 +43,9 @@ optionsParser = do
         help "Number of nodes."
 
     bgoPath <- strOption $
-        long    "db-path" <>
+        long    "generated-db" <>
         metavar "FILEPATH" <>
-        value   "db-path" <>
+        value   "generated-db" <>
         help    "Location of generated database."
 
     bgoAppend <- switch $
@@ -78,6 +78,6 @@ Command example:
   stack exec -- cardano-block-gen           \
     --blocks 5000                           \
     --nodes 3                               \
-    --db-path /path/to/existed/db           \
+    --generated-db /path/to/existed/db      \
     --seed 123
     --append|]

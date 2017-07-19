@@ -50,7 +50,7 @@ data BlockGenParams = BlockGenParams
     , _bgpBlockCount :: !BlockCount
     -- ^ Number of blocks to generate.
     , _bgpInplaceDB  :: !Bool
-    -- ^ Whether to rewrite existing DB.
+    -- ^ Whether to extend existing DB.
     }
 
 makeClassy ''BlockGenParams

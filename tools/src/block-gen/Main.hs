@@ -49,4 +49,4 @@ main = do
         in (TxIn (unsafeHash addr) 0, TxOutAux {..})
     checkExistence p =
         unlessM (doesDirectoryExist p) $
-            error "You specified --append flag, but DB doesn't exist"
+            error $ "You specified --append flag, but DB doesn't exist"

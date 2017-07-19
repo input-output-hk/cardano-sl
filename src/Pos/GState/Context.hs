@@ -53,8 +53,8 @@ cloneGStateContext ::
     -> m GStateContext
 cloneGStateContext GStateContext {..} = case _gscDB of
     RealDB _ -> error "You may not copy RealDB" -- TODO maybe exception?
-    PureDB pdb -> GStateContext . PureDB <$>
-        cloneDBPure pdb <*>
+    PureDB pdb -> GStateContext <$>
+        (PureDB <$> cloneDBPure pdb) <*>
         cloneLrcContext _gscLrcContext <*>
         cloneSlogContext _gscSlogContext <*>
         cloneSlottingVar _gscSlottingVar

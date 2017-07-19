@@ -44,7 +44,6 @@ data TBlockGenContext = TBlockGenContext
     }
 
 makeLensesWith postfixLFields ''TBlockGenContext
-
 type TBlockGenMode = ReaderT TBlockGenContext Production
 
 runTBlockGenMode :: TBlockGenContext -> TBlockGenMode a -> Production a

@@ -114,15 +114,14 @@ deriveSimpleBi ''U.VoteState [
     Cons 'U.NegativeRevote []]
 
 instance Bi a => Bi (U.PrevValue a) where
-  encode (U.PrevValue a) = encodeListLen 2 <> encode (2 :: Word8) <> encode a
-  encode U.NoExist       = encodeListLen 1 <> encode (3 :: Word8)
+  encode (U.PrevValue a) = encodeListLen 1 <> encode a
+  encode U.NoExist       = encodeListLen 0
   decode = do
     len <- decodeListLen
-    tag <- decode @Word8
-    case (len, tag) of
-      (2,2) -> U.PrevValue <$> decode
-      (1,3) -> pure U.NoExist
-      _     -> fail $ "decode@PrevValue: invalid tag: " <> show tag
+    case len of
+      1 -> U.PrevValue <$> decode
+      0 -> pure U.NoExist
+      _ -> fail $ "decode@PrevValue: invalid len: " <> show len
 
 deriveSimpleBi ''U.USUndo [
     Cons 'U.USUndo [

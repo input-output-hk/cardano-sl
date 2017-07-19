@@ -51,6 +51,7 @@ import           Pos.Txp hiding (Unknown)
 import           Pos.Update.Arbitrary ()
 import           Pos.Update.Core
 import           Pos.Update.Poll
+import           Pos.Util.BackupPhrase
 import           Pos.Util.Chrono
 import           Test.Hspec (Spec, describe, it, pendingWith)
 import           Test.QuickCheck
@@ -62,7 +63,6 @@ import           Pos.Data.Attributes
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import qualified Data.ByteString as BS
-import qualified Data.Map as M
 
 data MyScript = MyScript
     { version :: ScriptVersion -- ^ Version
@@ -311,11 +311,12 @@ spec = describe "Cbor.Bi instances" $ do
         prop "DataMsg ProxySKLight" (soundInstanceProperty @(DataMsg ProxySKLight) Proxy)
         prop "DataMsg ProxySKHeavy" (soundInstanceProperty @(DataMsg ProxySKHeavy) Proxy)
         prop "DataMsg ProxySKLightConfirmation" (soundInstanceProperty @(DataMsg ProxySKLightConfirmation) Proxy)
+        prop "BackupPhrase" (soundInstanceProperty @BackupPhrase Proxy)
+        prop "PrevValue a"  (soundInstanceProperty @(PrevValue U) Proxy)
         -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
         it "UserSecret" $ pendingWith "No Eq instance defined"
         it "WalletUserSecret" $ pendingWith "No Eq instance defined"
         pendingNoArbitrary "Undo"
-        pendingNoArbitrary "BackupPhrase"
         pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
         pendingNoArbitrary "DataMsg UpdateVote"
         pendingNoArbitrary "MsgGetHeaders"

@@ -23,7 +23,7 @@ import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhra
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
                                       unsafeAbstractHash)
 import           Pos.Util.Mnemonics  (fromMnemonic, toMnemonic)
-
+import           Test.QuickCheck     (Arbitrary(..), genericShrink)
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase
@@ -31,8 +31,12 @@ newtype BackupPhrase = BackupPhrase
     } deriving (Eq, Generic)
 
 instance Bi BackupPhrase where
-  encode = encode
+  encode = encode . bpToList
   decode = BackupPhrase <$> decode
+
+instance Arbitrary BackupPhrase where
+  arbitrary = BackupPhrase <$> arbitrary
+  shrink    = genericShrink
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int

@@ -15,7 +15,7 @@ import           Universum
 import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (WithLogger, logDebug)
+import           System.Wlog                (WithLogger, logDebug, logWarning)
 
 import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (BlockHeader, blockHeader, mainBlockTxPayload)
@@ -43,7 +43,6 @@ onApplyTracking
     :: forall ssc ctx m .
     ( SscHelpersClass ssc
     , AccountMode ctx m
-    , WithLogger m
     , MonadSlotsData m
     , MonadDBRead m
     )
@@ -53,7 +52,8 @@ onApplyTracking blunds = do
     let oldestFirst = getOldestFirst blunds
         txs = concatMap (gbTxs . fst) oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
-    mapM_ (syncWalletSet newTipH txs) =<< WS.getWalletAddresses
+    mapM_ (catchInSync "apply" $ syncWalletSet newTipH txs)
+        =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
@@ -84,14 +84,14 @@ onRollbackTracking
     :: forall ssc ctx m .
     ( SscHelpersClass ssc
     , AccountMode ctx m
-    , WithLogger m
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . blundTxUn) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
-    mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+    mapM_ (catchInSync "rollback" $ syncWalletSet newTip txs)
+        =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
@@ -120,3 +120,11 @@ logMsg action (NE.length -> bNums) wAddr accModifier =
         sformat ("Wallet Tracking: "%build%" "%build%" block(s) to walletset "%build
                 %", "%build)
         action bNums wAddr accModifier
+
+catchInSync
+    :: (MonadCatch m, WithLogger m)
+    => Text -> (CId Wal -> m ()) -> CId Wal -> m ()
+catchInSync desc syncWallet wId =
+    syncWallet wId `catchAll` (logWarning . sformat fmt wId desc)
+  where
+    fmt = "Failed to sync wallet "%build%" in BListener ("%build%"): "%build

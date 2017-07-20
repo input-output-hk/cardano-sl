@@ -319,6 +319,7 @@ library
                         Pos.Wallet.Web.Tracking
 
   build-depends:        IfElse
+                      , MonadRandom
                       , QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1

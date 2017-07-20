@@ -29,7 +29,7 @@ import qualified Network.Transport.TCP      as TCP
 import           Node
 import           Node.Conversation
 import           Node.OutboundQueue
-import           Node.Message.Store         (StoreP (..))
+import           Node.Message.Store         (StoreP, storePacking)
 import           Node.Util.Monitor          (startMonitor)
 import           System.Random
 
@@ -100,11 +100,11 @@ main = runProduction $ do
             -> Production (OutboundQueue Packing B8.ByteString NodeId () Production)
         mkOutboundQueue converse = pure (freeForAll id converse)
     node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-         mkOutboundQueue prng1 StoreP (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
+         mkOutboundQueue prng1 storePacking (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
         NodeAction (listeners . nodeId $ node1) $ \sactions1 -> do
             _ <- startMonitor 8000 runProduction node1
             node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-                  mkOutboundQueue prng2 StoreP (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
+                  mkOutboundQueue prng2 storePacking (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
                 NodeAction (listeners . nodeId $ node2) $ \sactions2 -> do
                     _ <- startMonitor 8001 runProduction node2
                     tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] sactions1

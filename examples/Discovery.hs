@@ -31,7 +31,7 @@ import qualified Network.Transport.TCP                as TCP
 import           Node
 import           Node.Conversation
 import           Node.OutboundQueue
-import           Node.Message.Binary                  (BinaryP (..))
+import           Node.Message.Binary                  (BinaryP, binaryPacking)
 import           System.Environment                   (getArgs)
 import           System.Random
 
@@ -102,7 +102,7 @@ makeNode transport i = do
             -> Production (OutboundQueue BinaryP B8.ByteString NodeId () Production)
         mkOutboundQueue converse = pure (freeForAll id converse)
     fork $ node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-                mkOutboundQueue prng1 BinaryP (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
+                mkOutboundQueue prng1 binaryPacking (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
         NodeAction (listeners . nodeId $ node') $ \sactions -> do
             liftIO . putStrLn $ "Making discovery for node " ++ show i
             discovery <- K.kademliaDiscovery kademliaConfig initialPeer (nodeEndPointAddress node')

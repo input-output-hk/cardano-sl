@@ -27,7 +27,7 @@ import           Node                       (Listener (..), NodeAction (..), nod
                                              simpleNodeEndPoint, noReceiveDelay, NodeId)
 import           Node.Conversation
 import           Node.OutboundQueue
-import           Node.Message.Binary        (BinaryP (..))
+import           Node.Message.Binary        (BinaryP, binaryPacking)
 import           ReceiverOptions            (Args (..), argsParser)
 
 main :: IO ()
@@ -55,7 +55,7 @@ main = do
         mkOutboundQueue converse = pure (freeForAll id converse)
 
     runProduction $ usingLoggerName "receiver" $ do
-        node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prng BinaryP () defaultNodeEnvironment $ \_ ->
+        node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prng binaryPacking () defaultNodeEnvironment $ \_ ->
             NodeAction (const [pingListener noPong]) $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where

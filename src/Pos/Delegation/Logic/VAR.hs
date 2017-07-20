@@ -351,7 +351,6 @@ dlgVerifyBlocks blocks = do
         throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
     let initState = DlgVerState _dvCurEpoch
     (richmen :: HashSet StakeholderId) <-
-        HS.fromList . toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"

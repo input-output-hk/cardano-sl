@@ -126,7 +126,7 @@ applyByOneOrAllAtOnce applier = do
     blunds <- getOldestFirst <$> bpGenBlocks Nothing
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    let readDB = readIORef =<< view (lensOf @DBPureVar)
+    let readDB = view (lensOf @DBPureVar) >>= readIORef
     stateAfter1by1 <-
         lift $
         GS.withClonedGState $ do

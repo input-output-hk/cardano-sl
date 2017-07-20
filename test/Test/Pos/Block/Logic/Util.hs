@@ -36,6 +36,7 @@ bpGenBlocks blkCnt = do
                 BlockGenParams
                 { _bgpSecrets = allSecrets
                 , _bgpBlockCount = fromMaybe (fromIntegral s) blkCnt
+                , _bgpInplaceDB = False
                 }
     params <- pick $ sized genBlockGenParams
     lift (genBlocks params)

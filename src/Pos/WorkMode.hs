@@ -70,7 +70,7 @@ import           Pos.Util.Util         (postfixLFields)
 import           Pos.WorkMode.Class    (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 data RealModeContext ssc = RealModeContext
-    { rmcNodeDBs       :: !(NodeDBs)
+    { rmcNodeDBs       :: !NodeDBs
     , rmcSscState      :: !(SscState ssc)
     , rmcTxpLocalData  :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , rmcDelegationVar :: !DelegationVar

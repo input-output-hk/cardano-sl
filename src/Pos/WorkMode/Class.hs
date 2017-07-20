@@ -22,14 +22,13 @@ import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Slog.Types        (HasSlogContext)
-import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
                                               BlockRetrievalQueueTag, GenesisUtxo,
                                               HasSscContext, MonadLastKnownHeader,
                                               MonadProgressHeader, MonadRecoveryHeader,
                                               StartTime, TxpGlobalSettings)
-import           Pos.DB.Block                (MonadBlockDBWrite)
+import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
@@ -70,6 +69,7 @@ type WorkMode ssc ctx m
       , MonadDB m
       , MonadRealDB ctx m
       , MonadGState m
+      , MonadSscBlockDB ssc m
       , MonadBlockDBWrite ssc m
       , MonadTxpMem TxpExtra_TMP ctx m
       , MonadRelayMem ctx m
@@ -82,7 +82,6 @@ type WorkMode ssc ctx m
       , MonadRecoveryHeader ssc ctx m
       , MonadProgressHeader ssc ctx m
       , MonadLastKnownHeader ssc ctx m
-      , WithPeerState m
       , MonadBListener m
       , MonadDiscovery m
       , MonadReader ctx m
@@ -108,5 +107,4 @@ type MinWorkMode m
       , CanJsonLog m
       , MonadMockable m
       , MonadIO m
-      , WithPeerState m
       )

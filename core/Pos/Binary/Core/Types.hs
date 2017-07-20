@@ -24,6 +24,10 @@ instance Bi T.Timestamp where
     sizeNPut = labelS "Timestamp" $ putField toInteger
     get = label "Timestamp" $ fromInteger <$> get
 
+instance Bi T.TimeDiff where
+    sizeNPut = labelS "TimeDiff" $ putField toInteger
+    get = label "TimeDiff" $ fromInteger <$> get
+
 instance Bi T.EpochIndex where
     sizeNPut = labelS "EpochIndex" $ putField (UnsignedVarInt . T.getEpochIndex)
     get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get

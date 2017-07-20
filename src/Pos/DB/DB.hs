@@ -29,15 +29,14 @@ import           Pos.Block.Core        (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types       (Blund)
 import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Context.Functions (genesisLeadersM)
-import           Pos.Core              (BlockCount, BlockVersionData, Timestamp,
-                                        headerHash)
+import           Pos.Core              (BlockCount, BlockVersionData, headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
                                         loadBlundsByDepth, loadBlundsWhile,
                                         prepareBlockDB)
 import           Pos.DB.Class          (MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common  (getTip, getTipBlockGeneric, getTipHeaderGeneric)
-import           Pos.DB.GState.GState  (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Misc           (prepareMiscDB)
+import           Pos.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB            (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Update.DB         (getAdoptedBVData)
@@ -58,13 +57,13 @@ initNodeDBs
        , SscHelpersClass ssc
        , MonadDB m
        )
-    => Timestamp -> m ()
-initNodeDBs systemStart = do
+    => m ()
+initNodeDBs = do
     leaders0 <- genesisLeadersM
     let genesisBlock0 = mkGenesisBlock @ssc Nothing 0 leaders0
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
-    prepareGStateDB systemStart initialTip
+    prepareGStateDB initialTip
     prepareLrcDB
     prepareMiscDB
 #ifdef WITH_EXPLORER

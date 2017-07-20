@@ -26,7 +26,6 @@ module Pos.Ssc.Extra.Logic
 
 import           Universum
 
-import           Control.Concurrent.STM   (readTVar, writeTVar)
 import           Control.Lens             (_Wrapped)
 import           Control.Monad.Except     (MonadError, runExceptT)
 import           Control.Monad.Morph      (generalize, hoist)
@@ -40,7 +39,8 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
 
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
-import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, SomeBatchOp)
+import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, MonadGState,
+                                           SomeBatchOp, gsAdoptedBVData)
 import           Pos.DB.GState.Common     (getTipHeaderGeneric)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)
@@ -143,6 +143,7 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 sscNormalize
     :: forall ssc ctx m.
        ( MonadDBRead m
+       , MonadGState m
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , MonadSscMem ssc ctx m
        , SscLocalDataClass ssc
@@ -156,13 +157,14 @@ sscNormalize
 sscNormalize = do
     tipEpoch <- view epochIndexL <$> getTipHeaderGeneric @(SscBlock ssc)
     richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
+    bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
 
     launchNamedPureLog atomically $
         syncingStateWith localVar $
-        sscNormalizeU @ssc tipEpoch richmenData gs
+        sscNormalizeU @ssc (tipEpoch, richmenData) bvd gs
 
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense
@@ -187,11 +189,14 @@ sscResetLocal = do
 
 -- 'MonadIO' is needed only for 'TVar' (I hope).
 type SscGlobalApplyMode ssc ctx m =
-    (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDBRead m, MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext)
+    (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc,
+     MonadReader ctx m, HasLens LrcContext ctx LrcContext,
+     MonadDBRead m, MonadGState m, MonadIO m, WithLogger m)
+
 type SscGlobalVerifyMode ssc ctx m =
-    (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDBRead m, MonadReader ctx m, HasLens LrcContext ctx LrcContext, MonadIO m,
+    (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc,
+     MonadReader ctx m, HasLens LrcContext ctx LrcContext,
+     MonadDBRead m, MonadGState m, MonadIO m, WithLogger m,
      MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
@@ -296,9 +301,10 @@ sscVerifyBlocks blocks = do
     inAssertMode $ unless (epoch == lastEpoch) $
         assertionFailed differentEpochsMsg
     richmenSet <- getRichmenFromLrc "sscVerifyBlocks" epoch
+    bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     gs <- atomically $ readTVar globalVar
-    execStateT (sscVerifyAndApplyBlocks @ssc richmenSet blocks) gs
+    execStateT (sscVerifyAndApplyBlocks @ssc richmenSet bvd blocks) gs
 
 ----------------------------------------------------------------------------
 -- Utils

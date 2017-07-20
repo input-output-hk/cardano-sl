@@ -9,11 +9,15 @@ module Pos.Block.Logic.VAR
        , verifyAndApplyBlocks
        , rollbackBlocks
        , applyWithRollback
+
+       -- * Exported for tests
+       , applyBlocks
        ) where
 
 import           Universum
 
 import           Control.Lens             (_Wrapped)
+import           Control.Monad.Catch      (bracketOnError)
 import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwError),
                                            runExceptT, withExceptT)
 import qualified Data.List.NonEmpty       as NE
@@ -21,7 +25,7 @@ import           Ether.Internal           (HasLens (..))
 import           System.Wlog              (logDebug)
 
 import           Pos.Block.Core           (Block)
-import           Pos.Block.Logic.Internal (BlockApplyMode, BlockVerifyMode,
+import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe,
                                            toTxpBlock, toUpdateBlock)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
@@ -29,14 +33,13 @@ import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
-import qualified Pos.DB.GState            as GS
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
-import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShotNoLock)
+import qualified Pos.GState               as GS
+import           Pos.Lrc.Worker           (LrcModeFullNoSemaphore, lrcSingleShotNoLock)
 import           Pos.Reporting            (reportingFatal)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
-import qualified Pos.Update.DB            as UDB
 import           Pos.Update.Logic         (usVerifyBlocks)
 import           Pos.Update.Poll          (PollModifier)
 import           Pos.Util                 (neZipWith4, spanSafe, _neHead)
@@ -54,7 +57,7 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..
 -- header, body, extra data, etc.
 verifyBlocksPrefix
     :: forall ssc ctx m.
-       BlockVerifyMode ssc ctx m
+       MonadBlockVerify ssc ctx m
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
@@ -65,7 +68,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         throwError "the first block isn't based on the tip"
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.
-    adoptedBV <- UDB.getAdoptedBV
+    adoptedBV <- GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     -- And then we run verification of each component.
     slogUndos <- slogVerifyBlocks blocks
@@ -87,7 +90,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
          , pModifier)
 
 -- | Union of constraints required by block processing and LRC.
-type BlockLrcMode ssc ctx m = (BlockApplyMode ssc ctx m, LrcModeFull ssc ctx m)
+type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore ssc ctx m)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -98,18 +101,9 @@ type BlockLrcMode ssc ctx m = (BlockApplyMode ssc ctx m, LrcModeFull ssc ctx m)
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: (BlockLrcMode ssc ctx m)
-    => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
-verifyAndApplyBlocks rollback =
-    reportingFatal . verifyAndApplyBlocksInternal True rollback
-
--- See the description for verifyAndApplyBlocks. This method also
--- parameterizes LRC calculation which can be turned on/off with the first
--- flag.
-verifyAndApplyBlocksInternal
     :: forall ssc ctx m. (BlockLrcMode ssc ctx m)
-    => Bool -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
-verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
+    => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
+verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwError $
@@ -143,9 +137,6 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         logDebug "verifyAndapply failed, rolling back"
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
-    -- Calculates LRC if it's needed (no lock)
-    calculateLrc epochIx =
-        when lrc $ lrcSingleShotNoLock epochIx
     -- This function tries to apply a new portion of blocks (prefix
     -- and suffix). It also has aggregating parameter blunds which is
     -- collected to rollback blocks if correspondent flag is on. First
@@ -159,13 +150,14 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
         logDebug "Rolling: Calculating LRC if needed"
-        when (isLeft prefixHead) $ lift $ calculateLrc (prefixHead ^. epochIndexL)
+        when (isLeft prefixHead) $
+            lift $ lrcSingleShotNoLock (prefixHead ^. epochIndexL)
         logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
                 | otherwise -> do
-                      lift $ logDebug "Rolling: Applying AMAP"
+                      logDebug "Rolling: Applying AMAP"
                       applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (null blunds)
@@ -177,7 +169,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
                 case getOldestFirst suffix of
                     [] -> GS.getTip
                     (genesis:xs) -> do
-                        lift $ logDebug "Rolling: Applying done, next portion"
+                        logDebug "Rolling: Applying done, next portion"
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
 
@@ -230,22 +222,26 @@ applyWithRollback
     -> m (Either Text HeaderHash)
 applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
-    when (tip /= newestToRollback) $ do
-        throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
+    when (tip /= newestToRollback) $
+        throwError $ tipMismatchMsg "applyWithRollback/rollback"
+                         tip newestToRollback
     lift $ rollbackBlocksUnsafe toRollback
-    tipAfterRollback <- GS.getTip
-    when (tipAfterRollback /= expectedTipApply) $ do
-        applyBack
-        throwError (tipMismatchMsg "apply in 'apply with rollback'" tip newestToRollback)
-    lift (verifyAndApplyBlocks True toApply) >>= \case
-        -- We didn't succeed to apply blocks, so will apply
-        -- rollbacked back.
-        Left err -> do
-            applyBack
-            throwError err
-        Right tipHash  -> pure tipHash
+    ExceptT $ bracketOnError (pure ()) (\_ -> applyBack) $ \_ -> do
+        tipAfterRollback <- GS.getTip
+        if tipAfterRollback /= expectedTipApply
+            then onBadRollback tip
+            else onGoodRollback
   where
     reApply = toOldestFirst toRollback
-    applyBack = lift $ applyBlocks True Nothing reApply
+    applyBack = applyBlocks False Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
+
+    onBadRollback tip =
+        applyBack $> Left (tipMismatchMsg "applyWithRollback/apply"
+                               tip newestToRollback)
+
+    onGoodRollback =
+        verifyAndApplyBlocks True toApply >>= \case
+            Left err      -> applyBack $> Left err
+            Right tipHash -> pure (Right tipHash)

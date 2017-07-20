@@ -62,14 +62,14 @@ import           Pos.Aeson.WalletBackup           ()
 import           Pos.Binary.Class                 (biSize)
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util              (createMTx, TxError (..))
+import           Pos.Client.Txp.Util              (TxError (..), createMTx)
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Context                      (GenesisUtxo, genesisStakeholdersM)
-import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..), TxSizeLinear (..),
-                                                   addressF, bvdTxFeePolicy,
-                                                   calculateTxSizeLinear,
+import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
+                                                   TxSizeLinear (..), addressF,
+                                                   bvdTxFeePolicy, calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, integerToCoin,
                                                    makeRedeemAddress, mkCoin, siEpoch,
@@ -92,7 +92,8 @@ import           Pos.Reporting.MemState           (HasReportServers (..),
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Slotting                     (MonadSlots (..))
 import           Pos.Txp                          (TxFee (..))
-import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..), TxOutDistribution)
+import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..),
+                                                   TxOutDistribution)
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
@@ -142,8 +143,7 @@ import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing),
-                                                   CustomAddressType (ChangeAddr, UsedAddr),
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
                                                    addOnlyNewTxMeta, addUpdate,
                                                    addWAddress, closeState, createAccount,
                                                    createWallet, getAccountMeta,
@@ -179,10 +179,13 @@ makeLenses ''SyncProgress
 walletServeImpl
     :: WalletWebMode m
     => m Application     -- ^ Application getter
-    -> Word16                             -- ^ Port to listen
+    -> Word16            -- ^ Port to listen
+    -> FilePath          -- ^ TLS Certificate path
+    -> FilePath          -- ^ TLS Key file
+    -> FilePath          -- ^ TLS ca file
     -> m ()
-walletServeImpl app port =
-    serveImpl app "127.0.0.1" port
+walletServeImpl app =
+    serveImpl app "127.0.0.1"
 
 walletApplication
     :: WalletWebMode m
@@ -614,7 +617,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
             -- TODO: this should be removed in production
             let txHash    = hash tx
                 srcWallet = getMoneySourceWallet moneySource
-            ts <- Just <$> liftIO getCurrentTimestamp
+            ts <- Just <$> getCurrentTimestamp
             ctxs <- addHistoryTx srcWallet $
                 THEntry txHash tx inpTxOuts Nothing (toList srcAddrs) dstAddrs ts
             ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
@@ -1139,7 +1142,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         submitRedemptionTx sendActions redeemSK (toList na) dstAddr
     -- add redemption transaction to the history of new wallet
     let txInputs = [TxOut redeemAddress redeemBalance]
-    ts <- Just <$> liftIO getCurrentTimestamp
+    ts <- Just <$> getCurrentTimestamp
     ctxs <- addHistoryTx (aiWId accId) $
         THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts
     ctsIncoming ctxs `whenNothing` throwM noIncomingTx
@@ -1247,25 +1250,35 @@ testResetAll = deleteAllKeys >> testReset
 -- JSON backup methods
 ----------------------------------------------------------------------------
 
-restoreWalletFromBackup :: WalletWebMode m => WalletBackup -> m CWallet
+restoreWalletFromBackup :: WalletWebMode m => WalletBackup -> m (Maybe CWallet)
 restoreWalletFromBackup WalletBackup {..} = do
     let wId = encToCId wbSecretKey
-        (WalletMetaBackup wMeta) = wbMeta
-        accList = HM.toList wbAccounts
-                  & each . _2 %~ \(AccountMetaBackup am) -> am
+    wExists <- isJust <$> getWalletMeta wId
 
-    addSecretKey wbSecretKey
-    for_ accList $ \(idx, meta) -> do
-        let aIdx = fromInteger $ fromIntegral idx
-            seedGen = DeterminedSeed aIdx
-        accId <- genUniqueAccountId seedGen wId
-        createAccount accId meta
-    void $ syncWalletOnImport wbSecretKey
-    createWalletSafe wId wMeta
+    if wExists
+        then do
+            logWarning $
+                sformat ("Wallet with id "%build%" already exists") wId
+            pure Nothing
+        else do
+            let (WalletMetaBackup wMeta) = wbMeta
+                accList = HM.toList wbAccounts
+                          & each . _2 %~ \(AccountMetaBackup am) -> am
+
+            addSecretKey wbSecretKey
+            for_ accList $ \(idx, meta) -> do
+                let aIdx = fromInteger $ fromIntegral idx
+                    seedGen = DeterminedSeed aIdx
+                accId <- genUniqueAccountId seedGen wId
+                createAccount accId meta
+            void $ createWalletSafe wId wMeta
+            void $ syncWalletOnImport wbSecretKey
+            -- Get wallet again to return correct balance and stuff
+            Just <$> getWallet wId
 
 restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]
 restoreStateFromBackup (FullStateBackup walletBackups) =
-    forM walletBackups restoreWalletFromBackup
+    catMaybes <$> forM walletBackups restoreWalletFromBackup
 
 importStateJSON :: WalletWebMode m => Text -> m [CWallet]
 importStateJSON (toString -> fp) = do

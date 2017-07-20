@@ -33,14 +33,15 @@ import           Control.Lens                (at, uses, (%=), (+=), (-=), (.=))
 import qualified Data.Cache.LRU              as LRU
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import           Data.Time.Clock             (getCurrentTime)
 import           Ether.Internal              (HasLens (..))
+import           Mockable                    (CurrentTime, Mockable, currentTime)
 
 import           Pos.Binary.Class            (biSize)
 import           Pos.Binary.Communication    ()
 import           Pos.Constants               (memPoolLimitRatio)
 import           Pos.Context                 (lrcActionOnEpochReason)
-import           Pos.Core                    (HasPrimaryKey (..), addressHash,
+import           Pos.Core                    (HasPrimaryKey (..), ProxySKHeavy,
+                                              ProxySKLight, ProxySigLight, addressHash,
                                               bvdMaxBlockSize, epochIndexL)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
@@ -50,7 +51,6 @@ import           Pos.DB                      (MonadDB, MonadDBRead, MonadGState,
 import qualified Pos.DB                      as DB
 import           Pos.DB.Block                (MonadBlockDB)
 import qualified Pos.DB.DB                   as DB
-import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Misc                 as Misc
 import           Pos.Delegation.Cede         (detectCycleOnAddition, evalMapCede,
                                               pskToDlgEdgeAction)
@@ -62,10 +62,10 @@ import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction,
                                               runDelegationStateAction)
 import           Pos.Delegation.Types        (DlgPayload, DlgUndo, mkDlgPayload)
+import qualified Pos.GState                  as GS
 import           Pos.Lrc.Context             (LrcContext)
 import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Types                   (ProxySKHeavy, ProxySKLight, ProxySigLight)
-import           Pos.Util                    (leftToPanic)
+import           Pos.Util                    (leftToPanic, microsecondsToUTC)
 import qualified Pos.Util.Concurrent.RWLock  as RWL
 import qualified Pos.Util.Concurrent.RWVar   as RWV
 
@@ -135,6 +135,7 @@ data PskHeavyVerdict
     | PHCached       -- ^ Message is cached
     | PHIncoherent   -- ^ Verdict can't be made at the moment (we're updating)
     | PHExhausted    -- ^ Memory pool is exhausted and can't accept more data
+    | PHRemoved      -- ^ Revoked previous psk from the mempool
     | PHAdded        -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
@@ -151,10 +152,11 @@ processProxySKHeavy
        , MonadDelegation ctx m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
+       , Mockable CurrentTime m
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
-    curTime <- liftIO getCurrentTime
+    curTime <- microsecondsToUTC <$> currentTime
     headEpoch <- view epochIndexL <$> DB.getTipHeader @ssc
     richmen <-
         toList <$>
@@ -172,12 +174,14 @@ processProxySKHeavy psk = do
         omegaCorrect = headEpoch == pskOmega psk
     runDelegationStateAction $ do
         memPoolSize <- use dwPoolSize
-        exists <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
+        posted <- uses dwProxySKPool (\m -> isJust $ HM.lookup iPk m)
+        existsSame <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member iPk
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
-        let rerevoke = isRevokePsk psk && not hasPskInDB
+        let isRevoke = isRevokePsk psk
+        let rerevoke = isRevoke && not hasPskInDB
         producesCycle <- use dwProxySKPool >>= \pool ->
             -- This is inefficient. Consider supporting this map
             -- in-memory or changing mempool key to stakeholderId.
@@ -201,10 +205,12 @@ processProxySKHeavy psk = do
                          PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
                      | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
                      | cached -> PHCached
-                     | exists -> PHExists
+                     | existsSame -> PHExists
                      | exhausted -> PHExhausted
+                     | posted && isRevoke -> PHRemoved
                      | otherwise -> PHAdded
         when (res == PHAdded) $ putToDlgMemPool iPk psk
+        when (res == PHRemoved) $ deleteFromDlgMemPool iPk
         pure res
 
 ----------------------------------------------------------------------------
@@ -234,14 +240,15 @@ processProxySKLight ::
        , MonadDB m
        , MonadMask m
        , MonadRealDB ctx m
+       , Mockable CurrentTime m
        )
     => ProxySKLight
     -> m PskLightVerdict
 processProxySKLight psk = do
     sk <- view primaryKey
-    curTime <- liftIO getCurrentTime
+    curTime <- microsecondsToUTC <$> currentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
-    psks <- RWL.withRead miscLock Misc.getProxySecretKeys
+    psks <- RWL.withRead miscLock Misc.getProxySecretKeysLight
     res <- runDelegationStateAction $ do
         let pk = toPublic sk
             related = pk == pskDelegatePk psk || pk == pskIssuerPk psk
@@ -278,10 +285,10 @@ data ConfirmPskLightVerdict
 -- | Takes a lightweight psk, delegate proof of delivery. Checks if
 -- it's valid or not. Caches message in any case.
 processConfirmProxySk
-    :: (MonadDelegation ctx m, MonadIO m, MonadMask m)
+    :: (MonadDelegation ctx m, MonadIO m, MonadMask m, Mockable CurrentTime m)
     => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskLightVerdict
 processConfirmProxySk psk proof = do
-    curTime <- liftIO getCurrentTime
+    curTime <- microsecondsToUTC <$> currentTime
     runDelegationStateAction $ do
         let valid = proxyVerify SignProxySK proof (const True) psk
         cached <- isJust . snd . LRU.lookup psk <$> use dwConfirmationCache

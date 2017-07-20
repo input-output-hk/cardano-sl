@@ -41,6 +41,7 @@ library
                         Pos.Block.Network
                         Pos.Block.Pure
                         Pos.Block.RetrievalQueue
+                        Pos.Block.Slog
                         Pos.Block.Types
                         Pos.CLI
                         Pos.Context
@@ -50,12 +51,19 @@ library
 
                         Pos.DB.DB
                         Pos.DB.Block
-                        Pos.DB.GState
 
                         Pos.Delegation
 
+                        -- Arbitrary data generation
+                        Pos.Generator
+                        Pos.Generator.Block
+                        Pos.Generator.BlockEvent
+
                         -- Genesis data
                         Pos.Genesis
+
+                        -- GState
+                        Pos.GState
 
                         -- LRC
                         Pos.Lrc
@@ -161,7 +169,6 @@ library
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
-                        Pos.Block.Slog
                         Pos.Block.Slog.Context
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
@@ -177,6 +184,9 @@ library
 
                         -- Crypto
                         Pos.Crypto.HDDiscovery
+
+                        -- DB
+                        Pos.DB.Misc
 
                         -- Heavy delegation
                         Pos.Delegation.Arbitrary
@@ -197,6 +207,17 @@ library
                         Pos.Delegation.Types
                         Pos.Delegation.Worker
 
+                        -- Arbitrary data generation
+                        Pos.Generator.Block.Error
+                        Pos.Generator.Block.Logic
+                        Pos.Generator.Block.Mode
+                        Pos.Generator.Block.Param
+
+                        -- GState
+                        Pos.GState.BlockExtra
+                        Pos.GState.Context
+                        Pos.GState.GState
+
                         -- Launcher
                         Pos.Launcher.Launcher
                         Pos.Launcher.Mode
@@ -213,11 +234,6 @@ library
                         Pos.Communication.Server
                         Pos.Communication.Limits
                         Pos.Communication.Update
-
-                        -- DB
-                        Pos.DB.GState.BlockExtra
-                        Pos.DB.GState.GState
-                        Pos.DB.Misc
 
                         -- LRC
                         Pos.Lrc.Consumers
@@ -414,6 +430,7 @@ library
                       , wai
                       , wai-extra
                       , warp
+                      , warp-tls
                       , websockets
                       , wai-websockets
   hs-source-dirs:       src
@@ -550,7 +567,9 @@ test-suite cardano-test
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Block.Logic.CreationSpec
+                       Test.Pos.Block.Logic.Emulation
                        Test.Pos.Block.Logic.Mode
+                       Test.Pos.Block.Logic.Util
                        Test.Pos.Block.Logic.VarSpec
 
                        -- Everything else
@@ -612,7 +631,9 @@ test-suite cardano-test
                      , lens
                      , log-warper
                      , memory
+                     , monad-control
                      , mtl
+                     , mmorph
                      , node-sketch
                      , pvss
                      , quickcheck-instances
@@ -627,6 +648,7 @@ test-suite cardano-test
                      , temporary
                      , text-format
                      , time-units
+                     , transformers-base
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector

@@ -6,7 +6,7 @@
 --   * Slots of the last 'blkSecurityParam' (at most) blocks
 --     (for chain quality check).
 
-module Pos.DB.GState.BlockExtra
+module Pos.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
        , getLastSlots

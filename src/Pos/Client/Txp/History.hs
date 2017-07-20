@@ -53,8 +53,9 @@ import           Pos.Core                     (Address, ChainDifficulty, HeaderH
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
-import qualified Pos.DB.GState                as GS
-import           Pos.Slotting                 (MonadSlots, getSlotStartPure)
+import qualified Pos.GState                   as GS
+import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
+                                               getSystemStart)
 import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
@@ -235,12 +236,13 @@ getBlockHistoryDefault
 getBlockHistoryDefault addrs = do
     bot <- GS.getBot
     sd <- GS.getSlottingData
+    systemStart <- getSystemStart
 
     let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
         fromBlund = pure . fst
 
         getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
-        getBlockTimestamp blk = getSlotStartPure True (blk ^. mainBlockSlot) sd
+        getBlockTimestamp blk = getSlotStartPure systemStart True (blk ^. mainBlockSlot) sd
 
         blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (DList TxHistoryEntry)
         blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
@@ -256,7 +258,7 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
             (WithHash taTx txid, taWitness, taDistribution)
         topsortErr = TxpInternalError
             "getLocalHistory: transactions couldn't be topsorted!"
-    ltxs <- map mapper <$> getLocalTxs
+    ltxs <- lift $ map mapper <$> getLocalTxs
     txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
            maybeThrow topsortErr (topsortTxs (view _1) ltxs)
     return $ DL.fromList txs

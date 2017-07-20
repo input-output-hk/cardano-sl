@@ -27,7 +27,6 @@
   },
   "dependencies": {
     "purescript-console": "^2.0.0",
-    "purescript-affjax": "https://github.com/serokell/purescript-affjax.git#fix-empty-response-3.0.2",
     "purescript-eff-functions": "^2.0.0",
     "purescript-eff": "^2.0.0",
     "purescript-argonaut": "^2.0.0",
@@ -43,6 +42,12 @@
     "purescript-b64": "^0.0.2",
     "purescript-base58": "https://github.com/input-output-hk/purescript-base58.git",
     "purescript-arraybuffer-types": "^0.2.0",
+    "purescript-node-http": "3.0.1",
+    "purescript-options": "v2.0.0",
+    "purescript-node-fs": "v3.0.0",
+    "purescript-node-buffer": "v2.0.0",
+    "purescript-http-methods": "v2.0.0",
+    "purescript-maps": "v2.0.0",
     "purescript-int-53": "^2.1.1",
     "purescript-foreign": "^3.2.0",
     "purescript-form-urlencoded": "^2.0.0"

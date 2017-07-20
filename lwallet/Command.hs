@@ -3,6 +3,7 @@
 module Command
        ( Command (..)
        , ProposeUpdateSystem (..)
+       , SendMode (..)
        , parseCommand
        ) where
 
@@ -27,10 +28,17 @@ import           Pos.Types                  (Address (..), BlockVersion, Coin, E
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
 
+-- | Specify how transactions are sent to the network during benchmarks using 'SendToAllGenesis'.
+data SendMode =
+      SendNeighbours -- ^ Send each transaction to every specified neighbour
+    | SendRoundRobin -- ^ Send transactions to neighbours in a round-robin fashion
+    | SendRandom     -- ^ Send each transaction to a randomly picked neighbour
+    deriving Show
+
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
-    | SendToAllGenesis Coin Int
+    | SendToAllGenesis !Int !Int !Int !Int !SendMode !FilePath
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -122,8 +130,13 @@ addKeyFromFile = AddKeyFromFile <$> lexeme (many1 anyChar)
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
 
+sendMode :: Parser SendMode
+sendMode = lexeme $ text "neighbours" $> SendNeighbours
+                <|> text "round-robin" $> SendRoundRobin
+                <|> text "send-random" $> SendRandom
+
 sendToAllGenesis :: Parser Command
-sendToAllGenesis = SendToAllGenesis <$> coin <*> num
+sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash

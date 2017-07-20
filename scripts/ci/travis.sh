@@ -31,9 +31,6 @@ if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
   export EXTRA_STACK="--flag cardano-sl-tools:for-installer $EXTRA_STACK"
 fi
 
-stack --nix --no-terminal install happy \
-  $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
-
 # We need to pass CONFIG=wallet to compile cardano-sl-core, but Stack doesn't
 # support passing arguments to Haddock yet (this will be fixed in the next
 # release after 1.4.0). For now, a workaround is to manually replace CONFIG
@@ -48,6 +45,15 @@ fi
 
 targets="cardano-sl cardano-sl-lwallet cardano-sl-tools"
 
+# TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times
+# become smaller and allow coverage report to be built.
+#projects="core db lrc infra update ssc godtossing txp"
+#to_build=''
+
+#for prj in $projects; do
+#  to_build="$to_build cardano-sl-$prj"
+#done
+
 for trgt in $targets; do
 
     stack --nix --no-terminal --local-bin-path daedalus/ install "$trgt" \
@@ -55,6 +61,12 @@ for trgt in $targets; do
       --ghc-options="-j -DCONFIG=$DCONFIG +RTS -A128m -n2m -RTS" \
       --flag cardano-sl-core:-asserts \
       --flag cardano-sl-core:-dev-mode
+#    TODO: CSL-1133
+#    if [[ "$trgt" == "cardano-sl" ]]; then
+#      stack test --nix --fast --jobs=2 --coverage \
+#      --ghc-options="-j -DCONFIG=$DCONFIG +RTS -A128m -n2m -RTS";
+#      stack --nix hpc report $to_build
+#    fi
 
 done
 

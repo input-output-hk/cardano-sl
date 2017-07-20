@@ -24,7 +24,6 @@ import           Control.Lens                       ((+=), (.=))
 import           Control.Monad.Except               (MonadError (throwError), runExceptT)
 import qualified Data.HashMap.Strict                as HM
 import           Formatting                         (int, sformat, (%))
-import           Serokell.Data.Memory.Units         (Byte)
 import           Serokell.Util                      (magnify')
 import           System.Wlog                        (WithLogger, logWarning)
 
@@ -56,8 +55,8 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT
                                                      hasCommitmentToss, hasOpeningToss,
                                                      hasSharesToss, isGoodSlotForTag,
                                                      normalizeToss, refreshToss,
-                                                     tmCertificates, tmCommitments,
-                                                     tmOpenings, tmShares,
+                                                     supplyPureTossEnv, tmCertificates,
+                                                     tmCommitments, tmOpenings, tmShares,
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
@@ -96,15 +95,15 @@ getLocalPayload SlotId {..} = do
         | isExpected = view tmCertificates
         | otherwise = pure mempty
 
-normalize :: EpochIndex
-          -> RichmenStake
+normalize :: (EpochIndex, RichmenStake)
+          -> BlockVersionData
           -> GtGlobalState
           -> LocalUpdate SscGodTossing ()
-normalize epoch richmen gs = do
+normalize (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
-    let richmenData = HM.fromList [(epoch, richmen)]
+    let multiRichmen = HM.fromList [(epoch, stake)]
     newModifier <-
-        evalPureTossWithLogger richmenData gs $
+        evalPureTossWithLogger gs $ supplyPureTossEnv (multiRichmen, bvd) $
         execTossT mempty $ normalizeToss epoch oldModifier
     ldModifier .= newModifier
     ldEpoch .= epoch
@@ -147,8 +146,7 @@ sscIsDataUseful tag id =
         gs <- sscRunGlobalQuery ask
         ld <- sscRunLocalQuery ask
         let modifier = ld ^. ldModifier
-        -- Richmen are irrelevant here.
-        evalPureTossWithLogger mempty gs $ evalTossT modifier action
+        evalPureTossWithLogger gs $ evalTossT modifier action
 
 ----------------------------------------------------------------------------
 ---- Data processing
@@ -208,7 +206,7 @@ sscProcessData tag payload =
     generalizeExceptT $ do
         getCurrentSlot >>= checkSlot
         ld <- sscRunLocalQuery ask
-        maxBlockSize <- bvdMaxBlockSize <$> gsAdoptedBVData
+        bvd <- gsAdoptedBVData
         let epoch = ld ^. ldEpoch
         getRichmenSsc epoch >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
@@ -216,7 +214,7 @@ sscProcessData tag payload =
                 gs <- sscRunGlobalQuery ask
                 ExceptT $
                     sscRunLocalSTM $
-                    sscProcessDataDo (epoch, richmen) maxBlockSize gs payload
+                    sscProcessDataDo (epoch, richmen) bvd gs payload
   where
     generalizeExceptT action = either throwError pure =<< runExceptT action
     checkSlot Nothing = throwError CurrentSlotUnknown
@@ -230,30 +228,32 @@ sscProcessData tag payload =
 sscProcessDataDo
     :: (MonadState GtLocalData m, WithLogger m)
     => (EpochIndex, RichmenStake)
-    -> Byte
+    -> BlockVersionData
     -> GtGlobalState
     -> GtPayload
     -> m (Either TossVerFailure ())
-sscProcessDataDo richmenData maxBlockSize gs payload =
+sscProcessDataDo richmenData bvd gs payload =
     runExceptT $ do
         storedEpoch <- use ldEpoch
         let givenEpoch = fst richmenData
         let multiRichmen = HM.fromList [richmenData]
         unless (storedEpoch == givenEpoch) $
             throwError $ DifferentEpoches storedEpoch givenEpoch
-        let maxMemPoolSize = maxBlockSize * memPoolLimitRatio
+        let maxMemPoolSize = bvdMaxBlockSize bvd * memPoolLimitRatio
         curSize <- use ldSize
         let exhausted = curSize >= maxMemPoolSize
         -- If our mempool is exhausted we drop some data from it.
         oldTM <-
             if | not exhausted -> use ldModifier
                | otherwise ->
-                   evalPureTossWithLogger multiRichmen gs .
+                   evalPureTossWithLogger gs .
+                   supplyPureTossEnv (multiRichmen, bvd) .
                    execTossT mempty . refreshToss givenEpoch =<<
                    use ldModifier
         newTM <-
             ExceptT $
-            evalPureTossWithLogger multiRichmen gs $
+            evalPureTossWithLogger gs $
+            supplyPureTossEnv (multiRichmen, bvd) $
             runExceptT $
             execTossT oldTM $ verifyAndApplyGtPayload (Left storedEpoch) payload
         ldModifier .= newTM

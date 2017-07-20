@@ -24,9 +24,7 @@ import           Pos.Core                   (HeaderHash, difficultyL, headerHash
                                              headerSlotL, prevBlockL)
 import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.DB.Class               (MonadDBRead)
-import qualified Pos.DB.GState              as GS
-import           Pos.DB.Rocks               (MonadRealDB)
-import           Pos.Slotting               (SlottingData, getSlotStartPure)
+import           Pos.Slotting               (MonadSlotsData (..), getSlotStartPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBToil)
@@ -46,7 +44,7 @@ onApplyTracking
     ( SscHelpersClass ssc
     , AccountMode ctx m
     , WithLogger m
-    , MonadRealDB ctx m
+    , MonadSlotsData m
     , MonadDBRead m
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
@@ -55,17 +53,18 @@ onApplyTracking blunds = do
     let oldestFirst = getOldestFirst blunds
         txs = concatMap (gbTxs . fst) oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
-    sd <- GS.getSlottingData
-    mapM_ (syncWalletSet sd newTipH txs) =<< WS.getWalletAddresses
+    mapM_ (syncWalletSet newTipH txs) =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWalletSet :: SlottingData -> BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
-    syncWalletSet sd newTipH txs wAddr = do
+    syncWalletSet :: BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
+    syncWalletSet newTipH txs wAddr = do
+        systemStart <- getSystemStart
+        sd <- getSlottingData
         let mainBlkHeaderTs mBlkH =
-                getSlotStartPure True (mBlkH ^. headerSlotL) sd
+                getSlotStartPure systemStart True (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         allAddresses <- getWalletAddrMetasDB WS.Ever wAddr

@@ -40,7 +40,7 @@ dev: &dev
   neighboursSendThreshold: 2
   networkDiameter: 3
   networkConnectionTimeout: 2000
-  networkReceiveTimeout: 5000
+  networkWaitLogInterval: 1 # 1s
 
   ## P2P Security
   mdNoBlocksSlotThreshold: 3 # should be less than 2 * k
@@ -146,8 +146,7 @@ testnet: &testnet
 
   protocolMagic: 60987800
 
-  networkReceiveTimeout: 300000 # 5 mins
-  #  ^ This timeout shouldn't be triggered at all, it's some precaution for bug somewhere in networking 
+  networkWaitLogInterval: 32 # 32s
   recoveryHeadersMessage: 2200
 
   genesisBinSuffix: tn
@@ -155,6 +154,7 @@ testnet: &testnet
 testnet_staging: &testnet_staging
   <<: *testnet
   protocolMagic: 60987900
+  genesisBinSuffix: tns
 
 qanet_tns: &qanet_tns
   <<: *testnet_staging
@@ -162,7 +162,10 @@ qanet_tns: &qanet_tns
   protocolMagic: 50987900
   genesisBinSuffix: qa
 
-  genesisBinSuffix: tns
+travis: &travis
+  <<: *qanet_tns
+
+  k: 3  # it's needed for tests
 
 ##############################################################################
 ##                                                                          ##
@@ -184,4 +187,8 @@ qanet_tns_wallet: &qanet_tns_wallet
 
 qanet_upd_wallet: &qanet_upd_wallet
   <<: *qanet_upd
+  applicationName: csl-daedalus
+
+travis_wallet: &travis_wallet
+  <<: *travis
   applicationName: csl-daedalus

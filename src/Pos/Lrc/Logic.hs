@@ -12,18 +12,16 @@ module Pos.Lrc.Logic
 
 import           Universum
 
-import           Data.Conduit           (Sink, runConduitPure, runConduitRes, (.|))
-import qualified Data.Conduit.List      as CL
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.HashSet           as HS
+import           Data.Conduit        (Sink, runConduitPure, runConduitRes, (.|))
+import qualified Data.Conduit.List   as CL
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
 
-import           Pos.Core               (Coin, StakeholderId, sumCoins,
-                                         unsafeIntegerToCoin)
-import           Pos.DB.Class           (MonadDBRead, MonadGState)
-import           Pos.DB.GState          (getDelegators, isIssuerByAddressHash)
-import           Pos.DB.GState.Balances (getRealStake)
-import           Pos.Lrc.Core           (findDelegationStakes, findRichmenStake)
-import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
+import           Pos.Core            (Coin, StakeholderId, sumCoins, unsafeIntegerToCoin)
+import           Pos.DB.Class        (MonadDBRead, MonadGState)
+import           Pos.GState          (getDelegators, getRealStake, isIssuerByAddressHash)
+import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
+import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
 
 type MonadDBReadFull m = (MonadDBRead m, MonadGState m)
 

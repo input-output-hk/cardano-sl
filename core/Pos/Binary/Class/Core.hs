@@ -18,28 +18,33 @@ module Pos.Binary.Class.Core
     , D.decodeListLenOf
     , E.Encoding
     , D.Decoder
+    , CBOR.Read.deserialiseIncremental
+    , CBOR.Write.toLazyByteString
+    , CBOR.Read.IDecode(..)
     -- * GHC-Generics-based encoding & decoding
     , genericEncode
     , genericDecode
     ) where
 
-import qualified Codec.CBOR.Decoding         as D
-import qualified Codec.CBOR.Encoding         as E
-import qualified GHC.Generics                as G
-import qualified Data.Binary                 as Binary
-import qualified Data.ByteString             as BS
-import qualified Data.ByteString.Lazy        as BS.Lazy
-import           Data.Fixed                  (Fixed(..), Nano)
-import qualified Data.HashMap.Strict         as HM
-import qualified Data.HashSet                as HS
-import qualified Data.Map                    as M
-import qualified Data.Set                    as S
-import           Data.Tagged                 (Tagged(..))
-import qualified Data.Text                   as Text
-import           Data.Time.Units             (Microsecond, Millisecond)
-import qualified Data.Vector                 as Vector
-import qualified Data.Vector.Generic         as Vector.Generic
-import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
+import qualified Codec.CBOR.Decoding        as D
+import qualified Codec.CBOR.Encoding        as E
+import qualified Codec.CBOR.Read            as CBOR.Read
+import qualified Codec.CBOR.Write           as CBOR.Write
+import qualified Data.Binary                as Binary
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Lazy       as BS.Lazy
+import           Data.Fixed                 (Fixed (..), Nano)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashSet               as HS
+import qualified Data.Map                   as M
+import qualified Data.Set                   as S
+import           Data.Tagged                (Tagged (..))
+import qualified Data.Text                  as Text
+import           Data.Time.Units            (Microsecond, Millisecond)
+import qualified Data.Vector                as Vector
+import qualified Data.Vector.Generic        as Vector.Generic
+import qualified GHC.Generics               as G
+import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           Universum
 
 encodeBinary :: Binary.Binary a => a -> E.Encoding

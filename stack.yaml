@@ -53,7 +53,7 @@ packages:
 - location:
     # Temp Alex's patch on the new Decoder
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 84b00d324fd946a72248e92e72ffa34e3772e4b9 # master
+    commit: 7bb7c3e254235574e5deebd77a98a4093bfaf067 # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:

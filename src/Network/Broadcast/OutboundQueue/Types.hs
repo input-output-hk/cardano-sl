@@ -37,7 +37,7 @@ data EnqueueTo nid =
 
     -- | Enqueue to a specific set of peers. This must be a subset of the
     -- known peers.
-  | EnqueueToParticular (Set nid)
+  | EnqueueToSubset (Set nid)
 
 -- Requirement: efficient subset on Peers.
 
@@ -175,7 +175,7 @@ msgOrigin msg = case msg of
 
 msgEnqueueTo :: MsgType nid -> EnqueueTo nid
 msgEnqueueTo msg = case msg of
-  MsgRequestBlock peers -> EnqueueToParticular peers
+  MsgRequestBlock peers -> EnqueueToSubset peers
   _ -> EnqueueToAll
 
 -- | Node types

@@ -835,7 +835,7 @@ intEnqueueTo outQ@OutQ{..} msgType msg enqTo = do
   where
     restriction = case enqTo of
       EnqueueToAll -> id
-      EnqueueToParticular peers' -> restrictPeers peers'
+      EnqueueToSubset peers' -> restrictPeers peers'
 
 waitAsync :: MonadIO m
           => [Packet msg nid a] -> [(nid, m (Either SomeException a))]

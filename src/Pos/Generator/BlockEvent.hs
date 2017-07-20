@@ -154,7 +154,13 @@ data BlockEventGenParams = BlockEventGenParams
     blocks in a BlockApply event. Must be 1 or more. Can be violated by 1 in
     some cases (see Note on reordering corner cases), so if you specify '52'
     here, some rare events may contain up to '53' blocks. -}
-    , _begpBlockEventCount :: !BlockEventCount
+    , _begpBlockEventCount :: !BlockEventCount {- ^ the amount of events to
+    generate excluding the last complete rollback event. There can be less
+    events if we generate an expected failure. For example, if you specify '10'
+    here, you'll either get 11 events (the last is a complete rollback) or
+    some amount of events from 1 to 10 (the last is an expected failure).
+    If you set the failure chance to '0', you'll always get the requested
+    amount of events. -}
     , _begpRollbackChance  :: !Chance
     , _begpFailureChance   :: !Chance
     }
@@ -210,7 +216,7 @@ data GenBlockEventState
     | GbesBlockchain (OldestFirst NE BlockIndex)
     | GbesExpectedFailure
 
--- | A worker for 'genBlockEvents' that generates event with block indices
+-- | A version of 'genBlockEvents' that generates event with block indices
 -- instead of actual blocks.
 genBlockEvents' ::
        (Monad m, RandomGen g)
@@ -462,7 +468,7 @@ nonEmptyOldestFirst ::
     forall a.
        OldestFirst [] a
     -> Maybe (OldestFirst NE a)
-nonEmptyOldestFirst = coerce (NE.nonEmpty @a)
+nonEmptyOldestFirst = coerce (nonEmpty @a)
 
 {- NOTE: Reordering corner cases
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

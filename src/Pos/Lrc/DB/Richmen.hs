@@ -39,10 +39,11 @@ import           Pos.Lrc.Class               (RichmenComponent (..),
                                               someRichmenComponent)
 import           Pos.Lrc.DB.RichmenBase      (getRichmen, getRichmenP, putRichmenP)
 import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
-import           Pos.Lrc.Types               (FullRichmenData, Richmen, toRichmen)
+import           Pos.Lrc.Types               (FullRichmenData, RichmenSet)
 import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
 import           Pos.Txp.Core                (TxOutDistribution)
 import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
+import           Pos.Util.Util               (getKeys)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -88,11 +89,11 @@ components = [ someRichmenComponent @RCSsc
 data RCDlg
 
 instance RichmenComponent RCDlg where
-    type RichmenData RCDlg = Richmen
-    rcToData = toRichmen . snd
+    type RichmenData RCDlg = RichmenSet
+    rcToData = getKeys . snd
     rcTag Proxy = "dlg"
     rcInitialThreshold Proxy = genesisHeavyDelThd
     rcConsiderDelegated Proxy = False
 
-getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe Richmen)
+getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe RichmenSet)
 getRichmenDlg epoch = getRichmen @RCDlg epoch

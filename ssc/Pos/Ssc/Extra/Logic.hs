@@ -44,7 +44,7 @@ import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, Mon
 import           Pos.DB.GState.Common     (getTipHeaderGeneric)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)
-import           Pos.Lrc.Types            (RichmenStake)
+import           Pos.Lrc.Types            (RichmenStakes)
 import           Pos.Slotting.Class       (MonadSlots)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData  (SscLocalDataClass (..))
@@ -312,7 +312,7 @@ sscVerifyBlocks blocks = do
 
 getRichmenFromLrc
     :: (MonadIO m, MonadDBRead m, MonadReader ctx m, HasLens LrcContext ctx LrcContext)
-    => Text -> EpochIndex -> m RichmenStake
+    => Text -> EpochIndex -> m RichmenStakes
 getRichmenFromLrc fname epoch =
     lrcActionOnEpochReason
         epoch

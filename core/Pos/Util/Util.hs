@@ -38,6 +38,12 @@ module Pos.Util.Util
        -- * Lifting monads
        , PowerLift(..)
 
+       -- * MinMax
+       , MinMax(..)
+       , _MinMax
+       , mkMinMax
+       , minMaxOf
+
        -- * Asserts
        , inAssertMode
 
@@ -67,9 +73,9 @@ module Pos.Util.Util
 import           Universum
 import           Unsafe                         (unsafeInit, unsafeLast)
 
-import           Control.Lens                   (ALens', Getter, Getting, LensRules,
-                                                 cloneLens, lensField, lensRules,
-                                                 mappingNamer, to)
+import           Control.Lens                   (ALens', Getter, Getting, Iso', LensRules,
+                                                 cloneLens, coerced, foldMapOf, lensField,
+                                                 lensRules, mappingNamer, to, ( # ))
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
@@ -79,6 +85,7 @@ import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
                                                  transResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
+import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
@@ -95,11 +102,11 @@ import           Mockable                       (ChannelT, Counter, Distribution
                                                  MFunctor' (..), Mockable (..), Promise,
                                                  SharedAtomicT, SharedExclusiveT,
                                                  ThreadId)
-import           Test.QuickCheck.Monadic        (PropertyM (..))
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
+import           Test.QuickCheck.Monadic        (PropertyM (..))
 
 ----------------------------------------------------------------------------
 -- Some
@@ -389,3 +396,17 @@ dumpSplices x = do
 
 postfixLFields :: LensRules
 postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])
+
+-- MinMax
+
+newtype MinMax a = MinMax (Smg.Option (Smg.Min a, Smg.Max a))
+    deriving (Monoid)
+
+_MinMax :: Iso' (MinMax a) (Maybe (a, a))
+_MinMax = coerced
+
+mkMinMax :: a -> MinMax a
+mkMinMax a = _MinMax # Just (a, a)
+
+minMaxOf :: Getting (MinMax a) s a -> s -> Maybe (a, a)
+minMaxOf l = view _MinMax . foldMapOf l mkMinMax

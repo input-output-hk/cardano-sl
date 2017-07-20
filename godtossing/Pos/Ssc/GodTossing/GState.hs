@@ -25,7 +25,7 @@ import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (BlockVersionData, EpochIndex (..),
                                                  SlotId (..), epochIndexL, epochOrSlotG)
 import           Pos.DB                         (MonadDBRead, SomeBatchOp (..))
-import           Pos.Lrc.Types                  (RichmenStake)
+import           Pos.Lrc.Types                  (RichmenStakes)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Class.Types            (SscBlock, getSscBlock)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
@@ -34,7 +34,7 @@ import qualified Pos.Ssc.GodTossing.DB          as DB
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
-import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStake, PureToss,
+import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStakes, PureToss,
                                                  TossVerFailure (..), applyGenesisBlock,
                                                  rollbackGT, runPureTossWithLogger,
                                                  supplyPureTossEnv,
@@ -110,7 +110,7 @@ rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads
                    blocks
 
 verifyAndApply
-    :: RichmenStake
+    :: RichmenStakes
     -> BlockVersionData
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
@@ -122,7 +122,7 @@ verifyAndApply richmenStake bvd blocks =
 
 verifyAndApplyMultiRichmen
     :: Bool
-    -> (MultiRichmenStake, BlockVersionData)
+    -> (MultiRichmenStakes, BlockVersionData)
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
 verifyAndApplyMultiRichmen onlyCerts env =

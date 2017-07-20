@@ -3,7 +3,7 @@
 -- | Logic related to eligibility threshold.
 
 module Pos.Lrc.Logic
-       ( findRichmenStake
+       ( findRichmenStakes
        , findRichmenPure
        , findAllRichmenMaybe
        , findDelegatedRichmen
@@ -20,8 +20,8 @@ import qualified Data.HashSet        as HS
 import           Pos.Core            (Coin, StakeholderId, sumCoins, unsafeIntegerToCoin)
 import           Pos.DB.Class        (MonadDBRead, MonadGState)
 import           Pos.GState          (getDelegators, getRealStake, isIssuerByAddressHash)
-import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
-import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
+import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStakes)
+import           Pos.Lrc.Types       (FullRichmenData, RichmenStakes)
 
 type MonadDBReadFull m = (MonadDBRead m, MonadGState m)
 
@@ -31,7 +31,7 @@ type MonadDBReadFull m = (MonadDBRead m, MonadGState m)
 findDelRichUsingPrecomp
     :: forall m.
        (MonadDBReadFull m)
-    => RichmenStake -> Coin -> m RichmenStake
+    => RichmenStakes -> Coin -> m RichmenStakes
 findDelRichUsingPrecomp precomputed thr = do
     (old, new) <-
         runConduitRes $
@@ -44,9 +44,9 @@ findDelRichUsingPrecomp precomputed thr = do
 -- | Find delegated richmen.
 findDelegatedRichmen
     :: (MonadDBReadFull m)
-    => Coin -> Sink (StakeholderId, Coin) m RichmenStake
+    => Coin -> Sink (StakeholderId, Coin) m RichmenStakes
 findDelegatedRichmen thr = do
-    st <- findRichmenStake thr
+    st <- findRichmenStakes thr
     lift $ findDelRichUsingPrecomp st thr
 
 -- | Function considers all variants of computation
@@ -56,17 +56,17 @@ findAllRichmenMaybe
        (MonadDBReadFull m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
-    -> Sink (StakeholderId, Coin) m (RichmenStake, RichmenStake)
+    -> Sink (StakeholderId, Coin) m (RichmenStakes, RichmenStakes)
 findAllRichmenMaybe maybeT maybeTD
     | Just t <- maybeT
     , Just tD <- maybeTD = do
         let mn = min t tD
-        richmenMin <- findRichmenStake mn
+        richmenMin <- findRichmenStakes mn
         let richmen = HM.filter (>= t) richmenMin
         let precomputedD = HM.filter (>= tD) richmenMin
         richmenD <- lift $ findDelRichUsingPrecomp precomputedD tD
         pure (richmen, richmenD)
-    | Just t <- maybeT = (,mempty) <$> findRichmenStake t
+    | Just t <- maybeT = (,mempty) <$> findRichmenStakes t
     | Just tD <- maybeTD = (mempty,) <$> findDelegatedRichmen tD
     | otherwise = pure (mempty, mempty)
 
@@ -94,6 +94,6 @@ findRichmenPure stakeDistribution thresholdF computeType
     stakeMap = HM.fromList stakeDistribution
     usualRichmen =
         runConduitPure $
-        CL.sourceList stakeDistribution .| findRichmenStake thresholdCoin
+        CL.sourceList stakeDistribution .| findRichmenStakes thresholdCoin
     total = unsafeIntegerToCoin $ sumCoins $ map snd stakeDistribution
     thresholdCoin = thresholdF total

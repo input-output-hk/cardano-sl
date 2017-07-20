@@ -199,6 +199,7 @@ genBlockEvents begp = do
     blocks <- lift $ genBlocks $ BlockGenParams
         { _bgpSecrets    = begp ^. begpSecrets
         , _bgpBlockCount = blockCount
+        , _bgpInplaceDB  = False
         }
     let
         toZeroBased :: BlockIndex -> Int

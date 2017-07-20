@@ -10,6 +10,7 @@
 
 module Pos.Communication.BiP
        ( BiP
+       , bipPacking
        ) where
 
 import           Universum

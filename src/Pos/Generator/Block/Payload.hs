@@ -74,9 +74,10 @@ splitCoins n (fromIntegral . coinToInteger -> c)
     | c < n = error $ "splitCoins: can't split " <> pretty c <>
                       " on " <> show n <> " parts"
     | otherwise = do
-          splitPoints <- sort <$> selectDistinct n (0, c - 1)
+          splitPoints <- sort <$> selectDistinct (n-1) (1, c - 1)
           -- calculate length of intervals
-          let amounts = map (\(a,b) -> b - a + 1) $ (0 : splitPoints) `zip` splitPoints
+          let amounts = map (\(a,b) -> b - a) $
+                            (0 : splitPoints) `zip` (splitPoints ++ [c])
           -- here we can use unsafeIntegerToCoin, because amount of
           -- subcoin is less than 'c' by design.
           pure $ map (unsafeIntegerToCoin . fromIntegral) amounts

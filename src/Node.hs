@@ -487,7 +487,7 @@ recvNext packing limit (LL.ChannelIn channel) = do
             unless (BS.null trailing) (Channel.unGetChannel channel (Just trailing))
             return outcome
   where
-    go remaining decoderStep = case decoderStep of
+    go !remaining decoderStep = case decoderStep of
         -- TODO use the error message in the exception.
         Fail _ _ _ -> throw NoParse
         Done trailing _ thing -> return (trailing, Input thing)
@@ -497,5 +497,5 @@ recvNext packing limit (LL.ChannelIn channel) = do
             case mbs of
                 Nothing -> runDecoder (next Nothing) >>= go remaining
                 Just bs ->
-                    let !remaining' = remaining - BS.length bs
+                    let remaining' = remaining - BS.length bs
                     in  runDecoder (next (Just bs)) >>= go remaining'

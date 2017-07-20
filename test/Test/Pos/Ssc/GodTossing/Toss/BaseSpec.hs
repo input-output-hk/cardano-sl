@@ -14,13 +14,13 @@ import           Pos.Binary            (AsBinary)
 import           Pos.Constants         (genesisBlockVersionData)
 import           Pos.Crypto            (PublicKey, SecretKey, Share,
                                         SignTag (SignCommitment), sign, toPublic)
-import           Pos.Lrc.Arbitrary     (GenesisMpcThd, ValidRichmenStake (..))
-import           Pos.Lrc.Types         (RichmenStake)
+import           Pos.Lrc.Arbitrary     (GenesisMpcThd, ValidRichmenStakes (..))
+import           Pos.Lrc.Types         (RichmenStakes)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
                                         BadSignedCommitment (..), Commitment,
                                         CommitmentOpening (..), CommitmentSignature,
                                         CommitmentsMap (..), GtGlobalState (..),
-                                        InnerSharesMap, MultiRichmenStake, Opening,
+                                        InnerSharesMap, MultiRichmenStakes, Opening,
                                         OpeningsMap, PureTossWithEnv, SharesMap,
                                         SignedCommitment, TossVerFailure (..),
                                         VssCertData (..), VssCertificate (vcSigningKey),
@@ -134,7 +134,7 @@ notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
 emptyPayload
     :: Monoid container
     => (container -> ExceptT e PureTossWithEnv a)
-    -> MultiRichmenStake
+    -> MultiRichmenStakes
     -> GtGlobalState
     -> Bool
 emptyPayload pureToss mrs gtgs =
@@ -147,15 +147,15 @@ emptyPayloadComms :: GoodCommsPayload -> GtGlobalState -> Bool
     -- 'Arbitrary' instance ensures validity.
 emptyPayloadComms GoodPayload {..} =
     let e :: EpochIndex
-        validMrs :: MultiRichmenStake
-        (e, validMrs) = (gpEpoch, gpMultiRichmenStake)
+        validMrs :: MultiRichmenStakes
+        (e, validMrs) = (gpEpoch, gpMultiRichmenStakes)
     in emptyPayload (checkCommitmentsPayload e) validMrs
 
 data GoodPayload p = GoodPayload
-    { gpEpoch             :: !EpochIndex
-    , gpGlobalState       :: !GtGlobalState
-    , gpPayload           :: p
-    , gpMultiRichmenStake :: !MultiRichmenStake
+    { gpEpoch              :: !EpochIndex
+    , gpGlobalState        :: !GtGlobalState
+    , gpPayload            :: p
+    , gpMultiRichmenStakes :: !MultiRichmenStakes
     } deriving (Show, Eq)
 
 type GoodCommsPayload = GoodPayload CommitmentsMap
@@ -167,10 +167,10 @@ instance Arbitrary GoodCommsPayload where
         _gsShares <- arbitrary
 
         -- The epoch used in the tests is generated separately to make sure it exists.
-        (gpEpoch, m) <- arbitrary :: Gen (EpochIndex, MultiRichmenStake)
-        richmen <- getValid <$> (arbitrary :: Gen (ValidRichmenStake GenesisMpcThd))
+        (gpEpoch, m) <- arbitrary :: Gen (EpochIndex, MultiRichmenStakes)
+        richmen <- getValid <$> (arbitrary :: Gen (ValidRichmenStakes GenesisMpcThd))
         let richmenIds = HM.keys richmen
-            gpMultiRichmenStake = HM.insert gpEpoch richmen m
+            gpMultiRichmenStakes = HM.insert gpEpoch richmen m
 
         -- This is the list of richmen which will be used to make keys for commitments
         -- in the argument 'CommitmentsMap'.
@@ -307,7 +307,7 @@ instance Arbitrary GoodOpeningPayload where
 
         return (GtGlobalState {..}, opensPayload)
 
-checksGoodOpeningsPayload :: MultiRichmenStake -> GoodOpeningPayload -> Bool
+checksGoodOpeningsPayload :: MultiRichmenStakes -> GoodOpeningPayload -> Bool
 checksGoodOpeningsPayload mrs (getGoodOpens -> (gtgs, openPayload)) =
     isRight . tossRunner mrs gtgs $ checkOpeningsPayload openPayload
 
@@ -315,7 +315,7 @@ checksBadOpeningsPayload
     :: StakeholderId
     -> Opening
     -> SignedCommitment
-    -> MultiRichmenStake
+    -> MultiRichmenStakes
     -> GoodOpeningPayload
     -> Property
 checksBadOpeningsPayload
@@ -361,9 +361,9 @@ instance Arbitrary GoodSharesPayload where
         -- The richmen for the epoch used in the tests is generated separately to make
         -- sure it exists.
         (gpEpoch, richmen, m) <-
-            arbitrary :: Gen (EpochIndex, RichmenStake, MultiRichmenStake)
+            arbitrary :: Gen (EpochIndex, RichmenStakes, MultiRichmenStakes)
         let richmenIds = HM.keys richmen
-            gpMultiRichmenStake = HM.insert gpEpoch richmen m
+            gpMultiRichmenStakes = HM.insert gpEpoch richmen m
         -- This is the list of richmen which will be used to make keys for the stable
         -- 'VssCertificates' that will be in the 'certs' field of '_gsVssCertificates'.
         richmenWithCerts <- sublistOf richmenIds
@@ -483,21 +483,21 @@ instance Arbitrary GoodCertsPayload where
         _gsCommitments <- arbitrary
 
         -- We'll need an 'EpochIndex' to run 'checkCertificatesPayload'. This epoch index
-        -- will also need an accompanying 'RichmenStake', but because we'll need the
+        -- will also need an accompanying 'RichmenStakes', but because we'll need the
         -- public keys to generate valid 'VssCertificates' w.r.t.
         -- 'checkCertificatesPayload', a list with public keys in tuples is generated
         -- as an intermediate step.
         (gpEpoch, NonEmpty richKeys, m) <-
             arbitrary
-                :: Gen (EpochIndex, NonEmptyList (PublicKey, Coin), MultiRichmenStake)
+                :: Gen (EpochIndex, NonEmptyList (PublicKey, Coin), MultiRichmenStakes)
         let richmenPks :: [PublicKey]
             richmenPks = map fst richKeys
-            richmen :: RichmenStake
+            richmen :: RichmenStakes
             richmen = HM.fromList $ map (over _1 addressHash) richKeys
             -- The 'epoch' epoch is guaranteed to exist in 'richmen', so we can use '(!)'
             -- to search for it in later tests.
-            gpMultiRichmenStake :: MultiRichmenStake
-            gpMultiRichmenStake = HM.insert gpEpoch richmen m
+            gpMultiRichmenStakes :: MultiRichmenStakes
+            gpMultiRichmenStakes = HM.insert gpEpoch richmen m
 
         -- This is the list of participants in the 'GodTossing' protocol that will
         -- have a certificate in the 'VssCertificatesMap' which'll be returned.
@@ -570,7 +570,7 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =
 -- Utility functions for this module
 ----------------------------------------------------------------------------
 
-tossRunner :: MultiRichmenStake
+tossRunner :: MultiRichmenStakes
            -> GtGlobalState
            -> ExceptT e PureTossWithEnv a
            -> Either e a

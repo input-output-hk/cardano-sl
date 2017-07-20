@@ -3,7 +3,7 @@
 module Pos.Ssc.GodTossing.Toss.Pure
        ( PureToss (..)
        , PureTossWithEnv (..)
-       , MultiRichmenStake
+       , MultiRichmenStakes
        , MultiRichmenSet
        , runPureToss
        , runPureTossWithLogger
@@ -20,7 +20,7 @@ import           Universum
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
                                                  crucialSlot)
-import           Pos.Lrc.Types                  (RichmenSet, RichmenStake)
+import           Pos.Lrc.Types                  (RichmenSet, RichmenStakes)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
@@ -30,7 +30,7 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, g
                                                  gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 
-type MultiRichmenStake = HashMap EpochIndex RichmenStake
+type MultiRichmenStakes = HashMap EpochIndex RichmenStakes
 type MultiRichmenSet   = HashMap EpochIndex RichmenSet
 
 newtype PureToss a = PureToss
@@ -40,7 +40,7 @@ newtype PureToss a = PureToss
 
 newtype PureTossWithEnv a = PureTossWithEnv
     { getPureTossWithEnv ::
-          ReaderT (MultiRichmenStake, BlockVersionData) PureToss a
+          ReaderT (MultiRichmenStakes, BlockVersionData) PureToss a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName,
                 MonadTossRead, MonadToss)
 
@@ -113,7 +113,7 @@ execPureTossWithLogger
 execPureTossWithLogger g = fmap snd . runPureTossWithLogger g
 
 supplyPureTossEnv
-    :: (MultiRichmenStake, BlockVersionData)
+    :: (MultiRichmenStakes, BlockVersionData)
     -> PureTossWithEnv a
     -> PureToss a
 supplyPureTossEnv env = flip runReaderT env . getPureTossWithEnv

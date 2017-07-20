@@ -13,20 +13,20 @@ import           Universum
 import           Pos.Constants         (genesisMpcThd)
 import           Pos.Core              (mkCoin)
 import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
-import           Pos.Lrc               (RichmenStake)
-import           Pos.Lrc.Arbitrary     (GenesisMpcThd, InvalidRichmenStake (..),
-                                        ValidRichmenStake (..))
+import           Pos.Lrc               (RichmenStakes)
+import           Pos.Lrc.Arbitrary     (GenesisMpcThd, InvalidRichmenStakes (..),
+                                        ValidRichmenStakes (..))
 import qualified Pos.Ssc.GodTossing    as T
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do
-    prop emptyRichmenStakeDesc emptyRichmenStake
+    prop emptyRichmenStakesDesc emptyRichmenStakes
     prop allRichmenGetShareDesc allRichmenGetShares
     prop invalidStakeErrorsDesc invalidStakeErrors
     prop totalStakeZeroDesc totalStakeIsZero
-    prop validRichmenStakeWorksDesc validRichmenStakeWorks
+    prop validRichmenStakesWorksDesc validRichmenStakesWorks
   where
-    emptyRichmenStakeDesc = "Fails to calculate a share distribution when the richmen\
+    emptyRichmenStakesDesc = "Fails to calculate a share distribution when the richmen\
     \ stake is empty."
     allRichmenGetShareDesc = "All richmen are awarded a non-zero share, and richmen who\
     \ do not participate in the share distribution are awarded none"
@@ -35,18 +35,18 @@ spec = describe "computeSharesDistr" $ do
     \ fails to be calculated."
     totalStakeZeroDesc = "If the total stake is zero, then the distribution fails to be\
     \ calculated"
-    validRichmenStakeWorksDesc = "Given a valid distribution of stake, calculating the\
+    validRichmenStakesWorksDesc = "Given a valid distribution of stake, calculating the\
     \ distribution of shares successfully works."
 
-computeShares' :: RichmenStake -> Either T.TossVerFailure T.SharesDistribution
+computeShares' :: RichmenStakes -> Either T.TossVerFailure T.SharesDistribution
 computeShares' stake = runExcept $ T.computeSharesDistrPure stake genesisMpcThd
 
-emptyRichmenStake :: Expectation
-emptyRichmenStake =
+emptyRichmenStakes :: Expectation
+emptyRichmenStakes =
     let emptyRes = computeShares' mempty
     in isLeft emptyRes `shouldBe` True
 
-allRichmenGetShares :: ValidRichmenStake GenesisMpcThd -> Bool
+allRichmenGetShares :: ValidRichmenStakes GenesisMpcThd -> Bool
 allRichmenGetShares (getValid -> richmen) =
     let outputStakeholder = computeShares' richmen
     in case outputStakeholder of
@@ -54,8 +54,8 @@ allRichmenGetShares (getValid -> richmen) =
         Right result ->
             (HM.keys richmen) == (HM.keys result) && (all (/= 0) result)
 
-validRichmenStakeWorks :: ValidRichmenStake GenesisMpcThd -> Bool
-validRichmenStakeWorks (getValid -> richmen) =
+validRichmenStakesWorks :: ValidRichmenStakes GenesisMpcThd -> Bool
+validRichmenStakesWorks (getValid -> richmen) =
     let outputStakeholder = computeShares' richmen
         totalCoins = sumCoins $ HM.elems richmen
         mpcThreshold = coinPortionToDouble genesisMpcThd
@@ -64,11 +64,11 @@ validRichmenStakeWorks (getValid -> richmen) =
         Left _  -> False
         Right _ -> all (\x -> x >= minStake && x > (mkCoin 0)) richmen
 
-totalStakeIsZero :: ValidRichmenStake GenesisMpcThd -> Bool
+totalStakeIsZero :: ValidRichmenStakes GenesisMpcThd -> Bool
 totalStakeIsZero (getValid -> richmen) =
     let zeroStake = richmen $> (mkCoin 0)
     in isLeft $ computeShares' zeroStake
 
-invalidStakeErrors :: InvalidRichmenStake GenesisMpcThd -> Bool
+invalidStakeErrors :: InvalidRichmenStakes GenesisMpcThd -> Bool
 invalidStakeErrors (getInvalid -> richmen) =
     isLeft $ computeShares' richmen

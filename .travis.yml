@@ -8,7 +8,7 @@ matrix:
     - env: MODE=nix
     - env: MODE=stack2nix
     - os: osx
-      osx_image: xcode8
+      osx_image: xcode8.3
       # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
 
   allow_failures:

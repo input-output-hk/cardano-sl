@@ -20,7 +20,7 @@ import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Protocol     (ConversationActions, HandlerSpec (..),
                                                  ListenerSpec (..), Message, NodeId,
                                                  OutSpecs, VerInfo, checkingInSpecs,
-                                                 messageName, SendActions)
+                                                 messageName)
 import           Pos.DB.Class                   (MonadGState)
 
 -- TODO automatically provide a 'recvLimited' here by using the

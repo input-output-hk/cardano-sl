@@ -14,10 +14,9 @@ import qualified Node                        as N
 import           Serokell.Util.Base16        (base16F)
 import           System.Wlog                 (LoggerName, WithLogger, modifyLoggerName)
 
-import           Pos.Communication.BiP       (BiP)
 import           Pos.Communication.Constants (networkWaitLogInterval)
 import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
-                                              MessageName (..), PeerData, mapActionSpec,
+                                              MessageName (..), mapActionSpec,
                                               mapListener, mapListener',
                                               SendActions (..), Conversation (..))
 import           Pos.Util.TimeLimit          (CanLogInParallel, logWarningWaitLinear)

@@ -30,6 +30,7 @@ import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyO
                                                dhtNetworkAddressOption,
                                                dhtPeersFileOption)
 import           Pos.Network.Types            (NodeType (..), NodeId)
+import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Security                 (AttackTarget, AttackType)
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
@@ -62,6 +63,9 @@ data Args = Args
     , peersFile                 :: !(Maybe FilePath)
       -- ^ A file containing a list of peers to use to supplement the ones
       -- given directly on command line.
+    , networkConfigOpts         :: !NetworkConfigOpts
+      -- ^ Network configuration
+      -- TODO: Does this obsolete 'peers' and 'peersFile'?
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
@@ -138,6 +142,7 @@ argsParser = do
     nodeType <- nodeTypeOption
     peers <- (++) <$> corePeersList <*> relayPeersList
     peersFile <- optional dhtPeersFileOption
+    networkConfigOpts <- networkConfigOption
     jlPath <-
         CLI.optionalJSONPath
     maliciousEmulationAttacks <-

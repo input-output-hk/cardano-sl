@@ -41,7 +41,7 @@ import qualified System.Remote.Monitoring.Statsd as Monitoring
 import           System.Wlog                     (WithLogger, logInfo)
 
 import           Pos.Binary                      ()
-import           Pos.Communication               (ActionSpec (..), BiP (..), InSpecs (..),
+import           Pos.Communication               (ActionSpec (..), bipPacking, InSpecs (..),
                                                   MkListeners (..), OutSpecs (..),
                                                   VerInfo (..), allListeners, Msg,
                                                   PeerData, PackingType,
@@ -55,7 +55,7 @@ import           Pos.Discovery                   (DiscoveryContextSum (..))
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
-import           Pos.Network.Types               (NetworkConfig (..), NodeId)
+import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue)
 import           Pos.Security                    (SecurityWorkersClass)
 import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
@@ -107,7 +107,7 @@ runRealModeDo NodeResources {..} outSpecs action =
             jsonLogConfigFromHandle
             nrJLogHandle
 
-        oq <- initQueue ncNetworkConfig
+        oq <- liftIO $ initQueue ncNetworkConfig
 
         runToProd jsonLogConfig oq $
           runServer ncNetworkConfig
@@ -209,19 +209,6 @@ oqDequeue oq converse = do
     it <- async $ OQ.dequeueThread oq (sendMsgFromConverse converse)
     return (cancel it)
 
-initQueue
-    :: (MonadIO m, MonadIO m', MonadMockable m', WithLogger m')
-    => NetworkConfig
-    -> m (OQ m')
-initQueue NetworkConfig{..} =
-    -- TODO: Find better self identifier (for improved logging)
-    OQ.new ("self" :: String) enqueuePolicy dequeuePolicy failurePolicy
-  where
-    ourNodeType = ncNodeType
-    enqueuePolicy = OQ.defaultEnqueuePolicy ourNodeType
-    dequeuePolicy = OQ.defaultDequeuePolicy ourNodeType
-    failurePolicy = OQ.defaultFailurePolicy ourNodeType
-
 runServer
     :: forall m t b .
        (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
@@ -247,7 +234,7 @@ runServer NetworkConfig {..} mkTransport mkReceiveDelay mkL (OutSpecs wouts) wit
             mkListeners mkL' ourVerInfo theirVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
-    node mkTransport mkReceiveDelay mkConnectDelay stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
+    node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo defaultNodeEnvironment $ \__node ->
         NodeAction mkListeners' $ \converse ->
             let sendActions :: SendActions m
                 sendActions = makeSendActions ourVerInfo (oqEnqueue oq) converse

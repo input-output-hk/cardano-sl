@@ -88,8 +88,10 @@ library
                         Pos.Security.Class
                         Pos.Security.Workers
 
-                        -- SSC
+                        -- Subscription
+                        Pos.Subscription
 
+                        -- SSC
                         Pos.Ssc.GodTossing
                         Pos.Ssc.SscAlgo
 

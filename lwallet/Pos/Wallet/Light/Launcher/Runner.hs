@@ -7,6 +7,7 @@ import           Universum                       hiding (bracket)
 
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
+import qualified Data.Set                        as Set
 import           Formatting                      (sformat, shown, (%))
 import           Mockable                        (MonadMockable, Production, bracket,
                                                   fork, sleepForever)
@@ -15,12 +16,12 @@ import           Node                            (noReceiveDelay, simpleNodeEndP
 import           System.Wlog                     (WithLogger, logDebug, logInfo)
 
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
-                                                  OutSpecs, WorkerSpec, WithPeerState)
+                                                  OutSpecs, WorkerSpec)
 import           Pos.Discovery                   (findPeers)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   runServer, OQ, initQueue)
-import           Pos.Network.Types               (NetworkConfig, emptyNetworkConfig,
-                                                  NodeType (NodeEdge))
+import           Pos.Network.Types               (NetworkConfig, defaultNetworkConfig,
+                                                  Topology(..))
 import           Pos.Reporting.MemState          (emptyReportingContext)
 import           Pos.Util.JsonLog                (JsonLogConfig (..))
 import           Pos.Util.Util                   ()
@@ -55,7 +56,10 @@ runWalletStaticPeers
     -> ([WorkerSpec LightWalletMode], OutSpecs)
     -> Production ()
 runWalletStaticPeers transport peers wp =
-    runLightWalletMode (emptyNetworkConfig NodeEdge) transport peers wp . runWallet
+    runLightWalletMode networkConfig transport peers wp . runWallet
+  where
+    networkConfig :: NetworkConfig
+    networkConfig = defaultNetworkConfig $ TopologyLightWallet (Set.toList peers)
 
 runWallet
     :: MonadWallet ssc ctx m
@@ -85,7 +89,7 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
     bracket openDB closeDB $ \db -> do
         keyData <- keyDataFromFile wpKeyFilePath
-        oq <- initQueue networkConfig
+        oq <- liftIO $ initQueue networkConfig
         flip Mtl.runReaderT
             ( LightWalletContext
                 keyData
@@ -107,7 +111,7 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
     closeDB = closeState
 
 runServer_
-    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, WithPeerState m)
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
     => NetworkConfig -> Transport m -> MkListeners m -> OutSpecs -> OQ m -> ActionSpec m b -> m b
 runServer_ networkConfig transport mkl outSpecs oq =
     runServer networkConfig (simpleNodeEndPoint transport) (const noReceiveDelay) (const mkl)

@@ -13,7 +13,7 @@ import           Formatting                    (bprint, build, (%))
 import           Node                          (Message)
 
 import           Pos.Binary.Class              (Bi)
-import           Pos.Communication.Types.Protocol (Msg, NodeId)
+import           Pos.Communication.Types.Protocol (Msg)
 import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg)
 
 data RelayError = UnexpectedInv

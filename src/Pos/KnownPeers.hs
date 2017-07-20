@@ -6,5 +6,6 @@ import Pos.Communication.Protocol (NodeId)
 import Network.Broadcast.OutboundQueue (Peers)
 
 class MonadKnownPeers m where
-  addKnownPeers   :: Peers NodeId -> m ()
-  removeKnownPeer :: NodeId -> m ()
+  updateKnownPeers :: (Peers NodeId -> Peers NodeId) -> m ()
+  addKnownPeers    :: Peers NodeId -> m ()
+  removeKnownPeer  :: NodeId -> m ()

@@ -9,6 +9,7 @@ module Network.Broadcast.OutboundQueue.Types (
   , Alts
   , peersOfType
   , simplePeers
+  , peersFromList
   , removePeer
   , restrictPeers
   , MsgType(..)
@@ -19,6 +20,7 @@ module Network.Broadcast.OutboundQueue.Types (
   , FormatMsg(..)
   ) where
 
+import Data.Bifunctor (second)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Maybe (mapMaybe)
@@ -59,6 +61,13 @@ type Alts a = [a]
 
 makeLenses ''Peers
 
+instance Functor Peers where
+  fmap f Peers{..} = Peers{
+        _peersCore  = map (map f) _peersCore
+      , _peersRelay = map (map f) _peersRelay
+      , _peersEdge  = map (map f) _peersEdge
+      }
+
 peersOfType :: NodeType -> Lens' (Peers nid) (AllOf (Alts nid))
 peersOfType NodeCore  = peersCore
 peersOfType NodeRelay = peersRelay
@@ -82,14 +91,18 @@ restrictPeers restriction  Peers {..} = Peers
 
 -- | Construct 'Peers' from a list of node IDs
 --
--- This effective means that all of these peers will be sent all (relevant)
+-- This effectively means that all of these peers will be sent all (relevant)
 -- messages.
 simplePeers :: forall nid. [(NodeType, nid)] -> Peers nid
-simplePeers = go mempty
+simplePeers = peersFromList . map (second (:[]))
+
+-- | Construct 'Peers' from a list of alternatives and their types
+peersFromList :: forall nid. [(NodeType, Alts nid)] -> Peers nid
+peersFromList = go mempty
   where
-    go :: Peers nid -> [(NodeType, nid)] -> Peers nid
-    go acc []            = acc
-    go acc ((typ, n):ns) = go (acc & peersOfType typ %~ ([n] :)) ns
+    go :: Peers nid -> [(NodeType, Alts nid)] -> Peers nid
+    go acc []                  = acc
+    go acc ((typ, alts):altss) = go (acc & peersOfType typ %~ (alts :)) altss
 
 instance Monoid (Peers nid) where
   mempty      = Peers [] [] []

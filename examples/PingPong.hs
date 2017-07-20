@@ -26,7 +26,6 @@ import           Network.Transport.Abstract (closeTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node
-import           Node.Conversation
 import           Node.Message.Store         (StoreP, storePacking)
 import           Node.Util.Monitor          (startMonitor)
 import           System.Random

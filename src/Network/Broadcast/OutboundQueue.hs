@@ -59,6 +59,7 @@ module Network.Broadcast.OutboundQueue (
   , AllOf
   , Alts
   , simplePeers
+  , peersFromList
   , addKnownPeers
   , removeKnownPeer
   ) where

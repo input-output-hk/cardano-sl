@@ -25,11 +25,11 @@ instance PackingType BiP where
     type PackM BiP   = Identity
     type UnpackM BiP = ST RealWorld
 
-bipPacking :: Packing BiP IO
+bipPacking :: MonadIO m => Packing BiP m
 bipPacking = Packing
     { packingType = Proxy @BiP
     , packM = pure . runIdentity
-    , unpackM = Control.Monad.ST.stToIO
+    , unpackM = liftIO . Control.Monad.ST.stToIO
     }
 
 biPackMsg :: Bi.Encoding -> LBS.ByteString

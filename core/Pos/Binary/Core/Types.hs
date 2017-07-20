@@ -5,11 +5,12 @@ import           Universum
 import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..),
+                                             deriveSimpleBi)
+import           Pos.Binary.Core.Coin       ()
 import           Pos.Binary.Core.Fee        ()
 import           Pos.Binary.Core.Script     ()
 import           Pos.Binary.Core.Version    ()
-import qualified Pos.Binary.Core.Coin       as BinCoin
 import qualified Pos.Core.Fee               as T
 import qualified Pos.Core.Types             as T
 import qualified Pos.Data.Attributes        as A
@@ -32,10 +33,6 @@ instance Bi T.EpochIndex where
 instance Bi (A.Attributes ()) where
   encode = A.encodeAttributes []
   decode = A.decodeAttributes () $ \_ _ _ -> Nothing
-
-instance Bi T.Coin where
-  encode = encode . BinCoin.encode
-  decode = BinCoin.decode
 
 instance Bi T.CoinPortion where
   encode = encode . T.getCoinPortion

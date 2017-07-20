@@ -45,7 +45,6 @@ import           Pos.Binary.Class                   (Bi (..))
 import           Pos.Communication.Limits.Instances ()
 import           Pos.Communication.Limits.Types     (MessageLimited, recvLimited)
 import           Pos.Communication.Listener         (listenerConv)
-import           Pos.Communication.PeerState        (WithPeerState)
 import           Pos.Communication.Protocol         (Conversation (..),
                                                      ConversationActions (..),
                                                      ListenerSpec, MkListeners, NodeId,
@@ -73,7 +72,6 @@ type MinRelayWorkMode m =
     , CanJsonLog m
     , MonadMockable m
     , MonadIO m
-    , WithPeerState m
     )
 
 type RelayWorkMode ctx m =

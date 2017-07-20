@@ -144,6 +144,9 @@ type BlockGenMode m = ReaderT BlockGenContext m
 -- | Block generation mode with random
 type BlockGenRandMode g m = RandT g (BlockGenMode m)
 
+instance MonadThrow m => MonadThrow (RandT g m) where
+    throwM = lift . throwM
+
 ----------------------------------------------------------------------------
 -- Context creation
 ----------------------------------------------------------------------------
@@ -177,9 +180,13 @@ mkBlockGenContext bgcParams = do
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
   where
+    -- Genesis utxo is needed only for boot era stakeholders
     bgcGenesisUtxo =
-        let addrs = map (makePubKeyAddress . toPublic) . toList $
-                    view (bgpSecrets . asSecretKeys) bgcParams
+        let addrs =
+                -- So we take three stakeholders in boot era.
+                take 3 $
+                map (makePubKeyAddress . toPublic) . toList $
+                view (bgpSecrets . asSecretKeys) bgcParams
             utxoTxHash = unsafeHash ("randomutxotx" :: Text)
             txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
             txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs

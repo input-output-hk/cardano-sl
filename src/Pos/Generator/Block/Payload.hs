@@ -13,7 +13,6 @@ import           Universum
 import           Control.Lens               (at, uses, (%=), (.=), (?=))
 import           Control.Lens.TH            (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
-import           Data.Default               (def)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (notElem, (!!))
 import qualified Data.List.NonEmpty         as NE
@@ -22,20 +21,20 @@ import qualified Data.Vector                as V
 import           Formatting                 (sformat, (%))
 import           System.Random              (RandomGen (..))
 
-import           Pos.Client.Txp.Util        (makeAbstractTx)
+import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot)
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
                                              addressDetailedF, coinToInteger,
                                              makePubKeyAddress, sumCoins,
                                              unsafeIntegerToCoin)
 import           Pos.Crypto                 (SecretKey, SignTag (SignTxIn), WithHash (..),
                                              hash, sign, toPublic)
+import           Pos.Generator.Block.Error  (BlockGenError (..))
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..),
                                              asSecretKeys)
 import qualified Pos.GState                 as DB
-import           Pos.Txp.Core               (Tx, TxAux (..), TxDistribution (..),
-                                             TxIn (..), TxInWitness (..), TxOut (..),
-                                             TxOutAux (..), TxSigData (..), mkTx)
+import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
+                                             TxOut (..), TxOutAux (..), TxSigData (..))
 import           Pos.Txp.Logic              (txProcessTransaction)
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types         (Utxo)
@@ -113,9 +112,7 @@ genTxPayload = do
     genTransaction = do
         utxoSize <- uses gtdUtxoKeys V.length
         when (utxoSize == 0) $
-            -- Empty utxo means misconfigured testing settings most
-            -- probably, so that's a critical error
-            error "Utxo is empty already which is weird"
+            lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
 
         secrets <- view asSecretKeys <$> view blockGenParams
         -- Unsafe hashmap resolving is used here because we suppose
@@ -150,7 +147,10 @@ genTxPayload = do
         -- than coin maxbound.
         coins <- splitCoins outputsN (unsafeIntegerToCoin inputsSum)
         let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-        let txOutAuxs = map (\o -> TxOutAux o []) txOuts
+        let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
+        txOutAuxs <-
+            either (lift . throwM . BGFailedToCreate) pure =<<
+            runExceptT (overrideTxDistrBoot txOutAuxsPre)
 
         ----- TX
 

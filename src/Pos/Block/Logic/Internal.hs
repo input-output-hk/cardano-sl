@@ -23,6 +23,7 @@ module Pos.Block.Logic.Internal
 import           Universum
 
 import           Control.Lens            (each, _Wrapped)
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Ether.Internal          (HasLens (..))
 import           Formatting              (sformat, (%))
 import           Mockable                (CurrentTime, Mockable)
@@ -41,10 +42,10 @@ import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
 import           Pos.Delegation.Class    (MonadDelegation)
 import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback,
                                           dlgRollbackBlocks)
-import           Pos.Discovery.Class     (MonadDiscovery)
 import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
 import           Pos.Lrc.Context         (LrcContext)
+import           Pos.KnownPeers          (MonadKnownPeers)
 import           Pos.Reporting           (HasReportingContext, reportingFatal)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
@@ -106,8 +107,9 @@ type MonadBlockApply ssc ctx m
        , Mockable CurrentTime m
        -- Needed for error reporting.
        , HasReportingContext ctx
-       , MonadDiscovery m
+       , MonadBaseControl IO m
        , MonadReader ctx m
+       , MonadKnownPeers m
        )
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,

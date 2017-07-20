@@ -29,6 +29,7 @@ import           Pos.Network.Yaml (NodeName(..))
 import           Pos.Util.TimeWarp  (addressToNodeId)
 import qualified Pos.Network.DnsDomains as DnsDomains
 import qualified Data.ByteString.Char8  as BS.C8
+import           Pos.DHT.Real.Param (KademliaParams (..))
 
 -- | Information about the network in which a node participates.
 data NetworkConfig = NetworkConfig
@@ -63,17 +64,13 @@ data Topology =
     -- | We discover our peers through Kademlia
     --
     -- This is used for exchanges.
-    --
-    -- TODO: Not sure what parameters we need here; possibly the
-    -- 'NetworkParams' type from 'Pos.Launcher.Param'
-  | TopologyP2P
+  | TopologyP2P !KademliaParams
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
     --
-    -- TODO: Not sure what parameters we need here; see 'TopologyP2P'.
     -- TODO: This is temporary.
-  | TopologyTransitional
+  | TopologyTransitional !KademliaParams
 
     -- | Light wallets simulate "real" edge nodes, but are configured with
     -- a static set of relays.
@@ -84,8 +81,8 @@ data Topology =
 topologyNodeType :: Topology -> NodeType
 topologyNodeType (TopologyStatic nodeType _) = nodeType
 topologyNodeType (TopologyBehindNAT _)       = NodeEdge
-topologyNodeType (TopologyP2P)               = NodeEdge
-topologyNodeType (TopologyTransitional)      = NodeCore
+topologyNodeType (TopologyP2P _)             = NodeEdge
+topologyNodeType (TopologyTransitional _)    = NodeCore
 topologyNodeType (TopologyLightWallet _)     = NodeEdge
 
 -- | Variation on resolveDnsDomains that returns node IDs
@@ -106,8 +103,8 @@ staticallyKnownPeers NetworkConfig{..} = go ncTopology
     go :: Topology -> Peers NodeId
     go (TopologyStatic _selfType peers) = peers
     go (TopologyBehindNAT _)            = mempty
-    go (TopologyP2P)                    = mempty
-    go (TopologyTransitional)           = mempty
+    go (TopologyP2P _)                  = mempty
+    go (TopologyTransitional _)         = mempty
     go (TopologyLightWallet peers)      = simplePeers $ map (NodeRelay, ) peers
 
 

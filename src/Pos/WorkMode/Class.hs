@@ -31,7 +31,6 @@ import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
@@ -83,7 +82,6 @@ type WorkMode ssc ctx m
       , MonadProgressHeader ssc ctx m
       , MonadLastKnownHeader ssc ctx m
       , MonadBListener m
-      , MonadDiscovery m
       , MonadReader ctx m
       , MonadKnownPeers m
       , HasLens StartTime ctx StartTime

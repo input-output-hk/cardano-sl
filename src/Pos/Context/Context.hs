@@ -45,8 +45,6 @@ import           Pos.Block.Slog.Types          (HasSlogContext (..), SlogContext
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (GenesisStakeholders (..),
                                                 HasPrimaryKey (..), HeaderHash, Timestamp)
-import           Pos.Discovery                 (DiscoveryContextSum,
-                                                HasDiscoveryContextSum (..))
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Network.Types             (NetworkConfig (..))
@@ -100,8 +98,6 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for the update system
     , ncLrcContext          :: !LrcContext
     -- ^ Context needed for LRC
-    , ncDiscoveryContext    :: !DiscoveryContextSum
-    -- ^ Context needed for Discovery.
     , ncSlottingVar         :: !(Timestamp, TVar SlottingData)
     -- ^ Data necessary for 'MonadSlotsData'.
     , ncSlottingContext     :: !SlottingContextSum
@@ -156,9 +152,6 @@ instance HasNodeContext ssc (NodeContext ssc) where
 
 instance HasSscContext ssc (NodeContext ssc) where
     sscContext = ncSscContext_L
-
-instance HasDiscoveryContextSum (NodeContext ssc) where
-    discoveryContextSum = ncDiscoveryContext_L
 
 instance HasSlottingVar (NodeContext ssc) where
     slottingTimestamp = ncSlottingVar_L . _1

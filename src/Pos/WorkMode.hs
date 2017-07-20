@@ -52,9 +52,6 @@ import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
                                               dbIterSourceDefault, dbPutDefault,
                                               dbWriteBatchDefault)
 import           Pos.Delegation.Class        (DelegationVar)
-import           Pos.Discovery               (HasDiscoveryContextSum (..),
-                                              MonadDiscovery (..), findPeersSum,
-                                              getPeersSum)
 import           Pos.Reporting               (HasReportingContext (..))
 import           Pos.KnownPeers              (MonadKnownPeers (..))
 import           Pos.Shutdown                (HasShutdownContext (..))
@@ -131,9 +128,6 @@ instance HasSscContext ssc (RealModeContext ssc) where
 instance HasPrimaryKey (RealModeContext ssc) where
     primaryKey = rmcNodeContext_L . primaryKey
 
-instance HasDiscoveryContextSum (RealModeContext ssc) where
-    discoveryContextSum = rmcNodeContext_L . discoveryContextSum
-
 instance HasReportingContext (RealModeContext ssc) where
     reportingContext = rmcNodeContext_L . reportingContext
 
@@ -178,10 +172,6 @@ instance MonadSlots (RealMode ssc) where
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
     currentTimeSlotting = currentTimeSlottingSum
 
-instance MonadDiscovery (RealMode ssc) where
-    getPeers = getPeersSum
-    findPeers = findPeersSum
-
 instance MonadGState (RealMode ssc) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
@@ -224,7 +214,10 @@ instance MonadKnownPeers (RealMode ssc) where
         OQ.updateKnownPeers oq f
     addKnownPeers peers = do
         oq <- rmcOutboundQ <$> ask
-        OQ.addKnownPeers oq peers
+        OQ.updateKnownPeers oq (<> peers)
     removeKnownPeer nid = do
         oq <- rmcOutboundQ <$> ask
         OQ.removeKnownPeer oq nid
+    formatKnownPeers formatter = do
+        oq <- rmcOutboundQ <$> ask
+        OQ.dumpState oq formatter

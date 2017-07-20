@@ -50,8 +50,6 @@ import           Pos.Communication               (ActionSpec (..), bipPacking, I
                                                   makeEnqueueMsg, EnqueueMsg)
 import qualified Pos.Constants                   as Const
 import           Pos.Context                     (NodeContext (..))
-import           Pos.DHT.Real                    (foreverRejoinNetwork)
-import           Pos.Discovery                   (DiscoveryContextSum (..))
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
@@ -101,7 +99,7 @@ runRealModeDo
     -> ActionSpec (RealMode ssc) a
     -> Production a
 runRealModeDo NodeResources {..} outSpecs action =
-    specialDiscoveryWrapper $ do
+    do
         jsonLogConfig <- maybe
             (pure JsonLogDisabled)
             jsonLogConfigFromHandle
@@ -152,17 +150,6 @@ runRealModeDo NodeResources {..} outSpecs action =
     stopMonitoring (Just (mEkg, mStatsd)) = do
         whenJust mStatsd (killThread . Monitoring.statsdThreadId)
         whenJust mEkg stopMonitor
-
-    -- TODO: it would be good to put this behavior into 'Discovery' class.
-    -- TODO: there's really no reason why we have to continually rejoin the
-    -- network. In fact it runs contrary to the intended use of Kademlia.
-    -- Joining a network which you've already joined *should* give an ID
-    -- clash with high probability (the initial peer probably remembers you),
-    -- but we've actually modified the Kademlia library to ignore this
-    -- just because we abuse it here in cardano-sl.
-    specialDiscoveryWrapper = case ncDiscoveryContext of
-        DCStatic _          -> identity
-        DCKademlia kademlia -> foreverRejoinNetwork kademlia
 
     runToProd :: forall t .
                  JsonLogConfig

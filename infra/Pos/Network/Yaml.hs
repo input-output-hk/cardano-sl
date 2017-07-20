@@ -2,6 +2,10 @@
 module Pos.Network.Yaml (
     Topology(..)
   , AllStaticallyKnownPeers(..)
+  , DnsDomains(..)
+  , KademliaParams(..)
+  , KademliaId(..)
+  , KademliaAddress(..)
   , NodeName(..)
   , NodeRegion(..)
   , NodeRoutes(..)
@@ -10,13 +14,14 @@ module Pos.Network.Yaml (
   ) where
 
 import           Universum
-import           Data.Aeson (FromJSON(..), ToJSON(..), (.:), (.:?), (.=))
+import           Data.Aeson (FromJSON(..), ToJSON(..), (.:), (.:?), (.=), (.!=))
+import           Network.Broadcast.OutboundQueue.Types
+import           Pos.Util.Config
 import qualified Data.Aeson            as A
 import qualified Data.Aeson.Types      as A
 import qualified Data.ByteString.Char8 as BS.C8
 import qualified Data.HashMap.Lazy     as HM
 import qualified Data.Map.Strict       as M
-import qualified Data.Text             as T
 import qualified Network.DNS           as DNS
 
 import           Network.Broadcast.OutboundQueue.Types
@@ -31,8 +36,8 @@ import           Pos.Network.DnsDomains (DnsDomains(..))
 data Topology =
     TopologyStatic !AllStaticallyKnownPeers
   | TopologyBehindNAT !DnsDomains
-  | TopologyP2P
-  | TopologyTransitional
+  | TopologyP2P !KademliaParams
+  | TopologyTransitional !KademliaParams
   deriving (Show)
 
 -- | All statically known peers in the newtork
@@ -78,6 +83,73 @@ data NodeMetadata = NodeMetadata
     }
     deriving (Show)
 
+-- | Parameters for Kademlia, in case P2P or transitional topology are used.
+data KademliaParams = KademliaParams
+    { kpId              :: !(Maybe KademliaId)
+      -- ^ Kademlia identifier. Optional; one can be generated for you.
+    , kpPeers           :: ![KademliaAddress]
+      -- ^ Initial Kademlia peers, for joining the network.
+    , kpAddress         :: !(Maybe KademliaAddress)
+      -- ^ External Kadmelia address.
+    , kpBind            :: !KademliaAddress
+      -- ^ Address at which to bind the Kademlia socket.
+      -- Shouldn't be necessary to have a separate bind and public address.
+      -- The Kademlia instance in fact shouldn't even need to know its own
+      -- address (should only be used to bind the socket). But due to the way
+      -- that responses for FIND_NODES are serialized, Kademlia needs to know
+      -- its own external address [TW-153]. The mainline 'kademlia' package
+      -- doesn't suffer this problem.
+    , kpExplicitInitial :: !Bool
+    , kpDumpFile        :: !(Maybe FilePath)
+    }
+    deriving (Show)
+
+instance FromJSON KademliaParams where
+    parseJSON = A.withObject "KademliaParams" $ \obj -> do
+        kpId <- obj .:? "identifier"
+        kpPeers <- obj .: "peers"
+        kpAddress <- obj .:? "externalAddress"
+        kpBind <- obj .: "address"
+        kpExplicitInitial <- obj .:? "explicitInitial" .!= False
+        kpDumpFile <- obj .:? "dumpFile"
+        return KademliaParams {..}
+
+instance ToJSON KademliaParams where
+    toJSON KademliaParams {..} = A.object [
+          "identifier"      .= kpId
+        , "peers"           .= kpPeers
+        , "externalAddress" .= kpAddress
+        , "address"         .= kpBind
+        , "explicitInitial" .= kpExplicitInitial
+        , "dumpFile"        .= kpDumpFile
+        ]
+
+-- | A Kademlia identifier in text representation (probably base64-url encoded).
+newtype KademliaId = KademliaId String
+    deriving (Show)
+
+instance FromJSON KademliaId where
+    parseJSON = fmap KademliaId . parseJSON
+
+instance ToJSON KademliaId where
+    toJSON (KademliaId txt) = toJSON txt
+
+data KademliaAddress = KademliaAddress
+    { kaHost :: !String
+    , kaPort :: !Word16
+    }
+    deriving (Show)
+
+instance FromJSON KademliaAddress where
+    parseJSON = A.withObject "KademliaAddress " $ \obj ->
+        KademliaAddress <$> obj .: "host" <*> obj .: "port"
+
+instance ToJSON KademliaAddress where
+    toJSON KademliaAddress {..} = A.object [
+          "host" .= kaHost
+        , "port" .= kaPort
+        ]
+
 {-------------------------------------------------------------------------------
   FromJSON instances
 -------------------------------------------------------------------------------}
@@ -93,7 +165,7 @@ instance FromJSON NodeRoutes where
 
 instance FromJSON NodeType where
   parseJSON = A.withText "NodeType" $ \typ -> do
-      case T.unpack typ of
+      case toString typ of
         "core"     -> return NodeCore
         "edge"     -> return NodeEdge
         "relay"    -> return NodeRelay
@@ -137,13 +209,19 @@ instance FromJSON Topology where
   parseJSON = A.withObject "Topology" $ \obj -> do
       mNodes  <- obj .:? "nodes"
       mRelays <- obj .:? "relays"
-      case (mNodes, mRelays) of
-        (Just nodes, Nothing)  -> TopologyStatic    <$> parseJSON nodes
-        (Nothing, Just relays) -> TopologyBehindNAT <$> parseJSON relays
-        (Just _, Just _) ->
-          fail "Topology: expected either 'nodes' or 'relays', not both"
-        (Nothing, Nothing) ->
-          fail "Topology: expected 'nodes' or 'relays' field"
+      mP2p    <- obj .:? "p2p"
+      mTrans  <- obj .:? "transitional"
+      case (mNodes, mRelays, mP2p, mTrans) of
+        (Just nodes, Nothing, Nothing, Nothing) ->
+            TopologyStatic <$> parseJSON nodes
+        (Nothing, Just relays, Nothing, Nothing) ->
+            TopologyBehindNAT <$> parseJSON relays
+        (Nothing, Nothing, Just p2p, Nothing) ->
+            TopologyP2P <$> parseJSON p2p
+        (Nothing, Nothing, Nothing, Just transitional) ->
+            TopologyTransitional <$> parseJSON transitional
+        _ ->
+          fail "Topology: expected exactly one of 'nodes', 'relays', 'p2p', 'transitional'"
 
 instance IsConfig Topology where
   configPrefix = return Nothing
@@ -200,7 +278,7 @@ instance ToJSON AllStaticallyKnownPeers where
       aux (NodeName name, info) = name .= info
 
 instance ToJSON Topology where
-  toJSON (TopologyStatic    nodes)  = A.object [ "nodes"  .= nodes ]
-  toJSON (TopologyBehindNAT relays) = A.object [ "relays" .= relays ]
-  toJSON (TopologyP2P)              = error "TODO: toJSON TopologyP2P"
-  toJSON (TopologyTransitional)     = error "TODO: toJSON TopologyTransitional"
+  toJSON (TopologyStatic    nodes)  = A.object [ "nodes"        .= nodes  ]
+  toJSON (TopologyBehindNAT relays) = A.object [ "relays"       .= relays ]
+  toJSON (TopologyP2P kp)           = A.object [ "p2p"          .= kp     ]
+  toJSON (TopologyTransitional kp)  = A.object [ "transitional" .= kp     ]

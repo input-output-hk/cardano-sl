@@ -65,7 +65,7 @@ import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (TxError (..), createMTx,
                                                    overrideTxDistrBoot,
                                                    overrideTxOutDistrBoot)
-import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
+import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Context                      (GenesisUtxo)
@@ -86,7 +86,6 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
 import           Pos.DB.Class                     (gsAdoptedBVData)
-import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
@@ -614,7 +613,7 @@ sendMoney
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
-sendMoney sendActions passphrase moneySource dstDistr = do
+sendMoney SendActions {..} passphrase moneySource dstDistr = do
     (spendings, outputs) <- prepareTx passphrase moneySource dstDistr
     sendDo spendings outputs
   where
@@ -626,14 +625,13 @@ sendMoney sendActions passphrase moneySource dstDistr = do
     sendDo spendings outputs = do
         let inputMetas = NE.map fst spendings
         let inpTxOuts = toList $ NE.map snd spendings
-        na <- getPeers
         sks <- forM inputMetas $ getSKByAccAddr passphrase
         srcAddrs <- forM inputMetas $ decodeCIdOrFail . cwamId
         let dstAddrs = txOutAddress . toaOut <$> toList outputs
         withSafeSigners passphrase sks $ \ss -> do
             let hdwSigner = NE.zip ss srcAddrs
             TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
-                submitMTx sendActions hdwSigner (toList na) outputs
+                submitMTx enqueueMsg hdwSigner outputs
             logInfo $
                 sformat ("Successfully spent money from "%
                          listF ", " addressF % " addresses on " %
@@ -1140,7 +1138,7 @@ redeemAdaInternal
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal sendActions passphrase cAccId seedBs = do
+redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCAccountIdOrFail cAccId
@@ -1152,10 +1150,9 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     -- TODO(thatguy): the absence of `addWAddress` here is probably a bug.
     -- Need to talk to @martoon about this. Discovered in CSM-330.
     dstAddr <- decodeCIdOrFail $ cwamId dstCWAddrMeta
-    na <- getPeers
     (TxAux {..}, redeemAddress, redeemBalance) <-
         rewrapTxError "Cannot send redemption transaction" $
-        submitRedemptionTx sendActions redeemSK (toList na) dstAddr
+        submitRedemptionTx enqueueMsg redeemSK dstAddr
     -- add redemption transaction to the history of new wallet
     let txInputs = [TxOut redeemAddress redeemBalance]
     ts <- Just <$> getCurrentTimestamp

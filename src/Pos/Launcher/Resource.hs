@@ -54,10 +54,10 @@ import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
-import           Pos.Discovery              (DiscoveryContextSum (..))
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
-                                             NetworkParams (..), NodeParams (..))
+                                             TransportParams (..), NodeParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
+import           Pos.Network.Types          (NetworkConfig (..), Topology (..), NodeType (..))
 import           Pos.Shutdown.Types         (ShutdownContext (..))
 import           Pos.Slotting               (SlottingContextSum (..), SlottingData,
                                              mkNtpSlottingVar, mkSimpleSlottingVar)
@@ -97,6 +97,7 @@ data NodeResources ssc m = NodeResources
     , nrJLogHandle :: !(Maybe Handle)
     -- ^ Handle for JSON logging (optional).
     , nrEkgStore   :: !Metrics.Store
+    , nrKademlia   :: !(Maybe KademliaDHTInstance)
     }
 
 hoistNodeResources ::
@@ -121,10 +122,11 @@ allocateNodeResources
        , MonadMockable m
        )
     => Transport m
+    -> Maybe KademliaDHTInstance
     -> NodeParams
     -> SscParams ssc
     -> Production (NodeResources ssc m)
-allocateNodeResources transport np@NodeParams {..} sscnp = do
+allocateNodeResources transport mKademlia np@NodeParams {..} sscnp = do
     db <- openNodeDBs npRebuildDb npDbPathM
     (futureLrcContext, putLrcContext) <- newInitFuture
     (futureSlottingVar, putSlottingVar) <- newInitFuture
@@ -172,6 +174,7 @@ allocateNodeResources transport np@NodeParams {..} sscnp = do
             , nrSscState = sscState
             , nrTxpState = (txpVar, txpMetrics)
             , nrDlgState = dlgVar
+            , nrKademlia = mKademlia
             , ..
             }
 
@@ -199,9 +202,10 @@ bracketNodeResources :: forall ssc m a.
     -> (NodeResources ssc m -> Production a)
     -> Production a
 bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
-    bracket (allocateNodeResources transport np sp) releaseNodeResources k
+    maybeBracketKademlia np $ \mKademlia ->
+        bracket (allocateNodeResources transport mKademlia np sp) releaseNodeResources k
   where
-    tcpAddr = npTcpAddr (npNetwork np)
+    tcpAddr = tpTcpAddr (npTransport np)
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -237,11 +241,6 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
-    ncDiscoveryContext <-
-        case npDiscovery npNetwork of
-            Left peers -> pure (DCStatic peers)
-            Right kadParams ->
-                DCKademlia <$> createKademliaInstance npBaseParams kadParams
     ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar
     ncSlottingContext <-
         case npUseNTP of
@@ -279,10 +278,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ctx <$> liftIO (newTBQueueIO maxBound)
 
 releaseNodeContext :: forall ssc m . MonadIO m => NodeContext ssc -> m ()
-releaseNodeContext NodeContext {..} =
-    case ncDiscoveryContext of
-        DCKademlia kademlia -> stopDHTInstance kademlia
-        DCStatic _          -> pass
+releaseNodeContext _ = return ()
 
 -- Create new 'SlottingVar' using data from DB. Probably it would be
 -- good to have it in 'infra', but it's complicated.
@@ -297,9 +293,10 @@ createKademliaInstance ::
        (MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
     => BaseParams
     -> KademliaParams
+    -> NodeType
     -> m KademliaDHTInstance
-createKademliaInstance BaseParams {..} kp =
-    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig)
+createKademliaInstance BaseParams {..} kp peerType =
+    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig peerType)
   where
     instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ Const.defaultPeers}
 
@@ -308,11 +305,26 @@ bracketKademlia
     :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
     => BaseParams
     -> KademliaParams
+    -> NodeType -- ^ Type to assign to Kademlia peers.
     -> (KademliaDHTInstance -> m a)
     -> m a
-bracketKademlia bp kp action =
-    bracket (createKademliaInstance bp kp) stopDHTInstance action
+bracketKademlia bp kp peerType action =
+    bracket (createKademliaInstance bp kp peerType) stopDHTInstance action
 
+maybeBracketKademlia
+    :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    => NodeParams
+    -> (Maybe KademliaDHTInstance -> m a)
+    -> m a
+maybeBracketKademlia np action = case mKp of
+    Nothing -> action Nothing
+    Just (peerType, kp) -> bracketKademlia bp kp peerType (action . Just)
+  where
+    bp = npBaseParams np
+    mKp = case ncTopology (npNetworkConfig np) of
+        TopologyP2P kp -> Just (NodeEdge, kp)
+        TopologyTransitional kp -> Just (NodeCore, kp)
+        _ -> Nothing
 ----------------------------------------------------------------------------
 -- Transport
 ----------------------------------------------------------------------------

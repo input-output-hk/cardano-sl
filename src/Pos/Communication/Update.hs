@@ -1,5 +1,7 @@
 -- | Functions for operating with messages of update system
 
+{-# LANGUAGE RankNTypes #-}
+
 module Pos.Communication.Update
        ( submitVote
        , submitUpdateProposal
@@ -9,8 +11,7 @@ import           Universum
 
 import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
-import           Pos.Communication.Protocol (NodeId, SendActions,
-                                             immediateConcurrentConversations)
+import           Pos.Communication.Protocol (EnqueueMsg)
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
 import           Pos.DB.Class               (MonadGState)
@@ -20,22 +21,20 @@ import           Pos.WorkMode.Class         (MinWorkMode)
 -- | Send UpdateVote to given addresses
 submitVote
     :: (MinWorkMode m, MonadGState m)
-    => SendActions m
-    -> [NodeId]
+    => EnqueueMsg m
     -> UpdateVote
     -> m ()
-submitVote sendActions na voteUpd = do
-    sendVote (immediateConcurrentConversations sendActions na) voteUpd
+submitVote enqueue voteUpd = do
+    sendVote enqueue voteUpd
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
     :: (MinWorkMode m, MonadGState m)
-    => SendActions m
+    => EnqueueMsg m
     -> SafeSigner
-    -> [NodeId]
     -> UpdateProposal
     -> m ()
-submitUpdateProposal sendActions ss na prop = do
+submitUpdateProposal enqueue ss prop = do
     let upid = hash prop
     let initUpdVote = UpdateVote
             { uvKey        = safeToPublic ss
@@ -43,4 +42,4 @@ submitUpdateProposal sendActions ss na prop = do
             , uvDecision   = True
             , uvSignature  = safeSign SignUSVote ss (upid, True)
             }
-    sendUpdateProposal (immediateConcurrentConversations sendActions na) upid prop [initUpdVote]
+    sendUpdateProposal enqueue upid prop [initUpdVote]

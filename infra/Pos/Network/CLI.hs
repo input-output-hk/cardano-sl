@@ -13,13 +13,13 @@ module Pos.Network.CLI (
 import           Universum
 import           Data.IP (IPv4)
 import           Network.Broadcast.OutboundQueue (Alts, peersFromList)
+import qualified Pos.DHT.Real.Param         as DHT (fromYamlConfig, MalformedDHTKey (..))
 import           Pos.Network.Types (NodeId)
 import           Pos.Network.Yaml (NodeName(..), NodeMetadata(..), NodeAddr(..))
 import           Pos.Network.DnsDomains (DnsDomains(..))
 import           Pos.Util.TimeWarp (addressToNodeId)
 import qualified Data.ByteString.Char8      as BS.C8
 import qualified Data.Map.Strict            as M
-import qualified Data.Text                  as Text
 import qualified Data.Yaml                  as Yaml
 import qualified Network.DNS                as DNS
 import qualified Options.Applicative.Simple as Opt
@@ -94,10 +94,12 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         fromPovOf cfg allStaticallyKnownPeers networkConfigOptsSelf
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
-      Y.TopologyP2P ->
-        return $ T.TopologyP2P
-      Y.TopologyTransitional ->
-        return $ T.TopologyTransitional
+      Y.TopologyP2P kconf -> do
+        kconf' <- either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
+        return $ T.TopologyP2P kconf'
+      Y.TopologyTransitional kconf -> do
+        kconf' <- either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
+        return $ T.TopologyTransitional kconf'
     return T.NetworkConfig {
         ncTopology    = ourTopology
       , ncDefaultPort = networkConfigOptsPort
@@ -156,7 +158,7 @@ resolveNodeAddr cfg resolver (name, NodeAddrDNS mHost mPort) = do
       Right [addr]        -> return $ ipv4ToNodeId addr port
   where
     nameToDomain :: NodeName -> DNS.Domain
-    nameToDomain (NodeName n) = BS.C8.pack (Text.unpack n)
+    nameToDomain (NodeName n) = BS.C8.pack (toString n)
 
 ipv4ToNodeId :: IPv4 -> Word16 -> NodeId
 ipv4ToNodeId addr port = addressToNodeId (BS.C8.pack (show addr), port)

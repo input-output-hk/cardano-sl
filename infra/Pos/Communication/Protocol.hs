@@ -42,7 +42,6 @@ import           System.Wlog                      (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
 import           Pos.Discovery.Class              (MonadDiscovery)
@@ -100,7 +99,6 @@ hoistMkListeners nat rnat (MkListeners act ins outs) = MkListeners act' ins outs
 convertSendActions
     :: ( WithLogger m
        , Mockable Throw m
-       , WithPeerState m
        , Mockable SharedAtomic m
        )
     => VerInfo -> N.SendActions BiP PeerData m -> SendActions m
@@ -164,7 +162,6 @@ instance Buildable SpecError where
 type WorkerConstr m =
     ( WithLogger m
     , Mockable Throw m
-    , WithPeerState m
     , Mockable SharedAtomic m
     )
 
@@ -206,7 +203,6 @@ type LocalOnNewSlotComm ctx m =
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , Mockable Throw m
-    , WithPeerState m
     , Mockable SharedAtomic m
     )
 

@@ -37,7 +37,7 @@ import           Pos.Core                   (Address, Coin, SlotLeaders, Stakeho
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
-                                             firstNonHardened, unsafeHash)
+                                             firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),
@@ -146,12 +146,12 @@ genesisLeaders utxo =
 
 -- | First index in derivation path for HD account, which is put to genesis utxo
 accountGenesisIndex :: Word32
-accountGenesisIndex = firstNonHardened
+accountGenesisIndex = firstHardened
 
 -- | Second index in derivation path for HD account, which is put to genesis
 -- utxo
 wAddressGenesisIndex :: Word32
-wAddressGenesisIndex = firstNonHardened
+wAddressGenesisIndex = firstHardened
 
 -- | Chooses among common distributions for dev mode.
 devStakesDistr

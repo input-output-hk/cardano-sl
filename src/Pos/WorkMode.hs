@@ -17,72 +17,63 @@ module Pos.WorkMode
 
 import           Universum
 
-import           Control.Lens                (makeLensesWith)
-import qualified Control.Monad.Reader        as Mtl
-import           Ether.Internal              (HasLens (..))
-import           Mockable                    (Production, SharedAtomicT)
-import           System.Wlog                 (HasLoggerName (..), LoggerName)
+import           Control.Lens          (makeLensesWith)
+import qualified Control.Monad.Reader  as Mtl
+import           Ether.Internal        (HasLens (..))
+import           Mockable              (Production)
+import           System.Wlog           (HasLoggerName (..), LoggerName)
 
-import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
-                                              onRollbackBlocksStub)
-import           Pos.Block.Core              (Block, BlockHeader)
-import           Pos.Block.Slog.Types        (HasSlogContext (..))
-import           Pos.Block.Types             (Undo)
-import           Pos.Communication.PeerState (HasPeerState (..), PeerStateCtx,
-                                              WithPeerState (..), clearPeerStateDefault,
-                                              getAllStatesDefault, getPeerStateDefault)
-import           Pos.Context                 (HasNodeContext (..), HasPrimaryKey (..),
-                                              HasSscContext (..), NodeContext)
-import           Pos.Core                    (IsHeader)
-import           Pos.DB                      (MonadGState (..), NodeDBs)
-import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDefault,
-                                              dbGetHeaderDefault, dbGetHeaderSscDefault,
-                                              dbGetUndoDefault, dbGetUndoSscDefault,
-                                              dbPutBlundDefault)
-import           Pos.DB.Class                (MonadBlockDBGeneric (..),
-                                              MonadBlockDBGenericWrite (..), MonadDB (..),
-                                              MonadDBRead (..))
-import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
-import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
-                                              dbIterSourceDefault, dbPutDefault,
-                                              dbWriteBatchDefault)
-import           Pos.Delegation.Class        (DelegationVar)
-import           Pos.Discovery               (HasDiscoveryContextSum (..),
-                                              MonadDiscovery (..), findPeersSum,
-                                              getPeersSum)
-import           Pos.Reporting               (HasReportingContext (..))
-import           Pos.Shutdown                (HasShutdownContext (..))
-import           Pos.Slotting.Class          (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
-                                              getCurrentSlotBlockingSum,
-                                              getCurrentSlotInaccurateSum,
-                                              getCurrentSlotSum)
-import           Pos.Slotting.MemState       (HasSlottingVar (..), MonadSlotsData (..),
-                                              getSlottingDataDefault,
-                                              getSystemStartDefault,
-                                              putSlottingDataDefault,
-                                              waitPenultEpochEqualsDefault)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
-import           Pos.Ssc.Class.Types         (SscBlock)
-import           Pos.Ssc.Extra               (SscMemTag, SscState)
-import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag,
-                                              TxpMetrics)
-import           Pos.Util                    (Some (..))
-import           Pos.Util.JsonLog            (HasJsonLogConfig (..), JsonLogConfig,
-                                              jsonLogDefault)
-import           Pos.Util.LoggerName         (HasLoggerName' (..), getLoggerNameDefault,
-                                              modifyLoggerNameDefault)
-import           Pos.Util.TimeWarp           (CanJsonLog (..))
-import           Pos.Util.UserSecret         (HasUserSecret (..))
-import           Pos.Util.Util               (postfixLFields)
-import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
+import           Pos.Block.BListener   (MonadBListener (..), onApplyBlocksStub,
+                                        onRollbackBlocksStub)
+import           Pos.Block.Core        (Block, BlockHeader)
+import           Pos.Block.Slog.Types  (HasSlogContext (..))
+import           Pos.Block.Types       (Undo)
+import           Pos.Context           (HasNodeContext (..), HasPrimaryKey (..),
+                                        HasSscContext (..), NodeContext)
+import           Pos.Core              (IsHeader)
+import           Pos.DB                (MonadGState (..), NodeDBs)
+import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
+                                        dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                        dbGetUndoDefault, dbGetUndoSscDefault,
+                                        dbPutBlundDefault)
+import           Pos.DB.Class          (MonadBlockDBGeneric (..),
+                                        MonadBlockDBGenericWrite (..), MonadDB (..),
+                                        MonadDBRead (..))
+import           Pos.DB.DB             (gsAdoptedBVDataDefault)
+import           Pos.DB.Rocks          (dbDeleteDefault, dbGetDefault,
+                                        dbIterSourceDefault, dbPutDefault,
+                                        dbWriteBatchDefault)
+import           Pos.Delegation.Class  (DelegationVar)
+import           Pos.Discovery         (HasDiscoveryContextSum (..), MonadDiscovery (..),
+                                        findPeersSum, getPeersSum)
+import           Pos.Reporting         (HasReportingContext (..))
+import           Pos.Shutdown          (HasShutdownContext (..))
+import           Pos.Slotting.Class    (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum (currentTimeSlottingSum, getCurrentSlotBlockingSum,
+                                        getCurrentSlotInaccurateSum, getCurrentSlotSum)
+import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData (..),
+                                        getSlottingDataDefault, getSystemStartDefault,
+                                        putSlottingDataDefault,
+                                        waitPenultEpochEqualsDefault)
+import           Pos.Ssc.Class.Helpers (SscHelpersClass)
+import           Pos.Ssc.Class.Types   (SscBlock)
+import           Pos.Ssc.Extra         (SscMemTag, SscState)
+import           Pos.Txp.MemState      (GenericTxpLocalData, TxpHolderTag, TxpMetrics)
+import           Pos.Util              (Some (..))
+import           Pos.Util.JsonLog      (HasJsonLogConfig (..), JsonLogConfig,
+                                        jsonLogDefault)
+import           Pos.Util.LoggerName   (HasLoggerName' (..), getLoggerNameDefault,
+                                        modifyLoggerNameDefault)
+import           Pos.Util.TimeWarp     (CanJsonLog (..))
+import           Pos.Util.UserSecret   (HasUserSecret (..))
+import           Pos.Util.Util         (postfixLFields)
+import           Pos.WorkMode.Class    (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
     , rmcSscState      :: !(SscState ssc)
     , rmcTxpLocalData  :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , rmcDelegationVar :: !DelegationVar
-    , rmcPeerState     :: !(PeerStateCtx Production)
     , rmcJsonLogConfig :: !JsonLogConfig
     , rmcLoggerName    :: !LoggerName
     , rmcNodeContext   :: !(NodeContext ssc)
@@ -143,9 +134,6 @@ instance HasLoggerName' (RealModeContext ssc) where
 instance HasJsonLogConfig (RealModeContext ssc) where
     jsonLogConfig = rmcJsonLogConfig_L
 
-instance sa ~ SharedAtomicT Production => HasPeerState sa (RealModeContext ssc) where
-    peerState = rmcPeerState_L
-
 type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 
 instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
@@ -186,11 +174,6 @@ instance MonadDB (RealMode ssc) where
 instance MonadBListener (RealMode ssc) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance WithPeerState (RealMode ssc) where
-    getPeerState = getPeerStateDefault
-    clearPeerState = clearPeerStateDefault
-    getAllStates = getAllStatesDefault
 
 instance
     SscHelpersClass ssc =>

@@ -16,18 +16,13 @@ import           Universum
 import           Control.Lens                     (makeLensesWith)
 import qualified Control.Monad.Reader             as Mtl
 import           Ether.Internal                   (HasLens (..))
-import           Mockable                         (Production, SharedAtomicT)
+import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
                                                    onRollbackBlocksStub)
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
-import           Pos.Communication.PeerState      (HasPeerState (..), PeerStateCtx,
-                                                   WithPeerState (..),
-                                                   clearPeerStateDefault,
-                                                   getAllStatesDefault,
-                                                   getPeerStateDefault)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Discovery                    (MonadDiscovery (..))
@@ -55,8 +50,7 @@ type LightWalletSscType = SscGodTossing
 -- type LightWalletSscType = SscNistBeacon
 
 data LightWalletContext = LightWalletContext
-    { lwcPeerState        :: !(PeerStateCtx Production)
-    , lwcKeyData          :: !KeyData
+    { lwcKeyData          :: !KeyData
     , lwcWalletState      :: !WalletState
     , lwcReportingContext :: !ReportingContext
     , lwcDiscoveryPeers   :: !(Set NodeId)
@@ -67,9 +61,6 @@ data LightWalletContext = LightWalletContext
 makeLensesWith postfixLFields ''LightWalletContext
 
 type LightWalletMode = Mtl.ReaderT LightWalletContext Production
-
-instance sa ~ SharedAtomicT Production => HasPeerState sa LightWalletContext where
-    peerState = lwcPeerState_L
 
 instance HasUserSecret LightWalletContext where
     userSecret = lwcKeyData_L
@@ -109,11 +100,6 @@ instance MonadBlockchainInfo LightWalletMode where
 instance MonadUpdates LightWalletMode where
     waitForUpdate = error "notImplemented"
     applyLastUpdate = pure ()
-
-instance WithPeerState LightWalletMode where
-    getPeerState = getPeerStateDefault
-    clearPeerState = clearPeerStateDefault
-    getAllStates = getAllStatesDefault
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = gsAdoptedBVDataWallet

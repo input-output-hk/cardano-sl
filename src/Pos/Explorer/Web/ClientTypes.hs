@@ -13,6 +13,8 @@ module Pos.Explorer.Web.ClientTypes
        , CTxBrief (..)
        , CNetworkAddress (..)
        , CTxSummary (..)
+       , CGenesisSummary (..)
+       , CGenesisAddressInfo (..)
        , TxInternal (..)
        , CCoin
        , EpochIndex (..)
@@ -276,6 +278,22 @@ data CTxSummary = CTxSummary
     , ctsFees            :: !CCoin
     , ctsInputs          :: ![(CAddress, CCoin)]
     , ctsOutputs         :: ![(CAddress, CCoin)]
+    } deriving (Show, Generic)
+
+data CGenesisSummary = CGenesisSummary
+    { cgsNumTotal    :: !Int
+    , cgsNumRedeemed :: !Int
+    } deriving (Show, Generic)
+
+data CGenesisAddressInfo = CGenesisAddressInfo
+    { cgaiCardanoAddress :: !CAddress
+    -- Commenting out RSCoin address since currently genesisUtxo stores
+    -- only Cardano addresses, which are essentially hashes of RSCoin addresses
+    -- and therefore cannot be converted to them. Hence we should enable RSCoin
+    -- addresses here only after we start storing them in genesisUtxo.
+    -- , cgaiRSCoinAddress  :: !CAddress
+    , cgaiGenesisAmount  :: !CCoin
+    , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)
 
 --------------------------------------------------------------------------------

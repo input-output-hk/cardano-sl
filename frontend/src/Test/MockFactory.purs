@@ -5,6 +5,7 @@
 module Explorer.Test.MockFactory where
 
 import Prelude
+
 import Data.Array ((..))
 import Data.Lens (set)
 import Data.Maybe (Maybe(..))
@@ -12,7 +13,7 @@ import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Types.State (CTxBriefs)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary(..), CAddressType(..), CBlockEntry(..), CCoin, CHash, CTxEntry(..), CTxId, CTxBrief(..))
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary(..), CAddressType(..), CBlockEntry(..), CCoin, CGenesisAddressInfo(..), CGenesisSummary(..), CHash, CTxBrief(..), CTxEntry(..), CTxId)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddressSummary, _CBlockEntry, _CTxEntry, caTxList, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId, cteTimeIssued)
 
 -- | Creates a `CTxEntry` with "empty" data
@@ -97,3 +98,20 @@ mkCtbInOutput addr coin =
 mkCtbInOutputs :: Array Int -> Array (Tuple CAddress CCoin)
 mkCtbInOutputs indexes =
     map (\index -> mkCtbInOutput index index) indexes
+
+mkCGenesisSummary :: CGenesisSummary
+mkCGenesisSummary = CGenesisSummary
+    { cgsNumTotal    : 2
+    , cgsNumRedeemed : 1
+    }
+
+mkCGenesisAddressInfo :: CGenesisAddressInfo
+mkCGenesisAddressInfo =
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+    CGenesisAddressInfo
+    { cgaiCardanoAddress : mkCAddress "3meLwrCDE4C7RofEdkZbUuR75ep3EcTmZv9ebcdjfMtv5H"
+    -- , cgaiRSCoinAddress  : mkCAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
+    , cgaiGenesisAmount  : mkCoin "15000000"
+    , cgaiIsRedeemed     : false
+    }

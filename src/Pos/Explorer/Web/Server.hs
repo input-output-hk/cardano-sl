@@ -26,8 +26,8 @@ import qualified Data.ByteString                as BS
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
-import           Formatting                     (build, sformat, (%))
-import           Formatting                     (int)
+import qualified Ether
+import           Formatting                     (build, int, sformat, (%))
 import           Network.Wai                    (Application)
 import qualified Serokell.Util.Base64           as B64
 import           Servant.API                    ((:<|>) ((:<|>)))
@@ -44,19 +44,20 @@ import qualified Pos.DB.DB                      as DB
 import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.DB.Class                   (MonadDBRead)
+import           Pos.Launcher                   (npCustomUtxo)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId, TxMap,
+import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId, TxMap,
                                                  TxOutAux (..), getLocalTxs, getMemPool,
                                                  mpLocalTxs, taTx, topsortTxs, txOutValue,
+                                                 txpTxs, utxoToAddressCoinPairs,
                                                  _txOutputs)
-import           Pos.Txp                        (MonadTxpMem, txpTxs)
-import           Pos.Types                      (Address (..), EpochIndex, HeaderHash,
-                                                 Timestamp, difficultyL, gbHeader,
-                                                 gbhConsensus, getChainDifficulty,
-                                                 makeRedeemAddress, mkCoin, siEpoch,
-                                                 siSlot, sumCoins, unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+import           Pos.Types                      (Address (..), Coin, EpochIndex,
+                                                 HeaderHash, Timestamp, difficultyL,
+                                                 gbHeader, gbhConsensus,
+                                                 getChainDifficulty, makeRedeemAddress,
+                                                 mkCoin, siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
@@ -71,14 +72,16 @@ import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CAddressType (..), CBlockEntry (..),
-                                                 CBlockSummary (..), CHash, CTxBrief (..),
-                                                 CTxEntry (..), CTxId (..),
+                                                 CBlockSummary (..),
+                                                 CGenesisAddressInfo (..),
+                                                 CGenesisSummary (..), CHash,
+                                                 CTxBrief (..), CTxEntry (..), CTxId (..),
                                                  CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
                                                  fromCHash, fromCTxId, getEpochIndex,
                                                  getSlotIndex, mkCCoin, tiToTxEntry,
-                                                 toBlockEntry, toBlockSummary, toCHash,
-                                                 toPosixTime, toTxBrief)
+                                                 toBlockEntry, toBlockSummary, toCAddress,
+                                                 toCHash, toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -115,33 +118,48 @@ explorerHandlers _sendActions =
       apiAddressSummary
     :<|>
       apiEpochSlotSearch
+    :<|>
+      apiGenesisSummary
+    :<|>
+      apiGenesisPagesTotal
+    :<|>
+      apiGenesisAddressInfo
   where
-    apiBlocksPages       = getBlocksPagesDefault
-    apiBlocksPagesTotal  = getBlocksPagesTotalDefault
-    apiBlocksSummary     = catchExplorerError . getBlockSummary
-    apiBlocksTxs         = getBlockTxsDefault
-    apiTxsLast           = catchExplorerError getLastTxs
-    apiTxsSummary        = catchExplorerError . getTxSummary
-    apiAddressSummary    = catchExplorerError . getAddressSummary
-    apiEpochSlotSearch   = tryEpochSlotSearch
+    apiBlocksPages        = getBlocksPagesDefault
+    apiBlocksPagesTotal   = getBlocksPagesTotalDefault
+    apiBlocksSummary      = catchExplorerError . getBlockSummary
+    apiBlocksTxs          = getBlockTxsDefault
+    apiTxsLast            = catchExplorerError getLastTxs
+    apiTxsSummary         = catchExplorerError . getTxSummary
+    apiAddressSummary     = catchExplorerError . getAddressSummary
+    apiEpochSlotSearch    = tryEpochSlotSearch
+    apiGenesisSummary     = catchExplorerError getGenesisSummary
+    apiGenesisPagesTotal  = getGenesisPagesTotalDefault
+    apiGenesisAddressInfo = getGenesisAddressInfoDefault
 
-    catchExplorerError   = try
+    catchExplorerError    = try
 
-    getBlocksPagesDefault     page size  =
-      catchExplorerError $ getBlocksPage page (defaultPageSize size)
+    getBlocksPagesDefault page size  =
+        catchExplorerError $ getBlocksPage page (defaultPageSize size)
 
-    getBlocksPagesTotalDefault     size  =
-      catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
+    getBlocksPagesTotalDefault size  =
+        catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
 
-    getBlockTxsDefault hash'  limit skip =
-      catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
+    getBlockTxsDefault hash' limit skip =
+        catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
 
-    tryEpochSlotSearch   epoch maybeSlot =
-      catchExplorerError $ epochSlotSearch epoch maybeSlot
+    tryEpochSlotSearch epoch maybeSlot =
+        catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    defaultPageSize size = (fromIntegral $ fromMaybe 10  size)
-    defaultLimit limit   = (fromIntegral $ fromMaybe 10  limit)
-    defaultSkip  skip    = (fromIntegral $ fromMaybe 0   skip)
+    getGenesisPagesTotalDefault size =
+        catchExplorerError $ getGenesisPagesTotal (defaultPageSize size)
+
+    getGenesisAddressInfoDefault page size =
+        catchExplorerError $ getGenesisAddressInfo page (defaultPageSize size)
+
+    defaultPageSize size = (fromIntegral $ fromMaybe 10 size)
+    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
+    defaultSkip  skip    = (fromIntegral $ fromMaybe 0  skip)
 
 ----------------------------------------------------------------
 -- API Functions
@@ -474,6 +492,62 @@ getTxSummary cTxId = do
             , ctsInputs          = map (second mkCCoin) $ convertTxOutputs inputOutputs
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
+
+getRedeemAddressCoinPairs :: ExplorerMode m => m [(Address, Coin)]
+getRedeemAddressCoinPairs = do
+    genesisUtxo <- Ether.asks' npCustomUtxo
+    let addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
+        redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
+    pure redeemOnly
+
+isRedeemAddress :: Address -> Bool
+isRedeemAddress (RedeemAddress _) = True
+isRedeemAddress _                 = False
+
+isAddressRedeemed :: MonadDBRead m => Address -> Coin -> m Bool
+isAddressRedeemed address initialBalance = do
+  currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
+  pure $ currentBalance /= initialBalance
+
+getGenesisSummary
+    :: ExplorerMode m
+    => m CGenesisSummary
+getGenesisSummary = do
+    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    cgsNumRedeemed <- length <$> filterM (uncurry isAddressRedeemed) redeemAddressCoinPairs
+    pure CGenesisSummary {cgsNumTotal = length redeemAddressCoinPairs, ..}
+
+getGenesisAddressInfo
+    :: (ExplorerMode m)
+    => Maybe Word  -- ^ pageNumber
+    -> Word        -- ^ pageSize
+    -> m [CGenesisAddressInfo]
+getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = do
+    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    let pageNumber    = fromMaybe 1 mPage
+        skipItems     = (pageNumber - 1) * pageSize
+        requestedPage = take pageSize $ drop skipItems redeemAddressCoinPairs
+    mapM toGenesisAddressInfo requestedPage
+  where
+    toGenesisAddressInfo :: ExplorerMode m => (Address, Coin) -> m CGenesisAddressInfo
+    toGenesisAddressInfo (address, coin) = do
+        cgaiIsRedeemed <- isAddressRedeemed address coin
+        -- Commenting out RSCoin address until it can actually be displayed.
+        -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+        pure CGenesisAddressInfo
+            { cgaiCardanoAddress = toCAddress address
+            -- , cgaiRSCoinAddress  = toCAddress address
+            , cgaiGenesisAmount  = mkCCoin coin
+            , ..
+            }
+
+getGenesisPagesTotal
+    :: ExplorerMode m
+    => Word
+    -> m Integer
+getGenesisPagesTotal (fromIntegral -> pageSize) = do
+    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    pure $ fromIntegral $ (length redeemAddressCoinPairs + pageSize - 1) `div` pageSize
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

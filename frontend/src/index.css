@@ -15,6 +15,7 @@
 @import "./Explorer/View/transaction.css";
 @import "./Explorer/View/block.css";
 @import "./Explorer/View/blocks.css";
+@import "./Explorer/View/genesis.css";
 @import "./Explorer/View/notfound.css";
 
 /* normalize */

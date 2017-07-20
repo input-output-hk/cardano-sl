@@ -538,6 +538,7 @@ executable cardano-block-gen
                      , ether
                      , formatting
                      , lens
+                     , log-warper
                      , mtl
                      , node-sketch
                      , optparse-applicative

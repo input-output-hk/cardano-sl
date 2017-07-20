@@ -7,6 +7,7 @@ import qualified Data.Map            as M
 import           Formatting          (build, sformat, (%))
 import           Mockable            (runProduction)
 import           System.Directory    (doesDirectoryExist)
+import           System.Wlog         (usingLoggerName)
 
 import           Pos.Core            (StakeDistribution (..), addressHash,
                                       genesisDevKeyPairs, genesisProdAddrDistribution,
@@ -25,17 +26,23 @@ import           Options             (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
 main = flip catch catchEx $ do
+    if isDevelopment then
+        putText $ "Generating in DEV mode"
+    else
+        putText $ "Generating in PROD mode"
     BlockGenOptions{..} <- getBlockGenOptions
     when bgoAppend $ checkExistence bgoPath
     secretsMap <- case bgoNodes of
         Left bgoNodesN -> do
+            unless (bgoNodesN > 0) $
+                throwM NoOneSecrets
             let keys = take (fromIntegral bgoNodesN) genesisDevKeyPairs
             let secretsMap = HM.fromList $ map (first addressHash) keys
             pure secretsMap
         Right bgoSecretFiles -> do
             when (null bgoSecretFiles) $
                 throwM NoOneSecrets
-            secrets <- runProduction $ mapM parseSecret bgoSecretFiles
+            secrets <- usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
             let secretsMap = HM.fromList $
                                 map (first (addressHash . toPublic) . join (,)) secrets
             pure secretsMap
@@ -60,6 +67,8 @@ main = flip catch catchEx $ do
         runProduction $
         initTBlockGenMode db genUtxo $
         void $ genBlocks bgenParams
+    -- We print it twice because there can be a ton of logs and
+    -- you don't notice the first message.
     if isDevelopment then
         putText $ "Generated in DEV mode"
     else

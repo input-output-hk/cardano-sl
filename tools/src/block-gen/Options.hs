@@ -68,7 +68,7 @@ optionsParser = do
     nodesCountParser = option auto $
         long    "nodes" <>
         metavar "INT" <>
-        help "Length of blockchain."
+        help "Number of nodes."
 
 getBlockGenOptions :: IO BlockGenOptions
 getBlockGenOptions = execParser programInfo

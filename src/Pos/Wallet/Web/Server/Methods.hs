@@ -146,18 +146,19 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnec
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
                                                    addOnlyNewTxMeta, addUpdate,
                                                    addWAddress, closeState, createAccount,
-                                                   createWallet, getAccountMeta,
-                                                   getAccountWAddresses, getHistoryCache,
-                                                   getNextUpdate, getProfile, getTxMeta,
-                                                   getAccountIds, getWalletAddresses,
-                                                   getWalletMeta, getWalletPassLU,
-                                                   isCustomAddress, openState,
-                                                   removeAccount, removeHistoryCache,
-                                                   removeNextUpdate, removeTxMetas,
-                                                   removeWallet, setAccountMeta,
-                                                   setProfile, setWalletMeta,
-                                                   setWalletPassLU, setWalletTxMeta,
-                                                   testReset, updateHistoryCache)
+                                                   createWallet, getAccountIds,
+                                                   getAccountMeta, getAccountWAddresses,
+                                                   getHistoryCache, getNextUpdate,
+                                                   getProfile, getTxMeta,
+                                                   getWalletAddresses, getWalletMeta,
+                                                   getWalletPassLU, isCustomAddress,
+                                                   openState, removeAccount,
+                                                   removeHistoryCache, removeNextUpdate,
+                                                   removeTxMetas, removeWallet,
+                                                   setAccountMeta, setProfile,
+                                                   setWalletMeta, setWalletPassLU,
+                                                   setWalletTxMeta, testReset,
+                                                   updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInsertions,
                                                    syncWalletOnImport,
@@ -518,7 +519,7 @@ getAccounts
 getAccounts mCAddr = do
     whenJust mCAddr $ \cAddr -> getWalletMeta cAddr `whenNothingM_` noWSet cAddr
     accIds <- maybe getAccountIds getWalletAccountIds mCAddr
-    let groupedAccIds = HM.fromListWith mappend $
+    let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) ->
          fixCachedAccModifierFor wid $ forM walAccIds . getAccount

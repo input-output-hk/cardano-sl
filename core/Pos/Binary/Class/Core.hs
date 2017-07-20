@@ -317,14 +317,35 @@ encodeMapSkel size foldrWithKey =
     (\k v b -> encode k <> encode v <> b)
 {-# INLINE encodeMapSkel #-}
 
-decodeMapSkel :: (Bi k, Bi v) => ([(k,v)] -> m) -> D.Decoder s m
+-- | Checks canonicity by comparing the new key being decoded with
+-- the previous one, to enfore these are sorted the correct way.
+-- See: https://tools.ietf.org/html/rfc7049#section-3.9
+-- "[..]The keys in every map must be sorted lowest value to highest.[...]"
+decodeMapSkel :: (Ord k, Bi k, Bi v) => ([(k,v)] -> m) -> D.Decoder s m
 decodeMapSkel fromList = do
   n <- D.decodeMapLen
-  let decodeEntry = do
+  case n of
+      0 -> return (fromList mempty)
+      _ -> do
+          (firstKey, firstValue) <- decodeEntry
+          fromList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
+  where
+    -- Decode a single (k,v).
+    decodeEntry :: (Bi k, Bi v) => D.Decoder s (k,v)
+    decodeEntry = do
         !k <- decode
         !v <- decode
         return (k, v)
-  fmap fromList (replicateM n decodeEntry)
+
+    -- Decode all the entries, enforcing canonicity by ensuring that the
+    -- previous key is smaller or equal than the next one.
+    decodeEntries :: (Bi k, Bi v, Ord k) => Int -> k -> [(k,v)] -> D.Decoder s [(k,v)]
+    decodeEntries 0 _ acc = return (reverse acc)
+    decodeEntries !remainingPairs previousKey !acc = do
+        p@(newKey, _) <- decodeEntry
+        case newKey < previousKey of
+            True  -> fail "Canonicity violation whilst decoding a Map!"
+            False -> decodeEntries (remainingPairs - 1) newKey (p : acc)
 {-# INLINE decodeMapSkel #-}
 
 instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where

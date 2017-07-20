@@ -114,8 +114,10 @@ overrideTxOutDistrBoot ::
     -> TxOutDistribution
     -> ExceptT Text m TxOutDistribution
 overrideTxOutDistrBoot c oldDistr = do
-    -- Blocking here should be fine for now i think
-    -- TODO think more
+    -- Blocking here should be fine for now (@volhovm)
+    -- 1. Code in tx generator must have current slot.
+    -- 2. Code in wallet will block on "synchronizing" on the
+    --    frontend so it's fine too.
     epoch <- siEpoch <$> lift getCurrentSlotBlocking
     bootEra <- lift $ gsIsBootstrapEra epoch
     genStakeholders <- toList <$> genesisStakeholdersM

@@ -22,17 +22,20 @@ import           Formatting                 (sformat, (%))
 import           System.Random              (RandomGen (..))
 
 import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot)
+import           Pos.Context                (genesisStakeholdersM)
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
                                              addressDetailedF, coinToInteger,
                                              makePubKeyAddress, sumCoins,
                                              unsafeIntegerToCoin)
 import           Pos.Crypto                 (SecretKey, SignTag (SignTxIn), WithHash (..),
                                              hash, sign, toPublic)
+import           Pos.DB                     (gsIsBootstrapEra)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..),
                                              asSecretKeys)
 import qualified Pos.GState                 as DB
+import           Pos.Slotting.Class         (MonadSlots (getCurrentSlotBlocking))
 import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
                                              TxOut (..), TxOutAux (..), TxSigData (..))
 import           Pos.Txp.Logic              (txProcessTransaction)
@@ -110,6 +113,11 @@ genTxPayload = do
   where
     genTransaction :: StateT GenTxData (BlockGenRandMode g m) ()
     genTransaction = do
+        epoch <- siEpoch <$> lift (lift getCurrentSlotBlocking)
+        bootEra <- lift . lift $ gsIsBootstrapEra epoch
+        genStakeholders <- toList <$> genesisStakeholdersM
+        let dustThd :: Integral a => a
+            dustThd = fromIntegral $ length genStakeholders
         utxoSize <- uses gtdUtxoKeys V.length
         when (utxoSize == 0) $
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
@@ -125,32 +133,61 @@ genTxPayload = do
 
         ----- INPUTS
 
-        inputsN <- getRandomR (1, min 5 utxoSize)
-        inputsIxs <- selectDistinct inputsN (0, utxoSize - 1)
-        -- It's alright to use unsafeIndex because length of
-        -- gtdUtxoKeys must match utxo size and inputsIxs is selected
-        -- prior to length limitation.
-        txIns <- forM inputsIxs $ \i -> uses gtdUtxoKeys (`V.unsafeIndex` i)
-        inputsResolved <- forM txIns $ \txIn ->
-            -- we're selecting from utxo by 'gtdUtxoKeys'. Inability to resolve
-            -- txin means that 'GenTxData' is malformed.
-            toaOut . fromMaybe (error "genTxPayload: inputsSum can't happen") <$> utxoGet txIn
-        let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
+        let generateInputs = do
+                inputsN <- getRandomR (1, min 5 utxoSize)
+                inputsIxs <- selectDistinct inputsN (0, utxoSize - 1)
+                -- It's alright to use unsafeIndex because length of
+                -- gtdUtxoKeys must match utxo size and inputsIxs is selected
+                -- prior to length limitation.
+                txIns <- forM inputsIxs $ \i -> uses gtdUtxoKeys (`V.unsafeIndex` i)
+                inputsResolved <- forM txIns $ \txIn ->
+                    -- we're selecting from utxo by 'gtdUtxoKeys'. Inability to resolve
+                    -- txin means that 'GenTxData' is malformed.
+                    toaOut .
+                    fromMaybe (error "genTxPayload: inputsSum can't happen") <$>
+                    utxoGet txIn
+                let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
+                -- if we've just took inputs that have sum less than number
+                -- of stakeholders, it's dust case and we forbid these txs
+                -- in boot era
+                if bootEra && inputsSum < dustThd
+                    -- just retry
+                    -- should we also check here that there are inputs in utxo that we can take?
+                    then generateInputs
+                    else pure (txIns, inputsResolved, inputsSum)
+        (txIns,inputsResolved,inputsSum) <- generateInputs
 
         ----- OUTPUTS
 
-        outputsMaxN <- fromIntegral . max 1 <$> lift (view tgpMaxOutputs)
-        (outputsN :: Int) <- fromIntegral <$> getRandomR (1, min outputsMaxN inputsSum)
-        outputsIxs <- selectDistinct outputsN (0, max outputsN (length utxoAddresses - 1))
-        let outputAddrs = map ((cycle utxoAddresses) !!) outputsIxs
-        -- We operate small coins values so any input sum mush be less
-        -- than coin maxbound.
-        coins <- splitCoins outputsN (unsafeIntegerToCoin inputsSum)
-        let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-        let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
-        txOutAuxs <-
-            either (lift . throwM . BGFailedToCreate) pure =<<
-            runExceptT (overrideTxDistrBoot txOutAuxsPre)
+        let generateOutputs = do
+                -- this is max number of outputs such that none of
+                -- them is less than dust treshold
+                let ceilBoot = inputsSum `div` dustThd
+                outputsMaxN <-
+                    bool identity (min ceilBoot) bootEra .
+                    fromIntegral .
+                    max 1 <$>
+                    lift (view tgpMaxOutputs)
+                (outputsN :: Int) <-
+                    fromIntegral <$> getRandomR (1, min outputsMaxN inputsSum)
+                outputsIxs <-
+                    selectDistinct
+                        outputsN
+                        (0, max outputsN (length utxoAddresses - 1))
+                let outputAddrs = map ((cycle utxoAddresses) !!) outputsIxs
+                let suchThat cond x =
+                        x >>= \y -> bool (suchThat cond x) (pure y) (cond y)
+                let moreThanDust (coinToInteger -> c) = c >= dustThd
+                -- We operate small coins values so any input sum mush be less
+                -- than coin maxbound.
+                coins <-
+                    suchThat (all moreThanDust) $
+                    splitCoins outputsN (unsafeIntegerToCoin inputsSum)
+                let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
+                let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
+                either (lift . throwM . BGFailedToCreate) pure =<<
+                    runExceptT (overrideTxDistrBoot txOutAuxsPre)
+        txOutAuxs <- generateOutputs
 
         ----- TX
 
@@ -172,7 +209,8 @@ genTxPayload = do
             Right () -> do
                 Utxo.applyTxToUtxo (WithHash tx txId) (taDistribution txAux)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
-                let outsAsIns = map (TxIn txId) [0..(fromIntegral outputsN)-1]
+                let outsAsIns =
+                        map (TxIn txId) [0..(fromIntegral $ length txOutAuxs)-1]
                 gtdUtxoKeys %= (V.++) (V.fromList outsAsIns)
 
 

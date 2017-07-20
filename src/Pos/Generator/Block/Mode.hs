@@ -349,11 +349,7 @@ instance MonadBlockGenBase m => MonadSlots (BlockGenMode m) where
     currentTimeSlotting = currentTimeSlottingSimple
 
 instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode m) where
-    gsAdoptedBVData =
-        -- Currently we can't and don't want to test the system in boot mode
-        -- since in requires transaction to have specific distribution.
-        gsAdoptedBVDataDefault <&>
-        (\BlockVersionData{..} -> BlockVersionData { bvdUnlockStakeEpoch = 0, ..})
+    gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onApplyBlocks = onApplyBlocksStub

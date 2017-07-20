@@ -49,6 +49,8 @@ data BlockGenParams = BlockGenParams
     -- 'toPublic'.
     , _bgpBlockCount :: !BlockCount
     -- ^ Number of blocks to generate.
+    , _bgpInplaceDB  :: !Bool
+    -- ^ Whether to extend existing DB.
     }
 
 makeClassy ''BlockGenParams

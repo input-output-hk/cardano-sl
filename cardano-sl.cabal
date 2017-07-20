@@ -634,6 +634,7 @@ test-suite cardano-test
                      , memory
                      , monad-control
                      , mtl
+                     , mmorph
                      , node-sketch
                      , pvss
                      , quickcheck-instances

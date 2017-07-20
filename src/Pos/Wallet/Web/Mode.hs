@@ -13,15 +13,12 @@ import           Universum
 import           Control.Lens                  (makeLensesWith)
 import qualified Control.Monad.Reader          as Mtl
 import           Ether.Internal                (HasLens (..))
-import           Mockable                      (Production, SharedAtomicT)
+import           Mockable                      (Production)
 import           System.Wlog                   (HasLoggerName (..))
 
 import           Pos.Block.Core                (Block, BlockHeader)
 import           Pos.Block.Slog.Types          (HasSlogContext (..))
 import           Pos.Block.Types               (Undo)
-import           Pos.Communication.PeerState   (HasPeerState (..), WithPeerState (..),
-                                                clearPeerStateDefault,
-                                                getAllStatesDefault, getPeerStateDefault)
 import           Pos.Context                   (HasNodeContext (..))
 import           Pos.Core                      (HasPrimaryKey (..), IsHeader)
 import           Pos.DB                        (MonadGState (..))
@@ -106,9 +103,6 @@ instance HasReportingContext WalletWebModeContext  where
 instance HasUserSecret WalletWebModeContext where
     userSecret = wwmcRealModeContext_L . userSecret
 
-instance sa ~ SharedAtomicT Production => HasPeerState sa WalletWebModeContext where
-    peerState = wwmcRealModeContext_L . peerState
-
 instance HasShutdownContext WalletWebModeContext where
     shutdownContext = wwmcRealModeContext_L . shutdownContext
 
@@ -146,11 +140,6 @@ instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeConte
     lensOf = identity
 
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
-
-instance WithPeerState WalletWebMode where
-    getPeerState = getPeerStateDefault
-    clearPeerState = clearPeerStateDefault
-    getAllStates = getAllStatesDefault
 
 instance MonadSlotsData WalletWebMode where
     getSystemStart = getSystemStartDefault

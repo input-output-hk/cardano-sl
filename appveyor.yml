@@ -111,6 +111,8 @@ test_script:
   - ps: Install-Product node 7
   - ..\scripts\ci\appveyor-retry call npm install
   - npm run build:prod
+  - dir "%WORK_DIR%\daedalus\"
+  - ps: foreach ($x in @("cardano-addr-convert.exe", "cardano-genupdate.exe", "cardano-launcher.exe", "cardano-node.exe", "cardano-wallet-hs2purs.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
 
 after_test:
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%

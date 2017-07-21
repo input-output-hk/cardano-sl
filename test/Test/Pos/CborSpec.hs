@@ -262,7 +262,7 @@ testANewtype = testAgainstFile "a newtype" x rep
     x = ANewtype 42
 
     rep :: [CBOR.TermToken]
-    rep = [CBOR.TkListLen 2, CBOR.TkInt 0, CBOR.TkInt 42]
+    rep = [CBOR.TkListLen 1, CBOR.TkInt 42]
 
 testAUnit :: SpecWith ()
 testAUnit = testAgainstFile "a unit" x rep
@@ -271,7 +271,7 @@ testAUnit = testAgainstFile "a unit" x rep
     x = AUnit
 
     rep :: [CBOR.TermToken]
-    rep = [CBOR.TkListLen 1, CBOR.TkInt 0]
+    rep = [CBOR.TkListLen 0]
 
 testARecord :: SpecWith ()
 testARecord = testAgainstFile "a record" x rep

@@ -483,14 +483,12 @@ instance GSerialiseDecode G.V1 where
 
 instance GSerialiseEncode G.U1 where
     -- Constructors without fields are serialised as null value
-    gencode _ = E.encodeListLen 1 <> E.encodeWord 0
+    gencode _ = E.encodeListLen 0
 
 instance GSerialiseDecode G.U1 where
     gdecode   = do
       n <- D.decodeListLen
-      when (n /= 1) $ fail "expect list of length 1"
-      tag <- D.decodeWord
-      when (tag /= 0) $ fail "unexpected tag. Expect 0"
+      when (n /= 0) $ fail "expect list of length 0"
       return G.U1
 
 instance GSerialiseEncode a => GSerialiseEncode (G.M1 i c a) where
@@ -503,25 +501,20 @@ instance GSerialiseDecode a => GSerialiseDecode (G.M1 i c a) where
 instance Bi a => GSerialiseEncode (G.K1 i a) where
     -- Constructor field (Could only appear in one-field & one-constructor
     -- data types). In all other cases we go through GSerialise{Sum,Prod}
-    gencode (G.K1 a) = E.encodeListLen 2
-                  <> E.encodeWord 0
-                  <> encode a
+    gencode (G.K1 a) = E.encodeListLen 1
+                     <> encode a
 
 instance Bi a => GSerialiseDecode (G.K1 i a) where
     gdecode = do
       n <- D.decodeListLen
-      when (n /= 2) $
-        fail "expect list of length 2"
-      tag <- D.decodeWord
-      when (tag /= 0) $
-        fail "unexpected tag. Expects 0"
+      when (n /= 1) $
+        fail "expect list of length 1"
       G.K1 <$> decode
 
 instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseEncode (f G.:*: g) where
     -- Products are serialised as N-tuples with 0 constructor tag
     gencode (f G.:*: g)
-        = E.encodeListLen (nFields (Proxy :: Proxy (f G.:*: g)) + 1)
-       <> E.encodeWord 0
+        = E.encodeListLen (nFields (Proxy :: Proxy (f G.:*: g)))
        <> encodeSeq f
        <> encodeSeq g
 
@@ -530,11 +523,8 @@ instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseDecode (f G.:*: g) wh
       let nF = nFields (Proxy :: Proxy (f G.:*: g))
       n <- D.decodeListLen
       -- TODO FIXME: signedness of list length
-      when (fromIntegral n /= nF + 1) $
-        fail $ "Wrong number of fields: expected="++show (nF+1)++" got="++show n
-      tag <- D.decodeWord
-      when (tag /= 0) $
-        fail $ "unexpect tag (expect 0)"
+      when (fromIntegral n /= nF) $
+        fail $ "Wrong number of fields: expected="++show (nF)++" got="++show n
       !f <- gdecodeSeq
       !g <- gdecodeSeq
       return $ f G.:*: g

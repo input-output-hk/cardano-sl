@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies  #-}
 
 module Pos.DHT.Real.Types
        ( KademliaDHTInstance (..)
@@ -9,26 +9,22 @@ module Pos.DHT.Real.Types
 import           Universum              hiding (fromStrict, toStrict)
 
 import           Control.Concurrent.STM (TVar)
-import qualified Data.ByteString        as BS
 
 import qualified Network.Kademlia       as K
 
 import           Data.Bifunctor         (bimap)
-import           Pos.Binary.Class       (Bi (..), serialize', decodeFull)
+import           Pos.Binary.Class       (Bi (..), deserializeOrFail', serialize')
 import           Pos.DHT.Model.Types    (DHTData, DHTKey)
 import           Pos.Util.TimeWarp      (NetworkAddress)
 
--- CSL-1296: Should we worry about leftovers?
--- Previous Store-based implementation was taking the leftover
--- out of the serialisation, whereas in CBOR we deserialise everything
--- in a gulp.
+
 instance Bi DHTData => K.Serialize DHTData where
   toBS   = serialize'
-  fromBS = bimap toString (,BS.empty) . decodeFull
+  fromBS = bimap (show . view _3) ((,) <$> view _3 <*> view _1) . deserializeOrFail'
 
 instance Bi DHTKey => K.Serialize DHTKey where
   toBS   = serialize'
-  fromBS = bimap toString (,BS.empty) . decodeFull
+  fromBS = bimap (show . view _3) ((,) <$> view _3 <*> view _1) . deserializeOrFail'
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData
 

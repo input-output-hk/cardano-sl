@@ -26,4 +26,10 @@ let
     name = dconfig;
     value = jobs;
   };
-in (listToAttrs (map mkDconfigs dconfigs))
+  cardano-jobs = (listToAttrs (map mkDconfigs dconfigs));
+  tests = import ./tests { inherit pkgs; supportedSystems = [ "x86_64-linux" ]; };
+  cardano = import ./. { inherit pkgs; };
+in {
+  inherit (cardano) make-genesis;
+  inherit tests;
+} // cardano-jobs

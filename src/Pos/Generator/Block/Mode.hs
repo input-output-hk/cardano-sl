@@ -31,10 +31,9 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (BlockVersionData (..), HasPrimaryKey (..),
-                                              IsHeader, SlotId (..), Timestamp,
-                                              epochOrSlotToSlot, getEpochOrSlot,
-                                              makePubKeyAddress, mkCoin)
+import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
+                                              Timestamp, epochOrSlotToSlot,
+                                              getEpochOrSlot, makePubKeyAddress, mkCoin)
 import           Pos.Crypto                  (SecretKey, toPublic, unsafeHash)
 import           Pos.DB                      (DBPureVar, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,

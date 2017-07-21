@@ -47,7 +47,8 @@ coinToInteger = toInteger . unsafeGetCoin
 unsafeAddCoin :: Coin -> Coin -> Coin
 unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
     | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = mkCoin res
-    | otherwise = error "unsafeAddCoin: overflow"
+    | otherwise =
+      error $ "unsafeAddCoin: overflow when summing " <> show a <> " + " <> show b
   where
     res = a+b
 {-# INLINE unsafeAddCoin #-}

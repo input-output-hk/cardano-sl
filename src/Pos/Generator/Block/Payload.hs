@@ -70,8 +70,10 @@ selectDistinct n0 p@(a, b)
 -- | Separates coin into provided number of coins. All resulting coins
 -- are nonzero.
 splitCoins :: (MonadRandom m, MonadIO m) => Int -> Coin -> m [Coin]
-splitCoins n (fromIntegral . coinToInteger -> c)
-    | c < n = error $ "splitCoins: can't split " <> pretty c <>
+splitCoins n c0
+    | c == (0::Int) = error "splitCoins, c = 0"
+    | c == (1::Int) = pure [c0]
+    | c < n = error $ "splitCoins: can't split " <> pretty c0 <>
                       " on " <> show n <> " parts"
     | otherwise = do
           splitPoints <- sort <$> selectDistinct (n-1) (1, c - 1)
@@ -81,6 +83,9 @@ splitCoins n (fromIntegral . coinToInteger -> c)
           -- here we can use unsafeIntegerToCoin, because amount of
           -- subcoin is less than 'c' by design.
           pure $ map (unsafeIntegerToCoin . fromIntegral) amounts
+  where
+    c :: Integral a => a
+    c = fromIntegral $ coinToInteger c0
 
 -- | State datatype for transaction payload generation
 data GenTxData = GenTxData

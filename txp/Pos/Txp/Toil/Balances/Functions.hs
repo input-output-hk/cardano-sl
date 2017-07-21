@@ -66,8 +66,9 @@ recomputeStakes plusDistr minusDistr = do
                         coinToInteger totalStake + positiveDelta - negativeDelta
     let newStakes
           = HM.toList $
-              calcNegStakes minusDistr
-                  (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
+            map unsafeIntegerToCoin $
+            calcNegStakes minusDistr
+                (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
     setTotalStake newTotalStake
     mapM_ (uncurry setStake) newStakes
   where
@@ -80,9 +81,9 @@ recomputeStakes plusDistr minusDistr = do
     -- theory get overflow because we're adding and only then subtracting,
     -- but in practice it won't happen unless someone has 2^63 coins or
     -- something.
-    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    minusAt hm (key, val) =
-        HM.alter (maybe err (\v -> Just (unsafeSubCoin v val))) key hm
+    plusAt hm (key, c) = HM.insertWith (+) key (coinToInteger c) hm
+    minusAt hm (key, c) =
+        HM.alter (maybe err (\v -> Just (v - coinToInteger c))) key hm
       where
         err = error ("recomputeStakes: no stake for " <> show key)
 

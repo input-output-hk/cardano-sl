@@ -29,7 +29,6 @@ import           Pos.DB.Rocks               (MonadRealDB)
 import           Pos.Slotting               (SlottingData, getSlotStartPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
-import           Pos.Txp.Toil               (evalToilTEmpty, runDBToil)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
@@ -70,33 +69,34 @@ onApplyTracking
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = do
     let oldestFirst = getOldestFirst blunds
-        txs = concatMap (gbTxs . fst) oldestFirst
+        txsWUndo = concatMap gbTxsWUndo oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
     currentTipHH <- GS.getTip
     sd <- GS.getSlottingData
-    mapM_ (syncWallet sd currentTipHH newTipH txs) =<< WS.getWalletAddresses
+    mapM_ (syncWallet sd currentTipHH newTipH txsWUndo) =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWallet :: SlottingData -> HeaderHash -> BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
-    syncWallet sd curTip newTipH txs wAddr = walletGuard curTip wAddr $ do
+    syncWallet :: SlottingData -> HeaderHash -> BlockHeader ssc -> [(TxAux, TxUndo)] -> CId Wal -> m ()
+    syncWallet sd curTip newTipH txsWUndo wAddr = walletGuard curTip wAddr $ do
         let mainBlkHeaderTs mBlkH =
                 getSlotStartPure True (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         allAddresses <- getWalletAddrMetasDB WS.Ever wAddr
         encSK <- getSKByAddr wAddr
-        mapModifier <-
-            runDBToil $
-            evalToilTEmpty $
-            trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
-            zip txs $ repeat newTipH
+        let mapModifier =
+                trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
+                zipWith (\(tx, undo) bh -> (tx, undo, bh)) txsWUndo (repeat newTipH)
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
 
-    gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
+    gbTxsWUndo :: Blund ssc -> [(TxAux, TxUndo)]
+    gbTxsWUndo (Left _, _) = []
+    gbTxsWUndo (Right mb, undo) =
+        zip (mb ^. mainBlockTxPayload . to flattenTxPayload) (undoTx undo)
     gbDiff = Just . view difficultyL
 
 -- Perform this action under block lock.

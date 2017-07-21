@@ -62,6 +62,8 @@ module Network.Broadcast.OutboundQueue (
   , peersFromList
   , addKnownPeers
   , removeKnownPeer
+    -- * Debugging
+  , dumpState
   ) where
 
 import Control.Concurrent
@@ -76,7 +78,7 @@ import Data.Monoid ((<>))
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Time
-import Formatting (sformat, (%), shown, string)
+import Formatting (Format, sformat, (%), shown, string)
 import System.Wlog.CanLog
 import qualified Data.Map.Strict as Map
 import qualified Data.Set        as Set
@@ -441,6 +443,20 @@ data OutboundQ msg nid = forall self .
       -- | Signal we use to wake up blocked threads
     , qSignal :: Signal CtrlMsg
     }
+
+-- | Use a formatter to get a dump of the state.
+-- Currently this just shows the known peers.
+dumpState
+    :: MonadIO m
+    => OutboundQ msg nid
+    -> (forall a . (Format r a) -> a)
+    -> m r
+dumpState OutQ {..} formatter = do
+    peers <- liftIO $ readMVar qPeers
+    let formatted = formatter format peers
+    return formatted
+  where
+    format = "OutboundQ internal state '{"%shown%"}'"
 
 -- | Initialize the outbound queue
 --

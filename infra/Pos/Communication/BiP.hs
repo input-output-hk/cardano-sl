@@ -50,4 +50,6 @@ fromBiDecoder x = do
     case nextStep of
       (Bi.Partial cont)    -> return $ TW.Partial $ \bs -> TW.Decoder $ fromBiDecoder (cont bs)
       (Bi.Done bs off t)   -> return (TW.Done bs off t)
-      (Bi.Fail bs off exn) -> return (TW.Fail bs off (toText @String $ show exn))
+      (Bi.Fail bs off exn) -> do
+          let msg = "fromBiDecoder failure: " <> show exn <> ", leftover: " <> show bs
+          return (TW.Fail bs off (toText @String msg))

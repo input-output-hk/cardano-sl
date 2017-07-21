@@ -78,14 +78,10 @@ type TxId = Hash Tx
 
 -- | Data that is being signed when creating a TxSig.
 data TxSigData = TxSigData
-    { -- | Input that we're signing (i.e. our signature certifies that we own
-      -- funds referenced by this input)
-      txSigInput     :: !TxIn
-      -- | Outputs of the transaction (i.e. our signature certifies that we
-      -- actually want the funds to go to these particular outputs)
-    , txSigOutsHash  :: !(Hash (NonEmpty TxOut))
+    { -- | Transaction that we're signing
+      txSigTxHash      :: !(Hash Tx)
       -- | Distribution of the transaction
-    , txSigDistrHash :: !(Hash TxDistribution)
+    , txSigTxDistrHash :: !(Hash TxDistribution)
     }
     deriving (Eq, Show, Generic, Typeable)
 

@@ -33,7 +33,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: e2e2711e6978002279b4d7c49cab1aff47a2fd43
+    commit: d2c7e65ab463de5515980af0778c5c9dcd79354d
   extra-dep: true
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519

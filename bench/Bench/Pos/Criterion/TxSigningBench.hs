@@ -9,28 +9,26 @@ import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Test.QuickCheck          (generate)
 import           Universum
 
-import           Pos.Crypto               (SecretKey, SignTag (SignTxIn), hash, sign)
+import           Pos.Crypto               (SecretKey, SignTag (SignTx), hash, sign)
 import           Pos.Ssc.GodTossing       ()
-import           Pos.Txp                  (TxDistribution (..), TxId, TxIn (..), TxOut,
-                                           TxSig, TxSigData (..))
+import           Pos.Txp                  (TxDistribution (..), TxId, TxOut, TxSig,
+                                           TxSigData (..))
 import           Pos.Txp.Arbitrary.Unsafe ()
 import           Pos.Util                 (arbitraryUnsafe)
 
-signTx :: (SecretKey, TxId, Word32, NonEmpty TxOut) -> TxSig
-signTx (sk, thash, tidx, touts) = sign SignTxIn sk txSigData
+signTx :: (SecretKey, TxId, NonEmpty TxOut) -> TxSig
+signTx (sk, thash, touts) = sign SignTx sk txSigData
   where
     distr = TxDistribution ([] :| replicate (length touts - 1) [])
     txSigData = TxSigData
-        { txSigInput = TxIn thash tidx
-        , txSigOutsHash = hash touts
-        , txSigDistrHash = hash distr
+        { txSigTxHash = thash
+        , txSigTxDistrHash = hash distr
         }
 
 txSignBench :: Benchmark
 txSignBench = env genArgs $ bench "Transactions signing" . whnf signTx
-  where genArgs = generate $ (,,,)
+  where genArgs = generate $ (,,)
                   <$> arbitraryUnsafe
-                  <*> arbitraryUnsafe
                   <*> arbitraryUnsafe
                   <*> arbitraryUnsafe
 

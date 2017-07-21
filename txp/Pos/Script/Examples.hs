@@ -29,17 +29,19 @@ module Pos.Script.Examples
        , sigStressRedeemer
        ) where
 
-import qualified Data.ByteString    as BS
-import           Formatting         (build, sformat, (%))
-import           NeatInterpolation  (text)
+import qualified Data.ByteString      as BS
+import           Formatting           (build, sformat, (%))
+import           NeatInterpolation    (text)
+import           Serokell.Util.Base16 (base16F)
 import           Universum
 
-import           Pos.Binary.Core    ()
-import           Pos.Crypto         (PublicKey, SafeSigner, SignTag (SignTxIn),
-                                     deterministicKeyGen, fullPublicKeyHexF,
-                                     fullSignatureHexF, safeSign, signRaw)
-import           Pos.Script         (Script, parseRedeemer, parseValidator)
-import           Pos.Txp.Core.Types (TxSigData)
+import           Pos.Binary.Core      ()
+import           Pos.Core             (StakeholderId)
+import           Pos.Crypto           (SafeSigner, SignTag (SignTx), deterministicKeyGen,
+                                       fullPublicKeyHexF, fullSignatureHexF, hashHexF,
+                                       safeSign, safeToPublic, signRaw, signTag)
+import           Pos.Script           (Script, parseRedeemer, parseValidator)
+import           Pos.Txp.Core.Types   (TxSigData)
 
 fromE :: Either String Script -> Script
 fromE = either (error . toText) identity
@@ -75,19 +77,19 @@ intValidator = fromE $ parseValidator [text|
     data Foo = { Foo }
 
     validator : Int -> Comp Foo {
-        validator x = case x of {
-            1 -> success Foo ;
-            _ -> failure } }
+        validator x = case !equalsInt x 1 of {
+            True  -> success Foo ;
+            False -> failure } }
     |]
 
 goodIntRedeemer :: Script
-goodIntRedeemer = fromE $ parseRedeemer (Just intValidator) [text|
+goodIntRedeemer = fromE $ parseRedeemer [text|
     redeemer : Comp Int {
         redeemer = success 1 }
     |]
 
 badIntRedeemer :: Script
-badIntRedeemer = fromE $ parseRedeemer (Just intValidator) [text|
+badIntRedeemer = fromE $ parseRedeemer [text|
     redeemer : Comp Int {
         redeemer = success 0 }
     |]
@@ -100,12 +102,12 @@ stdlibValidator :: Script
 stdlibValidator = fromE $ parseValidator [text|
     validator : Bool -> Comp Bool {
         validator x = case not (not x) of {
-            True -> success True ;
-            _    -> failure } }
+            True  -> success True ;
+            False -> failure } }
     |]
 
 goodStdlibRedeemer :: Script
-goodStdlibRedeemer = fromE $ parseRedeemer (Just stdlibValidator) [text|
+goodStdlibRedeemer = fromE $ parseRedeemer [text|
     redeemer : Comp Bool {
         redeemer = success (not False) }
     |]
@@ -114,34 +116,38 @@ goodStdlibRedeemer = fromE $ parseRedeemer (Just stdlibValidator) [text|
 -- Multisig
 ----------------------------------------------------------------------------
 
--- verifyMultiSig : Int                          -- how many sigs are needed
---               -> List ByteString              -- allowed pubkeys
---               -> ByteString                   -- txSigData
---               -> List (Maybe ByteString)      -- sigs
---               -> Comp Unit
+-- verifyMultiSig
+--    : Int                         -- how many valid sigs are needed
+--   -> List BS                     -- pubkey hashes that are allowed to vote
+--   -> BS                          -- txsigdata
+--   -> List (Maybe (Pair BS BS))   -- pubkeys + sigs
+--   -> Comp Unit
 
-multisigValidator :: Int -> [PublicKey] -> Script
-multisigValidator n pks = fromE $ parseValidator [text|
-    validator : List (Maybe ByteString) -> Comp Unit {
-        validator sigs = do {
-            txSigData <- !transactionInfo;
-            verifyMultiSig ${shownN} ${shownPks} txSigData sigs } }
+multisigValidator :: Int -> [StakeholderId] -> Script
+multisigValidator n ids = fromE $ parseValidator [text|
+    validator : List (Maybe (Pair ByteString ByteString)) -> Comp Unit {
+        validator sigs = verifyMultiSig
+            ${shownN} ${shownIds}
+            (!concatenate ${shownTag} (!concatenate (txhash) (txdistrhash)))
+            sigs }
     |]
   where
     shownN = show n
-    mkCons k s = sformat ("(Cons #"%fullPublicKeyHexF%" "%build%")") k s
-    shownPks = foldr mkCons "Nil" pks
+    mkCons h s = sformat ("(Cons #"%hashHexF%" "%build%")") h s
+    shownIds = foldr mkCons "Nil" ids
+    shownTag = sformat ("#"%base16F) (signTag SignTx)
 
 multisigRedeemer :: TxSigData -> [Maybe SafeSigner] -> Script
-multisigRedeemer txSigData sks = fromE $ parseRedeemer Nothing [text|
-    redeemer : Comp (List (Maybe ByteString)) {
+multisigRedeemer txSigData sks = fromE $ parseRedeemer [text|
+    redeemer : Comp (List (Maybe (Pair ByteString ByteString))) {
         redeemer = success ${shownSigs} }
     |]
   where
-    mkCons Nothing s = sformat ("(Cons Nothing "%build%")") s
-    mkCons (Just sig) s = sformat
-        ("(Cons (Just #"%fullSignatureHexF%") "%build%")") sig s
-    sigs = map (fmap (\k -> safeSign SignTxIn k txSigData)) sks
+    mkCons Nothing          s = sformat ("(Cons Nothing "%build%")") s
+    mkCons (Just (pk, sig)) s = sformat
+        ("(Cons (Just (MkPair #"%fullPublicKeyHexF%" #"%fullSignatureHexF%")) "
+                %build%")") pk sig s
+    sigs = map (fmap (\k -> (safeToPublic k, safeSign SignTx k txSigData))) sks
     shownSigs = foldr mkCons "Nil" sigs
 
 ----------------------------------------------------------------------------
@@ -153,16 +159,16 @@ intValidatorWithBlah = fromE $ parseValidator [text|
     data Foo = { Foo }
 
     validator : Int -> Comp Foo {
-      validator x = case x of {
-        1 -> success Foo ;
-        _ -> failure } }
+      validator x = case !equalsInt x 1 of {
+        True  -> success Foo ;
+        False -> failure } }
 
     blah : Int -> Int {
       blah x = x }
     |]
 
 goodIntRedeemerWithBlah :: Script
-goodIntRedeemerWithBlah = fromE $ parseRedeemer Nothing [text|
+goodIntRedeemerWithBlah = fromE $ parseRedeemer [text|
     redeemer : Comp Int {
       redeemer = success 1 }
 
@@ -180,34 +186,39 @@ goodIntRedeemerWithBlah = fromE $ parseRedeemer Nothing [text|
 -- that more petrol would be spent on hashing and less – on substraction and
 -- function calls.
 shaStressRedeemer :: Int -> Script
-shaStressRedeemer n = fromE $ parseRedeemer Nothing [text|
+shaStressRedeemer n = fromE $ parseRedeemer [text|
     shaLoop : Int -> ByteString -> ByteString {
-      shaLoop 0 x = x ;
-      shaLoop i x = shaLoop (!subtractInt i 1)
-        (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256
-        (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256 x)))))))))) }
+      shaLoop i x = case !equalsInt i 0 of {
+        True  -> x ;
+        False -> shaLoop (!subtractInt i 1)
+                     (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256
+                     (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256
+                     (!sha3_256 (!sha3_256 x)))))))))) } }
 
     redeemer : Comp (Comp Int) {
-      redeemer = case !equalsByteString #00 (shaLoop ${ns} #00) of {
-        True  -> success (failure) ;
-        False -> success (success 1) } }
+      redeemer = success (
+        case !equalsByteString #00 (shaLoop ${ns} #00) of {
+          True  -> failure ;
+          False -> success 1 } ) }
     |]
   where
     ns = show (n `div` 10)
 
 -- | Checks a signature N times. Should be used with 'idValidator'.
 sigStressRedeemer :: Int -> Script
-sigStressRedeemer n = fromE $ parseRedeemer Nothing [text|
+sigStressRedeemer n = fromE $ parseRedeemer [text|
     sigLoop : Int -> Bool {
-      sigLoop 0 = True ;
-      sigLoop i = case !verifySignature #${keyS} #00 #${sigS} of {
-        True  -> sigLoop (!subtractInt i 1) ;
-        False -> False } }
+      sigLoop i = case !equalsInt i 0 of {
+        True  -> True ;
+        False -> case !verifySignature #${keyS} #00 #${sigS} of {
+          True  -> sigLoop (!subtractInt i 1) ;
+          False -> False } } }
 
     redeemer : Comp (Comp Int) {
-      redeemer = case sigLoop ${ns} of {
-        False -> success (failure) ;
-        True  -> success (success 1) } }
+      redeemer = success (
+        case sigLoop ${ns} of {
+          False -> failure ;
+          True  -> success 1 } ) }
     |]
   where
     ns = show n

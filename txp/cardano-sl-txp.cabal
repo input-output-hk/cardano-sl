@@ -59,14 +59,15 @@ library
 
     Pos.Binary.Txp.Core
 
-  build-depends:       base
+  build-depends:       QuickCheck
                      , aeson
+                     , base
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
-                     , containers
                      , conduit
+                     , containers
                      , data-default
                      , ekg-core
                      , ether
@@ -76,12 +77,12 @@ library
                      , lens
                      , lifted-base
                      , log-warper
-                     , mtl
+                     , memory
                      , monad-control
+                     , mtl
                      , neat-interpolation
                      , node-sketch
                      , plutus-prototype
-                     , QuickCheck
                      , resourcet
                      , rocksdb-haskell >= 1.0.0
                      , serokell-util

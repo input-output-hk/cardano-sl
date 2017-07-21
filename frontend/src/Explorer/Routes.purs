@@ -7,6 +7,7 @@ import Data.Generic (class Generic, gEq, gShow)
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
+import Global (decodeURIComponent, encodeURIComponent)
 import Pos.Core.Lenses.Types (_EpochIndex, _LocalSlotIndex, getEpochIndex, getSlotIndex)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CHash, CTxId)
@@ -21,6 +22,7 @@ data Route
     | Epoch EpochIndex
     | Calculator
     | Block CHash
+    | GenesisBlock
     | Playground
     | NotFound
 
@@ -36,7 +38,7 @@ match url = fromMaybe NotFound $ router url $
     <|>
     Tx <<< mkCTxId <$> (lit transactionLit *> str) <* end
     <|>
-    Address <<< mkCAddress <$> (lit addressLit *> str) <* end
+    Address <<< mkCAddress <<< decodeURIComponent <$> (lit addressLit *> str) <* end
     <|>
     EpochSlot <$> mkEpochIndex <$> (lit epochLit *> int)
               <*> (mkLocalSlotIndex <$> (lit slotLit *> int) <* end)
@@ -47,6 +49,8 @@ match url = fromMaybe NotFound $ router url $
     <|>
     Block <<< mkCHash <$> (lit slotLit *> str) <* end
     <|>
+    GenesisBlock <$ (lit genesisBlockLit) <* end
+    <|>
     -- TODO (jk) Disable Playground route in production mode
     -- It is just for debugging
     Playground <$ lit playgroundLit <* end
@@ -54,11 +58,12 @@ match url = fromMaybe NotFound $ router url $
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
 toUrl (Tx id) = transactionUrl id
-toUrl (Address address) = addressUrl address
+toUrl (Address cAddress) = addressUrl cAddress
 toUrl (EpochSlot epoch slot) = epochSlotUrl epoch slot
 toUrl (Epoch epoch) = epochUrl epoch
 toUrl Calculator = calculatorUrl
 toUrl (Block hash) = blockUrl hash
+toUrl GenesisBlock = genesisBlockUrl
 toUrl Playground = playgroundUrl
 toUrl NotFound = notFoundUrl
 
@@ -81,7 +86,7 @@ addressLit :: String
 addressLit = "address"
 
 addressUrl :: CAddress -> String
-addressUrl address = litUrl addressLit <> address ^. _CAddress
+addressUrl address = litUrl addressLit <> (encodeURIComponent (address ^. _CAddress))
 
 epochLit :: String
 epochLit = "epoch"
@@ -107,7 +112,12 @@ calculatorUrl = "/" <> calculatorLit
 blockUrl :: CHash -> String
 blockUrl hash = litUrl slotLit <> hash ^. _CHash
 
-playgroundLit :: String
+genesisBlockLit :: String
+genesisBlockLit = "genesis"
+
+genesisBlockUrl :: String
+genesisBlockUrl = "/" <> genesisBlockLit
+
 playgroundLit = "playground"
 
 playgroundUrl :: String

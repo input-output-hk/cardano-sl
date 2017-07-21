@@ -13,7 +13,9 @@ import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CAddressType (..), CBlockEntry (..),
-                                                 CBlockSummary (..), CHash (..),
+                                                 CBlockSummary (..),
+                                                 CGenesisAddressInfo (..),
+                                                 CGenesisSummary (..), CHash (..),
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
                                                  CTxSummary (..), mkCCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
@@ -56,15 +58,24 @@ explorerHandlers =
       apiAddressSummary
     :<|>
       apiEpochSlotSearch
+    :<|>
+      apiGenesisSummary
+    :<|>
+      apiGenesisPagesTotal
+    :<|>
+      apiGenesisAddressInfo
   where
-    apiBlocksPages       = testBlocksPages
-    apiBlocksPagesTotal  = testBlocksPagesTotal
-    apiBlocksSummary     = testBlocksSummary
-    apiBlocksTxs         = testBlocksTxs
-    apiTxsLast           = testTxsLast
-    apiTxsSummary        = testTxsSummary
-    apiAddressSummary    = testAddressSummary
-    apiEpochSlotSearch   = testEpochSlotSearch
+    apiBlocksPages        = testBlocksPages
+    apiBlocksPagesTotal   = testBlocksPagesTotal
+    apiBlocksSummary      = testBlocksSummary
+    apiBlocksTxs          = testBlocksTxs
+    apiTxsLast            = testTxsLast
+    apiTxsSummary         = testTxsSummary
+    apiAddressSummary     = testAddressSummary
+    apiEpochSlotSearch    = testEpochSlotSearch
+    apiGenesisSummary     = testGenesisSummary
+    apiGenesisPagesTotal  = testGenesisPagesTotal
+    apiGenesisAddressInfo = testGenesisAddressInfo
 
 --------------------------------------------------------------------------------
 -- sample data --
@@ -139,11 +150,8 @@ testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
     , ctbOutputSum  = mkCCoin $ mkCoin 33333
     }]
 
-testTxsLast
-    :: Maybe Word
-    -> Maybe Word
-    -> Handler (Either ExplorerError [CTxEntry])
-testTxsLast _ _     = pure . pure $ [CTxEntry
+testTxsLast :: Handler (Either ExplorerError [CTxEntry])
+testTxsLast         = pure . pure $ [CTxEntry
     { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
     , cteTimeIssued = posixTime
     , cteAmount     = mkCCoin $ mkCoin 33333
@@ -154,7 +162,7 @@ testTxsSummary
     -> Handler (Either ExplorerError CTxSummary)
 testTxsSummary _       = pure . pure $ CTxSummary
     { ctsId              = CTxId $ CHash "8aac4a6b18fafa2783071c66519332157ce96c67e88fc0cc3cb04ba0342d12a1"
-    , ctsTxTimeIssued    = posixTime
+    , ctsTxTimeIssued    = Just posixTime
     , ctsBlockTimeIssued = Nothing
     , ctsBlockHeight     = Just 13
     , ctsBlockEpoch      = Just 0
@@ -189,4 +197,36 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
     , cbeSize       = 390
     , cbeBlockLead  = Nothing
     , cbeFees       = mkCCoin $ mkCoin 0
+    }]
+
+testGenesisSummary
+    :: Handler (Either ExplorerError CGenesisSummary)
+testGenesisSummary = pure . pure $ CGenesisSummary
+    { cgsNumTotal    = 2
+    , cgsNumRedeemed = 1
+    }
+
+testGenesisPagesTotal
+    :: Maybe Word
+    -> Handler (Either ExplorerError Integer)
+testGenesisPagesTotal _ = pure $ pure 2
+
+testGenesisAddressInfo
+    :: Maybe Word
+    -> Maybe Word
+    -> Handler (Either ExplorerError [CGenesisAddressInfo])
+testGenesisAddressInfo _ _ = pure . pure $ [
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+    CGenesisAddressInfo
+    { cgaiCardanoAddress = CAddress "3meLwrCDE4C7RofEdkZbUuR75ep3EcTmZv9ebcdjfMtv5H"
+    -- , cgaiRSCoinAddress  = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
+    , cgaiGenesisAmount  = mkCCoin $ mkCoin 15000000
+    , cgaiIsRedeemed     = False
+    },
+    CGenesisAddressInfo
+    { cgaiCardanoAddress = CAddress "3mfaPhQ8ewtmyi7tvcxo1TXhGh5piePbjkqgz49Jo2wpV9"
+    -- , cgaiRSCoinAddress  = CAddress "l-47iKlYk1xlyCaxoPiCHNhPQ9PTsHWnXKl6Nk9dwac="
+    , cgaiGenesisAmount  = mkCCoin $ mkCoin 2225295000000
+    , cgaiIsRedeemed     = True
     }]

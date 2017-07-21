@@ -40,14 +40,16 @@ main = do
       , mkSumType (Proxy @PS.Subscription)
       , mkSumType (Proxy @CT.EpochIndex)
       , mkSumType (Proxy @CT.LocalSlotIndex)
+      , mkSumType (Proxy @CT.CGenesisSummary)
+      , mkSumType (Proxy @CT.CGenesisAddressInfo)
       ]
   where
       customBridge =
-          defaultBridge     <|> 
-          posixTimeBridge   <|> 
+          defaultBridge     <|>
+          posixTimeBridge   <|>
           wordBridge        <|>
-          word8Bridge       <|> 
-          word16Bridge      <|> 
+          word8Bridge       <|>
+          word16Bridge      <|>
           word32Bridge      <|>
           word64Bridge
 

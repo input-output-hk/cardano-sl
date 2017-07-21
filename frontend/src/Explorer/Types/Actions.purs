@@ -10,9 +10,9 @@ import Data.Maybe (Maybe)
 import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem, CGenesisAddressInfos)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CGenesisSummary, CHash, CTxId, CTxSummary)
 import Pux.DOM.Events (DOMEvent)
 import Signal.Channel (Channel)
 
@@ -56,6 +56,12 @@ data Action
     | ReceiveAddressSummary (Either Error CAddressSummary)
     | RequestSearchBlocks EpochIndex (Maybe LocalSlotIndex)
     | ReceiveSearchBlocks (Either Error CBlockEntries)
+    | RequestGenesisSummary
+    | ReceiveGenesisSummary (Either Error CGenesisSummary)
+    | RequestGenesisAddressInfoTotalPages
+    | ReceiveGenesisAddressInfoTotalPages (Either Error Int)
+    | RequestPaginatedAddressInfo PageNumber PageSize
+    | ReceivePaginatedAddressInfo (Either Error CGenesisAddressInfos)
     -- global view states
     | GlobalToggleMobileMenu Boolean
     | GlobalSearch DOMEvent                          -- search for address + transaction
@@ -68,25 +74,29 @@ data Action
     -- dashboard view
     | DashboardRequestBlocksTotalPages
     | DashboardReceiveBlocksTotalPages (Either Error Int)
-    | DashboardExpandBlocks Boolean                   -- expand list of blocks
+    | DashboardExpandBlocks Boolean                     -- expand list of blocks
     | DashboardPaginateBlocks (Maybe DOMEvent) PageNumber     -- pagination of blocks
-    | DashboardEditBlocksPageNumber DOMEvent Boolean  -- toggle editable state of page numbers
-    | DashboardInvalidBlocksPageNumber DOMEvent       -- invalid page number
-    | DashboardExpandTransactions Boolean             -- expand dashboard transactions
-    | DashboardShowAPICode DashboardAPICode           -- toggle dashboard api
+    | DashboardEditBlocksPageNumber DOMEvent Boolean    -- toggle editable state of page numbers
+    | DashboardInvalidBlocksPageNumber DOMEvent         -- invalid page number
+    | DashboardExpandTransactions Boolean               -- expand dashboard transactions
+    | DashboardShowAPICode DashboardAPICode             -- toggle dashboard api
     | DashboardAddWaypoint ElementId
     -- address detail view
-    | AddressPaginateTxs (Maybe DOMEvent) PageNumber      -- current pagination of transactions
-    | AddressEditTxsPageNumber DOMEvent Boolean   -- toggle editable state of page numbers
-    | AddressInvalidTxsPageNumber DOMEvent        -- invalid page number
+    | AddressPaginateTxs (Maybe DOMEvent) PageNumber    -- current pagination of transactions
+    | AddressEditTxsPageNumber DOMEvent Boolean         -- toggle editable state of page numbers
+    | AddressInvalidTxsPageNumber DOMEvent              -- invalid page number
     -- block detail view
-    | BlockPaginateTxs (Maybe DOMEvent) PageNumber                 -- current pagination of transactions
-    | BlockEditTxsPageNumber DOMEvent Boolean     -- toggle editable state of page numbers
-    | BlockInvalidTxsPageNumber DOMEvent          -- invalid page number
+    | BlockPaginateTxs (Maybe DOMEvent) PageNumber      -- current pagination of transactions
+    | BlockEditTxsPageNumber DOMEvent Boolean           -- toggle editable state of page numbers
+    | BlockInvalidTxsPageNumber DOMEvent                -- invalid page number
     -- blocks view
-    | BlocksPaginateBlocks (Maybe DOMEvent) PageNumber        -- current pagination of blocks
-    | BlocksEditBlocksPageNumber DOMEvent Boolean     -- toggle editable state of page numbers
-    | BlocksInvalidBlocksPageNumber DOMEvent          -- invalid page number
+    | BlocksPaginateBlocks (Maybe DOMEvent) PageNumber  -- current pagination of blocks
+    | BlocksEditBlocksPageNumber DOMEvent Boolean       -- toggle editable state of page numbers
+    | BlocksInvalidBlocksPageNumber DOMEvent            -- invalid page number
+    -- genesis block detail view
+    | GenesisBlockPaginateAddresses (Maybe DOMEvent) PageNumber  -- current pagination of blocks
+    | GenesisBlockEditAddressesPageNumber DOMEvent Boolean       -- toggle editable state of page numbers
+    | GenesisBlockInvalidAddressesPageNumber DOMEvent            -- invalid page number
     -- clock
     | SetClock DateTime
     | UpdateClock

@@ -22,38 +22,41 @@ import           Universum
 
 import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
-import           Control.Monad.Loops            (unfoldrM)
-import           Control.Monad.Trans.Maybe      (MaybeT (..))
+import qualified Data.ByteString                as BS
+import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
-import           Data.Time.Clock.POSIX          (POSIXTime)
-import           Formatting                     (build, sformat, (%))
+import           Formatting                     (build, int, sformat, (%))
 import           Network.Wai                    (Application)
+import qualified Serokell.Util.Base64           as B64
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
+import           System.Wlog                    (logDebug)
 
 import           Pos.Communication              (SendActions)
-import           Pos.Crypto                     (WithHash (..), hash, withHash)
+import           Pos.Crypto                     (WithHash (..), hash, redeemPkBuild,
+                                                 withHash)
 
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
-import qualified Pos.DB.GState                  as GS
 
 import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
+import           Pos.Context                    (genesisUtxoM)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId, TxOutAux (..),
-                                                 getLocalTxs, getMemPool, mpLocalTxs,
-                                                 taTx, topsortTxs, txOutValue, _txOutputs)
-import           Pos.Txp                        (MonadTxpMem, txpTxs)
+import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId, TxMap,
+                                                 TxOutAux (..), getLocalTxs, getMemPool,
+                                                 mpLocalTxs, taTx, topsortTxs, txOutValue,
+                                                 txpTxs, utxoToAddressCoinPairs,
+                                                 _txOutputs)
 import           Pos.Types                      (Address (..), Coin, EpochIndex,
                                                  HeaderHash, Timestamp, difficultyL,
                                                  gbHeader, gbhConsensus,
-                                                 getChainDifficulty, mkCoin, prevBlockL,
-                                                 siEpoch, siSlot, sumCoins,
+                                                 getChainDifficulty, makeRedeemAddress,
+                                                 mkCoin, siEpoch, siSlot, sumCoins,
                                                  unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
@@ -61,21 +64,24 @@ import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
-                                                 getPageBlocks, getTxExtra)
+                                                 getLastTransactions, getPageBlocks,
+                                                 getTxExtra)
 import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
                                                        getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CAddressType (..), CBlockEntry (..),
-                                                 CBlockSummary (..), CHash, CTxBrief (..),
-                                                 CTxEntry (..), CTxId (..),
+                                                 CBlockSummary (..),
+                                                 CGenesisAddressInfo (..),
+                                                 CGenesisSummary (..), CHash,
+                                                 CTxBrief (..), CTxEntry (..), CTxId (..),
                                                  CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
                                                  fromCHash, fromCTxId, getEpochIndex,
                                                  getSlotIndex, mkCCoin, tiToTxEntry,
-                                                 toBlockEntry, toBlockSummary, toCHash,
-                                                 toPosixTime, toTxBrief)
+                                                 toBlockEntry, toBlockSummary, toCAddress,
+                                                 toCHash, toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -86,7 +92,12 @@ type MainBlund ssc = (MainBlock ssc, Undo)
 
 type ExplorerMode ctx m = WorkMode SscGodTossing ctx m
 
-explorerServeImpl :: ExplorerMode ctx m => m Application -> Word16 -> m ()
+explorerServeImpl
+    :: ExplorerMode ctx m
+    => m Application
+    -> Word16
+    -> FilePath -> FilePath -> FilePath
+    -> m ()
 explorerServeImpl = flip serveImpl "*"
 
 explorerApp :: ExplorerMode ctx m => m (Server ExplorerApi) -> m Application
@@ -113,36 +124,48 @@ explorerHandlers _sendActions =
       apiAddressSummary
     :<|>
       apiEpochSlotSearch
+    :<|>
+      apiGenesisSummary
+    :<|>
+      apiGenesisPagesTotal
+    :<|>
+      apiGenesisAddressInfo
   where
-    apiBlocksPages       = getBlocksPagesDefault
-    apiBlocksPagesTotal  = getBlocksPagesTotalDefault
-    apiBlocksSummary     = catchExplorerError . getBlockSummary
-    apiBlocksTxs         = getBlockTxsDefault
-    apiTxsLast           = getLastTxsDefault
-    apiTxsSummary        = catchExplorerError . getTxSummary
-    apiAddressSummary    = catchExplorerError . getAddressSummary
-    apiEpochSlotSearch   = tryEpochSlotSearch
+    apiBlocksPages        = getBlocksPagesDefault
+    apiBlocksPagesTotal   = getBlocksPagesTotalDefault
+    apiBlocksSummary      = catchExplorerError . getBlockSummary
+    apiBlocksTxs          = getBlockTxsDefault
+    apiTxsLast            = catchExplorerError getLastTxs
+    apiTxsSummary         = catchExplorerError . getTxSummary
+    apiAddressSummary     = catchExplorerError . getAddressSummary
+    apiEpochSlotSearch    = tryEpochSlotSearch
+    apiGenesisSummary     = catchExplorerError getGenesisSummary
+    apiGenesisPagesTotal  = getGenesisPagesTotalDefault
+    apiGenesisAddressInfo = getGenesisAddressInfoDefault
 
-    catchExplorerError   = try
+    catchExplorerError    = try
 
-    getBlocksPagesDefault     page size  =
-      catchExplorerError $ getBlocksPage page (defaultPageSize size)
+    getBlocksPagesDefault page size  =
+        catchExplorerError $ getBlocksPage page (defaultPageSize size)
 
-    getBlocksPagesTotalDefault     size  =
-      catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
+    getBlocksPagesTotalDefault size  =
+        catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
 
-    getBlockTxsDefault hash'  limit skip =
-      catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
+    getBlockTxsDefault hash' limit skip =
+        catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
 
-    getLastTxsDefault         limit skip =
-      catchExplorerError $ getLastTxs (defaultLimit limit) (defaultSkip skip)
+    tryEpochSlotSearch epoch maybeSlot =
+        catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    tryEpochSlotSearch   epoch maybeSlot =
-      catchExplorerError $ epochSlotSearch epoch maybeSlot
+    getGenesisPagesTotalDefault size =
+        catchExplorerError $ getGenesisPagesTotal (defaultPageSize size)
 
-    defaultPageSize size = (fromIntegral $ fromMaybe 10  size)
-    defaultLimit limit   = (fromIntegral $ fromMaybe 10  limit)
-    defaultSkip  skip    = (fromIntegral $ fromMaybe 0   skip)
+    getGenesisAddressInfoDefault page size =
+        catchExplorerError $ getGenesisAddressInfo page (defaultPageSize size)
+
+    defaultPageSize size = (fromIntegral $ fromMaybe 10 size)
+    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
+    defaultSkip  skip    = (fromIntegral $ fromMaybe 0  skip)
 
 ----------------------------------------------------------------
 -- API Functions
@@ -200,7 +223,7 @@ getBlocksPage mPageNumber pageSize = do
     cBlocksEntry    <- forM (rights' blunds) toBlockEntry
 
     -- Return total pages and the blocks. We start from page 1.
-    pure (totalPages, cBlocksEntry)
+    pure (totalPages, reverse cBlocksEntry)
   where
     rights' x = [(mb, u) | (Right mb, u) <- x]
 
@@ -256,25 +279,42 @@ getBlocksLastPage = getBlocksPage Nothing pageSize
     pageSize = 10
 
 
--- | Get last transactions from the blockchain
+-- | Get last transactions from the blockchain.
 getLastTxs
     :: ExplorerMode ctx m
-    => Word
-    -> Word
-    -> m [CTxEntry]
-getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
-    mempoolTxs <- getMempoolTxs
+    => m [CTxEntry]
+getLastTxs = do
+    mempoolTxs     <- getMempoolTxs
+    blockTxsWithTs <- getBlockchainLastTxs
 
-    let lenTxs = length mempoolTxs
-        (newOff, newLim) = recalculateOffLim off lim lenTxs
-        localTxsWithTs = take lim $ drop off mempoolTxs
+    -- We take the mempool txs first, then topsorted blockchain ones.
+    let newTxs      = mempoolTxs <> blockTxsWithTs
 
-    blockTxsWithTs <- getBlockchainTxs newOff newLim
+    pure $ tiToTxEntry <$> newTxs
+  where
+    -- Get last transactions from the blockchain.
+    getBlockchainLastTxs
+        :: ExplorerMode ctx m
+        => m [TxInternal]
+    getBlockchainLastTxs = do
+        mLastTxs     <- getLastTransactions
+        let lastTxs   = fromMaybe [] mLastTxs
+        let lastTxsWH = map withHash lastTxs
 
-    pure $ tiToTxEntry <$> localTxsWithTs <> blockTxsWithTs
+        forM lastTxsWH toTxInternal
+      where
+        -- Convert transaction to TxInternal.
+        toTxInternal
+            :: (MonadThrow m, MonadDBRead m)
+            => WithHash Tx
+            -> m TxInternal
+        toTxInternal (WithHash tx txId) = do
+            extra <- EX.getTxExtra txId >>=
+                maybeThrow (Internal "No extra info for tx in DB!")
+            pure $ TxInternal extra tx
 
 
--- | Get block summary
+-- | Get block summary.
 getBlockSummary
     :: ExplorerMode ctx m
     => CHash
@@ -293,9 +333,10 @@ getBlockTxs
     -> Word
     -> m [CTxBrief]
 getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
-    h <- unwrapOrThrow $ fromCHash cHash
+    h   <- unwrapOrThrow $ fromCHash cHash
     blk <- getMainBlock h
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+
     forM (take lim . drop off $ txs) $ \tx -> do
         extra <- EX.getTxExtra (hash tx) >>=
                  maybeThrow (Internal "In-block transaction doesn't \
@@ -341,17 +382,6 @@ getAddressSummary cAddr = do
         UnknownAddressType _ _ -> CUnknownAddress
 
 
--- Data type using in @getTxSummary@.
-data BlockFields = BlockFields
-    { bfTimeIssued :: !(Maybe POSIXTime)
-    , bfHeight     :: !(Maybe Word)
-    , bfEpoch      :: !(Maybe Word64)
-    , bfSlot       :: !(Maybe Word16)
-    , bfHash       :: !(Maybe CHash)
-    , bfOutputs    :: ![(CAddress, Coin)]
-    }
-
-
 -- | Get transaction summary from transaction id. Looks at both the database
 -- and the memory (mempool) for the transaction. What we have at the mempool
 -- are transactions that have to be written in the blockchain.
@@ -364,91 +394,166 @@ getTxSummary cTxId = do
     -- However, TxExtra should be added in the DB when a transaction is added
     -- to MemPool. So we start with TxExtra and then figure out whence to fetch
     -- the rest.
-    txId                    <- cTxIdToTxId cTxId
-    -- Get from database, txExtra
-    txExtra                 <- getTxExtraOrFail txId
+    txId                   <- cTxIdToTxId cTxId
+    -- Get from database, @TxExtra
+    txExtra                <- getTxExtra txId
 
-    -- Return transaction extra (txExtra) fields
-    let blockchainPlace     = teBlockchainPlace txExtra
-        inputOutputs        = map toaOut $ NE.toList $ teInputOutputs txExtra
-        receivedTime        = teReceivedTime txExtra
+    -- If we found @TxExtra@ that means we found something saved on the
+    -- blockchain and we don't have to fetch @MemPool@. But if we don't find
+    -- anything on the blockchain, we go searching in the @MemPool@.
+    if isJust txExtra
+      then getTxSummaryFromBlockchain cTxId
+      else getTxSummaryFromMemPool cTxId
 
-    -- fetch block fields (DB or mempool)
-    blockFields <- fetchBlockFields txId blockchainPlace
+  where
+    -- Get transaction from blockchain (the database).
+    getTxSummaryFromBlockchain
+        :: (ExplorerMode ctx m)
+        => CTxId
+        -> m CTxSummary
+    getTxSummaryFromBlockchain cTxId' = do
+        txId                   <- cTxIdToTxId cTxId'
+        txExtra                <- getTxExtraOrFail txId
 
-    let ctsBlockTimeIssued  = bfTimeIssued blockFields
-        ctsBlockHeight      = bfHeight blockFields
-        ctsBlockEpoch       = bfEpoch blockFields
-        ctsBlockSlot        = bfSlot blockFields
-        ctsBlockHash        = bfHash blockFields
-        outputs             = bfOutputs blockFields
+        -- Return transaction extra (txExtra) fields
+        let mBlockchainPlace    = teBlockchainPlace txExtra
+        blockchainPlace        <- maybeThrow (Internal "No blockchain place.") mBlockchainPlace
 
-        ctsId               = cTxId
-        ctsOutputs          = map (second mkCCoin) outputs
-        ctsTxTimeIssued     = toPosixTime receivedTime
-        ctsRelayedBy        = Nothing
-        ctsTotalInput       = mkCCoin totalInput
-        totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
-        ctsInputs           = map (second mkCCoin) $ convertTxOutputs inputOutputs
-        ctsTotalOutput      = mkCCoin totalOutput
-        totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd outputs
+        let headerHashBP        = fst blockchainPlace
+        let txIndexInBlock      = snd blockchainPlace
 
-    -- Verify that strange things don't happen with transactions
-    when (totalOutput > totalInput) $
-        throwM $ Internal "Detected tx with output greater than input"
+        mb                     <- getMainBlock headerHashBP
+        blkSlotStart           <- getBlkSlotStart mb
 
-    let ctsFees = mkCCoin $ unsafeSubCoin totalInput totalOutput
-    pure $ CTxSummary {..}
-      where
+        let blockHeight         = fromIntegral $ mb ^. difficultyL
+        let receivedTime        = teReceivedTime txExtra
+        let blockTime           = toPosixTime <$> blkSlotStart
 
-        -- General fetch that fetches either from DB or mempool
-        fetchBlockFields txId Nothing =
-            fetchBlockFieldsFromMempool txId
+        -- Get block epoch and slot index
+        let blkHeaderSlot       = mb ^. mainBlockSlot
+        let epochIndex          = getEpochIndex $ siEpoch blkHeaderSlot
+        let slotIndex           = getSlotIndex  $ siSlot  blkHeaderSlot
+        let blkHash             = toCHash headerHashBP
 
-        fetchBlockFields _    (Just (headerHash, txIndexInBlock)) =
-            fetchBlockFieldsFromDb headerHash txIndexInBlock
+        tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
+              atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) (fromIntegral txIndexInBlock)
 
-        -- Fetching transaction from MemPool.
-        fetchBlockFieldsFromMempool txId = do
-            tx              <- fetchTxFromMempoolOrFail txId
+        let inputOutputs        = map toaOut $ NE.toList $ teInputOutputs txExtra
+        let txOutputs           = convertTxOutputs . NE.toList $ _txOutputs tx
 
-            let txOutputs   = convertTxOutputs . NE.toList . _txOutputs $ taTx tx
-            pure BlockFields
-                    { bfTimeIssued = Nothing
-                    , bfHeight = Nothing
-                    , bfEpoch = Nothing
-                    , bfSlot = Nothing
-                    , bfHash = Nothing
-                    , bfOutputs = txOutputs
-                    }
+        let totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        let totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
 
-        -- Fetching transaction from DB.
-        fetchBlockFieldsFromDb headerHash txIndexInBlock =  do
+        -- Verify that strange things don't happen with transactions
+        when (totalOutput > totalInput) $
+            throwM $ Internal "Detected tx with output greater than input"
 
-            mb                <- getMainBlock headerHash
-            blkSlotStart      <- getBlkSlotStart mb
+        pure $ CTxSummary
+            { ctsId              = cTxId'
+            , ctsTxTimeIssued    = Just $ toPosixTime receivedTime
+            , ctsBlockTimeIssued = blockTime
+            , ctsBlockHeight     = Just blockHeight
+            , ctsBlockEpoch      = Just epochIndex
+            , ctsBlockSlot       = Just slotIndex
+            , ctsBlockHash       = Just blkHash
+            , ctsRelayedBy       = Nothing
+            , ctsTotalInput      = mkCCoin totalInput
+            , ctsTotalOutput     = mkCCoin totalOutput
+            , ctsFees            = mkCCoin $ unsafeSubCoin totalInput totalOutput
+            , ctsInputs          = map (second mkCCoin) $ convertTxOutputs inputOutputs
+            , ctsOutputs         = map (second mkCCoin) txOutputs
+            }
 
-            let blockHeight   = fromIntegral $ mb ^. difficultyL
+    -- Get transaction from mempool (the memory).
+    getTxSummaryFromMemPool
+        :: (ExplorerMode ctx m)
+        => CTxId
+        -> m CTxSummary
+    getTxSummaryFromMemPool cTxId' = do
+        txId                   <- cTxIdToTxId cTxId'
+        tx                     <- fetchTxFromMempoolOrFail txId
 
-            -- Get block epoch and slot index
-            let blkHeaderSlot = mb ^. mainBlockSlot
-                epochIndex    = getEpochIndex $ siEpoch blkHeaderSlot
-                slotIndex     = getSlotIndex  $ siSlot  blkHeaderSlot
-                blkHash       = toCHash headerHash
+        let inputOutputs        = NE.toList . _txOutputs $ taTx tx
+        let txOutputs           = convertTxOutputs inputOutputs
 
-            tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
-                  atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) (fromIntegral txIndexInBlock)
+        let totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        let totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
 
-            let txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
-                ts            = toPosixTime <$> blkSlotStart
-            pure BlockFields
-                    { bfTimeIssued = ts
-                    , bfHeight = Just blockHeight
-                    , bfEpoch = Just epochIndex
-                    , bfSlot = Just slotIndex
-                    , bfHash = Just blkHash
-                    , bfOutputs = txOutputs
-                    }
+        -- Verify that strange things don't happen with transactions
+        when (totalOutput > totalInput) $
+            throwM $ Internal "Detected tx with output greater than input"
+
+        pure $ CTxSummary
+            { ctsId              = cTxId'
+            , ctsTxTimeIssued    = Nothing
+            , ctsBlockTimeIssued = Nothing
+            , ctsBlockHeight     = Nothing
+            , ctsBlockEpoch      = Nothing
+            , ctsBlockSlot       = Nothing
+            , ctsBlockHash       = Nothing
+            , ctsRelayedBy       = Nothing
+            , ctsTotalInput      = mkCCoin totalInput
+            , ctsTotalOutput     = mkCCoin totalOutput
+            , ctsFees            = mkCCoin $ unsafeSubCoin totalInput totalOutput
+            , ctsInputs          = map (second mkCCoin) $ convertTxOutputs inputOutputs
+            , ctsOutputs         = map (second mkCCoin) txOutputs
+            }
+
+getRedeemAddressCoinPairs :: ExplorerMode ctx m => m [(Address, Coin)]
+getRedeemAddressCoinPairs = do
+    genesisUtxo <- genesisUtxoM
+    let addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
+        redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
+    pure redeemOnly
+
+isRedeemAddress :: Address -> Bool
+isRedeemAddress (RedeemAddress _) = True
+isRedeemAddress _                 = False
+
+isAddressRedeemed :: MonadDBRead m => Address -> Coin -> m Bool
+isAddressRedeemed address initialBalance = do
+  currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
+  pure $ currentBalance /= initialBalance
+
+getGenesisSummary
+    :: ExplorerMode ctx m
+    => m CGenesisSummary
+getGenesisSummary = do
+    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    cgsNumRedeemed <- length <$> filterM (uncurry isAddressRedeemed) redeemAddressCoinPairs
+    pure CGenesisSummary {cgsNumTotal = length redeemAddressCoinPairs, ..}
+
+getGenesisAddressInfo
+    :: (ExplorerMode ctx m)
+    => Maybe Word  -- ^ pageNumber
+    -> Word        -- ^ pageSize
+    -> m [CGenesisAddressInfo]
+getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = do
+    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    let pageNumber    = fromMaybe 1 mPage
+        skipItems     = (pageNumber - 1) * pageSize
+        requestedPage = take pageSize $ drop skipItems redeemAddressCoinPairs
+    mapM toGenesisAddressInfo requestedPage
+  where
+    toGenesisAddressInfo :: ExplorerMode ctx m => (Address, Coin) -> m CGenesisAddressInfo
+    toGenesisAddressInfo (address, coin) = do
+        cgaiIsRedeemed <- isAddressRedeemed address coin
+        -- Commenting out RSCoin address until it can actually be displayed.
+        -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+        pure CGenesisAddressInfo
+            { cgaiCardanoAddress = toCAddress address
+            -- , cgaiRSCoinAddress  = toCAddress address
+            , cgaiGenesisAmount  = mkCCoin coin
+            , ..
+            }
+
+getGenesisPagesTotal
+    :: ExplorerMode ctx m
+    => Word
+    -> m Integer
+getGenesisPagesTotal (fromIntegral -> pageSize) = do
+    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    pure $ fromIntegral $ (length redeemAddressCoinPairs + pageSize - 1) `div` pageSize
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch
@@ -510,9 +615,23 @@ unwrapOrThrow = either (throwM . Internal) pure
 
 -- | Get transaction from memory (STM) or throw exception.
 fetchTxFromMempoolOrFail :: ExplorerMode ctx m => TxId -> m TxAux
-fetchTxFromMempoolOrFail txId =
-    view (mpLocalTxs . at txId) <$> getMemPool >>=
-    maybeThrow (Internal "Transaction not found in the mempool")
+fetchTxFromMempoolOrFail txId = do
+    memPoolTxs        <- localMemPoolTxs
+    let memPoolTxsSize = HM.size memPoolTxs
+
+    logDebug $ sformat ("Mempool size "%int%" found!") memPoolTxsSize
+
+    let maybeTxAux = memPoolTxs ^. at txId
+    maybeThrow (Internal "Transaction missing in MemPool!") maybeTxAux
+
+  where
+    -- type TxMap = HashMap TxId TxAux
+    localMemPoolTxs
+        :: (MonadIO m, MonadTxpMem ext ctx m)
+        => m TxMap
+    localMemPoolTxs = do
+      memPool <- getMemPool
+      pure $ memPool ^. mpLocalTxs
 
 getMempoolTxs :: ExplorerMode ctx m => m [TxInternal]
 getMempoolTxs = do
@@ -523,43 +642,11 @@ getMempoolTxs = do
         mextra <- getTxExtra id
         forM mextra $ \extra -> pure $ TxInternal extra (taTx txAux)
   where
-    tlocalTxs :: (MonadIO m, MonadTxpMem e ctx m) => m [(TxId, TxAux)]
+    tlocalTxs :: (MonadIO m, MonadTxpMem ext ctx m) => m [(TxId, TxAux)]
     tlocalTxs = getLocalTxs
 
     mkWhTx :: (TxId, TxAux) -> WithHash Tx
     mkWhTx (txid, txAux) = WithHash (taTx txAux) txid
-
-recalculateOffLim :: Int -> Int -> Int -> (Int, Int)
-recalculateOffLim off lim lenTxs =
-    if lenTxs <= off
-    then (off - lenTxs, lim)
-    else (0, lim - (lenTxs - off))
-
-getBlockchainTxs :: ExplorerMode ctx m => Int -> Int -> m [TxInternal]
-getBlockchainTxs origOff origLim = do
-    let unfolder off lim h = do
-            when (lim <= 0) $
-                fail "Finished"
-            MaybeT (DB.blkGetBlock @SscGodTossing h) >>= \case
-                Left gb -> unfolder off lim (gb ^. prevBlockL)
-                Right mb -> do
-                    let mTxs   = mb ^. mainBlockTxPayload . txpTxs
-                        lenTxs = length mTxs
-                    if off >= lenTxs
-                        then return ([], (off - lenTxs, lim, mb ^. prevBlockL))
-                        else do
-                        txs <- topsortTxsOrFail identity $ map withHash $ toList mTxs
-                        let neededTxs = take lim $ drop off $ reverse txs
-                            (newOff, newLim) = recalculateOffLim off lim lenTxs
-                        blkTxEntries <- lift $ forM neededTxs $ \(WithHash tx id) -> do
-                            extra <- maybeThrow (Internal "No extra info for tx in DB") =<<
-                                            EX.getTxExtra id
-                            pure $ TxInternal extra tx
-                        return (blkTxEntries, (newOff, newLim, mb ^. prevBlockL))
-
-    tip <- GS.getTip
-    fmap concat $ flip unfoldrM (origOff, origLim, tip) $
-        \(o, l, h) -> runMaybeT $ unfolder o l h
 
 getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m (Maybe Timestamp)
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot
@@ -569,15 +656,33 @@ topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f
 
--- | Convert server address to client address,
--- with the possible exception (effect).
+-- | Deserialize Cardano or RSCoin address and convert it to Cardano address.
+-- Throw exception on failure.
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
-cAddrToAddr cAddr = either exception pure (fromCAddress cAddr)
+cAddrToAddr cAddr@(CAddress rawAddrText) =
+    -- Try decoding address as base64. If both decoders succeed,
+    -- the output of the first one is returned
+    let mDecodedBase64 =
+            rightToMaybe (B64.decode rawAddrText) <|>
+            rightToMaybe (B64.decodeUrl rawAddrText)
+    in case mDecodedBase64 of
+        Just addr -> do
+            -- cAddr is in RSCoin address format, converting to equivalent Cardano address
+            -- Originally taken from:
+            -- * cardano-sl/tools/src/keygen/Avvm.hs
+            -- * cardano-sl/tools/src/addr-convert/Main.hs
+            unless (BS.length addr == 32) $
+                throwM badAddressLength
+            pure $ makeRedeemAddress $ redeemPkBuild addr
+        Nothing ->
+            -- cAddr is in Cardano address format
+            either badCardanoAddress pure (fromCAddress cAddr)
   where
-    exception = const $ throwM $ Internal "Invalid address!"
+    badAddressLength = Internal "Address length is not equal to 32, can't be redeeming pk"
+    badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
 
--- | Convert server transaction to client transaction,
--- with the possible exception (effect).
+-- | Deserialize transaction ID.
+-- Throw exception on failure.
 cTxIdToTxId :: MonadThrow m => CTxId -> m TxId
 cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
   where

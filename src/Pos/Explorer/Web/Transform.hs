@@ -35,12 +35,20 @@ notifierPlugin :: NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
     \settings _sa -> notifierApp @SscGodTossing settings
 
-explorerPlugin :: Word16 -> ([WorkerSpec ExplorerProd], OutSpecs)
-explorerPlugin = first pure . worker mempty . flip explorerServeWebReal
+explorerPlugin
+    :: Word16
+    -> FilePath -> FilePath -> FilePath
+    -> ([WorkerSpec ExplorerProd], OutSpecs)
+explorerPlugin port walletTLSCert walletTLSKey walletTLSca = first pure $ worker mempty $
+    (\sa -> explorerServeWebReal sa port walletTLSCert walletTLSKey walletTLSca)
 
-explorerServeWebReal :: SendActions ExplorerProd -> Word16 -> ExplorerProd ()
-explorerServeWebReal sendActions = explorerServeImpl . explorerApp $
-    flip enter (explorerHandlers sendActions) <$> nat
+explorerServeWebReal
+    :: SendActions ExplorerProd
+    -> Word16
+    -> FilePath -> FilePath -> FilePath
+    -> ExplorerProd ()
+explorerServeWebReal sendActions = explorerServeImpl
+    (explorerApp $ flip enter (explorerHandlers sendActions) <$> nat)
 
 nat :: ExplorerProd (ExplorerProd :~> Handler)
 nat = do

@@ -26,7 +26,7 @@ import           Network.SocketIO                 (RoutingTable, Socket,
                                                    socketId)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Core                         (addressF)
-import qualified Pos.DB.GState                    as DB
+import qualified Pos.GState                       as DB
 import           Pos.Ssc.Class                    (SscHelpersClass)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Serokell.Util.Text               (listJson)

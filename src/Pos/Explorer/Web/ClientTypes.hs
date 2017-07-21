@@ -15,6 +15,8 @@ module Pos.Explorer.Web.ClientTypes
        , CTxBrief (..)
        , CNetworkAddress (..)
        , CTxSummary (..)
+       , CGenesisSummary (..)
+       , CGenesisAddressInfo (..)
        , TxInternal (..)
        , CCoin
        , EpochIndex (..)
@@ -36,12 +38,18 @@ module Pos.Explorer.Web.ClientTypes
        , tiToTxEntry
        ) where
 
+import           Universum
+
 import           Control.Arrow          ((&&&))
 import           Control.Lens           (ix, _Left)
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
+import           Prelude                ()
+import           Serokell.Util.Base16   as SB16
+import           Servant.API            (FromHttpApiData (..))
+
 import qualified Pos.Binary             as Bi
 import           Pos.Block.Core         (MainBlock, mainBlockSlot, mainBlockTxPayload,
                                          mcdSlot)
@@ -49,9 +57,9 @@ import           Pos.Block.Types        (Undo (..))
 import           Pos.Crypto             (Hash, hash)
 import           Pos.DB.Block           (MonadBlockDB)
 import           Pos.DB.Class           (MonadDBRead)
-import qualified Pos.DB.GState          as GS
 import           Pos.DB.Rocks           (MonadRealDB)
 import           Pos.Explorer           (TxExtra (..))
+import qualified Pos.GState             as GS
 import           Pos.Lrc                (getLeaders)
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
@@ -66,10 +74,6 @@ import           Pos.Types              (Address, AddressHash, Coin, EpochIndex,
                                          prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeGetCoin, unsafeIntegerToCoin,
                                          unsafeSubCoin)
-import           Prelude                ()
-import           Serokell.Util.Base16   as SB16
-import           Servant.API            (FromHttpApiData (..))
-import           Universum
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -79,7 +83,7 @@ import           Universum
 newtype CHash = CHash Text
     deriving (Show, Eq, Generic, Buildable, Hashable)
 
--- | Client address
+-- | Client address. The address may be from either Cardano or RSCoin.
 newtype CAddress = CAddress Text
     deriving (Show, Eq, Generic, Buildable, Hashable)
 
@@ -282,7 +286,7 @@ newtype CNetworkAddress = CNetworkAddress Text
 
 data CTxSummary = CTxSummary
     { ctsId              :: !CTxId
-    , ctsTxTimeIssued    :: !POSIXTime
+    , ctsTxTimeIssued    :: !(Maybe POSIXTime)
     , ctsBlockTimeIssued :: !(Maybe POSIXTime)
     , ctsBlockHeight     :: !(Maybe Word)
     , ctsBlockEpoch      :: !(Maybe Word64)
@@ -294,6 +298,22 @@ data CTxSummary = CTxSummary
     , ctsFees            :: !CCoin
     , ctsInputs          :: ![(CAddress, CCoin)]
     , ctsOutputs         :: ![(CAddress, CCoin)]
+    } deriving (Show, Generic)
+
+data CGenesisSummary = CGenesisSummary
+    { cgsNumTotal    :: !Int
+    , cgsNumRedeemed :: !Int
+    } deriving (Show, Generic)
+
+data CGenesisAddressInfo = CGenesisAddressInfo
+    { cgaiCardanoAddress :: !CAddress
+    -- Commenting out RSCoin address since currently genesisUtxo stores
+    -- only Cardano addresses, which are essentially hashes of RSCoin addresses
+    -- and therefore cannot be converted to them. Hence we should enable RSCoin
+    -- addresses here only after we start storing them in genesisUtxo.
+    -- , cgaiRSCoinAddress  :: !CAddress
+    , cgaiGenesisAmount  :: !CCoin
+    , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)
 
 --------------------------------------------------------------------------------

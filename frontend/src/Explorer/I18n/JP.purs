@@ -14,11 +14,13 @@ translation =
         , cTransactions: "トランザクション"
         , cTransactionFeed: "トランザクションフィード"
         , cAddress: "アドレス"
+        , cAddresses: "アドレス"
         , cVersion: "バージョン"
         , cCalculator: "計算機"
         , cNetwork: "ネットワーク"
         , cSummary: "概要"
         , cBlock: "スロット"
+        , cGenesis: "ジェネシス・ブロック"
         , cHash: "ハッシュ値"
         , cHashes: "ハッシュ値"
         , cEpoch: "エポック"
@@ -40,6 +42,8 @@ translation =
         , cNotAvailable: "データがありません"
         , cLoading: "ロード中..."
         , cBack2Dashboard: "ダッシュボードに戻る"
+        , cYes: "はい"
+        , cNo: "いいえ"
         , cDays: "日"
         , cHours: "時間"
         , cMinutes: "分"
@@ -112,6 +116,14 @@ translation =
         , blRoot: "ハッシュ根"
         , blEpochSlotNotFound: "エポック / スロットは存在していません。"
         , blSlotNotFound: "スロットは存在していません。"
+        }
+    , genesisBlock:
+        { gblNotFound: "ジェネシス・ブロックは見つかりませんでした"
+        , gblNumberRedeemedAddresses: "還元済みアドレス"
+        , gblAddressesNotFound: "そのアドレスは存在しません"
+        , gblAddressesError: "アドレス読み込み中にエラーが発生しました."
+        , gblAddressRedeemAmount: "還元される額"
+        , gblAddressIsRedeemed: "還元済み"
         }
     , footer:
         { fooResources: "Resources"

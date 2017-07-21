@@ -29,6 +29,9 @@ explorer.log.*
 explorer-node.log.*
 socket-io.log.*
 
+# Build script
+b
+
 # Intellij Idea & intellij-haskell
 .idea
 .ideaHaskellLib

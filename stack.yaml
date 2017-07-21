@@ -7,7 +7,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 2206bcdeb0f689c350d6b46adc5bb80dc4bc8d52
+    commit: 73182dd39d9f87a074b6e01dd4453e23d661f9a0
   extra-dep: true
   subdirs:
       - '.'
@@ -42,7 +42,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 424e4ecacdf038a01542025dd1296bd272ce770d
+    commit: b4fbd07c077b41c0e948bd377f1662b599f0bc4c
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git

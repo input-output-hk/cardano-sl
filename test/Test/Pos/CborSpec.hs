@@ -1,6 +1,7 @@
 
 -- | Test.Pos.CborSpec specification
 
+{-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
@@ -57,7 +58,8 @@ import           Pos.Update.Core
 import           Pos.Update.Poll
 import           Pos.Util.BackupPhrase
 import           Pos.Util.Chrono
-import           Test.Hspec                        (Spec, describe, it, pendingWith)
+import           Test.Hspec                        (Arg, Expectation, Spec, SpecWith,
+                                                    describe, it, pendingWith, shouldBe)
 import           Test.QuickCheck
 import           Universum
 
@@ -67,6 +69,69 @@ import           Pos.Data.Attributes
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import qualified Data.ByteString                   as BS
+
+----------------------------------------
+
+data User
+    = Login {
+      login :: String
+    , age   :: Int
+    }
+    | FullName {
+      firstName :: String
+    , lastName  :: String
+    , sex       :: Bool
+    } deriving (Show, Eq)
+
+deriveSimpleBi ''User [
+    Cons 'Login [
+        Field [| login :: String |],
+        Field [| age   :: Int    |]
+    ],
+    Cons 'FullName [
+        Field [| firstName :: String |],
+        Field [| lastName  :: String |],
+        Field [| sex       :: Bool   |]
+    ]]
+
+----------------------------------------
+data ARecord = ARecord String Int ARecord
+             | ANull
+             deriving (Generic, Eq, Show)
+instance Bi ARecord where
+    encode = genericEncode
+    decode = genericDecode
+
+data AUnit = AUnit
+           deriving (Generic, Eq, Show)
+instance Bi AUnit where
+    encode = genericEncode
+    decode = genericDecode
+
+newtype ANewtype = ANewtype Int
+                 deriving (Generic, Eq, Show)
+instance Bi ANewtype where
+    encode = genericEncode
+    decode = genericDecode
+
+----------------------------------------
+
+data T = T1 Int | T2 Int Int | Unknown Word8 BS.ByteString
+    deriving Show
+
+instance Bi T where
+    encode = \case
+        T1 a         -> encode (0::Word8)
+                     <> encode (serialize' a)
+        T2 a b       -> encode (1::Word8)
+                     <> encode (serialize' (a, b))
+        Unknown n bs -> encode n
+                     <> encode bs
+
+    decode = decode @Word8 >>= \case
+        0 ->         T1 . deserialize' <$> decode
+        1 -> uncurry T2 . deserialize' <$> decode
+        t -> Unknown t                 <$> decode
 
 data MyScript = MyScript
     { version :: ScriptVersion -- ^ Version
@@ -172,6 +237,52 @@ asBinaryIdempotencyProperty :: (Arbitrary a, AsBinaryClass a, Eq a, Show a) => P
 asBinaryIdempotencyProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
     (fromBinary . asBinary $ input) === Right input
 
+testANewtype :: SpecWith ()
+testANewtype = testAgainstFile "a newtype" x rep
+  where
+    x :: ANewtype
+    x = ANewtype 42
+
+    rep :: [CBOR.TermToken]
+    rep = [CBOR.TkListLen 2, CBOR.TkInt 0, CBOR.TkInt 42]
+
+testAUnit :: SpecWith ()
+testAUnit = testAgainstFile "a unit" x rep
+  where
+    x :: AUnit
+    x = AUnit
+
+    rep :: [CBOR.TermToken]
+    rep = [CBOR.TkListLen 1, CBOR.TkInt 0]
+
+testARecord :: SpecWith ()
+testARecord = testAgainstFile "a record" x rep
+  where
+    x :: ARecord
+    x = ARecord "hello" 42 (ARecord "world" 52 ANull)
+
+    rep :: [CBOR.TermToken]
+    rep = [CBOR.TkListLen 4, CBOR.TkInt 0, CBOR.TkString "hello", CBOR.TkInt 42,
+           CBOR.TkListLen 4, CBOR.TkInt 0, CBOR.TkString "world", CBOR.TkInt 52,
+           CBOR.TkListLen 1, CBOR.TkInt 1
+          ]
+
+testAgainstFile
+    :: (Eq a, Show a, Bi a)
+    => String
+    -> a
+    -> CBOR.FlatTerm
+    -> SpecWith (Arg Expectation)
+testAgainstFile name x expected =
+    describe name $ do
+      it "serialise" $ do
+            let actual = CBOR.toFlatTerm $ encode x
+            expected `shouldBe` actual
+      it "deserialise" $ do
+            case CBOR.fromFlatTerm decode expected of
+              Left err     -> fail err
+              Right actual -> x `shouldBe` actual
+
 spec :: Spec
 spec = describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
@@ -179,6 +290,10 @@ spec = describe "Cbor.Bi instances" $ do
             prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
             prop "MyScript" (soundInstanceProperty @MyScript Proxy)
             prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1 Proxy Proxy)
+            describe "Generic deriving is sound" $ do
+                testARecord
+                testAUnit
+                testANewtype
             modifyMaxSuccess (const 20000) $ do
                 describe "Primitive instances are sound" $ do
                     prop "Int64" (soundInstanceProperty @Int64 Proxy)
@@ -353,45 +468,3 @@ spec = describe "Cbor.Bi instances" $ do
 pendingNoArbitrary :: String -> Spec
 pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"
 
-----------------------------------------
-
-data User
-    = Login {
-      login :: String
-    , age   :: Int
-    }
-    | FullName {
-      firstName :: String
-    , lastName  :: String
-    , sex       :: Bool
-    } deriving (Show, Eq)
-
-deriveSimpleBi ''User [
-    Cons 'Login [
-        Field [| login :: String |],
-        Field [| age   :: Int    |]
-    ],
-    Cons 'FullName [
-        Field [| firstName :: String |],
-        Field [| lastName  :: String |],
-        Field [| sex       :: Bool   |]
-    ]]
-
-----------------------------------------
-
-data T = T1 Int | T2 Int Int | Unknown Word8 BS.ByteString
-    deriving Show
-
-instance Bi T where
-    encode = \case
-        T1 a         -> encode (0::Word8)
-                     <> encode (serialize' a)
-        T2 a b       -> encode (1::Word8)
-                     <> encode (serialize' (a, b))
-        Unknown n bs -> encode n
-                     <> encode bs
-
-    decode = decode @Word8 >>= \case
-        0 ->         T1 . deserialize' <$> decode
-        1 -> uncurry T2 . deserialize' <$> decode
-        t -> Unknown t                 <$> decode

@@ -368,10 +368,22 @@ encodeSetSkel size foldFunction =
     encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
 {-# INLINE encodeSetSkel #-}
 
-decodeSetSkel :: Bi a => ([a] -> c) -> D.Decoder s c
+decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> D.Decoder s c
 decodeSetSkel fromList = do
   n <- D.decodeListLen
-  fmap fromList (replicateM n decode)
+  case n of
+      0 -> return (fromList mempty)
+      _ -> do
+          firstValue <- decode
+          fromList <$> decodeEntries (n - 1) firstValue [firstValue]
+  where
+    decodeEntries :: (Bi v, Ord v) => Int -> v -> [v] -> D.Decoder s [v]
+    decodeEntries 0 _ acc = return (reverse acc)
+    decodeEntries !remainingEntries previousValue !acc = do
+        newValue <- decode
+        case newValue < previousValue of
+            True  -> fail "Canonicity violation whilst decoding a Set!"
+            False -> decodeEntries (remainingEntries - 1) newValue (newValue : acc)
 {-# INLINE decodeSetSkel #-}
 
 instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where

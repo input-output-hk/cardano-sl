@@ -458,6 +458,10 @@ instance Bi Byte where
     encode = encode . toBytes
     decode = fromBytes <$> decode
 
+----------------------------------------------------------------------------
+-- Generic deriving
+----------------------------------------------------------------------------
+
 genericEncode :: (Generic a, GSerialiseEncode (G.Rep a)) => a -> E.Encoding
 genericEncode = gencode . G.from
 

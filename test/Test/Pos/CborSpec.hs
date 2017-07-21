@@ -98,21 +98,39 @@ deriveSimpleBi ''User [
 data ARecord = ARecord String Int ARecord
              | ANull
              deriving (Generic, Eq, Show)
+
 instance Bi ARecord where
     encode = genericEncode
     decode = genericDecode
 
+instance Arbitrary ARecord where
+    arbitrary = oneof [
+          ARecord <$> arbitrary <*> arbitrary <*> arbitrary
+        , pure ANull
+        ]
+    shrink = genericShrink
+
 data AUnit = AUnit
            deriving (Generic, Eq, Show)
+
 instance Bi AUnit where
     encode = genericEncode
     decode = genericDecode
 
+instance Arbitrary AUnit where
+    arbitrary = pure AUnit
+    shrink = genericShrink
+
 newtype ANewtype = ANewtype Int
                  deriving (Generic, Eq, Show)
+
 instance Bi ANewtype where
     encode = genericEncode
     decode = genericDecode
+
+instance Arbitrary ANewtype where
+    arbitrary = ANewtype <$> arbitrary
+    shrink = genericShrink
 
 ----------------------------------------
 
@@ -294,6 +312,9 @@ spec = describe "Cbor.Bi instances" $ do
                 testARecord
                 testAUnit
                 testANewtype
+                prop "ARecord"  (soundInstanceProperty @ARecord Proxy)
+                prop "AUnit"    (soundInstanceProperty @AUnit Proxy)
+                prop "ANewtype" (soundInstanceProperty @ANewtype Proxy)
             modifyMaxSuccess (const 20000) $ do
                 describe "Primitive instances are sound" $ do
                     prop "Int64" (soundInstanceProperty @Int64 Proxy)

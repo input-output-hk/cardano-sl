@@ -59,10 +59,7 @@ serialize' = BSL.toStrict . serialize
 -- representation is invalid or does not correspond to a value of the
 -- expected type.
 deserialize :: Bi a => BSL.ByteString -> a
-deserialize = either throw identity . bimap third third . deserializeOrFail
-    where
-      third :: (a, b, c) -> c
-      third (_, _, c) = c
+deserialize = either throw identity . bimap fst fst . deserializeOrFail
 
 -- | Strict variant of 'deserialize'.
 deserialize' :: Bi a => BS.ByteString -> a
@@ -74,36 +71,36 @@ deserialize' = deserialize . BSL.fromStrict
 -- be consumed entirely.
 decodeFull :: Bi a => BS.ByteString -> Either Text a
 decodeFull bs0 = case deserializeOrFail' bs0 of
-  Right (leftover, offset, x) -> case BS.null leftover of
+  Right (x, leftover) -> case BS.null leftover of
       True  -> pure x
       False ->
-          let msg = "decodeFull failed! Leftover found at offset " <> show offset <> ": " <> show leftover
+          let msg = "decodeFull failed! Leftover found: " <> show leftover
           in Left $ fromString msg
-  Left  e -> Left $ fromString (show e)
+  Left  (e, _) -> Left $ fromString (show e)
 
 -- | Deserialize a Haskell value from the external binary representation,
--- returning either (leftover, offset, value) or a @'DeserialiseFailure'@.
+-- returning either (leftover, value) or a (leftover, @'DeserialiseFailure'@).
 deserializeOrFail
     :: Bi a
     => BSL.ByteString
-    -> Either (BS.ByteString, CBOR.Read.ByteOffset, CBOR.Read.DeserialiseFailure)
-              (BS.ByteString, CBOR.Read.ByteOffset, a)
+    -> Either (CBOR.Read.DeserialiseFailure, BS.ByteString)
+              (a, BS.ByteString)
 deserializeOrFail bs0 =
     runST (supplyAllInput bs0 =<< deserializeIncremental)
   where
-    supplyAllInput _bs (CBOR.Read.Done bs offset x) = return (Right (bs, offset, x))
+    supplyAllInput _bs (CBOR.Read.Done bs _ x) = return (Right (x, bs))
     supplyAllInput  bs (CBOR.Read.Partial k)  =
       case bs of
         BSL.Chunk chunk bs' -> k (Just chunk) >>= supplyAllInput bs'
         BSL.Empty           -> k Nothing      >>= supplyAllInput BSL.Empty
-    supplyAllInput _ (CBOR.Read.Fail bs offset exn) = return (Left (bs, offset,exn))
+    supplyAllInput _ (CBOR.Read.Fail bs _ exn) = return (Left (exn, bs))
 
 -- | Strict variant of 'deserializeOrFail'.
 deserializeOrFail'
     :: Bi a
     => BS.ByteString
-    -> Either (BS.ByteString, CBOR.Read.ByteOffset, CBOR.Read.DeserialiseFailure)
-              (BS.ByteString, CBOR.Read.ByteOffset, a)
+    -> Either (CBOR.Read.DeserialiseFailure, BS.ByteString)
+              (a, BS.ByteString)
 deserializeOrFail' = deserializeOrFail . BSL.fromStrict
 
 ----------------------------------------------------------------------------
@@ -117,8 +114,8 @@ getCopyBi :: forall a. (Bi a, Typeable a) => Contained (Cereal.Get a)
 getCopyBi = contain $ do
     bs <- safeGet
     case deserializeOrFail bs of
-        Left (_, _, err) -> fail $ "getCopy@" ++ show (typeRep $ Proxy @a) <> ": " <> show err
-        Right (_, _, x)  -> return x
+        Left (err, _) -> fail $ "getCopy@" ++ show (typeRep $ Proxy @a) <> ": " <> show err
+        Right (x, _)  -> return x
 
 ----------------------------------------
 

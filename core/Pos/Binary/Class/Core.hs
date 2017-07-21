@@ -365,11 +365,29 @@ encodeSetSkel :: Bi a
               -> s
               -> E.Encoding
 encodeSetSkel size foldFunction =
-    encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
+    mappend encodeSetTag . encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
 {-# INLINE encodeSetSkel #-}
+
+-- We stitch a `258` in from of a (Hash)Set, so that tools which programmatically checks for
+-- canonicity can recognise it from a normal array. Why 258? This will be formalised pretty
+-- soon, but IANA allocated 256...18446744073709551615 to "First come, first served":
+-- https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
+-- Currently `258` is the first unassigned tag and as it requires 2 bytes to be encoded, it
+-- sounds like the best fit.
+setTag :: Word
+setTag = 258
+
+encodeSetTag :: E.Encoding
+encodeSetTag = E.encodeTag setTag
+
+decodeSetTag :: D.Decoder s ()
+decodeSetTag = do
+    t <- D.decodeTag
+    when (t /= setTag) $ fail ("decodeSetTag: this doesn't appear to be a Set. Found tag: " <> show t)
 
 decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> D.Decoder s c
 decodeSetSkel fromList = do
+  decodeSetTag
   n <- D.decodeListLen
   case n of
       0 -> return (fromList mempty)

@@ -213,7 +213,8 @@ syncWalletWithGStateUnsafe
     -> m ()
 syncWalletWithGStateUnsafe encSK = do
     tipHeader <- DB.getTipHeader @(Block ssc)
-    slottingData <- GS.getSlottingData
+    -- AJ: TODO: Efficiency
+    slottingData <- M.fromList <$> GS.getAllSlottingData
 
     let wAddr = encToCId encSK
         constTrue = \_ _ -> True
@@ -224,7 +225,7 @@ syncWalletWithGStateUnsafe encSK = do
         evalGenesisToil genUtxo = flip runUtxoReaderT genUtxo . evalToilTEmpty
 
         mainBlkHeaderTs mBlkH =
-            getSlotStartPure True (mBlkH ^. headerSlotL) slottingData
+            getSlotStartPure (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier

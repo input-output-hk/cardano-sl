@@ -49,7 +49,7 @@ import qualified Pos.DB.GState         as GS
 import           Pos.Exception         (assertionFailed)
 import           Pos.Lrc.Context       (LrcContext)
 import qualified Pos.Lrc.DB            as LrcDB
-import           Pos.Slotting          (MonadSlots (getCurrentSlot), putSlottingData)
+import           Pos.Slotting          (MonadSlots (getCurrentSlot), putEpochSlottingData)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Util              (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono       (NE, NewestFirst (getNewestFirst),
@@ -171,7 +171,11 @@ slogApplyBlocks blunds = do
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
     sanityCheckDB
-    putSlottingData =<< GS.getSlottingData
+
+    slottingData <- GS.getAllSlottingData
+    -- TODO: Could this be more efficient?
+    forM_ slottingData $ uncurry putEpochSlottingData
+
     return $ SomeBatchOp [putTip, bListenerBatch, forwardLinksBatch, inMainBatch]
   where
     blocks = fmap fst blunds

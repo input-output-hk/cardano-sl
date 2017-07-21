@@ -345,7 +345,7 @@ newtype EpochIndex = EpochIndex
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
-
+    
 -- instance Buildable (EpochIndex,EpochIndex) where
 --     build = bprint ("epochIndices: "%pairF)
 

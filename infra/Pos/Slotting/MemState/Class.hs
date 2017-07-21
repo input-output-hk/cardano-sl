@@ -8,34 +8,40 @@ import           Control.Monad.Trans (MonadTrans)
 import           Universum
 
 import           Pos.Core.Types      (EpochIndex, Timestamp)
-import           Pos.Slotting.Types  (SlottingData)
+import           Pos.Slotting.Types  (EpochSlottingData)
 
 -- | 'MonadSlotsData' provides access to data necessary for slotting to work.
 class Monad m => MonadSlotsData m where
 
     getSystemStart :: m Timestamp
 
-    getSlottingData :: m SlottingData
+    getEpochLastIndex :: m EpochIndex
 
+    getEpochSlottingData :: EpochIndex -> m (Maybe EpochSlottingData)
+
+    putEpochSlottingData :: EpochIndex -> EpochSlottingData -> m ()
+    
     waitPenultEpochEquals :: EpochIndex -> m ()
-
-    putSlottingData :: SlottingData -> m ()
 
     default getSystemStart :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
        m Timestamp
     getSystemStart = lift getSystemStart
 
-    default getSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
-        m SlottingData
-    getSlottingData = lift getSlottingData
+    default getEpochLastIndex :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
+       m EpochIndex
+    getEpochLastIndex = lift getEpochLastIndex
+
+    default getEpochSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) => EpochIndex ->
+        m (Maybe EpochSlottingData)
+    getEpochSlottingData = lift . getEpochSlottingData
+
+    default putEpochSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
+        EpochIndex -> EpochSlottingData -> m ()
+    putEpochSlottingData = (lift .) . putEpochSlottingData
 
     default waitPenultEpochEquals :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
         EpochIndex -> m ()
     waitPenultEpochEquals = lift . waitPenultEpochEquals
-
-    default putSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
-        SlottingData -> m ()
-    putSlottingData = lift . putSlottingData
 
 instance {-# OVERLAPPABLE #-}
     (MonadSlotsData m, MonadTrans t, Monad (t m)) =>

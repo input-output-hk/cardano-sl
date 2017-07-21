@@ -21,25 +21,30 @@ import qualified Ether
 import           Pos.Core.Types               (Timestamp)
 
 import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))
+import           Pos.Slotting.Types           (SlottingData,
+                                               addEpochSlottingData,
+                                               getLastEpochIndex,
+                                               getPenultEpochIndex,
+                                               lookupEpochSlottingData)
 
 ----------------------------------------------------------------------------
 -- Transformer
 ----------------------------------------------------------------------------
 
 -- | System start and slotting data
-type SlottingVar = (Timestamp, TVar SlottingData)
+type SystemStart = Timestamp
+type SlottingVar = (SystemStart, TVar SlottingData)
 
 type MonadSlotting = Ether.MonadReader' SlottingVar
 
 askSlotting :: MonadSlotting m => m SlottingVar
 askSlotting = Ether.ask'
 
-askSlottingVar :: MonadSlotting m => m (TVar SlottingData)
-askSlottingVar = snd <$> askSlotting
-
 askSlottingTimestamp :: MonadSlotting m => m Timestamp
 askSlottingTimestamp  = fst <$> askSlotting
+
+askSlottingVar :: MonadSlotting m => m (TVar SlottingData)
+askSlottingVar = snd <$> askSlotting
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation
@@ -57,15 +62,25 @@ instance
     (MonadSlotting m, MonadIO m, t ~ IdentityT) =>
          MonadSlotsData (Ether.TaggedTrans SlotsDataRedirectTag t m)
   where
+
     getSystemStart = askSlottingTimestamp
-    getSlottingData = atomically . readTVar =<< askSlottingVar
+
+    getEpochLastIndex = do
+        var <- askSlottingVar
+        atomically $ getLastEpochIndex <$> readTVar var
+
+    getEpochSlottingData ei = do
+        var <- askSlottingVar
+        atomically $ lookupEpochSlottingData ei <$> readTVar var
+
     waitPenultEpochEquals target = do
         var <- askSlottingVar
         atomically $ do
-            penultEpoch <- sdPenultEpoch <$> readTVar var
+            penultEpoch <- getPenultEpochIndex <$> readTVar var
             when (penultEpoch /= target) retry
-    putSlottingData sd = do
+
+    putEpochSlottingData ei esd = do
         var <- askSlottingVar
         atomically $ do
-            penultEpoch <- sdPenultEpoch <$> readTVar var
-            when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
+            slottingData <- readTVar var
+            writeTVar var (addEpochSlottingData ei esd slottingData)

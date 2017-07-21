@@ -17,14 +17,15 @@ import qualified Ether
 import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 
-import           Pos.Core             (ApplicationName, BlockVersion, NumSoftwareVersion,
-                                       SoftwareVersion (..), StakeholderId, addressHash,
-                                       blockVersionL, epochIndexL, headerHashG,
-                                       headerLeaderKeyL, headerSlotL)
+import           Pos.Core             (ApplicationName, BlockVersion, EpochIndex,
+                                       NumSoftwareVersion, SoftwareVersion (..),
+                                       StakeholderId, addressHash, blockVersionL,
+                                       epochIndexL, headerHashG, headerLeaderKeyL,
+                                       headerSlotL)
 import qualified Pos.DB.BatchOp       as DB
 import qualified Pos.DB.Class         as DB
 import           Pos.Lrc.Context      (LrcContext)
-import           Pos.Slotting         (SlottingData)
+import           Pos.Slotting.Types   (EpochSlottingData (..))
 import           Pos.Update.Constants (lastKnownBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId, UpdateBlock)
 import           Pos.Update.DB        (UpdateOp (..))
@@ -165,7 +166,7 @@ modifierToBatch PollModifier {..} =
     , upModifierToBatch
           (MM.insertions pmActiveProps)
           (MM.deletions pmActiveProps)
-    , sdModifierToBatch pmSlottingData
+    , sdModifierToBatch (MM.insertions pmSlottingData) (MM.deletions pmSlottingData)
     , epModifierToBatch pmEpochProposers
     ]
 
@@ -211,9 +212,11 @@ upModifierToBatch (map snd -> added) deleted
     addOps = map (DB.SomeBatchOp . PutProposal) added
     delOps = map (DB.SomeBatchOp . DeleteProposal) deleted
 
-sdModifierToBatch :: Maybe SlottingData -> [DB.SomeBatchOp]
-sdModifierToBatch Nothing   = []
-sdModifierToBatch (Just sd) = [DB.SomeBatchOp $ PutSlottingData sd]
+sdModifierToBatch :: [(EpochIndex, EpochSlottingData)] -> [EpochIndex] -> [DB.SomeBatchOp]
+sdModifierToBatch added deleted   = addOps ++ delOps
+  where
+    addOps = map (DB.SomeBatchOp . uncurry PutEpochSlotData) added
+    delOps = map (DB.SomeBatchOp . DelEpochSlotData) deleted
 
 epModifierToBatch :: Maybe (HashSet StakeholderId) -> [DB.SomeBatchOp]
 epModifierToBatch Nothing   = []

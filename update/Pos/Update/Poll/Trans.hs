@@ -10,7 +10,6 @@ module Pos.Update.Poll.Trans
        ) where
 
 import           Control.Lens          (uses, (%=), (.=))
-import           Control.Monad.State   (MonadState (..))
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.HashSet          as HS
 import qualified Ether
@@ -111,9 +110,8 @@ instance MonadPollRead m =>
             map (\dps -> (hash $ upsProposal $ dpsUndecided dps, dps)) <$>
             getDeepProposals cd
     getBlockIssuerStake e = lift . getBlockIssuerStake e
-    getSlottingData = ether $ do
-        new <- pmSlottingData <$> get
-        maybe getSlottingData pure new
+    getEpochSlottingData ei = ether $
+        MM.lookupM getEpochSlottingData ei =<< use pmSlottingDataL
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -148,5 +146,6 @@ instance MonadPollRead m =>
             let up = psProposal ps
                 upId = hash up
             pmActivePropsL %= MM.delete upId
-    setSlottingData sd = ether $ pmSlottingDataL .= Just sd
+    putEpochSlottingData ei esd = ether $ pmSlottingDataL %= MM.insert ei esd
+    delEpochSlottingData ei = ether $ pmSlottingDataL %= MM.delete ei
     setEpochProposers ep = ether $ pmEpochProposersL .= Just ep

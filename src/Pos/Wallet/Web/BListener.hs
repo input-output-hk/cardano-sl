@@ -11,6 +11,7 @@ module Pos.Wallet.Web.BListener
 import           Universum
 
 import           Control.Lens               (to)
+import qualified Data.Map                   as M
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
@@ -20,7 +21,7 @@ import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (BlockHeader, blockHeader, mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, difficultyL, headerHash,
-                                             headerSlotL, prevBlockL)
+                                             headerSlotL, prevBlockL, epochIndexL)
 import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.GState              as GS
@@ -62,9 +63,17 @@ onApplyTracking
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = do
     let oldestFirst = getOldestFirst blunds
-        txs = concatMap (gbTxs . fst) oldestFirst
-        newTipH = NE.last oldestFirst ^. _1 . blockHeader
-    sd <- GS.getSlottingData
+        txs         = concatMap (gbTxs . fst) oldestFirst
+        newTipH     = NE.last oldestFirst ^. _1 . blockHeader
+        newEpoch    = NE.last oldestFirst ^. _1 . epochIndexL
+
+    -- Apply blocks only from last epoch, since this can be called only with blocks
+    -- from a single epoch.
+    sd <- do
+        slotData <- M.fromList <$> GS.getAllSlottingData
+        -- Return slot data only from the last epoch 
+        pure $ M.filterWithKey (\epochIndex _ -> epochIndex == newEpoch) slotData
+
     mapM_ (syncWalletSet sd newTipH txs) =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
@@ -74,7 +83,7 @@ onApplyTracking blunds = do
     syncWalletSet :: SlottingData -> BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
     syncWalletSet sd newTipH txs wAddr = do
         let mainBlkHeaderTs mBlkH =
-                getSlotStartPure True (mBlkH ^. headerSlotL) sd
+                getSlotStartPure (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         allAddresses <- getWalletAddrMetasDB WS.Ever wAddr

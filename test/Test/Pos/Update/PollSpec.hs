@@ -15,8 +15,9 @@ import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), Property, choose, conjoin, (===))
 
+import           Pos.Core              (EpochIndex)
 import           Pos.Crypto            (hash)
-import           Pos.Slotting.Types    (SlottingData)
+import           Pos.Slotting.Types    (EpochSlottingData)
 import           Pos.Types             (ApplicationName, BlockVersion,
                                         SoftwareVersion (..), StakeholderId, addressHash)
 import qualified Pos.Update            as Poll
@@ -69,22 +70,22 @@ data PollAction
     | DelConfirmedProposal SoftwareVersion
     | InsertActiveProposal Poll.ProposalState
     | DeactivateProposal Poll.UpId
-    | SetSlottingData SlottingData
+    | PutEpochSlottingData EpochIndex EpochSlottingData
     | SetEpochProposers (HashSet StakeholderId)
     deriving (Show, Eq)
 
 actionToMonad :: Poll.MonadPoll m => PollAction -> m ()
-actionToMonad (PutBVState bv bvs)        = Poll.putBVState bv bvs
-actionToMonad (DelBVState bv)            = Poll.delBVState bv
-actionToMonad (SetAdoptedBV bv)          = Poll.setAdoptedBV bv
-actionToMonad (SetLastConfirmedSV sv)    = Poll.setLastConfirmedSV sv
-actionToMonad (DelConfirmedSV an)        = Poll.delConfirmedSV an
-actionToMonad (AddConfirmedProposal cps) = Poll.addConfirmedProposal cps
-actionToMonad (DelConfirmedProposal sv)  = Poll.delConfirmedProposal sv
-actionToMonad (InsertActiveProposal ps)  = Poll.insertActiveProposal ps
-actionToMonad (DeactivateProposal ui)    = Poll.deactivateProposal ui
-actionToMonad (SetSlottingData sd)       = Poll.setSlottingData sd
-actionToMonad (SetEpochProposers hs)     = Poll.setEpochProposers hs
+actionToMonad (PutBVState bv bvs)           = Poll.putBVState bv bvs
+actionToMonad (DelBVState bv)               = Poll.delBVState bv
+actionToMonad (SetAdoptedBV bv)             = Poll.setAdoptedBV bv
+actionToMonad (SetLastConfirmedSV sv)       = Poll.setLastConfirmedSV sv
+actionToMonad (DelConfirmedSV an)           = Poll.delConfirmedSV an
+actionToMonad (AddConfirmedProposal cps)    = Poll.addConfirmedProposal cps
+actionToMonad (DelConfirmedProposal sv)     = Poll.delConfirmedProposal sv
+actionToMonad (InsertActiveProposal ps)     = Poll.insertActiveProposal ps
+actionToMonad (DeactivateProposal ui)       = Poll.deactivateProposal ui
+actionToMonad (PutEpochSlottingData ei esd) = Poll.putEpochSlottingData ei esd
+actionToMonad (SetEpochProposers hs)        = Poll.setEpochProposers hs
 
 applyActionToModifier
     :: PollAction
@@ -126,7 +127,7 @@ applyActionToModifier (DeactivateProposal ui) pst = \p ->
   where
     innerLookupFun k = pst ^. Poll.psActiveProposals . at k
 
-applyActionToModifier (SetSlottingData sd) _ = Poll.pmSlottingDataL .~ (Just sd)
+applyActionToModifier (PutEpochSlottingData ei esd) _ = Poll.pmSlottingDataL %~ (MM.insert ei esd)
 applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
 
 type PollActions = [PollAction]

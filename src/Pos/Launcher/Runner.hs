@@ -30,6 +30,7 @@ import           Control.Concurrent.STM          (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                    (each, to, _tail)
 import           Control.Monad.Fix               (MonadFix)
 import           Data.Default                    (def)
+import qualified Data.Map                        as M
 import           Data.Tagged                     (Tagged (..), untag)
 import qualified Data.Time                       as Time
 import qualified Ether
@@ -72,7 +73,7 @@ import           Pos.Context                     (BlkSemaphore (..), ConnectedPe
                                                   NodeContext (..), StartTime (..))
 import           Pos.Core                        (Timestamp ())
 import           Pos.Crypto                      (createProxySecretKey, encToPublic)
-import           Pos.DB                          (MonadDBRead, NodeDBs, runDBPureRedirect)
+import           Pos.DB                          (MonadDBRead, NodeDBs, runDBPureRedirect, MonadRealDB)
 import           Pos.DB.Block                    (runBlockDBRedirect)
 import           Pos.DB.DB                       (initNodeDBs, openNodeDBs,
                                                   runGStateCoreRedirect)
@@ -305,9 +306,9 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         whenJust mEkg stopMonitor
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
+mkSlottingVar :: (MonadIO m, MonadDBRead m, MonadRealDB m) => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
-    sd <- GState.getSlottingData
+    sd <- M.fromList <$> GState.getAllSlottingData
     (sysStart, ) <$> newTVarIO sd
 
 -- | ServiceMode runner.

@@ -9,8 +9,9 @@ module Pos.Update.Poll.Logic.Rollback
 import qualified Data.HashMap.Strict   as HM
 import           Universum
 
-import           Pos.Core              (ApplicationName, BlockVersion, NumSoftwareVersion,
-                                        SoftwareVersion (..))
+import           Pos.Core              (ApplicationName, BlockVersion, EpochIndex,
+                                        NumSoftwareVersion, SoftwareVersion (..))
+import           Pos.Slotting.Types    (EpochSlottingData)
 import           Pos.Update.Core       (UpId)
 import           Pos.Update.Poll.Class (MonadPoll (..))
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
@@ -43,7 +44,7 @@ rollbackUS (USUndo changedBlockVersions
     -- Rollback last adopted
     whenJust lastAdoptedBV setAdoptedBV
     whenJust prevProposers setEpochProposers
-    whenJust slottingData setSlottingData
+    mapM_ setOrDelEpochSlottingData $ HM.toList slottingData
   where
     setOrDelLastConfirmedSV ::
            (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
@@ -64,3 +65,7 @@ rollbackUS (USUndo changedBlockVersions
     setOrDelBV :: (BlockVersion, PrevValue BlockVersionState) -> m ()
     setOrDelBV (bv, NoExist)       = delBVState bv
     setOrDelBV (bv, PrevValue bvs) = putBVState bv bvs
+
+    setOrDelEpochSlottingData :: (EpochIndex, PrevValue EpochSlottingData) -> m ()
+    setOrDelEpochSlottingData (ei, NoExist)       = delEpochSlottingData ei
+    setOrDelEpochSlottingData (ei, PrevValue esd) = putEpochSlottingData ei esd

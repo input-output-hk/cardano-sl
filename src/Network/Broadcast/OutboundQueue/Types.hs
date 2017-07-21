@@ -10,6 +10,7 @@ module Network.Broadcast.OutboundQueue.Types (
   , peersOfType
   , simplePeers
   , peersFromList
+  , peersToSet
   , removePeer
   , restrictPeers
   , MsgType(..)
@@ -103,6 +104,14 @@ peersFromList = go mempty
     go :: Peers nid -> [(NodeType, Alts nid)] -> Peers nid
     go acc []                  = acc
     go acc ((typ, alts):altss) = go (acc & peersOfType typ %~ (alts :)) altss
+
+-- | Flatten 'Peers' structure
+peersToSet :: Ord nid => Peers nid -> Set nid
+peersToSet Peers{..} = Set.unions . concat $ [
+      map Set.fromList _peersCore
+    , map Set.fromList _peersRelay
+    , map Set.fromList _peersEdge
+    ]
 
 instance Monoid (Peers nid) where
   mempty      = Peers [] [] []

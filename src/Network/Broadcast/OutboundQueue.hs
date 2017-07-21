@@ -60,6 +60,7 @@ module Network.Broadcast.OutboundQueue (
   , Alts
   , simplePeers
   , peersFromList
+  , updateKnownPeers
   , addKnownPeers
   , removeKnownPeer
     -- * Debugging
@@ -995,35 +996,42 @@ flush OutQ{..} = liftIO $ do
 
 {-------------------------------------------------------------------------------
   Knowledge of peers
+
+  NOTE: Behind NAT nodes: Edge nodes behind NAT can contact a relay node to ask
+  to be notified of messages. The listener on the relay node should call
+  'addKnownPeers' on its outbound queue to effectively subscribe the edge node
+  that contacted it. Then the conversation should remain open, so that the
+  (heavy-weight) TCP connection between the edge node and the relay node is
+  kept open. When the edge node disappears the listener thread on the relay
+  node should call 'removeKnownPeer' to remove the edge node from its outbound
+  queue again.
 -------------------------------------------------------------------------------}
 
--- | Remember a set of Peers.
+-- | Update the set of peers
 --
--- NOTE: Behind NAT nodes: Edge nodes behind NAT can contact a relay node to ask
--- to be notified of messages. The listener on the relay node should call
--- 'addKnownPeers' on its outbound queue to effectively subscribe the edge node
--- that contacted it. Then the conversation should remain open, so that the
--- (heavy-weight) TCP connection between the edge node and the relay node is
--- kept open. When the edge node disappears the listener thread on the relay
--- node should call 'removeKnownPeer' to remove the edge node from its outbound
--- queue again.
+-- NOTE: Any messages to removed peers will be deleted from the queue.
 --
 -- TODO check for overlap in the Peers terms. This should never happen but
 -- could, due to misconfiguration.
+updateKnownPeers :: MonadIO m
+                 => OutboundQ msg nid -> (Peers nid -> Peers nid) -> m ()
+updateKnownPeers OutQ{..} f = do
+    removed <- applyMVar qPeers $ \peers ->
+      let peers'  = f peers
+          removed = peersToSet peers Set.\\ peersToSet peers'
+      in (peers', removed)
+    forM_ removed $ \nid -> do
+      applyMVar_ qInFlight $ at nid .~ Nothing
+      applyMVar_ qFailures $ Set.delete nid
+      liftIO $ MQ.removeAllIn (KeyByDest nid) qScheduled
+
+-- | Remember a set of Peers.
 addKnownPeers :: MonadIO m => OutboundQ msg nid -> Peers nid -> m ()
-addKnownPeers OutQ{..} peers' = applyMVar_ qPeers (<> peers')
+addKnownPeers outQ peers' = updateKnownPeers outQ (<> peers')
 
 -- | Forget about some peers.
---
--- See 'addKnownPeers'.
---
--- NOTE: Any messages to this peer will be deleted from the queue.
 removeKnownPeer :: MonadIO m => Ord nid => OutboundQ msg nid -> nid -> m ()
-removeKnownPeer OutQ{..} nid = do
-    applyMVar_ qPeers    $ removePeer nid
-    applyMVar_ qInFlight $ at nid .~ Nothing
-    applyMVar_ qFailures $ Set.delete nid
-    liftIO $ MQ.removeAllIn (KeyByDest nid) qScheduled
+removeKnownPeer outQ nid = updateKnownPeers outQ (removePeer nid)
 
 {-------------------------------------------------------------------------------
   Auxiliary: starting and registering threads

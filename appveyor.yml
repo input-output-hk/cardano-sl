@@ -84,6 +84,25 @@ test_script:
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build lwallet here, because this build is for installer.
+  - scripts\ci\appveyor-retry call stack install cardano-sl
+      -j 2
+      --no-terminal
+      --local-bin-path daedalus
+      --fast
+      --test
+      --no-haddock-deps
+      --bench
+      --no-run-benchmarks
+      --work-dir %STACK_WORK%
+      --ghc-options="-DCONFIG=%DCONFIG%"
+      --flag cardano-sl:with-web
+      --flag cardano-sl:with-wallet
+      --flag cardano-sl-core:-asserts
+      --flag cardano-sl-core:-dev-mode
+      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
+      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
+      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
+      --extra-lib-dirs="%WORK_DIR%"
   - scripts\ci\appveyor-retry call stack install cardano-sl-tools
       -j 2
       --no-terminal

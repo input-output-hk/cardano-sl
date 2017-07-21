@@ -318,9 +318,8 @@ library
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking
 
-  build-depends:        IfElse
+  build-depends:        QuickCheck
                       , MonadRandom
-                      , QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
@@ -329,8 +328,6 @@ library
                       , base58-bytestring
                       , base64-bytestring
                       , binary
-                      , binary-conduit >= 1.2.4.1
-                      , binary-orphans
                       , bytestring
                       , cardano-crypto
                       , cardano-report-server >= 0.2.0
@@ -372,7 +369,6 @@ library
                       , http-conduit
                       , kademlia
                       , lens
-                      , lifted-async
                       , list-t
                       , log-warper >= 1.1.1
                       , lrucache
@@ -416,7 +412,6 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
-                      , versions
                       , wreq
                       , yaml
 
@@ -706,7 +701,6 @@ benchmark cardano-bench-criterion
                      , containers
                      , criterion
                      , formatting
-                     , hashtables
                      , lens
                      , log-warper
                      , serokell-util >= 0.1.3.4

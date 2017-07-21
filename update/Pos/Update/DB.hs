@@ -131,9 +131,10 @@ getEpochSlottingData ei = gsGetBi (slottingDataKey ei)
 
 getEpochLastIndex :: (MonadRealDB m) => m EpochIndex
 getEpochLastIndex = do
-  maxIndex <- fmap maximum . nonEmpty <$> getEpochIndices
-  maybeThrow (DBMalformed msg) maxIndex
-  where msg = "Update System part of GState DB is not initialized (last epoch index is missing)"
+    maxIndex <- fmap maximum . nonEmpty <$> getEpochIndices
+    maybeThrow (DBMalformed msg) maxIndex
+  where 
+    msg = "Update System part of GState DB is not initialized (last epoch index is missing)"
 
 -- | Get proposers for current epoch.
 getEpochProposers :: MonadDBRead m => m (HashSet StakeholderId)

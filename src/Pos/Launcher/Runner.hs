@@ -30,7 +30,7 @@ import           Control.Concurrent.STM          (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                    (each, to, _tail)
 import           Control.Monad.Fix               (MonadFix)
 import           Data.Default                    (def)
-import qualified Data.HashMap.Strict             as HM
+import qualified Data.Map                        as M
 import           Data.Tagged                     (Tagged (..), untag)
 import qualified Data.Time                       as Time
 import qualified Ether
@@ -308,7 +308,7 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
 -- | Create new 'SlottingVar' using data from DB.
 mkSlottingVar :: (MonadIO m, MonadDBRead m, MonadRealDB m) => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
-    sd <- HM.fromList <$> GState.getAllSlottingData
+    sd <- M.fromList <$> GState.getAllSlottingData
     (sysStart, ) <$> newTVarIO sd
 
 -- | ServiceMode runner.

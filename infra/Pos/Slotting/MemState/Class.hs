@@ -19,9 +19,9 @@ class Monad m => MonadSlotsData m where
 
     getEpochSlottingData :: EpochIndex -> m (Maybe EpochSlottingData)
 
-    waitPenultEpochEquals :: EpochIndex -> m ()
-
     putEpochSlottingData :: EpochIndex -> EpochSlottingData -> m ()
+    
+    waitPenultEpochEquals :: EpochIndex -> m ()
 
     default getSystemStart :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
        m Timestamp
@@ -35,13 +35,13 @@ class Monad m => MonadSlotsData m where
         m (Maybe EpochSlottingData)
     getEpochSlottingData = lift . getEpochSlottingData
 
-    default waitPenultEpochEquals :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
-        EpochIndex -> m ()
-    waitPenultEpochEquals = lift . waitPenultEpochEquals
-
     default putEpochSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
         EpochIndex -> EpochSlottingData -> m ()
     putEpochSlottingData = (lift .) . putEpochSlottingData
+
+    default waitPenultEpochEquals :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
+        EpochIndex -> m ()
+    waitPenultEpochEquals = lift . waitPenultEpochEquals
 
 instance {-# OVERLAPPABLE #-}
     (MonadSlotsData m, MonadTrans t, Monad (t m)) =>

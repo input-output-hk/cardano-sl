@@ -253,8 +253,7 @@ data USUndo = USUndo
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
     , unPrevProposers    :: !(Maybe (HashSet StakeholderId))
     , unSlottingData     :: !(HashMap EpochIndex (PrevValue EpochSlottingData))
-    -- if this 'USUndo' is applied (i. e. corresponding block is
-    -- rolled back).
+    -- ^ 'EpochSlottingData' which should be modified as the result of this rollback.
     } deriving (Generic, Show)
 
 

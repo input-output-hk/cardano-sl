@@ -34,8 +34,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import           Data.DList                   (DList)
 import qualified Data.DList                   as DL
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.Map.Strict              as M (lookup)
+import qualified Data.Map.Strict              as M (lookup, fromList)
 import           Data.Tagged                  (Tagged (..))
 import qualified Ether
 import           System.Wlog                  (WithLogger)
@@ -231,7 +230,7 @@ instance
     getBlockHistory = Tagged $ \addrs -> do
         bot <- GS.getBot
         -- AJ: TODO: Efficiency
-        sd <- HM.fromList <$> GS.getAllSlottingData
+        sd <- M.fromList <$> GS.getAllSlottingData
 
         let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
             fromBlund = pure . fst

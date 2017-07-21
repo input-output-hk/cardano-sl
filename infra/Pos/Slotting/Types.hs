@@ -15,11 +15,11 @@ module Pos.Slotting.Types
 
 import           Universum
 
-import           Data.HashMap.Strict as HM
+import           Data.Map.Strict     as M
 import           Data.Time.Units     (Millisecond, convertUnit)
 
-import           Pos.Core            (EpochIndex, SlotId (..), Timestamp (..),
-                                      getSlotIndex)
+import           Pos.Core            (EpochIndex, SlotId (..), Timestamp (..), 
+                                     EpochIndex(..), getSlotIndex)
 import           Pos.Util.Util       ()
 
 -- | Data which is necessary for slotting and corresponds to a particular epoch.
@@ -33,47 +33,38 @@ data EpochSlottingData = EpochSlottingData
 instance NFData EpochSlottingData
 
 -- | Data necessary for slotting to work which is basically part of GState.
--- TODO: Reflect the fact that this will always have 2+ elements
--- TODO: Make this a newtype wrapper
-type SlottingData = HashMap EpochIndex EpochSlottingData
-
--- PRIVATE
--- AJ: TODO: GOOD DEFAULT VALUE FOR SLOT DURATION?
-ensureEpochSlottingDataExists :: Maybe EpochSlottingData -> EpochSlottingData
-ensureEpochSlottingDataExists = fromMaybe $ EpochSlottingData 0 0
-
--- PRIVATE
--- AJ: TODO: DELETE
--- ensureEpochIndexExists :: Maybe EpochIndex -> EpochIndex
--- ensureEpochIndexExists = fromMaybe 0
+-- External code can use functions like getLastEpochIndex or getLastEpochSlottingData and 
+-- not worry about cases where it doesn't exist (this module should be responsible for it).
+-- Note that it's important to use error rather than default values like 0, because 
+-- such cases indicate invariants violation and shouldn't be hidden behind default values.
+type SlottingData = Map EpochIndex EpochSlottingData
 
 -- | Get the latest epoch index.
-getLastEpochIndex :: SlottingData -> Maybe EpochIndex
-getLastEpochIndex = fmap maximum . nonEmpty . HM.keys
+getLastEpochIndex :: SlottingData -> EpochIndex
+getLastEpochIndex = fst . M.findMax
 
 -- | Get the latest epoch slotting data.
 getLastEpoch :: SlottingData -> EpochSlottingData
-getLastEpoch = ensureEpochSlottingDataExists . fmap (snd . maximumBy (comparing fst)) . nonEmpty . HM.toList
+getLastEpoch = snd . M.findMax
 
--- | Get the penultimate epoch index.
--- AJ: TODO: Should this return a Maybe??
+-- | Get the penultimate epoch index. Last epoch - 1.
 getPenultEpochIndex :: SlottingData -> EpochIndex
-getPenultEpochIndex sd =
-  case getLastEpochIndex sd of
-    Nothing -> 0
-    Just ei -> if ei < 0 then 0 else ei
+getPenultEpochIndex sd = decreaseEpochIndex $ getLastEpochIndex sd
+  where
+    decreaseEpochIndex :: EpochIndex -> EpochIndex
+    decreaseEpochIndex ei = EpochIndex $ getEpochIndex ei - 1
 
--- | Get the penultimate epoch slotting data.
+-- | Get the penultimate epoch slotting data. Last epoch - 1.
 getPenultEpoch :: SlottingData -> EpochSlottingData
-getPenultEpoch sd = ensureEpochSlottingDataExists $ lookupEpochSlottingData (getPenultEpochIndex sd) sd
+getPenultEpoch sd = sd ! getPenultEpochIndex sd
 
 -- | Lookup the slotting data for an arbitrary `EpochIndex`.
 lookupEpochSlottingData :: EpochIndex -> SlottingData -> Maybe EpochSlottingData
-lookupEpochSlottingData = HM.lookup
+lookupEpochSlottingData = M.lookup
 
 -- | Insert `EpochSlottingData`.
 addEpochSlottingData :: EpochIndex -> EpochSlottingData -> SlottingData -> SlottingData
-addEpochSlottingData = HM.insert
+addEpochSlottingData = M.insert
 
 computeSlotStart :: SlotId -> EpochSlottingData -> Timestamp
 computeSlotStart SlotId{..} esd = slotTimestamp siSlot esd

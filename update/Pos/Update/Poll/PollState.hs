@@ -17,7 +17,6 @@ module Pos.Update.Poll.PollState
        , psActiveProposals
        , psActivePropsIdx
        , psEpochSlottingData
-       , psEpochLastIndex
        , psFullRichmenData
        , psIssuersStakes
 
@@ -40,7 +39,7 @@ import           Pos.Slotting.Types    (EpochSlottingData)
 import           Pos.Update.Core       (UpId, UpdateProposal (..))
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         PollModifier (..), ProposalState, psProposal)
-import           Pos.Util.Modifier     (foldlMapModWKey', modifyHashMap)
+import           Pos.Util.Modifier     (foldlMapModWKey', modifyHashMap, modifyMap)
 
 data PollState = PollState
     { -- | All competing block versions with their states
@@ -58,9 +57,7 @@ data PollState = PollState
       -- | Update proposals for each application
     , _psActivePropsIdx     :: !(HM.HashMap ApplicationName (HashSet UpId))
       -- | Slotting data for this node
-    , _psEpochSlottingData  :: !(HashMap EpochIndex EpochSlottingData)
-      -- | Last updated epoch index
-    , _psEpochLastIndex  :: !EpochIndex
+    , _psEpochSlottingData  :: !(Map EpochIndex EpochSlottingData)
       -- | Mapping between epochs and their richmen stake distribution
     , _psFullRichmenData    :: !(HM.HashMap EpochIndex FullRichmenData)
       -- | Mapping between epochs and stake of each of the epoch's slot's block issuer
@@ -78,8 +75,7 @@ modifyPollState PollModifier {..} PollState {..} =
               (modifyHashMap pmConfirmedProps _psConfirmedProposals)
               (modifyHashMap pmActiveProps _psActiveProposals)
               (resultActiveProposals _psActivePropsIdx)
-              (modifyHashMap pmSlottingData _psEpochSlottingData)
-              _psEpochLastIndex
+              (modifyMap pmSlottingData _psEpochSlottingData)
               _psFullRichmenData
               _psIssuersStakes
   where

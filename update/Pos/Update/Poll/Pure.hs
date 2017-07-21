@@ -89,7 +89,7 @@ instance MonadPollRead PurePoll where
     getBlockIssuerStake ei si =
         PurePoll $ uses Poll.psIssuersStakes $ HM.lookup si <=< HM.lookup ei
     getEpochSlottingData ei = PurePoll $ use $ Poll.psEpochSlottingData . at ei
-    getEpochLastIndex = PurePoll $ fromMaybe 0 . getLastEpochIndex <$> use Poll.psEpochSlottingData
+    getEpochLastIndex = PurePoll $ getLastEpochIndex <$> use Poll.psEpochSlottingData
 
 instance Bi UpdateProposal => MonadPoll PurePoll where
     putBVState bv bvs = PurePoll $ Poll.psBlockVersions . at bv .= Just bvs

@@ -37,7 +37,6 @@ import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.DList                 (DList)
 import qualified Data.DList                 as DL
-import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
@@ -215,7 +214,7 @@ syncWalletWithGStateUnsafe
 syncWalletWithGStateUnsafe encSK = do
     tipHeader <- DB.getTipHeader @(Block ssc)
     -- AJ: TODO: Efficiency
-    slottingData <- HM.fromList <$> GS.getAllSlottingData
+    slottingData <- M.fromList <$> GS.getAllSlottingData
 
     let wAddr = encToCId encSK
         constTrue = \_ _ -> True

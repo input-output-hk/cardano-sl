@@ -35,7 +35,7 @@ import           Serokell.Util                (sec)
 import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 
 import qualified Pos.Core.Constants           as C
-import           Pos.Core.Slotting            (unflattenSlotId)
+import           Pos.Core.Slotting            (flattenEpochIndex, unflattenSlotId)
 import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..),
                                                mkLocalSlotIndex)
 
@@ -43,6 +43,7 @@ import           Pos.Slotting.Class           (MonadSlots (..))
 import qualified Pos.Slotting.Constants       as C
 import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
 import           Pos.Slotting.Types           (EpochSlottingData (..), findMatchingEpoch)
+import           Pos.Slotting.Util            (getLastEpochEmpatically)
 
 ----------------------------------------------------------------------------
 -- State
@@ -52,7 +53,7 @@ import           Pos.Slotting.Types           (EpochSlottingData (..), findMatch
 data NtpSlottingState = NtpSlottingState
     {
     -- | Slot which was returned from getCurrentSlot last time.
-       _nssLastSlot     :: !SlotId
+      _nssLastSlot      :: !SlotId
     -- | Margin (difference between global time and local time) which
     -- we got from NTP server last time.
     , _nssLastMargin    :: !Microsecond
@@ -72,11 +73,14 @@ makeLenses ''NtpSlottingState
 -- Flag means whether to use real NTP servers or rely on local time.
 type MonadNtpSlotting = Ether.MonadReader' (Bool, NtpSlottingVar)
 
-askNtpSlotting :: MonadNtpSlotting m => m NtpSlottingVar
-askNtpSlotting = Ether.asks' @(Bool, NtpSlottingVar) snd
-
 askFullNtpSlotting :: MonadNtpSlotting m => m (Bool, NtpSlottingVar)
 askFullNtpSlotting = Ether.ask'
+
+askIfNtpUsed :: MonadNtpSlotting m => m Bool
+askIfNtpUsed = fst <$> askFullNtpSlotting
+
+askNtpSlotting :: MonadNtpSlotting m => m NtpSlottingVar
+askNtpSlotting = snd <$> askFullNtpSlotting
 
 ----------------------------------------------------------------------------
 -- MonadSlots implementation
@@ -100,8 +104,7 @@ type SlottingConstraint m =
 
 data SlotsRedirectTag
 
-type SlotsRedirect =
-    Ether.TaggedTrans SlotsRedirectTag IdentityT
+type SlotsRedirect = Ether.TaggedTrans SlotsRedirectTag IdentityT
 
 runSlotsRedirect :: SlotsRedirect m a -> m a
 runSlotsRedirect = coerce
@@ -110,16 +113,27 @@ instance
     (MonadNtpSlotting m, SlottingConstraint m, MonadIO m, t ~ IdentityT) =>
          MonadSlots (Ether.TaggedTrans SlotsRedirectTag t m)
   where
+
     getCurrentSlot =
         ifNtpUsed ntpGetCurrentSlot simpleGetCurrentSlot
+
     getCurrentSlotBlocking =
         ifNtpUsed ntpGetCurrentSlotBlocking simpleGetCurrentSlotBlocking
+
+    getCurrentSlotInaccurate =    
+        ifNtpUsed ntpGetCurrentSlotInaccurate simpleGetCurrentSlotInaccurate
+
     currentTimeSlotting =
         ifNtpUsed ntpCurrentTime simpleCurrentTimeSlotting
+
     slottingWorkers = [ntpSyncWorker]
 
 ifNtpUsed :: MonadNtpSlotting m => m a -> m a -> m a
-ifNtpUsed t f = Ether.asks' @(Bool, NtpSlottingVar) fst >>= bool f t
+ifNtpUsed ifT ifF = do
+    isNtpUsed <- askIfNtpUsed 
+    if isNtpUsed 
+        then ifT 
+        else ifF
 
 ----------------------------------------------------------------------------
 -- Getting current slot
@@ -127,7 +141,8 @@ ifNtpUsed t f = Ether.asks' @(Bool, NtpSlottingVar) fst >>= bool f t
 
 data SlotStatus
     = CantTrust Text                    -- ^ We can't trust local time.
-    | OutdatedSlottingData !EpochIndex  -- ^ We don't know recent slotting data, last known epoch is attached.
+    | OutdatedSlottingData !EpochIndex  -- ^ We don't know recent slotting data, 
+                                        -- last known epoch is attached.
     | CurrentSlot !SlotId               -- ^ Slot is calculated successfully.
 
 ntpGetCurrentSlot
@@ -148,8 +163,21 @@ ntpGetCurrentSlot = ntpGetCurrentSlotImpl >>= \case
   where
     printSlottingData = do
         eli <- getEpochLastIndex
-        sd <- getEpochSlottingData eli
+        sd  <- getEpochSlottingData eli
         logWarning $ "Slotting data: " <> show sd
+
+ntpGetCurrentSlotInaccurate    
+    :: (SlottingConstraint m, MonadNtpSlotting m)   
+    => m SlotId   
+ntpGetCurrentSlotInaccurate = do    
+    res <- ntpGetCurrentSlotImpl    
+    case res of   
+        CurrentSlot slot -> pure slot   
+        CantTrust _        -> do    
+            var <- askNtpSlotting   
+            _nssLastSlot <$> atomically (STM.readTVar var)    
+        OutdatedSlottingData penult ->    
+            ntpCurrentTime >>= approxSlotUsingOutdated penult   
 
 ntpGetCurrentSlotImpl
     :: (SlottingConstraint m, MonadNtpSlotting m)
@@ -200,6 +228,23 @@ ntpCurrentTime = do
     var <- askNtpSlotting
     lastMargin <- view nssLastMargin <$> atomically (STM.readTVar var)
     Timestamp . (+ lastMargin) <$> currentTime
+
+-- Independent of slotting algorithm functions   
+approxSlotUsingOutdated :: SlottingConstraint m => EpochIndex -> Timestamp -> m SlotId    
+approxSlotUsingOutdated penult t = do   
+    lastEpochSD <- getLastEpochEmpatically
+    pure $    
+        if | t < esdStart lastEpochSD -> SlotId (penult + 1) minBound    
+           | otherwise                -> outdatedEpoch t (penult + 1) lastEpochSD   
+  where   
+    -- TODO(ks): What if the the times of the @Epoch@ are changed?
+    outdatedEpoch (Timestamp curTime) epoch EpochSlottingData {..} =    
+        let duration = convertUnit esdSlotDuration    
+            start    = getTimestamp esdStart 
+        in    
+        unflattenSlotId $   
+        flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)   
+
 
 getCurrentSlotDo
     :: SlottingConstraint m
@@ -306,3 +351,11 @@ simpleGetCurrentSlotBlocking = do
         Nothing -> do
             waitPenultEpochEquals (penult + 1)
             simpleGetCurrentSlotBlocking
+
+simpleGetCurrentSlotInaccurate :: SlottingConstraint m => m SlotId   
+simpleGetCurrentSlotInaccurate = do   
+    penult <- getEpochLastIndex 
+    simpleGetCurrentSlot >>= \case    
+        Just slot -> pure slot    
+        Nothing -> simpleCurrentTimeSlotting >>= approxSlotUsingOutdated penult   
+    

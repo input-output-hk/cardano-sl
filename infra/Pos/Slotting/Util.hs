@@ -9,6 +9,7 @@ module Pos.Slotting.Util
        , getSlotStart
        , getSlotStartPure
        , getSlotStartEmpatically
+       , getLastEpochEmpatically
        , getLastKnownSlotDuration
 
          -- * Worker which ticks when slot starts
@@ -70,6 +71,15 @@ getSlotStartEmpatically
     => SlotId -> m Timestamp
 getSlotStartEmpatically slot =
     getSlotStart slot >>= maybeThrow (SEUnknownSlotStart slot)
+
+-- | Get last epoch empatically, which means
+-- that function throws exception when last epoch is unknown.
+getLastEpochEmpatically
+    :: (MonadSlotsData m, MonadThrow m)
+    => m EpochSlottingData
+getLastEpochEmpatically = do
+    lastEpoch   <- getEpochLastIndex    
+    getEpochSlottingData lastEpoch >>= maybeThrow (SEUnknownLastEpoch lastEpoch)
 
 -- | Get last known slot duration.
 getLastKnownSlotDuration :: MonadSlotsData m => m Millisecond

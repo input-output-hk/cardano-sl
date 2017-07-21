@@ -55,7 +55,7 @@ script:
 - if [[ "$MODE" == "nix" ]]; then
     nix-build -A cardano-sl-static --no-build-output --keep-going || nix-build -A cardano-sl -j 1 ;
   elif [[ "$MODE" == "hlint" ]]; then
-    nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
+    nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   elif [[ "$MODE" == "stack2nix" ]]; then
     nix-shell -p cabal2nix stack cabal-install ghc -Q -j 4 --run scripts/check-stack2nix.sh ;
   else

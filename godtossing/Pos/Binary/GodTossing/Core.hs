@@ -7,11 +7,9 @@ module Pos.Binary.GodTossing.Core
 import qualified Data.HashMap.Strict           as HM
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), PokeWithSize, convertToSizeNPut,
-                                                getWord8, label, labelS, putField, putS,
-                                                putWord8S)
-import           Pos.Binary.Crypto             ()
 import           Pos.Core.Address              (addressHash)
+import           Pos.Binary.Class              (Bi (..), enforceSize, encodeListLen, decodeListLen, matchSize)
+import           Pos.Binary.Crypto             ()
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),
                                                 CommitmentsMap (..), GtPayload (..),
                                                 GtProof (..), Opening (..),
@@ -19,71 +17,95 @@ import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..)
                                                 recreateVssCertificate)
 
 instance Bi Commitment where
-    sizeNPut = labelS "Commitment" $
-           putField commShares
-        <> putField commExtra
-        <> putField commProof
-    get = label "Commitment" $ do
-        commShares <- get
-        when (null commShares) $ fail "get@Commitment: no shares"
-        commExtra <- get
-        commProof <- get
-        return Commitment {..}
+  encode Commitment{..} = encodeListLen 3 <> encode commShares
+                                          <> encode commExtra
+                                          <> encode commProof
+  decode = do
+    enforceSize "Commitment" 3
+    commShares <- decode
+    when (null commShares) $ fail "decode@Commitment: no shares"
+    commExtra <- decode
+    commProof <- decode
+    return $ Commitment commExtra commProof commShares
 
 instance Bi CommitmentsMap where
-    sizeNPut = labelS "CommitmentsMap" $ putField (toList . getCommitmentsMap)
-    get = label "CommitmentsMap" $ mkCommitmentsMap <$> get
+  encode = encode . toList . getCommitmentsMap
+  decode = mkCommitmentsMap <$> decode
 
 instance Bi VssCertificate where
-    sizeNPut = labelS "VssCertificate" $
-        putField vcVssKey <>
-        putField vcExpiryEpoch <>
-        putField vcSignature <>
-        putField vcSigningKey
-    get = label "VssCertificate" $
-        join $ liftM4 recreateVssCertificate get get get get
+  encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
+                                   <> encode (vcExpiryEpoch vssCert)
+                                   <> encode (vcSignature vssCert)
+                                   <> encode (vcSigningKey vssCert)
+  decode = do
+    enforceSize "VssCertificate" 4
+    key <- decode
+    epo <- decode
+    sig <- decode
+    sky <- decode
+    case recreateVssCertificate key epo sig sky of
+      Left e  -> fail e
+      Right v -> pure v
 
 instance Bi Opening where
-    sizeNPut = labelS "Opening" $ putField getOpening
-    get = label "Opening" $ Opening <$> get
+  encode = encode . getOpening
+  decode = Opening <$> decode
 
 instance Bi GtPayload where
-    sizeNPut = labelS "GtPayload" $ convertToSizeNPut toBi
-      where
-        toBi :: GtPayload -> PokeWithSize ()
-        toBi = \case
-            CommitmentsPayload commMap vssMap ->
-                putWord8S 0 <> putS commMap <> putS (toList vssMap)
-            OpeningsPayload opMap vssMap ->
-                putWord8S 1 <> putS opMap <> putS (toList vssMap)
-            SharesPayload sharesMap vssMap ->
-                putWord8S 2 <> putS sharesMap <> putS (toList vssMap)
-            CertificatesPayload vssMap ->
-                putWord8S 3 <> putS (toList vssMap)
-    get = label "GtPayload" $ do
-        getWord8 >>= \case
-            0 -> liftM2 CommitmentsPayload get getVssCerts
-            1 -> liftM2 OpeningsPayload get getVssCerts
-            2 -> liftM2 SharesPayload get getVssCerts
-            3 -> CertificatesPayload <$> getVssCerts
-            tag -> fail ("get@GtPayload: invalid tag: " ++ show tag)
-          where
-            getVssCerts = HM.fromList . map toCertPair <$> get
-            toCertPair vc = (addressHash $ vcSigningKey vc, vc)
+  encode input = case input of
+    CommitmentsPayload  cmap vss -> encodeListLen 3 <> encode (0 :: Word8)
+                                                    <> encode cmap <> encode (toList vss)
+    OpeningsPayload     omap vss -> encodeListLen 3 <> encode (1 :: Word8)
+                                                    <> encode omap <> encode (toList vss)
+    SharesPayload       smap vss -> encodeListLen 3 <> encode (2 :: Word8)
+                                                    <> encode smap <> encode (toList vss)
+    CertificatesPayload vss      -> encodeListLen 2 <> encode (3 :: Word8)
+                                                    <> encode (toList vss)
+  decode = do
+    len <- decodeListLen
+    tag <- decode @Word8
+    case tag of
+      0 -> do
+        matchSize len "GtPayload.CommitmentsPayload" 3
+        liftM2 CommitmentsPayload decode getVssCerts
+      1 -> do
+        matchSize len "GtPayload.OpeningsPayload" 3
+        liftM2 OpeningsPayload decode getVssCerts
+      2 -> do
+        matchSize len "GtPayload.SharesPayload" 3
+        liftM2 SharesPayload decode getVssCerts
+      3 -> do
+        matchSize len "GtPayload.CertificatesPayload" 2
+        CertificatesPayload <$> getVssCerts
+      _ -> fail ("decode@GtPayload: invalid tag: " <> show tag)
+    where
+      getVssCerts = HM.fromList . map toCertPair <$> decode
+      toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 
 instance Bi GtProof where
-    sizeNPut = labelS "GtProof" $ convertToSizeNPut toBi
-      where
-        toBi :: GtProof -> PokeWithSize ()
-        toBi = \case
-            CommitmentsProof a b -> putWord8S 0 <> putS a <> putS b
-            OpeningsProof a b    -> putWord8S 1 <> putS a <> putS b
-            SharesProof a b      -> putWord8S 2 <> putS a <> putS b
-            CertificatesProof a  -> putWord8S 3 <> putS a
-    get = label "GtProof" $ do
-        getWord8 >>= \case
-            0 -> liftM2 CommitmentsProof get get
-            1 -> liftM2 OpeningsProof get get
-            2 -> liftM2 SharesProof get get
-            3 -> CertificatesProof <$> get
-            tag -> fail ("get@GtProof: invalid tag: " ++ show tag)
+  encode input = case input of
+    CommitmentsProof  cmap vss -> encodeListLen 3 <> encode (0 :: Word8)
+                                                  <> encode cmap <> encode vss
+    OpeningsProof     omap vss -> encodeListLen 3 <> encode (1 :: Word8)
+                                                  <> encode omap <> encode vss
+    SharesProof       smap vss -> encodeListLen 3 <> encode (2 :: Word8)
+                                                  <> encode smap <> encode vss
+    CertificatesProof vss      -> encodeListLen 2 <> encode (3 :: Word8)
+                                                  <> encode vss
+  decode = do
+    len   <- decodeListLen
+    tag <- decode @Word8
+    case tag of
+      0 -> do
+        matchSize len "GtProof.CommitmentsProof" 3
+        CommitmentsProof  <$> decode <*> decode
+      1 -> do
+        matchSize len "GtProof.OpeningsProof" 3
+        OpeningsProof     <$> decode <*> decode
+      2 -> do
+        matchSize len "GtProof.SharesProof" 3
+        SharesProof       <$> decode <*> decode
+      3 -> do
+        matchSize len "GtProof.CertificatesProof" 2
+        CertificatesProof <$> decode
+      _ -> fail ("decode@GtProof: invalid tag: " ++ show tag)

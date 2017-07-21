@@ -14,7 +14,7 @@ import           Data.Tagged             (Tagged (..))
 import           Data.Text.Buildable     (Buildable (build))
 import           Universum
 
-import           Pos.Binary.Class        (encodeLazy)
+import           Pos.Binary.Class        (serialize)
 import           Pos.Core                (SharedSeed (..))
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
@@ -72,5 +72,5 @@ instance SscGStateClass SscNistBeacon where
     sscVerifyAndApplyBlocks _ _ _ = pass
     sscCalculateSeedQ i _ = do
         let h :: ByteString
-            h = ByteArray.convert $ Hash.hashlazy @SHA256 (encodeLazy i)
+            h = ByteArray.convert $ Hash.hashlazy @SHA256 (serialize i)
         return $ Right (SharedSeed h)

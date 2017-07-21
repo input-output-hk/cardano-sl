@@ -20,6 +20,12 @@ packages:
 - txp
 
 - location:
+    git: https://github.com/arybczak/binary-serialise-cbor
+    commit: a1770a6ab0a6f457fe56269fb684a9f8dad0da17
+  subdirs:
+  - cborg
+  extra-dep: true
+- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
@@ -29,7 +35,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: bbdca50c263c6dae251e67eb36a7d4e1ba7c1cb6
+    commit: 43d58d72b0fb2e3931746b54237f3a249bc5553e
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -45,8 +51,9 @@ packages:
     commit: b4fbd07c077b41c0e948bd377f1662b599f0bc4c
   extra-dep: true
 - location:
+    # Temp Alex's patch on the new Decoder
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 8bfba580e628791a03b0bec4d913890dde16811d # master
+    commit: 7bb7c3e254235574e5deebd77a98a4093bfaf067 # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -94,7 +101,6 @@ extra-deps:
 - servant-multipart-0.10
 - ether-0.5.1.0
 - transformers-lift-0.2.0.1
-- store-0.4.3.1
 - lens-4.15.3                     # not yet in lts-8
 - th-abstraction-0.2.2.0          # needed for lens
 - rocksdb-haskell-1.0.0

@@ -118,9 +118,20 @@ library
                         Pos.WorkMode
                         Pos.WorkMode.Class
 
+                        -- Binary serialization
+                        Pos.Binary.Communication
+                        Pos.Binary.Relay
+
+                        -- Heavy delegation
+                        Pos.Delegation.Arbitrary
+                        Pos.Delegation.Types
+
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
+
+                        -- Needed for testing
+                        Pos.Explorer.Arbitrary
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
@@ -136,9 +147,7 @@ library
                         Pos.Binary.Block.Block
                         Pos.Binary.Block.Core
                         Pos.Binary.Block.Slog
-                        Pos.Binary.Communication
                         Pos.Binary.Delegation
-                        Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Txp.Network
@@ -189,7 +198,6 @@ library
                         Pos.DB.Misc
 
                         -- Heavy delegation
-                        Pos.Delegation.Arbitrary
                         Pos.Delegation.Cede
                         Pos.Delegation.Cede.Class
                         Pos.Delegation.Cede.Logic
@@ -204,7 +212,6 @@ library
                         Pos.Delegation.Logic.Mempool
                         Pos.Delegation.Logic.VAR
                         Pos.Delegation.Lrc
-                        Pos.Delegation.Types
                         Pos.Delegation.Worker
 
                         -- Arbitrary data generation
@@ -272,7 +279,6 @@ library
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
-                        Pos.Explorer.Arbitrary
                         Pos.Explorer.Core
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp
@@ -400,7 +406,6 @@ library
                       , serokell-util >= 0.1.3.4
                       , stm
                       , stm-containers
-                      , store
                       , tagged
                       , template-haskell
                       , temporary >= 1.2.0.4
@@ -574,6 +579,7 @@ test-suite cardano-test
                        Test.Pos.Block.Logic.VarSpec
 
                        -- Everything else
+                       Test.Pos.CborSpec
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
@@ -614,12 +620,14 @@ test-suite cardano-test
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
+                     , cardano-sl-godtossing
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-ssc
                      , cardano-sl
+                     , cborg
                      , cereal
                      , containers
                      , cryptonite
@@ -644,7 +652,6 @@ test-suite cardano-test
                      , regex-tdfa-text
                      , safecopy
                      , serokell-util >= 0.1.3.4
-                     , store
                      , tagged
                      , temporary
                      , text-format

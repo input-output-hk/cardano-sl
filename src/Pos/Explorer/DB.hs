@@ -21,7 +21,7 @@ import qualified Data.Map.Strict       as M
 import qualified Database.RocksDB      as Rocks
 import           Ether.Internal        (HasLens (..))
 
-import           Pos.Binary.Class      (UnsignedVarInt (..), encode)
+import           Pos.Binary.Class      (UnsignedVarInt (..), serialize')
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin, EpochIndex, HeaderHash)
@@ -121,26 +121,26 @@ data ExplorerOp
     | DelAddrBalance !Address
 
 instance RocksBatchOp ExplorerOp where
-  
+
     toBatchOp (AddTxExtra id extra) =
-        [Rocks.Put (txExtraPrefix id) (encode extra)]
+        [Rocks.Put (txExtraPrefix id) (serialize' extra)]
     toBatchOp (DelTxExtra id) =
         [Rocks.Del $ txExtraPrefix id]
-    
+
     toBatchOp (PutPageBlocks page pageBlocks) =
-        [Rocks.Put (blockPagePrefix page) (encode pageBlocks)]
+        [Rocks.Put (blockPagePrefix page) (serialize' pageBlocks)]
 
     toBatchOp (PutEpochBlocks epoch pageBlocks) =
-        [Rocks.Put (blockEpochPrefix epoch) (encode pageBlocks)]
+        [Rocks.Put (blockEpochPrefix epoch) (serialize' pageBlocks)]
 
     toBatchOp (PutLastTxs lastTxs) =
-        [Rocks.Put lastTxsPrefix (encode lastTxs)]
+        [Rocks.Put lastTxsPrefix (serialize' lastTxs)]
 
     toBatchOp (UpdateAddrHistory addr txs) =
-        [Rocks.Put (addrHistoryPrefix addr) (encode txs)]
+        [Rocks.Put (addrHistoryPrefix addr) (serialize' txs)]
 
     toBatchOp (PutAddrBalance addr coin) =
-        [Rocks.Put (addrBalancePrefix addr) (encode coin)]
+        [Rocks.Put (addrBalancePrefix addr) (serialize' coin)]
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalancePrefix addr]
 
@@ -149,21 +149,21 @@ instance RocksBatchOp ExplorerOp where
 ----------------------------------------------------------------------------
 
 txExtraPrefix :: TxId -> ByteString
-txExtraPrefix h = "e/tx/" <> encode h
+txExtraPrefix h = "e/tx/" <> serialize' h
 
 addrHistoryPrefix :: Address -> ByteString
-addrHistoryPrefix addr = "e/ah/" <> encode addr
+addrHistoryPrefix addr = "e/ah/" <> serialize' addr
 
 addrBalancePrefix :: Address -> ByteString
-addrBalancePrefix addr = "e/ab/" <> encode addr
+addrBalancePrefix addr = "e/ab/" <> serialize' addr
 
 blockPagePrefix :: Page -> ByteString
 blockPagePrefix page = "e/page/" <> encodedPage
   where
-    encodedPage = encode $ UnsignedVarInt page
+    encodedPage = serialize' $ UnsignedVarInt page
 
 blockEpochPrefix :: Epoch -> ByteString
-blockEpochPrefix epoch = "e/epoch/" <> encode epoch
+blockEpochPrefix epoch = "e/epoch/" <> serialize' epoch
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"

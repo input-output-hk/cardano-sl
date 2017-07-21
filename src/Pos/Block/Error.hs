@@ -8,7 +8,6 @@ module Pos.Block.Error
 import           Universum
 
 import           Control.Exception    (Exception (..))
-import qualified Data.Text            as Text
 import qualified Data.Text.Buildable
 
 import           Pos.Block.Logic.Util (tipMismatchMsg)
@@ -29,7 +28,7 @@ renderRollbackException = \case
         tipMismatchMsg "rollback" storedTip attemptedTip
 
 instance Exception RollbackException where
-    displayException = Text.unpack . renderRollbackException
+    displayException = toString . renderRollbackException
 
 instance Buildable RollbackException where
     build = Data.Text.Buildable.build . renderRollbackException

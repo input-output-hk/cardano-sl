@@ -7,8 +7,6 @@ module Pos.Binary.Class.Primitive
        , serialize'
        , deserialize
        , deserialize'
-       , deserializeOrFail
-       , deserializeOrFail'
        , putCopyBi
        , getCopyBi
        , Raw(..)
@@ -20,23 +18,26 @@ module Pos.Binary.Class.Primitive
        , biSize
        -- * Backward-compatible functions
        , decodeFull
+       -- * Low-level, fine-grained functions
+       , deserializeOrFail
+       , deserializeOrFail'
        ) where
 
-import qualified Codec.CBOR.Read                  as CBOR.Read
-import qualified Codec.CBOR.Write                 as CBOR.Write
-import           Control.Exception                (throw)
-import           Control.Monad.ST                 (ST, runST)
-import qualified Data.ByteString                  as BS
-import qualified Data.ByteString.Lazy             as BSL
-import qualified Data.ByteString.Lazy.Internal    as BSL
-import           Data.SafeCopy                    (Contained, SafeCopy (..), contain, safeGet,
-                                                   safePut)
-import qualified Data.Serialize                   as Cereal (Get, Put)
-import           Data.Typeable                    (typeRep)
+import qualified Codec.CBOR.Read               as CBOR.Read
+import qualified Codec.CBOR.Write              as CBOR.Write
+import           Control.Exception             (throw)
+import           Control.Monad.ST              (ST, runST)
+import qualified Data.ByteString               as BS
+import qualified Data.ByteString.Lazy          as BSL
+import qualified Data.ByteString.Lazy.Internal as BSL
+import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
+                                                safeGet, safePut)
+import qualified Data.Serialize                as Cereal (Get, Put)
+import           Data.Typeable                 (typeRep)
 
-import           Pos.Binary.Class.Core            (Bi(..))
+import           Pos.Binary.Class.Core         (Bi (..))
+import           Serokell.Data.Memory.Units    (Byte)
 import           Universum
-import           Serokell.Data.Memory.Units       (Byte)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -58,32 +59,51 @@ serialize' = BSL.toStrict . serialize
 -- representation is invalid or does not correspond to a value of the
 -- expected type.
 deserialize :: Bi a => BSL.ByteString -> a
-deserialize = either throw identity . deserializeOrFail
+deserialize = either throw identity . bimap third third . deserializeOrFail
+    where
+      third :: (a, b, c) -> c
+      third (_, _, c) = c
 
 -- | Strict variant of 'deserialize'.
 deserialize' :: Bi a => BS.ByteString -> a
 deserialize' = deserialize . BSL.fromStrict
 
+-- | Deserialize a Haskell value from the external binary representation,
+-- failing if there are leftovers. In a nutshell, the `full` here implies
+-- the contract of this function is that what you feed as input needs to
+-- be consumed entirely.
 decodeFull :: Bi a => BS.ByteString -> Either Text a
 decodeFull bs0 = case deserializeOrFail' bs0 of
-  Right x -> pure x
+  Right (leftover, offset, x) -> case BS.null leftover of
+      True  -> pure x
+      False ->
+          let msg = "decodeFull failed! Leftover found at offset " <> show offset <> ": " <> show leftover
+          in Left $ fromString msg
   Left  e -> Left $ fromString (show e)
 
 -- | Deserialize a Haskell value from the external binary representation,
--- or get back a @'DeserialiseFailure'@.
-deserializeOrFail :: Bi a => BSL.ByteString -> Either CBOR.Read.DeserialiseFailure a
+-- returning either (leftover, offset, value) or a @'DeserialiseFailure'@.
+deserializeOrFail
+    :: Bi a
+    => BSL.ByteString
+    -> Either (BS.ByteString, CBOR.Read.ByteOffset, CBOR.Read.DeserialiseFailure)
+              (BS.ByteString, CBOR.Read.ByteOffset, a)
 deserializeOrFail bs0 =
     runST (supplyAllInput bs0 =<< deserializeIncremental)
   where
-    supplyAllInput _bs (CBOR.Read.Done _ _ x) = return (Right x)
+    supplyAllInput _bs (CBOR.Read.Done bs offset x) = return (Right (bs, offset, x))
     supplyAllInput  bs (CBOR.Read.Partial k)  =
       case bs of
         BSL.Chunk chunk bs' -> k (Just chunk) >>= supplyAllInput bs'
         BSL.Empty           -> k Nothing      >>= supplyAllInput BSL.Empty
-    supplyAllInput _ (CBOR.Read.Fail _ _ exn) = return (Left exn)
+    supplyAllInput _ (CBOR.Read.Fail bs offset exn) = return (Left (bs, offset,exn))
 
 -- | Strict variant of 'deserializeOrFail'.
-deserializeOrFail' :: Bi a => BS.ByteString -> Either CBOR.Read.DeserialiseFailure a
+deserializeOrFail'
+    :: Bi a
+    => BS.ByteString
+    -> Either (BS.ByteString, CBOR.Read.ByteOffset, CBOR.Read.DeserialiseFailure)
+              (BS.ByteString, CBOR.Read.ByteOffset, a)
 deserializeOrFail' = deserializeOrFail . BSL.fromStrict
 
 ----------------------------------------------------------------------------
@@ -97,8 +117,8 @@ getCopyBi :: forall a. (Bi a, Typeable a) => Contained (Cereal.Get a)
 getCopyBi = contain $ do
     bs <- safeGet
     case deserializeOrFail bs of
-        Left err -> fail $ "getCopy@" ++ show (typeRep $ Proxy @a) <> ": " <> show err
-        Right x  -> return x
+        Left (_, _, err) -> fail $ "getCopy@" ++ show (typeRep $ Proxy @a) <> ": " <> show err
+        Right (_, _, x)  -> return x
 
 ----------------------------------------
 

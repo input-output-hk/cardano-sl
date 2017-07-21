@@ -67,6 +67,8 @@ executable cardano-analyzer
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -115,6 +117,8 @@ executable cardano-wallet-hs2purs
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -187,6 +191,8 @@ executable cardano-dht-keygen
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -245,6 +251,8 @@ executable cardano-swagger
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:   NoImplicitPrelude
                         BangPatterns
@@ -281,6 +289,8 @@ executable cardano-checks
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:  OverloadedStrings
                        BangPatterns
@@ -314,6 +324,8 @@ executable cardano-genupdate
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
@@ -361,6 +373,8 @@ executable cardano-keygen
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -419,6 +433,8 @@ executable cardano-launcher
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:  OverloadedStrings
                        RecordWildCards
@@ -457,6 +473,8 @@ executable cardano-addr-convert
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -503,6 +521,8 @@ executable cardano-cli-docs
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:   NoImplicitPrelude
                         BangPatterns
@@ -558,6 +578,8 @@ executable cardano-block-gen
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  -- ld.gold needs these explicitly
+  extra-libraries:     m
 
   default-extensions:   RecordWildCards
                         NoImplicitPrelude

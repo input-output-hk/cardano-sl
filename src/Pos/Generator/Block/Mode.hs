@@ -267,9 +267,6 @@ instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
-instance HasLens GenesisUtxo BlockGenContext GenesisUtxo where
-    lensOf = bgcGenesisUtxo_L
-
 instance HasLens DBSum BlockGenContext DBSum where
     lensOf = GS.gStateContext . GS.gscDB
 

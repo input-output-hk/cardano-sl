@@ -7,7 +7,8 @@
 -- MonadToilEnv, MonadBalances and MonadTxPool.
 
 module Pos.Txp.Toil.Logic
-       ( GlobalToilMode
+       ( GlobalApplyToilMode
+       , GlobalVerifyToilMode
        , verifyToil
        , applyToil
        , rollbackToil
@@ -53,7 +54,13 @@ import qualified Pos.Txp.Toil.Utxo          as Utxo
 -- Global
 ----------------------------------------------------------------------------
 
-type GlobalToilMode ctx m =
+type GlobalApplyToilMode ctx m =
+    ( MonadUtxo m
+    , MonadBalances m
+    , MonadGState m
+    , WithLogger m)
+
+type GlobalVerifyToilMode ctx m =
     ( MonadUtxo m
     , MonadBalances m
     , MonadGState m
@@ -72,7 +79,7 @@ type GlobalToilMode ctx m =
 -- witnesses, addresses, attributes) must be known. Otherwise unknown
 -- data is just ignored.
 verifyToil
-    :: forall ctx m . (GlobalToilMode ctx m, MonadError ToilVerFailure m)
+    :: forall ctx m . (GlobalVerifyToilMode ctx m, MonadError ToilVerFailure m)
     => EpochIndex -> Bool -> [TxAux] -> m TxpUndo
 verifyToil curEpoch verifyAllIsKnown =
     mapM (verifyAndApplyTx @ctx curEpoch verifyAllIsKnown . withTxId)
@@ -80,7 +87,7 @@ verifyToil curEpoch verifyAllIsKnown =
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 applyToil
-    :: GlobalToilMode ctx m
+    :: GlobalApplyToilMode ctx m
     => [(TxAux, TxUndo)]
     -> m ()
 applyToil txun = do
@@ -88,7 +95,7 @@ applyToil txun = do
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
-rollbackToil :: GlobalToilMode ctx m => [(TxAux, TxUndo)] -> m ()
+rollbackToil :: GlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
 rollbackToil txun = do
     rollbackTxsBalances txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun

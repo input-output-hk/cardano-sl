@@ -10,8 +10,10 @@ module Pos.Block.Logic.Internal
          -- * Constraints
          MonadBlockBase
        , MonadBlockVerify
+       , MonadBlockApplyDB
        , MonadBlockApply
 
+       , applyBlocksDbUnsafe
        , applyBlocksUnsafe
        , rollbackBlocksUnsafe
 
@@ -79,10 +81,11 @@ type MonadBlockBase ssc ctx m
        -- Needed by some components.
        , MonadGState m
        -- This constraints define block components' global logic.
-       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , HasLens LrcContext ctx LrcContext
-       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , SscGStateClass ssc
+       , HasLens GenesisUtxo ctx GenesisUtxo
+       , MonadDelegation ctx m -- TODO: split dlgApplyBlocks blocks
        , MonadReader ctx m
        )
 
@@ -90,7 +93,17 @@ type MonadBlockBase ssc ctx m
 type MonadBlockVerify ssc ctx m = MonadBlockBase ssc ctx m
 
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
+-- Also normalize mempool.
 type MonadBlockApply ssc ctx m
+     = ( MonadBlockApplyDB ssc ctx m
+       -- Needed for normalization.
+       , MonadTxpMem TxpExtra_TMP ctx m
+       , SscLocalDataClass ssc
+       , HasLens UpdateContext ctx UpdateContext
+       )
+
+-- | Set of constraints necessary to apply or rollback blocks at high-level (without normalization).
+type MonadBlockApplyDB ssc ctx m
      = ( MonadBlockBase ssc ctx m
        , MonadSlogApply ssc ctx m
        -- It's obviously needed to write something to DB, for instance.
@@ -99,27 +112,42 @@ type MonadBlockApply ssc ctx m
        , MonadMask m
        -- Needed to embed custom logic.
        , MonadBListener m
-       -- Needed for normalization.
-       , MonadTxpMem TxpExtra_TMP ctx m
-       , MonadDelegation ctx m
-       , SscLocalDataClass ssc
-       , HasLens UpdateContext ctx UpdateContext
-       , Mockable CurrentTime m
        -- Needed for error reporting.
        , HasReportingContext ctx
        , MonadDiscovery m
        , MonadReader ctx m
+       -- Needed for rollback
+       , Mockable CurrentTime m
        )
 
--- | Applies a definitely valid prefix of blocks. This function is unsafe,
--- use it only if you understand what you're doing. That means you can break
--- system guarantees.
+-- | Applies blocks and normalize mempool.
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
     :: forall ssc ctx m . MonadBlockApply ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds pModifier = reportingFatal $ do
+    applyBlocksDbUnsafe blunds pModifier
+    -- We normalize all mempools except the delegation one.
+    -- That's because delegation mempool normalization is harder and is done
+    -- within block application.
+    sscNormalize
+#ifdef WITH_EXPLORER
+    eTxNormalize
+#else
+    txNormalize
+#endif
+    usNormalize
+
+-- | Applies a definitely valid prefix of blocks. This function is unsafe,
+-- use it only if you understand what you're doing. That means you can break
+-- system guarantees.
+--
+-- Invariant: all blocks have the same epoch.
+applyBlocksDbUnsafe
+    :: forall ssc ctx m . MonadBlockApplyDB ssc ctx m
+    => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
+applyBlocksDbUnsafe blunds pModifier = reportingFatal $ do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -139,15 +167,16 @@ applyBlocksUnsafe blunds pModifier = reportingFatal $ do
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
         _                      -> app blunds
   where
-    app x = applyBlocksUnsafeDo x pModifier
+    app x = applyBlocksDbUnsafeDo x pModifier
     app' = app . OldestFirst
     (thisEpoch, nextEpoch) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
-applyBlocksUnsafeDo
-    :: forall ssc ctx m . MonadBlockApply ssc ctx m
+applyBlocksDbUnsafeDo
+    :: forall ssc ctx m . MonadBlockApplyDB ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafeDo blunds pModifier = do
+applyBlocksDbUnsafeDo blunds pModifier = do
+    let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks blunds
@@ -165,23 +194,11 @@ applyBlocksUnsafeDo blunds pModifier = do
         , sscBatch
         , slogBatch
         ]
-    -- We normalize all mempools except the delegation one.
-    -- That's because delegation mempool normalization is harder and is done
-    -- within block application.
-    sscNormalize
-#ifdef WITH_EXPLORER
-    eTxNormalize
-#else
-    txNormalize
-#endif
-    usNormalize
-  where
-    blocks = fmap fst blunds
 
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
-    :: forall ssc ctx m. (MonadBlockApply ssc ctx m)
+    :: forall ssc ctx m. (MonadBlockApplyDB ssc ctx m)
     => NewestFirst NE (Blund ssc)
     -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal $ do

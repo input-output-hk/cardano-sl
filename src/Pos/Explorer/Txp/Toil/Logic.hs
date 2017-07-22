@@ -3,7 +3,8 @@
 -- | Explorer's version of Toil logic.
 
 module Pos.Explorer.Txp.Toil.Logic
-       ( EGlobalToilMode
+       ( EGlobalApplyToilMode
+       , EGlobalVerifyToilMode
        , eApplyToil
        , eRollbackToil
        , eNormalizeToil
@@ -37,15 +38,20 @@ import           Pos.Util.Chrono             (NewestFirst (..))
 -- Global
 ----------------------------------------------------------------------------
 
-type EGlobalToilMode ctx m =
-    ( Txp.GlobalToilMode ctx m
+type EGlobalApplyToilMode ctx m =
+    ( Txp.GlobalApplyToilMode ctx m
+    , MonadTxExtra m
+    )
+
+type EGlobalVerifyToilMode ctx m =
+    ( Txp.GlobalVerifyToilMode ctx m
     , MonadTxExtra m
     )
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 eApplyToil
-    :: EGlobalToilMode ctx m
+    :: EGlobalApplyToilMode ctx m
     => Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
@@ -64,7 +70,7 @@ eApplyToil curTime txun hh = do
         updateAddrBalances balanceUpdate
 
 -- | Rollback transactions from one block.
-eRollbackToil :: EGlobalToilMode ctx m => [(TxAux, TxUndo)] -> m ()
+eRollbackToil :: EGlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
 eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback txun

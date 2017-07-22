@@ -23,8 +23,8 @@ import           Pos.Util.Chrono       (NE, NewestFirst (..))
 import qualified Pos.Util.Modifier     as MM
 
 import qualified Pos.Explorer.DB       as GS
-import           Pos.Explorer.Txp.Toil (EGlobalToilMode, ExplorerExtra (..), eApplyToil,
-                                        eRollbackToil)
+import           Pos.Explorer.Txp.Toil (EGlobalApplyToilMode, ExplorerExtra (..),
+                                        eApplyToil, eRollbackToil)
 
 -- | Settings used for global transactions data processing used by explorer.
 explorerTxpGlobalSettings :: TxpGlobalSettings
@@ -37,7 +37,7 @@ explorerTxpGlobalSettings =
 
 eApplyBlocksSettings
     :: forall ctx m.
-       (EGlobalToilMode ctx m, MonadSlots m)
+       (EGlobalApplyToilMode ctx m, MonadSlots m)
     => ApplyBlocksSettings ExplorerExtra m
 eApplyBlocksSettings =
     ApplyBlocksSettings
@@ -54,7 +54,7 @@ extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
     map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
     map GS.DelAddrBalance (MM.deletions balances)
 
-applyBlund :: (MonadSlots m, EGlobalToilMode ctx m) => TxpBlund -> m ()
+applyBlund :: (MonadSlots m, EGlobalApplyToilMode ctx m) => TxpBlund -> m ()
 applyBlund blund = do
     curTime <- currentTimeSlotting
     uncurry (eApplyToil curTime) $ blundToAuxNUndoWHash blund

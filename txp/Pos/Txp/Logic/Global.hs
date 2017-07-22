@@ -29,7 +29,7 @@ import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
 import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), DBToil,
-                                          GenericToilModifier (..), GlobalToilMode,
+                                          GenericToilModifier (..), GlobalApplyToilMode,
                                           ToilModifier, ToilT, ToilVerFailure (..),
                                           applyToil, rollbackToil, runDBToil,
                                           runToilTGlobal, verifyToil)
@@ -67,7 +67,7 @@ data ApplyBlocksSettings extra m = ApplyBlocksSettings
 
 applyBlocksSettings
     :: forall ctx m.
-       GlobalToilMode ctx m
+       GlobalApplyToilMode ctx m
     => ApplyBlocksSettings () m
 applyBlocksSettings =
     ApplyBlocksSettings

@@ -7,37 +7,30 @@ module Pos.Txp.Logic.Local
        ) where
 
 import           Universum
-import           Unsafe                      (unsafeHead)
 
-import           Control.Lens                (views)
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
-import qualified Data.HashSet                as HS
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
 import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 
-import           Pos.Core                    (BlockVersionData, Coin, EpochIndex,
-                                              HeaderHash, StakeholderId, siEpoch)
-import           Pos.DB.Class                (MonadDBRead, MonadGState (..),
-                                              gsIsBootstrapEra)
+import           Pos.Core                    (BlockVersionData, EpochIndex, HeaderHash,
+                                              siEpoch)
+import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
-                                              getTxDistribution)
+import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..), GenesisUtxo (..),
-                                              MonadUtxoRead (..), ToilEnv,
-                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
-                                              execToilTLocal, getToilEnv, normalizeToil,
-                                              processTx, runDBToil, runToilTLocal,
-                                              utxoGet, utxoToStakes)
-import           Pos.Util.Util               (getKeys)
+                                              MonadUtxoRead (..), ToilVerFailure (..),
+                                              Utxo, evalUtxoStateT, execToilTLocal,
+                                              normalizeToil, processTx, runDBToil,
+                                              runToilTLocal, utxoGet)
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m

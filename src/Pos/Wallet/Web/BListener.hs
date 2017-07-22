@@ -34,9 +34,9 @@ import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import qualified Pos.Wallet.Web.State       as WS
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToWallet,
-                                             getWalletAddrMetasDB,
                                              rollbackModifierFromWallet, trackingApplyTxs,
                                              trackingRollbackTxs)
+import           Pos.Wallet.Web.Util        (getWalletAddrMetas)
 
 -- Perform this action under block lock.
 onApplyTracking
@@ -67,7 +67,7 @@ onApplyTracking blunds = do
                 getSlotStartPure systemStart True (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
-        allAddresses <- getWalletAddrMetasDB WS.Ever wid
+        allAddresses <- getWalletAddrMetas WS.Ever wid
         encSK <- getSKByAddr wid
         mapModifier <- runDBToil $
                        evalToilTEmpty $
@@ -99,7 +99,7 @@ onRollbackTracking blunds = do
   where
     syncWallet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
     syncWallet newTip txs wid = do
-        allAddresses <- getWalletAddrMetasDB WS.Ever wid
+        allAddresses <- getWalletAddrMetas WS.Ever wid
         encSK <- getSKByAddr wid
         let mapModifier = trackingRollbackTxs encSK allAddresses $
                           map (\(aux, undo) -> (aux, undo, newTip)) txs

@@ -147,9 +147,8 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    addOnlyNewTxMeta, addUpdate,
                                                    addWAddress, closeState, createAccount,
                                                    createWallet, getAccountIds,
-                                                   getAccountMeta, getAccountWAddresses,
-                                                   getHistoryCache, getNextUpdate,
-                                                   getProfile, getTxMeta,
+                                                   getAccountMeta, getHistoryCache,
+                                                   getNextUpdate, getProfile, getTxMeta,
                                                    getWalletAddresses, getWalletMeta,
                                                    getWalletPassLU, isCustomAddress,
                                                    openState, removeAccount,
@@ -164,7 +163,9 @@ import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInse
                                                    syncWalletOnImport,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
-import           Pos.Wallet.Web.Util              (getWalletAccountIds, rewrapTxError)
+import           Pos.Wallet.Web.Util              (getAccountAddrsOrThrow,
+                                                   getWalletAccountIds,
+                                                   getWalletAddrMetas, rewrapTxError)
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -440,16 +441,6 @@ getWAddress cachedAccModifier cAddr = do
     isChange <- getFlag ChangeAddr camChange
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
-getAccountAddrsOrThrow
-    :: WalletWebMode m
-    => AddressLookupMode -> AccountId -> m [CWAddressMeta]
-getAccountAddrsOrThrow mode accId =
-    getAccountWAddresses mode accId >>= maybeThrow noWallet
-  where
-    noWallet =
-        RequestError $
-        sformat ("No account with id "%build%" found") accId
-
 getAccount :: WalletWebMode m => CachedCAccModifier -> AccountId -> m CAccount
 getAccount accMod accId = do
     dbAddrs    <- getAccountAddrsOrThrow Existing accId
@@ -500,13 +491,6 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
-
-getWalletAddrMetas
-    :: WalletWebMode m
-    => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
-getWalletAddrMetas lookupMode cWalId =
-    concatMapM (getAccountAddrsOrThrow lookupMode) =<<
-    getWalletAccountIds cWalId
 
 getWalletAddrs
     :: WalletWebMode m

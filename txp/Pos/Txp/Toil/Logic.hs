@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | All logic of Toil.  It operates in terms of MonadUtxo,
--- MonadToilEnv, MonadBalances and MonadTxPool.
+-- MonadBalances and MonadTxPool.
 
 module Pos.Txp.Toil.Logic
        ( GlobalApplyToilMode
@@ -140,7 +140,7 @@ normalizeToil curEpoch txs = mapM_ normalize ordered
     normalize = runExceptT . processTx @ctx curEpoch
 
 ----------------------------------------------------------------------------
--- ToilEnv logic
+-- Verify and Apply logic
 ----------------------------------------------------------------------------
 
 verifyAndApplyTx

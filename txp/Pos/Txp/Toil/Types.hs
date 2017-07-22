@@ -26,9 +26,6 @@ module Pos.Txp.Toil.Types
        , tmMemPool
        , tmUndos
        , tmExtra
-
-       -- * Env
-       , ToilEnv (..)
        ) where
 
 import           Universum
@@ -133,14 +130,3 @@ instance Default ext => Default (GenericToilModifier ext) where
     def = ToilModifier mempty def def mempty def
 
 makeLenses ''GenericToilModifier
-
-----------------------------------------------------------------------------
--- Toil environment
-----------------------------------------------------------------------------
-
--- | Environment used by Toil.
-data ToilEnv = ToilEnv
-    { teMaxTxSize    :: !Byte
-    , teMaxBlockSize :: !Byte
-    , teTxFeePolicy  :: !TxFeePolicy
-    }

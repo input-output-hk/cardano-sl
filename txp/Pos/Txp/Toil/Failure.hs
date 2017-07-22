@@ -33,6 +33,7 @@ data ToilVerFailure
     | ToilTooLargeTx { ttltSize  :: !Byte
                      , ttltLimit :: !Byte}
     | ToilInvalidMinFee { timfPolicy :: !TxFeePolicy
+                        , timfReason :: !Text
                         , timfSize   :: !Byte }
     | ToilInsufficientFee { tifPolicy :: !TxFeePolicy
                           , tifFee    :: !TxFee
@@ -68,9 +69,10 @@ instance Buildable ToilVerFailure where
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
     build (ToilInvalidMinFee {..}) =
         bprint (build%" generates invalid minimal fee on a "%
-                "transaction of size "%memory)
+                "transaction of size "%memory%", reason: "%stext)
             timfPolicy
             timfSize
+            timfReason
     build (ToilInsufficientFee {..}) =
         bprint ("transaction of size "%memory%" does not adhere to "%
                 build%"; it has fee "%build%" but needs "%build)

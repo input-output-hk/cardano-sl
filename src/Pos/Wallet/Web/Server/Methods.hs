@@ -94,7 +94,7 @@ import           Pos.Slotting                     (MonadSlots (..))
 import           Pos.Txp                          (TxFee (..))
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..),
                                                    TxOutDistribution)
-import           Pos.Util                         (maybeThrow)
+import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (decodeCType, encodeCType)
@@ -571,13 +571,13 @@ computeTxFee moneySource dstDistr = mkCCoin <$> do
         TxFeePolicyUnknown w _               -> throwM $ unknownFeePolicy w
         TxFeePolicyTxSizeLinear linearPolicy -> do
             txAux <- stabilizeTxFee linearPolicy moneySource dstDistr >>= createFakeTxFromRawTx
-            maybeThrow negFee .
+            eitherToThrow invalidFee .
                 integerToCoin .
                 ceiling .
                 calculateTxSizeLinear linearPolicy .
                 biSize @TxAux $ txAux
   where
-    negFee = InternalError "Negative fee"
+    invalidFee reason = InternalError ("Invalid fee: " <> reason)
     unknownFeePolicy =
         InternalError . sformat ("UnknownFeePolicy, tag: "%build)
 
@@ -629,13 +629,13 @@ sendMoney sendActions passphrase moneySource dstDistr = do
 
 txToLinearFee :: MonadThrow m => TxSizeLinear -> TxAux -> m Coin
 txToLinearFee linearPolicy =
-    maybeThrow negFee .
+    eitherToThrow invalidFee .
     integerToCoin .
     ceiling .
     calculateTxSizeLinear linearPolicy .
     biSize @TxAux
   where
-    negFee = InternalError "Negative fee"
+    invalidFee reason = InternalError ("Invalid fee: " <> reason)
 
 -- Returns (input addresses, output addresses, TxOut corresponding to input addresses)
 -- Function creates remaing output in db.

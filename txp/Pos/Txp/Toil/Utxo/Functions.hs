@@ -102,7 +102,11 @@ verifySums resolvedInputs outputs =
       Just txFee ->
           return txFee
   where
-    mTxFee = TxFee <$> integerToCoin (inpSum - outSum)
+    -- It will be 'Nothing' if value exceeds 'maxBound @Coin' (can't
+    -- happen because 'inpSum' doesn't exceed it and 'outSum' is not
+    -- negative) or if 'outSum > inpSum' (which can happen and should
+    -- be rejected).
+    mTxFee = TxFee <$> rightToMaybe (integerToCoin (inpSum - outSum))
     outSum = sumCoins $ map txOutValue outputs
     inpSum = sumCoins $ map (txOutValue . toaOut . snd) resolvedInputs
 

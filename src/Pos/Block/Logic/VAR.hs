@@ -7,11 +7,11 @@ module Pos.Block.Logic.VAR
 
        , BlockLrcMode
        , verifyAndApplyBlocks
-       , rollbackBlocks
        , applyWithRollback
 
        -- * Exported for tests
        , applyBlocks
+       , rollbackBlocks
        ) where
 
 import           Universum
@@ -25,6 +25,7 @@ import           Ether.Internal           (HasLens (..))
 import           System.Wlog              (logDebug)
 
 import           Pos.Block.Core           (Block)
+import           Pos.Block.Error          (RollbackException (..))
 import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe,
                                            toTxpBlock, toUpdateBlock)
@@ -206,13 +207,13 @@ applyBlocks calculateLrc pModifier blunds = do
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
     :: (BlockLrcMode ssc ctx m)
-    => NewestFirst NE (Blund ssc) -> m (Maybe Text)
+    => NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocks blunds = do
     tip <- GS.getTip
     let firstToRollback = blunds ^. _Wrapped . _neHead . _1 . headerHashG
-    if tip /= firstToRollback
-    then pure $ Just $ tipMismatchMsg "rollback" tip firstToRollback
-    else rollbackBlocksUnsafe blunds $> Nothing
+    when (tip /= firstToRollback) $
+        throwM $ RollbackTipMismatch tip firstToRollback
+    rollbackBlocksUnsafe blunds
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback

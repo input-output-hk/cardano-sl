@@ -571,6 +571,7 @@ test-suite cardano-test
                        Test.Pos.Block.Logic.Emulation
                        Test.Pos.Block.Logic.Mode
                        Test.Pos.Block.Logic.Util
+                       Test.Pos.Block.Logic.Event
                        Test.Pos.Block.Logic.VarSpec
 
                        -- Everything else

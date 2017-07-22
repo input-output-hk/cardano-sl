@@ -4,8 +4,10 @@
 
 module Pos.Generator.BlockEvent
        (
+       -- * Util
+         IsBlockEventFailure(..)
        -- * Block apply
-         BlockApplyResult(..)
+       , BlockApplyResult(..)
        , BlockEventApply'(..)
        , BlockEventApply
        , beaInput

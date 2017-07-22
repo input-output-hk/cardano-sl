@@ -82,6 +82,9 @@ data BlockGenParams = BlockGenParams
     , _bgpBlockCount  :: !BlockCount
     -- ^ Number of blocks to generate.
     , _bgpTxGenParams :: !TxGenParams
+    -- ^ Transaction generation parameters.
+    , _bgpInplaceDB   :: !Bool
+    -- ^ Whether to extend existing DB.
     }
 
 makeClassy ''BlockGenParams

@@ -30,6 +30,12 @@ set -o pipefail
 
 # MODES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# NOTE
+# You can try building any of these modes, but in some branches some of
+# these modes may be unavailable (no genesis).
+# For example, if there is no testnet compatible with this version, it doesn't
+# make sense to support `--tn' mode.
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Mode                             Options
 #   :
 #   dev mode                            <nothing>

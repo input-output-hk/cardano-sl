@@ -14,7 +14,7 @@ import           Universum
 
 import           Pos.Core            (BlockVersionData, EpochIndex, SlotId)
 import           Pos.DB.Class        (MonadDBRead)
-import           Pos.Lrc.Types       (RichmenStake)
+import           Pos.Lrc.Types       (RichmenStakes)
 import           Pos.Slotting.Class  (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
 
@@ -34,7 +34,7 @@ class Ssc ssc => SscLocalDataClass ssc where
     sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
     -- | Make 'SscLocalData' valid for given epoch, richmen and global state.
     -- of best known chain).
-    sscNormalizeU :: (EpochIndex, RichmenStake)
+    sscNormalizeU :: (EpochIndex, RichmenStakes)
                   -> BlockVersionData
                   -> SscGlobalState ssc
                   -> LocalUpdate ssc ()

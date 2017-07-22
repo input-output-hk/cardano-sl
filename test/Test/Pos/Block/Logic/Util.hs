@@ -9,23 +9,23 @@ module Test.Pos.Block.Logic.Util
 
 import           Universum
 
-import           Control.Monad.Random      (evalRandT)
-import           Data.Default              (def)
-import           Test.QuickCheck.Gen       (Gen (MkGen), sized)
-import           Test.QuickCheck.Monadic   (pick)
+import           Control.Monad.Random.Strict (evalRandT)
+import           Data.Default                (def)
+import           Test.QuickCheck.Gen         (Gen (MkGen), sized)
+import           Test.QuickCheck.Monadic     (pick)
 
-import           Pos.Block.Core            (Block)
-import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (BlockCount, SlotId (..), epochIndexL)
-import           Pos.Generator.Block       (BlockGenParams (..), genBlocks,
-                                            tgpTxCountRange)
-import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Util.Chrono           (NE, OldestFirst (..))
-import           Pos.Util.Util             (HasLens (..), _neLast)
+import           Pos.Block.Core              (Block)
+import           Pos.Block.Types             (Blund)
+import           Pos.Core                    (BlockCount, SlotId (..), epochIndexL)
+import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
+                                              tgpTxCountRange)
+import           Pos.Ssc.GodTossing          (SscGodTossing)
+import           Pos.Util.Chrono             (NE, OldestFirst (..))
+import           Pos.Util.Util               (HasLens (..), _neLast)
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext,
-                                            BlockTestContextTag, btcSlotId_L,
-                                            tpAllSecrets)
+import           Test.Pos.Block.Logic.Mode   (BlockProperty, BlockTestContext,
+                                              BlockTestContextTag, btcSlotId_L,
+                                              tpAllSecrets)
 
 -- | Generate arbitrary valid blocks inside 'BlockProperty'. The first
 -- argument specifies how many blocks should be generated. If it's
@@ -44,6 +44,7 @@ bpGenBlocks blkCnt enableTxPayload = do
                 , _bgpBlockCount = fromMaybe (fromIntegral s) blkCnt
                 , _bgpTxGenParams =
                       def & tgpTxCountRange %~ bool (const (0,0)) identity enableTxPayload
+                , _bgpInplaceDB = False
                 }
     params <- pick $ sized genBlockGenParams
     g <- pick $ MkGen $ \qc _ -> qc

@@ -29,9 +29,9 @@ import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
 import           Test.Pos.Util             (splitIntoChunks, stopProperty)
 
 spec :: Spec
--- Unfortunatelly, blocks generation is currently extremely slow.
--- Maybe we will optimize it in future.
-spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (const 3) $ do
+-- Unfortunatelly, blocks generation is quite slow nowdays.
+-- See CSL-1382.
+spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
     describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
     describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
     describe "applyBlocks" applyBlocksSpec
@@ -126,7 +126,7 @@ applyByOneOrAllAtOnce applier = do
     blunds <- getOldestFirst <$> bpGenBlocks Nothing True
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    let readDB = readIORef =<< view (lensOf @DBPureVar)
+    let readDB = view (lensOf @DBPureVar) >>= readIORef
     stateAfter1by1 <-
         lift $
         GS.withClonedGState $ do

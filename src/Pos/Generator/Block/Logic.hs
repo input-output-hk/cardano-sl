@@ -10,7 +10,7 @@ module Pos.Generator.Block.Logic
 import           Universum
 
 import           Control.Lens                (at, ix, _Wrapped)
-import           Control.Monad.Random        (RandT, mapRandT)
+import           Control.Monad.Random.Strict (RandT, mapRandT)
 import           System.Random               (RandomGen (..))
 
 import           Pos.Block.Core              (mkGenesisBlock)

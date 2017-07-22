@@ -23,6 +23,7 @@ module Pos.CLI
        , networkAddressOption
        , externalNetworkAddressOption
        , listenNetworkAddressOption
+       , templateParser
 
        , sysStartOption
        , nodeIdOption

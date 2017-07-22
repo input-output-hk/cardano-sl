@@ -59,14 +59,12 @@ library
                         -- Pos.Communication
                         Pos.Communication.Constants
                         Pos.Communication.Types.Protocol
-                        Pos.Communication.Types.State
                         Pos.Communication.Types.Relay
                         Pos.Communication.BiP
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
                         Pos.Communication.Listener
                         Pos.Communication.MessagePart
-                        Pos.Communication.PeerState
                         Pos.Communication.Protocol
                         Pos.Communication.Specs
                         Pos.Communication.Relay

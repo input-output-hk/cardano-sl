@@ -21,6 +21,7 @@ library
                        Pos.DB.GState.Balances
                        Pos.DB.Misc.Common
                        Pos.DB.Pure
+                       Pos.DB.Sum
                        Pos.DB.Rocks
                        Pos.DB.Rocks.Functions
                        Pos.DB.Rocks.Types

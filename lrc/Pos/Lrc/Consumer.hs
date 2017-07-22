@@ -16,7 +16,7 @@ import           Pos.Core               (BlockVersionData, Coin, CoinPortion, Ep
 import           Pos.DB.Class           (MonadDB, MonadGState, gsAdoptedBVData)
 import           Pos.Lrc.Class          (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
-import           Pos.Lrc.Types          (RichmenStake)
+import           Pos.Lrc.Types          (RichmenStakes)
 
 -- | Datatype for LRC computation client.
 -- If you want to compute richmen, you should add such client to LRC framework
@@ -27,7 +27,7 @@ data LrcConsumer m = LrcConsumer
     -- the system as an argument.
     , lcIfNeedCompute     :: EpochIndex -> m Bool
     -- ^ Function which defines necessity of richmen computation
-    , lcComputedCallback  :: EpochIndex -> Coin -> RichmenStake -> m ()
+    , lcComputedCallback  :: EpochIndex -> Coin -> RichmenStakes -> m ()
     -- ^ Callback which will be called when richmen computed
     , lcConsiderDelegated :: Bool
     -- ^ Whether delegated stake should be considered
@@ -40,7 +40,7 @@ lrcConsumerFromComponent
        RichmenComponent c
     => (Coin -> m Coin)
     -> (EpochIndex -> m Bool)
-    -> (EpochIndex -> Coin -> RichmenStake -> m ())
+    -> (EpochIndex -> Coin -> RichmenStakes -> m ())
     -> LrcConsumer m
 lrcConsumerFromComponent thd ifNeedCompute callback =
     LrcConsumer

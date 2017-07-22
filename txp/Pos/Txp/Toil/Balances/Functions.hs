@@ -17,8 +17,7 @@ import           Serokell.Util.Text  (listJson)
 import           System.Wlog         (WithLogger, logDebug)
 
 import           Pos.Core            (mkCoin)
-import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
-                                      unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeIntegerToCoin)
 import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..),
                                       TxOutDistribution, TxUndo, getTxDistribution,
                                       txOutStake)

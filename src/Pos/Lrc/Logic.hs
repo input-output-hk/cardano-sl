@@ -17,7 +17,8 @@ import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 
-import           Pos.Core            (Coin, StakeholderId, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core            (Coin, CoinPortion, StakeholderId,
+                                      applyCoinPortionUp, sumCoins, unsafeIntegerToCoin)
 import           Pos.DB.Class        (MonadDBRead, MonadGState)
 import           Pos.GState          (getDelegators, getRealStake, isIssuerByAddressHash)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStakes)
@@ -74,12 +75,12 @@ data RichmenType
     = RTUsual
     | RTDelegation (HashMap StakeholderId (HashSet StakeholderId))
 
---- | Pure version of findRichmen which uses in-memory Utxo.
+-- | Pure version of 'findRichmen' which uses a list of stakeholders.
 findRichmenPure :: [(StakeholderId, Coin)]
-                -> (Coin -> Coin)
+                -> CoinPortion    -- ^ Richman eligibility as % of total stake
                 -> RichmenType
                 -> FullRichmenData
-findRichmenPure stakeDistribution thresholdF computeType
+findRichmenPure stakeDistribution threshold computeType
     | RTDelegation delegationMap <- computeType = do
         let issuers = mconcat $ HM.elems delegationMap
             (old, new) =
@@ -96,4 +97,4 @@ findRichmenPure stakeDistribution thresholdF computeType
         runConduitPure $
         CL.sourceList stakeDistribution .| findRichmenStakes thresholdCoin
     total = unsafeIntegerToCoin $ sumCoins $ map snd stakeDistribution
-    thresholdCoin = thresholdF total
+    thresholdCoin = applyCoinPortionUp threshold total

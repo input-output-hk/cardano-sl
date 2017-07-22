@@ -31,7 +31,7 @@ import           Ether.Internal              (HasLens (..))
 import           Pos.Binary.Core             ()
 import           Pos.Constants               (genesisHeavyDelThd)
 import           Pos.Context                 (GenesisUtxo, genesisStakesM)
-import           Pos.Core                    (EpochIndex, applyCoinPortion)
+import           Pos.Core                    (Coin, EpochIndex, StakeholderId)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Genesis                 (genesisDelegation)
 import           Pos.Lrc.Class               (RichmenComponent (..),
@@ -41,7 +41,6 @@ import           Pos.Lrc.DB.RichmenBase      (getRichmen, getRichmenP, putRichme
 import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types               (FullRichmenData, RichmenSet)
 import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
-import           Pos.Txp.Core                (TxOutDistribution)
 import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
 import           Pos.Util.Util               (getKeys)
 
@@ -62,11 +61,11 @@ prepareLrcRichmen = do
 
 computeInitial
     :: RichmenComponent c
-    => TxOutDistribution -> Proxy c -> FullRichmenData
+    => [(StakeholderId, Coin)] -> Proxy c -> FullRichmenData
 computeInitial initialDistr proxy =
     findRichmenPure
         initialDistr
-        (applyCoinPortion (rcInitialThreshold proxy))
+        (rcInitialThreshold proxy)
         richmenType
   where
     richmenType

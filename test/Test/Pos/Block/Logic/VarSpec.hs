@@ -17,10 +17,9 @@ import           Test.QuickCheck.Monadic   (assert, pre)
 
 import           Pos.Block.Logic           (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types           (Blund)
-import           Pos.DB.Pure               (DBPureVar)
+import           Pos.DB.Pure               (dbPureDump)
 import qualified Pos.GState                as GS
 import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Util                  (lensOf)
 import           Pos.Util.Chrono           (NE, OldestFirst (..))
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
@@ -126,22 +125,21 @@ applyByOneOrAllAtOnce applier = do
     blunds <- getOldestFirst <$> bpGenBlocks Nothing True
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    let readDB = view (lensOf @DBPureVar) >>= readIORef
     stateAfter1by1 <-
         lift $
         GS.withClonedGState $ do
             mapM_ (applier . one) (getOldestFirst blundsNE)
-            readDB
+            dbPureDump
     chunks <- splitIntoChunks 5 (blunds)
     stateAfterInChunks <-
         lift $
         GS.withClonedGState $ do
             mapM_ (applier . OldestFirst) chunks
-            readDB
+            dbPureDump
     stateAfterAllAtOnce <-
         lift $ do
             applier blundsNE
-            readDB
+            dbPureDump
     assert
         (stateAfter1by1 == stateAfterInChunks &&
          stateAfterInChunks == stateAfterAllAtOnce)

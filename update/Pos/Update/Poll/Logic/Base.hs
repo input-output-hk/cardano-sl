@@ -43,7 +43,7 @@ import           Pos.Binary.Update       ()
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
                                           IsMainHeader (..), ScriptVersion, SlotId,
                                           SoftforkRule (..), TimeDiff (..), addressHash,
-                                          applyCoinPortion, coinPortionDenominator,
+                                          applyCoinPortionUp, coinPortionDenominator,
                                           coinToInteger, difficultyL, getCoinPortion,
                                           headerHashG, isBootstrapEra, mkCoinPortion,
                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
@@ -300,7 +300,7 @@ calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag ->
     | curEpoch < confirmedEpoch =
         error
             "calcSoftforkThreshold: logical error, curEpoch < confirmedEpoch, can't happen"
-    | otherwise = applyCoinPortion portion totalStake
+    | otherwise = applyCoinPortionUp portion totalStake
   where
     minuend :: Word64
     minuend = getCoinPortion srInitThd

@@ -32,7 +32,7 @@ import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (Address, Coin, SlotLeaders, StakeholderId,
-                                             applyCoinPortion, coinToInteger,
+                                             applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
@@ -103,7 +103,7 @@ stakeDistribution ts@RichPoorStakes {..} =
   where
     -- Node won't start if richmen cannot participate in MPC
     checkMpcThd total richs =
-        if richs < applyCoinPortion Const.genesisMpcThd total
+        if richs < applyCoinPortionUp Const.genesisMpcThd total
         then error "Pos.Genesis: RichPoorStakes: richmen stake \
                    \is less than MPC threshold"
         else identity

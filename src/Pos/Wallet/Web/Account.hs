@@ -13,11 +13,14 @@ module Pos.Wallet.Web.Account
        , AccountMode
        , GenSeed (..)
        , AddrGenSeed
+
+       , MonadKeySearch (..)
        ) where
 
 import           Data.List                  (elemIndex)
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (randomIO)
+import           System.Wlog                (WithLogger)
 import           Universum
 
 import           Pos.Core                   (Address (..), deriveLvl2KeyPair)
@@ -31,7 +34,12 @@ import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
 
-type AccountMode ctx m = (MonadKeys ctx m, WebWalletModeDB ctx m, MonadThrow m)
+type AccountMode ctx m =
+    ( MonadCatch m
+    , WithLogger m
+    , MonadKeys ctx m
+    , WebWalletModeDB ctx m
+    )
 
 myRootAddresses :: MonadKeys ctx m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeys
@@ -169,3 +177,17 @@ deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
         cwamWalletIndex = aiIndex
         cwamId          = addressToCId addr
     return CWAddressMeta{..}
+
+-- | Allows to find a key related ti given @id@ item.
+class MonadKeySearch id m where
+    findKey :: id -> m EncryptedSecretKey
+
+instance AccountMode ctx m => MonadKeySearch (CId Wal) m where
+    findKey = getSKByAddr
+
+instance AccountMode ctx m => MonadKeySearch AccountId m where
+    findKey = findKey . aiWId
+
+instance AccountMode ctx m => MonadKeySearch CWAddressMeta m where
+    findKey = findKey . cwamWId
+

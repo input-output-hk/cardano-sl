@@ -22,52 +22,50 @@ module Pos.Block.Logic.Internal
 
 import           Universum
 
-import           Control.Lens                (each, _Wrapped)
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Ether.Internal              (HasLens (..))
-import           Formatting                  (sformat, (%))
-import           Mockable                    (CurrentTime, Mockable)
-import           Serokell.Util.Text          (listJson)
+import           Control.Lens            (each, _Wrapped)
+import           Ether.Internal          (HasLens (..))
+import           Formatting              (sformat, (%))
+import           Mockable                (CurrentTime, Mockable)
+import           Serokell.Util.Text      (listJson)
 
-import           Pos.Block.BListener         (MonadBListener)
-import           Pos.Block.Core              (Block, GenesisBlock, MainBlock, mbTxPayload,
-                                              mbUpdatePayload)
-import           Pos.Block.Slog              (MonadSlogApply, MonadSlogBase,
-                                              slogApplyBlocks, slogRollbackBlocks)
-import           Pos.Block.Types             (Blund, Undo (undoTx, undoUS))
-import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epochIndexL,
-                                              gbBody, gbHeader, headerHash)
-import           Pos.DB                      (MonadDB, MonadGState, SomeBatchOp (..))
-import           Pos.DB.Block                (MonadBlockDB, MonadSscBlockDB)
-import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgNormalizeOnRollback,
-                                              dlgRollbackBlocks)
-import           Pos.Discovery.Class         (MonadDiscovery)
-import           Pos.Exception               (assertionFailed)
-import qualified Pos.GState                  as GS
-import           Pos.Lrc.Context             (LrcContext)
-import           Pos.Reporting               (HasReportingContext, reportingFatal)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscGStateClass)
-import           Pos.Ssc.Extra               (MonadSscMem, sscApplyBlocks, sscNormalize,
-                                              sscRollbackBlocks)
-import           Pos.Ssc.Util                (toSscBlock)
-import           Pos.Txp.Core                (TxPayload)
-import           Pos.Txp.MemState            (MonadTxpMem)
-import           Pos.Txp.Settings            (TxpBlock, TxpBlund, TxpGlobalSettings (..))
-import           Pos.Update.Context          (UpdateContext)
-import           Pos.Update.Core             (UpdateBlock, UpdatePayload)
-import           Pos.Update.Logic            (usApplyBlocks, usNormalize,
-                                              usRollbackBlocks)
-import           Pos.Update.Poll             (PollModifier)
-import           Pos.Util                    (Some (..), spanSafe)
-import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode.Class          (TxpExtra_TMP)
+import           Pos.Block.BListener     (MonadBListener)
+import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
+                                          mbUpdatePayload)
+import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
+                                          slogRollbackBlocks)
+import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
+import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
+                                          gbBody, gbHeader, headerHash)
+import           Pos.DB                  (MonadDB, MonadGState, SomeBatchOp (..))
+import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
+import           Pos.Delegation.Class    (MonadDelegation)
+import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback,
+                                          dlgRollbackBlocks)
+import           Pos.Discovery.Class     (MonadDiscovery)
+import           Pos.Exception           (assertionFailed)
+import qualified Pos.GState              as GS
+import           Pos.Lrc.Context         (LrcContext)
+import           Pos.Reporting           (HasReportingContext, reportingFatal)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
+import           Pos.Ssc.Class.Storage   (SscGStateClass)
+import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
+                                          sscRollbackBlocks)
+import           Pos.Ssc.Util            (toSscBlock)
+import           Pos.Txp.Core            (TxPayload)
+import           Pos.Txp.MemState        (MonadTxpMem)
+import           Pos.Txp.Settings        (TxpBlock, TxpBlund, TxpGlobalSettings (..))
+import           Pos.Update.Context      (UpdateContext)
+import           Pos.Update.Core         (UpdateBlock, UpdatePayload)
+import           Pos.Update.Logic        (usApplyBlocks, usNormalize, usRollbackBlocks)
+import           Pos.Update.Poll         (PollModifier)
+import           Pos.Util                (Some (..), spanSafe)
+import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.WorkMode.Class      (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp            (eTxNormalize)
+import           Pos.Explorer.Txp        (eTxNormalize)
 #else
-import           Pos.Txp.Logic               (txNormalize)
+import           Pos.Txp.Logic           (txNormalize)
 #endif
 
 -- | Set of basic constraints used by high-level block processing.
@@ -109,7 +107,6 @@ type MonadBlockApply ssc ctx m
        -- Needed for error reporting.
        , HasReportingContext ctx
        , MonadDiscovery m
-       , MonadBaseControl IO m
        , MonadReader ctx m
        )
 

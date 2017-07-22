@@ -37,6 +37,7 @@ module Pos.Wallet.Web.Tracking
 import           Universum
 
 import           Control.Lens               (to)
+import           Control.Monad.Catch        (handleAll)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.DList                 (DList)
 import qualified Data.DList                 as DL
@@ -132,10 +133,10 @@ instance Monoid CAccModifier where
 instance Buildable CAccModifier where
     build CAccModifier{..} =
         bprint
-            (  "added accounts: "%listJson
-            %",\n deleted accounts: "%listJson
-            %",\n used address: "%listJson
-            %",\n change address: "%listJson
+            (    "added addresses: "%listJson
+            %",\n deleted addresses: "%listJson
+            %",\n used addresses: "%listJson
+            %",\n change addresses: "%listJson
             %",\n local utxo (difference): "%build
             %",\n added history entries: "%listJson
             %",\n deleted history entries: "%listJson)
@@ -211,7 +212,12 @@ syncWalletsWithGState
     , MonadSlotsData m)
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
-    tip <$ mapM_ (syncWalletWithGStateUnsafe @ssc) encSKs
+    tip <$ forM_ encSKs (\encSK ->
+        handleAll (onErr encSK) $
+        syncWalletWithGStateUnsafe @ssc encSK)
+  where
+    onErr encSK = logWarning . sformat fmt (encToCId encSK)
+    fmt = "Sync of wallet "%build%" failed: "%build
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.
@@ -540,7 +546,7 @@ getWalletAddrMetasDB
     :: (WebWalletModeDB ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
 getWalletAddrMetasDB lookupMode cWalId = do
-    walletAccountIds <- filter ((== cWalId) . aiWId) <$> WS.getWAddressIds
+    walletAccountIds <- filter ((== cWalId) . aiWId) <$> WS.getAccountIds
     concatMapM (getAccountAddrsOrThrowDB lookupMode) walletAccountIds
   where
     getAccountAddrsOrThrowDB
@@ -549,4 +555,4 @@ getWalletAddrMetasDB lookupMode cWalId = do
     getAccountAddrsOrThrowDB mode accId =
         WS.getAccountWAddresses mode accId >>= maybeThrow (noWallet accId)
     noWallet accId = DBMalformed $
-        sformat ("No account with address "%build%" found") accId
+        sformat ("No account with id "%build%" found") accId

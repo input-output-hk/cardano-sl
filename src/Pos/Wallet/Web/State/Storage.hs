@@ -10,7 +10,7 @@ module Pos.Wallet.Web.State.Storage
        , Update
        , getProfile
        , setProfile
-       , getWAddressIds
+       , getAccountIds
        , getAccountMetas
        , getAccountMeta
        , getWalletMetas
@@ -65,9 +65,9 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Data.Time.Clock.POSIX      (POSIXTime)
 
 import           Pos.Client.Txp.History     (TxHistoryEntry)
-import           Pos.Txp                    (Utxo)
 import           Pos.Constants              (genesisHash)
 import           Pos.Core.Types             (Timestamp)
+import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash,
@@ -165,8 +165,8 @@ getProfile = view wsProfile
 setProfile :: CProfile -> Update ()
 setProfile cProfile = wsProfile .= cProfile
 
-getWAddressIds :: Query [AccountId]
-getWAddressIds = HM.keys <$> view wsAccountInfos
+getAccountIds :: Query [AccountId]
+getAccountIds = HM.keys <$> view wsAccountInfos
 
 getAccountMetas :: Query [CAccountMeta]
 getAccountMetas = map (view aiMeta) . toList <$> view wsAccountInfos

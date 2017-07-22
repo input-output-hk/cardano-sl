@@ -41,7 +41,8 @@ spec = describe "Coin properties" $ do
             prop sumCoinsNeverNegativeDesc sumCoinsIsNeverNegative
     describe "CoinPortion" $ do
         prop portionToDoubleToPortionDesc coinPortionToDoubleToPortion
-        prop appliedPortionDesc appliedCoinPortion
+        prop appliedPortionDownDesc appliedCoinPortionDown
+        prop appliedPortionUpDesc appliedCoinPortionUp
         prop unsafeCoinPortionDesc overOrUnderflowDoubleCausesError
         prop wordToPortionToWordDesc wordToPortionToWord
         prop portionToWordToPortionDesc portionToWordToPortion
@@ -73,8 +74,10 @@ spec = describe "Coin properties" $ do
     \ value"
     portionToDoubleToPortionDesc = "Converting a coin portion into a double and this\
     \ double to a coin portion changes nothing"
-    appliedPortionDesc = "Applying a coin portion to a coin is dividing the portion by\
-    \ 'coinPortionDenominator' and multiplying it by the coin's value"
+    appliedPortionDownDesc = "Applying a coin portion to a coin (down) via\
+    \ 'applyCoinPortionDown' and via 'floor' is the same"
+    appliedPortionUpDesc = "Applying a coin portion to a coin (up) via\
+    \ 'applyCoinPortionUp' and via 'ceiling' is the same"
     unsafeCoinPortionDesc = "Converting a double outside the interval [0, 1] into a\
     \ 'CoinPortion' will raise a fatal exception"
     wordToPortionToWordDesc = "Converting a valid 64-bit word into a coin portion and\
@@ -164,15 +167,18 @@ wordToPortionToWord (C.getSafeWord -> w) =
 portionToWordToPortion :: C.CoinPortion -> Property
 portionToWordToPortion = C.mkCoinPortion . C.getCoinPortion >=. (pure @Maybe)
 
-appliedCoinPortion :: (C.CoinPortion, C.Coin) -> Property
-appliedCoinPortion =
-    let longFunction =
-            C.mkCoin .
-            round .
-            uncurry (*) .
-            bimap ((/ realToFrac C.coinPortionDenominator) .
-                   realToFrac @_ @Double .
-                   C.getCoinPortion)
-                  (realToFrac .
-                   C.unsafeGetCoin)
-    in uncurry C.applyCoinPortion .=. longFunction
+appliedCoinPortionDown :: (C.CoinPortion, C.Coin) -> Property
+appliedCoinPortionDown =
+    let applyViaRational (C.getCoinPortion -> p, C.unsafeGetCoin -> c) =
+            C.mkCoin . floor $
+                (toRational p / toRational C.coinPortionDenominator) *
+                (toRational c)
+    in uncurry C.applyCoinPortionDown .=. applyViaRational
+
+appliedCoinPortionUp :: (C.CoinPortion, C.Coin) -> Property
+appliedCoinPortionUp =
+    let applyViaRational (C.getCoinPortion -> p, C.unsafeGetCoin -> c) =
+            C.mkCoin . ceiling $
+                (toRational p / toRational C.coinPortionDenominator) *
+                (toRational c)
+    in uncurry C.applyCoinPortionUp .=. applyViaRational

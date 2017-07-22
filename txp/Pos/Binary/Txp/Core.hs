@@ -94,9 +94,8 @@ instance Bi T.TxDistribution where
 
 deriveSimpleBi ''T.TxSigData [
     Cons 'T.TxSigData [
-        Field [| T.txSigInput     :: T.TxIn                  |],
-        Field [| T.txSigOutsHash  :: Hash (NonEmpty T.TxOut) |],
-        Field [| T.txSigDistrHash :: Hash T.TxDistribution   |]
+        Field [| T.txSigTxHash      :: Hash T.Tx             |],
+        Field [| T.txSigTxDistrHash :: Hash T.TxDistribution |]
     ]]
 
 deriveSimpleBi ''T.TxAux [

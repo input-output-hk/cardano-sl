@@ -19,13 +19,18 @@ import           Control.Exception          (ArithException (..), ArrayException
                                              ErrorCall (..), Handler (..),
                                              PatternMatchFail (..), SomeException (..),
                                              catches, displayException, throwIO)
+import qualified Data.ByteArray             as BA
 import qualified Data.ByteString.Lazy       as BSL
+import qualified Data.Set                   as S
+import qualified Elaboration.Contexts       as PL
 import qualified Interface.Integration      as PL
 import qualified Interface.Prelude          as PL
 import           Language.Haskell.TH.Syntax (Lift (..), runIO)
-import qualified PlutusCore.Program         as PLCore
+import qualified PlutusCore.EvaluatorTypes  as PLCore
+import qualified PlutusCore.Program         as PL
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum                  hiding (lift)
+import qualified Utils.Names                as PL
 
 import           Pos.Binary.Class           (Bi)
 import qualified Pos.Binary.Class           as Bi
@@ -33,8 +38,7 @@ import           Pos.Binary.Crypto          ()
 import           Pos.Binary.Txp.Core        ()
 import           Pos.Core.Script            ()
 import           Pos.Core.Types             (Script (..), ScriptVersion, Script_v0)
-import           Pos.Crypto                 (SignTag (SignTxIn), signTag)
-import           Pos.Txp.Core.Types         (TxSigData)
+import           Pos.Txp.Core.Types         (TxSigData (..))
 
 {- NOTE
 
@@ -49,29 +53,28 @@ Here's what would lead to script version increment:
 isKnownScriptVersion :: ScriptVersion -> Bool
 isKnownScriptVersion v = v == 0
 
+-- | Post-process loaded program to remove stdlib references that were added
+-- to the environment by 'loadValidator' or 'loadRedeemer'.
+stripStdlib :: PL.Program -> PL.Program
+stripStdlib (PL.Program xs) = PL.Program (filter (not . std) xs)
+  where
+    stds = S.fromList (map (PL.unsourced . fst) (PL.definitions stdlib))
+    std (name, _) = PL.unsourced name `elem` stds
+
 -- | Parse a script intended to serve as a validator (or “lock”) in a
 -- transaction output.
 parseValidator :: Bi Script_v0 => Text -> Either String Script
 parseValidator t = do
-    scr <- PL.runElabInContexts [stdlib] $ PL.loadValidator (toString t)
+    scr <- stripStdlib <$> PL.loadValidator stdlib (toString t)
     return Script {
         scrScript = Bi.encodeLazy scr,
         scrVersion = 0 }
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
 -- transaction input.
---
--- Can be given an optional validator (e.g. if the redeemer uses functions or
--- types defined by the validator).
-parseRedeemer :: Bi Script_v0 => Maybe Script -> Text -> Either String Script
-parseRedeemer mbV t = do
-    mbValScr <- case (\x -> (scrVersion x, x)) <$> mbV of
-        Nothing       -> return Nothing
-        Just (0, val) -> Just <$> first toString (Bi.decodeFull $ BSL.toStrict $ scrScript val)
-        Just (v, _)   -> Left ("unknown script version of validator: " ++
-                               show v)
-    scr <- PL.runElabInContexts (stdlib : maybeToList mbValScr) $
-               PL.loadRedeemer (toString t)
+parseRedeemer :: Bi Script_v0 => Text -> Either String Script
+parseRedeemer t = do
+    scr <- stripStdlib <$> PL.loadRedeemer stdlib (toString t)
     return Script {
         scrScript = Bi.encodeLazy scr,
         scrVersion = 0 }
@@ -122,11 +125,15 @@ txScriptCheck sigData validator redeemer = case spoon result of
             0 -> first toString $ Bi.decodeFull $ BSL.toStrict (scrScript redeemer)
             v -> Left ("unknown script version of redeemer: " ++ show v)
         (script, env) <- PL.buildValidationScript stdlib valScr redScr
-        let taggedSigData = BSL.fromStrict $ (signTag SignTxIn) <> Bi.encode sigData
-        PL.checkValidationResult taggedSigData (script, env)
+        let txInfo = PLCore.TransactionInfo
+                { txHash      = BSL.fromStrict . BA.convert $
+                                txSigTxHash sigData
+                , txDistrHash = BSL.fromStrict . BA.convert $
+                                txSigTxDistrHash sigData }
+        PL.checkValidationResult txInfo (script, env)
 
-stdlib :: PLCore.Program
-stdlib = case PL.runElabInContexts [] (PL.loadProgram prelude) of
+stdlib :: PL.DeclContext
+stdlib = case PL.loadLibrary PL.emptyDeclContext prelude of
     Right x  -> x
     Left err -> error $ toText
                   ("stdlib: error while parsing Plutus prelude: " ++ err)

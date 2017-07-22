@@ -24,16 +24,16 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Binary.Class                  (Bi, Raw)
 import           Pos.Binary.Txp.Core               ()
 import           Pos.Core.Address                  (makePubKeyAddress)
-import           Pos.Core.Types                    (Coin)
 import           Pos.Core.Arbitrary                ()
-import           Pos.Crypto                        (Hash, SecretKey, SignTag (SignTxIn),
+import           Pos.Core.Types                    (Coin)
+import           Pos.Crypto                        (Hash, SecretKey, SignTag (SignTx),
                                                     hash, sign, toPublic)
 import           Pos.Data.Attributes               (mkAttributes)
 import           Pos.Merkle                        (MerkleNode (..), MerkleRoot (..),
                                                     MerkleTree, mkMerkleTree)
 import           Pos.Txp.Core.Types                (Tx (..), TxAux (..),
                                                     TxDistribution (..), TxIn (..),
-                                                    TxInWitness (..),TxOut (..),
+                                                    TxInWitness (..), TxOut (..),
                                                     TxOutAux (..), TxPayload (..),
                                                     TxProof (..), TxSigData (..), mkTx,
                                                     mkTxPayload)
@@ -107,7 +107,13 @@ buildProperTx
     :: NonEmpty (Tx, SecretKey, SecretKey, Coin)
     -> (Coin -> Coin, Coin -> Coin)
     -> NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
-buildProperTx triplesList (inCoin, outCoin) = fmap newTx txList
+buildProperTx triplesList (inCoin, outCoin) =
+    txList <&> \(tx, txIn, fromSk, txOutput) ->
+        ( (tx, makeNullDistribution tx)
+        , txIn
+        , TxOutAux txOutput []
+        , mkWitness fromSk
+        )
   where
     fun (UnsafeTx txIn txOut _, fromSk, toSk, c) =
         let inC = inCoin c
@@ -117,28 +123,31 @@ buildProperTx triplesList (inCoin, outCoin) = fmap newTx txList
                     txIn
                     ((makeTxOutput fromSk inC) <| txOut)
                     (mkAttributes ())
-        in (txToBeSpent, fromSk, makeTxOutput toSk outC)
+        in ( txToBeSpent
+           , TxIn (hash txToBeSpent) 0
+           , fromSk
+           , makeTxOutput toSk outC )
     -- why is it called txList? I've no idea what's going on here (@neongreen)
     txList = fmap fun triplesList
-    txOutsHash = hash $ fmap (view _3) txList
-    distrHash = hash (TxDistribution (NE.fromList $ replicate (length txList) []))
+    newDistr = TxDistribution (NE.fromList $ replicate (length txList) [])
+    newDistrHash = hash newDistr
+    newTx = fromMaybe (error "buildProperTx: can't create tx") $
+            mkTx ins outs def
+    newTxHash = hash newTx
+    ins  = fmap (view _2) txList
+    outs = fmap (view _4) txList
+    mkWitness fromSk = PkWitness
+        { twKey = toPublic fromSk
+        , twSig = sign SignTx fromSk TxSigData {
+                      txSigTxHash = newTxHash,
+                      txSigTxDistrHash = newDistrHash } }
     makeNullDistribution tx =
         TxDistribution (NE.fromList $ replicate (length (_txOutputs tx)) [])
-    newTx (tx, fromSk, txOutput) =
-        let txHash = hash tx
-            txIn = TxIn txHash 0
-            witness =
-                PkWitness
-                { twKey = toPublic fromSk
-                , twSig = sign SignTxIn fromSk TxSigData{
-                             txSigInput = txIn,
-                             txSigOutsHash = txOutsHash,
-                             txSigDistrHash = distrHash }
-                }
-        in ((tx, makeNullDistribution tx), txIn, (TxOutAux txOutput []), witness)
     makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
 
 -- | Well-formed transaction 'Tx'.
+--
+-- TODO: this type is hard to use and should be rewritten as a record
 newtype GoodTx = GoodTx
     { getGoodTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
@@ -156,11 +165,14 @@ goodTxToTxAux (GoodTx l) = TxAux tx witness distr
 instance Arbitrary GoodTx where
     arbitrary =
         GoodTx <$> (buildProperTx <$> arbitrary <*> pure (identity, identity))
-    shrink = genericShrink
+    shrink = const []  -- used to be “genericShrink”, but shrinking is broken
+                       -- because naive shrinking may turn a good transaction
+                       -- into a bad one (by setting one of outputs to 0, for
+                       -- instance)
 
 instance Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
-    shrink = genericShrink
+    shrink = const []  -- genericShrink
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx

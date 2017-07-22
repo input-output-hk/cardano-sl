@@ -29,18 +29,17 @@ import           Universum
 import           Pos.Binary          ()
 import           Pos.Core.Address    (AddressIgnoringAttributes (AddressIA))
 import           Pos.Core.Coin       (unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner,
-                                      SignTag (SignTxIn), hash, redeemSign,
-                                      redeemToPublic, safeSign, safeToPublic)
+import           Pos.Crypto          (RedeemSecretKey, SafeSigner, SignTag (SignTx), hash,
+                                      redeemSign, redeemToPublic, safeSign, safeToPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script          (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp             (Tx (..), TxAux (..), TxDistribution (..), TxIn (..),
                                       TxInWitness (..), TxOut (..), TxOutAux (..),
                                       TxSigData (..), Utxo, filterUtxoByAddrs)
-import           Pos.Types           (Address, Coin, makePubKeyAddress, makePubKeyAddress,
-                                      makeRedeemAddress, makeScriptAddress, mkCoin,
-                                      sumCoins)
+import           Pos.Types           (Address, Coin, StakeholderId, makePubKeyAddress,
+                                      makePubKeyAddress, makeRedeemAddress,
+                                      makeScriptAddress, mkCoin, sumCoins)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -65,26 +64,17 @@ makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
                -> TxOwnedInputs owner
                -> TxOutputs
                -> TxAux
-makeAbstractTx mkWit txInputs outputs =
-    TxAux
-    { taTx = UnsafeTx (map snd txInputs) txOutputs txAttributes
-    , taWitness = txWitness
-    , taDistribution = txDist
-    }
+makeAbstractTx mkWit txInputs outputs = TxAux tx txWitness txDistr
   where
+    tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
-    txOutHash = hash txOutputs
-    txDist = TxDistribution (map toaDistr outputs)
-    txDistHash = hash txDist
+    txDistr = TxDistribution (map toaDistr outputs)
     txWitness = V.fromList $ toList $ txInputs <&>
-        \(addr, txIn) -> mkWit addr $ makeTxSigData txIn
-    makeTxSigData txIn =
-        TxSigData
-        { txSigInput = txIn
-        , txSigOutsHash = txOutHash
-        , txSigDistrHash = txDistHash
-        }
+        \(addr, _) -> mkWit addr txSigData
+    txSigData = TxSigData
+        { txSigTxHash = hash tx
+        , txSigTxDistrHash = hash txDistr }
 
 -- | Like `makePubKeyTx`, but allows usage of different signers
 makeMPubKeyTx :: (owner -> SafeSigner)
@@ -96,7 +86,7 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
           let ss = getSs addr
           in PkWitness
               { twKey = safeToPublic ss
-              , twSig = safeSign SignTxIn ss sigData
+              , twSig = safeSign SignTx ss sigData
               }
 
 -- | Makes a transaction which use P2PKH addresses as a source
@@ -183,12 +173,15 @@ createTx utxo ss outputs =
     prepareInpOuts utxo (makePubKeyAddress $ safeToPublic ss) outputs
 
 -- | Make a transaction, using M-of-N script as a source
-createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either Text TxAux
+createMOfNTx :: Utxo
+             -> [(StakeholderId, Maybe SafeSigner)]
+             -> TxOutputs
+             -> Either Text TxAux
 createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
-  where pks = map fst keys
+  where ids = map fst keys
         sks = map snd keys
         m = length $ filter isJust sks
-        validator = multisigValidator m pks
+        validator = multisigValidator m ids
         addr = makeScriptAddress validator
         inpOuts = prepareInpOuts utxo addr outputs
 

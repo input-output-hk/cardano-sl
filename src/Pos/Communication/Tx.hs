@@ -64,8 +64,7 @@ submitMTx
 submitMTx sendActions hdwSigner na outputs = do
     let addrs = map snd $ toList hdwSigner
     utxo <- getOwnUtxos addrs
-    txw <- eitherToThrow TxError $
-           createMTx utxo hdwSigner outputs
+    txw <- eitherToThrow $ createMTx utxo hdwSigner outputs
     submitAndSave sendActions na txw
 
 -- | Construct Tx using secret key and given list of desired outputs
@@ -78,8 +77,7 @@ submitTx
     -> m TxAux
 submitTx sendActions ss na outputs = do
     utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
-    txw <- eitherToThrow TxError $
-           createTx utxo ss outputs
+    txw <- eitherToThrow $ createTx utxo ss outputs
     submitAndSave sendActions na txw
 
 -- | Construct redemption Tx using redemption secret key and a output address
@@ -99,8 +97,7 @@ submitRedemptionTx sendActions rsk na output = do
             TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
     when (redeemBalance == mkCoin 0) $
         throwM . TxError $ "Redeem balance is 0"
-    txw <- eitherToThrow TxError $
-           createRedemptionTx utxo rsk txouts
+    txw <- eitherToThrow $ createRedemptionTx utxo rsk txouts
     txAux <- submitAndSave sendActions na txw
     pure (txAux, redeemAddress, redeemBalance)
 

@@ -16,31 +16,33 @@ module Pos.Client.Txp.Util
        , TxError (..)
        ) where
 
-import           Control.Lens        (traversed, (%=), (.=))
-import           Control.Monad.State (StateT (..), evalStateT)
-import qualified Data.HashMap.Strict as HM
-import           Data.List           (tail)
-import qualified Data.Map            as M
+import           Control.Lens         (traversed, (%=), (.=))
+import           Control.Monad.Except (MonadError (..))
+import           Control.Monad.State  (StateT (..), evalStateT)
+import qualified Data.HashMap.Strict  as HM
+import           Data.List            (tail)
+import qualified Data.Map             as M
 import qualified Data.Text.Buildable
-import qualified Data.Vector         as V
-import           Formatting          (bprint, stext, (%))
+import qualified Data.Vector          as V
+import           Formatting           (bprint, stext, (%))
 import           Universum
 
-import           Pos.Binary          ()
-import           Pos.Core.Address    (AddressIgnoringAttributes (AddressIA))
-import           Pos.Core.Coin       (unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner,
-                                      SignTag (SignTxIn), hash, redeemSign,
-                                      redeemToPublic, safeSign, safeToPublic)
-import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Script          (Script)
-import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
-import           Pos.Txp             (Tx (..), TxAux (..), TxDistribution (..), TxIn (..),
-                                      TxInWitness (..), TxOut (..), TxOutAux (..),
-                                      TxSigData (..), Utxo, filterUtxoByAddrs)
-import           Pos.Types           (Address, Coin, makePubKeyAddress, makePubKeyAddress,
-                                      makeRedeemAddress, makeScriptAddress, mkCoin,
-                                      sumCoins)
+import           Pos.Binary           ()
+import           Pos.Core.Address     (AddressIgnoringAttributes (AddressIA))
+import           Pos.Core.Coin        (unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Crypto           (PublicKey, RedeemSecretKey, SafeSigner,
+                                       SignTag (SignTxIn), hash, redeemSign,
+                                       redeemToPublic, safeSign, safeToPublic)
+import           Pos.Data.Attributes  (mkAttributes)
+import           Pos.Script           (Script)
+import           Pos.Script.Examples  (multisigRedeemer, multisigValidator)
+import           Pos.Txp              (Tx (..), TxAux (..), TxDistribution (..),
+                                       TxIn (..), TxInWitness (..), TxOut (..),
+                                       TxOutAux (..), TxSigData (..), Utxo,
+                                       filterUtxoByAddrs)
+import           Pos.Types            (Address, Coin, makePubKeyAddress,
+                                       makePubKeyAddress, makeRedeemAddress,
+                                       makeScriptAddress, mkCoin, sumCoins)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -54,6 +56,11 @@ instance Exception TxError
 
 instance Buildable TxError where
     build (TxError msg) = bprint ("Transaction creation error ("%stext%")") msg
+
+throwTxError
+    :: MonadError TxError m
+    => Text -> m a
+throwTxError = throwError . TxError
 
 -----------------------------------------------------------------------------
 -- Tx creation
@@ -120,7 +127,7 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
             }
 
 type FlatUtxo = [(TxIn, TxOutAux)]
-type InputPicker = StateT (Coin, FlatUtxo) (Either Text)
+type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 
 -- | Given Utxo, desired source addresses and desired outputs, prepare lists
 -- of correct inputs and outputs to form a transaction
@@ -128,13 +135,13 @@ prepareInpsOuts
     :: Utxo
     -> NonEmpty Address
     -> TxOutputs
-    -> Either Text (TxOwnedInputs Address, TxOutputs)
+    -> Either TxError (TxOwnedInputs Address, TxOutputs)
 prepareInpsOuts utxo addrs outputs = do
     when (totalMoney == mkCoin 0) $
-        fail "Attempted to send 0 money"
+        throwTxError "Attempted to send 0 money"
     futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
     case nonEmpty futxo of
-        Nothing       -> fail "Failed to prepare inputs!"
+        Nothing       -> throwTxError "Failed to prepare inputs!"
         Just inputsNE -> pure (map formTxInputs inputsNE, outputs)
   where
     totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut) outputs
@@ -150,7 +157,7 @@ prepareInpsOuts utxo addrs outputs = do
             else do
                 mNextOut <- head <$> use _2
                 case mNextOut of
-                    Nothing -> fail "Not enough money to send!"
+                    Nothing -> throwTxError "Not enough money to send!"
                     Just inp@(_, (TxOutAux (TxOut {..}) _)) -> do
                         _1 .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         _2 %= tail
@@ -158,14 +165,14 @@ prepareInpsOuts utxo addrs outputs = do
     formTxInputs (inp, TxOutAux TxOut{..} _) = (txOutAddress, inp)
 
 -- | Common use case of 'prepaseInpsOuts' - with single source address
-prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either Text (TxInputs, TxOutputs)
+prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either TxError (TxInputs, TxOutputs)
 prepareInpOuts utxo addr outputs =
     prepareInpsOuts utxo (one addr) outputs <&>
     _1 . traversed %~ snd
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
-createMTx :: Utxo -> NonEmpty (SafeSigner, Address) -> TxOutputs -> Either Text TxAux
+createMTx :: Utxo -> NonEmpty (SafeSigner, Address) -> TxOutputs -> Either TxError TxAux
 createMTx utxo hwdSigners outputs =
     let addrs = map snd hwdSigners
     in  uncurry (makeMPubKeyTx getSigner) <$>
@@ -177,13 +184,13 @@ createMTx utxo hwdSigners outputs =
         HM.lookup (AddressIA addr) signers
 
 -- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SafeSigner -> TxOutputs -> Either Text TxAux
+createTx :: Utxo -> SafeSigner -> TxOutputs -> Either TxError TxAux
 createTx utxo ss outputs =
     uncurry (makePubKeyTx ss) <$>
     prepareInpOuts utxo (makePubKeyAddress $ safeToPublic ss) outputs
 
 -- | Make a transaction, using M-of-N script as a source
-createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either Text TxAux
+createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either TxError TxAux
 createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
   where pks = map fst keys
         sks = map snd keys
@@ -192,7 +199,7 @@ createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
         addr = makeScriptAddress validator
         inpOuts = prepareInpOuts utxo addr outputs
 
-createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either Text TxAux
+createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either TxError TxAux
 createRedemptionTx utxo rsk outputs =
     uncurry (makeRedemptionTx rsk) <$>
     prepareInpOuts utxo (makeRedeemAddress $ redeemToPublic rsk) outputs

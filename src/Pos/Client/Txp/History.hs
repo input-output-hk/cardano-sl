@@ -270,4 +270,4 @@ saveTxDefault txw = do
 #else
     res <- runExceptT (txProcessTransaction txw)
 #endif
-    eitherToThrow identity res
+    eitherToThrow res

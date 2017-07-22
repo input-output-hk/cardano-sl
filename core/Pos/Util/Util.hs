@@ -293,8 +293,8 @@ eitherToFail = either (fail . toString) pure
 -- | Throw exception or return result depending on what is stored in 'Either'
 eitherToThrow
     :: (MonadThrow m, Exception e)
-    => (s -> e) -> Either s a -> m a
-eitherToThrow f = either (throwM . f) pure
+    => Either e a -> m a
+eitherToThrow = either throwM pure
 
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k

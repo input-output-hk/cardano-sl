@@ -29,10 +29,10 @@ import           Pos.Txp.MemState            (GenericTxpLocalDataPure, MonadTxpM
                                               getLocalTxsMap, getTxpExtra,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..), GenesisUtxo,
-                                              MonadUtxoRead (..), ToilVerFailure (..),
-                                              Utxo, evalUtxoStateT, runDBToil,
-                                              runToilTLocalExtra, utxoGet)
+import           Pos.Txp.Toil                (GenericToilModifier (..),
+                                              GenesisStakeholders, MonadUtxoRead (..),
+                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
+                                              runDBToil, runToilTLocalExtra, utxoGet)
 import           Pos.Util.Chrono             (NewestFirst (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -49,7 +49,7 @@ type ETxpLocalWorkMode ctx m =
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
     , MonadSlots m
-    , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasLens GenesisStakeholders ctx GenesisStakeholders
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -78,7 +78,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
     epoch <- siEpoch <$> (note ToilUnknownCurEpoch =<< getCurrentSlot)
-    genUtxo <- view (lensOf @GenesisUtxo)
+    genStks <- view (lensOf @GenesisStakeholders)
     bvd <- gsAdoptedBVData
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
@@ -104,7 +104,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     -- hence `mempty` here.
     let eet = ExplorerExtraTxp mempty hmHistories hmBalances
     pRes <- lift $ modifyTxpLocalData "eTxProcessTransaction" $
-            processTxDo epoch bvd genUtxo resolved tipBefore itw curTime eet
+            processTxDo epoch bvd genStks resolved tipBefore itw curTime eet
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -115,7 +115,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     processTxDo
         :: EpochIndex
         -> BlockVersionData
-        -> GenesisUtxo
+        -> GenesisStakeholders
         -> Utxo
         -> HeaderHash
         -> (TxId, TxAux)
@@ -123,7 +123,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
         -> ExplorerExtraTxp
         -> ETxpLocalDataPure
         -> (Either ToilVerFailure (), ETxpLocalDataPure)
-    processTxDo curEpoch bvd genUtxo resolved tipBefore tx curTime eet txld@(uv, mp, undo, tip, extra)
+    processTxDo curEpoch bvd genStks resolved tipBefore tx curTime eet txld@(uv, mp, undo, tip, extra)
         | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
             let execToil action =
@@ -136,7 +136,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
                      flip evalUtxoStateT resolved $
                      flip runReaderT eet $
                      runExplorerReaderWrapper $
-                     flip runReaderT genUtxo $
+                     flip runReaderT genStks $
                      execToil $
                      eProcessTx curEpoch tx (TxExtra Nothing curTime txUndo)) bvd
             in case res of

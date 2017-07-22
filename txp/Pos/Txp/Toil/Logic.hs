@@ -27,7 +27,6 @@ import           Control.Lens               (views)
 import           Control.Monad.Except       (MonadError (..))
 import qualified Data.HashSet               as HS
 import qualified Data.List.NonEmpty         as NE
-import           Ether.Internal             (HasLens (..))
 import           Serokell.Data.Memory.Units (Byte)
 import           System.Wlog                (WithLogger)
 
@@ -39,7 +38,7 @@ import           Pos.Core.Types             (BlockVersionData (..), Coin, EpochI
                                              StakeholderId)
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.DB.Class               (MonadGState (..), isBootstrapEraPure)
-import           Pos.Util.Util              (getKeys)
+import           Pos.Util.Util              (HasLens', lensOf')
 
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOutDistribution, TxUndo,
                                              TxpUndo, getTxDistribution, topsortTxs)
@@ -47,7 +46,7 @@ import           Pos.Txp.Toil.Balances      (applyTxsToBalances, rollbackTxsBala
 import           Pos.Txp.Toil.Class         (MonadBalances (..), MonadTxPool (..),
                                              MonadUtxo (..))
 import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
-import           Pos.Txp.Toil.Types         (GenesisUtxo (..), TxFee (..))
+import           Pos.Txp.Toil.Types         (GenesisStakeholders (..), TxFee (..))
 import qualified Pos.Txp.Toil.Utxo          as Utxo
 
 ----------------------------------------------------------------------------
@@ -65,7 +64,7 @@ type GlobalVerifyToilMode ctx m =
     , MonadBalances m
     , MonadGState m
     , WithLogger m
-    , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasLens' ctx GenesisStakeholders
     , MonadReader ctx m)
 
 -- CHECK: @verifyToil
@@ -108,7 +107,7 @@ type LocalToilMode ctx m =
     ( MonadUtxo m
     , MonadGState m
     , MonadTxPool m
-    , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasLens' ctx GenesisStakeholders
     , MonadReader ctx m
     -- The war which we lost.
     )
@@ -148,7 +147,7 @@ verifyAndApplyTx
        ( MonadUtxo m
        , MonadGState m
        , MonadError ToilVerFailure m
-       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens' ctx GenesisStakeholders
        , MonadReader ctx m)
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
@@ -163,7 +162,7 @@ verifyGState
     :: forall ctx m .
        ( MonadGState m
        , MonadError ToilVerFailure m
-       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens' ctx GenesisStakeholders
        , MonadReader ctx m)
     => EpochIndex -> TxAux -> TxFee -> m ()
 verifyGState curEpoch txAux txFee = do
@@ -178,12 +177,12 @@ verifyGState curEpoch txAux txFee = do
 verifyBootEra
     :: forall ctx m .
        ( MonadError ToilVerFailure m
-       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens' ctx GenesisStakeholders
        , MonadReader ctx m)
     => EpochIndex -> EpochIndex -> TxAux -> m ()
 verifyBootEra curEpoch unlockEpoch txAux = do
     let bootEra = isBootstrapEraPure curEpoch unlockEpoch
-    bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . Utxo.utxoToStakes . unGenesisUtxo
+    bootHolders <- views (lensOf' @GenesisStakeholders) unGenesisStakeholders
     let bootRel = notBootRelated bootHolders
     when (bootEra && not (null bootRel)) $
         throwError $ ToilBootDifferentStake $ unsafeHead bootRel

@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 -- | Logic for local processing of transactions.
 -- Local transaction is transaction which hasn't been added in the blockchain yet.
 
@@ -26,11 +28,11 @@ import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..), GenesisUtxo (..),
-                                              MonadUtxoRead (..), ToilVerFailure (..),
-                                              Utxo, evalUtxoStateT, execToilTLocal,
-                                              normalizeToil, processTx, runDBToil,
-                                              runToilTLocal, utxoGet)
+import           Pos.Txp.Toil                (GenericToilModifier (..),
+                                              GenesisStakeholders, MonadUtxoRead (..),
+                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
+                                              execToilTLocal, normalizeToil, processTx,
+                                              runDBToil, runToilTLocal, utxoGet)
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -40,7 +42,8 @@ type TxpLocalWorkMode ctx m =
     , MonadSlots m
     , MonadTxpMem () ctx m
     , WithLogger m
-    , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasLens GenesisStakeholders ctx GenesisStakeholders
+    , MonadReader ctx m
     )
 
 -- | Process transaction. 'TxId' is expected to be the hash of
@@ -53,7 +56,7 @@ txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
-    genUtxo <- view (lensOf @GenesisUtxo)
+    genStks <- view (lensOf @GenesisStakeholders)
     epoch <- siEpoch <$> (note ToilUnknownCurEpoch =<< getCurrentSlot)
     localUM <- lift $ getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
@@ -71,7 +74,7 @@ txProcessTransaction itw@(txId, txAux) = do
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- lift $
             modifyTxpLocalData "txProcessTransaction" $
-            processTxDo epoch bvd genUtxo resolved tipDB itw
+            processTxDo epoch bvd genStks resolved tipDB itw
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -82,18 +85,18 @@ txProcessTransaction itw@(txId, txAux) = do
     processTxDo
         :: EpochIndex
         -> BlockVersionData
-        -> GenesisUtxo
+        -> GenesisStakeholders
         -> Utxo
         -> HeaderHash
         -> (TxId, TxAux)
         -> TxpLocalDataPure
         -> (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo curEpoch bvd genUtxo resolved tipDB tx txld@(uv, mp, undo, tip, ())
+    processTxDo curEpoch bvd genStks resolved tipDB tx txld@(uv, mp, undo, tip, ())
         | tipDB /= tip =
             (Left $ ToilTipsMismatch tipDB tip, txld)
         | otherwise =
             let res = (runExceptT $
-                    flip runReaderT genUtxo $
+                    flip runReaderT genStks $
                     flip evalUtxoStateT resolved $
                     execToilTLocal uv mp undo $
                     processTx curEpoch tx) bvd

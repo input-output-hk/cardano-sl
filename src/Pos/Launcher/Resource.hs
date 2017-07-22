@@ -63,7 +63,7 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
+import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics, gtcUtxo,
                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
@@ -128,7 +128,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            npGenesisUtxo
+            (npGenesisTxpCont ^. gtcUtxo)
             futureSlottingVar
             futureSlottingContext
             futureLrcContext

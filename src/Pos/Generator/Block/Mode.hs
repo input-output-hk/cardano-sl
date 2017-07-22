@@ -67,7 +67,8 @@ import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), Tx
                                               TxOutAux (..), TxpGlobalSettings, GenesisUtxo,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
-import           Pos.Txp.Toil.Types          (GenesisUtxo (..))
+import           Pos.Txp.Toil.Types          (GenesisTxpContext, GenesisStakeholders, GenesisUtxo,
+                                              mkGenesisTxpContext, gtcUtxo, gtcStakeholders)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -123,7 +124,7 @@ data BlockGenContext = BlockGenContext
     , bgcSystemStart       :: !Timestamp
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
-    , bgcGenesisUtxo       :: !GenesisUtxo
+    , bgcGenesisTxpContext :: !GenesisTxpContext
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -182,7 +183,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         return BlockGenContext {..}
   where
     -- Genesis utxo is needed only for boot era stakeholders
-    bgcGenesisUtxo =
+    bgcGenesisTxpContext =
         let addrs =
                 -- So we take three stakeholders in boot era.
                 take 3 $
@@ -191,7 +192,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
             utxoTxHash = unsafeHash ("randomutxotx" :: Text)
             txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
             txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
-        in GenesisUtxo $ M.fromList $ txIns `zip` txOuts
+        in mkGenesisTxpContext $ M.fromList $ txIns `zip` txOuts
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBSum
@@ -295,7 +296,10 @@ instance HasLens TxpGlobalSettings BlockGenContext TxpGlobalSettings where
     lensOf = bgcTxpGlobalSettings_L
 
 instance HasLens GenesisUtxo BlockGenContext GenesisUtxo where
-    lensOf = bgcGenesisUtxo_L
+    lensOf = bgcGenesisTxpContext_L . gtcUtxo
+
+instance HasLens GenesisStakeholders BlockGenContext GenesisStakeholders where
+    lensOf = bgcGenesisTxpContext_L . gtcStakeholders
 
 instance HasReportingContext BlockGenContext where
     reportingContext = bgcReportingContext_L

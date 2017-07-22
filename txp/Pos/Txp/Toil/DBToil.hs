@@ -10,10 +10,8 @@ module Pos.Txp.Toil.DBToil
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Ether
-import           Universum
 
-import           Pos.Core                     (BlockVersionData (..))
-import           Pos.DB.Class                 (MonadDBRead, MonadGState (gsAdoptedBVData))
+import           Pos.DB.Class                 (MonadDBRead)
 import           Pos.DB.GState.Balances       (getRealStake, getRealTotalStake)
 import           Pos.Txp.DB.Utxo              (getTxOut)
 import           Pos.Txp.Toil.Class           (MonadBalancesRead (..), MonadUtxoRead (..))

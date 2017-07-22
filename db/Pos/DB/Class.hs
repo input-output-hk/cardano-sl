@@ -190,8 +190,7 @@ gsUnlockStakeEpoch = bvdUnlockStakeEpoch <$> gsAdoptedBVData
 -- | Checks if provided epoch is in the bootstrap era (pure version)
 isBootstrapEraPure :: EpochIndex -> EpochIndex -> Bool
 isBootstrapEraPure unlockEpoch curEpoch =
-    if isDevelopment then False
-    else isBootstrapEra unlockEpoch curEpoch
+    not isDevelopment && isBootstrapEra unlockEpoch curEpoch
 
 -- | Checks if provided epoch is in the bootstrap era.
 gsIsBootstrapEra :: MonadGState m => EpochIndex -> m Bool

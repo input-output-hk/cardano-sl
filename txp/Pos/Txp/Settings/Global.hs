@@ -15,7 +15,6 @@ module Pos.Txp.Settings.Global
 import           Universum
 
 import           Control.Monad.Except (MonadError)
-import           Ether.Internal       (HasLens (..))
 import           System.Wlog          (WithLogger)
 
 import           Pos.Core             (IsGenesisHeader, IsMainHeader)
@@ -23,16 +22,16 @@ import           Pos.DB               (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting         (MonadSlots)
 import           Pos.Txp.Core         (TxPayload, TxpUndo)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
-import           Pos.Txp.Toil.Types   (GenesisUtxo)
+import           Pos.Txp.Toil.Types   (GenesisStakeholders)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util        (Some)
+import           Pos.Util.Util        (HasLens', Some)
 
 type TxpCommonMode ctx m =
     ( WithLogger m
     , MonadDBRead m
     , MonadGState m
     , MonadReader ctx m
-    , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasLens' ctx GenesisStakeholders
     )
 
 type TxpGlobalVerifyMode ctx m =

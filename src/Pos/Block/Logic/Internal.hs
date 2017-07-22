@@ -84,7 +84,7 @@ type MonadBlockBase ssc ctx m
        , HasLens LrcContext ctx LrcContext
        , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , SscGStateClass ssc
-       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens GenesisStakeholders ctx GenesisStakeholders
        , MonadDelegation ctx m -- TODO: split dlgApplyBlocks blocks
        , MonadReader ctx m
        )

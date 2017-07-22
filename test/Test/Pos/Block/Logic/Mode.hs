@@ -41,7 +41,6 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Context                    (GenesisUtxo (..))
 import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
                                                  Timestamp (..), addressHash,
                                                  makePubKeyAddress, mkCoin, unsafeGetCoin)
@@ -82,10 +81,12 @@ import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (GenericTxpLocalData, TxIn (..),
-                                                 TxOut (..), TxOutAux (..),
+import           Pos.Txp                        (GenericTxpLocalData, GenesisStakeholders,
+                                                 GenesisTxpContext, GenesisUtxo (..),
+                                                 TxIn (..), TxOut (..), TxOutAux (..),
                                                  TxpGlobalSettings, TxpHolderTag,
-                                                 TxpMetrics, ignoreTxpMetrics,
+                                                 TxpMetrics, gtcStakeholders, gtcUtxo,
+                                                 ignoreTxpMetrics, mkGenesisTxpContext,
                                                  mkTxpLocalData, txpGlobalSettings, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
@@ -103,7 +104,7 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpGenUtxo           :: !GenesisUtxo
+    { _tpGenTxpContext     :: !GenesisTxpContext
     -- ^ Genesis 'Utxo'.
     , _tpAllSecrets        :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
@@ -136,7 +137,7 @@ instance Buildable TestParams where
             _tpStakeDistribution
             _tpStartTime
       where
-        utxo = _tpGenUtxo & \(GenesisUtxo u) -> u
+        utxo = _tpGenTxpContext & \g -> unGenesisUtxo (g ^. gtcUtxo)
 
 instance Show TestParams where
     show = formatToString build
@@ -166,8 +167,8 @@ instance Arbitrary TestParams where
                 let addr = makePubKeyAddress (toPublic secretKey)
                     toaOut = TxOut addr coin
                 in (TxIn (unsafeHash addr) 0, TxOutAux {..})
-        let _tpGenUtxo =
-                GenesisUtxo . M.fromList $
+        let _tpGenTxpContext =
+                mkGenesisTxpContext . M.fromList $
                 zipWith
                     zipF
                     (toList secretKeysMap)
@@ -240,7 +241,7 @@ initBlockTestContext tp@TestParams {..} callback = do
     let initCtx =
             TestInitModeContext
                 dbPureVar
-                _tpGenUtxo
+                (_tpGenTxpContext ^. gtcUtxo)
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -410,6 +411,12 @@ instance HasLens DelegationVar BlockTestContext DelegationVar where
 
 instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
     lensOf = btcTxpMem_L
+
+instance HasLens GenesisUtxo BlockTestContext GenesisUtxo where
+    lensOf = btcParams_L . tpGenTxpContext . gtcUtxo
+
+instance HasLens GenesisStakeholders BlockTestContext GenesisStakeholders where
+    lensOf = btcParams_L . tpGenTxpContext . gtcStakeholders
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName

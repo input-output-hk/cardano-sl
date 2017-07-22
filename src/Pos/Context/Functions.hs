@@ -4,6 +4,7 @@ module Pos.Context.Functions
        (
          -- * Genesis
          GenesisUtxo(..)
+       , mkGenesisTxpContext
        , genesisUtxoM
        , genesisStakesM
        , genesisStakeholdersM
@@ -34,7 +35,7 @@ import           Pos.Context.Context (BlkSemaphore (..), GenesisUtxo (..), Start
 import           Pos.Core            (HeaderHash, SlotLeaders, StakeholderId, StakesMap)
 import           Pos.Genesis         (genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
-import           Pos.Txp.Toil        (Utxo, utxoToStakes)
+import           Pos.Txp.Toil        (Utxo, mkGenesisTxpContext, utxoToStakes)
 import           Pos.Util.Util       (getKeys)
 
 ----------------------------------------------------------------------------

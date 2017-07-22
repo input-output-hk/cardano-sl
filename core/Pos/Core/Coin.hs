@@ -25,12 +25,14 @@ module Pos.Core.Coin
        , applyCoinPortionUp
        ) where
 
+import           Universum
+
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, float, int, (%))
-import           Universum
 
 import           Pos.Core.Types      (Coin, CoinPortion (getCoinPortion), coinF,
                                       coinPortionDenominator, mkCoin, unsafeGetCoin)
+import           Pos.Util.Util       (leftToPanic)
 
 -- | Compute sum of all coins in container. Result is 'Integer' as a
 -- protection against possible overflow. If you are sure overflow is
@@ -77,14 +79,14 @@ divCoin :: Integral a => Coin -> a -> Coin
 divCoin (unsafeGetCoin -> a) b =
     mkCoin (fromInteger (toInteger a `div` toInteger b))
 
-integerToCoin :: Integer -> Maybe Coin
+integerToCoin :: Integer -> Either Text Coin
 integerToCoin n
-    | n <= coinToInteger (maxBound :: Coin) = Just $ mkCoin (fromInteger n)
-    | otherwise = Nothing
+    | n < 0 = Left $ "integerToCoin: value is negative (" <> show n <> ")"
+    | n <= coinToInteger (maxBound :: Coin) = pure $ mkCoin (fromInteger n)
+    | otherwise = Left $ "integerToCoin: value is too big (" <> show n <> ")"
 
 unsafeIntegerToCoin :: Integer -> Coin
-unsafeIntegerToCoin n =
-    fromMaybe (error "unsafeIntegerToCoin: overflow") (integerToCoin n)
+unsafeIntegerToCoin n = leftToPanic "unsafeIntegerToCoin: " (integerToCoin n)
 {-# INLINE unsafeIntegerToCoin #-}
 
 ----------------------------------------------------------------------------

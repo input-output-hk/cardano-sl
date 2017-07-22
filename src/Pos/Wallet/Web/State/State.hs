@@ -14,7 +14,7 @@ module Pos.Wallet.Web.State.State
 
        -- * Getters
        , getProfile
-       , getWAddressIds
+       , getAccountIds
        , getAccountMetas
        , getAccountMeta
        , getAccountWAddresses
@@ -100,8 +100,8 @@ updateDisk
     => event -> m (EventResult event)
 updateDisk e = getWalletWebState >>= flip A.update e
 
-getWAddressIds :: WebWalletModeDB ctx m => m [AccountId]
-getWAddressIds = queryDisk A.GetWAddressIds
+getAccountIds :: WebWalletModeDB ctx m => m [AccountId]
+getAccountIds = queryDisk A.GetAccountIds
 
 getAccountMetas :: WebWalletModeDB ctx m => m [CAccountMeta]
 getAccountMetas = queryDisk A.GetAccountMetas

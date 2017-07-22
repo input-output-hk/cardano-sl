@@ -540,7 +540,7 @@ getWalletAddrMetasDB
     :: (WebWalletModeDB ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
 getWalletAddrMetasDB lookupMode cWalId = do
-    walletAccountIds <- filter ((== cWalId) . aiWId) <$> WS.getWAddressIds
+    walletAccountIds <- filter ((== cWalId) . aiWId) <$> WS.getAccountIds
     concatMapM (getAccountAddrsOrThrowDB lookupMode) walletAccountIds
   where
     getAccountAddrsOrThrowDB

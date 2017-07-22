@@ -184,8 +184,10 @@ lrcDo epoch consumers tip = tip <$ do
                         return s
                     Left err -> do
                         logWarning $ sformat
-                            ("SSC couldn't compute seed: "%build) err
-                        logWarning "Going to reuse seed for previous epoch"
+                            ("SSC couldn't compute seed: "%build%
+                             " for epoch "%build%
+                             ", going to reuse seed for previous epoch")
+                            err epoch
                         getSeed (epoch - 1) >>=
                             maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
                 putSeed epoch seed

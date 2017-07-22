@@ -19,19 +19,23 @@ import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec, worker)
 import           Pos.Constants       (isDevelopment)
-import           Pos.Launcher        (NodeParams (..), runNodeReal)
+import           Pos.Explorer        (runExplorerBListener)
+import           Pos.Explorer.Socket (NotifierSettings (..))
+import           Pos.Explorer.Web    (ExplorerProd, explorerPlugin, notifierPlugin)
+import           Pos.Launcher        (NodeParams (..), NodeResources (..),
+                                      bracketNodeResources, hoistNodeResources, runNode,
+                                      runRealBasedMode)
 import           Pos.Shutdown        (triggerShutdown)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Update.Context  (UpdateContext, ucUpdateSemaphore)
-import           Pos.Util            (inAssertMode)
+import           Pos.Util            (inAssertMode, mconcatPair)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode        (RealMode)
 
 import           ExplorerOptions     (Args (..), getExplorerOptions)
 import           Params              (getNodeParams, gtSscParams)
 
-updateTriggerWorker :: ([WorkerSpec (RealMode SscGodTossing)], OutSpecs)
+updateTriggerWorker :: ([WorkerSpec ExplorerProd], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore
@@ -60,12 +64,25 @@ action args@Args {..} = do
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getNodeParams args systemStart
+    nodeParams <- getNodeParams args systemStart
     putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
     putText $ "Static peers is on: " <> show staticPeers
 
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+    let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams args vssSK
 
-    let plugins = updateTriggerWorker
-    runNodeReal @SscGodTossing currentParams gtParams plugins
+    let plugins = mconcatPair
+            [ explorerPlugin webPort undefined undefined undefined
+            , notifierPlugin NotifierSettings{ nsPort = notifierPort }
+            , updateTriggerWorker
+            ]
+    bracketNodeResources nodeParams gtParams $ \nr@NodeResources {..} ->
+        runExplorerRealMode
+            (hoistNodeResources (lift . lift) nr)
+            (runNode @SscGodTossing nrContext plugins)
+  where
+    runExplorerRealMode
+        :: NodeResources SscGodTossing ExplorerProd
+        -> (WorkerSpec ExplorerProd, OutSpecs)
+        -> Production ()
+    runExplorerRealMode = runRealBasedMode runExplorerBListener lift

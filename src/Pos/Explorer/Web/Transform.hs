@@ -2,7 +2,8 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Pos.Explorer.Web.Transform
-       ( explorerServeWebReal
+       ( ExplorerProd
+       , explorerServeWebReal
        , explorerPlugin
        , notifierPlugin
        ) where

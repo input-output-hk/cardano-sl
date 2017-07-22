@@ -21,8 +21,9 @@ import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logError, runNamedPureLog,
                                               usingLoggerName)
 
-import           Pos.Core                    (Address, Coin, HeaderHash, Timestamp,
-                                              mkCoin, unsafeAddCoin, unsafeSubCoin)
+import           Pos.Core                    (Address, Coin, EpochIndex, HeaderHash,
+                                              Timestamp, mkCoin, unsafeAddCoin,
+                                              unsafeSubCoin)
 import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
@@ -36,14 +37,15 @@ import           Pos.Util.Chrono             (NewestFirst (..))
 -- Global
 ----------------------------------------------------------------------------
 
-type EGlobalToilMode m = ( Txp.GlobalToilMode m
-                         , MonadTxExtra m
-                         )
+type EGlobalToilMode ctx m =
+    ( Txp.GlobalToilMode ctx m
+    , MonadTxExtra m
+    )
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 eApplyToil
-    :: EGlobalToilMode m
+    :: EGlobalToilMode ctx m
     => Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
@@ -62,7 +64,7 @@ eApplyToil curTime txun hh = do
         updateAddrBalances balanceUpdate
 
 -- | Rollback transactions from one block.
-eRollbackToil :: EGlobalToilMode m => [(TxAux, TxUndo)] -> m ()
+eRollbackToil :: EGlobalToilMode ctx m => [(TxAux, TxUndo)] -> m ()
 eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback txun
@@ -80,17 +82,18 @@ eRollbackToil txun = do
 -- Local
 ----------------------------------------------------------------------------
 
-type ELocalToilMode m = ( Txp.LocalToilMode m
-                        , MonadTxExtra m
-                        )
+type ELocalToilMode ctx m =
+    ( Txp.LocalToilMode ctx m
+    , MonadTxExtra m
+    )
 
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 eProcessTx
-    :: (ELocalToilMode m, MonadError ToilVerFailure m)
-    => (TxId, TxAux) -> TxExtra -> m ()
-eProcessTx tx@(id, aux) extra = do
-    undo <- Txp.processTx tx
+    :: (ELocalToilMode ctx m, MonadError ToilVerFailure m)
+    => EpochIndex -> (TxId, TxAux) -> TxExtra -> m ()
+eProcessTx curEpoch tx@(id, aux) extra = do
+    undo <- Txp.processTx curEpoch tx
     putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
     let balanceUpdate = getBalanceUpdate aux undo
     -- TODO: [CSM-245] do not discard logged errors
@@ -100,14 +103,15 @@ eProcessTx tx@(id, aux) extra = do
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 eNormalizeToil
-    :: (ELocalToilMode m)
-    => [(TxId, (TxAux, TxExtra))]
+    :: ELocalToilMode ctx m
+    => EpochIndex
+    -> [(TxId, (TxAux, TxExtra))]
     -> m ()
-eNormalizeToil txs = mapM_ normalize ordered
+eNormalizeToil curEpoch txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, (txAux, _)) = WithHash (taTx txAux) i
-    normalize = runExceptT . uncurry eProcessTx . repair
+    normalize = runExceptT . uncurry (eProcessTx curEpoch) . repair
     repair (i, (txAux, extra)) = ((i, txAux), extra)
 
 ----------------------------------------------------------------------------

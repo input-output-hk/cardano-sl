@@ -81,6 +81,7 @@ type MonadBlockBase ssc ctx m
        -- This constraints define block components' global logic.
        , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , HasLens LrcContext ctx LrcContext
+       , HasLens GenesisUtxo ctx GenesisUtxo
        , SscGStateClass ssc
        , MonadReader ctx m
        )

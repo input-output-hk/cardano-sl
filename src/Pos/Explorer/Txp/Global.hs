@@ -36,8 +36,8 @@ explorerTxpGlobalSettings =
     }
 
 eApplyBlocksSettings
-    :: forall m.
-       (EGlobalToilMode m, MonadSlots m)
+    :: forall ctx m.
+       (EGlobalToilMode ctx m, MonadSlots m)
     => ApplyBlocksSettings ExplorerExtra m
 eApplyBlocksSettings =
     ApplyBlocksSettings
@@ -54,13 +54,13 @@ extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
     map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
     map GS.DelAddrBalance (MM.deletions balances)
 
-applyBlund :: (MonadSlots m, EGlobalToilMode m) => TxpBlund -> m ()
+applyBlund :: (MonadSlots m, EGlobalToilMode ctx m) => TxpBlund -> m ()
 applyBlund blund = do
     curTime <- currentTimeSlotting
     uncurry (eApplyToil curTime) $ blundToAuxNUndoWHash blund
 
 rollbackBlocks
-    :: TxpGlobalRollbackMode m
+    :: TxpGlobalRollbackMode ctx m
     => NewestFirst NE TxpBlund -> m SomeBatchOp
 rollbackBlocks blunds =
     (genericToilModifierToBatch extraOps) . snd <$>

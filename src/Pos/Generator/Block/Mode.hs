@@ -64,7 +64,7 @@ import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), TxOut (..),
-                                              TxOutAux (..), TxpGlobalSettings,
+                                              TxOutAux (..), TxpGlobalSettings, GenesisUtxo,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
 import           Pos.Txp.Toil.Types          (GenesisUtxo (..))
@@ -266,6 +266,9 @@ instance HasTxGenParams BlockGenContext where
 instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
+
+instance HasLens GenesisUtxo BlockGenContext GenesisUtxo where
+    lensOf = bgcGenesisUtxo_L
 
 instance HasLens DBSum BlockGenContext DBSum where
     lensOf = GS.gStateContext . GS.gscDB

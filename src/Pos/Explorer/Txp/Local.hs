@@ -13,25 +13,26 @@ import           Data.Default                (def)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
+import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 
-import           Pos.Core                    (HeaderHash, Timestamp)
-import           Pos.DB.Class                (MonadDBRead, MonadGState)
+import           Pos.Core                    (BlockVersionData, EpochIndex, HeaderHash,
+                                              Timestamp, siEpoch)
+import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB             as ExDB
 import qualified Pos.GState                  as GS
-import           Pos.Slotting                (MonadSlots (currentTimeSlotting))
+import           Pos.Slotting                (MonadSlots (currentTimeSlotting, getCurrentSlot))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, toaOut,
                                               txOutAddress)
 import           Pos.Txp.MemState            (GenericTxpLocalDataPure, MonadTxpMem,
                                               getLocalTxsMap, getTxpExtra,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..), MonadToilEnv,
-                                              MonadUtxoRead (..), ToilEnv,
-                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
-                                              getToilEnv, runDBToil, runToilTLocalExtra,
-                                              utxoGet)
+import           Pos.Txp.Toil                (GenericToilModifier (..), GenesisUtxo,
+                                              MonadUtxoRead (..), ToilVerFailure (..),
+                                              Utxo, evalUtxoStateT, runDBToil,
+                                              runToilTLocalExtra, utxoGet)
 import           Pos.Util.Chrono             (NewestFirst (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -48,6 +49,7 @@ type ETxpLocalWorkMode ctx m =
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
     , MonadSlots m
+    , HasLens GenesisUtxo ctx GenesisUtxo
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -61,7 +63,7 @@ newtype ExplorerReaderWrapper m a = ExplorerReaderWrapper
                , Monad
                , MonadError e
                , MonadUtxoRead
-               , MonadToilEnv
+               , MonadGState
                )
 
 instance Monad m => MonadTxExtraRead (ExplorerReaderWrapper (ReaderT ExplorerExtraTxp m)) where
@@ -75,13 +77,15 @@ eTxProcessTransaction
 eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
+    epoch <- siEpoch <$> (note ToilUnknownCurEpoch =<< getCurrentSlot)
+    genUtxo <- view (lensOf @GenesisUtxo)
+    bvd <- gsAdoptedBVData
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
     -- possible that invalid transaction will appear in
     -- mempool. However, in this case it will be removed by
     -- normalization before releasing lock on block application.
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
-    toilEnv <- runDBToil getToilEnv
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.
     let resolved = M.fromList $
@@ -100,7 +104,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     -- hence `mempty` here.
     let eet = ExplorerExtraTxp mempty hmHistories hmBalances
     pRes <- lift $ modifyTxpLocalData "eTxProcessTransaction" $
-            processTxDo resolved toilEnv tipBefore itw curTime eet
+            processTxDo epoch bvd genUtxo resolved tipBefore itw curTime eet
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -109,15 +113,17 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
             logDebug $ sformat ("Transaction is processed successfully: "%build) txId
   where
     processTxDo
-        :: Utxo
-        -> ToilEnv
+        :: EpochIndex
+        -> BlockVersionData
+        -> GenesisUtxo
+        -> Utxo
         -> HeaderHash
         -> (TxId, TxAux)
         -> Timestamp
         -> ExplorerExtraTxp
         -> ETxpLocalDataPure
         -> (Either ToilVerFailure (), ETxpLocalDataPure)
-    processTxDo resolved toilEnv tipBefore tx curTime eet txld@(uv, mp, undo, tip, extra)
+    processTxDo curEpoch bvd genUtxo resolved tipBefore tx curTime eet txld@(uv, mp, undo, tip, extra)
         | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
             let execToil action =
@@ -130,9 +136,9 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
                      flip evalUtxoStateT resolved $
                      flip runReaderT eet $
                      runExplorerReaderWrapper $
+                     flip runReaderT genUtxo $
                      execToil $
-                     eProcessTx tx (TxExtra Nothing curTime txUndo))
-                        toilEnv
+                     eProcessTx curEpoch tx (TxExtra Nothing curTime txUndo)) bvd
             in case res of
                 Left er  -> (Left er, txld)
                 Right ToilModifier{..} ->
@@ -147,16 +153,13 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize ::
-       ( MonadIO m
-       , MonadBaseControl IO m
-       , MonadDBRead m
-       , MonadGState m
-       , MonadTxpMem ExplorerExtra ctx m
-       , WithLogger m
+       ( ETxpLocalWorkMode ctx m
+       , MonadSlots m
        )
     => m ()
 eTxNormalize = do
     utxoTip <- GS.getTip
+    epoch <- maybe (throwM ToilUnknownCurEpoch) (pure . siEpoch) =<< getCurrentSlot
     localTxs <- getLocalTxsMap
     extra <- getTxpExtra
     let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
@@ -164,5 +167,5 @@ eTxNormalize = do
     ToilModifier {..} <-
         runDBToil $
         snd <$>
-        runToilTLocalExtra mempty def mempty def (eNormalizeToil toNormalize)
+        runToilTLocalExtra mempty def mempty def (eNormalizeToil epoch toNormalize)
     setTxpLocalData "eTxNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

@@ -50,6 +50,7 @@ module Pos.DB.Class
        , gsMaxProposalSize
        , gsUnlockStakeEpoch
        , gsIsBootstrapEra
+       , isBootstrapEraPure
 
          -- * Block DB
        , MonadBlockDBGeneric (..)
@@ -161,6 +162,9 @@ instance {-# OVERLAPPABLE #-}
 class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
 
+instance MonadGState ((->) BlockVersionData) where
+    gsAdoptedBVData = identity
+
 instance {-# OVERLAPPABLE #-}
     (MonadGState m, MonadTrans t,
      Monad (t m)) =>
@@ -183,13 +187,15 @@ gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
 gsUnlockStakeEpoch :: MonadGState m => m EpochIndex
 gsUnlockStakeEpoch = bvdUnlockStakeEpoch <$> gsAdoptedBVData
 
+-- | Checks if provided epoch is in the bootstrap era (pure version)
+isBootstrapEraPure :: EpochIndex -> EpochIndex -> Bool
+isBootstrapEraPure unlockEpoch curEpoch =
+    if isDevelopment then False
+    else isBootstrapEra unlockEpoch curEpoch
+
 -- | Checks if provided epoch is in the bootstrap era.
 gsIsBootstrapEra :: MonadGState m => EpochIndex -> m Bool
-gsIsBootstrapEra epoch =
-    if isDevelopment then pure False
-    else do
-        unlockStakeEpoch <- gsUnlockStakeEpoch
-        return $ isBootstrapEra unlockStakeEpoch epoch
+gsIsBootstrapEra epoch = flip isBootstrapEraPure epoch <$> gsUnlockStakeEpoch
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction

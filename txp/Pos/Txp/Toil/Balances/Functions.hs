@@ -75,11 +75,9 @@ recomputeStakes plusDistr minusDistr = do
         Just x -> pure (x, [])
         Nothing -> pure (mkCoin 0, [ad])
     calcPosStakes = foldl' plusAt HM.empty
+    -- This implementation does all the computation using
+    -- Integer. Maybe it's possible to do it in word64. (@volhovm)
     calcNegStakes distr hm = foldl' minusAt hm distr
-    -- @pva701 says it's not possible to get negative coin here. We *can* in
-    -- theory get overflow because we're adding and only then subtracting,
-    -- but in practice it won't happen unless someone has 2^63 coins or
-    -- something.
     plusAt hm (key, c) = HM.insertWith (+) key (coinToInteger c) hm
     minusAt hm (key, c) =
         HM.alter (maybe err (\v -> Just (v - coinToInteger c))) key hm

@@ -136,7 +136,7 @@ overrideTxDistrBoot ::
        (TxCreateMode ctx m) => TxOutputs -> ExceptT Text m TxOutputs
 overrideTxDistrBoot outputs = do
     forM outputs $ \TxOutAux{..} -> do
-        newStakeDistr <- overrideTxOutDistrBoot  (txOutValue toaOut) toaDistr
+        newStakeDistr <- overrideTxOutDistrBoot (txOutValue toaOut) toaDistr
         pure $ TxOutAux toaOut newStakeDistr
 
 -- | Like 'makePubKeyTx', but allows usage of different signers

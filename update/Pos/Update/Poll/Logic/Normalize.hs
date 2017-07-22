@@ -18,7 +18,7 @@ import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (logWarning)
 
 import           Pos.Core                    (Coin, EpochIndex, SlotId (siEpoch),
-                                              addressHash, applyCoinPortion, mkCoin,
+                                              addressHash, applyCoinPortionUp, mkCoin,
                                               unsafeAddCoin)
 import           Pos.Crypto                  (PublicKey, hash)
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposal,
@@ -155,7 +155,7 @@ filterProposalsByThd epoch proposalsHM = getEpochTotalStake epoch >>= \case
                          epoch)
     Just totalStake -> do
         thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
-        let threshold = applyCoinPortion thresholdPortion totalStake
+        let threshold = applyCoinPortionUp thresholdPortion totalStake
         let proposals = HM.toList proposalsHM
         filtered <-
             HM.fromList <$> filterM (hasEnoughStake threshold . fst) proposals

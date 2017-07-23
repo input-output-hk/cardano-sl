@@ -14,11 +14,13 @@ translation =
         , cTransactions: "Transactions"
         , cTransactionFeed: "Transactions Feed"
         , cAddress: "Address"
+        , cAddresses: "Addresses"
         , cVersion: "version"
         , cCalculator: "Calculator"
         , cNetwork: "Network"
         , cSummary: "Summary"
         , cBlock: "Slot"
+        , cGenesis: "Genesis block"
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoch"
@@ -40,6 +42,8 @@ translation =
         , cNotAvailable: "not available"
         , cLoading: "Loading..."
         , cBack2Dashboard: "Back to Dashboard"
+        , cYes: "yes"
+        , cNo: "no"
         , cDays: "Days"
         , cHours: "Hours"
         , cMinutes: "Minutes"
@@ -112,6 +116,14 @@ translation =
         , blRoot: "Merkle root"
         , blEpochSlotNotFound: "Epoch / slot do not exist."
         , blSlotNotFound: "Slot does not exist."
+        }
+    , genesisBlock:
+        { gblNotFound: "Genesis block not found."
+        , gblNumberRedeemedAddresses: "Redeemed addresses"
+        , gblAddressesNotFound: "Addresses do not exists."
+        , gblAddressesError: "Error while trying to load addresses."
+        , gblAddressRedeemAmount: "Redeemed amount"
+        , gblAddressIsRedeemed: "Redeemed"
         }
     , footer:
         { fooResources: "Resources"

@@ -13,12 +13,14 @@ translation =
         , cTransaction: "Transaktion"
         , cTransactions: "Transaktionen"
         , cTransactionFeed: "Transaktionen Feed"
-        , cAddress: "Addresse"
+        , cAddress: "Adresse"
+        , cAddresses: "Adressen"
         , cCalculator: "Rechner"
         , cNetwork: "Netzwerk"
         , cVersion: "Version"
         , cSummary: "Zusammenfassung"
         , cBlock: "Slot"
+        , cGenesis: "Genesis Block"
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoche"
@@ -40,6 +42,8 @@ translation =
         , cNotAvailable: "nicht verfügbar"
         , cLoading: "Lade..."
         , cBack2Dashboard: "Zurück zum Dashboard"
+        , cYes: "ja"
+        , cNo: "nein"
         , cDays: "Tage"
         , cHours: "Stunden"
         , cMinutes: "Minuten"
@@ -57,7 +61,7 @@ translation =
         }
     , hero:
         { hrSubtitle: "Suche Adressen, Transaktionen, Epochen und Slots im Cardano Netzwerk"
-        , hrSearch: "Suche Addressen, Transaktionen, Slots und Epochen"
+        , hrSearch: "Suche Adressen, Transaktionen, Slots und Epochen"
         , hrTime: "Zeit"
         }
     , dashboard:
@@ -80,7 +84,7 @@ translation =
         , dbTransactionSearch: "Transaktionssuche"
         , dbTransactionSearchDescription: "Transaktion ist der Transfer von Münzem vom Benutzer 'A' zum Benutzer 'B'."
         , dbApiDescription: "Unsere robuste API ist in unterschiedlichen Sprachen und SDKs verfügbar."
-        , dbGetAddress: "Addresse abfragen"
+        , dbGetAddress: "Adresse abfragen"
         , dbResponse: "Antwort"
         , dbCurl: "Curl"
         , dbNode: "Node"
@@ -94,7 +98,7 @@ translation =
         { addScan: "Scannen Sie hier den QR Code, um die Adresse in die Zwischenablage zu kopieren."
         , addQrCode: "QR-Code"
         , addFinalBalance: "Aktueller Kontostand"
-        , addNotFound: "Addresse existiert nicht."
+        , addNotFound: "Adresse existiert nicht."
         }
     , tx:
         { txTime: "Eingangszeit"
@@ -112,6 +116,14 @@ translation =
         , blRoot: "Oberer Slot"
         , blEpochSlotNotFound: "Epoche / Slot existiert nicht."
         , blSlotNotFound: "Slot existiert nicht."
+        }
+    , genesisBlock:
+        { gblNotFound: "Genesis Block existiert nicht."
+        , gblNumberRedeemedAddresses: "Anzahl eingelöster Adressen"
+        , gblAddressesNotFound: "Adressen existieren nicht."
+        , gblAddressesError: "Error beim Laden der Addressen"
+        , gblAddressRedeemAmount: "Einzulösender Wert"
+        , gblAddressIsRedeemed: "eingelöst"
         }
     , footer:
         { fooResources: "Ressourcen"

@@ -5,7 +5,7 @@ import Prelude
 import Data.Lens ((^.))
 import Data.Monoid (mempty)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
+import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cGenesis, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSelectedSearch, globalViewState, testnet, lang, route, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.State (headerSearchContainerId, mobileMenuSearchContainerId)
@@ -67,5 +67,6 @@ title (EpochSlot epoch slot) lang =
     slotTitle = translate (I18nL.common <<< I18nL.cSlot) lang
 title Calculator lang = translate (I18nL.common <<< I18nL.cCalculator) lang
 title (Block hash) lang = translate (I18nL.common <<< I18nL.cBlock) lang
+title GenesisBlock lang = translate (I18nL.common <<< I18nL.cGenesis) lang
 title Playground _ = "Playground"
 title NotFound lang = translate (I18nL.notfound <<< I18nL.nfTitle) lang

@@ -1,14 +1,14 @@
 module Explorer.State where
 
 import Prelude
+
 import DOM.Node.Types (ElementId(..))
 import Data.DateTime.Instant (instant, toDateTime)
 import Data.Maybe (Maybe(..), fromJust)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)
-import Explorer.I18n.Lang (Language(..), translate)
-import Explorer.I18n.Lenses (common, cTitle) as I18nL
+import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), PageNumber(..), Search(..), SearchEpochSlotQuery, SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..))
@@ -57,6 +57,12 @@ initialState =
             { blsViewPagination: PageNumber minPagination
             , blsViewPaginationEditable: false
             }
+        , genesisBlockViewState:
+            { gblAddressInfosPagination: PageNumber minPagination
+            , gblMaxAddressInfosPagination: NotAsked
+            , gblAddressInfosPaginationEditable: false
+            , gblLoadingAddressInfosPagination: false
+            }
         }
     , latestBlocks: NotAsked
     , currentBlockSummary: NotAsked
@@ -66,6 +72,8 @@ initialState =
     , currentCAddress: mkCAddress ""
     , currentAddressSummary: NotAsked
     , currentBlocksResult: NotAsked
+    , currentCGenesisSummary: NotAsked
+    , currentCGenesisAddressInfos: NotAsked
     , errors: []
     , loading: false
     , now: toDateTime $ unsafePartial $ fromJust $ instant $ Milliseconds 0.0

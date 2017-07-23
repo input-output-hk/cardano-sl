@@ -20,6 +20,7 @@ import Explorer.View.CSS (route) as CSS
 import Explorer.View.Calculator (calculatorView)
 import Explorer.View.Dashboard.Dashboard (dashboardView)
 import Explorer.View.Footer (footerView)
+import Explorer.View.GenesisBlock (genesisBlockView)
 import Explorer.View.Header (headerView)
 import Explorer.View.NotFound (notFoundView)
 import Explorer.View.Playground (playgroundView)
@@ -44,6 +45,7 @@ view state =
                                 (EpochSlot epoch slot) -> blocksView state
                                 Calculator -> calculatorView state
                                 (Block hash) -> blockView state
+                                GenesisBlock -> genesisBlockView state
                                 Playground -> playgroundView state
                                 NotFound -> notFoundView state
                             footerView state

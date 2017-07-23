@@ -21,13 +21,11 @@ import           Universum
 import           Control.Lens                 (mapped, (?~))
 import           Data.Aeson                   (encode)
 import qualified Data.ByteString.Lazy.Char8   as BSL8
-import           Data.Swagger                 (Operation, Swagger,
-                                               ToParamSchema (..),
+import           Data.Swagger                 (Operation, Swagger, ToParamSchema (..),
                                                ToSchema (..), declareNamedSchema,
-                                               defaultSchemaOptions,
-                                               description,
-                                               genericDeclareNamedSchema, host, info, name,
-                                               title, version)
+                                               defaultSchemaOptions, description,
+                                               genericDeclareNamedSchema, host, info,
+                                               name, title, version)
 import           Data.Typeable                (Typeable, typeRep)
 import           Data.Version                 (showVersion)
 import           Servant                      ((:>))
@@ -35,8 +33,8 @@ import           Servant.Multipart            (MultipartForm)
 import           Servant.Swagger              (HasSwagger (toSwagger), subOperations)
 
 import qualified Paths_cardano_sl_explorer    as CSLE
-import qualified Pos.Explorer.Web.ClientTypes as C
 import qualified Pos.Explorer.Web.Api         as A
+import qualified Pos.Explorer.Web.ClientTypes as C
 import           Pos.Explorer.Web.Error       (ExplorerError)
 
 import qualified Description                  as D
@@ -70,6 +68,8 @@ instance ToSchema      C.CAddressType
 instance ToSchema      C.CAddressSummary
 instance ToSchema      C.CCoin
 instance ToSchema      C.CNetworkAddress
+instance ToSchema      C.CGenesisSummary
+instance ToSchema      C.CGenesisAddressInfo
 instance ToSchema      ExplorerError
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.

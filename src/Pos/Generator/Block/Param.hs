@@ -46,7 +46,7 @@ instance Buildable AllSecrets where
 data TxGenParams = TxGenParams
     { _tgpTxCountRange :: !(Word, Word)
     -- ^ Such (a, d), that there block will include some x ∈ [a, a+d)
-    -- transactions. Set to (y,y) to disable tx generation.
+    -- transactions. Set to (y,0) to disable tx generation.
     , _tgpMaxOutputs   :: !Word
     -- ^ Maximum number of tx outputs.
     }
@@ -67,8 +67,8 @@ instance Show TxGenParams where
     show = formatToString build
 
 instance Default TxGenParams where
-    def = TxGenParams { _tgpTxCountRange = (0,100)
-                      , _tgpMaxOutputs = 5
+    def = TxGenParams { _tgpTxCountRange = (0,5)
+                      , _tgpMaxOutputs = 4
                       }
 
 -- | Parameters for blockchain generation. Probably they come from the outside.

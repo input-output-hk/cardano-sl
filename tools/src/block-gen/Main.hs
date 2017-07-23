@@ -2,27 +2,32 @@ module Main where
 
 import           Universum
 
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Map            as M
-import           Formatting          (build, sformat, (%))
-import           Mockable            (runProduction)
-import           System.Directory    (doesDirectoryExist)
-import           System.Wlog         (usingLoggerName)
+import           Control.Monad.Random.Strict (evalRandT)
+import           Data.Default                (def)
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.Map                    as M
+import           Formatting                  (build, sformat, (%))
+import           Mockable                    (runProduction)
+import           System.Directory            (doesDirectoryExist)
+import           System.Random               (newStdGen)
+import           System.Wlog                 (usingLoggerName)
 
-import           Pos.Core            (StakeDistribution (..), addressHash,
-                                      genesisDevKeyPairs, genesisProdAddrDistribution,
-                                      isDevelopment, makePubKeyAddress, mkCoin)
-import           Pos.Crypto          (SecretKey, toPublic)
-import           Pos.DB              (closeNodeDBs, openNodeDBs)
-import           Pos.Generator.Block (AllSecrets (..), BlockGenParams (..), genBlocks)
-import           Pos.Genesis         (devAddrDistr, genesisUtxo)
-import           Pos.Txp.Core        (TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil        (GenesisUtxo (..), Utxo)
-import           Pos.Util.UserSecret (peekUserSecret, usPrimKey)
+import           Pos.Core                    (StakeDistribution (..), addressHash,
+                                              genesisDevKeyPairs,
+                                              genesisProdAddrDistribution, isDevelopment,
+                                              makePubKeyAddress, mkCoin)
+import           Pos.Crypto                  (SecretKey, toPublic)
+import           Pos.DB                      (closeNodeDBs, openNodeDBs)
+import           Pos.Generator.Block         (AllSecrets (..), BlockGenParams (..),
+                                              genBlocks)
+import           Pos.Genesis                 (devAddrDistr, genesisUtxo)
+import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo)
+import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
 
-import           Context             (initTBlockGenMode)
-import           Error               (TBlockGenError (..))
-import           Options             (BlockGenOptions (..), getBlockGenOptions)
+import           Context                     (initTBlockGenMode)
+import           Error                       (TBlockGenError (..))
+import           Options                     (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
 main = flip catch catchEx $ do
@@ -59,14 +64,14 @@ main = flip catch catchEx $ do
     when (M.null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 
-    let bgenParams = BlockGenParams (AllSecrets secretsMap) (fromIntegral bgoBlockN) True
+    let bgenParams = BlockGenParams (AllSecrets secretsMap) (fromIntegral bgoBlockN) def True
     --seed <- maybe randomIO pure bgoSeed
     -- TODO use seed in the future
-
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
-        initTBlockGenMode db genUtxo $
-        void $ genBlocks bgenParams
+        initTBlockGenMode db genUtxo $ do
+            g <- liftIO newStdGen
+            void $ evalRandT (genBlocks bgenParams) g
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
     if isDevelopment then

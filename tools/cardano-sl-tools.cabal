@@ -534,11 +534,13 @@ executable cardano-block-gen
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl
+                     , data-default
                      , directory
                      , ether
                      , formatting
                      , lens
                      , log-warper
+                     , MonadRandom
                      , mtl
                      , node-sketch
                      , optparse-applicative

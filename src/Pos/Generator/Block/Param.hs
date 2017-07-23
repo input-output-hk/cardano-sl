@@ -57,7 +57,7 @@ instance Buildable TxGenParams where
     build TxGenParams {..} = do
         let (a,d) = _tgpTxCountRange
         bprint ("TxGenParams {\n"%
-                "  tx count (from,to): "%pairF%"\n"%
+                "  tx count [from,to): "%pairF%"\n"%
                 "  max outputs: "%int%"\n"%
                 "}\n")
             (a,a+d)

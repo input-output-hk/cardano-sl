@@ -65,6 +65,9 @@ recomputeStakes plusDistr minusDistr = do
                         coinToInteger totalStake + positiveDelta - negativeDelta
     let newStakes
           = HM.toList $
+            -- It's safe befause user's stake can't be more than a
+            -- limit. Also we first add then subtract, so we return to
+            -- the word64 range.
             map unsafeIntegerToCoin $
             calcNegStakes minusDistr
                 (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)

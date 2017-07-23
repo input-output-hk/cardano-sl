@@ -61,7 +61,7 @@ data NodeParams = NodeParams
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
-    , npGenesisUtxo    :: !GenesisUtxo                 -- ^ Predefined genesis utxo
+    , npGenesisUtxo    :: !GenesisUtxo          -- ^ Predefined genesis utxo
     , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
     , npPropagation    :: !Bool                 -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npReportServers  :: ![Text]               -- ^ List of report server URLs

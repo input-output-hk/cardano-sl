@@ -57,11 +57,11 @@ import           Pos.Delegation.Cede         (detectCycleOnAddition, evalMapCede
 import           Pos.Delegation.Class        (DlgMemPool, MonadDelegation,
                                               askDelegationState, dwConfirmationCache,
                                               dwEpochId, dwMessageCache, dwPoolSize,
-                                              dwProxySKPool, dwThisEpochPosted)
+                                              dwProxySKPool)
 import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction,
                                               runDelegationStateAction)
-import           Pos.Delegation.Types        (DlgPayload, DlgUndo, mkDlgPayload)
+import           Pos.Delegation.Types        (DlgPayload, mkDlgPayload)
 import qualified Pos.GState                  as GS
 import           Pos.Lrc.Context             (LrcContext)
 import qualified Pos.Lrc.DB                  as LrcDB
@@ -77,14 +77,10 @@ import qualified Pos.Util.Concurrent.RWVar   as RWV
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getDlgMempool
     :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
-    => m (DlgPayload, DlgUndo)
+    => m DlgPayload
 getDlgMempool = do
-    sks <- runDelegationStateAction $
-        uses dwProxySKPool HM.elems
-    let issuers = map pskIssuerPk sks
-    let payload = leftToPanic "getDlgMempool: " $ mkDlgPayload sks
-    toRollback <- catMaybes <$> mapM (GS.getPskByIssuer . Left) issuers
-    pure (payload, toRollback)
+    sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
+    pure $ leftToPanic "getDlgMempool: " $ mkDlgPayload sks
 
 -- | Clears delegation mempool.
 clearDlgMemPool
@@ -176,7 +172,7 @@ processProxySKHeavy psk = do
         posted <- uses dwProxySKPool (\m -> isJust $ HM.lookup iPk m)
         existsSame <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
-        alreadyPosted <- uses dwThisEpochPosted $ HS.member iPk
+        alreadyPosted <- GS.isIssuerPostedThisEpoch $ addressHash iPk
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
         let isRevoke = isRevokePsk psk

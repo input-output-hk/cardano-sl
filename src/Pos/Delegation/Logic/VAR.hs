@@ -30,13 +30,13 @@ import           Pos.Binary.Communication     ()
 import           Pos.Block.Core               (Block, BlockSignature (..),
                                                mainBlockDlgPayload, mainHeaderLeaderKey,
                                                mcdSignature)
-import           Pos.Block.Types              (Blund, Undo (undoPsk))
+import           Pos.Block.Types              (Blund, Undo (undoDlg))
 import           Pos.Context                  (lrcActionOnEpochReason)
 import           Pos.Core                     (EpochIndex (..), StakeholderId,
                                                addressHash, epochIndexL, gbHeader,
                                                gbhConsensus, headerHash, prevBlockL)
 import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
-                                               PublicKey, psigPsk, shortHashF)
+                                               psigPsk, shortHashF)
 import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,
                                                SomeBatchOp (..))
 import qualified Pos.DB                       as DB
@@ -48,14 +48,13 @@ import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..),
                                                dlgReachesIssuance, evalMapCede,
                                                getPskChain, getPskPk, modPsk,
                                                pskToDlgEdgeAction, runDBCede)
-import           Pos.Delegation.Class         (MonadDelegation, dwEpochId, dwProxySKPool,
-                                               dwThisEpochPosted)
+import           Pos.Delegation.Class         (MonadDelegation, dwEpochId, dwProxySKPool)
 import           Pos.Delegation.Helpers       (isRevokePsk)
-import           Pos.Delegation.Logic.Common  (DelegationError (..), getPSKsFromThisEpoch,
+import           Pos.Delegation.Logic.Common  (DelegationError (..),
                                                runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
                                                deleteFromDlgMemPool, processProxySKHeavy)
-import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo)
+import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo (..))
 import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
@@ -315,7 +314,7 @@ getNoLongerRichmen newEpoch =
 
 -- State needed for 'delegationVerifyBlocks'.
 data DlgVerState = DlgVerState
-    { _dvCurEpoch   :: !(HashSet PublicKey)
+    { _dvCurEpoch   :: !(HashSet StakeholderId)
       -- ^ Set of issuers that have already posted certificates this epoch
     }
 
@@ -344,11 +343,7 @@ dlgVerifyBlocks ::
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE DlgUndo))
 dlgVerifyBlocks blocks = do
-    tip <- GS.getTip
-    fromGenesisPsks <- getPSKsFromThisEpoch @ssc tip
-    let _dvCurEpoch = HS.fromList $ map pskIssuerPk fromGenesisPsks
-    when (HS.size _dvCurEpoch /= length fromGenesisPsks) $
-        throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
+    _dvCurEpoch <- HS.fromList <$> GS.getThisEpochPostedKeys
     let initState = DlgVerState _dvCurEpoch
     (richmen :: HashSet StakeholderId) <-
         lrcActionOnEpochReason
@@ -365,13 +360,15 @@ dlgVerifyBlocks blocks = do
         Block ssc ->
         ExceptT Text (MapCede (StateT DlgVerState m)) DlgUndo
     verifyBlock _ (Left genesisBlk) = do
+        prevThisEpochPosted <- use dvCurEpoch
         dvCurEpoch .= HS.empty
         let blkEpoch = genesisBlk ^. epochIndexL
-        noLongerRichmen <- getNoLongerRichmen blkEpoch
+        noLongerRichmen <- lift $ lift $ getNoLongerRichmen blkEpoch
         deletedPSKs <- catMaybes <$> mapM getPsk noLongerRichmen
         -- We should delete all certs for people who are not richmen.
         let delFromCede = modPsk . DlgEdgeDel . addressHash . pskIssuerPk
-        deletedPSKs <$ mapM_ delFromCede deletedPSKs
+        mapM_ delFromCede deletedPSKs
+        pure $ DlgUndo deletedPSKs prevThisEpochPosted
     verifyBlock richmen (Right blk) = do
         -- We assume here that issuers list doesn't contain
         -- duplicates (checked in payload construction).
@@ -419,6 +416,7 @@ dlgVerifyBlocks blocks = do
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload blk
             toIssuers = map pskIssuerPk
             allIssuers = toIssuers proxySKs
+            allIssuersSt = map addressHash allIssuers
             (revokeIssuers, changeIssuers) =
                 bimap toIssuers toIssuers $ partition isRevokePsk proxySKs
 
@@ -430,7 +428,7 @@ dlgVerifyBlocks blocks = do
 
         -- Check 4: No issuer has posted psk this epoch before.
         curEpoch <- use dvCurEpoch
-        when (any (`HS.member` curEpoch) allIssuers) $
+        when (any (`HS.member` curEpoch) allIssuersSt) $
             throwError $ sformat ("Block "%build%" contains issuers that "%
                                   "have already published psk this epoch")
                                  (headerHash blk)
@@ -474,8 +472,8 @@ dlgVerifyBlocks blocks = do
                     (headerHash blk)
                     (take 5 $ cyclePoints) -- should be enough
 
-        dvCurEpoch %= HS.union (HS.fromList allIssuers)
-        pure toRollback
+        dvCurEpoch %= HS.union (HS.fromList allIssuersSt)
+        pure $ DlgUndo toRollback mempty
 
 -- | Applies a sequence of definitely valid blocks to memory state and
 -- returns batchops. It works correctly only in case blocks don't
@@ -503,18 +501,21 @@ dlgApplyBlocks blunds = do
   where
     blocks = map fst blunds
     applyBlock :: Blund ssc -> m SomeBatchOp
-    applyBlock ((Left block), undoPsk -> undoPsks) = do
+    applyBlock ((Left block), undoDlg -> DlgUndo{..}) = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
             clearDlgMemPoolAction
-            dwThisEpochPosted .= HS.empty
             dwEpochId .= (block ^. epochIndexL)
         -- For genesis blocks, dlg undo is richmen that lost their stake.
         -- So we delete all these guys.
-        let edgeActions = map (DlgEdgeDel . addressHash . pskIssuerPk) undoPsks
+        let edgeActions = map (DlgEdgeDel . addressHash . pskIssuerPk) duPsks
         let edgeOp = SomeBatchOp $ map GS.PskFromEdgeAction edgeActions
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-        pure $ edgeOp <> transCorrections
+        -- we also should delete all people who posted previous epoch
+        let postedOp =
+                SomeBatchOp $ map GS.DelPostedThisEpoch $
+                HS.toList duPrevEpochPosted
+        pure $ edgeOp <> transCorrections <> postedOp
     applyBlock ((Right block), _) = do
         -- for main blocks we can get psks directly from the block,
         -- though it's duplicated in the undo.
@@ -525,9 +526,7 @@ dlgApplyBlocks blunds = do
         let batchOps = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
         runDelegationStateAction $ do
             dwEpochId .= block ^. epochIndexL
-            for_ issuers $ \i -> do
-                deleteFromDlgMemPool i
-                dwThisEpochPosted %= HS.insert i
+            forM_ issuers deleteFromDlgMemPool
         pure $ SomeBatchOp batchOps
 
 
@@ -550,16 +549,20 @@ dlgRollbackBlocks blunds = do
     getNewestFirst <$> mapM rollbackBlund blunds
   where
     rollbackBlund :: Blund ssc -> m SomeBatchOp
-    rollbackBlund (Left _, _) = pure $ SomeBatchOp ([]::[GS.DelegationOp])
-    rollbackBlund (Right block, undo) = do
+    rollbackBlund (Left _, undoDlg -> DlgUndo{..}) =
+        -- We should restore "this epoch posted" set to one from the undo
+        pure $ SomeBatchOp $ map GS.AddPostedThisEpoch $ HS.toList duPrevEpochPosted
+    rollbackBlund (Right block, undoDlg -> DlgUndo{..}) = do
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
-            toUndo = undoPsk undo
-            backDeleted = issuers \\ map pskIssuerPk toUndo
+            backDeleted = issuers \\ map pskIssuerPk duPsks
             edgeActions = map (DlgEdgeDel . addressHash) backDeleted
-                       <> map DlgEdgeAdd toUndo
+                       <> map DlgEdgeAdd duPsks
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-        pure $ SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
+        let pskOp = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
+        -- we should also delete issuers from "posted this epoch already"
+        let postedOp = SomeBatchOp $ map (GS.DelPostedThisEpoch . addressHash) issuers
+        pure $ pskOp <> postedOp
 
 -- | Normalizes the memory state after the rollback.
 dlgNormalizeOnRollback ::
@@ -578,12 +581,8 @@ dlgNormalizeOnRollback ::
     => m ()
 dlgNormalizeOnRollback = do
     tip <- DB.getTipHeader @ssc
-    let tipEpoch = tip ^. epochIndexL
-    fromGenesisPsks <-
-        map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
     oldPool <- runDelegationStateAction $ do
-        dwEpochId .= tipEpoch
-        dwThisEpochPosted .= HS.fromList fromGenesisPsks
+        dwEpochId .= (tip ^. epochIndexL)
         pool <- uses dwProxySKPool toList
         dwProxySKPool .= mempty
         pure pool

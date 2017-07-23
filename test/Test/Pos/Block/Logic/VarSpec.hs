@@ -58,13 +58,13 @@ verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
     -- unsafeHead is safe here, because we explicitly request to
     -- generate exactly 1 block
-    emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1)
+    emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1) False
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) stopProperty
 
 verifyValidBlocks :: BlockProperty ()
 verifyValidBlocks = do
     bpGoToArbitraryState
-    blocks <- map fst . toList <$> bpGenBlocks Nothing
+    blocks <- map fst . toList <$> bpGenBlocks Nothing True
     pre (not $ null blocks)
     let blocksToVerify =
             OldestFirst $
@@ -122,7 +122,7 @@ applyByOneOrAllAtOnce ::
     -> BlockProperty ()
 applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
-    blunds <- getOldestFirst <$> bpGenBlocks Nothing
+    blunds <- getOldestFirst <$> bpGenBlocks Nothing True
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
     stateAfter1by1 <-

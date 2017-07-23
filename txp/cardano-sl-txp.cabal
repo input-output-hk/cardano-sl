@@ -13,8 +13,9 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-    Pos.Txp.Arbitrary
-    Pos.Txp.Arbitrary.Unsafe
+    Pos.Arbitrary.Txp
+    Pos.Arbitrary.Txp.Unsafe
+
     Pos.Txp.Core
     Pos.Txp.Core.Core
     Pos.Txp.Core.Tx

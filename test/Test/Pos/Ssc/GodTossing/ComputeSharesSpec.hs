@@ -10,14 +10,14 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (.&&.), (===))
 import           Universum
 
+import           Pos.Arbitrary.Lrc     (GenesisMpcThd, InvalidRichmenStakes (..),
+                                        ValidRichmenStakes (..))
 import           Pos.Constants         (genesisMpcThd)
 import           Pos.Core              (mkCoin, unsafeAddressHash,
                                         unsafeCoinPortionFromDouble)
 import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
 import           Pos.Lrc               (RichmenStakes, RichmenType (RTUsual),
                                         findRichmenPure)
-import           Pos.Lrc.Arbitrary     (GenesisMpcThd, InvalidRichmenStakes (..),
-                                        ValidRichmenStakes (..))
 import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
                                         computeSharesDistrPure)
 

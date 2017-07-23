@@ -4,7 +4,7 @@
 -- {-# OPTIONS_GHC -F -pgmF autoexporter #-}
 
 module Pos.Lrc
-       ( module Pos.Lrc.Arbitrary
+       ( module Pos.Arbitrary.Lrc
        , module Pos.Lrc.Class
        , module Pos.Lrc.Consumer
        , module Pos.Lrc.Consumers
@@ -20,7 +20,7 @@ module Pos.Lrc
        , module Pos.Lrc.Worker
        ) where
 
-import           Pos.Lrc.Arbitrary
+import           Pos.Arbitrary.Lrc
 import           Pos.Lrc.Class
 import           Pos.Lrc.Consumer
 import           Pos.Lrc.Consumers

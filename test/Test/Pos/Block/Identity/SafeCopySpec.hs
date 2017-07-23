@@ -7,7 +7,7 @@ module Test.Pos.Block.Identity.SafeCopySpec
 import           Test.Hspec          (Spec, describe)
 import           Universum
 
-import           Pos.Block.Arbitrary ()
+import           Pos.Arbitrary.Block ()
 import qualified Pos.Block.Core      as BT
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)

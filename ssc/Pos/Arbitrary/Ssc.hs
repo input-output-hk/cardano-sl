@@ -1,4 +1,4 @@
-module Pos.Ssc.Arbitrary
+module Pos.Arbitrary.Ssc
        ( SscPayloadDependsOnSlot (..)
        ) where
 

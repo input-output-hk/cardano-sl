@@ -4,13 +4,13 @@ module Test.Pos.DHT.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec               (Spec, describe)
+import           Test.Hspec          (Spec, describe)
 import           Universum
 
-import qualified Pos.DHT.Model            as DHT
-import           Pos.Infra.Arbitrary      ()
+import           Pos.Arbitrary.Infra ()
+import qualified Pos.DHT.Model       as DHT
 
-import           Test.Pos.Util            (binaryTest, storeTest)
+import           Test.Pos.Util       (binaryTest, storeTest)
 
 spec :: Spec
 spec = describe "DHT.Model" $ do

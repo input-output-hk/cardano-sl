@@ -10,7 +10,7 @@ module Pos.Txp
        , module Pos.Txp.Toil
        ) where
 
-import           Pos.Txp.Arbitrary ()
+import           Pos.Arbitrary.Txp ()
 import           Pos.Txp.Core
 import           Pos.Txp.Error
 import           Pos.Txp.Logic

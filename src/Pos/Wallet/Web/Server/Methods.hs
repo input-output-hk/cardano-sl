@@ -62,19 +62,21 @@ import           Pos.Aeson.WalletBackup           ()
 import           Pos.Binary.Class                 (biSize)
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util              (TxError (..), createMTx)
+import           Pos.Client.Txp.Util              (TxError (..), createMTx,
+                                                   overrideTxDistrBoot,
+                                                   overrideTxOutDistrBoot)
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
-import           Pos.Context                      (GenesisUtxo, genesisStakeholdersM)
+import           Pos.Context                      (GenesisUtxo)
 import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
                                                    TxSizeLinear (..), addressF,
                                                    bvdTxFeePolicy, calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, integerToCoin,
-                                                   makeRedeemAddress, mkCoin, siEpoch,
-                                                   sumCoins, unsafeAddCoin, unsafeGetCoin,
-                                                   unsafeIntegerToCoin, unsafeSubCoin)
+                                                   makeRedeemAddress, mkCoin, sumCoins,
+                                                   unsafeAddCoin, unsafeIntegerToCoin,
+                                                   unsafeSubCoin)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SafeSigner, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
@@ -83,14 +85,12 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.DB.Class                     (gsAdoptedBVData, gsIsBootstrapEra)
+import           Pos.DB.Class                     (gsAdoptedBVData)
 import           Pos.Discovery                    (getPeers)
-import           Pos.Genesis                      (genesisDevHdwSecretKeys,
-                                                   genesisSplitBoot)
+import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
-import           Pos.Slotting                     (MonadSlots (..))
 import           Pos.Txp                          (TxFee (..))
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..),
                                                    TxOutDistribution)
@@ -789,32 +789,15 @@ prepareTxRaw moneySource dstDistr fee = do
     let addrWBal = reverse $ sortWith snd $ zip notDstAddrs balancesInps
     (remaining, trSpendings) <- selectSrcAddresses addrWBal coins fee
 
-    epoch <- siEpoch <$>
-        -- @pva701 suggests that blocking here is fine. A prompt will be shown
-        -- to the user saying something along the lines of "Syncing with
-        -- blockchain 95.0%".
-        getCurrentSlotBlocking
-    bootEra <- gsIsBootstrapEra epoch
-    genStakeholders <- genesisStakeholdersM
-    let cantSpendDust c =
-            throwM $ RequestError $
-            sformat ("Can't spend "%build%" coins: amount is too small for boot "%
-                     " era and can't be distributed among genStakeholders")
-                    c
-    let stakeDistr c =
-            if not bootEra then pure [] else do
-                -- we want to be able to distribute at least 1 coin to everybody
-                when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
-                    cantSpendDust c
-                -- TODO CSL-1351 boot stakeholders' weights are not used
-                pure $ genesisSplitBoot (HM.fromList $ map (,1) $ toList genStakeholders) c
-
-    trOutputs <- forM dstDistr $ \(cAddr, coin) -> do
+    let withDistr foo =
+            either (throwM . RequestError) pure =<<
+            runExceptT foo
+    trOutputsPre <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr
-        realDistr <- stakeDistr coin
-        pure $ TxOutAux (TxOut addr coin) realDistr
-    remainingDistr <- stakeDistr remaining -- check bootstrap statement for remaining coins
-    let trRemaining = (remaining, remainingDistr)
+        pure $ TxOutAux (TxOut addr coin) []
+    trOutputs <- withDistr $ overrideTxDistrBoot trOutputsPre
+    remainingDistr <- withDistr $ overrideTxOutDistrBoot remaining []
+    let trRemaining = (remaining,  remainingDistr)
     pure TxRaw{..}
 
 -- | Accept all addresses in descending order (by coins)

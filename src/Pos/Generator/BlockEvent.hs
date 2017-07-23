@@ -40,6 +40,7 @@ import           Control.Monad.Random.Strict (MonadRandom (..), RandT, Random (.
                                               RandomGen, runRand, uniform, weighted)
 import           Control.Monad.State         (MonadState (..))
 import           Data.Coerce                 (coerce)
+import           Data.Default                (def)
 import           Data.List                   ((!!))
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Semigroup              as Smg
@@ -198,10 +199,11 @@ genBlockEvents begp = do
             getBlockIndexRange preBlockEvents
         blockCount = BlockCount $
             fromIntegral (blockIndexEnd - blockIndexStart)
-    blocks <- lift $ genBlocks $ BlockGenParams
-        { _bgpSecrets    = begp ^. begpSecrets
-        , _bgpBlockCount = blockCount
-        , _bgpInplaceDB  = False
+    blocks <- genBlocks $ BlockGenParams
+        { _bgpSecrets     = begp ^. begpSecrets
+        , _bgpBlockCount  = blockCount
+        , _bgpTxGenParams = def -- should be better, right?
+        , _bgpInplaceDB   = False
         }
     let
         toZeroBased :: BlockIndex -> Int

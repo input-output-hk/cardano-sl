@@ -9,14 +9,14 @@ module Test.Pos.UtilSpec
        ) where
 
 import qualified Data.HashMap.Strict   as HM (difference, filter, intersection,
-                                              intersectionWith, keys, mapWithKey,
-                                              member, (!))
+                                              intersectionWith, keys, mapWithKey, member,
+                                              (!))
 import qualified Data.List.NonEmpty    as NE
 import qualified GHC.Exts              as IL (IsList (..))
-import           Pos.Core.Arbitrary    (SmallHashMap (..))
+
+import           Pos.Arbitrary.Core    (SmallHashMap (..))
 import           Pos.Util              (diffDoubleMap)
-import           Pos.Util.Chrono       (Chrono (..), NewestFirst (..),
-                                        OldestFirst (..))
+import           Pos.Util.Chrono       (Chrono (..), NewestFirst (..), OldestFirst (..))
 
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)

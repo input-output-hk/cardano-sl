@@ -47,7 +47,11 @@ instance MonadIO Emulation where
     liftIO m = Emulation . liftIO $ do
         -- if you see a lot of stars in the test log, a hunting season for
         -- not-mocked operations is open.
-        putStr ("*" :: String)
+        --
+        -- It's currently commented because stars take too much buffer space
+        -- (all of my tmux @volhovm)
+        --
+        -- putStr ("*" :: String)
         m
 
 instance MonadBase IO Emulation where

@@ -42,9 +42,12 @@ showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.
 -- We need this instance for correct Swagger-specification.
-instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either W.WalletError a) where
-    declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
-        & mapped . name ?~ show (typeRep (Proxy @(Either W.WalletError a)))
+instance {-# OVERLAPPING #-}
+         (Typeable a, ToSchema a) =>
+         ToSchema (Either W.WalletError a) where
+    declareNamedSchema proxy =
+        genericDeclareNamedSchema defaultSchemaOptions proxy
+            & mapped . name ?~ show (typeRep $ Proxy @(Either W.WalletError a))
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger

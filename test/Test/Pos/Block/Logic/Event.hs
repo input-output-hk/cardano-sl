@@ -1,6 +1,7 @@
 module Test.Pos.Block.Logic.Event
     ( runBlockEvent
     , runBlockScenario
+    , BlockScenarioResult(..)
     ) where
 
 import           Universum
@@ -8,9 +9,10 @@ import           Universum
 import           Control.Monad.Catch      (catch)
 
 import           Pos.Block.Logic.VAR      (BlockLrcMode, applyBlocks, rollbackBlocks)
-import           Pos.DB.Pure              (MonadPureDB, dbPureDump)
-import           Pos.Generator.BlockEvent (BlockEvent (..), IsBlockEventFailure (..),
-                                           beaInput, berInput)
+import           Pos.DB.Pure              (DBPureDiff, MonadPureDB, dbPureDiff,
+                                           dbPureDump)
+import           Pos.Generator.BlockEvent (BlockEvent, BlockEvent' (..),
+                                           IsBlockEventFailure (..), beaInput, berInput)
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 
 newtype IsExpected = IsExpected Bool
@@ -42,7 +44,7 @@ runBlockEvent (BlkEvRollback ev) =
 data BlockScenarioResult
     = BlockScenarioFinishedOk
     | BlockScenarioUnexpectedFailure SomeException
-    | BlockScenarioDbChanged
+    | BlockScenarioDbChanged DBPureDiff
 
 -- | Execute a block scenario: a sequence of block events that either ends with
 -- an expected failure or with a rollback to the initial state.
@@ -55,9 +57,9 @@ runBlockScenario events = do
     let
         runBlockScenario' [] = do
             dbAfterEvents <- dbPureDump
-            return $ if dbAfterEvents == dbBeforeEvents
-                then BlockScenarioFinishedOk
-                else BlockScenarioDbChanged
+            return $ case dbPureDiff dbAfterEvents dbBeforeEvents of
+                Nothing     -> BlockScenarioFinishedOk
+                Just dbDiff -> BlockScenarioDbChanged dbDiff
         runBlockScenario' (ev:evs) = do
             evRes <- runBlockEvent ev
             case evRes of

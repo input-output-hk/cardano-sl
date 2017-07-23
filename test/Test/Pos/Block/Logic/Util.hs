@@ -5,6 +5,7 @@ module Test.Pos.Block.Logic.Util
        , bpGoToArbitraryState
        , withCurrentSlot
        , satisfySlotCheck
+       , getAllSecrets
        ) where
 
 import           Universum
@@ -36,7 +37,7 @@ bpGenBlocks ::
     -> Bool
     -> BlockProperty (OldestFirst [] (Blund SscGodTossing))
 bpGenBlocks blkCnt enableTxPayload = do
-    allSecrets <- lift $ view (lensOf @BlockTestContextTag . tpAllSecrets)
+    allSecrets <- getAllSecrets
     let genBlockGenParams s =
             pure
                 BlockGenParams
@@ -49,6 +50,9 @@ bpGenBlocks blkCnt enableTxPayload = do
     params <- pick $ sized genBlockGenParams
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ evalRandT (genBlocks params) g
+
+getAllSecrets :: BlockProperty AllSecrets
+getAllSecrets = lift $ view (lensOf @BlockTestContextTag . tpAllSecrets)
 
 -- | Go to arbitrary global state in 'BlockProperty'.
 bpGoToArbitraryState :: BlockProperty ()

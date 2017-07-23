@@ -5,27 +5,34 @@ module Test.Pos.Block.Logic.VarSpec
        ) where
 
 import           Universum
-import           Unsafe                    (unsafeHead)
+import           Unsafe                      (unsafeHead)
 
-import           Data.List                 (span)
-import           Data.List.NonEmpty        (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty        as NE
-import           Serokell.Util             (throwText)
-import           Test.Hspec                (Spec, describe)
-import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
-import           Test.QuickCheck.Monadic   (assert, pre)
+import           Control.Exception           (displayException)
+import           Control.Monad.Random.Strict (evalRandT)
+import           Data.List                   (span)
+import           Data.List.NonEmpty          (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty          as NE
+import           Serokell.Util               (throwText)
+import           Test.Hspec                  (Spec, describe)
+import           Test.Hspec.QuickCheck       (modifyMaxSuccess, prop)
+import           Test.QuickCheck.Gen         (Gen (MkGen), sized)
+import           Test.QuickCheck.Monadic     (assert, pick, pre)
 
-import           Pos.Block.Logic           (verifyAndApplyBlocks, verifyBlocksPrefix)
-import           Pos.Block.Types           (Blund)
-import           Pos.DB.Pure               (dbPureDump)
-import qualified Pos.GState                as GS
-import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Util.Chrono           (NE, OldestFirst (..))
+import           Pos.Block.Logic             (verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.Block.Types             (Blund)
+import           Pos.Core                    (BlockCount (..))
+import           Pos.DB.Pure                 (dbPureDump)
+import           Pos.Generator.BlockEvent    (BlockEventCount (..),
+                                              BlockEventGenParams (..), genBlockEvents)
+import qualified Pos.GState                  as GS
+import           Pos.Ssc.GodTossing          (SscGodTossing)
+import           Pos.Util.Chrono             (NE, OldestFirst (..))
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
-import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
-                                            satisfySlotCheck)
-import           Test.Pos.Util             (splitIntoChunks, stopProperty)
+import           Test.Pos.Block.Logic.Event  (BlockScenarioResult (..), runBlockScenario)
+import           Test.Pos.Block.Logic.Mode   (BlockProperty, BlockTestMode)
+import           Test.Pos.Block.Logic.Util   (bpGenBlocks, bpGoToArbitraryState,
+                                              getAllSecrets, satisfySlotCheck)
+import           Test.Pos.Util               (splitIntoChunks, stopProperty)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
@@ -34,6 +41,8 @@ spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
     describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
     describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
     describe "applyBlocks" applyBlocksSpec
+    describe "Block.Event" $ do
+        describe "Successful sequence" $ blockEventSuccessSpec
 
 ----------------------------------------------------------------------------
 -- verifyBlocksPrefix
@@ -143,3 +152,41 @@ applyByOneOrAllAtOnce applier = do
     assert
         (stateAfter1by1 == stateAfterInChunks &&
          stateAfterInChunks == stateAfterAllAtOnce)
+
+----------------------------------------------------------------------------
+-- Block events
+----------------------------------------------------------------------------
+
+blockEventSuccessSpec :: Spec
+blockEventSuccessSpec = do
+    prop blockEventSuccessDesc blockEventSuccessProp
+  where
+    blockEventSuccessDesc =
+        "a sequence of interleaved block applications and rollbacks " <>
+        "results in the original state of the blockchain"
+
+blockEventSuccessProp :: BlockProperty ()
+blockEventSuccessProp = do
+    allSecrets <- getAllSecrets
+    let
+        blockEventGenParams s = BlockEventGenParams
+            { _begpSecrets = allSecrets
+            , _begpBlockCountMax = BlockCount 4
+            , _begpBlockEventCount = BlockEventCount (fromIntegral s)
+            , _begpRollbackChance = 0.4
+            , _begpFailureChance = 0
+            }
+    begp <- pick $ sized (return . blockEventGenParams)
+    g <- pick $ MkGen $ \qc _ -> qc
+    scenario <- lift $ evalRandT (genBlockEvents begp) g
+    verifyBlockScenarioResult =<< lift (runBlockScenario scenario)
+
+verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
+verifyBlockScenarioResult = \case
+    BlockScenarioFinishedOk -> return ()
+    BlockScenarioUnexpectedFailure e -> stopProperty $
+        "Block scenario unexpected failure: " <>
+        fromString (displayException e)
+    BlockScenarioDbChanged dbDiff -> stopProperty $
+        "Block scenario resulted in a change to the blockchain:\n" <>
+        show dbDiff

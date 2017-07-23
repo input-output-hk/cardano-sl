@@ -27,7 +27,6 @@ import           Pos.DB.Rocks               (DB (..), MonadRealDB, NodeDBs (..),
                                              usingReadOptions, usingSnapshot)
 import           Pos.GState.BlockExtra      (initGStateBlockExtra)
 import           Pos.Ssc.GodTossing.DB      (initGtDB)
-import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
 import           Pos.Txp.DB                 (initGStateBalances, initGStateUtxo,
                                              sanityCheckBalances, sanityCheckUtxo)
 import           Pos.Update.DB              (initGStateUS)
@@ -43,7 +42,7 @@ prepareGStateDB initialTip = unlessM isInitialized $ do
 
     initGStateCommon initialTip
     initGStateUtxo genesisUtxo
-    initGtDB genesisCertificates
+    initGtDB
     initGStateBalances genesisUtxo
     initGStateUS
     initGStateBlockExtra initialTip

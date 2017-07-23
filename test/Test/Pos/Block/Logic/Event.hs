@@ -57,7 +57,7 @@ runBlockScenario events = do
     let
         runBlockScenario' [] = do
             dbAfterEvents <- dbPureDump
-            return $ case dbPureDiff dbAfterEvents dbBeforeEvents of
+            return $ case dbPureDiff dbBeforeEvents dbAfterEvents of
                 Nothing     -> BlockScenarioFinishedOk
                 Just dbDiff -> BlockScenarioDbChanged dbDiff
         runBlockScenario' (ev:evs) = do

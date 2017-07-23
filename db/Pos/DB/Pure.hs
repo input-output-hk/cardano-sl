@@ -173,8 +173,8 @@ mapDiff ::
 mapDiff elemDiff m1 m2 = [ result | not emptyDiff ]
   where
     mCommon = M.intersectionWith (,) m1 m2
-    missingKeysLeft  = M.keysSet (m1 M.\\ mCommon)
-    missingKeysRight = M.keysSet (m2 M.\\ mCommon)
+    missingKeysLeft  = M.keysSet (m2 M.\\ mCommon)
+    missingKeysRight = M.keysSet (m1 M.\\ mCommon)
     mCommonDiff = M.mapMaybe (uncurry elemDiff) mCommon
     result = MapDiff
         { _mdMissingKeysLeft = missingKeysLeft
@@ -204,16 +204,14 @@ dbPureDiff dbp1 dbp2 = [ result | not emptyDiff ]
         => (DBPure -> Map k ByteString)
         -> Maybe (MapDiff k ByteStringDiff)
     mapDiffOn f = mapDiff bsDiff (f dbp1) (f dbp2)
+    purgeVolatileGState =
+        M.delete "c/maxsd" -- this key is not supposed to be rollbacked, so
+                           -- we don't want to take it into account
     result = DBPureDiff
         { _pdBlockIndexDB  = mapDiffOn _pureBlockIndexDB
-        , _pdGStateDB      = mapDiffOn _pureGStateDB
+        , _pdGStateDB      = mapDiffOn (purgeVolatileGState . _pureGStateDB)
         , _pdLrcDB         = mapDiffOn _pureLrcDB
         , _pdMiscDB        = mapDiffOn _pureMiscDB
         , _pdBlocksStorage = mapDiffOn _pureBlocksStorage
         }
-    emptyDiff =
-        isNothing (_pdBlockIndexDB  result) &&
-        isNothing (_pdGStateDB      result) &&
-        isNothing (_pdLrcDB         result) &&
-        isNothing (_pdMiscDB        result) &&
-        isNothing (_pdBlocksStorage result)
+    emptyDiff = isNothing (_pdGStateDB result)

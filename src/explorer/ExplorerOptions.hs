@@ -29,34 +29,37 @@ import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress, addrParser)
 
 data Args = Args
-    { dbPath             :: !FilePath
-    , rebuildDB          :: !Bool
-    , keyfilePath        :: !FilePath
-    , backupPhrase       :: !(Maybe BackupPhrase)
-    , dhtKey             :: !(Maybe DHTKey)
-    , bindAddress        :: !NetworkAddress
-    , externalAddress    :: !NetworkAddress
+    { dbPath              :: !FilePath
+    , rebuildDB           :: !Bool
+    , keyfilePath         :: !FilePath
+    , backupPhrase        :: !(Maybe BackupPhrase)
+    , dhtKey              :: !(Maybe DHTKey)
+    , bindAddress         :: !NetworkAddress
+    , externalAddress     :: !NetworkAddress
       -- ^ A node must be addressable on the network.
-    , dhtNetworkAddress  :: !NetworkAddress
+    , dhtNetworkAddress   :: !NetworkAddress
       -- ^ A node may have a bind address which differs from its external
       -- address.
-    , dhtPeersList       :: ![NetworkAddress]
+    , dhtPeersList        :: ![NetworkAddress]
       -- ^ A list of initial Kademlia peers to use.
-    , dhtExplicitInitial :: !Bool
-    , dhtPeersFile       :: !(Maybe FilePath)
+    , dhtExplicitInitial  :: !Bool
+    , dhtPeersFile        :: !(Maybe FilePath)
       -- ^ A file containing a list of Kademlia peers to use.
-    , timeLord           :: !Bool
-    , jlPath             :: !(Maybe FilePath)
-    , kademliaDumpPath   :: !FilePath
-    , webPort            :: !Word16
-    , commonArgs         :: !CLI.CommonArgs
-    , noSystemStart      :: !Int
-    , noNTP              :: !Bool
-    , enableMetrics      :: !Bool
-    , ekgParams          :: !(Maybe EkgParams)
-    , statsdParams       :: !(Maybe StatsdParams)
-    , notifierPort       :: !Word16
-    , staticPeers        :: !Bool
+    , timeLord            :: !Bool
+    , jlPath              :: !(Maybe FilePath)
+    , kademliaDumpPath    :: !FilePath
+    , webPort             :: !Word16
+    , commonArgs          :: !CLI.CommonArgs
+    , noSystemStart       :: !Int
+    , noNTP               :: !Bool
+    , enableMetrics       :: !Bool
+    , ekgParams           :: !(Maybe EkgParams)
+    , statsdParams        :: !(Maybe StatsdParams)
+    , notifierPort        :: !Word16
+    , staticPeers         :: !Bool
+    , explorerTLSCertPath :: !FilePath
+    , explorerTLSKeyPath  :: !FilePath
+    , explorerTLScaPath   :: !FilePath
     } deriving Show
 
 argsParser :: Parser Args
@@ -130,6 +133,22 @@ argsParser = do
     staticPeers <- switch $
         long "static-peers" <>
         help "Don't use Kademlia, use only static peers"
+
+    explorerTLSCertPath <- strOption $
+        long    "tlscert" <>
+        metavar "FILEPATH" <>
+        value   "server.crt" <>
+        help    "Path to file with TLS certificate"
+    explorerTLSKeyPath <- strOption $
+        long    "tlskey" <>
+        metavar "FILEPATH" <>
+        value   "server.key" <>
+        help    "Path to file with TLS key"
+    explorerTLScaPath <- strOption $
+        long    "tlsca" <>
+        metavar "FILEPATH" <>
+        value   "ca.crt" <>
+        help    "Path to file with TLS certificate authority"
 
     pure Args{..}
 

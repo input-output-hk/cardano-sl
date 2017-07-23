@@ -72,7 +72,7 @@ action args@Args {..} = do
     let gtParams = gtSscParams args vssSK
 
     let plugins = mconcatPair
-            [ explorerPlugin webPort undefined undefined undefined
+            [ explorerPlugin webPort explorerTLSCertPath explorerTLSKeyPath explorerTLScaPath
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
             , updateTriggerWorker
             ]

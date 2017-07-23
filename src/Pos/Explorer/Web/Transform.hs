@@ -40,8 +40,9 @@ explorerPlugin
     :: Word16
     -> FilePath -> FilePath -> FilePath
     -> ([WorkerSpec ExplorerProd], OutSpecs)
-explorerPlugin port walletTLSCert walletTLSKey walletTLSca = first pure $ worker mempty $
-    (\sa -> explorerServeWebReal sa port walletTLSCert walletTLSKey walletTLSca)
+explorerPlugin port explorerTLSCert explorerTLSKey explorerTLSca =
+    first pure $ worker mempty $
+    (\sa -> explorerServeWebReal sa port explorerTLSCert explorerTLSKey explorerTLSca)
 
 explorerServeWebReal
     :: SendActions ExplorerProd

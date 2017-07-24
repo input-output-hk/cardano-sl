@@ -23,7 +23,6 @@ module Pos.Block.Logic.Internal
 import           Universum
 
 import           Control.Lens            (each, _Wrapped)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Ether.Internal          (HasLens (..))
 import           Formatting              (sformat, (%))
 import           Mockable                (CurrentTime, Mockable)
@@ -107,7 +106,6 @@ type MonadBlockApply ssc ctx m
        , Mockable CurrentTime m
        -- Needed for error reporting.
        , HasReportingContext ctx
-       , MonadBaseControl IO m
        , MonadReader ctx m
        , MonadKnownPeers m
        )

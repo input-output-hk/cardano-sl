@@ -294,9 +294,10 @@ createKademliaInstance ::
     => BaseParams
     -> KademliaParams
     -> NodeType
+    -> Bool
     -> m KademliaDHTInstance
-createKademliaInstance BaseParams {..} kp peerType =
-    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig peerType)
+createKademliaInstance BaseParams {..} kp peerType subscribe =
+    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig peerType subscribe)
   where
     instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ Const.defaultPeers}
 
@@ -306,25 +307,40 @@ bracketKademlia
     => BaseParams
     -> KademliaParams
     -> NodeType -- ^ Type to assign to Kademlia peers.
+    -> Bool     -- ^ True if Kademlia peers should be known peers (MonadKnownPeers).
     -> (KademliaDHTInstance -> m a)
     -> m a
-bracketKademlia bp kp peerType action =
-    bracket (createKademliaInstance bp kp peerType) stopDHTInstance action
+bracketKademlia bp kp peerType subscribe action =
+    bracket (createKademliaInstance bp kp peerType subscribe) stopDHTInstance action
 
+-- | The 'NodeParams' contain enough information to determine whether a Kademlia
+-- instance should be brought up. Use this to safely acquire/release one.
 maybeBracketKademlia
     :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
     => NodeParams
     -> (Maybe KademliaDHTInstance -> m a)
     -> m a
-maybeBracketKademlia np action = case mKp of
+maybeBracketKademlia np action = mKp >>= \case
     Nothing -> action Nothing
-    Just (peerType, kp) -> bracketKademlia bp kp peerType (action . Just)
+    Just (kp, peerType, subscribe) -> bracketKademlia bp kp peerType subscribe (action . Just)
   where
     bp = npBaseParams np
-    mKp = case ncTopology (npNetworkConfig np) of
-        TopologyP2P kp -> Just (NodeEdge, kp)
-        TopologyTransitional kp -> Just (NodeCore, kp)
-        _ -> Nothing
+    NetworkConfig {..} = npNetworkConfig np
+    mKp = case (ncTopology, ncKademlia) of
+        (TopologyP2P, Just kp) -> return $ Just (kp, NodeRelay, True)
+        (TopologyP2P, Nothing) ->
+            throw MissingKademliaParams
+        (TopologyTransitional, Just kp) -> return $ Just (kp, NodeCore, True)
+        (TopologyTransitional, Nothing) ->
+            throw MissingKademliaParams
+        (TopologyStatic NodeRelay _, Just kp) -> return $ Just (kp, NodeEdge, False)
+        _ -> return $ Nothing
+
+data MissingKademliaParams = MissingKademliaParams
+    deriving (Show)
+
+instance Exception MissingKademliaParams
+
 ----------------------------------------------------------------------------
 -- Transport
 ----------------------------------------------------------------------------

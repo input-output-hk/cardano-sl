@@ -34,6 +34,8 @@ data NetworkConfigOpts = NetworkConfigOpts {
       -- | Filepath to .yaml file with the network topology
       networkConfigOptsTopology :: Maybe FilePath
 
+    , networkConfigOptsKademlia :: Maybe FilePath
+
       -- | Name of the current node
     , networkConfigOptsSelf :: Maybe NodeName
 
@@ -52,6 +54,11 @@ networkConfigOption = NetworkConfigOpts
             Opt.long "topology"
           , Opt.metavar "FILEPATH"
           , Opt.help "Path to a YAML file containing the network topology"
+          ])
+    <*> (optional . Opt.strOption $ mconcat [
+            Opt.long "kademlia"
+          , Opt.metavar "FILEPATH"
+          , Opt.help "Path to a YAML file containing the kademlia configuration"
           ])
     <*> (optional . Opt.option (fromString <$> Opt.str) $ mconcat [
             Opt.long "node-id"
@@ -94,14 +101,17 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         fromPovOf cfg allStaticallyKnownPeers networkConfigOptsSelf
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
-      Y.TopologyP2P kconf -> do
+      Y.TopologyP2P -> return T.TopologyP2P
+      Y.TopologyTransitional -> return T.TopologyTransitional
+    mKademliaParams <- case networkConfigOptsKademlia of
+      Nothing -> return Nothing
+      Just fp -> do
+        kconf <- parseKademlia fp
         kconf' <- either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
-        return $ T.TopologyP2P kconf'
-      Y.TopologyTransitional kconf -> do
-        kconf' <- either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
-        return $ T.TopologyTransitional kconf'
+        return $ Just kconf'
     return T.NetworkConfig {
         ncTopology    = ourTopology
+      , ncKademlia    = mKademliaParams
       , ncDefaultPort = networkConfigOptsPort
       , ncSelfName    = networkConfigOptsSelf
       }
@@ -176,14 +186,24 @@ readTopology fp = do
       Left  err      -> throwM $ CannotParseNetworkConfig err
       Right topology -> return topology
 
+parseKademlia :: FilePath -> IO Y.KademliaParams
+parseKademlia fp = do
+    mKademlia <- Yaml.decodeFileEither fp
+    case mKademlia of
+      Left  err      -> throwM $ CannotParseKademliaConfig err
+      Right kademlia -> return kademlia
+
 {-------------------------------------------------------------------------------
   Errors
 -------------------------------------------------------------------------------}
 
 -- | Something is wrong with the network configuration
 data NetworkConfigException =
-    -- | We cannot parse the .yaml file
+    -- | We cannot parse the topology .yaml file
     CannotParseNetworkConfig Yaml.ParseException
+
+    -- | We cannot parse the kademlia .yaml file
+  | CannotParseKademliaConfig Yaml.ParseException
 
     -- | We use a set of statically known peers but we weren't given the
     -- name of the current node

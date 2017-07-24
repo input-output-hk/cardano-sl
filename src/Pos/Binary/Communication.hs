@@ -19,10 +19,9 @@ import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..
                                                    label, labelS, putBytesS, putField,
                                                    putS, putSmallWithLengthS, putWord8S)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
-                                                   MsgGetHeaders (..), MsgHeaders (..),
-                                                   MsgSubscribe(..))
+                                                   MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
-                                                   VerInfo (..))
+                                                   VerInfo (..), MsgSubscribe (..))
 import           Pos.Core                         (BlockVersion, HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 

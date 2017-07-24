@@ -20,12 +20,12 @@ import           Pos.Block.Logic            (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgGetHeaders, MsgHeaders (..),
-                                             MsgSubscribe (..))
+                                             MsgGetHeaders, MsgHeaders (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
-                                             MkListeners, OutSpecs, constantListeners)
+                                             MkListeners, OutSpecs, constantListeners,
+                                             MsgSubscribe (..))
 import qualified Pos.DB.Block               as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.KnownPeers             (MonadKnownPeers(..))

@@ -24,9 +24,9 @@ import           GHC.Exts                           (IsList (..))
 import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
-                                                     MsgGetHeaders (..), MsgHeaders (..),
-                                                     MsgSubscribe (..))
+                                                     MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
+import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)

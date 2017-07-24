@@ -1,7 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.DHT.Real.Real
-       ( foreverRejoinNetwork
+       ( kademliaJoinNetwork
        , K.lookupNode
        , kademliaGetKnownPeers
        , startDHTInstance
@@ -16,7 +17,7 @@ import qualified Data.Store                as Store
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, catch, catchAll, throw,
-                                            waitAnyUnexceptional, withAsync)
+                                            waitAnyUnexceptional, withAsync, try)
 import qualified Network.Kademlia          as K
 import qualified Network.Kademlia.Tree     as K (toView)
 import qualified Network.Kademlia.Instance as K (KademliaState (sTree), KademliaInstance (state))
@@ -76,8 +77,9 @@ startDHTInstance
        )
     => KademliaParams
     -> NodeType -- ^ Type to assign to peers discovered via Kademlia
+    -> Bool     -- ^ True if Kademlia peers should populate known peers (MonadKnownPeers)
     -> m KademliaDHTInstance
-startDHTInstance kconf@KademliaParams {..} peerType = do
+startDHTInstance kconf@KademliaParams {..} peerType subscribe = do
     let bindAddr = first B8.unpack kpNetworkAddress
         extAddr  = maybe bindAddr (first B8.unpack) kpExternalAddress
     logInfo "Generating dht key.."
@@ -103,6 +105,7 @@ startDHTInstance kconf@KademliaParams {..} peerType = do
     let kdiExplicitInitial = kpExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
     let kdiPeerType = peerType
+        kdiSubscribe = subscribe
     pure $ KademliaDHTInstance {..}
   where
     catchErrorsHandler e = do
@@ -204,8 +207,6 @@ kademliaJoinNetwork
     :: ( MonadIO m
        , Mockable Catch m
        , Mockable Throw m
-       , Mockable Async m
-       , Eq (Promise m (Maybe ()))
        , WithLogger m
        , Bi DHTKey
        , Bi DHTData
@@ -214,11 +215,11 @@ kademliaJoinNetwork
     -> [NetworkAddress]
     -> m ()
 kademliaJoinNetwork _ [] = throw AllPeersUnavailable
-kademliaJoinNetwork inst nodes =
-    waitAnyUnexceptional (map (kademliaJoinNetwork' inst) nodes) >>= handleRes
-  where
-    handleRes (Just _) = pure ()
-    handleRes _        = throw AllPeersUnavailable
+kademliaJoinNetwork inst (node : nodes) = do
+    outcome <- try (kademliaJoinNetwork' inst node)
+    case outcome of
+        Left (e :: DHTException) -> kademliaJoinNetwork inst nodes
+        Right _ -> return ()
 
 kademliaJoinNetwork'
     :: ( MonadIO m

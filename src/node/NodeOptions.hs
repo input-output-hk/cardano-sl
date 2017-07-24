@@ -88,7 +88,6 @@ data Args = Args
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
     , noNTP                     :: !Bool
-    , staticPeers               :: !Bool
     , enableMetrics             :: !Bool
     , ekgParams                 :: !(Maybe EkgParams)
     , statsdParams              :: !(Maybe StatsdParams)
@@ -215,9 +214,6 @@ argsParser = do
     noNTP <- switch $
         long "no-ntp" <>
         help "Whether to use real NTP servers to synchronise time or rely on local time"
-    staticPeers <- switch $
-        long "static-peers" <>
-        help "Don't use Kademlia, use only static peers"
 
     enableMetrics <- switch $
         long "metrics" <>

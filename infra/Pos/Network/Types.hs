@@ -35,6 +35,8 @@ import           Pos.DHT.Real.Param (KademliaParams (..))
 data NetworkConfig = NetworkConfig
     { ncTopology :: !Topology
       -- ^ Network topology from the point of view of the current node
+    , ncKademlia :: !(Maybe KademliaParams)
+      -- ^ Kademlia instance description if applicable.
     , ncDefaultPort :: !Word16
       -- ^ Port number to use when translating IP addresses to NodeIds
     , ncSelfName :: !(Maybe NodeName)
@@ -45,6 +47,7 @@ data NetworkConfig = NetworkConfig
 defaultNetworkConfig :: Topology -> NetworkConfig
 defaultNetworkConfig ncTopology = NetworkConfig {
       ncDefaultPort = 3000
+    , ncKademlia    = Nothing
     , ncSelfName    = Nothing
     , ..
     }
@@ -64,13 +67,13 @@ data Topology =
     -- | We discover our peers through Kademlia
     --
     -- This is used for exchanges.
-  | TopologyP2P !KademliaParams
+  | TopologyP2P
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
     --
     -- TODO: This is temporary.
-  | TopologyTransitional !KademliaParams
+  | TopologyTransitional
 
     -- | Light wallets simulate "real" edge nodes, but are configured with
     -- a static set of relays.
@@ -81,8 +84,8 @@ data Topology =
 topologyNodeType :: Topology -> NodeType
 topologyNodeType (TopologyStatic nodeType _) = nodeType
 topologyNodeType (TopologyBehindNAT _)       = NodeEdge
-topologyNodeType (TopologyP2P _)             = NodeEdge
-topologyNodeType (TopologyTransitional _)    = NodeCore
+topologyNodeType (TopologyP2P)               = NodeEdge
+topologyNodeType (TopologyTransitional)      = NodeCore
 topologyNodeType (TopologyLightWallet _)     = NodeEdge
 
 -- | Variation on resolveDnsDomains that returns node IDs
@@ -103,8 +106,8 @@ staticallyKnownPeers NetworkConfig{..} = go ncTopology
     go :: Topology -> Peers NodeId
     go (TopologyStatic _selfType peers) = peers
     go (TopologyBehindNAT _)            = mempty
-    go (TopologyP2P _)                  = mempty
-    go (TopologyTransitional _)         = mempty
+    go (TopologyP2P)                    = mempty
+    go (TopologyTransitional)           = mempty
     go (TopologyLightWallet peers)      = simplePeers $ map (NodeRelay, ) peers
 
 

@@ -14,11 +14,10 @@ import qualified Network.DNS             as DNS
 
 import           Mockable                (delay, try)
 import           Network.Broadcast.OutboundQueue.Types (NodeType(..), peersFromList)
-import           Pos.Communication       (OutSpecs, WorkerSpec)
+import           Pos.Communication       (OutSpecs, WorkerSpec, MsgSubscribe (..))
 import           Pos.KnownPeers          (MonadKnownPeers(..))
 import           Pos.Ssc.Class           (SscWorkersClass)
 import           Pos.WorkMode.Class      (WorkMode)
-import           Pos.Block.Network.Types (MsgSubscribe (..))
 import           Pos.Communication       (Conversation (..), ConversationActions (..),
                                           convH, toOutSpecs, worker,
                                           NodeId, withConnectionTo, SendActions)

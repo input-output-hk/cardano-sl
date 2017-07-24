@@ -24,8 +24,6 @@ import qualified Data.HashMap.Lazy     as HM
 import qualified Data.Map.Strict       as M
 import qualified Network.DNS           as DNS
 
-import           Network.Broadcast.OutboundQueue.Types
-import           Pos.Util.Config
 import           Pos.Network.DnsDomains (DnsDomains(..))
 
 -- | Description of the network topology in a Yaml file
@@ -36,8 +34,8 @@ import           Pos.Network.DnsDomains (DnsDomains(..))
 data Topology =
     TopologyStatic !AllStaticallyKnownPeers
   | TopologyBehindNAT !DnsDomains
-  | TopologyP2P !KademliaParams
-  | TopologyTransitional !KademliaParams
+  | TopologyP2P
+  | TopologyTransitional
   deriving (Show)
 
 -- | All statically known peers in the newtork
@@ -210,18 +208,17 @@ instance FromJSON Topology where
       mNodes  <- obj .:? "nodes"
       mRelays <- obj .:? "relays"
       mP2p    <- obj .:? "p2p"
-      mTrans  <- obj .:? "transitional"
-      case (mNodes, mRelays, mP2p, mTrans) of
-        (Just nodes, Nothing, Nothing, Nothing) ->
+      case (mNodes, mRelays, mP2p) of
+        (Just nodes, Nothing, Nothing) ->
             TopologyStatic <$> parseJSON nodes
-        (Nothing, Just relays, Nothing, Nothing) ->
+        (Nothing, Just relays, Nothing) ->
             TopologyBehindNAT <$> parseJSON relays
-        (Nothing, Nothing, Just p2p, Nothing) ->
-            TopologyP2P <$> parseJSON p2p
-        (Nothing, Nothing, Nothing, Just transitional) ->
-            TopologyTransitional <$> parseJSON transitional
+        (Nothing, Nothing, Just p2p) -> flip (A.withText "P2P variant") p2p $ \txt -> case txt of
+            "transitional" -> pure TopologyTransitional
+            "normal"       -> pure TopologyP2P
+            _              -> fail "P2P variant: expected 'transitional' or 'normal'"
         _ ->
-          fail "Topology: expected exactly one of 'nodes', 'relays', 'p2p', 'transitional'"
+          fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
 
 instance IsConfig Topology where
   configPrefix = return Nothing
@@ -278,7 +275,7 @@ instance ToJSON AllStaticallyKnownPeers where
       aux (NodeName name, info) = name .= info
 
 instance ToJSON Topology where
-  toJSON (TopologyStatic    nodes)  = A.object [ "nodes"        .= nodes  ]
-  toJSON (TopologyBehindNAT relays) = A.object [ "relays"       .= relays ]
-  toJSON (TopologyP2P kp)           = A.object [ "p2p"          .= kp     ]
-  toJSON (TopologyTransitional kp)  = A.object [ "transitional" .= kp     ]
+  toJSON (TopologyStatic    nodes)  = A.object [ "nodes"  .= nodes                    ]
+  toJSON (TopologyBehindNAT relays) = A.object [ "relays" .= relays                   ]
+  toJSON TopologyP2P                = A.object [ "p2p"    .= ("normal" :: Text)       ]
+  toJSON TopologyTransitional       = A.object [ "p2p"    .= ("transitional" :: Text) ]

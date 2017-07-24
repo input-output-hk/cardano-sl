@@ -27,6 +27,7 @@ import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
 import qualified Pos.Constants       as Const
 import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
                                       getOurPubKeyAddress, getOurPublicKey)
+import           Pos.DHT.Real        (kademliaJoinNetwork, KademliaDHTInstance (..))
 import qualified Pos.GState          as GS
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB          as LrcDB
@@ -52,10 +53,11 @@ runNode'
        , HasNodeContext ssc ctx
        , HasUserSecret ctx
        )
-    => [WorkerSpec m]
+    => NodeResources ssc m
+    -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
-runNode' workers' plugins' = ActionSpec $ \vI sendActions -> do
+runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
 
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     nodeStartMsg
@@ -66,6 +68,13 @@ runNode' workers' plugins' = ActionSpec $ \vI sendActions -> do
     logInfoS $ sformat ("My public key is: "%build%
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
+
+    -- Synchronously join the Kademlia network before doing any more.
+    -- If we can't join the network, an exception is raised and the program
+    -- stops.
+    case nrKademlia of
+        Nothing -> return ()
+        Just kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
@@ -110,7 +119,7 @@ runNode ::
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode nr (plugins, plOuts) =
-    (, plOuts <> wOuts) $ runNode' workers' plugins'
+    (, plOuts <> wOuts) $ runNode' nr workers' plugins'
   where
     (workers', wOuts) = allWorkers nr
     plugins' = map (wrapActionSpec "plugin") plugins

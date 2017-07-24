@@ -1,0 +1,12 @@
+[94m[keygen:INFO:ThreadId 4] [0mProcessing command
+[94m[keygen:INFO:ThreadId 4] [0mGenerating requested raw data
+[94m[keygen:INFO:ThreadId 4] [0mGenerating avvm data
+[94m[keygen:INFO:ThreadId 4] [0mRemoving 101 entries from utxo (out of 188 total entries in the blacklist)
+[94m[keygen:INFO:ThreadId 4] [0mTotal avvm stake after applying blacklist: 25927070538000000
+[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-qanet-2017-07-18_19-09/keys-fakeavvm
+[94m[keygen:INFO:ThreadId 4] [0m100 fake avvm seeds are generated
+[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-qanet-2017-07-18_19-09/keys-testnet
+[94m[keygen:INFO:ThreadId 4] [0m12014 keyfiles are generated
+[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKeyAddress 22cecdb5fec582cac9dbeab54cac62cfe85d768acc1d7afaa61a3813 (attrs: {}), PubKeyAddress 3bc5c8ed4093972be316bbb6ad34fd1e49818af819f1e959f0938a87 (attrs: {}), PubKeyAddress 70615749d931ddf3417f6de9cbcf84298b91d9ff8572a86e7b232bab (attrs: {}), PubKeyAddress f6c15dd5467f6bbc5cceb9494619fef7745c882adfba9c90ad73d058 (attrs: {}), PubKeyAddress 77a62806f9b366bacf8ce4252ec60335a20afa5130192cab55e03e0c (attrs: {}), PubKeyAddress 7955acad1cc543dd35ef260271300efa38b236353ddffb45a0c80b94 (attrs: {}), PubKeyAddress fc612b82ce5784a5adf4c52c39ded95323a39b4120cc7713ef8d994e (attrs: {}), PubKeyAddress efa285c67ca739f1bf2157c1b731cd15d126b64e00311be235836079 (attrs: {}), PubKeyAddress 693cebc220f1f6a738a1d88648202a5017ec1f3af21e7164494fc2fb (attrs: {}), PubKeyAddress 7834edb7f5ad742673b90be39fa6a6a60700ae1b6189e07d0bf0d5b7 (attrs: {})] distr: RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296154}}
+[94m[keygen:INFO:ThreadId 4] [0mgenesis-core.bin generated successfully
+[94m[keygen:INFO:ThreadId 4] [0mgenesis-godtossing.bin generated successfully

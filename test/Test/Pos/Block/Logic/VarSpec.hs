@@ -17,10 +17,9 @@ import           Test.QuickCheck.Monadic   (assert, pre)
 
 import           Pos.Block.Logic           (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types           (Blund)
-import           Pos.DB.Pure               (DBPureVar)
+import           Pos.DB.Pure               (dbPureDump)
 import qualified Pos.GState                as GS
 import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Util                  (lensOf)
 import           Pos.Util.Chrono           (NE, OldestFirst (..))
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
@@ -29,9 +28,9 @@ import           Test.Pos.Block.Logic.Util (bpGenBlocks, bpGoToArbitraryState,
 import           Test.Pos.Util             (splitIntoChunks, stopProperty)
 
 spec :: Spec
--- Unfortunatelly, blocks generation is currently extremely slow.
--- Maybe we will optimize it in future.
-spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (const 3) $ do
+-- Unfortunatelly, blocks generation is quite slow nowdays.
+-- See CSL-1382.
+spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
     describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
     describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
     describe "applyBlocks" applyBlocksSpec
@@ -59,13 +58,13 @@ verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
     -- unsafeHead is safe here, because we explicitly request to
     -- generate exactly 1 block
-    emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1)
+    emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1) False
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) stopProperty
 
 verifyValidBlocks :: BlockProperty ()
 verifyValidBlocks = do
     bpGoToArbitraryState
-    blocks <- map fst . toList <$> bpGenBlocks Nothing
+    blocks <- map fst . toList <$> bpGenBlocks Nothing True
     pre (not $ null blocks)
     let blocksToVerify =
             OldestFirst $
@@ -123,25 +122,24 @@ applyByOneOrAllAtOnce ::
     -> BlockProperty ()
 applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
-    blunds <- getOldestFirst <$> bpGenBlocks Nothing
+    blunds <- getOldestFirst <$> bpGenBlocks Nothing True
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    let readDB = readIORef =<< view (lensOf @DBPureVar)
     stateAfter1by1 <-
         lift $
         GS.withClonedGState $ do
             mapM_ (applier . one) (getOldestFirst blundsNE)
-            readDB
+            dbPureDump
     chunks <- splitIntoChunks 5 (blunds)
     stateAfterInChunks <-
         lift $
         GS.withClonedGState $ do
             mapM_ (applier . OldestFirst) chunks
-            readDB
+            dbPureDump
     stateAfterAllAtOnce <-
         lift $ do
             applier blundsNE
-            readDB
+            dbPureDump
     assert
         (stateAfter1by1 == stateAfterInChunks &&
          stateAfterInChunks == stateAfterAllAtOnce)

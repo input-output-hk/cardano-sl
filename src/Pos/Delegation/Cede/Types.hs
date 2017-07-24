@@ -9,6 +9,8 @@ module Pos.Delegation.Cede.Types
        , CedeModifier
        ) where
 
+import qualified Data.Text.Buildable
+import           Formatting             (bprint, build, (%))
 import           Universum
 
 import           Pos.Core               (ProxySKHeavy, StakeholderId, addressHash)
@@ -23,6 +25,10 @@ data DlgEdgeAction
     deriving (Show, Eq, Generic)
 
 instance Hashable DlgEdgeAction
+
+instance Buildable DlgEdgeAction where
+    build (DlgEdgeAdd psk) = bprint ("DlgEdgeAdd: "%build) psk
+    build (DlgEdgeDel iPk) = bprint ("DlgEdgeDel: "%build) iPk
 
 -- | Converts heavy psk to the psk mapping action.
 pskToDlgEdgeAction :: ProxySKHeavy -> DlgEdgeAction

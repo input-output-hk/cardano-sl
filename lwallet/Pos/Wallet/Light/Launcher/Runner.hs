@@ -12,7 +12,6 @@ import           Mockable                        (MonadMockable, Production, bra
                                                   mapConcurrently)
 import           Network.Transport.Abstract      (Transport)
 import           Node                            (noReceiveDelay, simpleNodeEndPoint)
-import qualified STMContainers.Map               as SM
 import           System.Wlog                     (WithLogger, logDebug, logInfo)
 
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
@@ -80,11 +79,9 @@ runRawStaticPeersWallet
 runRawStaticPeersWallet transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
     bracket openDB closeDB $ \db -> do
-        stateM <- liftIO SM.newIO
         keyData <- keyDataFromFile wpKeyFilePath
         flip Mtl.runReaderT
             ( LightWalletContext
-                stateM
                 keyData
                 db
                 emptyReportingContext

@@ -15,7 +15,7 @@ import           Pos.Core                     (SharedSeed, StakeholderId, addres
                                                mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Crypto                   (Secret, Share, unsafeRecoverSecret,
                                                verifySecretProof)
-import           Pos.Lrc.Types                (RichmenStake)
+import           Pos.Lrc.Types                (RichmenStakes)
 import           Pos.Ssc.GodTossing.Core      (Commitment (..),
                                                CommitmentsMap (getCommitmentsMap),
                                                OpeningsMap, SharesMap, getOpening,
@@ -33,7 +33,7 @@ calculateSeed
     :: CommitmentsMap        -- ^ All participating nodes
     -> OpeningsMap           -- ^ Openings sent by those nodes
     -> SharesMap             -- ^ Decrypted shares
-    -> RichmenStake          -- ^ How much stake nodes have
+    -> RichmenStakes          -- ^ How much stake nodes have
     -> Either SeedError SharedSeed
 calculateSeed commitments' openings lShares richmen = do
     let commitments = getCommitmentsMap commitments' -- just unwrapping

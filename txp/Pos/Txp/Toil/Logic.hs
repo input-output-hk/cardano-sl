@@ -152,10 +152,11 @@ verifyTxFeePolicy (TxFee txFee) policy txSize = case policy of
         -- but in case the result of its evaluation is negative or exceeds
         -- maximum coin value, we throw an error.
         txMinFee <- case mTxMinFee of
-            Nothing -> throwError ToilInvalidMinFee
+            Left reason -> throwError ToilInvalidMinFee
                 { timfPolicy = policy
+                , timfReason = reason
                 , timfSize = txSize }
-            Just a -> return a
+            Right a -> return a
         unless (txMinFee <= txFee) $
             throwError ToilInsufficientFee
                 { tifSize = txSize

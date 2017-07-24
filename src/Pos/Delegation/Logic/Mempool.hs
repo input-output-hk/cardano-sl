@@ -159,7 +159,6 @@ processProxySKHeavy psk = do
     curTime <- microsecondsToUTC <$> currentTime
     headEpoch <- view epochIndexL <$> DB.getTipHeader @ssc
     richmen <-
-        toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
@@ -170,7 +169,7 @@ processProxySKHeavy psk = do
         iPk = pskIssuerPk psk
         -- We don't check stake for revoking certs. You can revoke
         -- even if you don't have money anymore.
-        enoughStake = isRevokePsk psk || addressHash iPk `elem` richmen
+        enoughStake = isRevokePsk psk || addressHash iPk `HS.member` richmen
         omegaCorrect = headEpoch == pskOmega psk
     runDelegationStateAction $ do
         memPoolSize <- use dwPoolSize

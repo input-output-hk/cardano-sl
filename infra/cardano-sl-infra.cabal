@@ -13,6 +13,10 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                        -- Arbitrary
+                        Pos.Arbitrary.Slotting
+                        Pos.Arbitrary.Infra
+
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.MemState
@@ -21,7 +25,6 @@ library
 
                         -- Slotting
                         Pos.Slotting
-                        Pos.Slotting.Arbitrary
                         Pos.Slotting.Class
                         Pos.Slotting.Constants
                         Pos.Slotting.Impl
@@ -53,20 +56,15 @@ library
                         Pos.DHT.Real.CLI
                         Pos.DHT.Workers
 
-                        -- Arbitrary
-                        Pos.Infra.Arbitrary
-
                         -- Pos.Communication
                         Pos.Communication.Constants
                         Pos.Communication.Types.Protocol
-                        Pos.Communication.Types.State
                         Pos.Communication.Types.Relay
                         Pos.Communication.BiP
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
                         Pos.Communication.Listener
                         Pos.Communication.MessagePart
-                        Pos.Communication.PeerState
                         Pos.Communication.Protocol
                         Pos.Communication.Specs
                         Pos.Communication.Relay

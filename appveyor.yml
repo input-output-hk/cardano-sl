@@ -51,6 +51,9 @@ before_test:
 - IF EXIST %CACHE_DIR% dir %CACHE_DIR%
 - IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_ROOT% %STACK_ROOT%
 - IF EXIST %CACHED_STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_WORK% %STACK_WORK%
+# Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
+- ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2L.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
+- ps: cmd /c start /wait "$($env:USERPROFILE)\Win64OpenSSL.exe" /silent /verysilent /sp- /suppressmsgboxes /DIR=C:\OpenSSL-Win64-v102
 - ps: Install-Product node 6
 # Install stack
 - ps: Start-FileDownload http://www.stackage.org/stack/windows-x86_64 -FileName stack.zip
@@ -72,8 +75,8 @@ test_script:
       --local-bin-path %SYSTEMROOT%\system32
       --fast
       --work-dir %STACK_WORK%
-      --extra-include-dirs="C:\OpenSSL-Win64\include"
-      --extra-lib-dirs="C:\OpenSSL-Win64"
+      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
+      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
 #   TODO: CSL-1133. To be reenabled.
@@ -81,6 +84,25 @@ test_script:
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build lwallet here, because this build is for installer.
+  - scripts\ci\appveyor-retry call stack install cardano-sl
+      -j 2
+      --no-terminal
+      --local-bin-path daedalus
+      --fast
+      --test
+      --no-haddock-deps
+      --bench
+      --no-run-benchmarks
+      --work-dir %STACK_WORK%
+      --ghc-options="-DCONFIG=%DCONFIG%"
+      --flag cardano-sl:with-web
+      --flag cardano-sl:with-wallet
+      --flag cardano-sl-core:-asserts
+      --flag cardano-sl-core:-dev-mode
+      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
+      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
+      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
+      --extra-lib-dirs="%WORK_DIR%"
   - scripts\ci\appveyor-retry call stack install cardano-sl-tools
       -j 2
       --no-terminal
@@ -97,8 +119,8 @@ test_script:
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode
       --flag cardano-sl-tools:for-installer
-      --extra-include-dirs="C:\OpenSSL-Win64\include"
-      --extra-lib-dirs="C:\OpenSSL-Win64"
+      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
+      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
   - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
@@ -108,6 +130,8 @@ test_script:
   - ps: Install-Product node 7
   - ..\scripts\ci\appveyor-retry call npm install
   - npm run build:prod
+  - dir "%WORK_DIR%\daedalus\"
+  - ps: foreach ($x in @("cardano-addr-convert.exe", "cardano-genupdate.exe", "cardano-launcher.exe", "cardano-node.exe", "cardano-wallet-hs2purs.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
 
 after_test:
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%

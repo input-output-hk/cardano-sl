@@ -15,7 +15,7 @@ import           Universum
 
 import           Pos.Core                (BlockVersionData, EpochIndex, EpochOrSlot,
                                           StakeholderId)
-import           Pos.Lrc.Types           (RichmenStake)
+import           Pos.Lrc.Types           (RichmenStakes)
 import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, Opening,
                                           OpeningsMap, SharesMap, SignedCommitment,
                                           VssCertificate, VssCertificatesMap)
@@ -74,13 +74,13 @@ instance MonadTossRead m => MonadTossRead (ExceptT s m)
 
 class Monad m => MonadTossEnv m where
     -- | Retrieve richmen for given epoch if they are known.
-    getRichmen :: EpochIndex -> m (Maybe RichmenStake)
+    getRichmen :: EpochIndex -> m (Maybe RichmenStakes)
 
     -- | Retrieve current adopted block data
     getAdoptedBVData :: m BlockVersionData
 
     default getRichmen :: (MonadTrans t, MonadTossEnv m', t m' ~ m) =>
-        EpochIndex -> m (Maybe RichmenStake)
+        EpochIndex -> m (Maybe RichmenStakes)
     getRichmen = lift . getRichmen
 
     default getAdoptedBVData :: (MonadTrans t, MonadTossEnv m', t m' ~ m) =>

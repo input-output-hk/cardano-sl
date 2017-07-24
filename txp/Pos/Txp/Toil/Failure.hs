@@ -22,6 +22,7 @@ data ToilVerFailure
     = ToilKnown -- ^ Transaction is already in the storage (cache)
     | ToilTipsMismatch { ttmOldTip :: !HeaderHash
                        , ttmNewTip :: !HeaderHash}
+    | ToilSlotUnknown
     | ToilOverwhelmed !Byte -- ^ Local transaction storage is full --
                             -- can't accept more txs. Current limit is attached.
     | ToilNotUnspent !TxIn -- ^ Tx input is not a known unspent input.
@@ -33,6 +34,7 @@ data ToilVerFailure
     | ToilTooLargeTx { ttltSize  :: !Byte
                      , ttltLimit :: !Byte}
     | ToilInvalidMinFee { timfPolicy :: !TxFeePolicy
+                        , timfReason :: !Text
                         , timfSize   :: !Byte }
     | ToilInsufficientFee { tifPolicy :: !TxFeePolicy
                           , tifFee    :: !TxFee
@@ -50,6 +52,8 @@ instance Buildable ToilVerFailure where
     build (ToilTipsMismatch dbTip localTip) =
         bprint ("tips mismatch, tip from DB is "%build%", local tip is "%build)
         dbTip localTip
+    build (ToilSlotUnknown) =
+        "can't process, current slot is unknown"
     build (ToilOverwhelmed limit) =
         bprint ("max size of the mem pool is reached which is "%memory) limit
     build (ToilNotUnspent txId) =
@@ -68,9 +72,10 @@ instance Buildable ToilVerFailure where
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
     build (ToilInvalidMinFee {..}) =
         bprint (build%" generates invalid minimal fee on a "%
-                "transaction of size "%memory)
+                "transaction of size "%memory%", reason: "%stext)
             timfPolicy
             timfSize
+            timfReason
     build (ToilInsufficientFee {..}) =
         bprint ("transaction of size "%memory%" does not adhere to "%
                 build%"; it has fee "%build%" but needs "%build)

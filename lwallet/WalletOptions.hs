@@ -33,6 +33,9 @@ data WalletOptions = WalletOptions
     , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
     , woAction      :: !WalletAction
     , woPeers       :: ![NodeId]
+    , woTLSCertPath :: !FilePath          -- ^ TLS Certificate path
+    , woTLSKeyPath  :: !FilePath          -- ^ TLS Key file
+    , woTLSCAPath   :: !FilePath          -- ^ TLS ca file
     }
 
 data WalletAction = Repl
@@ -91,6 +94,22 @@ argsParser = do
         CLI.commonArgsParser
     woAction <-
         actionParser
+    woTLSCertPath <- strOption $
+        long    "tlscert" <>
+        metavar "FILEPATH" <>
+        value   "server.crt" <>
+        help    "Path to file with TLS certificate"
+    woTLSKeyPath <- strOption $
+        long    "tlskey" <>
+        metavar "FILEPATH" <>
+        value   "server.key" <>
+        help    "Path to file with TLS key"
+    woTLSCAPath <- strOption $
+        long    "tlsca" <>
+        metavar "FILEPATH" <>
+        value   "ca.crt" <>
+        help    "Path to file with TLS certificate authority"
+
 
     woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
 

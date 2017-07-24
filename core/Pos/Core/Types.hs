@@ -14,6 +14,7 @@ module Pos.Core.Types
        , GenesisStakeholders (..)
 
        , Timestamp (..)
+       , TimeDiff (..)
 
        -- * ChainDifficulty
        , ChainDifficulty (..)
@@ -102,7 +103,7 @@ import           System.Random              (Random (..))
 
 import           Pos.Core.Constants.Raw     (epochSlotsRaw)
 import           Pos.Core.Fee               (TxFeePolicy)
-import           Pos.Core.Timestamp         (Timestamp (..))
+import           Pos.Core.Timestamp         (TimeDiff (..), Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
                                              RedeemPublicKey)
@@ -339,9 +340,16 @@ unsafeGetCoin :: Coin -> Word64
 unsafeGetCoin = getCoin
 {-# INLINE unsafeGetCoin #-}
 
--- | CoinPortion is some portion of Coin, it must be in [0 .. coinPortionDenominator].
--- Main usage of it is multiplication with Coin. Usually it's needed to
--- determine some threshold expressed as portion of total stake.
+-- | CoinPortion is some portion of Coin; it is interpreted as a fraction
+-- with denominator of 'coinPortionDenominator'. The numerator must be in the
+-- interval of [0, coinPortionDenominator].
+--
+-- Usually 'CoinPortion' is used to determine some threshold expressed as
+-- portion of total stake.
+--
+-- To multiply a coin portion by 'Coin', use 'applyCoinPortionDown' (when
+-- calculating number of coins) or 'applyCoinPortionUp' (when calculating a
+-- threshold).
 newtype CoinPortion = CoinPortion
     { getCoinPortion :: Word64
     } deriving (Show, Ord, Eq, Generic, Typeable, NFData)
@@ -364,9 +372,10 @@ mkCoinPortion x
             ("mkCoinPortion: value is greater than coinPortionDenominator: "
             %int) x
 
--- | Make CoinPortion from Double. Caller must ensure that value is in [0 .. 1].
--- Internally 'CoinPortion' stores 'Word64' which is divided by 'coinPortionDenominator'
--- to get actual value. So some rounding may take place.
+-- | Make CoinPortion from Double. Caller must ensure that value is in
+-- [0..1]. Internally 'CoinPortion' stores 'Word64' which is divided by
+-- 'coinPortionDenominator' to get actual value. So some rounding may take
+-- place.
 unsafeCoinPortionFromDouble :: Double -> CoinPortion
 unsafeCoinPortionFromDouble x
     | 0 <= x && x <= 1 = CoinPortion v

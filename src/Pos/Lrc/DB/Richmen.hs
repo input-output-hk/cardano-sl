@@ -31,7 +31,7 @@ import           Ether.Internal              (HasLens (..))
 import           Pos.Binary.Core             ()
 import           Pos.Constants               (genesisHeavyDelThd)
 import           Pos.Context                 (GenesisUtxo, genesisStakesM)
-import           Pos.Core                    (EpochIndex, applyCoinPortion)
+import           Pos.Core                    (Coin, EpochIndex, StakeholderId)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Genesis                 (genesisDelegation)
 import           Pos.Lrc.Class               (RichmenComponent (..),
@@ -39,10 +39,10 @@ import           Pos.Lrc.Class               (RichmenComponent (..),
                                               someRichmenComponent)
 import           Pos.Lrc.DB.RichmenBase      (getRichmen, getRichmenP, putRichmenP)
 import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
-import           Pos.Lrc.Types               (FullRichmenData, Richmen, toRichmen)
+import           Pos.Lrc.Types               (FullRichmenData, RichmenSet)
 import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
-import           Pos.Txp.Core                (TxOutDistribution)
 import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
+import           Pos.Util.Util               (getKeys)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -61,11 +61,11 @@ prepareLrcRichmen = do
 
 computeInitial
     :: RichmenComponent c
-    => TxOutDistribution -> Proxy c -> FullRichmenData
+    => [(StakeholderId, Coin)] -> Proxy c -> FullRichmenData
 computeInitial initialDistr proxy =
     findRichmenPure
         initialDistr
-        (applyCoinPortion (rcInitialThreshold proxy))
+        (rcInitialThreshold proxy)
         richmenType
   where
     richmenType
@@ -88,11 +88,11 @@ components = [ someRichmenComponent @RCSsc
 data RCDlg
 
 instance RichmenComponent RCDlg where
-    type RichmenData RCDlg = Richmen
-    rcToData = toRichmen . snd
+    type RichmenData RCDlg = RichmenSet
+    rcToData = getKeys . snd
     rcTag Proxy = "dlg"
     rcInitialThreshold Proxy = genesisHeavyDelThd
     rcConsiderDelegated Proxy = False
 
-getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe Richmen)
+getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe RichmenSet)
 getRichmenDlg epoch = getRichmen @RCDlg epoch

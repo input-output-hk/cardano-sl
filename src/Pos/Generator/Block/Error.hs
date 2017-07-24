@@ -25,7 +25,7 @@ data BlockGenError
     | BGCreatedInvalid !Text
     -- ^ Block generator created invalid block.
     | BGInternal !Text
-    -- ^ Internall error occurred.
+    -- ^ Internal error occurred.
     deriving (Show)
 
 instance Buildable BlockGenError where

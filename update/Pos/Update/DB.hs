@@ -52,7 +52,7 @@ import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
                                                ChainDifficulty, NumSoftwareVersion,
                                                SlotId, SoftwareVersion (..),
-                                               StakeholderId, Timestamp (..))
+                                               StakeholderId, TimeDiff (..))
 import           Pos.Core.Constants           (epochSlots, genesisBlockVersionData,
                                                genesisSlotDuration)
 import           Pos.Crypto                   (hash)
@@ -172,8 +172,8 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: (MonadDB m) => Timestamp -> m ()
-initGStateUS systemStart = do
+initGStateUS :: MonadDB m => m ()
+initGStateUS = do
     let genesisEpochDuration =
             fromIntegral epochSlots * convertUnit genesisSlotDuration
         genesisSlottingData = SlottingData
@@ -183,12 +183,12 @@ initGStateUS systemStart = do
             }
         esdPenult = EpochSlottingData
             { esdSlotDuration = genesisSlotDuration
-            , esdStart        = systemStart
+            , esdStartDiff    = 0
             }
-        epoch1Start = systemStart + Timestamp genesisEpochDuration
+        epoch1Start = TimeDiff genesisEpochDuration
         esdLast = EpochSlottingData
             { esdSlotDuration = genesisSlotDuration
-            , esdStart        = epoch1Start
+            , esdStartDiff    = epoch1Start
             }
     writeBatchGState $
         PutSlottingData genesisSlottingData :

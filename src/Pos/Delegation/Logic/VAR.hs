@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -7,12 +8,13 @@ module Pos.Delegation.Logic.VAR
        ( dlgVerifyBlocks
        , dlgApplyBlocks
        , dlgRollbackBlocks
+       , dlgNormalizeOnRollback
        ) where
 
 import           Universum
 
-import           Control.Lens                 (at, makeLenses, non, (%=), (.=), (?=),
-                                               _Wrapped)
+import           Control.Lens                 (at, makeLenses, non, uses, (%=), (.=),
+                                               (?=), _Wrapped)
 import           Control.Monad.Except         (runExceptT, throwError)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
@@ -20,6 +22,7 @@ import           Data.List                    (partition, (\\))
 import qualified Data.Text.Buildable          as B
 import           Ether.Internal               (HasLens (..))
 import           Formatting                   (bprint, build, sformat, (%))
+import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util                (listJson, mapJson)
 import           System.Wlog                  (WithLogger, logDebug)
 
@@ -38,24 +41,25 @@ import           Pos.DB                       (DBError (DBMalformed), MonadDBRea
                                                SomeBatchOp (..))
 import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
-import qualified Pos.DB.GState                as GS
+import qualified Pos.DB.DB                    as DB
 import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..), MapCede,
                                                MonadCedeRead (getPsk),
                                                detectCycleOnAddition, dlgEdgeActionIssuer,
                                                dlgReachesIssuance, evalMapCede,
                                                getPskChain, getPskPk, modPsk,
                                                pskToDlgEdgeAction, runDBCede)
-import           Pos.Delegation.Class         (MonadDelegation, dwEpochId,
+import           Pos.Delegation.Class         (MonadDelegation, dwEpochId, dwProxySKPool,
                                                dwThisEpochPosted)
 import           Pos.Delegation.Helpers       (isRevokePsk)
 import           Pos.Delegation.Logic.Common  (DelegationError (..), getPSKsFromThisEpoch,
                                                runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
-                                               deleteFromDlgMemPool, modifyDlgMemPool)
+                                               deleteFromDlgMemPool, processProxySKHeavy)
 import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo)
+import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
-import           Pos.Util                     (getKeys, _neHead, _neLast)
+import           Pos.Util                     (getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
 
@@ -347,7 +351,6 @@ dlgVerifyBlocks blocks = do
         throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
     let initState = DlgVerState _dvCurEpoch
     (richmen :: HashSet StakeholderId) <-
-        HS.fromList . toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
@@ -366,6 +369,7 @@ dlgVerifyBlocks blocks = do
         let blkEpoch = genesisBlk ^. epochIndexL
         noLongerRichmen <- getNoLongerRichmen blkEpoch
         deletedPSKs <- catMaybes <$> mapM getPsk noLongerRichmen
+        -- We should delete all certs for people who are not richmen.
         let delFromCede = modPsk . DlgEdgeDel . addressHash . pskIssuerPk
         deletedPSKs <$ mapM_ delFromCede deletedPSKs
     verifyBlock richmen (Right blk) = do
@@ -485,9 +489,9 @@ dlgApplyBlocks ::
        , MonadMask m
        , HasLens LrcContext ctx LrcContext
        )
-    => OldestFirst NE (Block ssc)
+    => OldestFirst NE (Blund ssc)
     -> m (NonEmpty SomeBatchOp)
-dlgApplyBlocks blocks = do
+dlgApplyBlocks blunds = do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwM $
@@ -495,17 +499,25 @@ dlgApplyBlocks blocks = do
         sformat
         ("Oldest block is based on tip "%shortHashF%", but our tip is "%shortHashF)
         assumedTip tip
-    getOldestFirst <$> mapM applyBlock blocks
+    getOldestFirst <$> mapM applyBlock blunds
   where
-    applyBlock :: Block ssc -> m SomeBatchOp
-    applyBlock (Left block)      = do
+    blocks = map fst blunds
+    applyBlock :: Blund ssc -> m SomeBatchOp
+    applyBlock ((Left block), undoPsk -> undoPsks) = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
             clearDlgMemPoolAction
             dwThisEpochPosted .= HS.empty
             dwEpochId .= (block ^. epochIndexL)
-        removeNoLongerRichmen (block ^. epochIndexL)
-    applyBlock (Right block) = do
+        -- For genesis blocks, dlg undo is richmen that lost their stake.
+        -- So we delete all these guys.
+        let edgeActions = map (DlgEdgeDel . addressHash . pskIssuerPk) undoPsks
+        let edgeOp = SomeBatchOp $ map GS.PskFromEdgeAction edgeActions
+        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
+        pure $ edgeOp <> transCorrections
+    applyBlock ((Right block), _) = do
+        -- for main blocks we can get psks directly from the block,
+        -- though it's duplicated in the undo.
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             edgeActions = map pskToDlgEdgeAction proxySKs
@@ -518,26 +530,6 @@ dlgApplyBlocks blocks = do
                 dwThisEpochPosted %= HS.insert i
         pure $ SomeBatchOp batchOps
 
--- This function returns a batch operation which removes all delegation
--- from stakeholders which were richmen but aren't rich anymore.
-removeNoLongerRichmen ::
-       ( Monad m
-       , MonadIO m
-       , MonadDBRead m
-       , WithLogger m
-       , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
-       )
-    => EpochIndex
-    -> m SomeBatchOp
-removeNoLongerRichmen newEpoch = do
-    noLongerRichmen <- getNoLongerRichmen newEpoch
-    let edgeActions = map DlgEdgeDel noLongerRichmen
-    -- This batch operation updates part (1) of DB.
-    let edgeOp = SomeBatchOp $ map GS.PskFromEdgeAction edgeActions
-    -- Computed batch operation updates parts (2) and (3) of DB.
-    transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-    return (edgeOp <> transCorrections)
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can
@@ -555,31 +547,8 @@ dlgRollbackBlocks
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 dlgRollbackBlocks blunds = do
-    tipBlockAfterRollback <-
-        maybe (throwM malformedLastParent) pure =<<
-        DB.blkGetBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
-    let epochAfterRollback = tipBlockAfterRollback ^. epochIndexL
-    richmen <-
-        HS.fromList . toList <$>
-        lrcActionOnEpochReason
-        (tipBlockAfterRollback ^. epochIndexL)
-        "delegationRollbackBlocks: there are no richmen for last rollbacked block epoch"
-        LrcDB.getRichmenDlg
-    fromGenesisIssuers <-
-        HS.fromList . map pskIssuerPk <$> getPSKsFromThisEpoch @ssc tipAfterRollbackHash
-    runDelegationStateAction $ do
-        modifyDlgMemPool
-            (HM.filterWithKey $ \pk psk ->
-                 not (pk `HS.member` fromGenesisIssuers) &&
-                 (addressHash pk) `HS.member` richmen &&
-                 pskOmega psk == epochAfterRollback)
-        dwThisEpochPosted .= fromGenesisIssuers
-        dwEpochId .= tipBlockAfterRollback ^. epochIndexL
     getNewestFirst <$> mapM rollbackBlund blunds
   where
-    malformedLastParent = DBMalformed $
-        "delegationRollbackBlocks: parent of last rollbacked block is not in blocks db"
-    tipAfterRollbackHash = blunds ^. _Wrapped . _neLast . _1 . prevBlockL
     rollbackBlund :: Blund ssc -> m SomeBatchOp
     rollbackBlund (Left _, _) = pure $ SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) = do
@@ -591,3 +560,31 @@ dlgRollbackBlocks blunds = do
                        <> map DlgEdgeAdd toUndo
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
         pure $ SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
+
+-- | Normalizes the memory state after the rollback.
+dlgNormalizeOnRollback ::
+       forall ssc ctx m.
+       ( MonadDelegation ctx m
+       , DB.MonadBlockDB ssc m
+       , DB.MonadDBRead m
+       , DB.MonadGState m
+       , MonadIO m
+       , MonadMask m
+       , WithLogger m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
+       , Mockable CurrentTime m
+       )
+    => m ()
+dlgNormalizeOnRollback = do
+    tip <- DB.getTipHeader @ssc
+    let tipEpoch = tip ^. epochIndexL
+    fromGenesisPsks <-
+        map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
+    oldPool <- runDelegationStateAction $ do
+        dwEpochId .= tipEpoch
+        dwThisEpochPosted .= HS.fromList fromGenesisPsks
+        pool <- uses dwProxySKPool toList
+        dwProxySKPool .= mempty
+        pure pool
+    forM_ oldPool (processProxySKHeavy @ssc)

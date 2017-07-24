@@ -38,6 +38,7 @@ import           Universum
 import           Unsafe                     (unsafeLast)
 
 import           Control.Lens               (to)
+import           Control.Monad.Catch        (handleAll)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.DList                 (DList)
 import qualified Data.DList                 as DL
@@ -71,10 +72,9 @@ import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
-import qualified Pos.DB.GState              as GS
-import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.DB.Rocks               (MonadRealDB)
-import           Pos.Slotting               (getSlotStartPure)
+import           Pos.GState.BlockExtra      (foldlUpWhileM, resolveForwardLink)
+import           Pos.Slotting               (MonadSlotsData (..), getSlotStartPure)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxIn (..),
                                              TxOutAux (..), TxUndo, flattenTxPayload,
                                              getTxDistribution, toaOut, topsortTxs,
@@ -134,10 +134,10 @@ instance Monoid CAccModifier where
 instance Buildable CAccModifier where
     build CAccModifier{..} =
         bprint
-            (  "added accounts: "%listJson
-            %",\n deleted accounts: "%listJson
-            %",\n used address: "%listJson
-            %",\n change address: "%listJson
+            (    "added addresses: "%listJson
+            %",\n deleted addresses: "%listJson
+            %",\n used addresses: "%listJson
+            %",\n change addresses: "%listJson
             %",\n local utxo (difference): "%build
             %",\n added history entries: "%listJson
             %",\n deleted history entries: "%listJson)
@@ -176,7 +176,9 @@ type WalletTrackingEnv ext ctx m =
      , MonadTxpMem ext ctx m
      , HasLens GenesisUtxo ctx GenesisUtxo
      , WS.MonadWalletWebDB ctx m
-     , WithLogger m)
+     , MonadSlotsData m
+     , WithLogger m
+     )
 
 syncWalletOnImportWebWallet :: WalletTrackingEnv ext ctx m => [EncryptedSecretKey] -> m ()
 syncWalletOnImportWebWallet = syncWalletsWithGState @WalletSscType
@@ -197,7 +199,7 @@ txMempoolToModifierWebWallet encSK = do
         Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
             trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs $
-            zipWith (\(_, tx, undo) bh -> (tx, undo, bh)) ordered (repeat tipH)
+            map (\(tx, undo) -> (tx, undo, tipH)) ordered
 
 ----------------------------------------------------------------------------
 -- Logic
@@ -208,9 +210,10 @@ syncWalletsWithGState
     :: forall ssc ctx m . (
       WebWalletModeDB ctx m
     , BlockLockMode ssc ctx m
-    , HasLens GenesisUtxo ctx GenesisUtxo)
+    , HasLens GenesisUtxo ctx GenesisUtxo
+    , MonadSlotsData m)
     => [EncryptedSecretKey] -> m ()
-syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> do
+syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
     let wAddr = encToCId encSK
     WS.getWalletSyncTip wAddr >>= \case
         Nothing                -> logWarning $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
@@ -222,6 +225,8 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> do
                                 %" by last synced hh: "%build) wAddr wTip
             Just wHeader -> syncDo encSK (Just wHeader)
   where
+    onErr encSK = logWarning . sformat fmt (encToCId encSK)
+    fmt = "Sync of wallet "%build%" failed: "%build
     syncDo :: EncryptedSecretKey -> Maybe (BlockHeader ssc) -> m ()
     syncDo encSK wTipH = do
         let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
@@ -259,10 +264,10 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> do
 syncWalletWithGStateUnsafe
     :: forall ssc ctx m .
     ( WebWalletModeDB ctx m
-    , MonadRealDB ctx m
     , DB.MonadBlockDB ssc m
     , WithLogger m
     , HasLens GenesisUtxo ctx GenesisUtxo
+    , MonadSlotsData m
     )
     => EncryptedSecretKey      -- ^ Secret key for decoding our addresses
     -> Maybe (BlockHeader ssc) -- ^ Block header corresponding to wallet's tip.
@@ -270,7 +275,8 @@ syncWalletWithGStateUnsafe
     -> BlockHeader ssc         -- ^ GState header hash
     -> m ()
 syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
-    slottingData <- GS.getSlottingData
+    systemStart <- getSystemStart
+    slottingData <- getSlottingData
 
     let gstateHHash = headerHash gstateH
         loadCond (b, _) _ = b ^. difficultyL <= gstateH ^. difficultyL
@@ -281,7 +287,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
         mainBlkHeaderTs mBlkH =
-            getSlotStartPure True (mBlkH ^. headerSlotL) slottingData
+            getSlotStartPure systemStart True (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
@@ -572,7 +578,7 @@ getWalletAddrMetasDB
     :: (WebWalletModeDB ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
 getWalletAddrMetasDB lookupMode cWalId = do
-    walletAccountIds <- filter ((== cWalId) . aiWId) <$> WS.getWAddressIds
+    walletAccountIds <- filter ((== cWalId) . aiWId) <$> WS.getAccountIds
     concatMapM (getAccountAddrsOrThrowDB lookupMode) walletAccountIds
   where
     getAccountAddrsOrThrowDB
@@ -581,4 +587,4 @@ getWalletAddrMetasDB lookupMode cWalId = do
     getAccountAddrsOrThrowDB mode accId =
         WS.getAccountWAddresses mode accId >>= maybeThrow (noWallet accId)
     noWallet accId = DBMalformed $
-        sformat ("No account with address "%build%" found") accId
+        sformat ("No account with id "%build%" found") accId

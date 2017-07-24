@@ -42,8 +42,8 @@ import           System.Wlog             (WithLogger, logDebug, logNotice)
 import           Pos.Binary.Update       ()
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
                                           IsMainHeader (..), ScriptVersion, SlotId,
-                                          SoftforkRule (..), Timestamp (..), addressHash,
-                                          applyCoinPortion, coinPortionDenominator,
+                                          SoftforkRule (..), TimeDiff (..), addressHash,
+                                          applyCoinPortionUp, coinPortionDenominator,
                                           coinToInteger, difficultyL, getCoinPortion,
                                           headerHashG, isBootstrapEra, mkCoinPortion,
                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
@@ -225,11 +225,11 @@ updateSlottingData epoch = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
         let epochDuration = fromIntegral epochSlots *
                             convertUnit (esdSlotDuration sdLast)
-        let newLastStart =
-                esdStart sdLast + Timestamp epochDuration
+        let newLastStartDiff =
+                esdStartDiff sdLast + TimeDiff epochDuration
         let newLast =
                 EpochSlottingData
-                {esdSlotDuration = latestSlotDuration, esdStart = newLastStart}
+                {esdSlotDuration = latestSlotDuration, esdStartDiff = newLastStartDiff}
         setSlottingData
             sd
             { sdPenultEpoch = sdPenultEpoch + 1
@@ -300,7 +300,7 @@ calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag ->
     | curEpoch < confirmedEpoch =
         error
             "calcSoftforkThreshold: logical error, curEpoch < confirmedEpoch, can't happen"
-    | otherwise = applyCoinPortion portion totalStake
+    | otherwise = applyCoinPortionUp portion totalStake
   where
     minuend :: Word64
     minuend = getCoinPortion srInitThd

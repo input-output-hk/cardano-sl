@@ -30,6 +30,12 @@ set -o pipefail
 
 # MODES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# NOTE
+# You can try building any of these modes, but in some branches some of
+# these modes may be unavailable (no genesis).
+# For example, if there is no testnet compatible with this version, it doesn't
+# make sense to support `--tn' mode.
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Mode                             Options
 #   :
 #   dev mode                            <nothing>
@@ -58,6 +64,7 @@ projects="core db lrc infra update ssc godtossing txp"
 args=''
 
 test=false
+coverage=false
 clean=false
 
 spec_prj=''
@@ -88,6 +95,9 @@ do
   # -t = run tests
   if [[ $var == "-t" ]]; then
     test=true
+  # --coverage = Produce test coverage report
+  elif [[ $var == "--coverage" ]]; then
+      coverage=true
   # -c = clean
   elif [[ $var == "-c" ]]; then
     clean=true
@@ -275,4 +285,15 @@ if [[ $test == true ]]; then
       $fast                                 \
       $args                                 \
       cardano-sl
+fi
+
+if [[ $coverage == true ]]; then
+  stack build                               \
+      --ghc-options="$ghc_opts"             \
+      $commonargs                           \
+      --no-run-benchmarks                   \
+      $fast                                 \
+      $args                                 \
+      --coverage;
+  stack hpc report $to_build
 fi

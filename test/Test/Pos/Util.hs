@@ -22,30 +22,37 @@ module Test.Pos.Util
        , storeTest
        , (.=.)
        , (>=.)
+
+       -- * Monadic properties
+       , stopProperty
+       , maybeStopProperty
+       , splitIntoChunks
        ) where
 
-import qualified Data.ByteString       as BS
-import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
-import qualified Data.Semigroup        as Semigroup
-import           Data.Serialize        (runGet, runPut)
-import qualified Data.Store            as Store
-import           Data.Tagged           (Tagged (..))
-import           Data.Typeable         (typeRep)
-import           Formatting            (formatToString, int, (%))
-import           Prelude               (read)
-
-import           Pos.Binary            (AsBinaryClass (..), Bi (..), decodeOrFail, encode,
-                                        isEmptyPeek)
-import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
-
-import           Test.Hspec            (Expectation, Selector, Spec, describe,
-                                        shouldThrow)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin,
-                                        counterexample, forAll, property, resize,
-                                        suchThat, vectorOf, (.&&.), (===))
-
 import           Universum
+
+import qualified Data.ByteString          as BS
+import           Data.SafeCopy            (SafeCopy, safeGet, safePut)
+import qualified Data.Semigroup           as Semigroup
+import           Data.Serialize           (runGet, runPut)
+import qualified Data.Store               as Store
+import           Data.Tagged              (Tagged (..))
+import           Data.Typeable            (typeRep)
+import           Formatting               (formatToString, int, (%))
+import           Prelude                  (read)
+import           Test.Hspec               (Expectation, Selector, Spec, describe,
+                                           shouldThrow)
+import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
+import           Test.QuickCheck          (Arbitrary (arbitrary), Property, conjoin,
+                                           counterexample, forAll, property, resize,
+                                           suchThat, vectorOf, (.&&.), (===))
+import           Test.QuickCheck.Gen      (choose)
+import           Test.QuickCheck.Monadic  (PropertyM, pick, stop)
+import           Test.QuickCheck.Property (Result (..), failed)
+
+import           Pos.Binary               (AsBinaryClass (..), Bi (..), decodeOrFail,
+                                           encode, isEmptyPeek)
+import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary
@@ -211,3 +218,33 @@ isCommutative m1 m2 =
 formsCommutativeMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
 formsCommutativeMonoid m1 m2 m3 =
     (formsMonoid m1 m2 m3) .&&. (isCommutative m1 m2)
+
+----------------------------------------------------------------------------
+-- Monadic testing
+----------------------------------------------------------------------------
+
+-- Note, 'fail' does the same thing, but:
+-- • it's quite trivial, almost no copy-paste;
+-- • it's 'fail' from 'Monad', not 'MonadFail';
+-- • I am not a fan of 'fail'.
+-- | Stop 'PropertyM' execution with given reason. The property will fail.
+stopProperty :: Monad m => Text -> PropertyM m a
+stopProperty msg = stop failed {reason = toString msg}
+
+-- | Use 'stopProperty' if the value is 'Nothing' or return something
+-- it the value is 'Just'.
+maybeStopProperty :: Monad m => Text -> Maybe a -> PropertyM m a
+maybeStopProperty msg =
+    \case
+        Nothing -> stopProperty msg
+        Just x -> pure x
+
+-- | Split given list into chunks with size up to given value.
+splitIntoChunks :: Monad m => Word -> [a] -> PropertyM m [NonEmpty a]
+splitIntoChunks 0 _ = error "splitIntoChunks: maxSize is 0"
+splitIntoChunks maxSize items = do
+    sizeMinus1 <- pick $ choose (0, maxSize - 1)
+    let (chunk, rest) = splitAt (fromIntegral sizeMinus1 + 1) items
+    case nonEmpty chunk of
+        Nothing      -> return []
+        Just chunkNE -> (chunkNE :) <$> splitIntoChunks maxSize rest

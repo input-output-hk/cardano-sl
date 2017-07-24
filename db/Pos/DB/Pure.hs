@@ -17,6 +17,7 @@ module Pos.DB.Pure
        , pureBlocksStorage
 
        , MonadPureDB
+       , dbPureDump
 
        , DBPureVar
        , newDBPureVar
@@ -34,7 +35,7 @@ import           Universum
 
 import           Control.Lens                 (at, makeLenses)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Resource (ResourceT)
+import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString              as BS
 import           Data.Conduit                 (Source)
 import qualified Data.Conduit.List            as CL
@@ -61,7 +62,7 @@ data DBPure = DBPure
     , _pureLrcDB         :: DBPureMap
     , _pureMiscDB        :: DBPureMap
     , _pureBlocksStorage :: Map HeaderHash ByteString
-    }
+    } deriving (Eq)
 
 makeLenses ''DBPure
 
@@ -94,6 +95,9 @@ type MonadPureDB ctx m =
     , MonadIO m
     )
 
+dbPureDump :: MonadPureDB ctx m => m DBPure
+dbPureDump = view (lensOf @DBPureVar) >>= readIORef
+
 ----------------------------------------------------------------------------
 -- MonadDBRead / MonadDB
 ----------------------------------------------------------------------------
@@ -105,11 +109,12 @@ dbGetPureDefault (tagToLens -> l) key =
 dbIterSourcePureDefault ::
        ( MonadPureDB ctx m
        , DBIteratorClass i
+       , MonadResource m
        , Bi (IterKey i)
        , Bi (IterValue i))
     => DBTag
     -> Proxy i
-    -> Source (ResourceT m) (IterType i)
+    -> Source m (IterType i)
 dbIterSourcePureDefault (tagToLens -> l) (_ :: Proxy i) = do
     let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
     (dbPureVar :: DBPureVar) <- lift $ view (lensOf @DBPureVar)

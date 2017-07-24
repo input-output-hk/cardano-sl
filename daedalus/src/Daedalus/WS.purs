@@ -12,11 +12,14 @@ import Control.Monad.Eff.Var (($=))
 import Control.Monad.Aff (later', launchAff, liftEff')
 import DOM.Event.Types (Event)
 import DOM.Websocket.Event.Types (MessageEvent)
-import Daedalus.Constants (wsUri)
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Maybe (Maybe(Just, Nothing), maybe')
 import WebSocket (runMessage, runMessageEvent)
 import Data.Function.Eff (EffFn1, runEffFn1)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
+import Daedalus.TLS (WSSOptions, getWSUrl)
+import Unsafe.Coerce (unsafeCoerce)
+import Data.Options (options)
+import Partial.Unsafe (unsafeCrashWith)
 
 type NotifyCb eff = EffFn1 eff String Unit
 type ErrorCb eff = EffFn1 eff Event Unit
@@ -26,14 +29,16 @@ newtype WSState eff = WSState
     , connection :: Ref WSConnection
     , notifyCb :: Maybe (NotifyCb eff)
     , errorCb :: Maybe (ErrorCb eff)
+    , wssOptions :: WSSOptions
     }
 
-mkWSState :: forall eff. Ref WSConnection -> NotifyCb eff -> ErrorCb eff -> WSState eff
-mkWSState conn notifyCb errorCb = WSState
-    { url: (WS.URL wsUri)
+mkWSState :: forall eff. Ref WSConnection -> NotifyCb eff -> ErrorCb eff -> WSSOptions -> WSState eff
+mkWSState conn notifyCb errorCb wssOptions = WSState
+    { url: maybe' (\_ -> unsafeCrashWith "Incorrect TLS options for ws") WS.URL $ getWSUrl wssOptions
     , notifyCb: Just notifyCb
     , errorCb: Just errorCb
     , connection: conn
+    , wssOptions: wssOptions
     }
 
 data WSConnection
@@ -68,7 +73,8 @@ openConn (WSState state) = do
 mkConn :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
     , err :: EXCEPTION | eff) Unit
 mkConn (WSState state) = do
-    WS.Connection socket <- WS.newWebSocket state.url []
+    -- FIXME: don't use unsafeCoerce here. It was needed as websockets-simple is not designed properly
+    WS.Connection socket <- WS.newWebSocket state.url $ unsafeCoerce $ options state.wssOptions
     writeRef state.connection WSConnectionRequested
     socket.onclose $= \_ -> onClose (WSState state)
     socket.onmessage $= \event -> onMessage (WSState state) event

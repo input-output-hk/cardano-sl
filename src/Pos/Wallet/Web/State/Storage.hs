@@ -11,7 +11,7 @@ module Pos.Wallet.Web.State.Storage
        , Update
        , getProfile
        , setProfile
-       , getWAddressIds
+       , getAccountIds
        , getAccountMetas
        , getAccountMeta
        , getWalletMetas
@@ -169,8 +169,8 @@ getProfile = view wsProfile
 setProfile :: CProfile -> Update ()
 setProfile cProfile = wsProfile .= cProfile
 
-getWAddressIds :: Query [AccountId]
-getWAddressIds = HM.keys <$> view wsAccountInfos
+getAccountIds :: Query [AccountId]
+getAccountIds = HM.keys <$> view wsAccountInfos
 
 getAccountMetas :: Query [CAccountMeta]
 getAccountMetas = map (view aiMeta) . toList <$> view wsAccountInfos

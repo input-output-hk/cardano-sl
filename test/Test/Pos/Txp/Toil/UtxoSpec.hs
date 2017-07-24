@@ -21,6 +21,8 @@ import           Test.QuickCheck       (arbitrary)
 import qualified Text.Regex.TDFA       as TDFA
 import qualified Text.Regex.TDFA.Text  as TDFA
 
+import           Pos.Arbitrary.Txp     (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
+                                        SmallGoodTx (..))
 import           Pos.Crypto            (SignTag (SignTxIn), checkSig, fakeSigner, hash,
                                         toPublic, unsafeHash, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
@@ -37,8 +39,6 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         TxOutAux (..), TxSigData (..), TxWitness, Utxo,
                                         VTxContext (..), applyTxToUtxoPure, verifyTxUtxo,
                                         verifyTxUtxoPure)
-import           Pos.Txp.Arbitrary     (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
-                                        SmallGoodTx (..))
 import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
                                         makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Util              (nonrepeating, runGen)

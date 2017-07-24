@@ -9,15 +9,15 @@ import           Universum
 
 import           Data.Time.Units (Millisecond)
 
-import           Pos.Core        (EpochIndex, Timestamp)
+import           Pos.Core        (EpochIndex, TimeDiff)
 import           Pos.Util.Util   ()
 
 -- | Data which is necessary for slotting and corresponds to a particular epoch.
 data EpochSlottingData = EpochSlottingData
     { esdSlotDuration :: !Millisecond
     -- ^ Slot duration actual for given epoch.
-    , esdStart        :: !Timestamp
-    -- ^ Time when epoch starts.
+    , esdStartDiff    :: !TimeDiff
+    -- ^ Difference between epoch start and system start time
     } deriving (Eq, Show, Generic)
 
 instance NFData EpochSlottingData

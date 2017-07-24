@@ -4,7 +4,8 @@
 -- | Workers responsible for Leaders and Richmen computation.
 
 module Pos.Lrc.Worker
-       ( LrcModeFull
+       ( LrcModeFullNoSemaphore
+       , LrcModeFull
        , lrcOnNewSlotWorker
        , lrcSingleShot
        , lrcSingleShotNoLock
@@ -36,8 +37,7 @@ import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              SlotId (..), StakeholderId, crucialSlot,
                                              epochIndexL, getEpochOrSlot, getSlotIndex)
 import qualified Pos.DB.DB                  as DB
-import qualified Pos.DB.GState              as GS
-import qualified Pos.DB.GState.Balances     as GS
+import qualified Pos.GState                 as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -184,8 +184,10 @@ lrcDo epoch consumers tip = tip <$ do
                         return s
                     Left err -> do
                         logWarning $ sformat
-                            ("SSC couldn't compute seed: "%build) err
-                        logWarning "Going to reuse seed for previous epoch"
+                            ("SSC couldn't compute seed: "%build%
+                             " for epoch "%build%
+                             ", going to reuse seed for previous epoch")
+                            err epoch
                         getSeed (epoch - 1) >>=
                             maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
                 putSeed epoch seed

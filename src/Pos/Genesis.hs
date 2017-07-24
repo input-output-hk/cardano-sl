@@ -32,12 +32,12 @@ import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (Address, Coin, SlotLeaders, StakeholderId,
-                                             applyCoinPortion, coinToInteger,
+                                             applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
-                                             firstNonHardened, unsafeHash)
+                                             firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),
@@ -103,7 +103,7 @@ stakeDistribution ts@RichPoorStakes {..} =
   where
     -- Node won't start if richmen cannot participate in MPC
     checkMpcThd total richs =
-        if richs < applyCoinPortion Const.genesisMpcThd total
+        if richs < applyCoinPortionUp Const.genesisMpcThd total
         then error "Pos.Genesis: RichPoorStakes: richmen stake \
                    \is less than MPC threshold"
         else identity
@@ -146,12 +146,12 @@ genesisLeaders utxo =
 
 -- | First index in derivation path for HD account, which is put to genesis utxo
 accountGenesisIndex :: Word32
-accountGenesisIndex = firstNonHardened
+accountGenesisIndex = firstHardened
 
 -- | Second index in derivation path for HD account, which is put to genesis
 -- utxo
 wAddressGenesisIndex :: Word32
-wAddressGenesisIndex = firstNonHardened
+wAddressGenesisIndex = firstHardened
 
 -- | Chooses among common distributions for dev mode.
 devStakesDistr

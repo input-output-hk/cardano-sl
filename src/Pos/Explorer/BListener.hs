@@ -24,15 +24,19 @@ import           System.Wlog                  (WithLogger)
 
 import           Mockable                     (MonadMockable)
 import           Pos.Block.BListener          (MonadBListener (..))
-import           Pos.Block.Core               (Block)
+import           Pos.Block.Core               (Block, MainBlock,
+                                               mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (HeaderHash, difficultyL, epochIndexL,
-                                               getChainDifficulty, headerHash)
+import           Pos.Core                     (HeaderHash, difficultyL,
+                                               epochIndexL, getChainDifficulty,
+                                               headerHash)
+import           Pos.Crypto                   (withHash)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)
-import           Pos.Explorer.DB              (Epoch, Page)
+import           Pos.Explorer.DB              (Epoch, Page, numOfLastTxs)
 import qualified Pos.Explorer.DB              as DB
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
+import           Pos.Txp                      (Tx, topsortTxs, txpTxs)
 import           Pos.Util.Chrono              (NE, NewestFirst (..),
                                                OldestFirst (..), toNewestFirst)
 
@@ -80,7 +84,8 @@ onApplyCallGeneral
 onApplyCallGeneral    blunds = do
     epochBlocks <- onApplyEpochBlocksExplorer blunds
     pageBlocks  <- onApplyPageBlocksExplorer blunds
-    pure $ SomeBatchOp [epochBlocks, pageBlocks]
+    lastTxs     <- onApplyLastTxsExplorer blunds
+    pure $ SomeBatchOp [epochBlocks, pageBlocks, lastTxs]
 
 
 onRollbackCallGeneral
@@ -90,7 +95,8 @@ onRollbackCallGeneral
 onRollbackCallGeneral blunds = do
     epochBlocks <- onRollbackEpochBlocksExplorer blunds
     pageBlocks  <- onRollbackPageBlocksExplorer blunds
-    pure $ SomeBatchOp [epochBlocks, pageBlocks]
+    lastTxs     <- onRollbackLastTxsExplorer blunds
+    pure $ SomeBatchOp [epochBlocks, pageBlocks, lastTxs]
 
 
 ----------------------------------------------------------------------------
@@ -116,6 +122,30 @@ onApplyPageBlocksExplorer
 onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap
 
 
+-- For last transactions, @Tx@
+onApplyLastTxsExplorer
+    :: forall ssc m .
+    MonadBListenerT m ssc
+    => OldestFirst NE (Blund ssc) 
+    -> m SomeBatchOp
+onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
+  where
+    -- Get the top transactions by pulling the old top transactions and adding
+    -- new transactions. After we append them, take the last N transactions and
+    -- we have our top transactions.
+    getTopTxsDiff
+        :: OldTxs
+        -> NewTxs
+        -> [Tx]
+    getTopTxsDiff oldTxs newTxs = take numOfLastTxs reversedCombined
+      where
+        reversedCombined :: [Tx]
+        reversedCombined = reverse $ getOldTxs oldTxs ++ getNewTxs newTxs
+    
+    blocksNE :: NE (Block ssc)  
+    blocksNE = fst <$> getOldestFirst blunds
+
+
 ----------------------------------------------------------------------------
 -- Rollback
 ----------------------------------------------------------------------------
@@ -135,6 +165,26 @@ onRollbackPageBlocksExplorer
     MonadBListenerT m ssc
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackPageBlocksExplorer blunds = onRollbackGeneralBlocks blunds pageBlocksMap
+
+
+-- For last transactions, @Tx@
+onRollbackLastTxsExplorer
+    :: forall ssc m .
+    MonadBListenerT m ssc
+    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
+  where
+    -- Get the top transactions by pulling the old top transactions and removing
+    -- new transactions. After we remove them, what remains are the new top
+    -- transactions.
+    getTopTxsDiff
+        :: OldTxs
+        -> NewTxs
+        -> [Tx]
+    getTopTxsDiff oldTxs newTxs = getOldTxs oldTxs \\ getNewTxs newTxs
+
+    blocksNE :: NE (Block ssc)  
+    blocksNE = fst <$> getNewestFirst blunds
 
 
 ----------------------------------------------------------------------------
@@ -282,7 +332,7 @@ getExistingBlocks
     => [k]
     -> m (M.Map k [HeaderHash])
 getExistingBlocks keys = do
-    keyBlocks <- sequence [ getExistingKeyBlocks key | key <- keys ]
+    keyBlocks <- traverse getExistingKeyBlocks keys
     pure $ M.unions keyBlocks
   where
     -- Get exisiting key blocks paired with the key. If there are no
@@ -292,9 +342,9 @@ getExistingBlocks keys = do
         => k
         -> m (M.Map k [HeaderHash])
     getExistingKeyBlocks key = do
-        keyBlocks        <- getKeyBlocksF key
-        let mKeyBlocks = fromMaybe [] keyBlocks
-        pure $ M.singleton key mKeyBlocks
+        mKeyBlocks    <- getKeyBlocksF key
+        let keyBlocks  = fromMaybe [] mKeyBlocks
+        pure $ M.singleton key keyBlocks
 
 
 -- A general @Key@ @Block@ database application for the apply call.
@@ -368,3 +418,48 @@ onRollbackGeneralBlocks blunds newBlocksMapF = do
 
     blocksNE :: NE (Block ssc)
     blocksNE = fst <$> getNewestFirst blunds
+
+-- Wrappers so I don't mess up the parameter order
+newtype OldTxs = OldTxs { getOldTxs :: [Tx] }
+newtype NewTxs = NewTxs { getNewTxs :: [Tx] }
+
+-- If you give me non-empty blocks that contain transactions and a way to 
+-- combine old and new transactions I will return you an 
+-- atomic database operation.
+generalLastTxsExplorer
+    :: forall ssc m .
+    MonadBListenerT m ssc
+    => NE (Block ssc)
+    -> (OldTxs -> NewTxs -> [Tx])
+    -> m SomeBatchOp
+generalLastTxsExplorer blocksNE getTopTxsDiff = do
+    let newTxs       = NewTxs mainBlocksTxs
+    
+    mPrevTopTxs     <- DB.getLastTransactions
+    let prevTopTxs   = OldTxs $ fromMaybe [] mPrevTopTxs
+
+    let newTopTxs    = getTopTxsDiff prevTopTxs newTxs
+
+    -- Create database operation
+    let mergedTopTxs = DB.PutLastTxs newTopTxs
+
+    -- In the end make sure we place this under @SomeBatchOp@ in order to
+    -- preserve atomicity.
+    pure $ SomeBatchOp mergedTopTxs
+
+  where
+
+    mainBlocksTxs :: [Tx]
+    mainBlocksTxs = concat $ catMaybes mMainBlocksTxs
+
+    mMainBlocksTxs :: [Maybe [Tx]]
+    mMainBlocksTxs = blockTxs <$> mainBlocks
+
+    blockTxs :: MainBlock ssc -> Maybe [Tx]
+    blockTxs mb = topsortTxs withHash $ toList $ mb ^. mainBlockTxPayload . txpTxs
+
+    mainBlocks :: [MainBlock ssc]
+    mainBlocks = rights blocks
+
+    blocks :: [Block ssc]
+    blocks = NE.toList blocksNE

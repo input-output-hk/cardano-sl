@@ -13,11 +13,14 @@ module Pos.Wallet.Web.Account
        , AccountMode
        , GenSeed (..)
        , AddrGenSeed
+
+       , MonadKeySearch (..)
        ) where
 
 import           Data.List                  (elemIndex)
 import           Formatting                 (build, sformat, (%))
-import           System.Random              (Random, randomIO)
+import           System.Random              (randomIO)
+import           System.Wlog                (WithLogger)
 import           Universum
 
 import           Pos.Core                   (Address (..), deriveLvl2KeyPair)
@@ -31,7 +34,12 @@ import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
 
-type AccountMode ctx m = (MonadKeys ctx m, WebWalletModeDB ctx m, MonadThrow m)
+type AccountMode ctx m =
+    ( MonadCatch m
+    , WithLogger m
+    , MonadKeys ctx m
+    , WebWalletModeDB ctx m
+    )
 
 myRootAddresses :: MonadKeys ctx m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeys
@@ -88,8 +96,8 @@ data GenSeed a
 type AddrGenSeed = GenSeed Word32   -- with derivation index
 
 generateUnique
-    :: (MonadIO m, MonadThrow m, Integral a, Random a)
-    => Text -> GenSeed a -> (a -> m b) -> (a -> b -> m Bool) -> m b
+    :: (MonadIO m, MonadThrow m)
+    => Text -> AddrGenSeed -> (Word32 -> m b) -> (Word32 -> b -> m Bool) -> m b
 generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
   where
     loop 0 = throwM . RequestError $
@@ -98,7 +106,10 @@ generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
     loop i = do
         rand  <- liftIO randomIO
         value <- generator rand
-        bad   <- isDuplicate rand value
+        bad   <- orM
+            [ isDuplicate rand value
+            , pure $ isHardened rand  -- using hardened keys only for now
+            ]
         if bad
             then loop (i - 1)
             else return value
@@ -106,7 +117,7 @@ generateUnique desc (DeterminedSeed seed) generator notFit = do
     value <- generator (fromIntegral seed)
     whenM (notFit seed value) $
         throwM . InternalError $
-        sformat (build%": this value is already taken")
+        sformat (build%": this index is already taken")
         desc
     return value
 
@@ -116,15 +127,13 @@ genUniqueAccountId
     -> CId Wal
     -> m AccountId
 genUniqueAccountId genSeed wsCAddr =
-    generateUnique "wallet generation"
-                   genSeed
-                   (return . AccountId wsCAddr)
-                   notFit
+    generateUnique
+        "account generation"
+        genSeed
+        (return . AccountId wsCAddr)
+        notFit
   where
-    notFit idx addr = andM
-        [ pure $ not (isHardened idx)
-        , isJust <$> getAccountMeta addr
-        ]
+    notFit _idx addr = isJust <$> getAccountMeta addr
 
 genUniqueAccountAddress
     :: AccountMode ctx m
@@ -133,14 +142,11 @@ genUniqueAccountAddress
     -> AccountId
     -> m CWAddressMeta
 genUniqueAccountAddress genSeed passphrase wCAddr@AccountId{..} =
-    generateUnique "account generation" genSeed mkAccount notFit
+    generateUnique "address generation" genSeed mkAccount notFit
   where
     mkAccount cwamAccountIndex =
         deriveAccountAddress passphrase wCAddr cwamAccountIndex
-    notFit idx addr = andM
-        [ pure $ not (isHardened idx)
-        , doesWAddressExist Ever addr
-        ]
+    notFit _idx addr = doesWAddressExist Ever addr
 
 deriveAccountSK
     :: AccountMode ctx m
@@ -171,3 +177,17 @@ deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
         cwamWalletIndex = aiIndex
         cwamId          = addressToCId addr
     return CWAddressMeta{..}
+
+-- | Allows to find a key related ti given @id@ item.
+class MonadKeySearch id m where
+    findKey :: id -> m EncryptedSecretKey
+
+instance AccountMode ctx m => MonadKeySearch (CId Wal) m where
+    findKey = getSKByAddr
+
+instance AccountMode ctx m => MonadKeySearch AccountId m where
+    findKey = findKey . aiWId
+
+instance AccountMode ctx m => MonadKeySearch CWAddressMeta m where
+    findKey = findKey . cwamWId
+

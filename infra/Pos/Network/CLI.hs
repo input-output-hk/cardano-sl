@@ -1,3 +1,11 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- following Pos.Util.UserSecret
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
+
 -- | Command line interface for specifying the network config
 module Pos.Network.CLI (
     NetworkConfigOpts(..)
@@ -10,12 +18,18 @@ module Pos.Network.CLI (
   , fromPovOf
   ) where
 
+import           Control.Concurrent
+import           Control.Exception               (Exception(..), try)
 import qualified Data.ByteString.Char8           as BS.C8
 import           Data.IP                         (IPv4)
 import qualified Data.Map.Strict                 as M
+import           Data.Maybe                      (fromJust)
 import qualified Data.Yaml                       as Yaml
+import           Formatting                      (sformat, (%), shown)
+import           Mockable.Concurrent
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS                     as DNS
+import           Mockable                        (Mockable, fork)
 import qualified Options.Applicative.Simple      as Opt
 import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
@@ -27,7 +41,12 @@ import           Pos.Network.Yaml                (NodeAddr (..), NodeMetadata (.
                                                   NodeName (..))
 import qualified Pos.Network.Yaml                as Y
 import           Pos.Util.TimeWarp               (addressToNodeId)
+import           System.Wlog.CanLog              (WithLogger, logError, logNotice)
 import           Universum
+
+#ifdef POSIX
+import           Pos.Util.SigHandler             (Signal(..), installHandler)
+#endif
 
 {-------------------------------------------------------------------------------
   Command line arguments
@@ -90,33 +109,105 @@ defaultDnsDomains :: DnsDomains
 defaultDnsDomains = DnsDomains [["todo.defaultDnsDomain.com"]]
 
 {-------------------------------------------------------------------------------
+  Monitor for static peers
+-------------------------------------------------------------------------------}
+
+data MonitorEvent =
+    MonitorRegister (Peers NodeId -> IO ())
+  | MonitorSIGHUP
+
+-- | Monitor for changes to the static config
+monitorStaticConfig :: forall m. (WithLogger m, MonadIO m, Mockable Fork m)
+                    => NetworkConfigOpts
+                    -> T.NodeType   -- ^ Our node type
+                    -> Peers NodeId -- ^ Initial value
+                    -> m T.StaticPeers
+monitorStaticConfig cfg@NetworkConfigOpts{..} ourNodeType initPeers = do
+    events :: Chan MonitorEvent <- liftIO $ newChan
+
+    let loop :: Peers NodeId -> [Peers NodeId -> IO ()] -> m ()
+        loop peers handlers = do
+          event <- liftIO $ readChan events
+          case event of
+            MonitorRegister handler -> do
+              runHandler peers handler -- Call new handler with current value
+              loop peers (handler:handlers)
+            MonitorSIGHUP -> do
+              let fp = fromJust networkConfigOptsTopology
+              mParsedTopology <- liftIO $ try $ readTopology fp
+              case mParsedTopology of
+                Right (Y.TopologyStatic allPeers) -> do
+                  (nodeType, newPeers) <- liftIO $ fromPovOf cfg allPeers
+                  unless (nodeType == ourNodeType) $ logError $ changedType fp
+                  mapM_ (runHandler newPeers) handlers
+                  logNotice $ sformat "SIGHUP: Re-read topology"
+                  loop newPeers handlers
+                Right _otherTopology -> do
+                  logError $ changedFormat fp
+                  loop peers handlers
+                Left ex -> do
+                  logError $ readFailed fp ex
+                  loop peers handlers
+
+#ifdef POSIX
+    liftIO $ installHandler SigHUP $ writeChan events MonitorSIGHUP
+#endif
+
+    _tid <- fork $ loop initPeers []
+    return T.StaticPeers {
+        T.staticPeersOnChange = writeChan events . MonitorRegister
+      }
+  where
+    runHandler :: Peers NodeId -> (Peers NodeId -> IO ()) -> m ()
+    runHandler peers handler = do
+        mu <- liftIO $ try (handler peers)
+        case mu of
+          Left  ex -> logError $ handlerError ex
+          Right () -> return ()
+
+    changedFormat, changedType :: FilePath -> Text
+    changedFormat = sformat $ "SIGHUP: The topology type defined in " % shown % " changed. Ignored."
+    changedType   = sformat $ "SIGHUP: Our node type defined in "     % shown % " changed. Ignored."
+
+    readFailed :: FilePath -> SomeException -> Text
+    readFailed = sformat $ "SIGHUP: Failed to read " % shown % ": " % shown % ". Ignored."
+
+    handlerError :: SomeException -> Text
+    handlerError = sformat $ "Exception thrown by staticPeersOnChange handler: " % shown % ". Ignored."
+
+{-------------------------------------------------------------------------------
   Interpreter
 -------------------------------------------------------------------------------}
 
 -- | Interpreter for the network config opts
-intNetworkConfigOpts :: NetworkConfigOpts -> IO (T.NetworkConfig DHT.KademliaParams)
+intNetworkConfigOpts :: forall m. (WithLogger m, MonadIO m, Mockable Fork m)
+                     => NetworkConfigOpts
+                     -> m (T.NetworkConfig DHT.KademliaParams)
 intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
     parsedTopology <- case networkConfigOptsTopology of
                         Nothing -> return defaultTopology
-                        Just fp -> readTopology fp
+                        Just fp -> liftIO $ readTopology fp
     ourTopology <- case parsedTopology of
-      Y.TopologyStatic allStaticallyKnownPeers ->
-        fromPovOf cfg allStaticallyKnownPeers networkConfigOptsSelf $ \nodeType peers ->
-          case nodeType of
-            T.NodeCore -> return (T.TopologyCore peers)
-            T.NodeRelay -> do
-              kparams <- getKademliaParams cfg
-              return (T.TopologyRelay peers kparams)
+      Y.TopologyStatic allPeers -> do
+        (nodeType, initPeers) <- liftIO $ fromPovOf cfg allPeers
+        staticPeers <- monitorStaticConfig cfg nodeType initPeers
+        case nodeType of
+          T.NodeCore ->
+            return $ T.TopologyCore staticPeers
+          T.NodeRelay -> do
+            kparams <- liftIO $ getKademliaParams cfg
+            return $ T.TopologyRelay staticPeers kparams
+          T.NodeEdge ->
             -- This will never happen. Either our node name is not found in
             -- the table, or it's a core or relay.
-            T.NodeEdge -> throwM NetworkConfigSelfEdge
+            liftIO $ throwM NetworkConfigSelfEdge
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
       Y.TopologyP2P v f -> do
-        kparams <- getKademliaParams cfg
+        kparams <- liftIO $ getKademliaParams cfg
         return (T.TopologyP2P v f kparams)
       Y.TopologyTraditional v f -> do
-        kparams <- getKademliaParams cfg
+        kparams <- liftIO $ getKademliaParams cfg
         return (T.TopologyTraditional v f kparams)
     return T.NetworkConfig {
         ncTopology    = ourTopology
@@ -138,25 +229,24 @@ getKademliaParams cfg = case networkConfigOptsKademlia cfg of
 -- a single node
 fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
-          -> Maybe NodeName
-          -> (T.NodeType -> Peers NodeId -> IO t)
-          -> IO t
-fromPovOf _ _ Nothing _ =
-    throwM NetworkConfigSelfUnknown
-fromPovOf cfg allPeers (Just self) k = do
-    -- TODO: Do we want to allow to override the DNS config?
-    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
-    DNS.withResolver resolvSeed $ \resolver -> do
-      selfMetadata <- metadataFor allPeers self
-      selfPeers    <- mkPeers resolver (Y.nmRoutes selfMetadata)
-      let selfType = Y.nmType selfMetadata
-      k selfType (peersFromList selfPeers)
+          -> IO (T.NodeType, Peers NodeId)
+fromPovOf cfg@NetworkConfigOpts{..} allPeers =
+    case networkConfigOptsSelf of
+      Nothing   -> throwM NetworkConfigSelfUnknown
+      Just self -> do
+        -- TODO: Do we want to allow to override the DNS config?
+        resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
+        DNS.withResolver resolvSeed $ \resolver -> do
+          selfMetadata <- metadataFor allPeers self
+          selfPeers    <- mkPeers resolver (Y.nmRoutes selfMetadata)
+          let selfType = Y.nmType selfMetadata
+          return (selfType, peersFromList selfPeers)
   where
     mkPeers :: DNS.Resolver -> Y.NodeRoutes -> IO [(T.NodeType, Alts NodeId)]
     mkPeers resolver (Y.NodeRoutes routes) = mapM (mkAlts resolver) routes
 
     mkAlts :: DNS.Resolver -> Alts NodeName -> IO (T.NodeType, Alts NodeId)
-    mkAlts _        []    = throwM $ EmptyListOfAltsFor self
+    mkAlts _        []    = throwM $ EmptyListOfAltsFor (fromJust networkConfigOptsSelf)
     mkAlts resolver names = do
       alts@(firstAlt:_) <- mapM (metadataFor allPeers) names
       let altsType = nmType firstAlt -- assume all alts have same type
@@ -202,8 +292,8 @@ ipv4ToNodeId :: IPv4 -> Word16 -> NodeId
 ipv4ToNodeId addr port = addressToNodeId (BS.C8.pack (show addr), port)
 
 metadataFor :: Y.AllStaticallyKnownPeers -> NodeName -> IO Y.NodeMetadata
-metadataFor (Y.AllStaticallyKnownPeers allStaticallyKnownPeers) node =
-    case M.lookup node allStaticallyKnownPeers of
+metadataFor (Y.AllStaticallyKnownPeers allPeers) node =
+    case M.lookup node allPeers of
       Nothing       -> throwM $ UndefinedNodeName node
       Just metadata -> return metadata
 

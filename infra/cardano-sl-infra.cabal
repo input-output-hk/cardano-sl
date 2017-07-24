@@ -160,6 +160,10 @@ library
                       , wreq
                       , yaml
 
+  if !os(windows)
+    exposed-modules:   Pos.Util.SigHandler
+    build-depends:     unix
+
   default-language:    Haskell2010
 
   default-extensions:  DeriveDataTypeable

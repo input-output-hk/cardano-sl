@@ -1,6 +1,7 @@
 module Pos.Network.Types
     ( NetworkConfig (..)
     , Topology(..)
+    , StaticPeers(..)
     , SubscriptionWorker(..)
     , Valency
     , Bucket(..)
@@ -11,7 +12,6 @@ module Pos.Network.Types
     , topologyRunKademlia
     , resolveDnsDomains
     , defaultNetworkConfig
-    , staticallyKnownPeers
     , initQueue
       -- * Re-exports
       -- ** from .DnsDomains
@@ -35,7 +35,8 @@ import           Pos.Network.DnsDomains                (DNSError, DnsDomains (..
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import           Pos.Network.Yaml                      (NodeName (..))
 import           Pos.Util.TimeWarp                     (addressToNodeId)
-import           Universum
+import           Universum                             hiding (show)
+import           GHC.Show                              (Show(..))
 
 -- | Information about the network in which a node participates.
 data NetworkConfig kademlia = NetworkConfig
@@ -59,14 +60,29 @@ type Valency = Int
 
 type Fallbacks = Int
 
+-- | Statically configured peers
+--
+-- Although the peers are statically configured, this is nonetheless stateful
+-- because we re-read the file on SIGHUP.
+data StaticPeers = StaticPeers {
+      -- | Register a handler to be invoked whenver the static peers change
+      --
+      -- The handler will also be called on registration
+      -- (with the current value).
+      staticPeersOnChange :: (Peers NodeId -> IO ()) -> IO ()
+    }
+
+instance Show StaticPeers where
+  show _ = "<<StaticPeers>>"
+
 -- | Topology of the network, from the point of view of the current node
 data Topology kademlia =
     -- | All peers of the node have been statically configured
     --
     -- This is used for core and relay nodes
-    TopologyCore !(Peers NodeId)
+    TopologyCore !StaticPeers
 
-  | TopologyRelay !(Peers NodeId) !kademlia
+  | TopologyRelay !StaticPeers !kademlia
 
     -- | We discover our peers through DNS
     --
@@ -135,18 +151,6 @@ resolveDnsDomains NetworkConfig{..} dnsDomains =
     ipv4ToNodeId :: IPv4 -> NodeId
     ipv4ToNodeId addr = addressToNodeId (BS.C8.pack (show addr), ncDefaultPort)
 
--- | All statically known peers
-staticallyKnownPeers :: NetworkConfig kademlia -> Peers NodeId
-staticallyKnownPeers NetworkConfig{..} = go ncTopology
-  where
-    go :: Topology kademlia -> Peers NodeId
-    go (TopologyCore peers)        = peers
-    go (TopologyRelay peers _)     = peers
-    go (TopologyBehindNAT _)       = mempty
-    go TopologyP2P{}               = mempty
-    go TopologyTraditional{}       = mempty
-    go (TopologyLightWallet peers) = simplePeers $ map (NodeRelay, ) peers
-
 -- | The various buckets we use for the outbound queue
 data Bucket =
     -- | Bucket for nodes we add statically
@@ -177,11 +181,28 @@ data Bucket =
 initQueue :: FormatMsg msg
           => NetworkConfig kademlia
           -> IO (OutboundQ msg NodeId Bucket)
-initQueue cfg@NetworkConfig{..} = do
+initQueue NetworkConfig{..} = do
     oq <- OQ.new selfName enqueuePolicy dequeuePolicy failurePolicy
 
-    -- TODO: Deal with SIGHUP
-    OQ.updatePeersBucket oq BucketStatic (\_ -> staticallyKnownPeers cfg)
+    case ncTopology of
+      TopologyLightWallet peers -> do
+        let peers' = simplePeers $ map (NodeRelay, ) peers
+        OQ.updatePeersBucket oq BucketStatic (\_ -> peers')
+      TopologyBehindNAT _ ->
+        -- subscription worker is responsible for adding peers
+        return ()
+      TopologyP2P{} ->
+        -- Kademlia worker is responsible for adding peers
+        return ()
+      TopologyTraditional{} ->
+        -- Kademlia worker is responsible for adding peers
+        return ()
+      TopologyCore StaticPeers{..} ->
+        staticPeersOnChange $ \peers ->
+          OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
+      TopologyRelay StaticPeers{..} _ ->
+        staticPeersOnChange $ \peers ->
+          OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
 
     return oq
   where

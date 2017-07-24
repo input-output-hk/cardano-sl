@@ -11,6 +11,7 @@ import           Universum
 import qualified Data.ByteString.Char8 as BS8 (unpack)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           System.Wlog           (LoggerName, WithLogger)
+import           Mockable              (Mockable, Fork)
 
 import qualified Pos.CLI               as CLI
 import           Pos.Constants         (isDevelopment)
@@ -59,7 +60,7 @@ getKeyfilePath Args {..}
     | otherwise = keyfilePath
 
 getNodeParams ::
-       (MonadIO m, MonadFail m, MonadThrow m, WithLogger m)
+       (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
     => Args
     -> Timestamp
     -> m NodeParams
@@ -68,7 +69,7 @@ getNodeParams args@Args {..} systemStart = do
         userSecretWithGenesisKey args =<<
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
-    npNetworkConfig <- liftIO $ intNetworkConfigOpts networkConfigOpts
+    npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     let npTransport = getTransportParams args npNetworkConfig
         devStakeDistr =
             devStakesDistr

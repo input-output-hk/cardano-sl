@@ -117,6 +117,7 @@ library
                         Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
+                        Pos.Util.SigHandler
                         Pos.Util.UserSecret
 
                         -- Wallets

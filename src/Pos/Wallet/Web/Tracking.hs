@@ -51,7 +51,7 @@ import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, sformat, (%))
 import           Mockable                   (SharedAtomicT)
 import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
+import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning, logError)
 
 import           Pos.Block.Core             (BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
@@ -190,16 +190,21 @@ txMempoolToModifierWebWallet encSK = do
         getDiff = const Nothing  -- no difficulty (mempool txs)
         getTs = const Nothing  -- don't give any timestamp
     (txs, undoMap) <- getLocalTxsNUndo
-    let msgErr id = error $ sformat ("There is no undo corresponding to TxId #"%build%" from txp mempool") id
-    let getUndo (id, tx) = (id, tx, fromMaybe (msgErr id) (HM.lookup id undoMap))
-    let txsWUndo = map getUndo txs
+
+    txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
+        Just undo -> pure (id, tx, undo)
+        Nothing -> do
+            let errMsg = sformat ("There is no undo corresponding to TxId #"%build%" from txp mempool") id
+            logError errMsg
+            throwM $ InternalError errMsg
+
     tipH <- DB.getTipHeader @WalletSscType
     allAddresses <- getWalletAddrMetasDB Ever wId
     case topsortTxs wHash txsWUndo of
         Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
             trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs $
-            map (\(tx, undo) -> (tx, undo, tipH)) ordered
+            map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
 ----------------------------------------------------------------------------
 -- Logic

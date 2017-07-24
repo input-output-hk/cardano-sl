@@ -44,7 +44,6 @@ Library
                         Node.Message.Decoder
                         Node.Message.Class
                         Node.Message.Binary
-                        Node.Message.Store
 
                         Node.Util.Monitor
 
@@ -105,7 +104,6 @@ Library
                       , ekg
                       , mwc-random
                       , statistics
-                      , store
                       , vector
 
   hs-source-dirs:       src
@@ -147,7 +145,6 @@ executable ping-pong
                      , node-sketch
                      , random
                      , stm
-                     , store
                      , time-units
 
   hs-source-dirs:      examples

@@ -14,7 +14,7 @@
 module Main where
 
 import           Control.Monad.IO.Class     (liftIO)
-import           Data.Store                 (Store)
+import           Data.Binary                (Binary)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Char8      as B8
 import           Data.Data                  (Data)
@@ -26,7 +26,7 @@ import           Network.Transport.Abstract (closeTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node
-import           Node.Message.Store         (StoreP, storePacking)
+import           Node.Message.Binary        (BinaryP, binaryPacking)
 import           Node.Util.Monitor          (startMonitor)
 import           System.Random
 
@@ -35,7 +35,7 @@ data Ping = Ping
 deriving instance Generic Ping
 deriving instance Data Ping
 deriving instance Show Ping
-instance Store Ping
+instance Binary Ping
 instance Message Ping where
     formatMessage _ = "Ping"
 
@@ -43,9 +43,9 @@ instance Message Ping where
 data Pong = Pong
 deriving instance Generic Pong
 deriving instance Show Pong
-instance Store Pong
+instance Binary Pong
 
-type Packing = StoreP
+type Packing = BinaryP
 
 worker
     :: NodeId
@@ -104,11 +104,11 @@ main = runProduction $ do
 
     liftIO . putStrLn $ "Starting nodes"
     node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-         prng1 storePacking (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
+         prng1 binaryPacking (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
         NodeAction (listeners . nodeId $ node1) $ \converse1 -> do
             _ <- startMonitor 8000 runProduction node1
             node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-                  prng2 storePacking (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
+                  prng2 binaryPacking (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
                 NodeAction (listeners . nodeId $ node2) $ \converse2 -> do
                     _ <- startMonitor 8001 runProduction node2
                     tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] converse1

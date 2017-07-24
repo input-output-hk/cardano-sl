@@ -15,10 +15,13 @@ module Test.Pos.CborSpec
 import qualified Codec.CBOR.FlatTerm               as CBOR
 import           Crypto.Hash.Algorithms            (SHA256)
 import           Node.Message.Class
+import           Pos.Arbitrary.Block               ()
+import           Pos.Arbitrary.Core                ()
 import           Pos.Arbitrary.Delegation          ()
 import           Pos.Arbitrary.Explorer            ()
 import           Pos.Arbitrary.Infra               ()
 import           Pos.Arbitrary.Slotting            ()
+import           Pos.Arbitrary.Ssc.GodTossing      ()
 import           Pos.Arbitrary.Update              ()
 import           Pos.Binary.Class
 import           Pos.Binary.Communication          ()
@@ -28,11 +31,9 @@ import           Pos.Binary.Crypto                 ()
 import           Pos.Binary.GodTossing             ()
 import           Pos.Binary.Infra                  ()
 import           Pos.Binary.Relay                  ()
-import           Pos.Block.Arbitrary               ()
 import           Pos.Block.Core
 import           Pos.Communication.Protocol
 import           Pos.Communication.Types.Relay     (DataMsg)
-import           Pos.Core.Arbitrary                ()
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
@@ -47,12 +48,11 @@ import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProo
 import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
                                                     PublicKey, SecretKey, Signature,
                                                     Signed)
-import           Pos.DHT.Model.Types
 import           Pos.Delegation.Types
+import           Pos.DHT.Model.Types
 import           Pos.Explorer
 import           Pos.Slotting.Types
 import           Pos.Ssc.GodTossing
-import           Pos.Ssc.GodTossing.Arbitrary      ()
 import           Pos.Txp                           hiding (Unknown)
 import           Pos.Update.Core
 import           Pos.Update.Poll

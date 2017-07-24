@@ -22,12 +22,11 @@ import           Universum                       hiding (bracket)
 
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
-import           Formatting                      (build, sformat, (%), shown)
+import           Formatting                      (build, sformat, (%))
 import           Mockable                        (MonadMockable, Production (..), bracket,
                                                   killThread, Throw, throw, Mockable,
                                                   async, cancel)
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Network.Broadcast.OutboundQueue.Types (FormatMsg (..))
 import           Node                            (Node, NodeAction (..), NodeEndPoint,
                                                   ReceiveDelay, Statistics,
                                                   defaultNodeEnvironment,
@@ -47,7 +46,7 @@ import           Pos.Communication               (ActionSpec (..), BiP (..), InS
                                                   VerInfo (..), allListeners, Msg,
                                                   PeerData, PackingType,
                                                   hoistSendActions, makeSendActions,
-                                                  WithPeerState, SendActions,
+                                                  SendActions,
                                                   makeEnqueueMsg, EnqueueMsg)
 import qualified Pos.Constants                   as Const
 import           Pos.Context                     (NodeContext (..))
@@ -63,7 +62,8 @@ import           Pos.Statistics                  (EkgParams (..), StatsdParams (
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
 import           Pos.WorkMode                    (RealMode, RealModeContext (..),
-                                                  WorkMode)
+                                                  WorkMode, EnqueuedConversation (..),
+                                                  OQ)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -109,13 +109,13 @@ runRealModeDo NodeResources {..} outSpecs action =
 
         oq <- initQueue ncNetworkConfig
 
-        runToProd jsonLogConfig $
+        runToProd jsonLogConfig oq $
           runServer ncNetworkConfig
                     (simpleNodeEndPoint nrTransport)
                     (const noReceiveDelay)
                     allListeners
                     outSpecs
-                    startMonitoring
+                    (startMonitoring oq)
                     stopMonitoring
                     oq
                     action
@@ -123,12 +123,12 @@ runRealModeDo NodeResources {..} outSpecs action =
     NodeContext {..} = nrContext
     NodeParams {..} = ncNodeParams
     LoggingParams {..} = bpLoggingParams npBaseParams
-    startMonitoring node' =
+    startMonitoring oq node' =
         case npEnableMetrics of
             False -> return Nothing
             True  -> Just <$> do
                 ekgStore' <- setupMonitor
-                    (runProduction . runToProd JsonLogDisabled) node' nrEkgStore
+                    (runProduction . runToProd JsonLogDisabled oq) node' nrEkgStore
                 liftIO $ Metrics.registerGcMetrics ekgStore'
                 mEkgServer <- case npEkgParams of
                     Nothing -> return Nothing
@@ -166,9 +166,10 @@ runRealModeDo NodeResources {..} outSpecs action =
 
     runToProd :: forall t .
                  JsonLogConfig
+              -> OQ (RealMode ssc)
               -> RealMode ssc t
               -> Production t
-    runToProd jlConf act = Mtl.runReaderT act $
+    runToProd jlConf oq act = Mtl.runReaderT act $
         RealModeContext
             nrDBs
             nrSscState
@@ -177,14 +178,7 @@ runRealModeDo NodeResources {..} outSpecs action =
             jlConf
             lpRunnerTag
             nrContext
-
-newtype EnqueuedConversation m t =
-    EnqueuedConversation (Msg, NodeId -> PeerData -> N.Conversation PackingType m t)
-
-instance FormatMsg (EnqueuedConversation m) where
-    formatMsg = (\k (EnqueuedConversation (msg, _)) -> k msg) <$> shown
-
-type OQ m = OQ.OutboundQ (EnqueuedConversation m) NodeId
+            oq
 
 sendMsgFromConverse
     :: N.Converse PackingType PeerData m
@@ -221,19 +215,16 @@ initQueue
     -> m (OQ m')
 initQueue NetworkConfig{..} =
     -- TODO: Find better self identifier (for improved logging)
-    OQ.new ("self" :: String) enqueuePolicy dequeuePolicy failurePolicy classification
+    OQ.new ("self" :: String) enqueuePolicy dequeuePolicy failurePolicy
   where
     ourNodeType = ncNodeType
     enqueuePolicy = OQ.defaultEnqueuePolicy ourNodeType
     dequeuePolicy = OQ.defaultDequeuePolicy ourNodeType
     failurePolicy = OQ.defaultFailurePolicy ourNodeType
-    -- TODO use NetworkConfig to make a static classification
-    -- TODO make that classification dynamic?
-    classification = mempty
 
 runServer
     :: forall m t b .
-       (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, WithPeerState m)
+       (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
     => NetworkConfig
     -> (m (Statistics m) -> NodeEndPoint m)
     -> (m (Statistics m) -> ReceiveDelay m)
@@ -270,4 +261,3 @@ runServer NetworkConfig {..} mkTransport mkReceiveDelay mkL (OutSpecs wouts) wit
         stopDequeue
         afterNode other
     mkConnectDelay = const (pure Nothing)
-

@@ -17,7 +17,6 @@ import           Mockable.SharedAtomic          (SharedAtomic)
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Infra               ()
 import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.PeerState    (WithPeerState)
 import           Pos.Communication.Protocol     (ConversationActions, HandlerSpec (..),
                                                  ListenerSpec (..), Message, NodeId,
                                                  OutSpecs, VerInfo, checkingInSpecs,
@@ -35,7 +34,6 @@ listenerConv
        , MonadGState m
        , MessageLimited rcv
        , WithLogger m
-       , WithPeerState m
        , Mockable Throw m
        , Mockable SharedAtomic m
        )

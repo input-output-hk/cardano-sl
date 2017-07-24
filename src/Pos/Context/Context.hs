@@ -47,7 +47,8 @@ import           Pos.Core                      (GenesisStakeholders (..),
                                                 HasPrimaryKey (..), HeaderHash, Timestamp)
 import           Pos.Discovery                 (DiscoveryContextSum,
                                                 HasDiscoveryContextSum (..))
-import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
+import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..),
+                                                RelayParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Network.Types             (NetworkConfig (..))
 import           Pos.Reporting.MemState        (HasLoggerConfig (..),
@@ -234,3 +235,6 @@ instance HasReportingContext (NodeContext ssc) where
         setter rc =
             set reportServers (rc ^. reportServers) .
             set loggerConfig  (rc ^. loggerConfig)
+
+instance HasLens RelayParams (NodeContext scc) RelayParams where
+    lensOf = ncNodeParams_L . lensOf @RelayParams

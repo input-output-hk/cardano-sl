@@ -8,6 +8,7 @@ module Pos.Binary.Communication () where
 import           Universum
 
 import           Data.Bits                        (Bits (..))
+import qualified Data.Store                       as Store
 import           Node.Message.Class               (MessageName (..))
 
 import           Pos.Binary.Block                 ()
@@ -18,7 +19,8 @@ import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..
                                                    label, labelS, putBytesS, putField,
                                                    putS, putSmallWithLengthS, putWord8S)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
-                                                   MsgGetHeaders (..), MsgHeaders (..))
+                                                   MsgGetHeaders (..), MsgHeaders (..),
+                                                   MsgSubscribe(..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    VerInfo (..))
 import           Pos.Core                         (BlockVersion, HeaderHash)
@@ -55,6 +57,11 @@ instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
     sizeNPut = labelS "MsgBlock" $ putField $ \(MsgBlock b) -> b
     get = label "MsgBlock" $ MsgBlock <$> get
+
+-- deriveSimpleBi is not happy with constructors without arguments
+instance Bi MsgSubscribe where
+    sizeNPut = labelS "MsgSubscribe" (Store.ConstSize 0, \_ -> pure ())
+    get = label "MsgSubscribe" $ pure MsgSubscribe
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related

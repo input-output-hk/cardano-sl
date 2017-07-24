@@ -15,7 +15,7 @@ import           Control.Lens                (ix)
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (bprint, build, fixed, sformat, shown, (%))
 import           Mockable                    (concurrently, delay)
-import           Serokell.Util               (listJson, pairF, sec)
+import           Serokell.Util               (listJson, pairF)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
@@ -53,12 +53,6 @@ import           Pos.Util.JsonLog            (jlCreatedBlock)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (WorkMode)
-#if defined(WITH_WALLET)
-import           Data.Time.Units             (Second, convertUnit)
-import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
-import           Pos.Communication           (worker)
-import           Pos.Slotting                (getLastKnownSlotDuration)
-#endif
 
 ----------------------------------------------------------------------------
 -- All workers
@@ -72,9 +66,6 @@ blkWorkers =
     merge $ [ blkOnNewSlot
             , retrievalWorker
             ]
-#if defined(WITH_WALLET)
-            ++ [ queryBlocksWorker ]
-#endif
   where
     merge = mconcatPair . map (first pure)
 
@@ -274,41 +265,3 @@ chainQualityChecker curSlot = do
                sformat
                    ("Chain quality for the last 'k' blocks is " %cqF)
                    chainQuality
-
-----------------------------------------------------------------------------
--- Block querier
-----------------------------------------------------------------------------
-
-#if defined(WITH_WALLET)
--- | When we're behind NAT, other nodes can't send data to us and thus we
--- won't get blocks that are broadcast through the network – we have to reach
--- out to other nodes by ourselves.
---
--- This worker just triggers every @max (slotDur / 4) 5@ seconds and asks for
--- current tip. Does nothing when recovery is enabled, because then we're
--- receiving blocks anyway.
---
--- FIXME there is a better way. Establish a long-running connection to every
--- peer asking them to push new data on it. This works even for NAT, since it's
--- the consumer which initiates contact.
-queryBlocksWorker
-    :: (WorkMode ssc ctx m, SscWorkersClass ssc)
-    => (WorkerSpec m, OutSpecs)
-queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
-    let action = forever $ do
-            slotDur <- getLastKnownSlotDuration
-            let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
-            recoveryCommGuard $ do
-                logInfo "Querying blocks from behind NAT"
-                triggerRecovery (enqueueMsg sendActions)
-            delay $ delayInterval
-        handler (e :: SomeException) = do
-            logWarning $ "Exception arised in queryBlocksWorker: " <> show e
-             -- getLastKnownSlotDuration may fail, so we'll just wait
-             -- arbitrary number of seconds (instead of e.g. slotDur / 4)
-            delay $ sec 4
-            action `catch` handler
-    afterDelay $ action `catch` handler
-  where
-    afterDelay action = delay (sec 3) >> action
-#endif

@@ -37,6 +37,8 @@ import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
 import           Pos.Core                    (HasPrimaryKey)
+import           Pos.Launcher.Param          (RelayParams)
+import           Pos.KnownPeers              (MonadKnownPeers)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
@@ -83,6 +85,7 @@ type WorkMode ssc ctx m
       , MonadBListener m
       , MonadDiscovery m
       , MonadReader ctx m
+      , MonadKnownPeers m
       , HasLens StartTime ctx StartTime
       , HasLens BlkSemaphore ctx BlkSemaphore
       , HasLens LrcContext ctx LrcContext
@@ -92,6 +95,7 @@ type WorkMode ssc ctx m
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
       , HasLens GenesisUtxo ctx GenesisUtxo
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
+      , HasLens RelayParams ctx RelayParams
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx

@@ -13,23 +13,25 @@ import           Pos.Util            (mconcatPair)
 import           Pos.WorkMode.Class  (WorkMode)
 
 #ifdef WITH_WALLET
-import           Data.Tagged         (Tagged (..))
-import           Data.Time.Units     (Second, convertUnit)
-import           Formatting          (build, int, sformat, shown, (%))
-import           Mockable            (delay)
-import           Serokell.Util       (listJson)
-import           System.Wlog         (logDebug, logInfo, logWarning)
+import           Data.IP             (IPv4)
+import           Data.Time.Units     (Second, Millisecond, convertUnit)
+import           Data.Time           (UTCTime, NominalDiffTime, getCurrentTime,
+                                      diffUTCTime)
+import qualified Data.Map.Strict     as M
+import qualified Data.ByteString.Char8 as BS.C8
+import           Formatting          (sformat, shown, (%))
+import           Mockable            (delay, try)
+import qualified Network.DNS         as DNS
+import           System.Wlog         (logInfo, logWarning, logError)
 
+import           Pos.Block.Network.Types (MsgSubscribe (..))
 import           Pos.Communication   (Conversation (..), ConversationActions (..),
-                                      DataMsg (..), InvMsg (..), InvOrData,
-                                      InvReqDataParams (..), MempoolMsg (..),
-                                      ReqMsg (..), SendActions (..), TxMsgContents, convH,
-                                      expectData, handleDataDo, handleInvDo, recvLimited,
-                                      toOutSpecs, worker, NodeId, MsgType (..))
-import           Pos.Discovery.Class (getPeers)
+                                      convH, toOutSpecs, worker,
+                                      NodeId, withConnectionTo)
 import           Pos.Slotting        (getLastKnownSlotDuration)
-import           Pos.Txp.Core        (TxId)
-import           Pos.Txp.Network     (txInvReqDataParams)
+import           Pos.Util            (lensOf)
+import           Pos.Util.TimeWarp   (addressToNodeId)
+import           Pos.Launcher.Param  (RelayParams(..))
 #endif
 
 -- | All workers specific to transaction processing.
@@ -39,140 +41,145 @@ txpWorkers
 txpWorkers =
     merge $ []
 #if defined(WITH_WALLET)
-            ++ [ queryTxsWorker ]
+            ++ [ subscribeWorker ]
 #endif
   where
     merge = mconcatPair . map (first pure)
 
 #if defined(WITH_WALLET)
 
--- | When we're behind NAT, other nodes can't send data to us and thus we
--- won't get transactions that are broadcast through the network – we have to
--- reach out to other nodes by ourselves.
---
--- This worker just triggers every @max (slotDur / 4) 5@ seconds and asks for
--- tx mempool.
-queryTxsWorker
-    :: (WorkMode ssc ctx m, SscWorkersClass ssc)
+data KnownRelay = Relay {
+      -- | When did we find out about this relay?
+      relayDiscovered :: UTCTime
+
+      -- | Was this relay reported last call to getPeers?
+    , relayActive :: Bool
+
+      -- | When was the last time it _was_ reported by getPeers?
+    , relayLastSeen :: UTCTime
+
+      -- | When did we last experience an error communicating with this relay?
+    , relayException :: Maybe (UTCTime, SomeException)
+    }
+
+type KnownRelays = Map NodeId KnownRelay
+
+-- | We never expect relays to close the connection
+data RelayClosedConnection = RelayClosedConnection
+  deriving (Show)
+
+instance Exception RelayClosedConnection
+
+subscribeWorker
+    :: forall ssc ctx m. (WorkMode ssc ctx m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
-queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
-    slotDur <- getLastKnownSlotDuration
-    nodesRef <- liftIO . newIORef . toList =<< getPeers
-    let delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
-        action = forever $ do
-            -- If we ran out of nodes to query, refresh the list
-            whenM (null <$> liftIO (readIORef nodesRef)) $
-                liftIO . writeIORef nodesRef . toList =<< getPeers
-            -- If we managed to get any nodes (or if the list wasn't empty in
-            -- the first place), we ask the first node for the tx mempool.
-            liftIO (readIORef nodesRef) >>= \case
-                []          -> return ()
-                (node:rest) -> do
-                    liftIO $ writeIORef nodesRef rest
-                    txs <- getTxMempoolInvs sendActions node
-                    requestTxs sendActions node txs
-            delay $ delayInterval
-        handler (e :: SomeException) = do
-            logWarning $ "Exception arised in queryTxsWorker: " <> show e
-            delay $ delayInterval * 2
-            action `catch` handler
-    action `catch` handler
+subscribeWorker = worker subscribeWorkerSpec $ \sendActions -> do
+    resolvSeed  <- liftIO $ DNS.makeResolvSeed DNS.defaultResolvConf
+    relayParams <- view (lensOf @RelayParams) <$> ask
 
-type TxIdT = Tagged TxMsgContents TxId
+    let go :: KnownRelays -> m ()
+        go relays = do
+          slotDur <- getLastKnownSlotDuration
+          let delayInterval :: Millisecond
+              delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
 
--- | A specification of how 'queryTxsWorker' will do communication:
---
---     * It will send a MempoolMsg
---
---     * It will receive some InvOrData messages (containing transactions
---       from the mempool)
-queryTxsSpec :: OutSpecs
-queryTxsSpec =
-    toOutSpecs
-        [ -- used by 'getTxMempoolInvs'
-          convH (Proxy @(MempoolMsg TxMsgContents))
-                (Proxy @(InvMsg TxIdT))
-          -- used by 'requestTxs'
-        , convH (Proxy @(ReqMsg TxIdT))
-                (Proxy @(InvOrData TxIdT TxMsgContents))
+          now   <- liftIO $ getCurrentTime
+          peers <- findRelays relayParams resolvSeed
+          let relays' = updateKnownRelays now peers relays
+
+          case preferredRelays now relays' of
+            [] -> do
+              delay delayInterval
+              go relays'
+            (relay:_) -> do
+              logInfo $ msgConnectingTo relay
+              Left ex <- try $ withConnectionTo sendActions relay $ \_peerData ->
+                pure $ Conversation $ \conv -> do
+                  send conv MsgSubscribe
+                  _void :: Maybe Void <- recv conv 0 -- Other side will never send
+                  throwM RelayClosedConnection
+              logWarning $ msgLostConnection relay
+              timeOfEx <- liftIO $ getCurrentTime
+              go $ M.adjust (\r -> r { relayException = Just (timeOfEx, ex) })
+                            relay
+                            relays'
+
+    go M.empty
+  where
+    -- | Do DNS lookup to find relay nodes
+    findRelays :: RelayParams -> DNS.ResolvSeed -> m [NodeId]
+    findRelays relayParams@RelayParams{..} resolvSeed =
+        go [] rpDNS
+      where
+        go :: [DNS.DNSError] -> [DNS.Domain] -> m [NodeId]
+        go errs [] = do
+          logError $ msgDnsFailure errs
+          return []
+        go errs (dom:doms) = do
+          mAddrs <- liftIO $ DNS.withResolver resolvSeed (`DNS.lookupA` dom)
+          case mAddrs of
+            Left  err   -> go (err:errs) doms
+            Right addrs -> return $ map (ipv4ToNodeId relayParams) addrs
+
+    -- | Turn IPv4 address returned by DNS into a NodeId
+    ipv4ToNodeId :: RelayParams -> IPv4 -> NodeId
+    ipv4ToNodeId RelayParams{..} addr =
+        addressToNodeId (BS.C8.pack (show addr), rpPort)
+
+    -- Suitable relays in order of preference
+    --
+    -- We prefer older relays over newer ones
+    preferredRelays :: UTCTime -> KnownRelays -> [NodeId]
+    preferredRelays now =
+          map fst
+        . sortBy (comparing (relayDiscovered . snd))
+        . filter (relaySuitable now . snd)
+        . M.toList
+
+    -- Suitable relay (one that we might try to connect to)
+    relaySuitable :: UTCTime -> KnownRelay -> Bool
+    relaySuitable now Relay{..} = and [
+          relayActive
+        , case relayException of
+            Nothing -> True
+            Just (timeOfErr, _err) ->
+              now `diffUTCTime` timeOfErr > errorExpiry
         ]
 
--- | Send a MempoolMsg to a node and receive incoming 'InvMsg's with
--- transaction IDs.
---
--- TODO use the relay queue.
-getTxMempoolInvs
-    :: WorkMode ssc ctx m
-    => SendActions m -> NodeId -> m [TxId]
-getTxMempoolInvs sendActions node = do
-    logInfo ("Querying tx mempool from node " <> show node)
-    -- Do the old withConnectionTo, bypassing the outbound queue.
-    -- That's fine, as this particular piece of program will be removed soon
-    -- in favour of a subscription model.
-    withConnectionTo sendActions node $
-        \_ -> pure $ Conversation $
-            \(conv :: (ConversationActions
-                                      (MempoolMsg TxMsgContents)
-                                      (InvMsg TxIdT)
-                                      m)
-            ) -> do
-                send conv MempoolMsg
-                let getInvs = do
-                      inv' <- recvLimited conv
-                      case inv' of
-                          Nothing -> return []
-                          Just (InvMsg{..}) -> do
-                              useful <-
-                                case txInvReqDataParams of
-                                  InvReqDataParams {..} ->
-                                      handleInvDo (handleInv node) imKey
-                              case useful of
-                                  Nothing           -> getInvs
-                                  Just (Tagged key) -> (key:) <$> getInvs
-                getInvs
+    -- Time after an error after which we reconsider a relay (in sec.)
+    errorExpiry :: NominalDiffTime
+    errorExpiry = 60
 
--- | Request several transactions.
-requestTxs
-    :: WorkMode ssc ctx m
-    => SendActions m -> NodeId -> [TxId] -> m ()
-requestTxs sendActions node txIds = do
-    logInfo $ sformat
-        ("Requesting "%int%" txs from node "%shown)
-        (length txIds) node
-    logDebug $ sformat
-        ("First 5 (or less) transactions: "%listJson)
-        (take 5 txIds)
-    -- Do the old withConnectionTo, bypassing the outbound queue.
-    -- That's fine, as this particular piece of program will be removed soon
-    -- in favour of a subscription model.
-    void $ withConnectionTo sendActions node $
-        \_ -> pure $ Conversation $
-          \(conv :: (ConversationActions
-                                     (ReqMsg TxIdT)
-                                     (InvOrData TxIdT TxMsgContents)
-                                     m)
-           ) -> do
-               let getTx id = do
-                       logDebug $ sformat ("Requesting transaction "%build) id
-                       send conv $ ReqMsg id
-                       dt' <- recvLimited conv
-                       case dt' of
-                           Nothing -> error "didn't get an answer to Req"
-                           Just x  -> flip expectData x $
-                             \(DataMsg dmContents) ->
-                               case txInvReqDataParams of
-                                 InvReqDataParams {..} ->
-                                     handleDataDo node MsgTransaction (enqueueMsg sendActions) contentsToKey (handleData node) dmContents
-               for_ txIds $ \(Tagged -> id) ->
-                   getTx id `catch` handler id
-    logInfo $ sformat
-        ("Finished requesting txs from node "%shown)
-        node
-  where
-    handler id (e :: SomeException) = do
-        logWarning $ sformat
-            ("Couldn't get transaction with id "%build%" "%
-             "from node "%build%": "%shown)
-            id node e
+    updateKnownRelays :: UTCTime -> [NodeId] -> KnownRelays -> KnownRelays
+    updateKnownRelays now =
+        M.mergeWithKey
+          -- Relays we already knew about
+          (\_nodeId () relay -> Just $ relay { relayLastSeen = now
+                                             , relayActive   = True
+                                             })
+          -- Newly discovered delays
+          (M.map $ \() -> initKnownRelay now)
+          -- Relays that seem to have disappeared
+          (M.map $ \relay -> relay { relayActive = False })
+      . M.fromList
+      . map (, ())
+
+    initKnownRelay :: UTCTime -> KnownRelay
+    initKnownRelay now = Relay {
+          relayDiscovered = now
+        , relayActive     = True
+        , relayLastSeen   = now
+        , relayException  = Nothing
+        }
+
+    msgConnectingTo, msgLostConnection :: NodeId -> Text
+    msgConnectingTo   = sformat $ "subscribeWorker: subscribing to " % shown
+    msgLostConnection = sformat $ "subscribeWorker: lost connection to " % shown
+
+    msgDnsFailure :: [DNS.DNSError] -> Text
+    msgDnsFailure = sformat $ "subscribeWorker: DNS failure: " % shown
+
+subscribeWorkerSpec :: OutSpecs
+subscribeWorkerSpec = toOutSpecs [ convH (Proxy @MsgSubscribe) (Proxy @Void) ]
 
 #endif

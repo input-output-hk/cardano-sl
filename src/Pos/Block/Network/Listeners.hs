@@ -7,22 +7,28 @@ module Pos.Block.Network.Listeners
        ) where
 
 import           Formatting                 (build, sformat, (%))
+import qualified Mockable.Exception         as M (bracket_)
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logDebug, logWarning)
 import           Universum
+
+import qualified Network.Broadcast.OutboundQueue       as OQ
+import qualified Network.Broadcast.OutboundQueue.Types as OQ
 
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgGetHeaders, MsgHeaders (..))
+                                             MsgGetHeaders, MsgHeaders (..),
+                                             MsgSubscribe (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
                                              MkListeners, OutSpecs, constantListeners)
 import qualified Pos.DB.Block               as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
+import           Pos.KnownPeers             (MonadKnownPeers(..))
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
@@ -34,6 +40,7 @@ blockListeners = constantListeners
     [ handleGetHeaders
     , handleGetBlocks
     , handleBlockHeaders
+    , handleSubscription
     ]
 
 ----------------------------------------------------------------------------
@@ -94,3 +101,22 @@ handleBlockHeaders = listenerConv @MsgGetHeaders $ \__ourVerInfo nodeId conv -> 
     mHeaders <- recvLimited conv
     whenJust mHeaders $ \(MsgHeaders headers) ->
         handleUnsolicitedHeaders (getNewestFirst headers) nodeId
+
+----------------------------------------------------------------------------
+-- Subscription
+----------------------------------------------------------------------------
+
+handleSubscription
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
+    => (ListenerSpec m, OutSpecs)
+handleSubscription = listenerConv @Void $ \__ourVerInfo nodeId conv -> do
+    mbMsg <- recvLimited conv
+    whenJust mbMsg $ \MsgSubscribe -> do
+      -- TODO: Should we change this so that MsgSubscribe carries the node type?
+      -- In particular, for the "transitional" mode where Kademia nodes
+      -- use this subscription mechanism too?
+      let peers = OQ.simplePeers [(OQ.NodeEdge, nodeId)]
+      M.bracket_ (addKnownPeers peers)
+                 (removeKnownPeer nodeId)
+                 (void $ recvLimited conv)

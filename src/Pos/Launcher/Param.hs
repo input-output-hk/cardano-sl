@@ -8,12 +8,14 @@ module Pos.Launcher.Param
        , BaseParams (..)
        , NetworkParams (..)
        , NodeParams (..)
+       , RelayParams (..)
        ) where
 
 import           Universum
 
 import           Control.Lens            (makeLensesWith)
 import           Ether.Internal          (HasLens (..))
+import qualified Network.DNS             as DNS
 import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
 
@@ -52,6 +54,16 @@ data NetworkParams = NetworkParams
     -- It encapsulates bind address and address visible to other nodes.
     }
 
+-- | How do we find relays (for behind-NAT nodes)
+data RelayParams = RelayParams
+    { rpDNS :: ![DNS.Domain]
+      -- ^ Domain to query to find relay nodes
+      -- If this is a non-empty list, later entries will only be used in
+      -- case of failure
+    , rpPort :: !Word16
+      -- ^ Port number to contact the relay on
+    }
+
 -- | This data type contains all data necessary to launch node and
 -- known in advance (from CLI, configs, etc.)
 data NodeParams = NodeParams
@@ -73,6 +85,7 @@ data NodeParams = NodeParams
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     , npNetworkConfig  :: !NetworkConfig
+    , npRelayParams    :: !RelayParams
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams
@@ -91,3 +104,6 @@ instance HasReportServers NodeParams where
 
 instance HasPrimaryKey NodeParams where
     primaryKey = npSecretKey_L
+
+instance HasLens RelayParams NodeParams RelayParams where
+    lensOf = npRelayParams_L

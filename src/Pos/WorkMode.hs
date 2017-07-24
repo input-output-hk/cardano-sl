@@ -13,6 +13,9 @@ module Pos.WorkMode
        -- * Actual modes
        , RealMode
        , RealModeContext(..)
+
+       , OQ
+       , EnqueuedConversation (..)
        ) where
 
 import           Universum
@@ -21,6 +24,10 @@ import           Control.Lens                (makeLensesWith)
 import qualified Control.Monad.Reader        as Mtl
 import           Ether.Internal              (HasLens (..))
 import           Mockable                    (Production)
+import           Formatting                  (shown)
+import           Network.Broadcast.OutboundQueue.Types (FormatMsg (..))
+import qualified Network.Broadcast.OutboundQueue as OQ
+import qualified Node                        as N (Conversation)
 import           System.Wlog                 (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
@@ -28,6 +35,7 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog.Types        (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
+import           Pos.Communication.Types     (PeerData, PackingType, NodeId, Msg)
 import           Pos.Context                 (NodeContext, HasSscContext (..),
                                               HasPrimaryKey (..), HasNodeContext (..))
 import           Pos.Core                    (IsHeader)
@@ -48,6 +56,7 @@ import           Pos.Discovery               (HasDiscoveryContextSum (..),
                                               MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
 import           Pos.Reporting               (HasReportingContext (..))
+import           Pos.KnownPeers              (MonadKnownPeers (..))
 import           Pos.Shutdown                (HasShutdownContext (..))
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
@@ -74,6 +83,14 @@ import           Pos.Util.UserSecret         (HasUserSecret (..))
 import           Pos.Util.Util               (postfixLFields)
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
+newtype EnqueuedConversation m t =
+    EnqueuedConversation (Msg, NodeId -> PeerData -> N.Conversation PackingType m t)
+
+instance FormatMsg (EnqueuedConversation m) where
+    formatMsg = (\k (EnqueuedConversation (msg, _)) -> k msg) <$> shown
+
+type OQ m = OQ.OutboundQ (EnqueuedConversation m) NodeId
+
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
     , rmcSscState      :: !(SscState ssc)
@@ -82,7 +99,10 @@ data RealModeContext ssc = RealModeContext
     , rmcJsonLogConfig :: !JsonLogConfig
     , rmcLoggerName    :: !LoggerName
     , rmcNodeContext   :: !(NodeContext ssc)
+    , rmcOutboundQ     :: !(OQ (RealMode ssc))
     }
+
+type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 
 makeLensesWith postfixLFields ''RealModeContext
 
@@ -138,8 +158,6 @@ instance HasLoggerName' (RealModeContext ssc) where
 
 instance HasJsonLogConfig (RealModeContext ssc) where
     jsonLogConfig = rmcJsonLogConfig_L
-
-type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 
 instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
     getLoggerName = getLoggerNameDefault
@@ -199,3 +217,11 @@ instance
 instance SscHelpersClass ssc =>
          MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc) where
     dbPutBlund = dbPutBlundDefault
+
+instance MonadKnownPeers (RealMode ssc) where
+    addKnownPeers peers = do
+        oq <- rmcOutboundQ <$> ask
+        OQ.addKnownPeers oq peers
+    removeKnownPeer nid = do
+        oq <- rmcOutboundQ <$> ask
+        OQ.removeKnownPeer oq nid

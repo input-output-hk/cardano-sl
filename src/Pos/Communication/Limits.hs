@@ -24,7 +24,8 @@ import           GHC.Exts                           (IsList (..))
 import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
-                                                     MsgGetHeaders (..), MsgHeaders (..))
+                                                     MsgGetHeaders (..), MsgHeaders (..),
+                                                     MsgSubscribe (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
@@ -276,6 +277,11 @@ instance MessageLimited (MsgHeaders ssc) where
         headerLimit <- getMsgLenLimit (Proxy @(BlockHeader ssc))
         return $
             MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
+
+instance MessageLimitedPure MsgSubscribe where
+    msgLenLimit = 0
+
+instance MessageLimited MsgSubscribe
 
 ----------------------------------------------------------------------------
 -- Arbitrary

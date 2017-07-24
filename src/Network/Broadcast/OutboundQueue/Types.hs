@@ -48,7 +48,7 @@ data Peers nid = Peers {
     , _peersRelay :: AllOf (Alts nid)
     , _peersEdge  :: AllOf (Alts nid)
     }
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- | List of forwarding sets
 --

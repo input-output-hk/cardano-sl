@@ -38,8 +38,8 @@ import           Pos.Util.Chrono             (NewestFirst (..))
 -- Global
 ----------------------------------------------------------------------------
 
-type EGlobalApplyToilMode ctx m =
-    ( Txp.GlobalApplyToilMode ctx m
+type EGlobalApplyToilMode m =
+    ( Txp.GlobalApplyToilMode m
     , MonadTxExtra m
     )
 
@@ -51,7 +51,7 @@ type EGlobalVerifyToilMode ctx m =
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 eApplyToil
-    :: EGlobalApplyToilMode ctx m
+    :: EGlobalApplyToilMode m
     => Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
@@ -70,7 +70,7 @@ eApplyToil curTime txun hh = do
         updateAddrBalances balanceUpdate
 
 -- | Rollback transactions from one block.
-eRollbackToil :: EGlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
+eRollbackToil :: EGlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
 eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback txun

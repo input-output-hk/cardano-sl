@@ -36,8 +36,9 @@ import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPa
 import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
                                           slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
-import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
-                                          gbBody, gbHeader, headerHash)
+import           Pos.Core                (GenesisStakeholders, IsGenesisHeader,
+                                          IsMainHeader, epochIndexL, gbBody, gbHeader,
+                                          headerHash)
 import           Pos.DB                  (MonadDB, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
 import           Pos.Delegation.Class    (MonadDelegation)

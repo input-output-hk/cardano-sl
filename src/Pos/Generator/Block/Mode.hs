@@ -67,7 +67,7 @@ import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), Tx
                                               TxOutAux (..), TxpGlobalSettings, GenesisUtxo,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
-import           Pos.Txp.Toil.Types          (GenesisTxpContext, GenesisStakeholders, GenesisUtxo,
+import           Pos.Txp.Toil.Types          (GenesisTxpContext, GenesisStakeholders,
                                               mkGenesisTxpContext, gtcUtxo, gtcStakeholders)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)

@@ -25,7 +25,8 @@ import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
-import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
+import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure,
+                                              clearTxpMemPool, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
@@ -112,10 +113,11 @@ txNormalize
     :: ( TxpLocalWorkMode ctx m
        , MonadSlots m)
     => m ()
-txNormalize = do
-    utxoTip <- GS.getTip
-    epoch <- maybe (throwM ToilUnknownCurEpoch) (pure . siEpoch) =<< getCurrentSlot
-    localTxs <- getLocalTxs
-    ToilModifier {..} <-
-        runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
-    setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+txNormalize = getCurrentSlot >>= \case
+    Nothing -> clearTxpMemPool "txNormalize "
+    Just (siEpoch -> epoch) -> do
+        utxoTip <- GS.getTip
+        localTxs <- getLocalTxs
+        ToilModifier {..} <-
+            runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
+        setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

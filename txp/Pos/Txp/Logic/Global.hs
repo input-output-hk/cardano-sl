@@ -13,16 +13,17 @@ module Pos.Txp.Logic.Global
        , runToilAction
        ) where
 
+import           Control.Lens            (choosing)
 import           Control.Monad.Except    (runExceptT)
 import           Data.Default            (Default)
 import qualified Data.HashMap.Strict     as HM
+import qualified Data.List.NonEmpty      as NE
 import           Formatting              (build, sformat, (%))
 import           Universum
 
-import           Pos.Core.Types          (SlotId (..))
+import           Pos.Core.Class          (epochIndexL)
 import           Pos.DB                  (MonadDBRead, SomeBatchOp (..))
 import           Pos.Exception           (assertionFailed)
-import           Pos.Slotting.Class      (getCurrentSlot)
 import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)
 import qualified Pos.Txp.DB              as DB
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
@@ -30,9 +31,8 @@ import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode
                                           TxpGlobalVerifyMode)
 import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), DBToil,
                                           GenericToilModifier (..), GlobalApplyToilMode,
-                                          ToilModifier, ToilT, ToilVerFailure (..),
-                                          applyToil, rollbackToil, runDBToil,
-                                          runToilTGlobal, verifyToil)
+                                          ToilModifier, ToilT, applyToil, rollbackToil,
+                                          runDBToil, runToilTGlobal, verifyToil)
 import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier       as MM
 import           Pos.Util.Util           (inAssertMode)
@@ -52,7 +52,7 @@ verifyBlocks
        TxpGlobalVerifyMode ctx m
     => Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
 verifyBlocks verifyAllIsKnown newChain = do
-    epoch <- siEpoch <$> (note ToilUnknownCurEpoch =<< getCurrentSlot)
+    let epoch = NE.last (getOldestFirst newChain) ^. choosing epochIndexL (_1 . epochIndexL)
     fst <$> runToilAction @_ @() (mapM (verifyDo epoch) newChain)
   where
     verifyDo epoch = verifyToil epoch verifyAllIsKnown . convertPayload
@@ -66,8 +66,7 @@ data ApplyBlocksSettings extra m = ApplyBlocksSettings
     }
 
 applyBlocksSettings
-    :: forall ctx m.
-       GlobalApplyToilMode ctx m
+    :: GlobalApplyToilMode m
     => ApplyBlocksSettings () m
 applyBlocksSettings =
     ApplyBlocksSettings

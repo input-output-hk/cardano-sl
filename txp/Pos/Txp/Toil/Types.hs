@@ -81,6 +81,7 @@ newtype GenesisUtxo = GenesisUtxo
     { unGenesisUtxo :: Utxo
     }
 
+-- | Genesis context related to transaction processing.
 data GenesisTxpContext = UnsafeGenesisTxpContext
     { _gtcUtxo         :: !GenesisUtxo
     , _gtcStakeholders :: !GenesisStakeholders

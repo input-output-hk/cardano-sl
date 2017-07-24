@@ -37,7 +37,6 @@ type TxpCommonMode ctx m =
 type TxpGlobalVerifyMode ctx m =
     ( TxpCommonMode ctx m
     , MonadError ToilVerFailure m
-    , MonadSlots m  -- TODO: I don't like it (@gromak)
     )
 
 type TxpGlobalApplyMode ctx m =

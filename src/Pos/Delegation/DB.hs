@@ -163,10 +163,12 @@ instance DBIteratorClass ThisEpochPostedIter where
     iterKeyPrefix = iterPostedThisEpochPrefix
 
 -- | Get all keys of thisEpochPosted set.
-getThisEpochPostedKeys :: MonadDBRead m => m [StakeholderId]
+getThisEpochPostedKeys :: MonadDBRead m => m (HashSet StakeholderId)
 getThisEpochPostedKeys =
     runConduitRes $
-    mapOutput fst (dbIterSource GStateDB (Proxy @ThisEpochPostedIter)) .| CL.consume
+    mapOutput fst (dbIterSource GStateDB (Proxy @ThisEpochPostedIter)) .| consumeHs
+  where
+    consumeHs = CL.fold (flip HS.insert) mempty
 
 ----------------------------------------------------------------------------
 -- Keys

@@ -343,7 +343,7 @@ dlgVerifyBlocks ::
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE DlgUndo))
 dlgVerifyBlocks blocks = do
-    _dvCurEpoch <- HS.fromList <$> GS.getThisEpochPostedKeys
+    _dvCurEpoch <- GS.getThisEpochPostedKeys
     let initState = DlgVerState _dvCurEpoch
     (richmen :: HashSet StakeholderId) <-
         lrcActionOnEpochReason

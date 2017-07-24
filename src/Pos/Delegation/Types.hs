@@ -61,10 +61,10 @@ mkDlgPayload proxySKs = do
 
 -- | Undo for the delegation component.
 data DlgUndo = DlgUndo
-    { duPsks            :: [ProxySKHeavy]
+    { duPsks            :: !([ProxySKHeavy])
       -- ^ PSKs we've modified when applying the block (by deleting or
       -- overwriting).
-    , duPrevEpochPosted :: HashSet StakeholderId
+    , duPrevEpochPosted :: !(HashSet StakeholderId)
       -- ^ Set of stakeholders that posted in epoch i. This field
       -- should be present only for genesis block of epoch i+1.
     } deriving (Generic)

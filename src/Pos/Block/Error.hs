@@ -3,6 +3,8 @@
 module Pos.Block.Error
        ( BlkError
        , RollbackException(..)
+       , ApplyBlocksException(..)
+       , VerifyBlocksException(..)
        ) where
 
 import           Universum
@@ -24,7 +26,7 @@ data RollbackException = RollbackTipMismatch HeaderHash HeaderHash
 
 renderRollbackException :: RollbackException -> Text
 renderRollbackException = \case
-    RollbackTipMismatch storedTip attemptedTip->
+    RollbackTipMismatch storedTip attemptedTip ->
         tipMismatchMsg "rollback" storedTip attemptedTip
 
 instance Exception RollbackException where
@@ -32,3 +34,36 @@ instance Exception RollbackException where
 
 instance Buildable RollbackException where
     build = Data.Text.Buildable.build . renderRollbackException
+
+data ApplyBlocksException
+    = ApplyBlocksTipMismatch Text HeaderHash HeaderHash
+    | ApplyBlocksVerifyFailure VerifyBlocksException
+    | ApplyBlocksError Text
+    deriving (Show)
+
+renderApplyBlocksException :: ApplyBlocksException -> Text
+renderApplyBlocksException = \case
+    ApplyBlocksTipMismatch s tip attemptedTip ->
+        tipMismatchMsg s tip attemptedTip
+    ApplyBlocksVerifyFailure e -> renderVerifyBlocksException e
+    ApplyBlocksError e -> e
+
+instance Exception ApplyBlocksException where
+    displayException = toString . renderApplyBlocksException
+
+instance Buildable ApplyBlocksException where
+    build = Data.Text.Buildable.build . renderApplyBlocksException
+
+data VerifyBlocksException
+    = VerifyBlocksError Text
+    deriving (Show)
+
+instance Exception VerifyBlocksException where
+    displayException = toString . renderVerifyBlocksException
+
+instance Buildable VerifyBlocksException where
+    build = Data.Text.Buildable.build . renderVerifyBlocksException
+
+renderVerifyBlocksException :: VerifyBlocksException -> Text
+renderVerifyBlocksException = \case
+    VerifyBlocksError t -> t

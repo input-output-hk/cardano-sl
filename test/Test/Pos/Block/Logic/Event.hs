@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Test.Pos.Block.Logic.Event
     ( runBlockEvent
     , runBlockScenario
@@ -8,12 +10,17 @@ import           Universum
 
 import           Control.Monad.Catch      (catch)
 
-import           Pos.Block.Logic.VAR      (BlockLrcMode, applyBlocks, rollbackBlocks)
+import           Pos.Block.Logic.VAR      (BlockLrcMode, rollbackBlocks,
+                                           verifyAndApplyBlocks)
+import           Pos.Block.Types          (Blund)
+import           Pos.Core                 (HeaderHash)
 import           Pos.DB.Pure              (DBPureDiff, MonadPureDB, dbPureDiff,
                                            dbPureDump)
 import           Pos.Generator.BlockEvent (BlockEvent, BlockEvent' (..),
                                            IsBlockEventFailure (..), beaInput, berInput)
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
+import           Pos.Util.Chrono          (NE, OldestFirst)
+import           Pos.Util.Util            (eitherToThrow)
 
 newtype IsExpected = IsExpected Bool
 
@@ -29,13 +36,22 @@ mkBlockEventFailure ::
 mkBlockEventFailure ev =
     BlockEventFailure (IsExpected (isBlockEventFailure ev))
 
+verifyAndApplyBlocks' ::
+       BlockLrcMode ssc ctx m
+    => OldestFirst NE (Blund ssc)
+    -> m ()
+verifyAndApplyBlocks' bs = do
+    (_ :: HeaderHash) <- eitherToThrow identity =<<
+        verifyAndApplyBlocks True (fst <$> bs)
+    return ()
+
 -- | Execute a single block event.
 runBlockEvent ::
        BlockLrcMode SscGodTossing ctx m
     => BlockEvent
     -> m BlockEventResult
 runBlockEvent (BlkEvApply ev) =
-   (BlockEventSuccess <$ applyBlocks True Nothing (ev ^. beaInput))
+   (BlockEventSuccess <$ verifyAndApplyBlocks' (ev ^. beaInput))
       `catch` (return . mkBlockEventFailure ev)
 runBlockEvent (BlkEvRollback ev) =
    (BlockEventSuccess <$ rollbackBlocks (ev ^. berInput))

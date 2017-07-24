@@ -17,7 +17,7 @@ module Pos.Block.Logic.Creation
 import           Universum
 
 import           Control.Lens               (uses, (-=), (.=), _Wrapped)
-import           Control.Monad.Catch        (try)
+import           Control.Monad.Catch        (displayException, try)
 import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.Default               (Default (def))
 import           Ether.Internal             (HasLens (..))
@@ -309,7 +309,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
     applyCreatedBlockDo :: Bool -> MainBlock ssc -> m (MainBlock ssc)
     applyCreatedBlockDo isFallback blockToApply =
         verifyBlocksPrefix (one (Right blockToApply)) >>= \case
-            Left reason
+            Left (fromString . displayException -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
             Right (undos, pollModifier) ->

@@ -41,6 +41,7 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Txp             ()
 import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
+import           Pos.Block.Error            (ApplyBlocksException)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,
@@ -452,7 +453,7 @@ applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
-        Left err     ->
+        Left (fromString . displayException -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
             when (newTip /= newestTip) $
@@ -474,7 +475,7 @@ applyWithoutRollback sendActions blocks = do
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
-        :: HeaderHash -> m (Either Text HeaderHash, HeaderHash)
+        :: HeaderHash -> m (Either ApplyBlocksException HeaderHash, HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
         res <- verifyAndApplyBlocks False blocks
@@ -499,7 +500,8 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
         res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (res, either (const curTip) identity res)
     case res of
-        Left err -> logWarning $ "Couldn't apply blocks with rollback: " <> err
+        Left (fromString . displayException -> err) ->
+            logWarning $ "Couldn't apply blocks with rollback: " <> err
         Right newTip -> do
             logDebug $ sformat
                 ("Finished applying blocks w/ rollback, relaying new tip: "%shortHashF)

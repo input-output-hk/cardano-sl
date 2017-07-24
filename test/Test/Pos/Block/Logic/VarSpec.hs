@@ -12,7 +12,6 @@ import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List                   (span)
 import           Data.List.NonEmpty          (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty          as NE
-import           Serokell.Util               (throwText)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Gen         (Gen (MkGen), sized)
@@ -68,7 +67,8 @@ verifyEmptyMainBlock = do
     -- unsafeHead is safe here, because we explicitly request to
     -- generate exactly 1 block
     emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1) False
-    whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) stopProperty
+    whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
+        stopProperty . fromString . displayException
 
 verifyValidBlocks :: BlockProperty ()
 verifyValidBlocks = do
@@ -86,7 +86,8 @@ verifyValidBlocks = do
     verRes <-
         lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix $
         blocksToVerify
-    whenLeft verRes stopProperty
+    whenLeft verRes $
+        stopProperty . fromString . displayException
 
 ----------------------------------------------------------------------------
 -- verifyAndApplyBlocks
@@ -99,7 +100,7 @@ verifyAndApplyBlocksSpec = do
     applier blunds =
         let blocks = map fst blunds
         in satisfySlotCheck blocks $
-           whenLeftM (verifyAndApplyBlocks True blocks) throwText
+           whenLeftM (verifyAndApplyBlocks True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>

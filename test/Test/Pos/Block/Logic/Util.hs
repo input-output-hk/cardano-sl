@@ -18,7 +18,7 @@ import           Test.QuickCheck.Monadic     (pick)
 import           Pos.Block.Core              (Block)
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (BlockCount, SlotId (..), epochIndexL)
-import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
+import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Chrono             (NE, OldestFirst (..))

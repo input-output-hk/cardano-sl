@@ -390,7 +390,7 @@ recvNext packing limit (LL.ChannelIn channel) = do
         Fail _ _ _ -> throw NoParse
         Done trailing _ thing -> return (trailing, Input thing)
         Partial next -> do
-            when (remaining <= 0) (throw LimitExceeded)
+            when (remaining < 0) (throw LimitExceeded)
             mbs <- Channel.readChannel channel
             case mbs of
                 Nothing -> runDecoder (next Nothing) >>= go remaining

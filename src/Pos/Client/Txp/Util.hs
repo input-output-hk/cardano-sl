@@ -3,7 +3,8 @@
 module Pos.Client.Txp.Util
        (
        -- * Tx creation
-         makeAbstractTx
+         TxCreateMode
+       , makeAbstractTx
        , overrideTxOutDistrBoot
        , overrideTxDistrBoot
        , makePubKeyTx
@@ -20,7 +21,7 @@ module Pos.Client.Txp.Util
        ) where
 
 import           Control.Lens         (traversed, (%=), (.=))
-import           Control.Monad.Except (ExceptT, throwError)
+import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
 import           Control.Monad.State  (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            (tail)
@@ -177,17 +178,19 @@ type InputPicker = StateT (Coin, FlatUtxo) (Either Text)
 
 -- | Given Utxo, desired source addresses and desired outputs, prepare lists
 -- of correct inputs and outputs to form a transaction
-prepareInpsOuts
-    :: Utxo
+prepareInpsOuts ::
+       MonadError Text m
+    => Utxo
     -> NonEmpty Address
     -> TxOutputs
-    -> Either Text (TxOwnedInputs Address, TxOutputs)
+    -> m (TxOwnedInputs Address, TxOutputs)
 prepareInpsOuts utxo addrs outputs = do
     when (totalMoney == mkCoin 0) $
-        fail "Attempted to send 0 money"
-    futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
+        throwError "Attempted to send 0 money"
+    futxo <- either throwError pure $
+        evalStateT (pickInputs []) (totalMoney, sortedUnspent)
     case nonEmpty futxo of
-        Nothing       -> fail "Failed to prepare inputs!"
+        Nothing       -> throwError "Failed to prepare inputs!"
         Just inputsNE -> pure (map formTxInputs inputsNE, outputs)
   where
     totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut) outputs
@@ -203,7 +206,7 @@ prepareInpsOuts utxo addrs outputs = do
             else do
                 mNextOut <- head <$> use _2
                 case mNextOut of
-                    Nothing -> fail "Not enough money to send!"
+                    Nothing -> throwError "Not enough money to send!"
                     Just inp@(_, (TxOutAux (TxOut {..}) _)) -> do
                         _1 .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         _2 %= tail
@@ -211,7 +214,7 @@ prepareInpsOuts utxo addrs outputs = do
     formTxInputs (inp, TxOutAux TxOut{..} _) = (txOutAddress, inp)
 
 -- | Common use case of 'prepaseInpsOuts' - with single source address
-prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either Text (TxInputs, TxOutputs)
+prepareInpOuts :: MonadError Text m => Utxo -> Address -> TxOutputs -> m (TxInputs, TxOutputs)
 prepareInpOuts utxo addr outputs =
     prepareInpsOuts utxo (one addr) outputs <&>
     _1 . traversed %~ snd
@@ -229,11 +232,22 @@ createMTx utxo hwdSigners outputs =
         fromMaybe (error "Requested signer for unknown address") $
         HM.lookup (AddressIA addr) signers
 
--- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SafeSigner -> TxOutputs -> Either Text TxAux
+-- | Make a multi-transaction using given secret key and info for
+-- outputs.
+createTx ::
+       TxCreateMode ctx m
+    => Utxo
+    -> SafeSigner
+    -> TxOutputs
+    -> m (Either Text TxAux)
 createTx utxo ss outputs =
-    uncurry (makePubKeyTx ss) <$>
-    prepareInpOuts utxo (makePubKeyAddress $ safeToPublic ss) outputs
+    runExceptT $ do
+        properOutputs <- overrideTxDistrBoot outputs
+        uncurry (makePubKeyTx ss) <$>
+            prepareInpOuts
+                utxo
+                (makePubKeyAddress $ safeToPublic ss)
+                properOutputs
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either Text TxAux

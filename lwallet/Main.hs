@@ -16,7 +16,6 @@ import qualified Data.ByteString               as BS
 import           Data.ByteString.Base58        (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     ((!!))
-import qualified Data.List.NonEmpty            as NE
 import qualified Data.Set                      as S (fromList, toList)
 import           Data.String.QQ                (s)
 import qualified Data.Text                     as T
@@ -201,7 +200,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
             sendTxs = (atomically $ tryReadTQueue txQueue) >>= \case
                 Just (key, txOut, neighbours) -> do
                     utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic (fakeSigner key)
-                    let tx = createTx utxo (fakeSigner key) (NE.fromList [TxOutAux txOut []])
+                    tx <- createTx utxo (fakeSigner key) (one (TxOutAux txOut []))
                     case tx of
                         Left err -> addTxFailed tpsMVar >> logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
                         Right tx -> do

@@ -1,6 +1,6 @@
 -- | Unsafe arbitrary instances for crypto primitives.
 
-module Pos.Crypto.Arbitrary.Unsafe () where
+module Pos.Arbitrary.Crypto.Unsafe () where
 
 import           Universum
 

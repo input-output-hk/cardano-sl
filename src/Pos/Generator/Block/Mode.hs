@@ -7,6 +7,7 @@ module Pos.Generator.Block.Mode
        , MonadBlockGen
        , BlockGenContext (..)
        , BlockGenMode
+       , BlockGenRandMode
        , mkBlockGenContext
 
        , usingPrimaryKey
@@ -18,7 +19,9 @@ module Pos.Generator.Block.Mode
 import           Universum
 
 import           Control.Lens.TH             (makeLensesWith)
+import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Data.Map                    as M
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -30,9 +33,9 @@ import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
-                                              getEpochOrSlot)
-import           Pos.Crypto                  (SecretKey)
-import           Pos.DB                      (DBPureVar, MonadBlockDBGeneric (..),
+                                              getEpochOrSlot, makePubKeyAddress, mkCoin)
+import           Pos.Crypto                  (SecretKey, toPublic, unsafeHash)
+import           Pos.DB                      (DBSum, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
                                               MonadDBRead)
 import qualified Pos.DB                      as DB
@@ -44,7 +47,8 @@ import           Pos.Discovery               (DiscoveryContextSum (..),
                                               MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
 import           Pos.Exception               (reportFatalError)
-import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
+import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..),
+                                              HasTxGenParams (..), asSecretKeys)
 import qualified Pos.GState                  as GS
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
@@ -59,9 +63,11 @@ import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDa
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
-import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
+import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), TxOut (..),
+                                              TxOutAux (..), TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
+import           Pos.Txp.Toil.Types          (GenesisUtxo (..))
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -93,7 +99,7 @@ type MonadBlockGenBase m
 type MonadBlockGen ctx m
      = ( MonadBlockGenBase m
        , MonadReader ctx m
-       , GS.HasGStateContext ctx DBPureVar
+       , GS.HasGStateContext ctx
        , HasSlottingVar ctx
        )
 
@@ -111,12 +117,13 @@ data BlockGenContext = BlockGenContext
     -- primary key, but it would lead to enormous amount of
     -- boilerplate. Also it could be put into mutable reference, but
     -- it's complicated too.
-    , bgcGState            :: !GS.GStateContextPure
+    , bgcGState            :: !GS.GStateContext
     -- ^ Currently we always use pure DB and assume it always fits in
     -- memory. It allows us to simply clone existing DB.
     , bgcSystemStart       :: !Timestamp
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
+    , bgcGenesisUtxo       :: !GenesisUtxo
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -133,6 +140,12 @@ makeLensesWith postfixLFields ''BlockGenContext
 -- | Execution mode for blockchain generation.
 type BlockGenMode m = ReaderT BlockGenContext m
 
+-- | Block generation mode with random
+type BlockGenRandMode g m = RandT g (BlockGenMode m)
+
+instance MonadThrow m => MonadThrow (RandT g m) where
+    throwM = lift . throwM
+
 ----------------------------------------------------------------------------
 -- Context creation
 ----------------------------------------------------------------------------
@@ -141,9 +154,11 @@ type BlockGenMode m = ReaderT BlockGenContext m
 -- context. Persistent data (DB) is cloned. Other mutable data is
 -- recreated.
 mkBlockGenContext :: MonadBlockGen ctx m => BlockGenParams -> m BlockGenContext
-mkBlockGenContext bgcParams = do
+mkBlockGenContext bgcParams@BlockGenParams{..} = do
     let bgcPrimaryKey = error "bgcPrimaryKey was forced before being set"
-    bgcGState <- GS.cloneGStateContext =<< view GS.gStateContext
+    bgcGState <- if _bgpInplaceDB
+                 then view GS.gStateContext
+                 else GS.cloneGStateContext =<< view GS.gStateContext
     bgcSystemStart <- view slottingTimestamp
     (initSlot, putInitSlot) <- newInitFuture
     let bgcSlotId = Nothing
@@ -165,9 +180,21 @@ mkBlockGenContext bgcParams = do
         bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
+  where
+    -- Genesis utxo is needed only for boot era stakeholders
+    bgcGenesisUtxo =
+        let addrs =
+                -- So we take three stakeholders in boot era.
+                take 3 $
+                map (makePubKeyAddress . toPublic) . toList $
+                view (bgpSecrets . asSecretKeys) bgcParams
+            utxoTxHash = unsafeHash ("randomutxotx" :: Text)
+            txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
+            txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
+        in GenesisUtxo $ M.fromList $ txIns `zip` txOuts
 
 data InitBlockGenContext = InitBlockGenContext
-    { ibgcDB          :: !DBPureVar
+    { ibgcDB          :: !DBSum
     , ibgcSystemStart :: !Timestamp
     , ibgcSlottingVar :: !(TVar SlottingData)
     , ibgcLrcContext  :: !LrcContext
@@ -180,7 +207,7 @@ makeLensesWith postfixLFields ''InitBlockGenContext
 
 type InitBlockGenMode m = ReaderT InitBlockGenContext m
 
-instance HasLens DBPureVar InitBlockGenContext DBPureVar where
+instance HasLens DBSum InitBlockGenContext DBSum where
     lensOf = ibgcDB_L
 
 instance HasLens LrcContext InitBlockGenContext LrcContext where
@@ -191,20 +218,20 @@ instance HasSlottingVar InitBlockGenContext where
     slottingVar = ibgcSlottingVar_L
 
 instance MonadBlockGenBase m => MonadDBRead (InitBlockGenMode m) where
-    dbGet = DB.dbGetPureDefault
-    dbIterSource = DB.dbIterSourcePureDefault
+    dbGet = DB.dbGetSumDefault
+    dbIterSource = DB.dbIterSourceSumDefault
 
 instance MonadBlockGenBase m => MonadDB (InitBlockGenMode m) where
-    dbPut = DB.dbPutPureDefault
-    dbWriteBatch = DB.dbWriteBatchPureDefault
-    dbDelete = DB.dbDeletePureDefault
+    dbPut = DB.dbPutSumDefault
+    dbWriteBatch = DB.dbWriteBatchSumDefault
+    dbDelete = DB.dbDeleteSumDefault
 
 instance MonadBlockGenBase m =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (InitBlockGenMode m)
   where
-    dbGetBlock = BDB.dbGetBlockPureDefault @SscGodTossing
-    dbGetUndo = BDB.dbGetUndoPureDefault @SscGodTossing
-    dbGetHeader = BDB.dbGetHeaderPureDefault @SscGodTossing
+    dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
+    dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
+    dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance MonadBlockGenBase m => MonadSlotsData (InitBlockGenMode m) where
     getSystemStart = getSystemStartDefault
@@ -224,7 +251,7 @@ instance MonadBlockGenBase m => MonadSlots (InitBlockGenMode m) where
 -- Boilerplate instances
 ----------------------------------------------------------------------------
 
-instance GS.HasGStateContext BlockGenContext DBPureVar where
+instance GS.HasGStateContext BlockGenContext where
     gStateContext = bgcGState_L
 
 instance HasLens BlockGenContext BlockGenContext BlockGenContext where
@@ -233,11 +260,14 @@ instance HasLens BlockGenContext BlockGenContext BlockGenContext where
 instance HasBlockGenParams BlockGenContext where
     blockGenParams = bgcParams_L
 
+instance HasTxGenParams BlockGenContext where
+    txGenParams = bgcParams_L . txGenParams
+
 instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
-instance HasLens DBPureVar BlockGenContext DBPureVar where
+instance HasLens DBSum BlockGenContext DBSum where
     lensOf = GS.gStateContext . GS.gscDB
 
 instance HasLens UpdateContext BlockGenContext UpdateContext where
@@ -264,6 +294,9 @@ instance HasLens SscMemTag BlockGenContext (SscState SscGodTossing) where
 instance HasLens TxpGlobalSettings BlockGenContext TxpGlobalSettings where
     lensOf = bgcTxpGlobalSettings_L
 
+instance HasLens GenesisUtxo BlockGenContext GenesisUtxo where
+    lensOf = bgcGenesisUtxo_L
+
 instance HasReportingContext BlockGenContext where
     reportingContext = bgcReportingContext_L
 
@@ -271,31 +304,31 @@ instance HasDiscoveryContextSum BlockGenContext where
     discoveryContextSum = bgcDiscoveryContext_L
 
 instance MonadBlockGenBase m => MonadDBRead (BlockGenMode m) where
-    dbGet = DB.dbGetPureDefault
-    dbIterSource = DB.dbIterSourcePureDefault
+    dbGet = DB.dbGetSumDefault
+    dbIterSource = DB.dbIterSourceSumDefault
 
 instance MonadBlockGenBase m => MonadDB (BlockGenMode m) where
-    dbPut = DB.dbPutPureDefault
-    dbWriteBatch = DB.dbWriteBatchPureDefault
-    dbDelete = DB.dbDeletePureDefault
+    dbPut = DB.dbPutSumDefault
+    dbWriteBatch = DB.dbWriteBatchSumDefault
+    dbDelete = DB.dbDeleteSumDefault
 
 instance MonadBlockGenBase m =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode m)
   where
-    dbGetBlock = BDB.dbGetBlockPureDefault @SscGodTossing
-    dbGetUndo = BDB.dbGetUndoPureDefault @SscGodTossing
-    dbGetHeader = BDB.dbGetHeaderPureDefault @SscGodTossing
+    dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
+    dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
+    dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance MonadBlockGenBase m =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (BlockGenMode m)
   where
-    dbGetBlock = BDB.dbGetBlockSscPureDefault @SscGodTossing
-    dbGetUndo = BDB.dbGetUndoSscPureDefault @SscGodTossing
-    dbGetHeader = BDB.dbGetHeaderSscPureDefault @SscGodTossing
+    dbGetBlock = BDB.dbGetBlockSscSumDefault @SscGodTossing
+    dbGetUndo = BDB.dbGetUndoSscSumDefault @SscGodTossing
+    dbGetHeader = BDB.dbGetHeaderSscSumDefault @SscGodTossing
 
 instance MonadBlockGenBase m =>
          MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode m) where
-    dbPutBlund = BDB.dbPutBlundPureDefault
+    dbPutBlund = BDB.dbPutBlundSumDefault
 
 instance MonadBlockGenBase m => MonadSlotsData (BlockGenMode m) where
     getSystemStart = getSystemStartDefault

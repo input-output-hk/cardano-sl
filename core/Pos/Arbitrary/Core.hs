@@ -2,7 +2,7 @@
 
 -- | Arbitrary instances for core.
 
-module Pos.Core.Arbitrary
+module Pos.Arbitrary.Core
        ( CoinPairOverflowSum (..)
        , CoinPairOverflowSub (..)
        , CoinPairOverflowMul (..)
@@ -30,6 +30,7 @@ import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNega
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
+import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
                                                     SignedVarInt (..),
                                                     UnsignedVarInt (..),
@@ -44,7 +45,6 @@ import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
-import           Pos.Crypto.Arbitrary              ()
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields(..))
 import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)

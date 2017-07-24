@@ -148,7 +148,6 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
             nrSscState
             nrTxpState
             nrDlgState
-            nrPeerState
             jlConf
             lpRunnerTag
             nrContext

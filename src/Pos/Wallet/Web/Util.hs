@@ -15,12 +15,10 @@ import           Formatting                 (build, sformat, stext, (%))
 import           Pos.Client.Txp.Util        (TxError (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal)
 import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
-import           Pos.Wallet.Web.State       (WebWalletModeDB, getWAddressIds)
-
--- TODO: move more here from Methods.hs
+import           Pos.Wallet.Web.State       (WebWalletModeDB, getAccountIds)
 
 getWalletAccountIds :: WebWalletModeDB ctx m => CId Wal -> m [AccountId]
-getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
+getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
 
 rewrapTxError
     :: forall m a. MonadCatch m

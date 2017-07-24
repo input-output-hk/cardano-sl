@@ -351,7 +351,6 @@ dlgVerifyBlocks blocks = do
         throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
     let initState = DlgVerState _dvCurEpoch
     (richmen :: HashSet StakeholderId) <-
-        HS.fromList . toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
@@ -370,6 +369,7 @@ dlgVerifyBlocks blocks = do
         let blkEpoch = genesisBlk ^. epochIndexL
         noLongerRichmen <- getNoLongerRichmen blkEpoch
         deletedPSKs <- catMaybes <$> mapM getPsk noLongerRichmen
+        -- We should delete all certs for people who are not richmen.
         let delFromCede = modPsk . DlgEdgeDel . addressHash . pskIssuerPk
         deletedPSKs <$ mapM_ delFromCede deletedPSKs
     verifyBlock richmen (Right blk) = do
@@ -489,9 +489,9 @@ dlgApplyBlocks ::
        , MonadMask m
        , HasLens LrcContext ctx LrcContext
        )
-    => OldestFirst NE (Block ssc)
+    => OldestFirst NE (Blund ssc)
     -> m (NonEmpty SomeBatchOp)
-dlgApplyBlocks blocks = do
+dlgApplyBlocks blunds = do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwM $
@@ -499,17 +499,25 @@ dlgApplyBlocks blocks = do
         sformat
         ("Oldest block is based on tip "%shortHashF%", but our tip is "%shortHashF)
         assumedTip tip
-    getOldestFirst <$> mapM applyBlock blocks
+    getOldestFirst <$> mapM applyBlock blunds
   where
-    applyBlock :: Block ssc -> m SomeBatchOp
-    applyBlock (Left block)      = do
+    blocks = map fst blunds
+    applyBlock :: Blund ssc -> m SomeBatchOp
+    applyBlock ((Left block), undoPsk -> undoPsks) = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
             clearDlgMemPoolAction
             dwThisEpochPosted .= HS.empty
             dwEpochId .= (block ^. epochIndexL)
-        removeNoLongerRichmen (block ^. epochIndexL)
-    applyBlock (Right block) = do
+        -- For genesis blocks, dlg undo is richmen that lost their stake.
+        -- So we delete all these guys.
+        let edgeActions = map (DlgEdgeDel . addressHash . pskIssuerPk) undoPsks
+        let edgeOp = SomeBatchOp $ map GS.PskFromEdgeAction edgeActions
+        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
+        pure $ edgeOp <> transCorrections
+    applyBlock ((Right block), _) = do
+        -- for main blocks we can get psks directly from the block,
+        -- though it's duplicated in the undo.
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             edgeActions = map pskToDlgEdgeAction proxySKs
@@ -522,26 +530,6 @@ dlgApplyBlocks blocks = do
                 dwThisEpochPosted %= HS.insert i
         pure $ SomeBatchOp batchOps
 
--- This function returns a batch operation which removes all delegation
--- from stakeholders which were richmen but aren't rich anymore.
-removeNoLongerRichmen ::
-       ( Monad m
-       , MonadIO m
-       , MonadDBRead m
-       , WithLogger m
-       , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
-       )
-    => EpochIndex
-    -> m SomeBatchOp
-removeNoLongerRichmen newEpoch = do
-    noLongerRichmen <- getNoLongerRichmen newEpoch
-    let edgeActions = map DlgEdgeDel noLongerRichmen
-    -- This batch operation updates part (1) of DB.
-    let edgeOp = SomeBatchOp $ map GS.PskFromEdgeAction edgeActions
-    -- Computed batch operation updates parts (2) and (3) of DB.
-    transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-    return (edgeOp <> transCorrections)
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can

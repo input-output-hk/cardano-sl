@@ -21,7 +21,7 @@ module Test.Pos.Block.Logic.Mode
 
 import           Universum
 
-import           Control.Lens                   (makeClassy, makeLensesWith)
+import           Control.Lens                   (lens, makeClassy, makeLensesWith)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Map.Strict                as M
 import qualified Data.Text.Buildable
@@ -61,7 +61,7 @@ import           Pos.Discovery                  (DiscoveryContextSum (..),
                                                  getPeersSum)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..))
 import           Pos.Genesis                    (stakeDistribution)
-import qualified Pos.GState                     as GState
+import qualified Pos.GState                     as GS
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),
@@ -200,7 +200,7 @@ runTestInitMode ctx = runProduction . flip runReaderT ctx
 ----------------------------------------------------------------------------
 
 data BlockTestContext = BlockTestContext
-    { btcGState            :: !GState.GStateContextPure
+    { btcGState            :: !GS.GStateContext
     , btcSystemStart       :: !Timestamp
     , btcLoggerName        :: !LoggerName
     , btcSSlottingVar      :: !SimpleSlottingVar
@@ -246,7 +246,7 @@ initBlockTestContext tp@TestParams {..} callback = do
                 futureLrcCtx
         initBlockTestContextDo = do
             initNodeDBs @SscGodTossing
-            _gscSlottingVar <- newTVarIO =<< GState.getSlottingData
+            _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
             putSlottingVar _gscSlottingVar
             btcSSlottingVar <- mkSimpleSlottingVar
             let btcLoggerName = "testing"
@@ -262,7 +262,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             let btcDiscoveryContext = DCStatic mempty
             let btcSlotId = Nothing
             let btcParams = tp
-            let btcGState = GState.GStateContext {_gscDB = dbPureVar, ..}
+            let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
             btcDelegation <- mkDelegationVar @SscGodTossing
             let btCtx = BlockTestContext {btcSystemStart = systemStart, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
@@ -357,17 +357,25 @@ instance MonadSlots (TestInitMode ssc) where
 -- Boilerplate BlockTestContext instances
 ----------------------------------------------------------------------------
 
-instance GState.HasGStateContext BlockTestContext DBPureVar where
+instance GS.HasGStateContext BlockTestContext where
     gStateContext = btcGState_L
 
 instance HasLens DBPureVar BlockTestContext DBPureVar where
-    lensOf = GState.gStateContext . GState.gscDB
+    lensOf = GS.gStateContext . GS.gscDB . pureDBLens
+      where
+        -- pva701: sorry for newbie code
+        getter = \case
+            DB.RealDB _   -> realDBInTestsError
+            DB.PureDB pdb -> pdb
+        setter _ pdb = DB.PureDB pdb
+        pureDBLens = lens getter setter
+        realDBInTestsError = error "You are using real db in tests"
 
 instance HasLens LoggerName BlockTestContext LoggerName where
       lensOf = btcLoggerName_L
 
 instance HasLens LrcContext BlockTestContext LrcContext where
-    lensOf = GState.gStateContext . GState.gscLrcContext
+    lensOf = GS.gStateContext . GS.gscLrcContext
 
 instance HasLens UpdateContext BlockTestContext UpdateContext where
       lensOf = btcUpdateContext_L
@@ -392,10 +400,10 @@ instance HasDiscoveryContextSum BlockTestContext where
 
 instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSystemStart_L
-    slottingVar = GState.gStateContext . GState.gscSlottingVar
+    slottingVar = GS.gStateContext . GS.gscSlottingVar
 
 instance HasSlogContext BlockTestContext where
-    slogContextL = GState.gStateContext . GState.gscSlogContext
+    slogContextL = GS.gStateContext . GS.gscSlogContext
 
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L
@@ -442,14 +450,14 @@ instance MonadDB BlockTestMode where
 
 instance MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
   where
-    dbGetBlock  = DB.dbGetBlockPureDefault @SscGodTossing
-    dbGetUndo   = DB.dbGetUndoPureDefault @SscGodTossing
+    dbGetBlock = DB.dbGetBlockPureDefault
+    dbGetUndo = DB.dbGetUndoPureDefault @SscGodTossing
     dbGetHeader = DB.dbGetHeaderPureDefault @SscGodTossing
 
 instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestMode
   where
-    dbGetBlock  = DB.dbGetBlockSscPureDefault @SscGodTossing
-    dbGetUndo   = DB.dbGetUndoSscPureDefault @SscGodTossing
+    dbGetBlock = DB.dbGetBlockSscPureDefault
+    dbGetUndo = DB.dbGetUndoSscPureDefault @SscGodTossing
     dbGetHeader = DB.dbGetHeaderSscPureDefault @SscGodTossing
 
 instance MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where

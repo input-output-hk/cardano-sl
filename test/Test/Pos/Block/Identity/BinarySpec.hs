@@ -10,7 +10,7 @@ import           Universum
 
 import           Test.Hspec          (Spec, describe)
 
-import           Pos.Block.Arbitrary ()
+import           Pos.Arbitrary.Block ()
 import qualified Pos.Block.Core      as BT
 import qualified Pos.Block.Network   as BT
 import qualified Pos.Communication   ()

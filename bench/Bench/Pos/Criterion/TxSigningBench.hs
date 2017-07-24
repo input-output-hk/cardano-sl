@@ -9,11 +9,11 @@ import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Test.QuickCheck          (generate)
 import           Universum
 
+import           Pos.Arbitrary.Txp.Unsafe ()
 import           Pos.Crypto               (SecretKey, SignTag (SignTxIn), hash, sign)
 import           Pos.Ssc.GodTossing       ()
 import           Pos.Txp                  (TxDistribution (..), TxId, TxIn (..), TxOut,
                                            TxSig, TxSigData (..))
-import           Pos.Txp.Arbitrary.Unsafe ()
 import           Pos.Util                 (arbitraryUnsafe)
 
 signTx :: (SecretKey, TxId, Word32, NonEmpty TxOut) -> TxSig

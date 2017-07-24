@@ -6,12 +6,12 @@ module Test.Pos.Communication.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec               (Spec, describe)
+import           Test.Hspec          (Spec, describe)
 
-import qualified Pos.Communication        as C
-import           Pos.Infra.Arbitrary      ()
+import           Pos.Arbitrary.Infra ()
+import qualified Pos.Communication   as C
 
-import           Test.Pos.Util            (networkBinaryTest)
+import           Test.Pos.Util       (networkBinaryTest)
 
 spec :: Spec
 spec = describe "Communication" $ do

@@ -1,6 +1,6 @@
 -- | Arbitrary instances for Update System networking types.
 
-module Pos.Update.Arbitrary.Network
+module Pos.Arbitrary.Update.Network
        (
        ) where
 
@@ -8,11 +8,11 @@ import           Universum
 
 import           Test.QuickCheck           (Arbitrary (..), listOf)
 
+import           Pos.Arbitrary.Core        ()
+import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Update         ()
 import           Pos.Communication.Relay   (DataMsg (..))
 import           Pos.Crypto                (SignTag (SignUSVote), hash, sign, toPublic)
-import           Pos.Core.Arbitrary        ()
-import           Pos.Update.Arbitrary.Core ()
 import           Pos.Update.Core.Types     (UpdateProposal (..), UpdateVote (..))
 
 instance Arbitrary (DataMsg UpdateVote) where

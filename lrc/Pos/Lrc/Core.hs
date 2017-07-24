@@ -4,7 +4,7 @@
 
 module Pos.Lrc.Core
        ( findDelegationStakes
-       , findRichmenStake
+       , findRichmenStakes
        ) where
 
 import           Data.Conduit        (Sink, await)
@@ -15,7 +15,7 @@ import           Universum
 
 import           Pos.Core.Coin       (mkCoin, unsafeAddCoin)
 import           Pos.Core.Types      (Coin, StakeholderId)
-import           Pos.Lrc.Types       (RichmenSet, RichmenStake)
+import           Pos.Lrc.Types       (RichmenSet, RichmenStakes)
 import           Pos.Util.Util       (getKeys)
 
 
@@ -33,13 +33,13 @@ findDelegationStakes
     -> Coin                                        -- ^ Coin threshold
     -> Sink (StakeholderId, HashSet StakeholderId)
             m
-            (RichmenSet, RichmenStake)             -- ^ Old richmen, new richmen
+            (RichmenSet, RichmenStakes)             -- ^ Old richmen, new richmen
 findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)
   where
-    step :: (RichmenSet, RichmenStake)
-         -> Sink (StakeholderId, HashSet StakeholderId) m (RichmenSet, RichmenStake)
+    step :: (RichmenSet, RichmenStakes)
+         -> Sink (StakeholderId, HashSet StakeholderId) m (RichmenSet, RichmenStakes)
     step richmen = do
         v <- await
         maybe (pure richmen) (onItem richmen >=> step) v
@@ -65,11 +65,11 @@ findDelegationStakes isIssuer stakeResolver t = do
     safeBalance id = fromMaybe (mkCoin 0) <$> lift (stakeResolver id)
 
 -- | Find nodes which have at least 'eligibility threshold' coins.
-findRichmenStake
+findRichmenStakes
     :: forall m . Monad m
     => Coin  -- ^ Eligibility threshold
-    -> Sink (StakeholderId,Coin) m RichmenStake
-findRichmenStake t = CL.fold tryAdd mempty
+    -> Sink (StakeholderId,Coin) m RichmenStakes
+findRichmenStakes t = CL.fold tryAdd mempty
   where
     tryAdd :: HashMap StakeholderId Coin
            -> (StakeholderId, Coin)

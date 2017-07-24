@@ -23,6 +23,11 @@ module Pos.DB.Block
        , loadHeadersByDepth
        , loadHeadersByDepthWhile
 
+       -- * MonadBlockDB
+       , MonadBlockDB
+       , MonadSscBlockDB
+       , MonadBlockDBWrite
+
        -- * Pure implementation
        , dbGetHeaderPureDefault
        , dbGetBlockPureDefault
@@ -32,10 +37,7 @@ module Pos.DB.Block
        , dbGetHeaderSscPureDefault
        , dbPutBlundPureDefault
 
-       -- * MonadBlockDB
-       , MonadBlockDB
-       , MonadSscBlockDB
-       , MonadBlockDBWrite
+       -- * Rocks implementation
        , dbGetBlockDefault
        , dbGetUndoDefault
        , dbGetHeaderDefault
@@ -43,6 +45,15 @@ module Pos.DB.Block
        , dbGetUndoSscDefault
        , dbGetHeaderSscDefault
        , dbPutBlundDefault
+
+       -- * DBSum implementation
+       , dbGetBlockSumDefault
+       , dbGetUndoSumDefault
+       , dbGetHeaderSumDefault
+       , dbGetBlockSscSumDefault
+       , dbGetUndoSscSumDefault
+       , dbGetHeaderSscSumDefault
+       , dbPutBlundSumDefault
        ) where
 
 import           Universum
@@ -76,6 +87,7 @@ import           Pos.DB.Pure           (DBPureVar, MonadPureDB, atomicModifyIORe
                                         pureBlockIndexDB, pureBlocksStorage)
 import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
                                         getNodeDBs, rocksDelete, rocksPutBi)
+import           Pos.DB.Sum            (MonadDBSum, eitherDB)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Ssc.Util          (toSscBlock)
@@ -226,6 +238,51 @@ loadHeadersByDepthWhile
 loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
 
 ----------------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------------
+
+prepareBlockDB
+    :: forall ssc m.
+       MonadBlockDBWrite ssc m
+    => GenesisBlock ssc -> m ()
+prepareBlockDB blk =
+    dbPutBlund @(BlockHeader ssc) @(Block ssc) @Undo (Left blk, genesisUndo)
+  where
+    genesisUndo =
+        Undo
+        { undoTx = mempty
+        , undoPsk = mempty
+        , undoUS = def
+        , undoSlog = SlogUndo Nothing
+        }
+
+----------------------------------------------------------------------------
+-- Keys
+----------------------------------------------------------------------------
+
+blockIndexKey :: HeaderHash -> ByteString
+blockIndexKey h = "b" <> convert h
+
+----------------------------------------------------------------------------
+-- MonadBlockDB related
+----------------------------------------------------------------------------
+
+-- | Specialization of 'MonadBlockDBGeneric' for block processing.
+type MonadBlockDB ssc m
+     = ( MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
+       , SscHelpersClass ssc)
+
+type MonadSscBlockDB ssc m
+     = ( MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
+       , SscHelpersClass ssc)
+
+-- | 'MonadBlocksDB' with write options
+type MonadBlockDBWrite ssc m
+    = ( MonadBlockDB ssc m
+      , MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo m
+      )
+
+----------------------------------------------------------------------------
 -- Pure implementation
 ----------------------------------------------------------------------------
 
@@ -289,49 +346,8 @@ dbGetHeaderSscPureDefault ::
 dbGetHeaderSscPureDefault = fmap (Some <$>) . dbGetHeaderPureDefault @ssc
 
 ----------------------------------------------------------------------------
--- Initialization
+-- Rocks implementation
 ----------------------------------------------------------------------------
-
-prepareBlockDB
-    :: forall ssc m.
-       MonadBlockDBWrite ssc m
-    => GenesisBlock ssc -> m ()
-prepareBlockDB blk =
-    dbPutBlund @(BlockHeader ssc) @(Block ssc) @Undo (Left blk, genesisUndo)
-  where
-    genesisUndo =
-        Undo
-        { undoTx = mempty
-        , undoPsk = mempty
-        , undoUS = def
-        , undoSlog = SlogUndo Nothing
-        }
-
-----------------------------------------------------------------------------
--- Keys
-----------------------------------------------------------------------------
-
-blockIndexKey :: HeaderHash -> ByteString
-blockIndexKey h = "b" <> convert h
-
-----------------------------------------------------------------------------
--- MonadBlockDB related
-----------------------------------------------------------------------------
-
--- | Specialization of 'MonadBlockDBGeneric' for block processing.
-type MonadBlockDB ssc m
-     = ( MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
-       , SscHelpersClass ssc)
-
-type MonadSscBlockDB ssc m
-     = ( MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
-       , SscHelpersClass ssc)
-
--- | 'MonadBlocksDB' with write options
-type MonadBlockDBWrite ssc m
-    = ( MonadBlockDB ssc m
-      , MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo m
-      )
 
 -- instance MonadBlockDBGeneric (Block ssc)
 
@@ -379,7 +395,62 @@ dbGetHeaderSscDefault = fmap (Some <$>) . blkGetHeader @ssc
 dbPutBlundDefault :: (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc) => Blund ssc -> m ()
 dbPutBlundDefault = putBlundReal
 
--- helpers
+----------------------------------------------------------------------------
+-- DBSum implementation
+----------------------------------------------------------------------------
+
+type DBSumDefaultEnv ssc ctx m =
+    ( MonadDBRead m
+    , SscHelpersClass ssc
+    , MonadDBSum ctx m
+    )
+
+dbGetBlockSumDefault
+    :: forall ssc ctx m. DBSumDefaultEnv ssc ctx m
+    => HeaderHash -> m (Maybe (Block ssc))
+dbGetBlockSumDefault hh = eitherDB (dbGetBlockDefault hh) (dbGetBlockPureDefault hh)
+
+dbGetUndoSumDefault
+    :: forall ssc ctx m. DBSumDefaultEnv ssc ctx m
+    => HeaderHash -> m (Maybe Undo)
+dbGetUndoSumDefault hh =
+    eitherDB (dbGetUndoDefault @ssc hh) (dbGetUndoPureDefault @ssc hh)
+
+dbGetHeaderSumDefault
+    :: forall ssc ctx m. DBSumDefaultEnv ssc ctx m
+    => HeaderHash -> m (Maybe (BlockHeader ssc))
+dbGetHeaderSumDefault hh = eitherDB (dbGetHeaderDefault @ssc hh) (dbGetHeaderPureDefault @ssc hh)
+
+-- instance MonadBlockDBGeneric
+
+dbGetBlockSscSumDefault
+    :: forall ssc ctx m. DBSumDefaultEnv ssc ctx m
+    => HeaderHash -> m (Maybe (SscBlock ssc))
+dbGetBlockSscSumDefault hh =
+    eitherDB (dbGetBlockSscDefault hh) (dbGetBlockSscPureDefault hh)
+
+dbGetUndoSscSumDefault
+    :: forall ssc ctx m. DBSumDefaultEnv ssc ctx m
+    => HeaderHash -> m (Maybe ())
+dbGetUndoSscSumDefault hh =
+    eitherDB (dbGetUndoSscDefault @ssc hh) (dbGetUndoSscPureDefault @ssc hh)
+
+dbGetHeaderSscSumDefault
+    :: forall ssc ctx m. DBSumDefaultEnv ssc ctx m
+    => HeaderHash -> m (Maybe (Some IsHeader))
+dbGetHeaderSscSumDefault hh =
+    eitherDB (dbGetHeaderSscDefault @ssc hh) (dbGetHeaderSscPureDefault @ssc hh)
+
+-- instance MonadBlockGenBase m
+
+dbPutBlundSumDefault
+    :: forall ssc ctx m. DBSumDefaultEnv ssc ctx m
+    => Blund ssc -> m ()
+dbPutBlundSumDefault b = eitherDB (dbPutBlundDefault b) (dbPutBlundPureDefault b)
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
 
 blkGetBlock ::
        forall ssc m. MonadBlockDB ssc m
@@ -398,10 +469,6 @@ blkGetBlund ::
     => HeaderHash
     -> m $ Maybe (Blund ssc)
 blkGetBlund = dbGetBlund @(BlockHeader ssc) @(Block ssc) @Undo
-
-----------------------------------------------------------------------------
--- Helpers
-----------------------------------------------------------------------------
 
 putBi
     :: (MonadRealDB ctx m, Bi v)

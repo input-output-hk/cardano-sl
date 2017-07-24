@@ -15,6 +15,11 @@ module Test.Pos.CborSpec
 import qualified Codec.CBOR.FlatTerm               as CBOR
 import           Crypto.Hash.Algorithms            (SHA256)
 import           Node.Message.Class
+import           Pos.Arbitrary.Delegation          ()
+import           Pos.Arbitrary.Explorer            ()
+import           Pos.Arbitrary.Infra               ()
+import           Pos.Arbitrary.Slotting            ()
+import           Pos.Arbitrary.Update              ()
 import           Pos.Binary.Class
 import           Pos.Binary.Communication          ()
 import           Pos.Binary.Core.Fee               ()
@@ -42,18 +47,13 @@ import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProo
 import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
                                                     PublicKey, SecretKey, Signature,
                                                     Signed)
-import           Pos.Delegation.Arbitrary          ()
-import           Pos.Delegation.Types
 import           Pos.DHT.Model.Types
+import           Pos.Delegation.Types
 import           Pos.Explorer
-import           Pos.Explorer.Arbitrary            ()
-import           Pos.Infra.Arbitrary               ()
-import           Pos.Slotting.Arbitrary            ()
 import           Pos.Slotting.Types
 import           Pos.Ssc.GodTossing
 import           Pos.Ssc.GodTossing.Arbitrary      ()
 import           Pos.Txp                           hiding (Unknown)
-import           Pos.Update.Arbitrary              ()
 import           Pos.Update.Core
 import           Pos.Update.Poll
 import           Pos.Util.BackupPhrase
@@ -488,4 +488,3 @@ spec = describe "Cbor.Bi instances" $ do
 
 pendingNoArbitrary :: String -> Spec
 pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"
-

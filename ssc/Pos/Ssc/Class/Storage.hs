@@ -17,7 +17,7 @@ import           Universum
 
 import           Pos.Core             (BlockVersionData, EpochIndex, SharedSeed)
 import           Pos.DB               (MonadDBRead, SomeBatchOp)
-import           Pos.Lrc.Types        (RichmenStake)
+import           Pos.Lrc.Types        (RichmenStakes)
 import           Pos.Ssc.Class.Types  (Ssc (..), SscBlock)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 
@@ -52,12 +52,12 @@ class Ssc ssc => SscGStateClass ssc where
     -- current GState and apply them on success.
     -- Blocks must be from the same epoch.
     sscVerifyAndApplyBlocks
-        :: RichmenStake
+        :: RichmenStakes
         -> BlockVersionData
         -> OldestFirst NE (SscBlock ssc)
         -> SscVerifier ssc ()
     -- | Calculate 'SharedSeed' for given epoch using 'SscGlobalState'.
     sscCalculateSeedQ
         :: EpochIndex
-        -> RichmenStake
+        -> RichmenStakes
         -> SscGlobalQuery ssc (Either (SscSeedError ssc) SharedSeed)

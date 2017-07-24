@@ -120,9 +120,9 @@ foldlUpWhileM morphM start condition accM init =
     loadUpWhileDo :: HeaderHash -> Int -> r -> m r
     loadUpWhileDo curH height !res = blkGetBlund curH >>= \case
         Nothing -> pure res
-        Just x@(block,_) -> do
+        Just x -> do
             curB <- morphM x
-            mbNextLink <- fmap headerHash <$> resolveForwardLink block
+            mbNextLink <- resolveForwardLink curH
             if | not (condition (x, curB) height) -> pure res
                | Just nextLink <- mbNextLink -> do
                      newRes <- accM res curB

@@ -32,9 +32,14 @@ Flag with-explorer
 
 library
   exposed-modules:      Paths_cardano_sl
+
+                        -- Arbitrary instances
+                        Pos.Arbitrary.Block
+                        Pos.Arbitrary.Delegation
+                        Pos.Arbitrary.Txp.Network
+
                         Pos.Aeson
                         Pos.Binary
-                        Pos.Block.Arbitrary
                         Pos.Block.BListener
                         Pos.Block.Core
                         Pos.Block.Logic
@@ -123,7 +128,6 @@ library
                         Pos.Binary.Relay
 
                         -- Heavy delegation
-                        Pos.Delegation.Arbitrary
                         Pos.Delegation.Types
 
   -- Explorer (TODO: move into cardano-explorer)
@@ -131,7 +135,7 @@ library
                         Pos.Explorer
 
                         -- Needed for testing
-                        Pos.Explorer.Arbitrary
+                        Pos.Arbitrary.Explorer
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
@@ -217,6 +221,7 @@ library
                         -- Arbitrary data generation
                         Pos.Generator.Block.Error
                         Pos.Generator.Block.Logic
+                        Pos.Generator.Block.Payload
                         Pos.Generator.Block.Mode
                         Pos.Generator.Block.Param
 
@@ -262,7 +267,6 @@ library
 
                         -- Txp
                         Pos.Txp.Network
-                        Pos.Txp.Network.Arbitrary
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Worker
@@ -325,6 +329,7 @@ library
                         Pos.Wallet.Web.Tracking
 
   build-depends:        IfElse
+                      , MonadRandom
                       , QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
@@ -385,6 +390,7 @@ library
                       , mmorph
                       , monad-control
                       , monad-loops
+                      , MonadRandom
                       , mono-traversable
                       , mtl
                       , neat-interpolation
@@ -575,6 +581,7 @@ test-suite cardano-test
                        Test.Pos.Block.Logic.Emulation
                        Test.Pos.Block.Logic.Mode
                        Test.Pos.Block.Logic.Util
+                       Test.Pos.Block.Logic.Event
                        Test.Pos.Block.Logic.VarSpec
 
                        -- Everything else
@@ -638,9 +645,11 @@ test-suite cardano-test
                      , kademlia
                      , lens
                      , log-warper
+                     , MonadRandom
                      , memory
                      , monad-control
                      , mtl
+                     , mmorph
                      , node-sketch
                      , pvss
                      , quickcheck-instances

@@ -11,7 +11,7 @@ environment:
     CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
-    DCONFIG: "testnet_wallet"
+    DCONFIG: "testnet_staging_wallet"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%

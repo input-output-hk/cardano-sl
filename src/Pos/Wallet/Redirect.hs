@@ -16,7 +16,6 @@ module Pos.Wallet.Redirect
 
 import           Universum
 
-import           Control.Concurrent.STM       (tryReadTMVar)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Maybe    (MaybeT (..))
 import           Data.Coerce                  (coerce)
@@ -35,7 +34,6 @@ import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.DB.DB                    (getTipHeader)
 import           Pos.Shutdown                 (MonadShutdownMem, triggerShutdown)
 import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class                (Ssc)
 import           Pos.Update.Context           (UpdateContext (ucUpdateSemaphore))
 import           Pos.Wallet.WalletMode        (MonadBlockchainInfo (..),
                                                MonadUpdates (..))
@@ -57,12 +55,6 @@ getLastKnownHeader
   => m (Maybe (BlockHeader ssc))
 getLastKnownHeader =
     atomically . readTVar =<< Ether.ask @PC.LastKnownHeaderTag
-
-downloadHeader
-    :: (Ssc ssc, MonadIO m, PC.MonadProgressHeader ssc m)
-    => m (Maybe (BlockHeader ssc))
-downloadHeader = do
-    atomically . tryReadTMVar =<< Ether.ask @PC.ProgressHeaderTag
 
 -- | Instance for full-node's ContextHolder
 instance
@@ -89,9 +81,7 @@ instance
                 fail "Local tip is outdated"
             return $ th ^. difficultyL
 
-    localChainDifficulty = downloadHeader >>= \case
-        Just dh -> return $ dh ^. difficultyL
-        Nothing -> view difficultyL <$> getTipHeader @(Block ssc)
+    localChainDifficulty = view difficultyL <$> getTipHeader @(Block ssc)
 
     connectedPeers = fromIntegral . length <$> do
         PC.ConnectedPeers cp <- Ether.ask'

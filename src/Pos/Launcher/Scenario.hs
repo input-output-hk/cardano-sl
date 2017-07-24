@@ -26,7 +26,8 @@ import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import qualified Pos.Constants       as Const
 import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
-                                      getOurPubKeyAddress, getOurPublicKey)
+                                      genesisStakeholdersM, getOurPubKeyAddress,
+                                      getOurPublicKey)
 import qualified Pos.GState          as GS
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
@@ -64,6 +65,9 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfoS $ sformat ("My public key is: "%build%
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
+
+    genesisStakeholders <- genesisStakeholdersM
+    logInfo $ sformat ("Genesis stakeholders: " %listJson) genesisStakeholders
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"

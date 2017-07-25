@@ -104,8 +104,10 @@ kademliaSubscriptionWorker
     -> WorkerSpec m
 kademliaSubscriptionWorker kademliaInst = ActionSpec $ \_ sendActions -> do
     logNotice "Kademlia subscription worker started"
+    updateForeverNoSubscribe mempty
+    {-
     -- A  TMVar NodeId  for each peer to which 
-    toSubscribe <- liftIO . atomically $ forM [1..nSubscriptions] (const STM.newEmptyTMVar)
+    toSubscribe <- liftIO . atomically $ forM [1..valency] (const STM.newEmptyTMVar)
     -- A  TVar (Set NodeId)  for the set of peers to which we're currently
     -- subscribed.
     subscribed <- liftIO $ STM.newTVarIO S.empty
@@ -115,41 +117,45 @@ kademliaSubscriptionWorker kademliaInst = ActionSpec $ \_ sendActions -> do
         -- of peers changes. Read the where clause comments and program text
         -- for more details.
         updateForever subscribed toSubscribe mempty
+    -}
   where
 
+    valency :: Int
+    valency = 3
+
+    -- How many alternatives to try.
+    -- Size of the peers set created is at most valency * (1 + fallbacks)
+    fallbacks :: Int
+    fallbacks = 2
+
+    -- The NodeType that we assume our peers to be.
+    peerType :: NodeType
+    peerType = kdiPeerType kademliaInst
+
+    {-
     -- Spawn a bunch of threads using withAsync and ignore their results.
     -- They'll be cancelled when the continuation finishes.
     withAsyncs :: [m x] -> m t -> m t
     withAsyncs [] k = k
     withAsyncs (it : rest) k = withAsync it $ const (withAsyncs rest k)
 
-    -- How many peers to subscribe to.
-    nSubscriptions :: Int
-    nSubscriptions = 3
-
-    -- The NodeType that we assume our peers to be.
-    peerType :: NodeType
-    peerType = kdiPeerType kademliaInst
 
     -- Subscribe to the node which appears in the TMVar, updating the TVar so
     -- that it includes that node whenever a subscription is active.
     subThread :: SendActions m -> STM.TVar (Set NodeId) -> STM.TMVar NodeId -> m ()
-    subThread sendActions subscribedVar peerVar = do
-        logNotice $ sformat ("This is a subscription thread")
+    subThread sendActions subscribedVar peerVar =
+        -- Block until we get a NodeId to subscribe to.
+        peer <- liftIO . atomically $ STM.readTMVar peerVar
+        subscribeTo sendActions peer
+        liftIO . atomically $ do
+            -- Take the TMVar so that the updating thread can replace it
+            -- with another candidate, whenever it has one.
+            STM.takeTMVar peerVar
+            STM.modifyTVar subscribedVar (S.delete peer)
         action
-      where
-        action = do
-            -- Block until we get a NodeId to subscribe to.
-            peer <- liftIO . atomically $ STM.readTMVar peerVar
-            subscribeTo sendActions peer
-            liftIO . atomically $ do
-                -- Take the TMVar so that the updating thread can replace it
-                -- with another candidate, whenever it has one.
-                STM.takeTMVar peerVar
-                STM.modifyTVar subscribedVar (S.delete peer)
-            action
 
     -- TODO import this and re-use in the behind-NAT subscription worker.
+
     subscribeTo :: SendActions m -> NodeId -> m ()
     subscribeTo sendActions peer = do
         logNotice $ sformat ("Establishing subscription to "%shown) peer
@@ -237,3 +243,35 @@ kademliaSubscriptionWorker kademliaInst = ActionSpec $ \_ sendActions -> do
             newPeers = peersFromList (fmap ((,) peerType) peersList')
         when (newPeers == oldPeers) STM.retry
         return newPeers
+    -}
+
+    updateForeverNoSubscribe
+        :: Peers NodeId
+        -> m ()
+    updateForeverNoSubscribe peers = do
+        -- Will block until at least one of the current best peers changes.
+        peers' <- liftIO . atomically $ updateFromKademliaNoSubscribe peers
+        logNotice $
+            sformat ("Kademlia peer set changed to "%shown) peers'
+        updateKnownPeers (const peers')
+        updateForeverNoSubscribe peers'
+
+    updateFromKademliaNoSubscribe
+        :: Peers NodeId
+        -> STM (Peers NodeId)
+    updateFromKademliaNoSubscribe oldPeers = do
+        -- This does a TVar read. Changes to that TVar will wake us up if we
+        -- retry.
+        addrList <- kademliaGetKnownPeers kademliaInst
+        let peersList = fmap addressToNodeId addrList
+            newPeers = mkPeers peersList
+        when (newPeers == oldPeers) STM.retry
+        return newPeers
+
+    mkPeers :: [NodeId] -> Peers NodeId
+    mkPeers = peersFromList . fmap ((,) peerType) . transpose . take (1 + fallbacks) . mkGroupsOf valency
+
+    mkGroupsOf :: Int -> [a] -> [[a]]
+    mkGroupsOf n [] = []
+    mkGroupsOf n lst = case splitAt n lst of
+        (these, those) -> these : mkGroupsOf n those

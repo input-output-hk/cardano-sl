@@ -66,7 +66,8 @@ import           Pos.Launcher                  (BaseParams (..), LoggingParams (
                                                 bracketTransport, loggerBracket)
 import           Pos.Ssc.GodTossing            (SscGodTossing)
 import           Pos.Ssc.SscAlgo               (SscAlgo (..))
-import           Pos.Txp                       (TxOut (..), TxOutAux (..), txaF)
+import           Pos.Txp                       (TxOut (..), TxOutAux (..), txaF,
+                                                unGenesisUtxo)
 import           Pos.Types                     (coinF, makePubKeyAddress)
 import           Pos.Update                    (BlockVersionData (..),
                                                 BlockVersionModifier (..), SystemTag (..),
@@ -170,6 +171,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
         liftIO $ T.hPutStrLn h "time,txCount,txType"
         txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
+        logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length skeys)
         forM_ (zip skeys [0..]) $ \(key, n) -> do
             let txOut = TxOut {
                     txOutAddress = makePubKeyAddress (toPublic key),
@@ -207,8 +209,9 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
                             submitTxRaw sendActions neighbours tx
                             addTxSubmit tpsMVar >> logInfo (sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours)
                     delay $ ms delay_
+                    logInfo "Continuing to send transactions."
                     sendTxs
-                Nothing -> return ()
+                Nothing -> logInfo "No more transactions in the queue."
         let sendTxsConcurrently = void $ forConcurrently [1..conc] (const sendTxs)
         let sendTxsConcurrentlyFor n = race (delay (sec n)) sendTxsConcurrently
         either absurd identity <$> race
@@ -428,6 +431,11 @@ main = do
 
     loggerBracket logParams $ runProduction $
       bracketTransport TCP.Unaddressable $ \transport -> do
+        logInfo $ if isDevelopment
+            then "Development Mode"
+            else "Production Mode"
+        logInfo $ sformat ("Length of genesis utxo: "%shown)
+            (length $ unGenesisUtxo wpGenesisUtxo)
         let transport' :: Transport LightWalletMode
             transport' = hoistTransport
                 (powerLift :: forall t . Production t -> LightWalletMode t)

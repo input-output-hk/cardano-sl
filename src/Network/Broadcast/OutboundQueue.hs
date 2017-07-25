@@ -131,6 +131,7 @@ enumPrecHighestFirst = reverse enumPrecLowestFirst
 -- If we cannot find any alternative that doesn't match requirements we simply
 -- give up on forwarding set.
 newtype MaxAhead = MaxAhead Int
+  deriving Show
 
 -- | Enqueueing instruction
 data Enqueue =
@@ -149,6 +150,7 @@ data Enqueue =
       , enqMaxAhead   :: MaxAhead
       , enqPrecedence :: Precedence
       }
+  deriving (Show)
 
 -- | The enqueuing policy
 --
@@ -506,7 +508,7 @@ intEnqueue :: forall m msg nid a. (MonadIO m, WithLogger m)
 intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
     forM (qEnqueuePolicy msgType) $ \case
 
-      EnqueueAll{..} -> do
+      enq@EnqueueAll{..} -> do
         let fwdSets :: AllOf (Alts nid)
             fwdSets = removeOrigin (msgOrigin msgType) $ peers ^. peersOfType enqNodeType
 
@@ -530,13 +532,13 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
         if | null fwdSets ->
                logDebug $ msgNotSent enqNodeType -- This isn't an error
            | null enqueued ->
-               logError $ msgLost fwdSets
+               logError $ msgEnqFailed enq fwdSets
            | otherwise ->
                logDebug $ msgEnqueued enqueued
 
         return enqueued
 
-      EnqueueOne{..} -> do
+      enq@EnqueueOne{..} -> do
         let fwdSets :: [(NodeType, Alts nid)]
             fwdSets = concatMap
                         (\t -> map (t,) $ removeOrigin (msgOrigin msgType) $ peers ^. peersOfType t)
@@ -549,7 +551,7 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
 
         enqueued <- sendOne fwdSets
         when (null enqueued) $
-          logError $ msgLost fwdSets
+          logError $ msgEnqFailed enq fwdSets
         return enqueued
   where
     -- Attempt to send the message to a single forwarding set
@@ -611,13 +613,14 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
       sformat (shown % ": could not choose suitable alternative from " % shown)
               qSelf alts
 
-    msgLost :: Show fwdSets => fwdSets -> Text
-    msgLost fwdSets =
+    msgEnqFailed :: Show fwdSets => Enqueue -> fwdSets -> Text
+    msgEnqFailed enq fwdSets =
       sformat ( shown
-              % ": failed to enqueue message " % formatMsg
+              % ": enqueue instruction " % shown
+              % " failed to enqueue message " % formatMsg
               % " to forwarding sets " % shown
               )
-              qSelf msg fwdSets
+              qSelf enq msg fwdSets
 
 pickAlt :: forall m msg nid. (MonadIO m, WithLogger m)
         => OutboundQ msg nid

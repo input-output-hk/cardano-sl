@@ -4,7 +4,7 @@ module Pos.Delegation.Types
        ( DlgPayload (..)
        , mkDlgPayload
        , ProxySKLightConfirmation
-       , DlgUndo
+       , DlgUndo (..)
        , DlgMemPool
        , ProxySKBlockInfo
        ) where
@@ -19,7 +19,8 @@ import           Formatting           (bprint, int, sformat, (%))
 import           Serokell.Util        (listJson)
 
 import           Pos.Binary.Core      ()
-import           Pos.Core             (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Core             (ProxySKHeavy, ProxySKLight, ProxySigLight,
+                                       StakeholderId)
 import           Pos.Crypto           (ProxySecretKey (..), PublicKey, verifyPsk)
 
 -- Consider making this a set.
@@ -58,8 +59,24 @@ mkDlgPayload proxySKs = do
     duplicates = proxySKsDups proxySKs
     wrongPSKs = filter (not . verifyPsk) proxySKs
 
--- | PSKs we've overwritten/deleted.
-type DlgUndo = [ProxySKHeavy]
+-- | Undo for the delegation component.
+data DlgUndo = DlgUndo
+    { duPsks            :: !([ProxySKHeavy])
+      -- ^ PSKs we've modified when applying the block (by deleting or
+      -- overwriting).
+    , duPrevEpochPosted :: !(HashSet StakeholderId)
+      -- ^ Set of stakeholders that posted in epoch i. This field
+      -- should be present only for genesis block of epoch i+1.
+    } deriving (Generic)
+
+instance NFData DlgUndo
+
+instance Buildable DlgUndo where
+    build DlgUndo{..} =
+        bprint ("DlgUndo:"%
+                "\n  duPsks: "%listJson%
+                "\n  duPrevEpochPosted: "%listJson)
+               duPsks duPrevEpochPosted
 
 -- | Map from issuer public keys to related heavy certs.
 type DlgMemPool = HashMap PublicKey ProxySKHeavy

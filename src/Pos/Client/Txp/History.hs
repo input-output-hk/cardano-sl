@@ -64,10 +64,10 @@ import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
 import           Pos.Txp                      (txProcessTransaction)
 #endif
-import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
-                                               ToilT, Tx (..), TxAux (..), TxDistribution,
-                                               TxId, TxOut, TxOutAux (..), TxWitness,
-                                               TxpError (..), applyTxToUtxo,
+import           Pos.Txp                      (GenesisUtxo (..), MonadTxpMem, MonadUtxo,
+                                               MonadUtxoRead, ToilT, Tx (..), TxAux (..),
+                                               TxDistribution, TxId, TxOut, TxOutAux (..),
+                                               TxWitness, TxpError (..), applyTxToUtxo,
                                                evalToilTEmpty, flattenTxPayload,
                                                getLocalTxs, runDBToil, topsortTxs,
                                                txOutAddress, utxoGet)
@@ -180,7 +180,7 @@ runGenesisToil = coerce
 
 instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
          MonadUtxoRead (GenesisToil m) where
-    utxoGet txIn = M.lookup txIn <$> genesisUtxoM
+    utxoGet txIn = M.lookup txIn . unGenesisUtxo <$> genesisUtxoM
 
 ----------------------------------------------------------------------------
 -- MonadTxHistory

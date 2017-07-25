@@ -335,7 +335,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
         let encInfo = getEncInfo encSK
             ownGenesisData =
                 selectOwnAccounts encInfo (txOutAddress . toaOut . snd) $
-                M.toList genesisUtxo
+                M.toList $ unGenesisUtxo genesisUtxo
             ownGenesisUtxo = M.fromList $ map fst ownGenesisData
             ownGenesisAddrs = map snd ownGenesisData
         mapM_ WS.addWAddress ownGenesisAddrs

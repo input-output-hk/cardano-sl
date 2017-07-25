@@ -364,7 +364,7 @@ getRawPayload slotId = do
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-    dlgPayload <- fst <$> lift getDlgMempool
+    dlgPayload <- lift getDlgMempool
     let rawPayload =
             RawPayload
             { rpTxp = map snd sortedTxs

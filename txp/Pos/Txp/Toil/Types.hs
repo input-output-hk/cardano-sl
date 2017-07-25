@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Types used for managing of transactions
 -- and synchronization with database.
@@ -8,6 +8,7 @@ module Pos.Txp.Toil.Types
        , formatUtxo
        , utxoF
        , GenesisUtxo (..)
+       , _GenesisUtxo
 
        , TxFee(..)
        , MemPool (..)
@@ -34,7 +35,7 @@ module Pos.Txp.Toil.Types
 
 import           Universum
 
-import           Control.Lens               (makeLenses)
+import           Control.Lens               (makeLenses, makePrisms, makeWrapped)
 import           Data.Default               (Default, def)
 import qualified Data.Map                   as M (toList)
 import           Data.Text.Lazy.Builder     (Builder)
@@ -65,7 +66,12 @@ utxoF :: Format r (Utxo -> r)
 utxoF = later formatUtxo
 
 -- | Wrapper for genesis utxo.
-newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
+newtype GenesisUtxo = GenesisUtxo
+    { unGenesisUtxo :: Utxo
+    } deriving (Show)
+
+makePrisms  ''GenesisUtxo
+makeWrapped ''GenesisUtxo
 
 ----------------------------------------------------------------------------
 -- Fee

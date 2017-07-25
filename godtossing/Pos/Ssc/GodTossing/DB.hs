@@ -32,9 +32,7 @@ gtGlobalStateToBatch :: GtGlobalState -> GtOp
 gtGlobalStateToBatch = PutGlobalState
 
 initGtDB :: MonadDB m => m ()
-initGtDB =
-    whenNothingM_ (gsGetBi @_ @GtGlobalState gtKey) $
-        gsPutBi gtKey (def {_gsVssCertificates = vcd})
+initGtDB = gsPutBi gtKey (def {_gsVssCertificates = vcd})
   where
     vcd = VCD.fromList . toList $ genesisCertificates
 

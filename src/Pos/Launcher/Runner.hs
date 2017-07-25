@@ -111,7 +111,7 @@ runRealModeDo NodeResources {..} outSpecs action =
           runServer ncNetworkConfig
                     (simpleNodeEndPoint nrTransport)
                     (const noReceiveDelay)
-                    allListeners
+                    (allListeners ncTopology)
                     outSpecs
                     (startMonitoring oq)
                     stopMonitoring
@@ -119,6 +119,7 @@ runRealModeDo NodeResources {..} outSpecs action =
                     action
   where
     NodeContext {..} = nrContext
+    NetworkConfig {..} = ncNetworkConfig
     NodeParams {..} = ncNodeParams
     LoggingParams {..} = bpLoggingParams npBaseParams
     startMonitoring oq node' =

@@ -2,6 +2,7 @@ module Pos.Network.Types
     ( NetworkConfig (..)
     , Topology(..)
     , topologyNodeType
+    , topologySubscriberNodeType
     , resolveDnsDomains
     , defaultNetworkConfig
     , staticallyKnownPeers
@@ -87,6 +88,14 @@ topologyNodeType (TopologyBehindNAT _)       = NodeEdge
 topologyNodeType (TopologyP2P)               = NodeEdge
 topologyNodeType (TopologyTransitional)      = NodeCore
 topologyNodeType (TopologyLightWallet _)     = NodeEdge
+
+-- | The NodeType to assign to subscribers. Give Nothing if subscribtion
+-- is not allowed for a node with this topology.
+topologySubscriberNodeType :: Topology -> Maybe NodeType
+topologySubscriberNodeType (TopologyStatic NodeRelay _) = Just NodeEdge
+topologySubscriberNodeType (TopologyTransitional)       = Just NodeCore
+topologySubscriberNodeType (TopologyP2P)                = Just NodeRelay
+topologySubscriberNodeType _                            = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig

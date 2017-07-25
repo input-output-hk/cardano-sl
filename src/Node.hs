@@ -367,8 +367,11 @@ node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = 
 
 -- | Try to receive and parse the next message, subject to a limit on the
 --   number of bytes which will be read.
+--
+--   An empty ByteString will never be passed to a decoder.
 recvNext
-    :: ( Mockable Channel.Channel m
+    :: forall packing m thing . 
+       ( Mockable Channel.Channel m
        , Mockable Throw m
        , Serializable packing thing
        )
@@ -376,32 +379,30 @@ recvNext
     -> Int
     -> ChannelIn m
     -> m (Input thing)
-recvNext packing limit (LL.ChannelIn channel) = do
-    -- Check whether the channel is depleted and End if so. Otherwise, push
-    -- the bytes into the type's decoder and try to parse it before reaching
-    -- the byte limit.
-    mbs <- Channel.readChannel channel
-    case mbs of
-        Nothing -> return End
-        Just bs -> do
-            -- limit' is the number of bytes that 'go' is allowed to pull.
-            -- It's assumed that reading from the channel will bring in at most
-            -- some limited number of bytes, so 'go' may bring in at most this
-            -- many more than the limit.
-            let limit' = limit - BS.length bs
-            decoderStep <- runDecoder (unpack packing)
-            (trailing, outcome) <- continueDecoding decoderStep bs >>= go limit'
-            unless (BS.null trailing) (Channel.unGetChannel channel (Just trailing))
-            return outcome
+recvNext packing limit (LL.ChannelIn channel) = readNonEmpty (return End) $ \bs -> do
+    -- limit' is the number of bytes that 'go' is allowed to pull.
+    -- It's assumed that reading from the channel will bring in at most
+    -- some limited number of bytes, so 'go' may bring in at most this
+    -- many more than the limit.
+    let limit' = limit - BS.length bs
+    decoderStep <- runDecoder (unpack packing)
+    (trailing, outcome) <- continueDecoding decoderStep bs >>= go limit'
+    unless (BS.null trailing) (Channel.unGetChannel channel (Just trailing))
+    return outcome
   where
+
+    readNonEmpty :: m t -> (BS.ByteString -> m t) -> m t
+    readNonEmpty nothing just = do
+        mbs <- Channel.readChannel channel
+        case mbs of
+            Nothing -> nothing
+            Just bs -> if BS.null bs then readNonEmpty nothing just else just bs
+
     go !remaining decoderStep = case decoderStep of
         Fail trailing offset err -> throw $ NoParse trailing offset err
         Done trailing _ thing -> return (trailing, Input thing)
         Partial next -> do
             when (remaining < 0) (throw LimitExceeded)
-            mbs <- Channel.readChannel channel
-            case mbs of
-                Nothing -> runDecoder (next Nothing) >>= go remaining
-                Just bs ->
-                    let remaining' = remaining - BS.length bs
-                    in  runDecoder (next (Just bs)) >>= go remaining'
+            readNonEmpty (runDecoder (next Nothing) >>= go remaining) $ \bs ->
+                let remaining' = remaining - BS.length bs
+                in  runDecoder (next (Just bs)) >>= go remaining'

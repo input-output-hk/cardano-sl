@@ -5,6 +5,7 @@ module Pos.Network.Yaml (
   , NodeName(..)
   , NodeRegion(..)
   , NodeRoutes(..)
+  , NodeAddr(..)
   , NodeMetadata(..)
   ) where
 
@@ -49,10 +50,31 @@ newtype NodeRegion = NodeRegion Text
 newtype NodeRoutes = NodeRoutes [[NodeName]]
     deriving (Show)
 
+data NodeAddr =
+    -- | We specify the exact address of this node
+    --
+    -- If port unspecified, use the default.
+    NodeAddrExact ByteString (Maybe Word16)
+
+    -- | Do a DNS lookup to find the node's address
+    --
+    -- If domain unspecified, use the node's name
+    -- If port unspecified, use the default.
+  | NodeAddrDNS (Maybe DNS.Domain) (Maybe Word16)
+  deriving (Show)
+
 data NodeMetadata = NodeMetadata
-    { nmType   :: !NodeType
+    { -- | Node type
+      nmType :: !NodeType
+
+      -- | Region
     , nmRegion :: !NodeRegion
+
+      -- | Static peers of this node
     , nmRoutes :: !NodeRoutes
+
+      -- | Address for this node
+    , nmAddress :: !NodeAddr
     }
     deriving (Show)
 
@@ -85,10 +107,24 @@ instance FromJSON DnsDomains where
 
 instance FromJSON NodeMetadata where
   parseJSON = A.withObject "NodeMetadata" $ \obj -> do
-      nmType   <- obj .: "type"
-      nmRegion <- obj .: "region"
-      nmRoutes <- obj .: "static-routes"
+      nmType    <- obj .: "type"
+      nmRegion  <- obj .: "region"
+      nmRoutes  <- obj .: "static-routes"
+      nmAddress <- extractAddress obj
       return NodeMetadata{..}
+    where
+      extractAddress :: A.Object -> A.Parser NodeAddr
+      extractAddress obj = do
+        mAddr <- obj .:? "addr"
+        mHost <- obj .:? "host"
+        mPort <- obj .:? "port"
+        case (mAddr, mHost) of
+          (Just addr, Nothing) -> return $ NodeAddrExact (aux addr)      mPort
+          (Nothing,  _)        -> return $ NodeAddrDNS   (aux <$> mHost) mPort
+          (Just _, Just _)     -> fail "Cannot use both 'addr' and 'host'"
+
+      aux :: String -> DNS.Domain
+      aux = BS.C8.pack
 
 instance FromJSON AllStaticallyKnownPeers where
   parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
@@ -137,11 +173,24 @@ instance ToJSON DnsDomains where
       aux = map (map BS.C8.unpack)
 
 instance ToJSON NodeMetadata where
-  toJSON NodeMetadata{..} = A.object [
+  toJSON NodeMetadata{..} = A.object $ addAddress nmAddress [
         "type"          .= nmType
       , "region"        .= nmRegion
       , "static-routes" .= nmRoutes
       ]
+    where
+      addAddress :: NodeAddr -> [A.Pair] -> [A.Pair]
+      addAddress (NodeAddrExact addr mPort) = (++) $ concat [
+          [ "host" .= aux addr ]
+        , [ "port" .= p | Just p <- [mPort] ]
+        ]
+      addAddress (NodeAddrDNS mHost mPort) = (++) $ concat [
+          [ "host" .= aux h | Just h <- [mHost] ]
+        , [ "port" .= p     | Just p <- [mPort] ]
+        ]
+
+      aux :: DNS.Domain -> String
+      aux = BS.C8.unpack
 
 instance ToJSON AllStaticallyKnownPeers where
   toJSON AllStaticallyKnownPeers{..} =

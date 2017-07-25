@@ -5,13 +5,16 @@ module Pos.Network.CLI (
   , networkConfigOption
   , ipv4ToNodeId
   , intNetworkConfigOpts
+    -- * Exported primilary for testing
+  , readTopology
+  , fromPovOf
   ) where
 
 import           Universum
 import           Data.IP (IPv4)
 import           Network.Broadcast.OutboundQueue (Alts, peersFromList)
 import           Pos.Network.Types (NodeId)
-import           Pos.Network.Yaml (NodeName(..))
+import           Pos.Network.Yaml (NodeName(..), NodeMetadata(..), NodeAddr(..))
 import           Pos.Network.DnsDomains (DnsDomains(..))
 import           Pos.Util.TimeWarp (addressToNodeId)
 import qualified Data.ByteString.Char8      as BS.C8
@@ -85,7 +88,7 @@ intNetworkConfigOpts :: NetworkConfigOpts -> IO T.NetworkConfig
 intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
     parsedTopology <- case networkConfigOptsTopology of
                         Nothing -> return defaultTopology
-                        Just fp -> parseTopology fp
+                        Just fp -> readTopology fp
     ourTopology <- case parsedTopology of
       Y.TopologyStatic allStaticallyKnownPeers ->
         fromPovOf cfg allStaticallyKnownPeers networkConfigOptsSelf
@@ -122,32 +125,41 @@ fromPovOf cfg allPeers (Just self) = do
     mkPeers resolver (Y.NodeRoutes routes) = mapM (mkAlts resolver) routes
 
     mkAlts :: DNS.Resolver -> Alts NodeName -> IO (T.NodeType, Alts NodeId)
-    mkAlts _ [] = throwM $ EmptyListOfAltsFor self
-    mkAlts resolver alts@(firstAlt:_) = do
-        -- We silently assume all alternatives have the same type
-        altsType <- Y.nmType <$> metadataFor allPeers firstAlt
-        (altsType,) <$> mapM (resolveNodeName cfg resolver) alts
+    mkAlts _        []    = throwM $ EmptyListOfAltsFor self
+    mkAlts resolver names = do
+      alts@(firstAlt:_) <- mapM (metadataFor allPeers) names
+      let altsType = nmType firstAlt -- assume all alts have same type
+      (altsType,) <$> mapM (resolveNodeAddr cfg resolver)
+                           (zip names $ map nmAddress alts)
 
 -- | Resolve node name to IP address
 --
 -- We do this when reading the topology file so that we detect DNS problems
 -- early, and so that we are using canonical addresses (IP addresses) for
 -- node IDs.
-resolveNodeName :: NetworkConfigOpts -> DNS.Resolver -> NodeName -> IO NodeId
-resolveNodeName cfg resolver name = do
-    mAddrs <- DNS.lookupA resolver (nameToDomain name)
+resolveNodeAddr :: NetworkConfigOpts
+                -> DNS.Resolver
+                -> (NodeName, NodeAddr)
+                -> IO NodeId
+resolveNodeAddr cfg _ (_, NodeAddrExact addr mPort) = do
+    let port = fromMaybe (networkConfigOptsPort cfg) mPort
+    return $ addressToNodeId (addr, port)
+resolveNodeAddr cfg resolver (name, NodeAddrDNS mHost mPort) = do
+    let host = fromMaybe (nameToDomain name)         mHost
+        port = fromMaybe (networkConfigOptsPort cfg) mPort
+
+    mAddrs <- DNS.lookupA resolver host
     case mAddrs of
-      Left err            -> throwM $ NetworkConfigDnsError err
+      Left err            -> throwM $ NetworkConfigDnsError host err
       Right []            -> throwM $ CannotResolve name
       Right addrs@(_:_:_) -> throwM $ NoUniqueResolution name addrs
-      Right [addr]        -> return $ ipv4ToNodeId cfg addr
+      Right [addr]        -> return $ ipv4ToNodeId addr port
   where
     nameToDomain :: NodeName -> DNS.Domain
     nameToDomain (NodeName n) = BS.C8.pack (Text.unpack n)
 
-ipv4ToNodeId :: NetworkConfigOpts -> IPv4 -> NodeId
-ipv4ToNodeId NetworkConfigOpts{..} addr =
-    addressToNodeId (BS.C8.pack (show addr), networkConfigOptsPort)
+ipv4ToNodeId :: IPv4 -> Word16 -> NodeId
+ipv4ToNodeId addr port = addressToNodeId (BS.C8.pack (show addr), port)
 
 metadataFor :: Y.AllStaticallyKnownPeers -> NodeName -> IO Y.NodeMetadata
 metadataFor (Y.AllStaticallyKnownPeers allStaticallyKnownPeers) node =
@@ -155,8 +167,8 @@ metadataFor (Y.AllStaticallyKnownPeers allStaticallyKnownPeers) node =
       Nothing       -> throwM $ UndefinedNodeName node
       Just metadata -> return metadata
 
-parseTopology :: FilePath -> IO Y.Topology
-parseTopology fp = do
+readTopology :: FilePath -> IO Y.Topology
+readTopology fp = do
     mTopology <- Yaml.decodeFileEither fp
     case mTopology of
       Left  err      -> throwM $ CannotParseNetworkConfig err
@@ -182,7 +194,7 @@ data NetworkConfigException =
   | EmptyListOfAltsFor NodeName
 
     -- | Something went wrong during node name resolution
-  | NetworkConfigDnsError DNS.DNSError
+  | NetworkConfigDnsError DNS.Domain DNS.DNSError
 
     -- | Could not resolve a node name to an IP address
   | CannotResolve NodeName

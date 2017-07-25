@@ -29,7 +29,6 @@ import           Network.Transport.Abstract           (Transport (..))
 import           Network.Transport.Concrete           (concrete)
 import qualified Network.Transport.TCP                as TCP
 import           Node
-import           Node.Conversation
 import           Node.Message.Binary                  (BinaryP, binaryPacking)
 import           System.Environment                   (getArgs)
 import           System.Random

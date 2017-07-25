@@ -453,7 +453,7 @@ applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
-        Left (fromString . displayException -> err) ->
+        Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
             when (newTip /= newestTip) $
@@ -500,7 +500,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
         res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (res, either (const curTip) identity res)
     case res of
-        Left (fromString . displayException -> err) ->
+        Left (pretty -> err) ->
             logWarning $ "Couldn't apply blocks with rollback: " <> err
         Right newTip -> do
             logDebug $ sformat

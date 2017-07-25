@@ -7,19 +7,18 @@ module Test.Pos.Block.Logic.VarSpec
 import           Universum
 import           Unsafe                      (unsafeHead)
 
-import           Control.Exception           (displayException)
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List                   (span)
 import           Data.List.NonEmpty          (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty          as NE
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (modifyMaxSuccess, prop)
-import           Test.QuickCheck.Gen         (Gen (MkGen), sized)
+import           Test.QuickCheck.Gen         (Gen (MkGen))
 import           Test.QuickCheck.Monadic     (assert, pick, pre)
 
 import           Pos.Block.Logic             (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (BlockCount (..))
+import           Pos.Core                    (blkSecurityParam)
 import           Pos.DB.Pure                 (dbPureDump)
 import           Pos.Generator.BlockEvent    (BlockEventCount (..),
                                               BlockEventGenParams (..), genBlockEvents)
@@ -68,7 +67,7 @@ verifyEmptyMainBlock = do
     -- generate exactly 1 block
     emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1) False
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
-        stopProperty . fromString . displayException
+        stopProperty . pretty
 
 verifyValidBlocks :: BlockProperty ()
 verifyValidBlocks = do
@@ -87,7 +86,7 @@ verifyValidBlocks = do
         lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix $
         blocksToVerify
     whenLeft verRes $
-        stopProperty . fromString . displayException
+        stopProperty . pretty
 
 ----------------------------------------------------------------------------
 -- verifyAndApplyBlocks
@@ -170,16 +169,17 @@ blockEventSuccessProp :: BlockProperty ()
 blockEventSuccessProp = do
     allSecrets <- getAllSecrets
     let
-        blockEventGenParams s = BlockEventGenParams
+        eventCount = BlockEventCount 10
+        blockEventGenParams = BlockEventGenParams
             { _begpSecrets = allSecrets
-            , _begpBlockCountMax = BlockCount 4
-            , _begpBlockEventCount = BlockEventCount (fromIntegral s)
+            , _begpBlockCountMax =
+                  blkSecurityParam `div` fromIntegral eventCount
+            , _begpBlockEventCount = eventCount
             , _begpRollbackChance = 0.4
             , _begpFailureChance = 0
             }
-    begp <- pick $ sized (return . blockEventGenParams)
     g <- pick $ MkGen $ \qc _ -> qc
-    scenario <- lift $ evalRandT (genBlockEvents begp) g
+    scenario <- lift $ evalRandT (genBlockEvents blockEventGenParams) g
     verifyBlockScenarioResult =<< lift (runBlockScenario scenario)
 
 verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
@@ -187,7 +187,7 @@ verifyBlockScenarioResult = \case
     BlockScenarioFinishedOk -> return ()
     BlockScenarioUnexpectedFailure e -> stopProperty $
         "Block scenario unexpected failure: " <>
-        fromString (displayException e)
+        pretty e
     BlockScenarioDbChanged dbDiff -> stopProperty $
         "Block scenario resulted in a change to the blockchain:\n" <>
         show dbDiff

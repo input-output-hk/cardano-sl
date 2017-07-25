@@ -9,11 +9,13 @@ module Pos.Block.Error
 
 import           Universum
 
-import           Control.Exception    (Exception (..))
-import qualified Data.Text.Buildable
+import           Control.Exception      (Exception (..))
+import           Data.Text.Buildable    (Buildable (..))
+import           Data.Text.Lazy.Builder (Builder, fromText)
+import           Formatting             (bprint, stext, (%))
 
-import           Pos.Block.Logic.Util (tipMismatchMsg)
-import           Pos.Core             (HeaderHash)
+import           Pos.Core               (HeaderHash)
+import           Pos.Crypto             (shortHashF)
 
 data BlkError
 
@@ -21,49 +23,62 @@ data BlkError
 
 --instance Buildable BlkError
 
+-- | This function can be used to create a message when tip mismatch
+-- is detected (usually between tip stored in DB and some other tip
+-- received from somewhere).
+tipMismatchMsg :: Text -> HeaderHash -> HeaderHash -> Builder
+tipMismatchMsg action storedTip attemptedTip =
+    bprint
+        ("Can't "%stext%" block because of tip mismatch (stored is "
+         %shortHashF%", attempted is "%shortHashF%")")
+        action storedTip attemptedTip
+
 data RollbackException = RollbackTipMismatch HeaderHash HeaderHash
     deriving (Show)
 
-renderRollbackException :: RollbackException -> Text
+renderRollbackException :: RollbackException -> Builder
 renderRollbackException = \case
     RollbackTipMismatch storedTip attemptedTip ->
         tipMismatchMsg "rollback" storedTip attemptedTip
 
 instance Exception RollbackException where
-    displayException = toString . renderRollbackException
+    displayException = toString . pretty
 
 instance Buildable RollbackException where
-    build = Data.Text.Buildable.build . renderRollbackException
+    build = renderRollbackException
 
 data ApplyBlocksException
-    = ApplyBlocksTipMismatch Text HeaderHash HeaderHash
+    = ApplyBlocksTipMismatch
+        Text -- message
+        HeaderHash -- stored tip
+        HeaderHash -- attempted tip
     | ApplyBlocksVerifyFailure VerifyBlocksException
-    | ApplyBlocksError Text
+    | ApplyBlocksError Text -- other error (not covered by constructors above)
     deriving (Show)
 
-renderApplyBlocksException :: ApplyBlocksException -> Text
+renderApplyBlocksException :: ApplyBlocksException -> Builder
 renderApplyBlocksException = \case
     ApplyBlocksTipMismatch s tip attemptedTip ->
         tipMismatchMsg s tip attemptedTip
     ApplyBlocksVerifyFailure e -> renderVerifyBlocksException e
-    ApplyBlocksError e -> e
+    ApplyBlocksError e -> fromText e
 
 instance Exception ApplyBlocksException where
-    displayException = toString . renderApplyBlocksException
+    displayException = toString . pretty
 
 instance Buildable ApplyBlocksException where
-    build = Data.Text.Buildable.build . renderApplyBlocksException
+    build = renderApplyBlocksException
 
 data VerifyBlocksException
     = VerifyBlocksError Text
     deriving (Show)
 
 instance Exception VerifyBlocksException where
-    displayException = toString . renderVerifyBlocksException
+    displayException = toString . pretty
 
 instance Buildable VerifyBlocksException where
-    build = Data.Text.Buildable.build . renderVerifyBlocksException
+    build = renderVerifyBlocksException
 
-renderVerifyBlocksException :: VerifyBlocksException -> Text
+renderVerifyBlocksException :: VerifyBlocksException -> Builder
 renderVerifyBlocksException = \case
-    VerifyBlocksError t -> t
+    VerifyBlocksError t -> fromText t

@@ -148,6 +148,10 @@ dbWriteBatchPureDefault (tagToLens -> l) batchOps =
 atomicModifyIORefPure :: (MonadIO m) => (a -> a) -> IORef a -> m ()
 atomicModifyIORefPure foo = flip atomicModifyIORef $ \a -> (foo a, ())
 
+-- | A diff between a pair of bytestrings. We could compute some sort of
+-- string difference here, but instead just store them both, as the user will
+-- probably want to preprocess them before comparison.
+-- Invariant: '_bsdLeft /= _bsdRight'.
 data ByteStringDiff = ByteStringDiff
     { _bsdLeft  :: ByteString
     , _bsdRight :: ByteString
@@ -158,6 +162,14 @@ bsDiff b1 b2
     | b1 == b2 = Nothing
     | otherwise = Just $ ByteStringDiff b1 b2
 
+-- | A diff between two maps. '_mdMissingKeysLeft' contains the set of keys
+-- not present in the first map (but present in the second).
+-- '_mdMissingKeysRight' containts the set of keys not present in the second
+-- map (but present in the first one).
+-- '_mdDifferentElements' contains the difference between elements present
+-- in both maps (for different elements).
+-- Invariant: at least one of '_mdMissingKeys', '_mdMissingKeysRight', or
+-- '_mdDifferentElements' fields is non-empty.
 data MapDiff k vDiff = MapDiff
     { _mdMissingKeysLeft   :: !(Set k)
     , _mdMissingKeysRight  :: !(Set k)
@@ -188,6 +200,8 @@ mapDiff elemDiff m1 m2 = [ result | not emptyDiff ]
 
 type DBPureMapDiff = MapDiff ByteString ByteStringDiff
 
+-- | A diff between two pure databases.
+-- Invariant: at least one of the fields is not 'Nothing'.
 data DBPureDiff = DBPureDiff
     { _pdBlockIndexDB  :: Maybe DBPureMapDiff
     , _pdGStateDB      :: Maybe DBPureMapDiff

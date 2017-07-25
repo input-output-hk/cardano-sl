@@ -57,13 +57,14 @@ module Node (
 
     ) where
 
-import           Control.Exception          (SomeException, Exception)
+import           Control.Exception          (SomeException, Exception(..))
 import           Control.Monad              (unless, when)
 import           Control.Monad.Fix          (MonadFix)
 import qualified Data.ByteString            as BS
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as M
 import           Data.Proxy                 (Proxy (..))
+import qualified Data.Text                  as T
 import           Data.Typeable              (Typeable)
 import           Data.Word                  (Word32)
 import           Formatting                 (sformat, shown, (%))
@@ -82,7 +83,8 @@ import qualified Node.Internal              as LL
 import           Node.Message.Class         (Serializable (..), MessageName,
                                              Message (..), messageName',
                                              Packing, pack, unpack)
-import           Node.Message.Decoder       (Decoder (..), DecoderStep (..), continueDecoding)
+import           Node.Message.Decoder       (Decoder (..), DecoderStep (..),
+                                             ByteOffset, continueDecoding)
 import           System.Random              (StdGen)
 import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
 
@@ -102,10 +104,17 @@ data LimitExceeded = LimitExceeded
 
 instance Exception LimitExceeded
 
-data NoParse = NoParse
+-- | Custom exception thrown by recvNext
+--
+-- This carries the fields of the 'Fail' constructor of 'Decoder'
+data NoParse = NoParse !BS.ByteString !ByteOffset !T.Text
   deriving (Show, Typeable)
 
-instance Exception NoParse
+instance Exception NoParse where
+  displayException (NoParse trailing offset err) =
+       "recvNext failed with " ++ T.unpack err
+    ++ " (length trailing = " ++ show (BS.length trailing)
+    ++ ", offset = " ++ show offset ++ ")"
 
 -- | A ListenerAction with existential snd and rcv types and suitable
 --   constraints on them.
@@ -386,8 +395,7 @@ recvNext packing limit (LL.ChannelIn channel) = do
             return outcome
   where
     go !remaining decoderStep = case decoderStep of
-        -- TODO use the error message in the exception.
-        Fail _ _ _ -> throw NoParse
+        Fail trailing offset err -> throw $ NoParse trailing offset err
         Done trailing _ thing -> return (trailing, Input thing)
         Partial next -> do
             when (remaining < 0) (throw LimitExceeded)

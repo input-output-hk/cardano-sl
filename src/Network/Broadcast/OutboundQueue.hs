@@ -79,6 +79,7 @@ import Data.Monoid ((<>))
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Time
+import Data.Typeable (typeOf)
 import Formatting (Format, sformat, (%), shown, string)
 import System.Wlog.CanLog
 import qualified Data.Map.Strict as Map
@@ -764,10 +765,14 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
               qSelf packetPayload packetDestId
 
     msgSendFailed :: Packet msg nid a -> SomeException -> Text
-    msgSendFailed Packet{..} err =
+    msgSendFailed Packet{..} (SomeException err) =
       sformat ( shown % ": sending " % formatMsg % " to " % shown
-              % " failed with " % string )
-              qSelf packetPayload packetDestId (displayException err)
+              % " failed with " % string % " :: " % shown)
+              qSelf
+              packetPayload
+              packetDestId
+              (displayException err)
+              (typeOf err)
 
 {-------------------------------------------------------------------------------
   Interpreter for failure policy

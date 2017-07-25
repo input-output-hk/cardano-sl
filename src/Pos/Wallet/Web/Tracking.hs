@@ -67,6 +67,7 @@ import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              encToPublic, hash, shortHashF,
                                              unpackHDAddressAttr)
 import           Pos.Data.Attributes        (Attributes (..))
+import qualified Pos.GState                 as GS
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
@@ -237,8 +238,7 @@ syncWalletWithGStateUnsafe
     -> m ()
 syncWalletWithGStateUnsafe encSK = do
     tipHeader <- DB.getTipHeader @ssc
-    slottingData <- getSlottingData
-    systemStart <- getSystemStart
+    slottingData <- GS.getSlottingData
 
     let wAddr = encToCId encSK
         constTrue = \_ _ -> True
@@ -248,7 +248,7 @@ syncWalletWithGStateUnsafe encSK = do
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
         mainBlkHeaderTs mBlkH =
-            getSlotStartPure systemStart True (mBlkH ^. headerSlotL) slottingData
+            getSlotStartPure (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier

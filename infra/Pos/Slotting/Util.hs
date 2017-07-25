@@ -10,6 +10,8 @@ module Pos.Slotting.Util
        , getSlotStartPure
        , getSlotStartEmpatically
        , getLastKnownSlotDuration
+       , getPenultEpochSDEmpatically
+       , getLastEpochSDEmpatically
 
          -- * Worker which ticks when slot starts
        , onNewSlot
@@ -22,7 +24,7 @@ module Pos.Slotting.Util
        , waitSystemStart
        ) where
 
-import           Data.Time.Units        (Millisecond, convertUnit)
+import           Data.Time.Units        (Millisecond)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Mockable               (Delay, Fork, Mockable, delay, fork)
 import           Serokell.Util          (sec)
@@ -31,8 +33,8 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
 import           Universum
 
 import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
-                                         addTimeDiffToTimestamp, flattenSlotId,
-                                         getSlotIndex, slotIdF, subTimeDiffSafe)
+                                         flattenSlotId,
+                                         slotIdF)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
@@ -42,7 +44,7 @@ import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
-import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData, computeSlotStart, lookupEpochSlottingData)
 import           Pos.Util.Util          (maybeThrow)
 
 -- | Get flat id of current slot based on MonadSlots.
@@ -51,36 +53,16 @@ getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
-getSlotStart sid = do
-    systemStart <- getSystemStart
-    getSlotStartPure systemStart False sid <$> getSlottingData
+getSlotStart si@(SlotId {..}) = fmap (getSlotStartPureFromEpoch si) <$> getEpochSlottingData siEpoch
 
 -- | Pure timestamp calculation for a given slot.
--- If `imprecise` is true, then we assume that the slot duration doesn't change.
--- That allows us to compute a timestamp for slots earlier the penultimate epoch.
-getSlotStartPure :: Timestamp -> Bool -> SlotId -> SlottingData -> Maybe Timestamp
-getSlotStartPure systemStart imprecise SlotId{..} SlottingData{..} = do
-    if | imprecise && siEpoch < sdPenultEpoch ->
-         Just $ slotTimestamp siSlot $ extrapolateSlottingData siEpoch
-       | siEpoch == sdPenultEpoch -> Just $ slotTimestamp siSlot sdPenult
-       | siEpoch == sdPenultEpoch + 1 -> Just $ slotTimestamp siSlot sdLast
-       | otherwise -> Nothing
-  where
-    -- Extrapolate slotting data for arbitrary epochs
-    extrapolateSlottingData desiredEpoch =
-      let
-        -- Assuming these durations stay constant
-        epochDuration = esdStartDiff sdLast `subTimeDiffSafe` esdStartDiff sdPenult
-        slotDuration = esdSlotDuration sdPenult
-        msDiff = fromIntegral (toInteger epochDuration * (toInteger desiredEpoch - toInteger sdPenultEpoch))
-      in
-        EpochSlottingData { esdSlotDuration = slotDuration
-                          , esdStartDiff = msDiff + (esdStartDiff sdPenult)
-                          }
-    -- Calculate timestamp normally
-    slotTimestamp (getSlotIndex -> locSlot) EpochSlottingData{..} =
-        esdStartDiff `addTimeDiffToTimestamp`
-        (systemStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration))
+getSlotStartPureFromEpoch :: SlotId -> EpochSlottingData -> Timestamp
+getSlotStartPureFromEpoch = computeSlotStart
+
+-- | Pure timestamp calculation for a given slot.
+getSlotStartPure :: SlotId -> SlottingData -> Maybe Timestamp
+getSlotStartPure si sd = getSlotStartPureFromEpoch si <$> esd
+  where esd = lookupEpochSlottingData (siEpoch si) sd
 
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.
@@ -90,9 +72,30 @@ getSlotStartEmpatically
 getSlotStartEmpatically slot =
     getSlotStart slot >>= maybeThrow (SEUnknownSlotStart slot)
 
+-- | Get last epoch empatically, which means
+-- that function throws exception when last epoch is unknown.
+getPenultEpochSDEmpatically
+    :: (MonadSlotsData m, MonadThrow m)
+    => m EpochSlottingData
+getPenultEpochSDEmpatically = do
+    lastEpoch   <- getEpochLastIndex  
+    let penultEpoch = lastEpoch - 1  
+    getEpochSlottingData penultEpoch >>= maybeThrow (SEUnknownLastEpoch penultEpoch)
+
+-- | Get last epoch empatically, which means
+-- that function throws exception when last epoch is unknown.
+getLastEpochSDEmpatically
+    :: (MonadSlotsData m, MonadThrow m)
+    => m EpochSlottingData
+getLastEpochSDEmpatically = do
+    lastEpoch   <- getEpochLastIndex    
+    getEpochSlottingData lastEpoch >>= maybeThrow (SEUnknownLastEpoch lastEpoch)
+
 -- | Get last known slot duration.
-getLastKnownSlotDuration :: MonadSlotsData m => m Millisecond
-getLastKnownSlotDuration = esdSlotDuration . sdLast <$> getSlottingData
+getLastKnownSlotDuration 
+    :: (MonadSlotsData m, MonadThrow m)
+    => m Millisecond
+getLastKnownSlotDuration = esdSlotDuration <$> getLastEpochSDEmpatically
 
 -- | Type constraint for `onNewSlot*` workers
 type OnNewSlot ctx m =

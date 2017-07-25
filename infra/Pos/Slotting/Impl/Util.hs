@@ -18,12 +18,17 @@ import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp
 import           Pos.Util.Util               (leftToPanic)
 
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types          (EpochSlottingData (..))
+import           Pos.Slotting.Util           (getPenultEpochSDEmpatically, getLastEpochSDEmpatically)
 
 -- | Approximate current slot using outdated slotting data.
-approxSlotUsingOutdated :: MonadSlotsData m => EpochIndex -> Timestamp -> m SlotId
+approxSlotUsingOutdated 
+    :: (MonadSlotsData m, MonadThrow m)
+    => EpochIndex 
+    -> Timestamp 
+    -> m SlotId
 approxSlotUsingOutdated penult t = do
-    SlottingData {..} <- getSlottingData
+    sdLast      <- getLastEpochSDEmpatically
     systemStart <- getSystemStart
     let epochStart = esdStartDiff sdLast `addTimeDiffToTimestamp` systemStart
     pure $
@@ -32,21 +37,28 @@ approxSlotUsingOutdated penult t = do
   where
     outdatedEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..} =
         let duration = convertUnit esdSlotDuration
-            start = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart) in
+            start = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart) 
+        in
         unflattenSlotId $
         flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
 
 -- | Compute current slot from current timestamp based on data
 -- provided by 'MonadSlotsData'.
 slotFromTimestamp
-    :: MonadSlotsData m
-    => Timestamp -> m (Maybe SlotId)
+    :: (MonadSlotsData m, MonadThrow m)
+    => Timestamp 
+    -> m (Maybe SlotId)
 slotFromTimestamp approxCurTime = do
-    SlottingData {..} <- getSlottingData
     systemStart <- getSystemStart
-    let tryEpoch = computeSlotUsingEpoch systemStart approxCurTime
-    let penultRes = tryEpoch sdPenultEpoch sdPenult
-    let lastRes = tryEpoch (succ sdPenultEpoch) sdLast
+    sdLast      <- getLastEpochSDEmpatically
+    sdPenult    <- getPenultEpochSDEmpatically
+
+    lastEpochI  <- getEpochLastIndex 
+    let sdPenultEpoch = lastEpochI - 1
+
+    let penultRes = computeSlotUsingEpoch systemStart approxCurTime sdPenultEpoch sdPenult
+    let lastRes   = computeSlotUsingEpoch systemStart approxCurTime (succ lastEpochI) sdLast
+
     return $ penultRes <|> lastRes
 
 computeSlotUsingEpoch

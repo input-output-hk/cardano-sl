@@ -24,6 +24,7 @@ import           Universum
 import           Control.Lens           (_Wrapped)
 import           Control.Monad.Except   (MonadError (throwError))
 import qualified Data.List.NonEmpty     as NE
+import qualified Data.Map               as M
 import           Ether.Internal         (HasLens (..))
 import           Formatting             (build, sformat, (%))
 import           Serokell.Util          (Color (Red), colorize)
@@ -50,7 +51,7 @@ import           Pos.Exception          (assertionFailed, reportFatalError)
 import qualified Pos.GState             as GS
 import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
-import           Pos.Slotting           (MonadSlots (getCurrentSlot), putSlottingData)
+import           Pos.Slotting           (MonadSlots (getCurrentSlot), putEpochSlottingData, getSlottingDataMap)
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass (..))
 import           Pos.Util               (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
@@ -290,8 +291,12 @@ slogRollbackBlocks blunds = do
         mconcat [forwardLinksBatch, inMainBatch]
 
 -- Common actions for rollback and apply.
-slogCommon :: MonadSlogApply ssc ctx m => LastBlkSlots -> m ()
+slogCommon 
+    :: MonadSlogApply ssc ctx m 
+    => LastBlkSlots 
+    -> m ()
 slogCommon newLastSlots = do
     sanityCheckDB
     slogPutLastSlots newLastSlots
-    putSlottingData =<< GS.getSlottingData
+    slotData <- M.toList . getSlottingDataMap <$> GS.getSlottingData
+    forM_ slotData (uncurry putEpochSlottingData)

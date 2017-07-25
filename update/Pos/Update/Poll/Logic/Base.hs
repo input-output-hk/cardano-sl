@@ -50,7 +50,9 @@ import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, H
                                           unsafeSubCoin)
 import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
-import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting            (EpochSlottingData (..), addEpochSlottingData, 
+                                          getLastEpochIndex,
+                                          getLastEpochSlottingData)
 import           Pos.Update.Core         (BlockVersionData (..),
                                           BlockVersionModifier (..), UpId,
                                           UpdateProposal (..), UpdateVote (..),
@@ -208,34 +210,38 @@ adoptBlockVersion winningBlk bv = do
 -- which currently adopted 'BlockVersion' can be applied.
 updateSlottingData
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => EpochIndex -> m ()
-updateSlottingData epoch = do
-    sd@SlottingData {..} <- getSlottingData
+    => EpochIndex 
+    -> m ()
+updateSlottingData epochIndex = do
     let errFmt =
             ("can't update slotting data, stored penult epoch is "%int%
              ", while given epoch is "%int%
              ")")
-    if | sdPenultEpoch + 1 == epoch -> updateSlottingDataDo sd
+
+    slottingData      <- getSlottingData
+    let lastIndex      = getLastEpochIndex slottingData
+    let esd            = getLastEpochSlottingData slottingData
+
+    if | lastIndex + 1 == epochIndex -> updateSlottingDataDo epochIndex slottingData esd
        -- This can happen if there was rollback of genesis block.
-       | sdPenultEpoch == epoch -> pass
+       | lastIndex == epochIndex -> pass
        | otherwise ->
-           throwError $ PollInternalError $ sformat errFmt sdPenultEpoch epoch
+           throwError $ PollInternalError $ sformat errFmt lastIndex epochIndex
   where
-    updateSlottingDataDo sd@SlottingData {..} = do
+    -- updateSlottingDataDo :: EpochIndex -> EpochSlottingData -> m ()
+    updateSlottingDataDo lastIndex slottingData esd = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
-        let epochDuration = fromIntegral epochSlots *
-                            convertUnit (esdSlotDuration sdLast)
-        let newLastStartDiff =
-                esdStartDiff sdLast + TimeDiff epochDuration
-        let newLast =
-                EpochSlottingData
-                {esdSlotDuration = latestSlotDuration, esdStartDiff = newLastStartDiff}
-        setSlottingData
-            sd
-            { sdPenultEpoch = sdPenultEpoch + 1
-            , sdPenult = sdLast
-            , sdLast = newLast
+
+        let epochDuration = fromIntegral epochSlots * convertUnit (esdSlotDuration esd)
+        let newLastStartDiff = esdStartDiff esd + TimeDiff epochDuration
+        let newLast = EpochSlottingData { 
+              esdSlotDuration = latestSlotDuration
+            , esdStartDiff    = newLastStartDiff
             }
+
+        let newSlottingData = addEpochSlottingData lastIndex newLast slottingData
+
+        setSlottingData newSlottingData
 
 -- | Verify that 'BlockVersionModifier' passed as last argument can follow
 -- 'BlockVersionData' passed as second argument. First argument

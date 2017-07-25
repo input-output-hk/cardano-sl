@@ -24,6 +24,7 @@ import           Pos.Core                   (HeaderHash, difficultyL, headerHash
                                              headerSlotL, prevBlockL)
 import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.DB.Class               (MonadDBRead)
+import qualified Pos.GState                 as GS
 import           Pos.Slotting               (MonadSlotsData (..), getSlotStartPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
@@ -61,10 +62,9 @@ onApplyTracking blunds = do
   where
     syncWallet :: BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
     syncWallet newTipH txs wid = do
-        systemStart <- getSystemStart
-        sd <- getSlottingData
+        sd <- GS.getSlottingData
         let mainBlkHeaderTs mBlkH =
-                getSlotStartPure systemStart True (mBlkH ^. headerSlotL) sd
+                getSlotStartPure (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         allAddresses <- getWalletAddrMetasDB WS.Ever wid

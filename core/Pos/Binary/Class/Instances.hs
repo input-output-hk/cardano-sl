@@ -9,6 +9,7 @@ module Pos.Binary.Class.Instances
 
 import           Universum
 
+import qualified Data.Map                    as M
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Internal    as BS
 import qualified Data.HashMap.Strict         as HM
@@ -242,6 +243,11 @@ instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
     get = fmap HM.fromList get
     put = put . HM.toList
     size = sizeOf HM.toList
+
+instance (Ord k, Eq k, Bi k, Bi v) => Bi (M.Map k v) where
+    get = fmap M.fromList get
+    put = put . M.toList
+    size = sizeOf M.toList
 
 instance (Hashable k, Eq k, Bi k) => Bi (HashSet k) where
     get = fmap HS.fromList get

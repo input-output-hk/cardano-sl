@@ -43,7 +43,7 @@ rollbackUS (USUndo changedBlockVersions
     -- Rollback last adopted
     whenJust lastAdoptedBV setAdoptedBV
     whenJust prevProposers setEpochProposers
-    whenJust slottingData setSlottingData
+    whenJust slottingData setSlottingData 
   where
     setOrDelLastConfirmedSV ::
            (ApplicationName, PrevValue NumSoftwareVersion) -> m ()

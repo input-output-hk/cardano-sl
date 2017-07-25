@@ -50,9 +50,10 @@ import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
                                                 getCurrentSlotInaccurateSum,
                                                 getCurrentSlotSum)
 import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsData (..),
-                                                getSlottingDataDefault,
+                                                getEpochLastIndexDefault,
+                                                getEpochSlottingDataDefault,
                                                 getSystemStartDefault,
-                                                putSlottingDataDefault,
+                                                putEpochSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
 import           Pos.Util                      (Some (..))
@@ -142,10 +143,11 @@ instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeConte
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
 instance MonadSlotsData WalletWebMode where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
+    getSystemStart        = getSystemStartDefault
+    getEpochLastIndex     = getEpochLastIndexDefault
+    getEpochSlottingData  = getEpochSlottingDataDefault
+    putEpochSlottingData  = putEpochSlottingDataDefault
     waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
 
 instance MonadSlots WalletWebMode where
     getCurrentSlot = getCurrentSlotSum

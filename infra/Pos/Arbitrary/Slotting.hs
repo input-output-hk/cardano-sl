@@ -6,8 +6,7 @@ import           Test.QuickCheck                   (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core                ()
-import           Pos.Slotting.Types                (EpochSlottingData (..),
-                                                    SlottingData (..))
+import           Pos.Slotting.Types                (EpochSlottingData (..), SlottingData)
 
 instance Arbitrary EpochSlottingData where
     arbitrary = genericArbitrary
@@ -15,4 +14,4 @@ instance Arbitrary EpochSlottingData where
 
 instance Arbitrary SlottingData where
     arbitrary = genericArbitrary
-    shrink = genericShrink
+    shrink = genericShrink    

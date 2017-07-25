@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Instance of MoandPollRead which uses DB.
+-- | Instance of MonadDBPoll which uses DB.
 
 module Pos.Update.Poll.DBPoll
        ( DBPoll

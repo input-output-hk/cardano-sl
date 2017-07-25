@@ -22,7 +22,6 @@ import           Pos.Core.Slotting           (unflattenSlotId)
 import           Pos.Core.Types              (SlotId (..), Timestamp (..))
 import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (SlottingData (..))
 
 ----------------------------------------------------------------------------
 -- Mode
@@ -47,21 +46,30 @@ mkSimpleSlottingVar = atomically $ newTVar $ SimpleSlottingState $ unflattenSlot
 -- Implementation
 ----------------------------------------------------------------------------
 
-getCurrentSlotSimple :: SimpleSlottingMode m => SimpleSlottingVar -> m (Maybe SlotId)
+getCurrentSlotSimple 
+    :: (SimpleSlottingMode m, MonadThrow m)
+    => SimpleSlottingVar 
+    -> m (Maybe SlotId)
 getCurrentSlotSimple var = traverse (updateLastSlot var) =<< (currentTimeSlottingSimple >>= slotFromTimestamp)
 
-getCurrentSlotBlockingSimple :: SimpleSlottingMode m => SimpleSlottingVar -> m SlotId
+getCurrentSlotBlockingSimple 
+    :: (SimpleSlottingMode m, MonadThrow m)
+    => SimpleSlottingVar 
+    -> m SlotId
 getCurrentSlotBlockingSimple var = do
-    penult <- sdPenultEpoch <$> getSlottingData
+    penult <- getEpochLastIndex
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing -> do
             waitPenultEpochEquals (penult + 1)
             getCurrentSlotBlockingSimple var
 
-getCurrentSlotInaccurateSimple :: SimpleSlottingMode m => SimpleSlottingVar -> m SlotId
+getCurrentSlotInaccurateSimple 
+    :: (SimpleSlottingMode m, MonadThrow m)
+    => SimpleSlottingVar 
+    -> m SlotId
 getCurrentSlotInaccurateSimple var = do
-    penult <- sdPenultEpoch <$> getSlottingData
+    penult <- getEpochLastIndex
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing   -> do

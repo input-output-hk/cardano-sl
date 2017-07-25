@@ -26,13 +26,14 @@ instance Default PollModifier where
 -- there are two confliciting modifications, the second one wins.
 modifyPollModifier :: PollModifier -> PollModifier -> PollModifier
 modifyPollModifier pmOld pmNew = PollModifier
-    (pmBVs pmOld <> pmBVs pmNew)
-    (pmAdoptedBVFull pmNew <|> pmAdoptedBVFull pmOld)
-    (pmConfirmed pmOld <> pmConfirmed pmNew)
-    (pmConfirmedProps pmOld <> pmConfirmedProps pmNew)
-    (pmActiveProps pmOld <> pmActiveProps pmNew)
-    (pmSlottingData pmNew <|> pmSlottingData pmOld)
+    (pmBVs pmOld            <>  pmBVs pmNew)
+    (pmAdoptedBVFull pmNew  <|> pmAdoptedBVFull pmOld)
+    (pmConfirmed pmOld      <>  pmConfirmed pmNew)
+    (pmConfirmedProps pmOld <>  pmConfirmedProps pmNew)
+    (pmActiveProps pmOld    <>  pmActiveProps pmNew)
+    (pmSlottingData pmNew   <|>  pmSlottingData pmOld)
     (pmEpochProposers pmNew <|> pmEpochProposers pmOld)
+
 
 instance Semigroup PollModifier where
 

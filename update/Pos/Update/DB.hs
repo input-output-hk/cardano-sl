@@ -42,7 +42,7 @@ import           Universum
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
-import           Data.Time.Units              (convertUnit)
+import           Data.Time.Units              (Microsecond, convertUnit)
 import qualified Database.RocksDB             as Rocks
 import           Serokell.Data.Memory.Units   (Byte)
 
@@ -51,7 +51,7 @@ import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
                                                ChainDifficulty, NumSoftwareVersion,
-                                               SlotId, SoftwareVersion (..),
+                                               SlotId, SoftwareVersion (..), 
                                                StakeholderId, TimeDiff (..))
 import           Pos.Core.Constants           (epochSlots, genesisBlockVersionData,
                                                genesisSlotDuration)
@@ -61,7 +61,8 @@ import           Pos.DB                       (DBIteratorClass (..), DBTag (..),
                                                RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
-import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData,
+                                               createInitSlottingData)
 import           Pos.Update.Constants         (genesisBlockVersion,
                                                genesisSoftwareVersions, ourAppName)
 import           Pos.Update.Core              (BlockVersionData (..), UpId,
@@ -114,15 +115,14 @@ getConfirmedSV = gsGetBi . confirmedVersionKey
 getSlottingData :: MonadDBRead m => m SlottingData
 getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
   where
-    msg =
-        "Update System part of GState DB is not initialized (slotting data is missing)"
+    msg = "Update System part of GState DB is not initialized (slotting data is missing)"
 
 -- | Get proposers for current epoch.
 getEpochProposers :: MonadDBRead m => m (HashSet StakeholderId)
 getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
   where
-    msg =
-        "Update System part of GState DB is not initialized (epoch proposers are missing)"
+    msg = 
+      "Update System part of GState DB is not initialized (epoch proposers are missing)"
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -163,7 +163,7 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Put (bvStateKey bv) (encode st)]
     toBatchOp (DelBV bv) =
         [Rocks.Del (bvStateKey bv)]
-    toBatchOp (PutSlottingData sd) =
+    toBatchOp (PutSlottingData sd) = 
         [Rocks.Put slottingDataKey (encode sd)]
     toBatchOp (PutEpochProposers proposers) =
         [Rocks.Put epochProposersKey (encode proposers)]
@@ -174,27 +174,29 @@ instance RocksBatchOp UpdateOp where
 
 initGStateUS :: MonadDB m => m ()
 initGStateUS = do
-    let genesisEpochDuration =
-            fromIntegral epochSlots * convertUnit genesisSlotDuration
-        genesisSlottingData = SlottingData
-            { sdPenult      = esdPenult
-            , sdPenultEpoch = 0
-            , sdLast        = esdLast
-            }
-        esdPenult = EpochSlottingData
-            { esdSlotDuration = genesisSlotDuration
-            , esdStartDiff    = 0
-            }
-        epoch1Start = TimeDiff genesisEpochDuration
-        esdLast = EpochSlottingData
-            { esdSlotDuration = genesisSlotDuration
-            , esdStartDiff    = epoch1Start
-            }
     writeBatchGState $
         PutSlottingData genesisSlottingData :
         PutEpochProposers mempty :
         SetAdopted genesisBlockVersion genesisBlockVersionData :
         map ConfirmVersion genesisSoftwareVersions
+  where
+    genesisEpochDuration :: Microsecond
+    genesisEpochDuration = fromIntegral epochSlots * convertUnit genesisSlotDuration
+
+    esdPenult :: EpochSlottingData
+    esdPenult = EpochSlottingData
+        { esdSlotDuration = genesisSlotDuration
+        , esdStartDiff    = 0
+        }
+
+    esdLast :: EpochSlottingData
+    esdLast = EpochSlottingData
+        { esdSlotDuration = genesisSlotDuration
+        , esdStartDiff    = TimeDiff genesisEpochDuration
+        }
+
+    genesisSlottingData :: SlottingData
+    genesisSlottingData = createInitSlottingData esdPenult esdLast
 
 ----------------------------------------------------------------------------
 -- Iteration

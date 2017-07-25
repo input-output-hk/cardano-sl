@@ -56,9 +56,11 @@ import           Pos.Reporting               (HasReportingContext (..), Reportin
                                               emptyReportingContext)
 import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
                                               SlottingData, currentTimeSlottingSimple)
-import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDataDefault,
+import           Pos.Slotting.MemState       (MonadSlotsData (..),
+                                              getEpochLastIndexDefault,
+                                              getEpochSlottingDataDefault,
                                               getSystemStartDefault,
-                                              putSlottingDataDefault,
+                                              putEpochSlottingDataDefault,
                                               waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
@@ -234,10 +236,11 @@ instance MonadBlockGenBase m =>
     dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance MonadBlockGenBase m => MonadSlotsData (InitBlockGenMode m) where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
+    getSystemStart        = getSystemStartDefault
+    getEpochLastIndex     = getEpochLastIndexDefault
+    getEpochSlottingData  = getEpochSlottingDataDefault
+    putEpochSlottingData  = putEpochSlottingDataDefault
     waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
 
 instance MonadBlockGenBase m => MonadSlots (InitBlockGenMode m) where
     getCurrentSlot = Just <$> view ibgcSlot_L
@@ -331,10 +334,11 @@ instance MonadBlockGenBase m =>
     dbPutBlund = BDB.dbPutBlundSumDefault
 
 instance MonadBlockGenBase m => MonadSlotsData (BlockGenMode m) where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
+    getSystemStart        = getSystemStartDefault
+    getEpochLastIndex     = getEpochLastIndexDefault
+    getEpochSlottingData  = getEpochSlottingDataDefault
+    putEpochSlottingData  = putEpochSlottingDataDefault
     waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
 
 instance MonadBlockGenBase m => MonadSlots (BlockGenMode m) where
     getCurrentSlot = view bgcSlotId_L

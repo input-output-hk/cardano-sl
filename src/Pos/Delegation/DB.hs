@@ -4,7 +4,7 @@
 -- | Part of GState DB which stores data necessary for heavyweight
 -- delegation.
 --
--- It stores three mappings:
+-- It stores the following mappings:
 --
 -- 1. Psk mapping: Issuer → PSK, where pskIssuer of PSK is Issuer (must
 -- be consistent). We don't store revocation psks, instead we just
@@ -19,6 +19,10 @@
 -- 3. Dlg reverse transitive mapping: Delegate →
 -- Issuers@{Issuer_i}. Corresponds to Issuer → Delegate ∈ Dlg transitive
 -- mapping. Notice: here also Delegate ∉ Issuers (see (2)).
+--
+-- 4. ThisEpochPosted: Issuer → Bool. This mapping is used to check
+-- whether stakeholder can post psk (he can't if he had posted this
+-- epoch before).
 
 module Pos.Delegation.DB
        (
@@ -27,6 +31,7 @@ module Pos.Delegation.DB
        , isIssuerByAddressHash
        , getDlgTransitive
        , getDlgTransitiveReverse
+       , isIssuerPostedThisEpoch
 
          -- * Batch ops
        , DelegationOp (..)
@@ -34,12 +39,14 @@ module Pos.Delegation.DB
          -- * Iteration
        , DlgTransRevIter
        , getDelegators
+       , getThisEpochPostedKeys
        ) where
 
 import           Universum
 
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Source)
+import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List            as CL
 import qualified Data.HashSet                 as HS
 import qualified Database.RocksDB             as Rocks
 
@@ -78,6 +85,13 @@ getDlgTransitive issuer = gsGetBi (transDlgKey issuer)
 getDlgTransitiveReverse :: MonadDBRead m => StakeholderId -> m (HashSet StakeholderId)
 getDlgTransitiveReverse dPk = fromMaybe mempty <$> gsGetBi (transRevDlgKey dPk)
 
+-- | Check if issuer belongs to the postedThisEpoch map. See module
+-- documentation for the details.
+isIssuerPostedThisEpoch :: MonadDBRead m => StakeholderId -> m Bool
+isIssuerPostedThisEpoch sId = do
+    (r :: Maybe ()) <- gsGetBi (postedThisEpochKey sId)
+    pure $ isJust r
+
 ----------------------------------------------------------------------------
 -- Batch operations
 ----------------------------------------------------------------------------
@@ -91,6 +105,10 @@ data DelegationOp
     -- ^ Remove i -> d link for i.
     | SetTransitiveDlgRev !StakeholderId !(HashSet StakeholderId)
     -- ^ Set value to map d -> [i], reverse index of transitive dlg
+    | AddPostedThisEpoch !StakeholderId
+    -- ^ Indicate that stakeholder has already posted psk this epoch.
+    | DelPostedThisEpoch !StakeholderId
+    -- ^ Remove stakeholderId from postedThisEpoch map.
     deriving (Show)
 
 instance RocksBatchOp DelegationOp where
@@ -111,6 +129,10 @@ instance RocksBatchOp DelegationOp where
     toBatchOp (SetTransitiveDlgRev dSId iSIds)
         | HS.null iSIds = [Rocks.Del $ transRevDlgKey dSId]
         | otherwise     = [Rocks.Put (transRevDlgKey dSId) (serialize' iSIds)]
+    toBatchOp (AddPostedThisEpoch sId) =
+        [Rocks.Put (postedThisEpochKey sId) (serialize' ())]
+    toBatchOp (DelPostedThisEpoch sId) =
+        [Rocks.Del (postedThisEpochKey sId)]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -132,6 +154,22 @@ instance DBIteratorClass DlgTransRevIter where
 getDelegators :: MonadDBRead m => Source (ResourceT m) (StakeholderId, HashSet StakeholderId)
 getDelegators = dbIterSource GStateDB (Proxy @DlgTransRevIter)
 
+-- Iterator over the "this epoch posted" set.
+data ThisEpochPostedIter
+
+instance DBIteratorClass ThisEpochPostedIter where
+    type IterKey ThisEpochPostedIter = StakeholderId
+    type IterValue ThisEpochPostedIter = ()
+    iterKeyPrefix = iterPostedThisEpochPrefix
+
+-- | Get all keys of thisEpochPosted set.
+getThisEpochPostedKeys :: MonadDBRead m => m (HashSet StakeholderId)
+getThisEpochPostedKeys =
+    runConduitRes $
+    mapOutput fst (dbIterSource GStateDB (Proxy @ThisEpochPostedIter)) .| consumeHs
+  where
+    consumeHs = CL.fold (flip HS.insert) mempty
+
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
@@ -148,3 +186,9 @@ iterTransRevPrefix = "d/tr/"
 
 transRevDlgKey :: StakeholderId -> ByteString
 transRevDlgKey = encodeWithKeyPrefix @DlgTransRevIter
+
+iterPostedThisEpochPrefix :: ByteString
+iterPostedThisEpochPrefix = "d/e/"
+
+postedThisEpochKey :: StakeholderId -> ByteString
+postedThisEpochKey = encodeWithKeyPrefix @ThisEpochPostedIter

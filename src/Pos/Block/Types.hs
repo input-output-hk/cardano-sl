@@ -23,7 +23,7 @@ import           Pos.Update.Poll.Types (USUndo)
 -- | Structure for undo block during rollback
 data Undo = Undo
     { undoTx   :: !TxpUndo
-    , undoPsk  :: !DlgUndo
+    , undoDlg  :: !DlgUndo
     , undoUS   :: !USUndo
     , undoSlog :: !SlogUndo
     } deriving (Generic)
@@ -37,10 +37,10 @@ instance Buildable Undo where
     build Undo{..} =
         bprint ("Undo:\n"%
                 "  undoTx: "%listJson%"\n"%
-                "  undoPsk: "%listJson%"\n"%
-                "  undoUS: "%build%
+                "  undoDlg: "%build%"\n"%
+                "  undoUS: "%build%"\n"%
                 "  undoSlog: "%build)
-               (map (bprint listJson) undoTx) undoPsk undoUS undoSlog
+               (map (bprint listJson) undoTx) undoDlg undoUS undoSlog
 
 instance HasDifficulty (Blund ssc) where
     difficultyL = _1 . difficultyL

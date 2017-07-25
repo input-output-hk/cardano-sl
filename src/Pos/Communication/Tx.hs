@@ -9,6 +9,7 @@ module Pos.Communication.Tx
        , sendTxOuts
        ) where
 
+import           Control.Monad.Except       (runExceptT)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable, mapConcurrently)
 import           System.Wlog                (logInfo)
@@ -18,7 +19,8 @@ import           Pos.Binary                 ()
 import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxCreateMode, TxError (..), createMTx,
-                                             createRedemptionTx, createTx)
+                                             createRedemptionTx, createTx,
+                                             overrideTxDistrBoot)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions)
 import           Pos.Communication.Specs    (createOutSpecs)
@@ -40,7 +42,6 @@ type TxMode ssc ctx m
       , MonadTxHistory ssc m
       , MonadMockable m
       , MonadMask m
-      , MonadGState m
       , MonadThrow m
       , TxCreateMode ctx m
       )
@@ -96,12 +97,11 @@ submitRedemptionTx sendActions rsk na output = do
     utxo <- getOwnUtxo redeemAddress
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
-        txouts = one $
+        txOuts0 = one $
             TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
-    when (redeemBalance == mkCoin 0) $
-        throwM . TxError $ "Redeem balance is 0"
-    txw <- eitherToThrow TxError $
-           createRedemptionTx utxo rsk txouts
+    when (redeemBalance == mkCoin 0) $ throwM . TxError $ "Redeem balance is 0"
+    txOuts <- eitherToThrow TxError =<< runExceptT (overrideTxDistrBoot txOuts0)
+    txw <- eitherToThrow TxError $ createRedemptionTx utxo rsk txOuts
     txAux <- submitAndSave sendActions na txw
     pure (txAux, redeemAddress, redeemBalance)
 

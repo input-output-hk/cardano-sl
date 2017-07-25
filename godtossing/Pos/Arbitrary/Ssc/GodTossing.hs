@@ -2,7 +2,7 @@
 
 -- | Arbitrary instances and generators for GodTossing types.
 
-module Pos.Ssc.GodTossing.Arbitrary
+module Pos.Arbitrary.Ssc.GodTossing
        ( BadCommAndOpening (..)
        , BadCommitment (..)
        , BadSignedCommitment (..)
@@ -18,15 +18,15 @@ import           Test.QuickCheck                   (Arbitrary (..), Gen, choose,
                                                     listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core.Unsafe         ()
+import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
 import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, SlotId (..), addressHash,
                                                     addressHash)
-import           Pos.Core.Arbitrary.Unsafe         ()
 import           Pos.Crypto                        (SecretKey, deterministicVssKeyGen,
                                                     toVssPublicKey)
-import           Pos.Ssc.Arbitrary                 (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),

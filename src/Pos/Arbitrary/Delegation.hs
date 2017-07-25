@@ -1,6 +1,6 @@
 -- | Arbitrary instances for Delegation types.
 
-module Pos.Delegation.Arbitrary
+module Pos.Arbitrary.Delegation
        ( genDlgPayload
        ) where
 
@@ -10,13 +10,13 @@ import qualified Data.HashMap.Strict               as HM
 import           Test.QuickCheck                   (Arbitrary (..), Gen, listOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core                ()
 import           Pos.Binary.Core                   ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex)
-import           Pos.Core.Arbitrary                ()
 import           Pos.Crypto                        (ProxySecretKey (..), createPsk)
-import           Pos.Delegation.Types              (DlgPayload, mkDlgPayload,
-                                                    ProxySKLightConfirmation)
+import           Pos.Delegation.Types              (DlgPayload, ProxySKLightConfirmation,
+                                                    mkDlgPayload)
 import           Pos.Util.Util                     (leftToPanic)
 
 genDlgPayload :: EpochIndex -> Gen DlgPayload

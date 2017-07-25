@@ -13,6 +13,10 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                        -- Arbitrary
+                        Pos.Arbitrary.Slotting
+                        Pos.Arbitrary.Infra
+
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.MemState
@@ -21,7 +25,6 @@ library
 
                         -- Slotting
                         Pos.Slotting
-                        Pos.Slotting.Arbitrary
                         Pos.Slotting.Class
                         Pos.Slotting.Constants
                         Pos.Slotting.Impl
@@ -52,9 +55,6 @@ library
                         Pos.DHT.Real.Param
                         Pos.DHT.Real.CLI
                         Pos.DHT.Workers
-
-                        -- Arbitrary
-                        Pos.Infra.Arbitrary
 
                         -- Pos.Communication
                         Pos.Communication.Constants

@@ -152,7 +152,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     slogBatch <- slogApplyBlocks blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
-    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blocks
+    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blunds
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'

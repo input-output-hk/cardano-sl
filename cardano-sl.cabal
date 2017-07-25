@@ -32,9 +32,14 @@ Flag with-explorer
 
 library
   exposed-modules:      Paths_cardano_sl
+
+                        -- Arbitrary instances
+                        Pos.Arbitrary.Block
+                        Pos.Arbitrary.Delegation
+                        Pos.Arbitrary.Txp.Network
+
                         Pos.Aeson
                         Pos.Binary
-                        Pos.Block.Arbitrary
                         Pos.Block.BListener
                         Pos.Block.Core
                         Pos.Block.Logic
@@ -189,7 +194,6 @@ library
                         Pos.DB.Misc
 
                         -- Heavy delegation
-                        Pos.Delegation.Arbitrary
                         Pos.Delegation.Cede
                         Pos.Delegation.Cede.Class
                         Pos.Delegation.Cede.Logic
@@ -210,6 +214,7 @@ library
                         -- Arbitrary data generation
                         Pos.Generator.Block.Error
                         Pos.Generator.Block.Logic
+                        Pos.Generator.Block.Payload
                         Pos.Generator.Block.Mode
                         Pos.Generator.Block.Param
 
@@ -255,7 +260,6 @@ library
 
                         -- Txp
                         Pos.Txp.Network
-                        Pos.Txp.Network.Arbitrary
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Worker
@@ -271,8 +275,8 @@ library
                         Pos.Wallet.Web.Util
 
   -- Explorer (TODO: move into cardano-explorer)
-  other-modules:        Pos.Binary.Explorer
-                        Pos.Explorer.Arbitrary
+  other-modules:        Pos.Arbitrary.Explorer
+                        Pos.Binary.Explorer
                         Pos.Explorer.Core
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp
@@ -318,9 +322,8 @@ library
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking
 
-  build-depends:        IfElse
+  build-depends:        QuickCheck
                       , MonadRandom
-                      , QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
@@ -329,8 +332,6 @@ library
                       , base58-bytestring
                       , base64-bytestring
                       , binary
-                      , binary-conduit >= 1.2.4.1
-                      , binary-orphans
                       , bytestring
                       , cardano-crypto
                       , cardano-report-server >= 0.2.0
@@ -372,7 +373,6 @@ library
                       , http-conduit
                       , kademlia
                       , lens
-                      , lifted-async
                       , list-t
                       , log-warper >= 1.1.1
                       , lrucache
@@ -380,6 +380,7 @@ library
                       , mmorph
                       , monad-control
                       , monad-loops
+                      , MonadRandom
                       , mono-traversable
                       , mtl
                       , neat-interpolation
@@ -416,7 +417,6 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
-                      , versions
                       , wreq
                       , yaml
 
@@ -632,6 +632,7 @@ test-suite cardano-test
                      , kademlia
                      , lens
                      , log-warper
+                     , MonadRandom
                      , memory
                      , monad-control
                      , mtl
@@ -707,7 +708,6 @@ benchmark cardano-bench-criterion
                      , containers
                      , criterion
                      , formatting
-                     , hashtables
                      , lens
                      , log-warper
                      , serokell-util >= 0.1.3.4

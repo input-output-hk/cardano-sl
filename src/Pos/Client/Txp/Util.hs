@@ -3,7 +3,10 @@
 module Pos.Client.Txp.Util
        (
        -- * Tx creation
-         makePubKeyTx
+         makeAbstractTx
+       , overrideTxOutDistrBoot
+       , overrideTxDistrBoot
+       , makePubKeyTx
        , makeMPubKeyTx
        , makeMOfNTx
        , makeRedemptionTx
@@ -17,29 +20,34 @@ module Pos.Client.Txp.Util
        ) where
 
 import           Control.Lens         (traversed, (%=), (.=))
-import           Control.Monad.Except (MonadError (..))
+import           Control.Monad.Except (ExceptT, MonadError (throwError))
 import           Control.Monad.State  (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            (tail)
 import qualified Data.Map             as M
 import qualified Data.Text.Buildable
 import qualified Data.Vector          as V
-import           Formatting           (bprint, stext, (%))
+import           Ether.Internal       (HasLens (..))
+import           Formatting           (bprint, build, sformat, stext, (%))
 import           Universum
 
 import           Pos.Binary           ()
-import           Pos.Core.Address     (AddressIgnoringAttributes (AddressIA))
-import           Pos.Core.Coin        (unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Context          (GenesisUtxo, genesisStakeholdersM)
+import           Pos.Core             (AddressIgnoringAttributes (AddressIA), siEpoch,
+                                       unsafeGetCoin, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto           (PublicKey, RedeemSecretKey, SafeSigner,
                                        SignTag (SignTxIn), hash, redeemSign,
                                        redeemToPublic, safeSign, safeToPublic)
 import           Pos.Data.Attributes  (mkAttributes)
+import           Pos.DB               (MonadGState, gsIsBootstrapEra)
+import           Pos.Genesis          (genesisSplitBoot)
 import           Pos.Script           (Script)
 import           Pos.Script.Examples  (multisigRedeemer, multisigValidator)
+import           Pos.Slotting.Class   (MonadSlots (getCurrentSlotBlocking))
 import           Pos.Txp              (Tx (..), TxAux (..), TxDistribution (..),
                                        TxIn (..), TxInWitness (..), TxOut (..),
-                                       TxOutAux (..), TxSigData (..), Utxo,
-                                       filterUtxoByAddrs)
+                                       TxOutAux (..), TxOutDistribution, TxSigData (..),
+                                       Utxo, filterUtxoByAddrs)
 import           Pos.Types            (Address, Coin, makePubKeyAddress,
                                        makePubKeyAddress, makeRedeemAddress,
                                        makeScriptAddress, mkCoin, sumCoins)
@@ -66,8 +74,18 @@ throwTxError = throwError . TxError
 -- Tx creation
 -----------------------------------------------------------------------------
 
--- | Generic function to create a transaction, given desired inputs, outputs and a
--- way to construct witness from signature data
+-- | Mode for creating transactions. We need to know the bootstrap era
+-- status and have access to generic stakeholders to distribute
+-- txdistr accordingly.
+type TxCreateMode ctx m
+     = ( MonadGState m
+       , MonadReader ctx m
+       , MonadSlots m
+       , HasLens GenesisUtxo ctx GenesisUtxo
+       )
+
+-- | Generic function to create a transaction, given desired inputs,
+-- outputs and a way to construct witness from signature data
 makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
                -> TxOwnedInputs owner
                -> TxOutputs
@@ -93,7 +111,40 @@ makeAbstractTx mkWit txInputs outputs =
         , txSigDistrHash = txDistHash
         }
 
--- | Like `makePubKeyTx`, but allows usage of different signers
+-- | Overrides 'txDistr' with correct ones (according to the boot era
+-- stake distribution) or leaves it as it is if in post-boot era.
+overrideTxOutDistrBoot ::
+       (TxCreateMode ctx m)
+    => Coin
+    -> TxOutDistribution
+    -> ExceptT Text m TxOutDistribution
+overrideTxOutDistrBoot c oldDistr = do
+    -- Blocking here should be fine for now (@volhovm)
+    -- 1. Code in tx generator must have current slot.
+    -- 2. Code in wallet will block on "synchronizing" on the
+    --    frontend so it's fine too.
+    epoch <- siEpoch <$> lift getCurrentSlotBlocking
+    bootEra <- lift $ gsIsBootstrapEra epoch
+    genStakeholders <- toList <$> genesisStakeholdersM
+    if not bootEra
+      then pure oldDistr
+      else do
+          when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
+               throwError $
+               sformat ("Can't spend "%build%" coins: amount is too small for boot "%
+                        " era and can't be distributed among genStakeholders") c
+          -- TODO CSL-1351 boot stakeholders' weights are not used
+          pure $ genesisSplitBoot (HM.fromList $ map (,1) genStakeholders) c
+
+-- | Same as 'overrideTxOutDistrBoot' but changes 'TxOutputs' all at once
+overrideTxDistrBoot ::
+       (TxCreateMode ctx m) => TxOutputs -> ExceptT Text m TxOutputs
+overrideTxDistrBoot outputs = do
+    forM outputs $ \TxOutAux{..} -> do
+        newStakeDistr <- overrideTxOutDistrBoot (txOutValue toaOut) toaDistr
+        pure $ TxOutAux toaOut newStakeDistr
+
+-- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx :: (owner -> SafeSigner)
               -> TxOwnedInputs owner
               -> TxOutputs
@@ -203,4 +254,3 @@ createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either TxError TxA
 createRedemptionTx utxo rsk outputs =
     uncurry (makeRedemptionTx rsk) <$>
     prepareInpOuts utxo (makeRedeemAddress $ redeemToPublic rsk) outputs
-

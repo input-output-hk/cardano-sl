@@ -1,6 +1,6 @@
 -- | `Arbitrary` instances for using in tests and benchmarks
 
-module Pos.Crypto.Arbitrary
+module Pos.Arbitrary.Crypto
        ( SharedSecrets (..)
        ) where
 
@@ -15,9 +15,9 @@ import           Test.QuickCheck                   (Arbitrary (..), choose, elem
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                                                     genericShrink)
 
+import           Pos.Arbitrary.Crypto.Unsafe       ()
 import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto                 ()
-import           Pos.Crypto.Arbitrary.Unsafe       ()
 import           Pos.Crypto.AsBinary               ()
 import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
 import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))

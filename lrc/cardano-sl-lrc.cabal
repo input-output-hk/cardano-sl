@@ -12,7 +12,8 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Lrc.Arbitrary
+  exposed-modules:     Pos.Arbitrary.Lrc
+
                        Pos.Lrc.Fts
                        Pos.Lrc.Types
                        Pos.Lrc.Error

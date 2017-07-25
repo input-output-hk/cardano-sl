@@ -27,7 +27,8 @@ import           System.Wlog              (logDebug)
 import           Pos.Block.Core           (Block)
 import           Pos.Block.Error          (RollbackException (..))
 import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
-                                           applyBlocksUnsafe, rollbackBlocksUnsafe,
+                                           MonadMempoolNormalization, applyBlocksUnsafe,
+                                           normalizeMempool, rollbackBlocksUnsafe,
                                            toTxpBlock, toUpdateBlock)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
 import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
@@ -102,14 +103,16 @@ type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: forall ssc ctx m. (BlockLrcMode ssc ctx m)
+    :: forall ssc ctx m. (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwError $
         tipMismatchMsg "verify and apply" tip assumedTip
-    rollingVerifyAndApply [] (spanEpoch blocks)
+    hh <- rollingVerifyAndApply [] (spanEpoch blocks)
+    lift $ normalizeMempool
+    pure hh
   where
     spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
     spanEpoch x                              = spanTail x
@@ -217,7 +220,7 @@ rollbackBlocks blunds = do
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
-    :: (BlockLrcMode ssc ctx m)
+    :: (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)

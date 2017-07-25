@@ -42,7 +42,6 @@ data ToilVerFailure
                           , tifSize   :: !Byte }
     | ToilUnknownAttributes !ByteString
     | ToilBootDifferentStake !TxOutDistribution
-    | ToilUnknownCurEpoch
     deriving (Show, Eq)
 
 instance Exception ToilVerFailure
@@ -53,7 +52,7 @@ instance Buildable ToilVerFailure where
     build (ToilTipsMismatch dbTip localTip) =
         bprint ("tips mismatch, tip from DB is "%build%", local tip is "%build)
         dbTip localTip
-    build (ToilSlotUnknown) =
+    build ToilSlotUnknown =
         "can't process, current slot is unknown"
     build (ToilOverwhelmed limit) =
         bprint ("max size of the mem pool is reached which is "%memory) limit
@@ -89,5 +88,3 @@ instance Buildable ToilVerFailure where
     build (ToilBootDifferentStake distr) =
         bprint ("transaction has non-boot stake distr in boot era: "%listJson)
                (map (sformat pairF) distr)
-    build ToilUnknownCurEpoch =
-        bprint ("current epoch isn't known ")

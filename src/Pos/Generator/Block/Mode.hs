@@ -64,11 +64,11 @@ import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), TxOut (..),
-                                              TxOutAux (..), TxpGlobalSettings, GenesisUtxo,
+                                              TxOutAux (..), TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
-import           Pos.Txp.Toil.Types          (GenesisTxpContext, GenesisStakeholders,
-                                              mkGenesisTxpContext, gtcUtxo, gtcStakeholders)
+import           Pos.Txp.Toil.Types          (GenesisStakeholders (..),
+                                              mkGenesisTxpContext, gtcStakeholders)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -124,7 +124,7 @@ data BlockGenContext = BlockGenContext
     , bgcSystemStart       :: !Timestamp
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
-    , bgcGenesisTxpContext :: !GenesisTxpContext
+    , bgcGenStakeholders   :: !GenesisStakeholders
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -183,7 +183,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         return BlockGenContext {..}
   where
     -- Genesis utxo is needed only for boot era stakeholders
-    bgcGenesisTxpContext =
+    bgcGenStakeholders =
         let addrs =
                 -- So we take three stakeholders in boot era.
                 take 3 $
@@ -192,7 +192,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
             utxoTxHash = unsafeHash ("randomutxotx" :: Text)
             txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
             txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
-        in mkGenesisTxpContext $ M.fromList $ txIns `zip` txOuts
+        in (mkGenesisTxpContext $ M.fromList $ txIns `zip` txOuts) ^. gtcStakeholders
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBSum
@@ -268,6 +268,9 @@ instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
+instance HasLens GenesisStakeholders BlockGenContext GenesisStakeholders where
+    lensOf = bgcGenStakeholders_L
+
 instance HasLens DBSum BlockGenContext DBSum where
     lensOf = GS.gStateContext . GS.gscDB
 
@@ -294,12 +297,6 @@ instance HasLens SscMemTag BlockGenContext (SscState SscGodTossing) where
 
 instance HasLens TxpGlobalSettings BlockGenContext TxpGlobalSettings where
     lensOf = bgcTxpGlobalSettings_L
-
-instance HasLens GenesisUtxo BlockGenContext GenesisUtxo where
-    lensOf = bgcGenesisTxpContext_L . gtcUtxo
-
-instance HasLens GenesisStakeholders BlockGenContext GenesisStakeholders where
-    lensOf = bgcGenesisTxpContext_L . gtcStakeholders
 
 instance HasReportingContext BlockGenContext where
     reportingContext = bgcReportingContext_L

@@ -77,7 +77,7 @@ eTxProcessTransaction
 eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
-    epoch <- siEpoch <$> (note ToilUnknownCurEpoch =<< getCurrentSlot)
+    epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     genStks <- view (lensOf @GenesisStakeholders)
     bvd <- gsAdoptedBVData
     -- Note: snapshot isn't used here, because it's not necessary.  If
@@ -159,7 +159,7 @@ eTxNormalize ::
     => m ()
 eTxNormalize = do
     utxoTip <- GS.getTip
-    epoch <- maybe (throwM ToilUnknownCurEpoch) (pure . siEpoch) =<< getCurrentSlot
+    epoch <- maybe (throwM ToilSlotUnknown) (pure . siEpoch) =<< getCurrentSlot
     localTxs <- getLocalTxsMap
     extra <- getTxpExtra
     let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra

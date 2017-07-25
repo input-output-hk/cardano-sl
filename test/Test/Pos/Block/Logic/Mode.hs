@@ -137,7 +137,7 @@ instance Buildable TestParams where
             _tpStakeDistribution
             _tpStartTime
       where
-        utxo = _tpGenTxpContext & \g -> unGenesisUtxo (g ^. gtcUtxo)
+        utxo =  unGenesisUtxo (_tpGenTxpContext ^. gtcUtxo)
 
 instance Show TestParams where
     show = formatToString build

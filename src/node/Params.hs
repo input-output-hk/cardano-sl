@@ -96,7 +96,7 @@ getNodeParams args@Args {..} systemStart = do
                 (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
-    let npGenesisTxpCont = mkGenesisTxpContext $
+    let npGenesisTxpCtx = mkGenesisTxpContext $
             if isDevelopment
             then genesisUtxo Nothing (devAddrDistr devStakeDistr)
             else genesisUtxo (Just genesisProdBootStakeholders)

@@ -25,8 +25,7 @@ import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
-import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure,
-                                              clearTxpMemPool, getLocalTxs,
+import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
@@ -58,7 +57,7 @@ txProcessTransaction itw@(txId, txAux) = do
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
     genStks <- view (lensOf @GenesisStakeholders)
-    epoch <- siEpoch <$> (note ToilUnknownCurEpoch =<< getCurrentSlot)
+    epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     localUM <- lift $ getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
@@ -114,7 +113,10 @@ txNormalize
        , MonadSlots m)
     => m ()
 txNormalize = getCurrentSlot >>= \case
-    Nothing -> clearTxpMemPool "txNormalize "
+    Nothing -> do
+        tip <- GS.getTip
+        -- Clear and update tip
+        setTxpLocalData "txNormalize" (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
         localTxs <- getLocalTxs

@@ -128,7 +128,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            (npGenesisTxpCont ^. gtcUtxo)
+            (npGenesisTxpCtx ^. gtcUtxo)
             futureSlottingVar
             futureSlottingContext
             futureLrcContext

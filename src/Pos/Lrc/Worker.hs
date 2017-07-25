@@ -26,7 +26,7 @@ import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (MonadBlockApplyDB, applyBlocksDbUnsafe,
+import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              rollbackBlocksUnsafe)
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
@@ -86,7 +86,7 @@ type LrcModeFullNoSemaphore ssc ctx m =
     , SscHelpersClass ssc
     , MonadSscMem ssc ctx m
     , MonadSlots m
-    , MonadBlockApplyDB ssc ctx m
+    , MonadBlockApply ssc ctx m
     , MonadReader ctx m
     )
 
@@ -193,7 +193,7 @@ lrcDo epoch consumers tip = tip <$ do
                 putSeed epoch seed
                 leadersComputationDo epoch seed
   where
-    applyBack blunds = applyBlocksDbUnsafe blunds Nothing
+    applyBack blunds = applyBlocksUnsafe blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch

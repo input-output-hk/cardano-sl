@@ -618,21 +618,38 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
               )
               qSelf msg fwdSets
 
-pickAlt :: (MonadIO m, WithLogger m)
+pickAlt :: forall m msg nid. (MonadIO m, WithLogger m)
         => OutboundQ msg nid
         -> MaxAhead
         -> Precedence
         -> Alts nid
         -> m (Maybe nid)
-pickAlt outQ (MaxAhead maxAhead) prec alts =
+pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts =
     orElseM [ do
         failure <- hasRecentFailure outQ alt
         ahead   <- countAhead outQ alt prec
-        return $ if not failure && ahead <= maxAhead
-                   then Just alt
-                   else Nothing
+        if | failure -> do
+               logDebug $ msgFailure alt
+               return Nothing
+           | ahead > maxAhead -> do
+               logDebug $ msgAhead alt ahead maxAhead
+               return Nothing
+           | otherwise -> do
+               return $ Just alt
       | alt <- alts
       ]
+  where
+    msgFailure :: nid -> Text
+    msgFailure = sformat $
+          "Rejected alternative " % shown
+        % " as it has a recent failure"
+
+    msgAhead :: nid -> Int -> Int -> Text
+    msgAhead = sformat $
+          "Rejected alternative " % shown
+        % " as it has " % shown
+        % " messages ahead, which is more than the maximum " % shown
+
 
 -- | Check how many messages are currently ahead
 --

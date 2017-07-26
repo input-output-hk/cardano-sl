@@ -29,7 +29,8 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
                                              MainBlockchain, mkGenesisBlock, mkMainBlock)
 import qualified Pos.Block.Core             as BC
-import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe)
+import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
+                                             normalizeMempool)
 import           Pos.Block.Logic.Util       (calcChainQualityM, withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Slog             (HasSlogContext (..))
@@ -312,12 +313,13 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
             Left reason
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
-            Right (undos, pollModifier) ->
+            Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
-                in blockToApply <$
-                   applyBlocksUnsafe
-                       (one (Right blockToApply, undo))
-                       (Just pollModifier)
+                applyBlocksUnsafe
+                    (one (Right blockToApply, undo))
+                    (Just pollModifier)
+                normalizeMempool
+                pure blockToApply
     clearMempools :: m ()
     clearMempools = do
         clearTxpMemPool "fallback@applyCreatedBlock"

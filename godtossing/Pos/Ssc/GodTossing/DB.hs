@@ -2,45 +2,39 @@
 
 module Pos.Ssc.GodTossing.DB
        ( getGtGlobalState
-       , getGtGlobalStateMaybe
        , gtGlobalStateToBatch
        , initGtDB
        ) where
 
 import           Universum
 
+import           Data.Default                   (def)
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB         as Rocks
-import           Formatting               (bprint, build, (%))
+import qualified Database.RocksDB               as Rocks
+import           Formatting                     (bprint, build, (%))
 
-import           Pos.Binary.Class         (serialize')
-import           Pos.Binary.GodTossing    ()
-import           Pos.DB                   (MonadDB, MonadDBRead, RocksBatchOp (..))
-import           Pos.DB.Error             (DBError (DBMalformed))
-import           Pos.DB.GState.Common     (gsGetBi)
-import           Pos.Ssc.GodTossing.Core  (VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types (GtGlobalState (..))
-import           Pos.Util.Util            (maybeThrow)
+import           Pos.Binary.Class               (serialize')
+import           Pos.Binary.GodTossing          ()
+import           Pos.DB                         (MonadDB, MonadDBRead, RocksBatchOp (..))
+import           Pos.DB.Error                   (DBError (DBMalformed))
+import           Pos.DB.GState.Common           (gsGetBi, gsPutBi)
+import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
+import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..))
+import qualified Pos.Ssc.GodTossing.VssCertData as VCD
+import           Pos.Util.Util                  (maybeThrow)
 
 getGtGlobalState :: MonadDBRead m => m GtGlobalState
 getGtGlobalState =
     maybeThrow (DBMalformed "GodTossing global state DB is not initialized") =<<
     gsGetBi gtKey
 
--- For CSL-1113
-getGtGlobalStateMaybe :: MonadDBRead m => m (Maybe GtGlobalState)
-getGtGlobalStateMaybe = gsGetBi gtKey
-
 gtGlobalStateToBatch :: GtGlobalState -> GtOp
 gtGlobalStateToBatch = PutGlobalState
 
-initGtDB :: MonadDB m => VssCertificatesMap -> m ()
-initGtDB _ = pass
--- Commented due to CSL-1113, maybe uncomment when we will use store serialization.
-  --   whenNothingM_ (gsGetBi @_ @GtGlobalState gtKey) $
-  --       gsPutBi gtKey (def {_gsVssCertificates = vcd})
-  -- where
-  --   vcd = VCD.fromList . toList $ certs
+initGtDB :: MonadDB m => m ()
+initGtDB = gsPutBi gtKey (def {_gsVssCertificates = vcd})
+  where
+    vcd = VCD.fromList . toList $ genesisCertificates
 
 ----------------------------------------------------------------------------
 -- Operation

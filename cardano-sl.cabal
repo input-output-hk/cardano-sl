@@ -130,6 +130,10 @@ library
                         -- Heavy delegation
                         Pos.Delegation.Types
 
+                        -- Exposed for tests
+                        Pos.Block.Logic.VAR
+                        Pos.Generator.Block.Param
+
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
@@ -176,7 +180,6 @@ library
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
                         Pos.Block.Logic.Util
-                        Pos.Block.Logic.VAR
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
@@ -223,7 +226,6 @@ library
                         Pos.Generator.Block.Logic
                         Pos.Generator.Block.Payload
                         Pos.Generator.Block.Mode
-                        Pos.Generator.Block.Param
 
                         -- GState
                         Pos.GState.BlockExtra
@@ -616,7 +618,8 @@ test-suite cardano-test
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
-  build-depends:       QuickCheck
+  build-depends:       MonadRandom
+                     , QuickCheck
                      , base
                      , bytestring
                      , cardano-sl-core
@@ -634,6 +637,7 @@ test-suite cardano-test
                      , cryptonite
                      , data-default
                      , ether
+                     , exceptions
                      , formatting
                      , generic-arbitrary
                      , hspec

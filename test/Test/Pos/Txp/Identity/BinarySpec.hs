@@ -6,17 +6,17 @@ module Test.Pos.Txp.Identity.BinarySpec
 
 import           Universum
 
-import           Data.Tagged                 (Tagged)
-import           Test.Hspec                  (Spec, describe)
+import           Data.Tagged             (Tagged)
+import           Test.Hspec              (Spec, describe)
 
-import           Pos.Binary               ()
-import           Pos.Communication.Relay  as R
-import           Pos.Infra.Arbitrary      ()
-import qualified Pos.Txp                  as T
-import           Pos.Txp.Arbitrary        (SmallTxPayload)
+import           Pos.Arbitrary.Infra     ()
+import           Pos.Arbitrary.Txp       (SmallTxPayload)
+import           Pos.Binary              ()
+import           Pos.Communication.Relay as R
+import qualified Pos.Txp                 as T
 
-import           Test.Pos.Util               (binaryTest, msgLenLimitedTest,
-                                              networkBinaryTest)
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
+                                          networkBinaryTest)
 
 spec :: Spec
 spec =

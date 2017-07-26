@@ -6,15 +6,15 @@ module Test.Pos.Ssc.GodTossing.Identity.BinarySpec
 
 import           Universum
 
-import           Data.Tagged                            (Tagged)
-import           Test.Hspec                             (Spec, describe)
+import           Data.Tagged             (Tagged)
+import           Test.Hspec              (Spec, describe)
 
-import           Pos.Binary                             ()
-import qualified Pos.Communication.Relay                as R
-import           Pos.Core                               (StakeholderId)
-import           Pos.Infra.Arbitrary                    ()
-import qualified Pos.Ssc.GodTossing                     as GT
-import           Test.Pos.Util                          (binaryTest, msgLenLimitedTest)
+import           Pos.Arbitrary.Infra     ()
+import           Pos.Binary              ()
+import qualified Pos.Communication.Relay as R
+import           Pos.Core                (StakeholderId)
+import qualified Pos.Ssc.GodTossing      as GT
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
 
 spec :: Spec
 spec = describe "GodTossing" $ do

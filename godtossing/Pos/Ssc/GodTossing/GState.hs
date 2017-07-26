@@ -14,7 +14,6 @@ module Pos.Ssc.GodTossing.GState
 import           Control.Lens                   ((.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph            (hoist)
-import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Tagged                    (Tagged (..))
 import           Formatting                     (build, sformat, (%))
@@ -25,16 +24,15 @@ import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (BlockVersionData, EpochIndex (..),
                                                  SlotId (..), epochIndexL, epochOrSlotG)
 import           Pos.DB                         (MonadDBRead, SomeBatchOp (..))
-import           Pos.Lrc.Types                  (RichmenStake)
+import           Pos.Lrc.Types                  (RichmenStakes)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Class.Types            (SscBlock, getSscBlock)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.DB          as DB
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
-import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
-import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStake, PureToss,
+import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStakes, PureToss,
                                                  TossVerFailure (..), applyGenesisBlock,
                                                  rollbackGT, runPureTossWithLogger,
                                                  supplyPureTossEnv,
@@ -90,12 +88,8 @@ instance SscGStateClass SscGodTossing where
 loadGlobalState :: (MonadDBRead m, WithLogger m) => m GtGlobalState
 loadGlobalState = do
     logDebug "Loading SSC global state"
-    DB.getGtGlobalStateMaybe >>= \case
-        Just gs -> gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
-        Nothing -> do
-          let vcd = VCD.fromList . toList $ genesisCertificates
-          logInfo $ "GodTossing state not found in database, use genesis certificates"
-          pure $ def {_gsVssCertificates = vcd}
+    gs <- DB.getGtGlobalState
+    gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
 
 dumpGlobalState :: GtGlobalState -> [SomeBatchOp]
 dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
@@ -110,7 +104,7 @@ rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads
                    blocks
 
 verifyAndApply
-    :: RichmenStake
+    :: RichmenStakes
     -> BlockVersionData
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
@@ -122,7 +116,7 @@ verifyAndApply richmenStake bvd blocks =
 
 verifyAndApplyMultiRichmen
     :: Bool
-    -> (MultiRichmenStake, BlockVersionData)
+    -> (MultiRichmenStakes, BlockVersionData)
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
 verifyAndApplyMultiRichmen onlyCerts env =

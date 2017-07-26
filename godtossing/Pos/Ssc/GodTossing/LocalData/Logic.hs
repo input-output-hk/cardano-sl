@@ -34,7 +34,7 @@ import           Pos.Core                           (BlockVersionData (..), Epoc
 import           Pos.Core.Constants                 (memPoolLimitRatio)
 import           Pos.DB                             (MonadDBRead,
                                                      MonadGState (gsAdoptedBVData))
-import           Pos.Lrc.Types                      (RichmenStake)
+import           Pos.Lrc.Types                      (RichmenStakes)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
                                                      SscLocalDataClass (..))
@@ -95,7 +95,7 @@ getLocalPayload SlotId {..} = do
         | isExpected = view tmCertificates
         | otherwise = pure mempty
 
-normalize :: (EpochIndex, RichmenStake)
+normalize :: (EpochIndex, RichmenStakes)
           -> BlockVersionData
           -> GtGlobalState
           -> LocalUpdate SscGodTossing ()
@@ -227,7 +227,7 @@ sscProcessData tag payload =
 
 sscProcessDataDo
     :: (MonadState GtLocalData m, WithLogger m)
-    => (EpochIndex, RichmenStake)
+    => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> GtGlobalState
     -> GtPayload

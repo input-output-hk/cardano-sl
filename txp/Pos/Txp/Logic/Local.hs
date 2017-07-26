@@ -48,18 +48,16 @@ type TxpLocalWorkMode ctx m =
     , HasLens GenesisUtxo ctx GenesisUtxo
     )
 
--- CHECK: @processTx
--- #processTxDo
+-- | Process transaction. 'TxId' is expected to be the hash of
+-- transaction in 'TxAux'. Separation is supported for optimization
+-- only.
 txProcessTransaction
     :: TxpLocalWorkMode ctx m
     => (TxId, TxAux) -> ExceptT ToilVerFailure m ()
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
-    epoch <- siEpoch <$>
-        -- TODO: Don't use inaccurate slotting here. If we don't know the
-        -- current slot, we should reject transactions. See CSL-1341.
-        getCurrentSlotInaccurate
+    epoch <- maybe (throwError ToilSlotUnknown) (pure . siEpoch) =<< getCurrentSlot
     bootEra <- gsIsBootstrapEra epoch
     bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . utxoToStakes . unGenesisUtxo
     localUM <- lift $ getUtxoModifier @()

@@ -1,6 +1,6 @@
 -- | Arbitrary instances for Update System types
 
-module Pos.Update.Arbitrary.MemState
+module Pos.Arbitrary.Update.MemState
        (
        ) where
 
@@ -8,9 +8,9 @@ import           Universum
 
 import           Test.QuickCheck           (Arbitrary (..))
 
+import           Pos.Arbitrary.Crypto      ()
+import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Class          (biSize)
-import           Pos.Crypto.Arbitrary      ()
-import           Pos.Update.Arbitrary.Core ()
 import qualified Pos.Update.MemState       as Upd
 
 instance Arbitrary Upd.MemPool where

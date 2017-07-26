@@ -88,6 +88,7 @@ import           Pos.DB.Pure           (DBPureVar, MonadPureDB, atomicModifyIORe
 import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
                                         getNodeDBs, rocksDelete, rocksPutBi)
 import           Pos.DB.Sum            (MonadDBSum, eitherDB)
+import           Pos.Delegation.Types  (DlgUndo (..))
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Ssc.Util          (toSscBlock)
@@ -251,7 +252,7 @@ prepareBlockDB blk =
     genesisUndo =
         Undo
         { undoTx = mempty
-        , undoPsk = mempty
+        , undoDlg = DlgUndo mempty mempty
         , undoUS = def
         , undoSlog = SlogUndo Nothing
         }

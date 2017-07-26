@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
-module Pos.Block.Arbitrary
+module Pos.Arbitrary.Block
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
        ) where
@@ -17,6 +17,10 @@ import           Test.QuickCheck                   (Arbitrary (..), Gen, choose,
                                                     vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Delegation          (genDlgPayload)
+import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
+import           Pos.Arbitrary.Txp                 ()
+import           Pos.Arbitrary.Update              ()
 import           Pos.Binary.Class                  (Bi, Raw, biSize)
 import qualified Pos.Block.Core                    as T
 import           Pos.Block.Network                 as T
@@ -26,12 +30,8 @@ import qualified Pos.Core                          as Core
 import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
                                                     createPsk, hash, toPublic)
 import           Pos.Data.Attributes               (Attributes (..))
-import           Pos.Delegation.Arbitrary          (genDlgPayload)
-import           Pos.Ssc.Arbitrary                 (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class                     (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Arbitrary                 ()
 import qualified Pos.Types                         as T
-import           Pos.Update.Arbitrary              ()
 import           Pos.Util.Arbitrary                (makeSmall)
 import           Pos.Util.Util                     (leftToPanic)
 

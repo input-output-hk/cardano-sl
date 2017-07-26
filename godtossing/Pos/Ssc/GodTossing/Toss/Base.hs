@@ -45,7 +45,7 @@ import           Pos.Core                        (CoinPortion, EpochIndex, Stake
                                                   coinPortionDenominator, getCoinPortion,
                                                   unsafeGetCoin)
 import           Pos.Crypto                      (Share, verifyShare)
-import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
+import           Pos.Lrc.Types                   (RichmenSet, RichmenStakes)
 import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), InnerSharesMap,
@@ -134,7 +134,7 @@ computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 
 computeSharesDistrPure
     :: MonadError TossVerFailure m
-    => RichmenStake
+    => RichmenStakes
     -> CoinPortion             -- ^ MPC threshold, e.g. 'genesisMpcThd'
     -> m SharesDistribution
 computeSharesDistrPure richmen threshold = do
@@ -301,7 +301,7 @@ checkCommitmentShares distr participants  (_, Commitment{..}, _) =
 -- | Like 'computeSharesDistrPure', but uses MPC threshold from the database.
 computeSharesDistr
     :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
-    => RichmenStake -> m SharesDistribution
+    => RichmenStakes -> m SharesDistribution
 computeSharesDistr richmen =
     computeSharesDistrPure richmen =<< (bvdMpcThd <$> getAdoptedBVData)
 

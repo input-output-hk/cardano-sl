@@ -309,7 +309,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
     applyCreatedBlockDo :: Bool -> MainBlock ssc -> m (MainBlock ssc)
     applyCreatedBlockDo isFallback blockToApply =
         verifyBlocksPrefix (one (Right blockToApply)) >>= \case
-            Left reason
+            Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
             Right (undos, pollModifier) ->
@@ -364,7 +364,7 @@ getRawPayload slotId = do
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-    dlgPayload <- fst <$> lift getDlgMempool
+    dlgPayload <- lift getDlgMempool
     let rawPayload =
             RawPayload
             { rpTxp = map snd sortedTxs

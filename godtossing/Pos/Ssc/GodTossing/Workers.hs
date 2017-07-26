@@ -49,7 +49,7 @@ import           Pos.Crypto                            (SecretKey, VssKeyPair,
 import           Pos.Crypto.SecretSharing              (toVssPublicKey)
 import           Pos.DB                                (gsAdoptedBVData)
 import           Pos.Lrc.Context                       (lrcActionOnEpochReason)
-import           Pos.Lrc.Types                         (RichmenStake)
+import           Pos.Lrc.Types                         (RichmenStakes)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
 import           Pos.Slotting                          (getCurrentSlot,
                                                         getSlotStartEmpatically)
@@ -325,7 +325,7 @@ generateAndSetNewSecret sk SlotId {..} = do
     warnNoPs =
         logWarning "generateAndSetNewSecret: can't generate, no participants"
     reportDeserFail = logError "Wrong participants list: can't deserialize"
-    generateAndSetNewSecretDo :: RichmenStake
+    generateAndSetNewSecretDo :: RichmenStakes
                               -> NonEmpty (StakeholderId, AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
     generateAndSetNewSecretDo richmen ps = do

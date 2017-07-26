@@ -89,6 +89,7 @@ runRawStaticPeersWallet transport peers WalletParams {..}
                 peers
                 JsonLogDisabled
                 lpRunnerTag
+                wpGenesisUtxo
             ) .
             runServer_ transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa

@@ -21,15 +21,18 @@ module Pos.Core.Coin
        , unsafeMulCoin
        , subCoin
        , divCoin
-       , applyCoinPortion
+       , applyCoinPortionDown
+       , applyCoinPortionUp
        ) where
+
+import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, float, int, (%))
-import           Universum
 
 import           Pos.Core.Types      (Coin, CoinPortion (getCoinPortion), coinF,
                                       coinPortionDenominator, mkCoin, unsafeGetCoin)
+import           Pos.Util.Util       (leftToPanic)
 
 -- | Compute sum of all coins in container. Result is 'Integer' as a
 -- protection against possible overflow. If you are sure overflow is
@@ -47,7 +50,8 @@ coinToInteger = toInteger . unsafeGetCoin
 unsafeAddCoin :: Coin -> Coin -> Coin
 unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
     | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = mkCoin res
-    | otherwise = error "unsafeAddCoin: overflow"
+    | otherwise =
+      error $ "unsafeAddCoin: overflow when summing " <> show a <> " + " <> show b
   where
     res = a+b
 {-# INLINE unsafeAddCoin #-}
@@ -76,14 +80,14 @@ divCoin :: Integral a => Coin -> a -> Coin
 divCoin (unsafeGetCoin -> a) b =
     mkCoin (fromInteger (toInteger a `div` toInteger b))
 
-integerToCoin :: Integer -> Maybe Coin
+integerToCoin :: Integer -> Either Text Coin
 integerToCoin n
-    | n <= coinToInteger (maxBound :: Coin) = Just $ mkCoin (fromInteger n)
-    | otherwise = Nothing
+    | n < 0 = Left $ "integerToCoin: value is negative (" <> show n <> ")"
+    | n <= coinToInteger (maxBound :: Coin) = pure $ mkCoin (fromInteger n)
+    | otherwise = Left $ "integerToCoin: value is too big (" <> show n <> ")"
 
 unsafeIntegerToCoin :: Integer -> Coin
-unsafeIntegerToCoin n =
-    fromMaybe (error "unsafeIntegerToCoin: overflow") (integerToCoin n)
+unsafeIntegerToCoin n = leftToPanic "unsafeIntegerToCoin: " (integerToCoin n)
 {-# INLINE unsafeIntegerToCoin #-}
 
 ----------------------------------------------------------------------------
@@ -103,8 +107,21 @@ coinPortionToDouble (getCoinPortion -> x) =
     realToFrac @_ @Double x / realToFrac coinPortionDenominator
 {-# INLINE coinPortionToDouble #-}
 
--- | Apply CoinPortion to Coin. 'applyCoinPortion a b' is basically
--- 'round (a * b)'.
-applyCoinPortion :: CoinPortion -> Coin -> Coin
-applyCoinPortion (coinPortionToDouble -> p) (unsafeGetCoin -> c) =
-    mkCoin $ round $ (realToFrac c) * p
+-- | Apply CoinPortion to Coin (with rounding down).
+--
+-- Use it for calculating coin amounts.
+applyCoinPortionDown :: CoinPortion -> Coin -> Coin
+applyCoinPortionDown (getCoinPortion -> p) (unsafeGetCoin -> c) =
+    mkCoin . fromInteger $
+        (toInteger p * toInteger c) `div`
+        (toInteger coinPortionDenominator)
+
+-- | Apply CoinPortion to Coin (with rounding up).
+--
+-- Use it for calculating thresholds.
+applyCoinPortionUp :: CoinPortion -> Coin -> Coin
+applyCoinPortionUp (getCoinPortion -> p) (unsafeGetCoin -> c) =
+    let (d, m) = divMod (toInteger p * toInteger c)
+                        (toInteger coinPortionDenominator)
+    in if m > 0 then mkCoin (fromInteger (d + 1))
+                else mkCoin (fromInteger d)

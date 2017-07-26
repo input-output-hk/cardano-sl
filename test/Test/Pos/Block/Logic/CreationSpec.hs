@@ -11,7 +11,7 @@ import           Universum
 import           Data.Default               (def)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit, fromBytes)
 import           Test.Hspec                 (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck      (prop)
+import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
 import           Test.QuickCheck            (Gen, Property, Testable, arbitrary, choose,
                                              counterexample, elements, forAll, generate,
                                              listOf, listOf1, oneof, property)
@@ -50,13 +50,16 @@ spec = describe "Block.Logic.Creation" $ do
         emptyBSize :: Integral n => n
         emptyBSize = round $ (1.5 * fromIntegral emptyBSize0 :: Double)
 
-    describe "createMainBlockPure" $ do
+    describe "createMainBlockPure" $ modifyMaxSuccess (const 1000) $ do
         prop "empty block size is sane" $ emptyBlk $ \blk0 -> leftToCounter blk0 $ \blk ->
             let s = biSize blk
-            in counterexample ("Real block size: " <> show s) $ do
-               -- 500 + 16 of serialization overhead. Note how being CBOR a var-len encoding,
-               -- so 32 is an upper bound here.
-               s <= 516 && s <= genesisMaxBlockSize
+            in counterexample ("Real block size: " <> show s <>
+                               "\n\nBlock: " <> show blk) $
+                 -- Various hashes and signatures in the block take 416
+                 -- bytes; this is *completely* independent of encoding used.
+                 -- Empirically, empty blocks don't get bigger than 550
+                 -- bytes.
+                 s <= 550 && s <= genesisMaxBlockSize
         prop "doesn't create blocks bigger than the limit" $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload) ->

@@ -7,6 +7,7 @@ module Pos.Web.Server
        ( MyWorkMode
        , WebMode
        , serveImpl
+       , serveImplNoTLS
        , nat
        , serveWebBase
        , applicationBase
@@ -22,7 +23,8 @@ import qualified Control.Monad.Reader                 as Mtl
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (defaultSettings, setHost, setPort)
-import           Network.Wai.Handler.WarpTLS          (runTLS, tlsSettingsChain)
+import           Network.Wai.Handler.WarpTLS          (runSettings, runTLS,
+                                                       tlsSettingsChain)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
@@ -84,6 +86,15 @@ serveImpl application host port walletTLSCert walletTLSKey walletTLSca =
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
     tlsConfig = tlsSettingsChain walletTLSCert [walletTLSca] walletTLSKey
+
+-- [CSL-217]: do not hardcode logStdoutDev.
+serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
+serveImplNoTLS application host port =
+    liftIO . runSettings mySettings . logStdoutDev =<< application
+  where
+    mySettings = setHost (fromString host) $
+                 setPort (fromIntegral port) defaultSettings
+
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

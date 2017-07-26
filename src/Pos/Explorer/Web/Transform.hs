@@ -38,16 +38,14 @@ notifierPlugin = first pure . worker mempty .
 
 explorerPlugin
     :: Word16
-    -> FilePath -> FilePath -> FilePath
     -> ([WorkerSpec ExplorerProd], OutSpecs)
-explorerPlugin port explorerTLSCert explorerTLSKey explorerTLSca =
+explorerPlugin port =
     first pure $ worker mempty $
-    (\sa -> explorerServeWebReal sa port explorerTLSCert explorerTLSKey explorerTLSca)
+    (\sa -> explorerServeWebReal sa port)
 
 explorerServeWebReal
     :: SendActions ExplorerProd
     -> Word16
-    -> FilePath -> FilePath -> FilePath
     -> ExplorerProd ()
 explorerServeWebReal sendActions = explorerServeImpl
     (explorerApp $ flip enter (explorerHandlers sendActions) <$> nat)

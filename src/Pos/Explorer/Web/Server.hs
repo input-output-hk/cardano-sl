@@ -60,7 +60,7 @@ import           Pos.Types                      (Address (..), Coin, EpochIndex,
                                                  unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
-import           Pos.Web                        (serveImpl)
+import           Pos.Web                        (serveImplNoTLS)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
@@ -96,9 +96,8 @@ explorerServeImpl
     :: ExplorerMode ctx m
     => m Application
     -> Word16
-    -> FilePath -> FilePath -> FilePath
     -> m ()
-explorerServeImpl = flip serveImpl "*"
+explorerServeImpl = flip serveImplNoTLS "*"
 
 explorerApp :: ExplorerMode ctx m => m (Server ExplorerApi) -> m Application
 explorerApp serv = serve explorerApi <$> serv

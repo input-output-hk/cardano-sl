@@ -30,7 +30,7 @@ import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4
 import           Network.Wreq             (partFile, partLBS, post)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Exceptions (TextException (..))
-import           Serokell.Util.Text       (listBuilderJSON, listJson)
+import           Serokell.Util.Text       (listBuilderJSON)
 import           System.Directory         (doesFileExist)
 import           System.FilePath          (takeFileName)
 import           System.Info              (arch, os)
@@ -42,8 +42,8 @@ import           System.Wlog              (LoggerConfig (..), WithLogger, hwFile
 
 import           Paths_cardano_sl_infra   (version)
 import           Pos.Core.Constants       (protocolMagic)
-import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
 import           Pos.Exception            (CardanoFatalError)
+import           Pos.KnownPeers           (MonadKnownPeers (..))
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
                                            HasReportingContext (..))
@@ -63,6 +63,7 @@ type MonadReporting ctx m =
        ( MonadIO m
        , MonadMask m
        , MonadReader ctx m
+       , MonadKnownPeers m
        , HasReportingContext ctx
        , WithLogger m
        )
@@ -135,23 +136,23 @@ ipv4Local w =
 
 -- | Retrieves node info that we would like to know when analyzing
 -- malicious behavior of node.
-getNodeInfo :: (MonadIO m, MonadDiscovery m) => m Text
+getNodeInfo :: (MonadIO m, MonadKnownPeers m) => m Text
 getNodeInfo = do
-    peers <- getPeers
+    peersText <- formatKnownPeers sformat
     (ips :: [Text]) <-
         map show . filter ipExternal . map ipv4 <$>
         liftIO getNetworkInterfaces
-    pure $ sformat outputF (pretty $ listBuilderJSON ips) peers
+    pure $ sformat outputF (pretty $ listBuilderJSON ips) peersText
   where
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
-    outputF = ("{ nodeParams: '"%stext%"', otherNodes: "%listJson%" }")
+    outputF = ("{ nodeParams: '"%stext%"', peers: '"%stext%"' }")
 
 
 -- | Reports misbehaviour given reason string. Effectively designed
 -- for 'WorkMode' context.
 reportMisbehaviour
-    :: (MonadReporting ctx m, MonadDiscovery m)
+    :: (MonadReporting ctx m)
     => Bool -> Text -> m ()
 reportMisbehaviour isCritical reason = do
     logError $ "Reporting misbehaviour \"" <> reason <> "\""
@@ -164,7 +165,7 @@ reportMisbehaviour isCritical reason = do
 -- FIXME catch and squelch *all* exceptions? Probably a bad idea.
 -- | Report misbehaviour, but catch all errors inside
 reportMisbehaviourSilent
-    :: forall ctx m . (MonadReporting ctx m, MonadDiscovery m)
+    :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Text -> m ()
 reportMisbehaviourSilent isCritical reason =
     reportMisbehaviour isCritical reason `catch` handler
@@ -179,7 +180,7 @@ reportMisbehaviourSilent isCritical reason =
 -- happens and rethrow. Errors related to reporting itself are caught,
 -- logged and ignored.
 reportingFatal
-    :: forall ctx m a . (MonadReporting ctx m, MonadDiscovery m)
+    :: forall ctx m a . (MonadReporting ctx m)
     => m a -> m a
 reportingFatal action =
     action `catch` handler1 `catch` handler2

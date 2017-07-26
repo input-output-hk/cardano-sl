@@ -74,42 +74,12 @@ function dht_key {
   $(find_binary cardano-dht-keygen) -n 000000000000$i2 | tr -d '\n'
 }
 
-function peer_config {
-  local j=$1
-  echo -n " --kademlia-peer 127.0.0.1:"`get_port $j`
-}
-
-function dht_config {
-  local i="$1"
-  shift
-  local j=0
-  if [[ "$1" == "all" ]]; then
-    n=$2
-    while [[ $j -lt $n ]]; do
-        peer_config $j
-        j=$((j+1))
-    done
-    echo -n " --explicit-initial --disable-propagation"
-  else
-    while [[ $# -gt 0 ]]; do
-      peer_config $1
-      shift
-    done
-  fi
-
-  if [[ "$i" != "rand" ]]; then
-    echo -n " --kademlia-id "`dht_key $i`
-  fi
-}
-
 function node_cmd {
   local i=$1
-  local dht_cmd=$2
-  local is_stat=$3
-  local stake_distr=$4
-  local wallet_args=$5
-  local kademlia_dump_path=$6
-  local system_start=$7
+  local is_stat=$2
+  local stake_distr=$3
+  local wallet_args=$4
+  local system_start=$5
   local st=''
   local reb=''
   local no_ntp=''
@@ -133,6 +103,7 @@ function node_cmd {
     no_ntp=" --no-ntp "
   fi
   if [[ $is_stat != "" ]]; then
+    # FIXME this is not a valid option. What was the original intention?
     stats=" --stats "
   fi
   if [[ "$REPORT_SERVER" != "" ]]; then
@@ -156,17 +127,18 @@ function node_cmd {
 
   echo -n " --address 127.0.0.1:"`get_port $i`
   echo -n " --listen 127.0.0.1:"`get_port $i`
-  echo -n " --kademlia-address 127.0.0.1:"`get_port $i`
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
   echo -n " $report_server "
   echo -n " $wallet_args "
-  echo -n " --kademlia-dump-path  $(dump_path $kademlia_dump_path)"
   echo -n " --system-start $system_start"
   echo -n " --metrics +RTS -T -RTS"
   echo -n " --ekg-server $ekg_server"
   #echo -n " --statsd-server $statsd_server"
+  echo -n " --node-id node{$i}"
+  echo -n " --topology $run_dir/topology$i.yaml"
+  echo -n " --kademlia $run_dir/kademlia$i.yaml"
   echo ''
 }
 

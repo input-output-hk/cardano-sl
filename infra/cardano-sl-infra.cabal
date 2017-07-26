@@ -39,10 +39,6 @@ library
                         Pos.Slotting.Error
                         Pos.Slotting.Util
 
-                        Pos.Discovery
-                        Pos.Discovery.Class
-                        Pos.Discovery.Holders
-
                         -- Pos.DHT
                         Pos.DHT
                         Pos.DHT.Constants
@@ -72,6 +68,9 @@ library
                         Pos.Communication.Relay.Types
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
+
+                        -- Known peers
+                        Pos.KnownPeers
 
                         -- Network topology
                         Pos.Network.DnsDomains

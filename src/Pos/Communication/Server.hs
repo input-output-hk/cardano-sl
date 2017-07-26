@@ -22,6 +22,7 @@ import           Pos.Communication.Protocol  (MkListeners (..), EnqueueMsg)
 import           Pos.Communication.Relay     (relayListeners)
 import           Pos.Communication.Util      (wrapListener)
 import           Pos.Delegation.Listeners    (delegationRelays)
+import           Pos.Network.Types           (Topology)
 import           Pos.Ssc.Class               (SscListenersClass (..), SscWorkersClass)
 import           Pos.Txp                     (txRelays)
 import           Pos.Update                  (usRelays)
@@ -30,11 +31,11 @@ import           Pos.WorkMode.Class          (WorkMode)
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc ctx m)
-    => EnqueueMsg m -> MkListeners m
-allListeners enqueue = mconcat
+    => Topology -> EnqueueMsg m -> MkListeners m
+allListeners topology enqueue = mconcat
         -- TODO blockListeners should use 'enqueue' rather than its own
         -- block retrieval queue, no?
-        [ modifier "block"       $ blockListeners
+        [ modifier "block"       $ blockListeners topology
         , modifier "ssc"         $ relayListeners enqueue (untag sscRelays)
         , modifier "tx"          $ relayListeners enqueue txRelays
         , modifier "delegation"  $ relayListeners enqueue delegationRelays

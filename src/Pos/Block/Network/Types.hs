@@ -5,7 +5,6 @@ module Pos.Block.Network.Types
        , MsgGetBlocks (..)
        , MsgHeaders (..)
        , MsgBlock (..)
-       , MsgSubscribe (..)
        ) where
 
 import qualified Data.Text.Buildable
@@ -73,11 +72,3 @@ newtype MsgBlock ssc =
     deriving (Generic, Show)
 
 deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock ssc)
-
--- | 'Subscribe' message
---
--- This can be used by behind-NAT nodes to subscribe to the 'OutboundQueue'
--- of a relay node. The node will remain subscribed for the duration of the
--- conversation.
-data MsgSubscribe = MsgSubscribe
-    deriving (Generic, Show, Eq)

@@ -13,13 +13,13 @@ module Pos.Network.CLI (
 import           Universum
 import           Data.IP (IPv4)
 import           Network.Broadcast.OutboundQueue (Alts, peersFromList)
+import qualified Pos.DHT.Real.Param         as DHT (fromYamlConfig, MalformedDHTKey (..))
 import           Pos.Network.Types (NodeId)
 import           Pos.Network.Yaml (NodeName(..), NodeMetadata(..), NodeAddr(..))
 import           Pos.Network.DnsDomains (DnsDomains(..))
 import           Pos.Util.TimeWarp (addressToNodeId)
 import qualified Data.ByteString.Char8      as BS.C8
 import qualified Data.Map.Strict            as M
-import qualified Data.Text                  as Text
 import qualified Data.Yaml                  as Yaml
 import qualified Network.DNS                as DNS
 import qualified Options.Applicative.Simple as Opt
@@ -33,6 +33,8 @@ import qualified Pos.Network.Yaml           as Y
 data NetworkConfigOpts = NetworkConfigOpts {
       -- | Filepath to .yaml file with the network topology
       networkConfigOptsTopology :: Maybe FilePath
+
+    , networkConfigOptsKademlia :: Maybe FilePath
 
       -- | Name of the current node
     , networkConfigOptsSelf :: Maybe NodeName
@@ -52,6 +54,11 @@ networkConfigOption = NetworkConfigOpts
             Opt.long "topology"
           , Opt.metavar "FILEPATH"
           , Opt.help "Path to a YAML file containing the network topology"
+          ])
+    <*> (optional . Opt.strOption $ mconcat [
+            Opt.long "kademlia"
+          , Opt.metavar "FILEPATH"
+          , Opt.help "Path to a YAML file containing the kademlia configuration"
           ])
     <*> (optional . Opt.option (fromString <$> Opt.str) $ mconcat [
             Opt.long "node-id"
@@ -94,12 +101,17 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         fromPovOf cfg allStaticallyKnownPeers networkConfigOptsSelf
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
-      Y.TopologyP2P ->
-        return $ T.TopologyP2P
-      Y.TopologyTransitional ->
-        return $ T.TopologyTransitional
+      Y.TopologyP2P -> return T.TopologyP2P
+      Y.TopologyTransitional -> return T.TopologyTransitional
+    mKademliaParams <- case networkConfigOptsKademlia of
+      Nothing -> return Nothing
+      Just fp -> do
+        kconf <- parseKademlia fp
+        kconf' <- either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
+        return $ Just kconf'
     return T.NetworkConfig {
         ncTopology    = ourTopology
+      , ncKademlia    = mKademliaParams
       , ncDefaultPort = networkConfigOptsPort
       , ncSelfName    = networkConfigOptsSelf
       }
@@ -156,7 +168,7 @@ resolveNodeAddr cfg resolver (name, NodeAddrDNS mHost mPort) = do
       Right [addr]        -> return $ ipv4ToNodeId addr port
   where
     nameToDomain :: NodeName -> DNS.Domain
-    nameToDomain (NodeName n) = BS.C8.pack (Text.unpack n)
+    nameToDomain (NodeName n) = BS.C8.pack (toString n)
 
 ipv4ToNodeId :: IPv4 -> Word16 -> NodeId
 ipv4ToNodeId addr port = addressToNodeId (BS.C8.pack (show addr), port)
@@ -174,14 +186,24 @@ readTopology fp = do
       Left  err      -> throwM $ CannotParseNetworkConfig err
       Right topology -> return topology
 
+parseKademlia :: FilePath -> IO Y.KademliaParams
+parseKademlia fp = do
+    mKademlia <- Yaml.decodeFileEither fp
+    case mKademlia of
+      Left  err      -> throwM $ CannotParseKademliaConfig err
+      Right kademlia -> return kademlia
+
 {-------------------------------------------------------------------------------
   Errors
 -------------------------------------------------------------------------------}
 
 -- | Something is wrong with the network configuration
 data NetworkConfigException =
-    -- | We cannot parse the .yaml file
+    -- | We cannot parse the topology .yaml file
     CannotParseNetworkConfig Yaml.ParseException
+
+    -- | We cannot parse the kademlia .yaml file
+  | CannotParseKademliaConfig Yaml.ParseException
 
     -- | We use a set of statically known peers but we weren't given the
     -- name of the current node

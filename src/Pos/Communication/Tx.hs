@@ -1,5 +1,7 @@
 -- | Functions for operating with transactions
 
+{-# LANGUAGE RankNTypes #-}
+
 module Pos.Communication.Tx
        ( TxMode
        , submitTx
@@ -20,8 +22,7 @@ import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxError (..), createMTx, createRedemptionTx,
                                              createTx)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions,
-                                             immediateConcurrentConversations)
+import           Pos.Communication.Protocol (OutSpecs, EnqueueMsg)
 import           Pos.Communication.Specs    (createOutSpecs)
 import           Pos.Communication.Types    (InvOrDataTK)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
@@ -47,51 +48,48 @@ type TxMode ssc m
 
 submitAndSave
     :: TxMode ssc m
-    => SendActions m -> [NodeId] -> TxAux -> m TxAux
-submitAndSave sendActions na txAux@TxAux {..} = do
+    => EnqueueMsg m -> TxAux -> m TxAux
+submitAndSave enqueue txAux@TxAux {..} = do
     let txId = hash taTx
-    submitTxRaw sendActions na txAux
+    submitTxRaw enqueue txAux
     saveTx (txId, txAux)
     return txAux
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 submitMTx
     :: TxMode ssc m
-    => SendActions m
+    => EnqueueMsg m
     -> NonEmpty (SafeSigner, Address)
-    -> [NodeId]
     -> NonEmpty TxOutAux
     -> m TxAux
-submitMTx sendActions hdwSigner na outputs = do
+submitMTx enqueue hdwSigner outputs = do
     let addrs = map snd $ toList hdwSigner
     utxo <- getOwnUtxos addrs
     txw <- eitherToThrow TxError $
            createMTx utxo hdwSigner outputs
-    submitAndSave sendActions na txw
+    submitAndSave enqueue txw
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
     :: TxMode ssc m
-    => SendActions m
+    => EnqueueMsg m
     -> SafeSigner
-    -> [NodeId]
     -> NonEmpty TxOutAux
     -> m TxAux
-submitTx sendActions ss na outputs = do
+submitTx enqueue ss outputs = do
     utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
     txw <- eitherToThrow TxError $
            createTx utxo ss outputs
-    submitAndSave sendActions na txw
+    submitAndSave enqueue txw
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx
     :: TxMode ssc m
-    => SendActions m
+    => EnqueueMsg m
     -> RedeemSecretKey
-    -> [NodeId]
     -> Address
     -> m (TxAux, Address, Coin)
-submitRedemptionTx sendActions rsk na output = do
+submitRedemptionTx enqueue rsk output = do
     let redeemAddress = makeRedeemAddress $ redeemToPublic rsk
     utxo <- getOwnUtxo redeemAddress
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
@@ -102,18 +100,18 @@ submitRedemptionTx sendActions rsk na output = do
         throwM . TxError $ "Redeem balance is 0"
     txw <- eitherToThrow TxError $
            createRedemptionTx utxo rsk txouts
-    txAux <- submitAndSave sendActions na txw
+    txAux <- submitAndSave enqueue txw
     pure (txAux, redeemAddress, redeemBalance)
 
 -- | Send the ready-to-use transaction
 submitTxRaw
     :: (MinWorkMode m, MonadGState m, MonadThrow m)
-    => SendActions m -> [NodeId] -> TxAux -> m ()
-submitTxRaw sa na txAux@TxAux {..} = do
+    => EnqueueMsg m -> TxAux -> m ()
+submitTxRaw enqueue txAux@TxAux {..} = do
     let txId = hash taTx
     logInfo $ sformat ("Submitting transaction: "%txaF) txAux
     logInfo $ sformat ("Transaction id: "%build) txId
-    sendTx (immediateConcurrentConversations sa na) txAux
+    sendTx enqueue txAux
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))

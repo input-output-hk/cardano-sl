@@ -9,22 +9,20 @@ module Params
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
-import qualified Data.Set              as S (fromList)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Pos.CLI               as CLI
-import           Pos.Communication     (NodeId)
 import           Pos.Constants         (isDevelopment)
 import           Pos.Context           (GenesisUtxo (..))
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
-import           Pos.DHT.Real          (KademliaParams (..))
 import           Pos.Genesis           (devAddrDistr, devStakesDistr,
                                         genesisProdAddrDistribution,
                                         genesisProdBootStakeholders, genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
-                                        NetworkParams (..), NodeParams (..))
+                                        TransportParams (..), NodeParams (..))
+import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
 import           Pos.Security          (SecurityParams (..))
 import           Pos.Ssc.GodTossing    (GtParams (..))
@@ -42,27 +40,6 @@ loggingParams tag Args{..} =
     , lpConfigPath    = CLI.logConfig commonArgs
     , lpRunnerTag     = tag
     }
-
-getPeersFromArgs :: Args -> [NodeId]
-getPeersFromArgs Args {..} = fst <$> peers
-    -- FIXME change the format of this file? Eliminate it altogether and
-    -- consolidate this configuration information in one file, with other
-    -- networking/relay policy stuff?
-    --filePeers <- maybe (return []) readAddrFile peersFile
-    --pure $ peers ++ filePeers
-
--- | Load up the KademliaParams. It's in IO because we may have to read a
---   file to find some peers.
-getKademliaParams :: Args -> KademliaParams
-getKademliaParams Args{..} =
-    KademliaParams
-        { kpNetworkAddress  = dhtNetworkAddress
-        , kpPeers           = dhtPeers
-        , kpKey             = dhtKey
-        , kpExplicitInitial = dhtExplicitInitial
-        , kpDump            = kademliaDumpPath
-        , kpExternalAddress = externalAddress
-        }
 
 getBaseParams :: LoggerName -> Args -> BaseParams
 getBaseParams loggingTag args@Args {..} =
@@ -93,7 +70,7 @@ getNodeParams args@Args {..} systemStart = do
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
     npNetworkConfig <- liftIO $ intNetworkConfigOpts networkConfigOpts
-    let npNetwork = getNetworkParams args
+    let npTransport = getTransportParams args npNetworkConfig
         devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
@@ -132,19 +109,14 @@ getNodeParams args@Args {..} systemStart = do
         , ..
         }
 
-getNetworkParams :: Args -> NetworkParams
-getNetworkParams args
-    | staticPeers args =
-        let allPeers = S.fromList (getPeersFromArgs args)
-        in  NetworkParams {npDiscovery = Left allPeers, npTcpAddr = TCP.Unaddressable}
-    | otherwise =
-        let (bindHost, bindPort) = bindAddress args
-            (externalHost, externalPort) = externalAddress args
-            tcpAddr =
-                TCP.Addressable $
-                TCP.TCPAddrInfo
-                    (BS8.unpack bindHost)
-                    (show $ bindPort)
-                    (const (BS8.unpack externalHost, show $ externalPort))
-            kademliaParams = getKademliaParams args
-        in  NetworkParams {npDiscovery = Right kademliaParams, npTcpAddr = tcpAddr}
+getTransportParams :: Args -> NetworkConfig -> TransportParams
+getTransportParams args networkConfig = TransportParams { tpTcpAddr = tcpAddr }
+  where
+    tcpAddr = case ncTopology networkConfig of
+        TopologyBehindNAT _ -> TCP.Unaddressable
+        _ -> let (bindHost, bindPort) = bindAddress args
+                 (externalHost, externalPort) = externalAddress args
+                 tcpHost = BS8.unpack bindHost
+                 tcpPort = show bindPort
+                 tcpMkExternal = const (BS8.unpack externalHost, show externalPort)
+             in  TCP.Addressable $ TCP.TCPAddrInfo tcpHost tcpPort tcpMkExternal

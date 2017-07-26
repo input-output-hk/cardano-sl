@@ -79,11 +79,8 @@ wrapListener
      , WithLogger m
      )
   => LoggerName -> Listener m -> Listener m
-wrapListener lname =
-    addWaitLogging .
-    modifyLogger lname
+wrapListener lname = modifyLogger lname
   where
-    addWaitLogging = mapListener' convWithWaitLogL identity
     modifyLogger _name = mapListener $ modifyLoggerName (<> lname)
 
 wrapActionSpec
@@ -91,11 +88,8 @@ wrapActionSpec
      , Mockable Bracket m
      )
   => LoggerName -> ActionSpec m a -> ActionSpec m a
-wrapActionSpec lname =
-    addWaitLogging .
-    modifyLogger lname
+wrapActionSpec lname = modifyLogger lname
   where
-    addWaitLogging = mapActionSpec sendActionsWithWaitLog identity
     modifyLogger _name = mapActionSpec identity $ modifyLoggerName
                                     (<> lname)
 

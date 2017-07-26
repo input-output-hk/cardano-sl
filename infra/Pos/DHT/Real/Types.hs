@@ -15,6 +15,7 @@ import qualified Network.Kademlia       as K
 
 import           Pos.Binary.Class       (Bi (..), encode)
 import           Pos.DHT.Model.Types    (DHTData, DHTKey)
+import           Pos.Network.Types      (NodeType)
 import           Pos.Util.TimeWarp      (NetworkAddress)
 import           System.IO.Unsafe       (unsafePerformIO)
 
@@ -42,5 +43,9 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiInitialPeers    :: ![NetworkAddress]
     , kdiExplicitInitial :: !Bool
     , kdiKnownPeersCache :: !(TVar [NetworkAddress])
-    , kdiDumpPath        :: !FilePath
+    , kdiDumpPath        :: !(Maybe FilePath)
+    , kdiPeerType        :: !NodeType
+    , kdiSubscribe       :: !Bool
+      -- ^ True if Kademlia peers should be used to populate the set of known
+      -- peers (via MonadKnownPeers instance).
     }

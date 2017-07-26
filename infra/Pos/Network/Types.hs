@@ -2,6 +2,7 @@ module Pos.Network.Types
     ( NetworkConfig (..)
     , Topology(..)
     , topologyNodeType
+    , topologySubscriberNodeType
     , resolveDnsDomains
     , defaultNetworkConfig
     , staticallyKnownPeers
@@ -29,11 +30,14 @@ import           Pos.Network.Yaml (NodeName(..))
 import           Pos.Util.TimeWarp  (addressToNodeId)
 import qualified Pos.Network.DnsDomains as DnsDomains
 import qualified Data.ByteString.Char8  as BS.C8
+import           Pos.DHT.Real.Param (KademliaParams (..))
 
 -- | Information about the network in which a node participates.
 data NetworkConfig = NetworkConfig
     { ncTopology :: !Topology
       -- ^ Network topology from the point of view of the current node
+    , ncKademlia :: !(Maybe KademliaParams)
+      -- ^ Kademlia instance description if applicable.
     , ncDefaultPort :: !Word16
       -- ^ Port number to use when translating IP addresses to NodeIds
     , ncSelfName :: !(Maybe NodeName)
@@ -44,6 +48,7 @@ data NetworkConfig = NetworkConfig
 defaultNetworkConfig :: Topology -> NetworkConfig
 defaultNetworkConfig ncTopology = NetworkConfig {
       ncDefaultPort = 3000
+    , ncKademlia    = Nothing
     , ncSelfName    = Nothing
     , ..
     }
@@ -63,15 +68,11 @@ data Topology =
     -- | We discover our peers through Kademlia
     --
     -- This is used for exchanges.
-    --
-    -- TODO: Not sure what parameters we need here; possibly the
-    -- 'NetworkParams' type from 'Pos.Launcher.Param'
   | TopologyP2P
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
     --
-    -- TODO: Not sure what parameters we need here; see 'TopologyP2P'.
     -- TODO: This is temporary.
   | TopologyTransitional
 
@@ -87,6 +88,14 @@ topologyNodeType (TopologyBehindNAT _)       = NodeEdge
 topologyNodeType (TopologyP2P)               = NodeEdge
 topologyNodeType (TopologyTransitional)      = NodeCore
 topologyNodeType (TopologyLightWallet _)     = NodeEdge
+
+-- | The NodeType to assign to subscribers. Give Nothing if subscribtion
+-- is not allowed for a node with this topology.
+topologySubscriberNodeType :: Topology -> Maybe NodeType
+topologySubscriberNodeType (TopologyStatic NodeRelay _) = Just NodeEdge
+topologySubscriberNodeType (TopologyTransitional)       = Just NodeCore
+topologySubscriberNodeType (TopologyP2P)                = Just NodeRelay
+topologySubscriberNodeType _                            = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig

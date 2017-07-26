@@ -44,7 +44,7 @@ import           Universum
 
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
-import           Pos.Discovery.Class              (MonadDiscovery)
+import           Pos.KnownPeers                   (MonadKnownPeers)
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
 import           Pos.Reporting                    (HasReportingContext)
 import           Pos.Shutdown                     (HasShutdownContext)
@@ -117,24 +117,35 @@ makeEnqueueMsg
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
     -> EnqueueMsg m
-makeEnqueueMsg ourVerInfo enqueue = \msg mkConv -> enqueue msg $
-    \nodeId pVI ->
-        let alts = mkConv nodeId pVI
-            alts' = map (checkingOutSpecs' nodeId (vIInHandlers pVI)) alts
-        in  case sequence alts' of
-                Left (Conversation l) -> N.Conversation $ \conv -> do
-                    mapM_ logOSNR alts'
-                    l conv
-                Right errs -> throwErrs errs (NE.head alts)
+makeEnqueueMsg ourVerInfo enqueue = \msg mkConv -> enqueue msg $ \nodeId pVI ->
+    alternativeConversations nodeId ourVerInfo pVI (mkConv nodeId pVI)
+
+alternativeConversations
+    :: forall m t .
+       ( WithLogger m
+       , Mockable Throw m
+       )
+    => NodeId
+    -> VerInfo -- ^ Ours
+    -> VerInfo -- ^ Theirs
+    -> NonEmpty (Conversation m t)
+    -> N.Conversation PackingType m t
+alternativeConversations nid ourVerInfo theirVerInfo convs =
+    let alts = map (checkingOutSpecs' nid (vIInHandlers theirVerInfo)) convs
+    in  case sequence alts of
+            Left (Conversation l) -> N.Conversation $ \conv -> do
+                mapM_ logOSNR alts
+                l conv
+            Right errs -> throwErrs errs (NE.head convs)
   where
 
     ourOutSpecs = vIOutHandlers ourVerInfo
 
     throwErrs
-        :: forall e t x .
+        :: forall e x .
            ( Exception e, Buildable e )
         => NonEmpty e
-        -> Conversation m t
+        -> Conversation m x
         -> N.Conversation PackingType m x
     throwErrs errs (Conversation l) = N.Conversation $ \conv -> do
         let _ = l conv
@@ -176,51 +187,9 @@ makeSendActions
     -> SendActions m
 makeSendActions ourVerInfo enqueue converse = SendActions
     { withConnectionTo = \nodeId mkConv -> N.converseWith converse nodeId $ \pVI ->
-          let alts = mkConv pVI
-              alts' = map (checkingOutSpecs' nodeId (vIInHandlers pVI)) alts
-          in case sequence alts' of
-               Left (Conversation l) -> N.Conversation $ \conv -> do
-                   mapM_ logOSNR alts'
-                   l conv
-               Right errs -> throwErrs errs (NE.head alts)
+          alternativeConversations nodeId ourVerInfo pVI (mkConv pVI)
     , enqueueMsg = makeEnqueueMsg ourVerInfo enqueue
     }
-  where
-    ourOutSpecs = vIOutHandlers ourVerInfo
-
-    throwErrs
-        :: forall e t x .
-           ( Exception e, Buildable e )
-        => NonEmpty e
-        -> Conversation m t
-        -> N.Conversation PackingType m x
-    throwErrs errs (Conversation l) = N.Conversation $ \conv -> do
-        let _ = l conv
-        logWarning $ sformat
-            ("Failed to choose appropriate conversation: "%listJson)
-            errs
-        throw $ NE.head errs
-
-    fstArg :: (a -> b) -> Proxy a
-    fstArg _ = Proxy
-
-    logOSNR (Right e@(OutSpecNotReported _)) = logWarning $ sformat build e
-    logOSNR _                                = pure ()
-
-    checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
-        checkingOutSpecs (sndMsgName, ConvHandler rcvMsgName) nodeId peerInSpecs conv
-      where
-        sndMsgName = messageName . sndProxy $ fstArg h
-        rcvMsgName = messageName . rcvProxy $ fstArg h
-
-    -- This is kind of last resort, in general we should handle conversation
-    --    to be supported by external peer on higher level
-    checkingOutSpecs spec nodeId peerInSpecs action =
-        if | spec `notInSpecs` ourOutSpecs ->
-                  Right $ OutSpecNotReported spec
-           | spec `notInSpecs` peerInSpecs ->
-                  Right $ PeerInSpecNotReported nodeId spec
-           | otherwise -> Left action
 
 data SpecError
     = OutSpecNotReported (MessageName, HandlerSpec)
@@ -276,8 +245,8 @@ type LocalOnNewSlotComm ctx m =
     , Mockables m [Fork, Delay]
     , HasReportingContext ctx
     , HasShutdownContext ctx
-    , MonadDiscovery m
     , MonadRecoveryInfo m
+    , MonadKnownPeers m
     )
 
 type OnNewSlotComm ctx m =

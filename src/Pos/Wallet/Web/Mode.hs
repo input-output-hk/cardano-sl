@@ -40,9 +40,6 @@ import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDe
 import           Pos.Client.Txp.History        (MonadTxHistory (..),
                                                 getBlockHistoryDefault,
                                                 getLocalHistoryDefault, saveTxDefault)
-import           Pos.Discovery                 (HasDiscoveryContextSum (..),
-                                                MonadDiscovery (..), findPeersSum,
-                                                getPeersSum)
 import           Pos.Reporting                 (HasReportingContext (..))
 import           Pos.Shutdown                  (HasShutdownContext (..))
 import           Pos.Slotting.Class            (MonadSlots (..))
@@ -95,9 +92,6 @@ instance HasSscContext WalletSscType WalletWebModeContext where
 
 instance HasPrimaryKey WalletWebModeContext where
     primaryKey = wwmcRealModeContext_L . primaryKey
-
-instance HasDiscoveryContextSum WalletWebModeContext where
-    discoveryContextSum = wwmcRealModeContext_L . discoveryContextSum
 
 instance HasReportingContext WalletWebModeContext  where
     reportingContext = wwmcRealModeContext_L . reportingContext
@@ -154,10 +148,6 @@ instance MonadSlots WalletWebMode where
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
     currentTimeSlotting = currentTimeSlottingSum
-
-instance MonadDiscovery WalletWebMode where
-    getPeers = getPeersSum
-    findPeers = findPeersSum
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
     getLoggerName = getLoggerNameDefault
@@ -226,7 +216,10 @@ instance MonadKnownPeers WalletWebMode where
         OQ.updateKnownPeers oq f
     addKnownPeers peers = do
         oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
-        OQ.addKnownPeers oq peers
+        OQ.updateKnownPeers oq (<> peers)
     removeKnownPeer nid = do
         oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
         OQ.removeKnownPeer oq nid
+    formatKnownPeers formatter = do
+        oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
+        OQ.dumpState oq formatter

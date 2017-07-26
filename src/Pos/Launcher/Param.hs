@@ -6,7 +6,7 @@
 module Pos.Launcher.Param
        ( LoggingParams (..)
        , BaseParams (..)
-       , NetworkParams (..)
+       , TransportParams (..)
        , NodeParams (..)
        ) where
 
@@ -17,10 +17,8 @@ import           Ether.Internal          (HasLens (..))
 import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
 
-import           Pos.Communication.Types (NodeId)
 import           Pos.Core                (HasPrimaryKey (..), Timestamp)
 import           Pos.Crypto              (SecretKey)
-import           Pos.DHT.Real            (KademliaParams)
 import           Pos.Network.Types       (NetworkConfig)
 import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
@@ -43,11 +41,8 @@ data BaseParams = BaseParams
     } deriving (Show)
 
 -- | Network parameters.
-data NetworkParams = NetworkParams
-    { npDiscovery :: !(Either (Set NodeId) KademliaParams)
-    -- ^ If this value is 'Left', then given peers will be used in static mode.
-    -- Otherwise kademlia with given params will be used.
-    , npTcpAddr   :: !TCP.TCPAddr
+data TransportParams = TransportParams
+    { tpTcpAddr   :: !TCP.TCPAddr
     -- ^ External TCP address of the node.
     -- It encapsulates bind address and address visible to other nodes.
     }
@@ -68,7 +63,7 @@ data NodeParams = NodeParams
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
     , npSecurityParams :: !SecurityParams       -- ^ Params for "Pos.Security"
     , npUseNTP         :: !Bool                 -- TODO COMMENT
-    , npNetwork        :: !NetworkParams        -- ^ Network parameters
+    , npTransport      :: !TransportParams      -- ^ (TCP) transport parameters.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.

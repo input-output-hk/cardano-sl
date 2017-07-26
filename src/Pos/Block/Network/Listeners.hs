@@ -12,7 +12,6 @@ import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logDebug, logWarning)
 import           Universum
 
-import qualified Network.Broadcast.OutboundQueue       as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
 
 import           Pos.Binary.Communication   ()
@@ -20,28 +19,30 @@ import           Pos.Block.Logic            (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgGetHeaders, MsgHeaders (..),
-                                             MsgSubscribe (..))
+                                             MsgGetHeaders, MsgHeaders (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
-                                             MkListeners, OutSpecs, constantListeners)
+                                             MkListeners, OutSpecs, constantListeners,
+                                             MsgSubscribe (..))
 import qualified Pos.DB.Block               as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.KnownPeers             (MonadKnownPeers(..))
+import           Pos.Network.Types          (NodeType, Topology,
+                                             topologySubscriberNodeType)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
 
 blockListeners
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => MkListeners m
-blockListeners = constantListeners
+    => Topology
+    -> MkListeners m
+blockListeners topology = constantListeners $
     [ handleGetHeaders
     , handleGetBlocks
     , handleBlockHeaders
-    , handleSubscription
-    ]
+    ] ++ maybe [] (pure . handleSubscription) (topologySubscriberNodeType topology)
 
 ----------------------------------------------------------------------------
 -- Getters (return currently stored data)
@@ -106,17 +107,16 @@ handleBlockHeaders = listenerConv @MsgGetHeaders $ \__ourVerInfo nodeId conv -> 
 -- Subscription
 ----------------------------------------------------------------------------
 
+-- TODO does not belong here with block-related stuff.
 handleSubscription
     :: forall ssc ctx m.
        (WorkMode ssc ctx m)
-    => (ListenerSpec m, OutSpecs)
-handleSubscription = listenerConv @Void $ \__ourVerInfo nodeId conv -> do
+    => NodeType
+    -> (ListenerSpec m, OutSpecs)
+handleSubscription nodeType = listenerConv @Void $ \__ourVerInfo nodeId conv -> do
     mbMsg <- recvLimited conv
     whenJust mbMsg $ \MsgSubscribe -> do
-      -- TODO: Should we change this so that MsgSubscribe carries the node type?
-      -- In particular, for the "transitional" mode where Kademia nodes
-      -- use this subscription mechanism too?
-      let peers = OQ.simplePeers [(OQ.NodeEdge, nodeId)]
+      let peers = OQ.simplePeers [(nodeType, nodeId)]
       M.bracket_ (addKnownPeers peers)
                  (removeKnownPeer nodeId)
                  (void $ recvLimited conv)

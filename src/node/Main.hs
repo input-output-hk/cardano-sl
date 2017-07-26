@@ -159,7 +159,6 @@ action args@Args {..} = do
 #else
     putText "Wallet is disabled, because software is built w/o it"
 #endif
-    putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = gtSscParams args vssSK

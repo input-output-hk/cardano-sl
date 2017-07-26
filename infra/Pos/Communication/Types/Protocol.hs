@@ -39,6 +39,7 @@ module Pos.Communication.Types.Protocol
        , MsgType (..)
        , Origin (..)
        , Msg
+       , MsgSubscribe (..)
        ) where
 
 import           Data.Aeson                 (ToJSON (..), FromJSON (..), Value)
@@ -290,3 +291,11 @@ instance Monad m => Monoid (MkListeners m) where
     a `mappend` b = MkListeners act (inSpecs a `mappend` inSpecs b) (outSpecs a `mappend` outSpecs b)
       where
         act vI pD = (++) (mkListeners a vI pD) (mkListeners b vI pD)
+
+-- | 'Subscribe' message
+--
+-- This can be used by behind-NAT nodes to subscribe to the 'OutboundQueue'
+-- of a relay node. The node will remain subscribed for the duration of the
+-- conversation.
+data MsgSubscribe = MsgSubscribe
+    deriving (Generic, Show, Eq)

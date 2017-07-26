@@ -17,7 +17,7 @@ import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
-import qualified Data.Set                   as S (fromList, toList)
+import qualified Data.Set                   as S (fromList)
 import           Data.String.QQ             (s)
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as T
@@ -32,7 +32,7 @@ import           Mockable                   (Mockable, SharedAtomic, SharedAtomi
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           System.IO                  (BufferMode (LineBuffering),
                                              hClose, hFlush, hSetBuffering, stdout)
-import           System.Wlog                (logDebug, logError, logInfo, logWarning)
+import           System.Wlog                (logDebug, logError, logInfo)
 #if !(defined(mingw32_HOST_OS))
 import           System.Exit                (ExitCode (ExitSuccess))
 import           System.Posix.Process       (exitImmediately)
@@ -59,7 +59,6 @@ import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVot
                                              safeSign, safeToPublic, toPublic, unsafeHash,
                                              withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.Discovery              (findPeers, getPeers)
 import           Pos.Genesis                (devAddrDistr, devStakesDistr,
                                              genesisDevSecretKeys,
                                              genesisProdAddrDistribution,
@@ -149,9 +148,8 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
         runEitherT $ do
             ss <- mss `whenNothing` throwError "Invalid passphrase"
             lift $ submitTx
-                sendActions
+                (immediateConcurrentConversations sendActions na)
                 ss
-                na
                 (map (flip TxOutAux []) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
@@ -206,7 +204,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ cooldown sendMode tpsS
                     case tx of
                         Left err -> addTxFailed tpsMVar >> logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
                         Right tx -> do
-                            submitTxRaw sendActions neighbours tx
+                            submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
                             addTxSubmit tpsMVar >> logInfo (sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours)
                     delay $ ms delay_
                     sendTxs
@@ -233,7 +231,7 @@ runCmd sendActions v@(Vote idx decision upid) CmdCtx{na} = do
             if null na
                 then putText "Error: no addresses specified"
                 else do
-                    submitVote sendActions na voteUpd
+                    submitVote (immediateConcurrentConversations sendActions na) voteUpd
                     putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
     logDebug "Proposing update..."
@@ -273,7 +271,7 @@ runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
             if null na
                 then putText "Error: no addresses specified"
                 else do
-                    submitUpdateProposal sendActions ss na updateProposal
+                    submitUpdateProposal (immediateConcurrentConversations sendActions na) ss updateProposal
                     let id = hash updateProposal
                     putText $
                       sformat ("Update proposal submitted, upId: "%hashHexF) id
@@ -349,31 +347,16 @@ evalCommands sa cmdCtx = do
         Left err   -> putStrLn err >> evalCommands sa cmdCtx
         Right cmd_ -> evalCmd sa cmd_ cmdCtx
 
-initialize :: MonadWallet ssc ctx m => WalletOptions -> m [NodeId]
-initialize WalletOptions{..} = do
-    peers <- S.toList <$> getPeers
-    bool (pure peers) getPeersUntilSome (null peers)
-  where
-    -- FIXME this is dangerous. If rmFindPeers doesn't block, for instance
-    -- because it's a constant empty set of peers, we'll spin forever.
-    getPeersUntilSome = do
-        liftIO $ hFlush stdout
-        logWarning "Discovering peers, because current peer list is empty"
-        peers <- S.toList <$> findPeers
-        if null peers
-        then getPeersUntilSome
-        else pure peers
-
 runWalletRepl :: MonadWallet ssc ctx m => WalletOptions -> Worker m
 runWalletRepl wo sa = do
-    na <- initialize wo
+    let na = woPeers wo
     putText "Welcome to Wallet CLI Node"
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
     evalCmd sa Help (CmdCtx keysPool na)
 
 runWalletCmd :: MonadWallet ssc ctx m => WalletOptions -> Text -> Worker m
 runWalletCmd wo str sa = do
-    na <- initialize wo
+    let na = woPeers wo
     let strs = T.splitOn "," str
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
     let cmdCtx = CmdCtx keysPool na

@@ -121,12 +121,12 @@ kademliaSubscriptionWorker kademliaInst = ActionSpec $ \_ sendActions -> do
   where
 
     valency :: Int
-    valency = 3
+    valency = max 0 (kdiValency kademliaInst)
 
     -- How many alternatives to try.
     -- Size of the peers set created is at most valency * (1 + fallbacks)
     fallbacks :: Int
-    fallbacks = 2
+    fallbacks = max 0 (kdiFallbacks kademliaInst)
 
     -- The NodeType that we assume our peers to be.
     peerType :: NodeType

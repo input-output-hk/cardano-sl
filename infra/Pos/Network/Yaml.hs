@@ -99,6 +99,8 @@ data KademliaParams = KademliaParams
       -- doesn't suffer this problem.
     , kpExplicitInitial :: !Bool
     , kpDumpFile        :: !(Maybe FilePath)
+    , kpValency         :: !Int
+    , kpFallbacks       :: !Int
     }
     deriving (Show)
 
@@ -110,6 +112,8 @@ instance FromJSON KademliaParams where
         kpBind <- obj .: "address"
         kpExplicitInitial <- obj .:? "explicitInitial" .!= False
         kpDumpFile <- obj .:? "dumpFile"
+        kpValency <- obj .:? "valency" .!= 3
+        kpFallbacks <- obj .:? "fallbacks" .!= 1
         return KademliaParams {..}
 
 instance ToJSON KademliaParams where
@@ -120,6 +124,8 @@ instance ToJSON KademliaParams where
         , "address"         .= kpBind
         , "explicitInitial" .= kpExplicitInitial
         , "dumpFile"        .= kpDumpFile
+        , "valency"         .= kpValency
+        , "fallbacks"       .= kpFallbacks
         ]
 
 -- | A Kademlia identifier in text representation (probably base64-url encoded).

@@ -48,4 +48,6 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiSubscribe       :: !Bool
       -- ^ True if Kademlia peers should be used to populate the set of known
       -- peers (via MonadKnownPeers instance).
+    , kdiValency         :: !Int
+    , kdiFallbacks       :: !Int
     }

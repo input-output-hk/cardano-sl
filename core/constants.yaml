@@ -58,7 +58,7 @@ dev: &dev
   # messages: normal messages and confirmation messages. Both of them are
   # limited in size by this value multiplied by some constant. You are
   # advised to look at code if you need exact values, because it may change
-  # and most likely nobody will update this comment. 
+  # and most likely nobody will update this comment.
   #
   # The size is number of elements, not bytes.
   dlgCacheParam: 500
@@ -166,6 +166,15 @@ travis: &travis
   <<: *qanet_tns
 
   k: 3  # it's needed for tests
+
+benchmark: &benchmark
+  <<: *testnet
+
+  genesisN: 50000
+  k: 6
+
+  protocolmagic: 50988000
+  genesisBinSuffix: qa # qa is set here arbitrarily, it won't be actually used
 
 ##############################################################################
 ##                                                                          ##

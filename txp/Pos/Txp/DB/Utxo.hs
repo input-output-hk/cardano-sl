@@ -51,7 +51,7 @@ import           Pos.DB               (DBError (..), DBIteratorClass (..),
                                        encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
-import           Pos.Txp.Toil.Types   (Utxo)
+import           Pos.Txp.Toil.Types   (GenesisUtxo (..), Utxo)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -85,8 +85,8 @@ instance RocksBatchOp UtxoOp where
 ----------------------------------------------------------------------------
 
 -- | Initializes utxo db.
-initGStateUtxo :: (MonadDB m) => Utxo -> m ()
-initGStateUtxo genesisUtxo =
+initGStateUtxo :: (MonadDB m) => GenesisUtxo -> m ()
+initGStateUtxo (GenesisUtxo genesisUtxo) =
     writeBatchGState $ concatMap createBatchOp utxoList
   where
     utxoList = M.toList genesisUtxo

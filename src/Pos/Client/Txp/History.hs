@@ -15,9 +15,11 @@ module Pos.Client.Txp.History
        , thInputAddrs
        , thOutputAddrs
        , thTimestamp
-       , runGenesisToil
 
        , MonadTxHistory(..)
+
+       , GenesisToil
+       , runGenesisToil
 
        -- * History derivation
        , getRelatedTxsByAddrs

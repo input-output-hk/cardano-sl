@@ -24,4 +24,6 @@ stack exec -- cardano-explorer \
     --kademlia-peer cardano-node-12.aws.iohkdev.io:3000 \
     --kademlia-peer cardano-node-13.aws.iohkdev.io:3000 \
     --listen 127.0.0.1:$((3000)) \
+    --static-peers \
+    --no-ntp \
     $@

@@ -312,6 +312,7 @@ library
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Error.Util
                         Pos.Wallet.Web.Mode
+                        Pos.Wallet.Web.Pending
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full

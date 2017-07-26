@@ -164,6 +164,7 @@ import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInse
                                                    syncWalletOnImport,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
+import Pos.Wallet.Web.Pending (startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds, rewrapTxError)
 import           Pos.Web.Server                   (serveImpl)
 
@@ -226,6 +227,7 @@ walletServer
     -> m (Server WalletApi)
 walletServer sendActions nat = do
     syncWalletsWithGState @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    startPendingTxsResubmitter sendActions
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 

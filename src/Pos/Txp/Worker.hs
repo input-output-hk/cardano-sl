@@ -7,51 +7,39 @@ module Pos.Txp.Worker
 
 import           Universum
 
-import           Pos.Communication       (OutSpecs, WorkerSpec)
-import           Pos.Ssc.Class           (SscWorkersClass)
-import           Pos.Util                (mconcatPair)
-import           Pos.WorkMode.Class      (WorkMode)
+import           Pos.Communication   (OutSpecs, WorkerSpec)
+import           Pos.Ssc.Class       (SscWorkersClass)
+import           Pos.Util            (mconcatPair)
+import           Pos.WorkMode.Class  (WorkMode)
 
 #ifdef WITH_WALLET
-import           Data.Tagged             (Tagged (..))
-import           Data.Time.Units         (Second, convertUnit)
-import           Formatting              (build, int, sformat, shown, (%))
-import           Mockable                (delay, fork)
-import           Serokell.Util           (listJson)
-import           System.Wlog             (logDebug, logInfo, logWarning)
+import           Data.Tagged         (Tagged (..))
+import           Data.Time.Units     (Second, convertUnit)
+import           Formatting          (build, int, sformat, shown, (%))
+import           Mockable            (delay)
+import           Serokell.Util       (listJson)
+import           System.Wlog         (logDebug, logInfo, logWarning)
 
-import           Pos.Client.Txp.Balances (MonadBalances)
-import           Pos.Client.Txp.History  (MonadTxHistory)
-import           Pos.Communication       (Conversation (..), ConversationActions (..),
-                                          DataMsg (..), InvMsg (..), InvOrData,
-                                          InvReqDataParams (..), MempoolMsg (..), NodeId,
-                                          ReqMsg (..), SendActions, TxMsgContents, convH,
-                                          expectData, handleDataDo, handleInvDo,
-                                          recvLimited, toOutSpecs, withConnectionTo,
-                                          worker)
-import           Pos.Communication.Tx    (submitAndSaveTx)
-import           Pos.Core                (SlotId, getSlotCount)
-import           Pos.Core.Slotting       (flattenSlotId)
-import           Pos.Discovery.Class     (getPeers)
-import Pos.Constants (slotSecurityParam)
-import           Pos.Slotting            (getLastKnownSlotDuration, onNewSlot)
-import           Pos.Txp.Core            (TxId)
-import           Pos.Txp.Network         (txInvReqDataParams)
-import           Pos.Txp.Pending         (MonadPendingTxs (..), PendingTx (..),
-                                          TxPendingState (..), ptxCreationSlot,
-                                          ptxExpireSlot)
+import           Pos.Communication   (Conversation (..), ConversationActions (..),
+                                      DataMsg (..), InvMsg (..), InvOrData,
+                                      InvReqDataParams (..), MempoolMsg (..), NodeId,
+                                      ReqMsg (..), SendActions, TxMsgContents, convH,
+                                      expectData, handleDataDo, handleInvDo, recvLimited,
+                                      toOutSpecs, withConnectionTo, worker)
+import           Pos.Discovery.Class (getPeers)
+import           Pos.Slotting        (getLastKnownSlotDuration)
+import           Pos.Txp.Core        (TxId)
+import           Pos.Txp.Network     (txInvReqDataParams)
 #endif
 
 -- | All workers specific to transaction processing.
 txpWorkers
-    :: (SscWorkersClass ssc, MonadPendings ssc m, WorkMode ssc ctx m)
+    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => ([WorkerSpec m], OutSpecs)
 txpWorkers =
     merge $ []
 #if defined(WITH_WALLET)
-            ++ [ queryTxsWorker
-               , resubmitPendingTxsWorker
-               ]
+            ++ [ queryTxsWorker ]
 #endif
   where
     merge = mconcatPair . map (first pure)
@@ -176,78 +164,5 @@ requestTxs sendActions node txIds = do
             ("Couldn't get transaction with id "%build%" "%
              "from node "%build%": "%shown)
             id node e
-
-
-type MonadPendings ssc m =
-    ( MonadBalances m
-    , MonadTxHistory ssc m
-    )
-
-resubmitPendingTxsWorker
-    :: (WorkMode ssc ctx m, MonadPendings ssc m)
-    => (WorkerSpec m, OutSpecs)
-resubmitPendingTxsWorker = worker undefined $ \sendActions ->
-    onNewSlot False $ \curSlot -> do
-        pendingTxs <- getPendingTxs TxApplying
-        let ptxsToCheck =
-                filter (whetherCheckPtxOnSlot curSlot) pendingTxs
-        -- FIXME [CSM-256]: add limit on number of resent transactions per slot or on speed
-        toResubmit <- filterM (whetherToResubmitPtx curSlot) ptxsToCheck
-
-        -- distribute txs submition over current slot ~evenly
-        interval <- evalSubmitDelay (length toResubmit)
-        na <- toList <$> getPeers
-        forM_ toResubmit $ \PendingTx{..} -> do
-            delay interval
-            fork $ submitAndSaveTx sendActions na ptTxAux
-
-  where
-    whetherCheckPtxOnSlot curSlot ptx =
-        -- TODO [CSM-256]: move in constants?
-        flattenSlotId (ptxCreationSlot ptx) + 3 < flattenSlotId curSlot
-
-    -- TODO [CSM-256]: move in constants?
-    submitionEta = 5
-
-    evalSubmitDelay toResubmitNum = do
-        slotDuration <- getLastKnownSlotDuration
-        let checkPeriod = max 0 $ slotDuration - submitionEta
-        return (checkPeriod `div` fromIntegral toResubmitNum)
-
-
-whetherToResubmitPtx
-    :: (WorkMode ssc ctx m, MonadPendings ssc m)
-    => SlotId -> PendingTx -> m Bool
-whetherToResubmitPtx curSlot ptx = do
-    inBlocks <- isPtxInRecentBlocks ptx
-    if | and
-       [ inBlocks
-       , flattenSlotId (ptxCreationSlot ptx) + getSlotCount slotSecurityParam
-           < flattenSlotId curSlot
-       ] ->
-           False <$ removePendingTx ptx
-       | expired ->
-           False <$ setPendingTx ptx TxWon'tSend
-       | not inBlocks ->
-           canSubmitPtx ptx
-       | otherwise    ->
-           return False
-  where
-    isPtxInRecentBlocks = undefined
-    expired = ptxExpireSlot ptx <= curSlot
-
-canSubmitPtx
-    :: (WorkMode ssc ctx m, MonadPendings ssc m)
-    => PendingTx -> m Bool
-canSubmitPtx ptx@PendingTx{..} = do
-    present   <- checkTxIsInMempool ptTxAux
-    applyable <- checkTxIsApplicable ptTxAux
-    if | present   -> return False
-                      -- TODO [CSM-256]: maybe get rid of na param
-       | applyable -> return True
-       | otherwise -> False <$ setPendingTx ptx TxWon'tSend
-  where
-    checkTxIsInMempool = undefined
-    checkTxIsApplicable = undefined
 
 #endif

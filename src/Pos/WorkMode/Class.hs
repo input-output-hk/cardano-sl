@@ -34,7 +34,6 @@ import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)
-import           Pos.Txp.Pending             (MonadPendingTxs)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
@@ -85,7 +84,6 @@ type WorkMode ssc ctx m
       , MonadLastKnownHeader ssc ctx m
       , MonadBListener m
       , MonadDiscovery m
-      , MonadPendingTxs m
       , MonadReader ctx m
       , HasLens StartTime ctx StartTime
       , HasLens BlkSemaphore ctx BlkSemaphore

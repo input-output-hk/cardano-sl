@@ -25,6 +25,11 @@ library
     Pos.Txp.DB.Balances
     Pos.Txp.DB.Utxo
 
+    Pos.Txp.Pending
+    Pos.Txp.Pending.Class
+    Pos.Txp.Pending.Types
+    Pos.Txp.Pending.Util
+
     Pos.Txp.Toil
     Pos.Txp.Toil.Balances
     Pos.Txp.Toil.Balances.Functions

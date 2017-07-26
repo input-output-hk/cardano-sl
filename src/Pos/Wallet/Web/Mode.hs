@@ -55,6 +55,7 @@ import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsD
                                                 putSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
+import           Pos.Txp.Pending               (MonadPendingTxs (..))
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName           (HasLoggerName' (..), getLoggerNameDefault,
@@ -217,3 +218,6 @@ instance MonadTxHistory WalletSscType WalletWebMode where
 instance MonadWalletTracking WalletWebMode where
     syncWalletOnImport = syncWalletOnImportWebWallet . one
     txMempoolToModifier = txMempoolToModifierWebWallet
+
+instance MonadPendingTxs WalletWebMode where
+

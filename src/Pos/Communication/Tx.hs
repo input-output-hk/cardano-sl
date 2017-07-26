@@ -2,6 +2,7 @@
 
 module Pos.Communication.Tx
        ( TxMode
+       , submitAndSaveTx
        , submitTx
        , submitMTx
        , submitRedemptionTx
@@ -44,14 +45,13 @@ type TxMode ssc m
       , MonadThrow m
       )
 
-submitAndSave
+submitAndSaveTx
     :: TxMode ssc m
-    => SendActions m -> [NodeId] -> TxAux -> m TxAux
-submitAndSave sendActions na txAux@TxAux {..} = do
+    => SendActions m -> [NodeId] -> TxAux -> m ()
+submitAndSaveTx sendActions na txAux@TxAux {..} = do
     let txId = hash taTx
     submitTxRaw sendActions na txAux
     saveTx (txId, txAux)
-    return txAux
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 submitMTx
@@ -64,9 +64,10 @@ submitMTx
 submitMTx sendActions hdwSigner na outputs = do
     let addrs = map snd $ toList hdwSigner
     utxo <- getOwnUtxos addrs
-    txw <- eitherToThrow TxError $
-           createMTx utxo hdwSigner outputs
-    submitAndSave sendActions na txw
+    txAux <- eitherToThrow TxError $
+             createMTx utxo hdwSigner outputs
+    submitAndSaveTx sendActions na txAux
+    return txAux
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
@@ -78,9 +79,10 @@ submitTx
     -> m TxAux
 submitTx sendActions ss na outputs = do
     utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
-    txw <- eitherToThrow TxError $
-           createTx utxo ss outputs
-    submitAndSave sendActions na txw
+    txAux <- eitherToThrow TxError $
+             createTx utxo ss outputs
+    submitAndSaveTx sendActions na txAux
+    return txAux
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx
@@ -99,9 +101,9 @@ submitRedemptionTx sendActions rsk na output = do
             TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
     when (redeemBalance == mkCoin 0) $
         throwM . TxError $ "Redeem balance is 0"
-    txw <- eitherToThrow TxError $
-           createRedemptionTx utxo rsk txouts
-    txAux <- submitAndSave sendActions na txw
+    txAux <- eitherToThrow TxError $
+             createRedemptionTx utxo rsk txouts
+    submitAndSaveTx sendActions na txAux
     pure (txAux, redeemAddress, redeemBalance)
 
 -- | Send the ready-to-use transaction

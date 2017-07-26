@@ -86,6 +86,7 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
 import           Pos.DB.Class                     (gsAdoptedBVData)
+import           Pos.DB.GState.Common             (getTip)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
@@ -157,8 +158,8 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    removeTxMetas, removeWallet,
                                                    setAccountMeta, setProfile,
                                                    setWalletMeta, setWalletPassLU,
-                                                   setWalletTxMeta, testReset,
-                                                   updateHistoryCache)
+                                                   setWalletSyncTip, setWalletTxMeta,
+                                                   testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInsertions,
                                                    syncWalletOnImport,
@@ -1004,6 +1005,10 @@ newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit
     updateHistoryCache wId []
+    -- BListener checks current syncTip before applying update,
+    -- thus setting it up to date manually here
+    tip <- getTip
+    setWalletSyncTip wId tip
     getWallet wId
 
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet

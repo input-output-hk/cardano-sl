@@ -309,7 +309,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
     applyCreatedBlockDo :: Bool -> MainBlock ssc -> m (MainBlock ssc)
     applyCreatedBlockDo isFallback blockToApply =
         verifyBlocksPrefix (one (Right blockToApply)) >>= \case
-            Left reason
+            Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
             Right (undos, pollModifier) ->

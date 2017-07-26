@@ -32,10 +32,12 @@ import           Pos.Constants        (genesisHash)
 import           Pos.Core             (FlatSlotId, HasHeaderHash, HeaderHash, headerHash,
                                        slotIdF, unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
-import           Pos.DB               (MonadDB, MonadDBRead, RocksBatchOp (..))
+import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
+                                       RocksBatchOp (..))
 import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
+import           Pos.Util.Util        (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -57,7 +59,9 @@ isBlockInMainChain h =
 -- | This function returns 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'.
 getLastSlots :: forall m . MonadDBRead m => m LastBlkSlots
-getLastSlots = fromMaybe noLastBlkSlots <$> gsGetBi lastSlotsKey
+getLastSlots =
+    maybeThrow (DBMalformed "Last slots not found in the global state DB") =<<
+    gsGetBi lastSlotsKey
 
 ----------------------------------------------------------------------------
 -- BlockOp
@@ -169,6 +173,7 @@ initGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
 initGStateBlockExtra firstGenesisHash = do
     gsPutBi (mainChainKey firstGenesisHash) ()
     gsPutBi (forwardLinkKey genesisHash) firstGenesisHash
+    gsPutBi lastSlotsKey noLastBlkSlots
 
 ----------------------------------------------------------------------------
 -- Keys

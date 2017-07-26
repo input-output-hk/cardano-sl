@@ -165,7 +165,7 @@ qanet_tns: &qanet_tns
 travis: &travis
   <<: *qanet_tns
 
-  k: 3  # it's needed for tests
+  k: 35  # it's needed for tests
 
 benchmark: &benchmark
   <<: *testnet

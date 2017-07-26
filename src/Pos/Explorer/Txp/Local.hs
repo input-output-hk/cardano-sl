@@ -157,15 +157,19 @@ eTxNormalize ::
        , MonadSlots m
        )
     => m ()
-eTxNormalize = do
-    utxoTip <- GS.getTip
-    epoch <- maybe (throwM ToilSlotUnknown) (pure . siEpoch) =<< getCurrentSlot
-    localTxs <- getLocalTxsMap
-    extra <- getTxpExtra
-    let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
-    let toNormalize = HM.toList $ HM.intersectionWith (,) localTxs extras
-    ToilModifier {..} <-
-        runDBToil $
-        snd <$>
-        runToilTLocalExtra mempty def mempty def (eNormalizeToil epoch toNormalize)
-    setTxpLocalData "eTxNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+eTxNormalize = getCurrentSlot >>= \case
+    Nothing -> do
+        tip <- GS.getTip
+        -- Clear and update tip
+        setTxpLocalData "eTxNormalize" (mempty, def, mempty, tip, def)
+    Just (siEpoch -> epoch) -> do
+        utxoTip <- GS.getTip
+        localTxs <- getLocalTxsMap
+        extra <- getTxpExtra
+        let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
+        let toNormalize = HM.toList $ HM.intersectionWith (,) localTxs extras
+        ToilModifier {..} <-
+            runDBToil $
+            snd <$>
+            runToilTLocalExtra mempty def mempty def (eNormalizeToil epoch toNormalize)
+        setTxpLocalData "eTxNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

@@ -154,10 +154,11 @@ createGenesisBlockDo epoch leaders tip = do
         let newTip = headerHash blk
         verifyBlocksPrefix (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
-            Right (undos, pollModifier) ->
+            Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
-                in applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier) $>
-                   (Just blk, newTip)
+                applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier)
+                normalizeMempool
+                pure (Just blk, newTip)
     logShouldNot =
         logDebug
             "After we took lock for genesis block creation, we noticed that we shouldn't create it"

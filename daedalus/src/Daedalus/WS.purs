@@ -43,7 +43,7 @@ mkWSState conn notifyCb errorCb wssOptions = WSState
 
 data WSConnection
     = WSNotConnected
-    | WSConnectionRequested
+    | WSConnectionRequested WS.Connection
     | WSConnected WS.Connection
 
 isConnected :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET, err :: EXCEPTION | eff) Boolean
@@ -62,27 +62,38 @@ closeConn (WSState state) = do
         _ -> pure unit
 
 openConn :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
-    , err :: EXCEPTION | eff) Unit
+    , err :: EXCEPTION | eff) WS.Connection
 openConn (WSState state) = do
     connection <- readRef state.connection
     case connection of
         WSNotConnected -> mkConn (WSState state)
-        _ -> pure unit
+        WSConnectionRequested conn -> pure conn
+        WSConnected conn -> pure conn
 
 -- Initializes connection. Don't call this more then once!
 mkConn :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
-    , err :: EXCEPTION | eff) Unit
+    , err :: EXCEPTION | eff) WS.Connection
 mkConn (WSState state) = do
     -- FIXME: don't use unsafeCoerce here. It was needed as websockets-simple is not designed properly
-    WS.Connection socket <- WS.newWebSocket state.url $ unsafeCoerce $ options state.wssOptions
-    writeRef state.connection WSConnectionRequested
+    conn@(WS.Connection socket) <- WS.newWebSocket state.url $ unsafeCoerce $ options state.wssOptions
+    writeRef state.connection $ WSConnectionRequested conn
     socket.onclose $= \_ -> onClose (WSState state)
     socket.onmessage $= \event -> onMessage (WSState state) event
     socket.onerror $= \event ->
         case state.errorCb of
             Just cb -> runEffFn1 cb event
             Nothing -> pure unit
-    socket.onopen $= \_ -> onOpened (WSState state) $ WS.Connection socket
+    socket.onopen $= \_ -> onOpened (WSState state) conn
+    pure conn
+
+updateHandlers :: forall eff. WS.Connection -> NotifyCb eff -> ErrorCb eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
+    , err :: EXCEPTION | eff) Unit
+updateHandlers (WS.Connection socket) notifyCb errorCb = do
+    socket.onmessage $= \event -> do
+        let msg = runMessage $ runMessageEvent event
+        runEffFn1 notifyCb msg
+    socket.onerror $= \event ->
+        runEffFn1 errorCb event
 
 onClose :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET, err :: EXCEPTION | eff) Unit
 onClose st@(WSState state) = do

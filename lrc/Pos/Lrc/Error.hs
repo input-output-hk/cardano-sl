@@ -15,7 +15,6 @@ data LrcError
     | UnknownBlocksForLrc
     | CanNotReuseSeedForLrc !EpochIndex
     | LrcAfterGenesis
-    | NoRichmen !EpochIndex
     deriving (Show)
 
 instance Exception LrcError
@@ -33,5 +32,3 @@ instance Buildable LrcError where
                 "(i.e. epoch "%build%"), but the seed wasn't in the db") epoch
     build LrcAfterGenesis =
         bprint "LRC was attempted after adoption of genesis block"
-    build (NoRichmen epoch) =
-        bprint ("there aren't richmen for epoch "%build) epoch

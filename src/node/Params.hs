@@ -16,12 +16,12 @@ import           System.Wlog           (LoggerName, WithLogger)
 import qualified Pos.CLI               as CLI
 import           Pos.Constants         (isDevelopment)
 import           Pos.Context           (mkGenesisTxpContext)
+import           Pos.Core.Genesis      (genesisProdAddrDistribution,
+                                        genesisProdBootStakeholders)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
 import           Pos.DHT.Real          (KademliaParams (..))
-import           Pos.Genesis           (devAddrDistr, devStakesDistr,
-                                        genesisProdAddrDistribution,
-                                        genesisProdBootStakeholders, genesisUtxo)
+import           Pos.Genesis           (devAddrDistr, devStakesDistr, genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NetworkParams (..), NodeParams (..))
 import           Pos.Security          (SecurityParams (..))

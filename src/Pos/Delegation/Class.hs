@@ -13,7 +13,6 @@ module Pos.Delegation.Class
        , dwProxySKPool
        , dwPoolSize
        , dwEpochId
-       , dwThisEpochPosted
 
        , DelegationVar
        , MonadDelegation
@@ -28,7 +27,6 @@ import           Data.Time.Clock            (UTCTime)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core                   (EpochIndex, ProxySKHeavy, ProxySKLight)
-import           Pos.Crypto                 (PublicKey)
 import           Pos.Delegation.Types       (DlgMemPool)
 import           Pos.Util.Concurrent.RWVar  (RWVar)
 import           Pos.Util.Util              (HasLens (..))
@@ -56,9 +54,6 @@ data DelegationWrap = DelegationWrap
       -- a good approximation.
     , _dwEpochId           :: EpochIndex
       -- ^ Epoch index 'DelegationWrap' is correct in relation to.
-    , _dwThisEpochPosted   :: HashSet PublicKey
-      -- ^ Set of stakeholders that have already posted their PSKs
-      -- this epoch.
     }
 
 makeLenses ''DelegationWrap

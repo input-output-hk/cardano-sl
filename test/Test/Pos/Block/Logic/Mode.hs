@@ -23,7 +23,6 @@ import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.Map.Strict                as M
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (Microsecond, TimeUnit (..))
 import           Ether.Internal                 (HasLens (..))
@@ -44,7 +43,7 @@ import           Pos.Block.Types                (Undo)
 import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
                                                  Timestamp (..), addressHash,
                                                  makePubKeyAddress, mkCoin, unsafeGetCoin)
-import           Pos.Crypto                     (SecretKey, toPublic, unsafeHash)
+import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
                                                  MonadDB (..), MonadDBRead (..),
@@ -59,7 +58,7 @@ import           Pos.Discovery                  (DiscoveryContextSum (..),
                                                  MonadDiscovery (..), findPeersSum,
                                                  getPeersSum)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..))
-import           Pos.Genesis                    (stakeDistribution)
+import           Pos.Genesis                    (genesisUtxo)
 import qualified Pos.GState                     as GS
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
@@ -83,11 +82,11 @@ import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, GenesisStakeholders,
                                                  GenesisTxpContext, GenesisUtxo (..),
-                                                 TxIn (..), TxOut (..), TxOutAux (..),
                                                  TxpGlobalSettings, TxpHolderTag,
                                                  TxpMetrics, gtcStakeholders, gtcUtxo,
                                                  ignoreTxpMetrics, mkGenesisTxpContext,
-                                                 mkTxpLocalData, txpGlobalSettings, utxoF)
+                                                 mkGenesisTxpContext, mkTxpLocalData,
+                                                 txpGlobalSettings, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -163,16 +162,8 @@ instance Arbitrary TestParams where
         let _tpAllSecrets = AllSecrets secretKeysMap
         _tpStakeDistribution <-
             genSuitableStakeDistribution (fromIntegral $ length secretKeysMap)
-        let zipF secretKey (coin, toaDistr) =
-                let addr = makePubKeyAddress (toPublic secretKey)
-                    toaOut = TxOut addr coin
-                in (TxIn (unsafeHash addr) 0, TxOutAux {..})
-        let _tpGenTxpContext =
-                mkGenesisTxpContext . M.fromList $
-                zipWith
-                    zipF
-                    (toList secretKeysMap)
-                    (stakeDistribution _tpStakeDistribution)
+        let addresses = map (makePubKeyAddress . toPublic) (toList secretKeysMap)
+        let _tpGenTxpContext = mkGenesisTxpContext $ genesisUtxo Nothing [(addresses, _tpStakeDistribution)]
         return TestParams {..}
 
 ----------------------------------------------------------------------------

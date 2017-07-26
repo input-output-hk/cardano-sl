@@ -50,7 +50,6 @@ module Pos.DB.Class
        , gsMaxProposalSize
        , gsUnlockStakeEpoch
        , gsIsBootstrapEra
-       , isBootstrapEraPure
 
          -- * Block DB
        , MonadBlockDBGeneric (..)
@@ -70,7 +69,7 @@ import           Serokell.Data.Memory.Units   (Byte)
 
 import           Pos.Binary.Class             (Bi)
 import           Pos.Core                     (BlockVersionData (..), EpochIndex,
-                                               HeaderHash, isBootstrapEra, isDevelopment)
+                                               HeaderHash, isBootstrapEra)
 
 ----------------------------------------------------------------------------
 -- Pure
@@ -187,14 +186,11 @@ gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
 gsUnlockStakeEpoch :: MonadGState m => m EpochIndex
 gsUnlockStakeEpoch = bvdUnlockStakeEpoch <$> gsAdoptedBVData
 
--- | Checks if provided epoch is in the bootstrap era (pure version)
-isBootstrapEraPure :: EpochIndex -> EpochIndex -> Bool
-isBootstrapEraPure unlockEpoch curEpoch =
-    not isDevelopment && isBootstrapEra unlockEpoch curEpoch
-
 -- | Checks if provided epoch is in the bootstrap era.
 gsIsBootstrapEra :: MonadGState m => EpochIndex -> m Bool
-gsIsBootstrapEra epoch = flip isBootstrapEraPure epoch <$> gsUnlockStakeEpoch
+gsIsBootstrapEra epoch = do
+    unlockStakeEpoch <- gsUnlockStakeEpoch
+    pure $ isBootstrapEra unlockStakeEpoch epoch
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction

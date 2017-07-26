@@ -47,7 +47,7 @@ import           System.Wlog                  (WithLogger)
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
+import           Pos.Context                  (GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
                                                Timestamp (..), difficultyL)
 import           Pos.Crypto                   (WithHash (..), withHash)
@@ -178,7 +178,7 @@ runGenesisToil = coerce
 
 instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
          MonadUtxoRead (GenesisToil m) where
-    utxoGet txIn = M.lookup txIn <$> genesisUtxoM
+    utxoGet txIn = M.lookup txIn . unGenesisUtxo <$> genesisUtxoM
 
 ----------------------------------------------------------------------------
 -- MonadTxHistory

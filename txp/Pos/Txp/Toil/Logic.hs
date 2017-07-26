@@ -34,10 +34,11 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Core.Coin              (integerToCoin)
 import           Pos.Core.Constants         (memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
+import           Pos.Core.Slotting          (isBootstrapEra)
 import           Pos.Core.Types             (BlockVersionData (..), Coin, EpochIndex,
                                              StakeholderId)
 import           Pos.Crypto                 (WithHash (..), hash)
-import           Pos.DB.Class               (MonadGState (..), isBootstrapEraPure)
+import           Pos.DB.Class               (MonadGState (..))
 import           Pos.Util.Util              (HasLens', lensOf')
 
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOutDistribution, TxUndo,
@@ -181,7 +182,7 @@ verifyBootEra
        , MonadReader ctx m)
     => EpochIndex -> EpochIndex -> TxAux -> m ()
 verifyBootEra curEpoch unlockEpoch txAux = do
-    let bootEra = isBootstrapEraPure curEpoch unlockEpoch
+    let bootEra = isBootstrapEra curEpoch unlockEpoch
     bootHolders <- views (lensOf' @GenesisStakeholders) unGenesisStakeholders
     let bootRel = notBootRelated bootHolders
     when (bootEra && not (null bootRel)) $

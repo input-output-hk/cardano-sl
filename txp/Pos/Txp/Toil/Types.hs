@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Types used for managing of transactions
 -- and synchronization with database.
@@ -14,6 +14,7 @@ module Pos.Txp.Toil.Types
        , mkGenesisTxpContext
        , gtcUtxo
        , gtcStakeholders
+       , _GenesisUtxo
 
        , TxFee(..)
        , MemPool (..)
@@ -36,7 +37,7 @@ module Pos.Txp.Toil.Types
 
 import           Universum
 
-import           Control.Lens               (makeLenses)
+import           Control.Lens               (makeLenses, makePrisms, makeWrapped)
 import           Data.Default               (Default, def)
 import qualified Data.Map                   as M (toList)
 import qualified Data.HashMap.Strict as HM
@@ -79,7 +80,10 @@ utxoF = later formatUtxo
 -- | Wrapper for genesis utxo.
 newtype GenesisUtxo = GenesisUtxo
     { unGenesisUtxo :: Utxo
-    }
+    } deriving (Show)
+
+makePrisms  ''GenesisUtxo
+makeWrapped ''GenesisUtxo
 
 -- | Genesis context related to transaction processing.
 data GenesisTxpContext = UnsafeGenesisTxpContext
@@ -89,10 +93,10 @@ data GenesisTxpContext = UnsafeGenesisTxpContext
 
 makeLenses ''GenesisTxpContext
 
-mkGenesisTxpContext :: Utxo -> GenesisTxpContext
-mkGenesisTxpContext utxo = UnsafeGenesisTxpContext
-    (GenesisUtxo utxo)
-    (GenesisStakeholders . getKeys . utxoToStakes $ utxo)
+mkGenesisTxpContext :: GenesisUtxo -> GenesisTxpContext
+mkGenesisTxpContext genUtxo = UnsafeGenesisTxpContext
+    genUtxo
+    (GenesisStakeholders . getKeys . utxoToStakes $ unGenesisUtxo genUtxo)
 
 ----------------------------------------------------------------------------
 -- Fee

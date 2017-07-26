@@ -67,7 +67,7 @@ import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), Tx
                                               TxOutAux (..), TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
-import           Pos.Txp.Toil.Types          (GenesisStakeholders (..),
+import           Pos.Txp.Toil.Types          (GenesisStakeholders (..), GenesisUtxo (..),
                                               mkGenesisTxpContext, gtcStakeholders)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
@@ -192,7 +192,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
             utxoTxHash = unsafeHash ("randomutxotx" :: Text)
             txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
             txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
-        in (mkGenesisTxpContext $ M.fromList $ txIns `zip` txOuts) ^. gtcStakeholders
+        in (mkGenesisTxpContext $ GenesisUtxo $ M.fromList $ txIns `zip` txOuts) ^. gtcStakeholders
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBSum

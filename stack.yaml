@@ -46,7 +46,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 1c5135193f314231fc060c014b4c9b9fc7d188f5
+    commit: 195d21670aa8b3c08c354aef5796381e178ea7fd
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:

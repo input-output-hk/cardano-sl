@@ -87,6 +87,9 @@ library
                         Pos.Shutdown.Logic
                         Pos.Shutdown.Types
 
+                        -- Subscription
+                        Pos.Subscription
+
                         -- Pos.Binary
                         Pos.Binary.Infra
                         Pos.Binary.Infra.DHTModel

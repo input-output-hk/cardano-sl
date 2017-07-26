@@ -211,7 +211,6 @@ instance Buildable SpecError where
 type WorkerConstr m =
     ( WithLogger m
     , Mockable Throw m
-    , Mockable SharedAtomic m
     )
 
 toAction

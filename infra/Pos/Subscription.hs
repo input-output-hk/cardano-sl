@@ -1,6 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Pos.Subscription (subscriptionWorkers) where
+module Pos.Subscription
+    ( SubscriptionMode
+    , subscriptionWorkers
+    ) where
 
 import           Universum
 
@@ -8,22 +11,33 @@ import           Data.Time.Units         (Second, Millisecond, convertUnit)
 import           Data.Time               (UTCTime, NominalDiffTime, getCurrentTime,
                                           diffUTCTime)
 import           Formatting              (sformat, shown, (%))
-import           System.Wlog             (logInfo, logWarning, logError)
+import           Network.Broadcast.OutboundQueue.Types (peersFromList)
+import           System.Wlog             (WithLogger, logInfo, logWarning, logError)
 import qualified Data.Map.Strict         as M
+import           Mockable                (Mockable, Throw, Delay, Catch, delay, try, throw)
 import qualified Network.DNS             as DNS
+import           Node.Message.Class      (Message)
 
-import           Mockable                (delay, try)
-import           Network.Broadcast.OutboundQueue.Types (NodeType(..), peersFromList)
-import           Pos.Communication       (OutSpecs, WorkerSpec, MsgSubscribe (..))
-import           Pos.KnownPeers          (MonadKnownPeers(..))
-import           Pos.Ssc.Class           (SscWorkersClass)
-import           Pos.WorkMode.Class      (WorkMode)
-import           Pos.Communication       (Conversation (..), ConversationActions (..),
-                                          convH, toOutSpecs, worker,
-                                          NodeId, withConnectionTo, SendActions)
-import           Pos.Network.Types       (NetworkConfig(..), DnsDomains(..),
-                                          resolveDnsDomains)
-import           Pos.Slotting            (getLastKnownSlotDuration)
+import           Pos.Binary.Class           (Bi)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, MsgSubscribe (..),
+                                             Conversation (..), ConversationActions (..),
+                                             convH, toOutSpecs, worker,
+                                             NodeId, withConnectionTo, SendActions)
+import           Pos.KnownPeers             (MonadKnownPeers(..))
+import           Pos.Network.Types          (NetworkConfig(..), DnsDomains(..),
+                                             resolveDnsDomains, NodeType (..))
+
+type SubscriptionMode m =
+    ( MonadIO m
+    , WithLogger m
+    , Mockable Throw m
+    , Mockable Catch m
+    , Mockable Delay m
+    , MonadKnownPeers m
+    , Message MsgSubscribe
+    , Bi MsgSubscribe
+    , Message Void
+    )
 
 data KnownRelay = Relay {
       -- | When did we find out about this relay?
@@ -51,23 +65,23 @@ data RelayClosedConnection = RelayClosedConnection
 instance Exception RelayClosedConnection
 
 subscriptionWorkers
-    :: forall ssc ctx m. (WorkMode ssc ctx m, SscWorkersClass ssc)
+    :: forall m. (SubscriptionMode m)
     => NetworkConfig -> DnsDomains -> ([WorkerSpec m], OutSpecs)
 subscriptionWorkers networkCfg dnsDomains = first (:[]) <$>
     worker subscriptionWorkerSpec $ subscriptionWorker' networkCfg dnsDomains
-
-subscriptionWorkerSpec :: OutSpecs
-subscriptionWorkerSpec = toOutSpecs [ convH (Proxy @MsgSubscribe) (Proxy @Void) ]
+  where
+    subscriptionWorkerSpec :: OutSpecs
+    subscriptionWorkerSpec = toOutSpecs [ convH (Proxy @MsgSubscribe) (Proxy @Void) ]
 
 subscriptionWorker'
-    :: forall ssc ctx m. (WorkMode ssc ctx m)
+    :: forall m. (SubscriptionMode m)
     => NetworkConfig -> DnsDomains -> SendActions m -> m ()
 subscriptionWorker' networkCfg dnsDomains sendActions =
     loop M.empty
   where
     loop :: KnownRelays -> m ()
     loop oldRelays = do
-      slotDur <- getLastKnownSlotDuration
+      slotDur <- error "oops" -- getLastKnownSlotDuration
       now     <- liftIO $ getCurrentTime
       peers   <- findRelays
 
@@ -104,7 +118,7 @@ subscriptionWorker' networkCfg dnsDomains sendActions =
             pure $ Conversation $ \conv -> do
               send conv MsgSubscribe
               _void :: Maybe Void <- recv conv 0 -- Other side will never send
-              throwM RelayClosedConnection
+              throw RelayClosedConnection
           logWarning $ msgLostConnection relay
           timeOfEx <- liftIO $ getCurrentTime
           loop $ M.adjust (\r -> r { relayException = Just (timeOfEx, ex) })

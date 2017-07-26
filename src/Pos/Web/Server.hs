@@ -22,9 +22,9 @@ import           Control.Monad.Except                 (MonadError (throwError))
 import qualified Control.Monad.Reader                 as Mtl
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
-import           Network.Wai.Handler.Warp             (defaultSettings, setHost, setPort)
-import           Network.Wai.Handler.WarpTLS          (runSettings, runTLS,
-                                                       tlsSettingsChain)
+import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
+                                                       setHost, setPort)
+import           Network.Wai.Handler.WarpTLS          (runTLS, tlsSettingsChain)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),

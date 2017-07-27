@@ -51,11 +51,11 @@ packages:
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/serokell/network-transport-tcp
-    commit: a3639b5a0fdd43bae68c5548077561150dba53ee
+    commit: 24dd213cef81d383083feb7f5d9ce4b8a6be8168
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport
-    commit: 0b8f5a7bec389a4ffa653792cfd203c742a0857b
+    commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto

@@ -16,6 +16,7 @@ import qualified Data.ByteString               as BS
 import           Data.ByteString.Base58        (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     ((!!))
+import qualified Data.List.NonEmpty            as NE
 import qualified Data.Set                      as S (fromList, toList)
 import           Data.String.QQ                (s)
 import qualified Data.Text                     as T
@@ -30,7 +31,6 @@ import           Mockable                      (Mockable, Production, SharedAtom
                                                 modifySharedAtomic, newSharedAtomic, race,
                                                 runProduction)
 import           Network.Transport.Abstract    (Transport, hoistTransport)
-import           System.Console.Readline    (addHistory, readline)
 import           System.IO                     (BufferMode (LineBuffering), hClose,
                                                 hFlush, hSetBuffering, stdout)
 import           System.Wlog                   (logDebug, logError, logInfo, logWarning)
@@ -52,7 +52,7 @@ import           Pos.Communication             (NodeId, OutSpecs, SendActions, W
                                                 txRelays, usRelays, worker)
 import           Pos.Constants                 (genesisBlockVersionData,
                                                 genesisSlotDuration, isDevelopment)
-import           Pos.Core.Types                (Timestamp (..), mkCoin)
+import           Pos.Core.Types                (Address, Timestamp (..), mkCoin)
 import           Pos.Crypto                    (Hash, SecretKey, SignTag (SignUSVote),
                                                 emptyPassphrase, encToPublic, fakeSigner,
                                                 hash, hashHexF, noPassEncrypt,
@@ -360,15 +360,13 @@ evalCmd sa cmd cmdCtx = runCmd sa cmd cmdCtx >> evalCommands sa cmdCtx
 
 evalCommands :: MonadWallet ssc ctx m => SendActions m -> CmdCtx -> m ()
 evalCommands sa cmdCtx = do
-    (liftIO $ readline "> ") >>= \case
-        Nothing ->
-            evalCmd sa Quit cmdCtx -- EOF
-        Just line -> do
-            liftIO $ addHistory line
-            let cmd = parseCommand $ toText line
-            case cmd of
-                Left err   -> putStrLn err >> evalCommands sa cmdCtx
-                Right cmd_ -> evalCmd sa cmd_ cmdCtx
+    putStr @Text "> "
+    liftIO $ hFlush stdout
+    line <- getLine
+    let cmd = parseCommand line
+    case cmd of
+        Left err   -> putStrLn err >> evalCommands sa cmdCtx
+        Right cmd_ -> evalCmd sa cmd_ cmdCtx
 
 initialize :: MonadWallet ssc ctx m => WalletOptions -> m [NodeId]
 initialize WalletOptions{..} = do

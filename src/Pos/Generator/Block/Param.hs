@@ -1,7 +1,12 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Parameters used by blockchain generator.
 
 module Pos.Generator.Block.Param
-       ( AllSecrets (..)
+       ( InvSecretsMap
+       , unInvSecretsMap
+       , mkInvSecretsMap
+       , AllSecrets (..)
        , HasAllSecrets (..)
        , TxGenParams (..)
        , HasTxGenParams (..)
@@ -19,16 +24,30 @@ import           Formatting          (bprint, build, formatToString, int, (%))
 import qualified Prelude
 import           Serokell.Util       (listJson, pairF)
 
-import           Pos.Core            (BlockCount, StakeholderId)
-import           Pos.Crypto          (SecretKey)
+import           Pos.Core            (BlockCount, StakeholderId, addressHash)
+import           Pos.Crypto          (SecretKey, toPublic)
 
--- | All secret keys in the system. In testing environment we often
--- want to have inverse of 'hash' and 'toPublic'.
+-- | This map stores effectively provides inverse of 'hash' and
+-- 'toPublic' functions. It's quite useful in tests and block
+-- generator. (/Inv/ means /inverse/).
+newtype InvSecretsMap = InvSecretsMap
+    { unInvSecretsMap :: HashMap StakeholderId SecretKey
+    } deriving (Container, Monoid, NontrivialContainer)
+
+type instance Element InvSecretsMap = SecretKey
+
+-- | Make 'InvSecretsMap' from a list of secret keys.
+mkInvSecretsMap :: [SecretKey] -> InvSecretsMap
+mkInvSecretsMap =
+    let toSecretPair sk = (addressHash (toPublic sk), sk)
+    in InvSecretsMap . HM.fromList . map toSecretPair
+
+-- | All secrets in the system.
 --
 -- TODO: probably VSS keys should be added here at some point.
 data AllSecrets = AllSecrets
-    { _asSecretKeys :: !(HashMap StakeholderId SecretKey)
-    -- ^ Secret keys of all stakeholders from the genesis 'Utxo'.
+    { _asSecretKeys :: !InvSecretsMap
+    -- ^ Secret keys of all stakeholders participating in the system.
     }
 
 makeClassy ''AllSecrets
@@ -40,7 +59,7 @@ instance Buildable AllSecrets where
                 "  stakeholders: "%listJson%"\n"%
                 "}\n")
             (length _asSecretKeys)
-            (HM.keys _asSecretKeys)
+            (HM.keys $ unInvSecretsMap _asSecretKeys)
 
 -- | Parameters for transactions payload generation.
 data TxGenParams = TxGenParams

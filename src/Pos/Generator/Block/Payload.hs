@@ -1,6 +1,6 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP                 #-}
 
 -- TODO Maybe move it somewhere else.
 -- | Block payload generation.
@@ -34,7 +34,7 @@ import           Pos.DB                     (gsIsBootstrapEra)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..),
-                                             asSecretKeys)
+                                             asSecretKeys, unInvSecretsMap)
 import qualified Pos.GState                 as DB
 import           Pos.Slotting.Class         (MonadSlots (getCurrentSlotBlocking))
 import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
@@ -133,7 +133,7 @@ genTxPayload = do
         when (utxoSize == 0) $
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
 
-        secrets <- view asSecretKeys <$> view blockGenParams
+        secrets <- unInvSecretsMap . view asSecretKeys <$> view blockGenParams
         -- Unsafe hashmap resolving is used here because we suppose
         -- utxo contains only related to these secret keys only.
         let resolveSecret stId =

@@ -21,6 +21,9 @@ module Pos.Lrc.DB.Richmen
        -- ** Delegation
        , RCDlg
        , getRichmenDlg
+
+       -- * Exported for tests
+       , richmenComponents
        ) where
 
 import           Universum
@@ -53,7 +56,7 @@ prepareLrcRichmen
     => m ()
 prepareLrcRichmen = do
     genesisDistribution <- HM.toList <$> genesisStakesM
-    mapM_ (prepareLrcRichmenDo genesisDistribution) components
+    mapM_ (prepareLrcRichmenDo genesisDistribution) richmenComponents
   where
     prepareLrcRichmenDo distr (SomeRichmenComponent proxy) =
         whenNothingM_ (getRichmenP proxy 0) $
@@ -76,10 +79,12 @@ computeInitial initialDistr proxy =
 -- Instances. They are here, because we want to have a DB schema in Pos.DB
 ----------------------------------------------------------------------------
 
-components :: [SomeRichmenComponent]
-components = [ someRichmenComponent @RCSsc
-             , someRichmenComponent @RCUs
-             , someRichmenComponent @RCDlg]
+richmenComponents :: [SomeRichmenComponent]
+richmenComponents =
+    [ someRichmenComponent @RCSsc
+    , someRichmenComponent @RCUs
+    , someRichmenComponent @RCDlg
+    ]
 
 ----------------------------------------------------------------------------
 -- Delegation instance

@@ -25,7 +25,7 @@ import           Pos.Generator.Block.Mode    (BlockGenRandMode, MonadBlockGen,
                                               mkBlockGenContext, usingPrimaryKey,
                                               withCurrentSlot)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasAllSecrets (..),
-                                              HasBlockGenParams (..))
+                                              HasBlockGenParams (..), unInvSecretsMap)
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc                     (lrcSingleShotNoLock)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)
@@ -83,7 +83,8 @@ genBlock eos = do
                 lift $ maybeThrow
                     (BGInternal "no leader")
                     (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
-            secrets <- view asSecretKeys <$> view blockGenParams
+            secrets <-
+                unInvSecretsMap . view asSecretKeys <$> view blockGenParams
             leaderSK <-
                 lift $ maybeThrow (BGUnknownSecret leader) (secrets ^. at leader)
                     -- When we know the secret key we can proceed to the actual creation.

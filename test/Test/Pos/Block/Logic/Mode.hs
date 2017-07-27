@@ -23,7 +23,6 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
-import qualified Data.HashMap.Strict            as HM
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (Microsecond, TimeUnit (..))
 import           Ether.Internal                 (HasLens (..))
@@ -43,8 +42,8 @@ import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
 import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
-                                                 Timestamp (..), addressHash,
-                                                 makePubKeyAddress, mkCoin, unsafeGetCoin)
+                                                 Timestamp (..), makePubKeyAddress,
+                                                 mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
@@ -59,7 +58,8 @@ import           Pos.Discovery                  (DiscoveryContextSum (..),
                                                  HasDiscoveryContextSum (..),
                                                  MonadDiscovery (..), findPeersSum,
                                                  getPeersSum)
-import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..))
+import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..),
+                                                 mkInvSecretsMap)
 import           Pos.Genesis                    (genesisUtxo)
 import qualified Pos.GState                     as GS
 import           Pos.Launcher                   (newInitFuture)
@@ -105,19 +105,19 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpGenTxpContext     :: !GenesisTxpContext
-    -- ^ Genesis 'Utxo'.
-    , _tpAllSecrets        :: !AllSecrets
+    { _tpGenTxpContext      :: !GenesisTxpContext
+    -- ^ Genesis txp-related data.
+    , _tpAllSecrets         :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
     -- They are stored in map (with 'StakeholderId' as key) to make it easy
     -- to find 'SecretKey' corresponding to given 'StakeholderId'.
     -- In tests we often want to have inverse of 'hash' and 'toPublic'.
-    , _tpStakeDistribution :: !StakeDistribution
-    -- ^ Stake distribution which was used to generate genesis utxo.
-    -- It's primarily needed to see which distribution was used (e. g.
+    , _tpStakeDistributions :: ![StakeDistribution]
+    -- ^ Stake distributions which were used to generate genesis txp data.
+    -- It's primarily needed to see (in logs) which distribution was used (e. g.
     -- when test fails).
-    , _tpStartTime         :: !Microsecond
+    , _tpStartTime          :: !Microsecond
     }
 
 makeClassy ''TestParams
@@ -130,12 +130,12 @@ instance Buildable TestParams where
         bprint ("TestParams {\n"%
                 "  utxo = "%utxoF%"\n"%
                 "  secrets: "%build%"\n"%
-                "  stake distribution: "%shown%"\n"%
+                "  stake distributions: "%shown%"\n"%
                 "  start time: "%shown%"\n"%
                 "}\n")
             utxo
             _tpAllSecrets
-            _tpStakeDistribution
+            _tpStakeDistributions
             _tpStartTime
       where
         utxo =  unGenesisUtxo (_tpGenTxpContext ^. gtcUtxo)
@@ -159,14 +159,15 @@ instance Arbitrary TestParams where
     arbitrary = do
         secretKeysList <- toList @(NonEmpty SecretKey) <$> arbitrary -- might have repetitions
         let _tpStartTime = fromMicroseconds 0
-        let toSecretPair sk = (addressHash (toPublic sk), sk)
-        let secretKeysMap = HM.fromList $ map toSecretPair secretKeysList
-        let _tpAllSecrets = AllSecrets secretKeysMap
-        _tpStakeDistribution <-
-            genSuitableStakeDistribution (fromIntegral $ length secretKeysMap)
-        let addresses = map (makePubKeyAddress . toPublic) (toList secretKeysMap)
-        let _tpGenTxpContext = mkGenesisTxpContext $ genesisUtxo Nothing [(addresses, _tpStakeDistribution)]
-        return TestParams {..}
+        let invSecretsMap = mkInvSecretsMap secretKeysList
+        let _tpAllSecrets = AllSecrets invSecretsMap
+        stakeDistribution <-
+            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
+        let addresses =
+                map (makePubKeyAddress . toPublic) (toList invSecretsMap)
+        let utxo = genesisUtxo Nothing [(addresses, stakeDistribution)]
+        let _tpGenTxpContext = mkGenesisTxpContext utxo
+        return TestParams {_tpStakeDistributions = one stakeDistribution, ..}
 
 ----------------------------------------------------------------------------
 -- Init mode with instances

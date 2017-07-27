@@ -21,7 +21,8 @@ module Pos.Wallet.Web.Server.Methods
 import           Universum
 
 import           Control.Concurrent               (forkFinally)
-import           Control.Lens                     (each, ix, makeLenses, traversed, (.=))
+import           Control.Lens                     (each, has, ix, makeLenses, traversed,
+                                                   (.=))
 import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
@@ -76,7 +77,7 @@ import           Pos.Core                         (Address (..), Coin, TxFeePoli
                                                    getTimestamp, integerToCoin,
                                                    makeRedeemAddress, mkCoin, sumCoins,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   unsafeSubCoin, _RedeemAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SafeSigner, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
@@ -802,11 +803,10 @@ prepareTxRaw moneySource dstDistr fee = do
     let trRemaining = (remaining, remainingDistr)
     pure TxRaw{..}
   where
-    checkIsNotRedeem cId = decodeCIdOrFail cId >>= \case
-        RedeemAddress{} ->
+    checkIsNotRedeem cId =
+        whenM (has _RedeemAddress <$> decodeCIdOrFail cId) $
             throwM . RequestError $
             sformat ("Destination address can't be redeem address: "%build) cId
-        _ -> return ()
 
 -- | Accept all addresses in descending order (by coins)
 -- Addresses available to be source of the transaction, with their balances

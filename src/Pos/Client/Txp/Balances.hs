@@ -10,11 +10,14 @@ module Pos.Client.Txp.Balances
 
 import           Universum
 
+import           Control.Lens         (has)
 import           Control.Monad.Trans  (MonadTrans)
 import qualified Data.HashSet         as HS
+import           Data.List            (partition)
 import qualified Data.Map             as M
 
 import           Pos.Core             (AddressIgnoringAttributes (AddressIA))
+import           Pos.Core.Types       (_RedeemAddress)
 import           Pos.DB               (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.Txp              (MonadTxpMem, TxOutAux (..), Utxo, addrBelongsToSet,
                                        getUtxoModifier, txOutValue)
@@ -53,10 +56,7 @@ type BalancesEnv ext ctx m =
 
 getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
 getOwnUtxosDefault addrs = do
-    let isRedeem (RedeemAddress _) = True
-        isRedeem _                 = False
-        redeemAddrs = filter isRedeem addrs
-        commonAddrs = filter (not . isRedeem) addrs
+    let (redeemAddrs, commonAddrs) = partition (has _RedeemAddress) addrs
 
     updates <- getUtxoModifier
     commonUtxo <- if null commonAddrs then pure mempty

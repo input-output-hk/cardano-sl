@@ -16,7 +16,7 @@ import           Network.Broadcast.OutboundQueue.Types (simplePeers)
 
 import           Formatting                 (sformat, shown, (%))
 import           System.Wlog                (WithLogger, logNotice)
-import           Mockable                   (Mockable, Delay, Throw, Catch, Bracket,
+import           Mockable                   (Mockable, Throw, Catch, Bracket,
                                              try, bracket_)
 import           Node.Message.Class         (Message)
 

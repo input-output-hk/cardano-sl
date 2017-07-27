@@ -9,7 +9,6 @@ module Pos.DHT.Workers
 import           Universum
 
 import qualified Data.ByteString.Lazy       as BSL
-import qualified Data.Set                   as S
 import qualified Data.Store                 as Store
 import           Formatting                 (sformat, (%))
 import           Mockable                   (Delay, Async, Fork, Mockable, Catch)
@@ -17,14 +16,13 @@ import           Network.Kademlia           (takeSnapshot)
 import           System.Wlog                (WithLogger, logNotice)
 
 import           Pos.Binary.Infra.DHTModel  ()
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, Worker,
-                                             localOnNewSlotWorker,
-                                             Message, convH, toOutSpecs)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec,
+                                             localOnNewSlotWorker)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
-import           Pos.KnownPeers             (MonadKnownPeers)
+import           Pos.KnownPeers             (MonadKnownPeers, MonadFormatPeers)
 import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Shutdown               (HasShutdownContext)
@@ -42,6 +40,7 @@ type DhtWorkMode ctx m =
     , MonadRecoveryInfo m
     , MonadReader ctx m
     , MonadKnownPeers m
+    , MonadFormatPeers m
     , HasReportingContext ctx
     , HasShutdownContext ctx
     )

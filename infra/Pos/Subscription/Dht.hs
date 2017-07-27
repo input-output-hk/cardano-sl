@@ -4,22 +4,14 @@ module Pos.Subscription.Dht
     ( dhtSubscriptionWorker
     ) where
 
-import qualified Control.Concurrent.STM       as STM
-import qualified Control.Concurrent.STM.TVar  as STM
-import qualified Control.Concurrent.STM.TMVar as STM
+import qualified Control.Concurrent.STM     as STM
 import           Universum
 
-import qualified Data.Set                   as S
 import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (withAsync, try)
 import           Network.Broadcast.OutboundQueue.Types (peersFromList, Peers)
 import           System.Wlog                (logNotice)
 
-import           Pos.Communication.Protocol (NodeId, OutSpecs, WorkerSpec, Worker,
-                                             localOnNewSlotWorker, ActionSpec (..),
-                                             MsgSubscribe (..), SendActions (..),
-                                             Conversation (..), ConversationActions (..),
-                                             Message, convH, toOutSpecs)
+import           Pos.Communication.Protocol (NodeId, Worker)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.DHT.Real.Real          (kademliaGetKnownPeers)
 import           Pos.DHT.Workers            (DhtWorkMode)
@@ -36,11 +28,11 @@ dhtSubscriptionWorker
        )
     => KademliaDHTInstance
     -> Worker m
-dhtSubscriptionWorker kademliaInst sendActions = do
+dhtSubscriptionWorker kademliaInst _sendActions = do
     logNotice "Kademlia subscription worker started"
     updateForeverNoSubscribe mempty
     {-
-    -- A  TMVar NodeId  for each peer to which 
+    -- A  TMVar NodeId  for each peer to which
     toSubscribe <- liftIO . atomically $ forM [1..valency] (const STM.newEmptyTMVar)
     -- A  TVar (Set NodeId)  for the set of peers to which we're currently
     -- subscribed.
@@ -206,6 +198,6 @@ dhtSubscriptionWorker kademliaInst sendActions = do
     mkPeers = peersFromList . fmap ((,) peerType) . transpose . take (1 + fallbacks) . mkGroupsOf valency
 
     mkGroupsOf :: Int -> [a] -> [[a]]
-    mkGroupsOf n [] = []
+    mkGroupsOf _ [] = []
     mkGroupsOf n lst = case splitAt n lst of
         (these, those) -> these : mkGroupsOf n those

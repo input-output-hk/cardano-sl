@@ -25,7 +25,6 @@ import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
-import           Pos.Discovery                    (MonadDiscovery (..))
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), JsonLogConfig,
@@ -80,10 +79,6 @@ instance {-# OVERLAPPING #-} HasLoggerName LightWalletMode where
 
 instance {-# OVERLAPPING #-} CanJsonLog LightWalletMode where
     jsonLog = jsonLogDefault
-
-instance MonadDiscovery LightWalletMode where
-    getPeers = view lwcDiscoveryPeers_L
-    findPeers = view lwcDiscoveryPeers_L
 
 instance MonadBListener LightWalletMode where
     onApplyBlocks = onApplyBlocksStub

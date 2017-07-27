@@ -53,7 +53,7 @@ import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
                                               dbWriteBatchDefault)
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.Reporting               (HasReportingContext (..))
-import           Pos.KnownPeers              (MonadKnownPeers (..))
+import           Pos.KnownPeers              (MonadKnownPeers (..), MonadFormatPeers (..))
 import           Pos.Shutdown                (HasShutdownContext (..))
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
@@ -218,6 +218,8 @@ instance MonadKnownPeers (RealMode ssc) where
     removeKnownPeer nid = do
         oq <- rmcOutboundQ <$> ask
         OQ.removeKnownPeer oq nid
+
+instance MonadFormatPeers (RealMode scc) where
     formatKnownPeers formatter = do
         oq <- rmcOutboundQ <$> ask
-        OQ.dumpState oq formatter
+        Just <$> OQ.dumpState oq formatter

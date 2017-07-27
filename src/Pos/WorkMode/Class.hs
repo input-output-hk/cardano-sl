@@ -36,7 +36,7 @@ import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
 import           Pos.Core                    (HasPrimaryKey)
-import           Pos.KnownPeers              (MonadKnownPeers)
+import           Pos.KnownPeers              (MonadKnownPeers, MonadFormatPeers)
 import           Pos.Network.Types           (NetworkConfig)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
@@ -84,6 +84,7 @@ type WorkMode ssc ctx m
       , MonadBListener m
       , MonadReader ctx m
       , MonadKnownPeers m
+      , MonadFormatPeers m
       , HasLens StartTime ctx StartTime
       , HasLens BlkSemaphore ctx BlkSemaphore
       , HasLens LrcContext ctx LrcContext

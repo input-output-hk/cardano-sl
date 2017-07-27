@@ -44,7 +44,7 @@ import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback
 import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
 import           Pos.Lrc.Context         (LrcContext)
-import           Pos.KnownPeers          (MonadKnownPeers)
+import           Pos.KnownPeers          (MonadFormatPeers)
 import           Pos.Reporting           (HasReportingContext, reportingFatal)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
@@ -107,7 +107,7 @@ type MonadBlockApply ssc ctx m
        -- Needed for error reporting.
        , HasReportingContext ctx
        , MonadReader ctx m
-       , MonadKnownPeers m
+       , MonadFormatPeers m
        )
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,

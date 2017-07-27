@@ -43,7 +43,7 @@ import           System.Wlog              (LoggerConfig (..), WithLogger, hwFile
 import           Paths_cardano_sl_infra   (version)
 import           Pos.Core.Constants       (protocolMagic)
 import           Pos.Exception            (CardanoFatalError)
-import           Pos.KnownPeers           (MonadKnownPeers (..))
+import           Pos.KnownPeers           (MonadFormatPeers (..))
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
                                            HasReportingContext (..))
@@ -63,7 +63,7 @@ type MonadReporting ctx m =
        ( MonadIO m
        , MonadMask m
        , MonadReader ctx m
-       , MonadKnownPeers m
+       , MonadFormatPeers m
        , HasReportingContext ctx
        , WithLogger m
        )
@@ -136,9 +136,9 @@ ipv4Local w =
 
 -- | Retrieves node info that we would like to know when analyzing
 -- malicious behavior of node.
-getNodeInfo :: (MonadIO m, MonadKnownPeers m) => m Text
+getNodeInfo :: (MonadIO m, MonadFormatPeers m) => m Text
 getNodeInfo = do
-    peersText <- formatKnownPeers sformat
+    peersText <- fromMaybe "unknown" <$> formatKnownPeers sformat
     (ips :: [Text]) <-
         map show . filter ipExternal . map ipv4 <$>
         liftIO getNetworkInterfaces

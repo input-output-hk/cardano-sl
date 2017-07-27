@@ -13,7 +13,7 @@ import           System.Wlog         (WithLogger)
 
 import           Pos.Core            (HasPrimaryKey)
 import           Pos.DB.Class        (MonadDB, MonadGState)
-import           Pos.KnownPeers      (MonadKnownPeers)
+import           Pos.KnownPeers      (MonadFormatPeers)
 import           Pos.Lrc.Context     (LrcContext)
 import           Pos.Recovery.Info   (MonadRecoveryInfo)
 import           Pos.Reporting       (HasReportingContext)
@@ -34,7 +34,7 @@ type SscMode ssc ctx m
       , MonadSlots m
       , MonadGState m
       , MonadDB m
-      , MonadKnownPeers m
+      , MonadFormatPeers m
       , MonadSscMem ssc ctx m
       , MonadRecoveryInfo m
       , HasShutdownContext ctx

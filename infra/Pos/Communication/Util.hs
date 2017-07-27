@@ -17,7 +17,7 @@ import           System.Wlog                 (LoggerName, WithLogger, modifyLogg
 import           Pos.Communication.Constants (networkWaitLogInterval)
 import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
                                               MessageName (..), mapActionSpec,
-                                              mapListener, mapListener',
+                                              mapListener,
                                               SendActions (..), Conversation (..))
 import           Pos.Util.TimeLimit          (CanLogInParallel, logWarningWaitLinear)
 
@@ -52,12 +52,13 @@ convWithWaitLog nodeId conv = conv { N.send = send', N.recv = recv' }
     MessageName sndMsg = messageName $
         ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy snd) conv
 
-convWithWaitLogL
+-- TODO: Remove?
+_convWithWaitLogL
     :: (CanLogInParallel m, Message rcv)
     => N.NodeId
     -> N.ConversationActions snd rcv m
     -> N.ConversationActions snd rcv m
-convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
+_convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
         logWarningWaitLinear networkWaitLogInterval

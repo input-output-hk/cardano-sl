@@ -44,7 +44,7 @@ import           Universum
 
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
-import           Pos.KnownPeers                   (MonadKnownPeers)
+import           Pos.KnownPeers                   (MonadFormatPeers)
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
 import           Pos.Reporting                    (HasReportingContext)
 import           Pos.Shutdown                     (HasShutdownContext)
@@ -245,7 +245,7 @@ type LocalOnNewSlotComm ctx m =
     , HasReportingContext ctx
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
-    , MonadKnownPeers m
+    , MonadFormatPeers m
     )
 
 type OnNewSlotComm ctx m =

@@ -7,6 +7,7 @@ import           Universum                       hiding (bracket)
 
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
+import qualified Data.Set                        as Set
 import           Mockable                        (MonadMockable, Production, bracket,
                                                   fork, sleepForever)
 import           Network.Transport.Abstract      (Transport)

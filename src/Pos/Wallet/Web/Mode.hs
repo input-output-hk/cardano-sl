@@ -53,7 +53,7 @@ import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsD
                                                 putSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
-import           Pos.KnownPeers                (MonadKnownPeers (..))
+import           Pos.KnownPeers                (MonadKnownPeers (..), MonadFormatPeers (..))
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName           (HasLoggerName' (..), getLoggerNameDefault,
@@ -220,6 +220,8 @@ instance MonadKnownPeers WalletWebMode where
     removeKnownPeer nid = do
         oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
         OQ.removeKnownPeer oq nid
+
+instance MonadFormatPeers WalletWebMode where
     formatKnownPeers formatter = do
         oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
-        OQ.dumpState oq formatter
+        Just <$> OQ.dumpState oq formatter

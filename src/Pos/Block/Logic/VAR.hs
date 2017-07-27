@@ -25,12 +25,13 @@ import           Ether.Internal           (HasLens (..))
 import           System.Wlog              (logDebug)
 
 import           Pos.Block.Core           (Block)
-import           Pos.Block.Error          (RollbackException (..))
+import           Pos.Block.Error          (ApplyBlocksException (..),
+                                           RollbackException (..),
+                                           VerifyBlocksException (..))
 import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
                                            MonadMempoolNormalization, applyBlocksUnsafe,
                                            normalizeMempool, rollbackBlocksUnsafe,
                                            toTxpBlock, toUpdateBlock)
-import           Pos.Block.Logic.Util     (tipMismatchMsg)
 import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
@@ -61,29 +62,30 @@ verifyBlocksPrefix
     :: forall ssc ctx m.
        MonadBlockVerify ssc ctx m
     => OldestFirst NE (Block ssc)
-    -> m (Either Text (OldestFirst NE Undo, PollModifier))
+    -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
     -- This check (about tip) is here just in case, we actually check
     -- it before calling this function.
     tip <- GS.getTip
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
-        throwError "the first block isn't based on the tip"
+        throwError $ VerifyBlocksError "the first block isn't based on the tip"
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.
     adoptedBV <- GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     -- And then we run verification of each component.
-    slogUndos <- slogVerifyBlocks blocks
-    _ <- withExceptT pretty $ sscVerifyBlocks (map toSscBlock blocks)
+    slogUndos <- withExceptT VerifyBlocksError $ slogVerifyBlocks blocks
+    _ <- withExceptT (VerifyBlocksError . pretty) $
+        sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
-        map toTxpBlock blocks
-    pskUndo <- ExceptT $ dlgVerifyBlocks blocks
-    (pModifier, usUndos) <- withExceptT pretty $
+    txUndo <- withExceptT (VerifyBlocksError . pretty) $
+        tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
+    pskUndo <- withExceptT VerifyBlocksError . ExceptT $ dlgVerifyBlocks blocks
+    (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
         usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
-        throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
+        throwError $ VerifyBlocksError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
     pure ( OldestFirst $ neZipWith4 Undo
                (getOldestFirst txUndo)
                (getOldestFirst pskUndo)
@@ -104,12 +106,12 @@ type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore
 -- partial application happened.
 verifyAndApplyBlocks
     :: forall ssc ctx m. (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
-    => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
+    => Bool -> OldestFirst NE (Block ssc) -> m (Either ApplyBlocksException HeaderHash)
 verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
-    when (tip /= assumedTip) $ throwError $
-        tipMismatchMsg "verify and apply" tip assumedTip
+    when (tip /= assumedTip) $
+        throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
     hh <- rollingVerifyAndApply [] (spanEpoch blocks)
     lift $ normalizeMempool
     pure hh
@@ -126,7 +128,8 @@ verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
     applyAMAP _ (OldestFirst []) False                  = GS.getTip
     applyAMAP e (OldestFirst (block:xs)) nothingApplied =
         lift (verifyBlocksPrefix (one block)) >>= \case
-            Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
+            Left (ApplyBlocksVerifyFailure -> e') ->
+                applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
@@ -134,9 +137,9 @@ verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
                              \verification of one block produced more than one undo"
     -- Rollbacks and returns an error
     failWithRollback
-        :: Text
+        :: ApplyBlocksException
         -> [NewestFirst NE (Blund ssc)]
-        -> ExceptT Text m HeaderHash
+        -> ExceptT ApplyBlocksException m HeaderHash
     failWithRollback e toRollback = do
         logDebug "verifyAndapply failed, rolling back"
         lift $ mapM_ rollbackBlocks toRollback
@@ -150,7 +153,7 @@ verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
     rollingVerifyAndApply
         :: [NewestFirst NE (Blund ssc)]
         -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
-        -> ExceptT Text m HeaderHash
+        -> ExceptT ApplyBlocksException m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
         logDebug "Rolling: Calculating LRC if needed"
@@ -158,7 +161,7 @@ verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
             lift $ lrcSingleShotNoLock (prefixHead ^. epochIndexL)
         logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
-            Left failure
+            Left (ApplyBlocksVerifyFailure -> failure)
                 | rollback  -> failWithRollback failure blunds
                 | otherwise -> do
                       logDebug "Rolling: Applying AMAP"
@@ -223,12 +226,11 @@ applyWithRollback
     :: (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
-    -> m (Either Text HeaderHash)
+    -> m (Either ApplyBlocksException HeaderHash)
 applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $
-        throwError $ tipMismatchMsg "applyWithRollback/rollback"
-                         tip newestToRollback
+        throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback
     lift $ rollbackBlocksUnsafe toRollback
     ExceptT $ bracketOnError (pure ()) (\_ -> applyBack) $ \_ -> do
         tipAfterRollback <- GS.getTip
@@ -242,8 +244,7 @@ applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
 
     onBadRollback tip =
-        applyBack $> Left (tipMismatchMsg "applyWithRollback/apply"
-                               tip newestToRollback)
+        applyBack $> Left (ApplyBlocksTipMismatch "applyWithRollback/apply" tip newestToRollback)
 
     onGoodRollback =
         verifyAndApplyBlocks True toApply >>= \case

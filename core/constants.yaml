@@ -165,13 +165,16 @@ qanet_tns: &qanet_tns
 travis: &travis
   <<: *qanet_tns
 
-  k: 3  # it's needed for tests
+  k: 35  # it's needed for tests
 
 benchmark: &benchmark
   <<: *testnet
 
   genesisN: 50000
   k: 6
+
+  genesisUnlockStakeEpoch: 0 # it effectively disables bootstrap era in
+                             # benchmarks because we don't need it there
 
   protocolmagic: 50988000
   genesisBinSuffix: qa # qa is set here arbitrarily, it won't be actually used

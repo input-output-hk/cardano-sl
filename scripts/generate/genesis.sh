@@ -29,9 +29,12 @@ fi
 
 F=100 # fake avvm keys
 
+# print commit
+git show HEAD --oneline | tee $outputDir/genesisCreation.log
+
 keygenCmd="stack exec cardano-keygen -- --genesis-dir $outputDir -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries $F"
 echo "Running command: $keygenCmd"
-$keygenCmd |& tee $outputDir/genesisCreation.log
+$keygenCmd |& tee -a $outputDir/genesisCreation.log
 
 echo "Cleaning up"
 find $outputDir -name "*.lock" | xargs rm 

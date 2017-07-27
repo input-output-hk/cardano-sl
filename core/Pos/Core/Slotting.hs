@@ -90,33 +90,42 @@ instance HasEpochIndex EpochOrSlot where
 instance Enum EpochOrSlot where
     succ (EpochOrSlot (Left e)) =
         EpochOrSlot (Right SlotId {siEpoch = e, siSlot = minBound})
-    succ (EpochOrSlot (Right si@SlotId {..}))
-        | siSlot == maxBound && siEpoch == maxBound =
-            error "succ@EpochOrSlot: maxBound"
+    succ e@(EpochOrSlot (Right si@SlotId {..}))
+        | e == maxBound = error "succ@EpochOrSlot: maxBound"
         | siSlot == maxBound = EpochOrSlot (Left (siEpoch + 1))
         | otherwise = EpochOrSlot $ Right si {siSlot = succ siSlot}
-    pred (EpochOrSlot (Left e))
-        | e == 0 = error "pred@EpochOrSlot: minBound"
+    pred eos@(EpochOrSlot (Left e))
+        | eos == minBound = error "pred@EpochOrSlot: minBound"
         | otherwise =
             EpochOrSlot (Right SlotId {siEpoch = e - 1, siSlot = maxBound})
     pred (EpochOrSlot (Right si@SlotId {..}))
         | siSlot == minBound = EpochOrSlot (Left siEpoch)
         | otherwise = EpochOrSlot $ Right si {siSlot = pred siSlot}
     fromEnum (EpochOrSlot (Left e)) =
-        fromIntegral $ fromIntegral e * (epochSlots + 1)
+        let res = toInteger e * toInteger (epochSlots + 1)
+            maxIntAsInteger = toInteger (maxBound :: Int)
+        in if | res > maxIntAsInteger -> error "fromEnum @EpochOrSlot"
+              | otherwise -> fromIntegral res
     fromEnum (EpochOrSlot (Right SlotId {..})) =
-        fromEnum (EpochOrSlot (Left siEpoch)) +
-        fromIntegral (getSlotIndex siSlot) +
-        1
+        let res = toInteger (fromEnum (EpochOrSlot (Left siEpoch))) +
+                  toInteger (getSlotIndex siSlot) +
+                  1
+            maxIntAsInteger = toInteger (maxBound :: Int)
+        in if | res > maxIntAsInteger -> error "fromEnum @EpochOrSlot"
+              | otherwise -> fromIntegral res
     toEnum x =
         let (fromIntegral -> epoch, fromIntegral -> slot) =
                 x `divMod` (fromIntegral epochSlots + 1)
             slotIdx =
                 leftToPanic "toEnum @EpochOrSlot" $ mkLocalSlotIndex (slot - 1)
-        in if | slot == 0 -> EpochOrSlot (Left epoch)
+        in if | x < 0 -> error "toEnum @EpochOrSlot: Negative argument"
+              | slot == 0 -> EpochOrSlot (Left epoch)
               | otherwise ->
-                  EpochOrSlot
-                      (Right SlotId {siSlot = slotIdx, siEpoch = epoch})
+                  EpochOrSlot (Right SlotId {siSlot = slotIdx, siEpoch = epoch})
+
+instance Bounded EpochOrSlot where
+    maxBound = EpochOrSlot (Right SlotId {siSlot = maxBound, siEpoch = maxBound})
+    minBound = EpochOrSlot (Left (EpochIndex 0))
 
 -- | Unsafe constructor of 'LocalSlotIndex'.
 unsafeMkLocalSlotIndex :: Word16 -> LocalSlotIndex

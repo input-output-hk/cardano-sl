@@ -7,6 +7,7 @@ module Pos.Arbitrary.Core
        , CoinPairOverflowSub (..)
        , CoinPairOverflowMul (..)
        , DoubleInZeroToOneRange (..)
+       , EoSToIntOverflow (..)
        , IntegerToCoinNoOverflow (..)
        , IntegerToCoinOverflow (..)
        , LessThanZeroOrMoreThanOne (..)
@@ -38,7 +39,7 @@ import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
                                                     makeScriptAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Constants                (sharedSeedLength)
+import           Pos.Core.Constants                (epochSlots, sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
@@ -284,6 +285,30 @@ newtype SafeWord = SafeWord
 
 instance Arbitrary SafeWord where
     arbitrary = SafeWord . Types.getCoinPortion <$> arbitrary
+
+-- | A wrapper over 'Int'. When converted to 'EpochOrSlot' via 'fromEnum', using this
+-- type ensures there's an exception.
+newtype EoSToIntOverflow = EoSToIntOverflow
+    { getInt :: Types.EpochOrSlot
+    } deriving (Show, Eq)
+
+instance Arbitrary EoSToIntOverflow where
+    arbitrary = EoSToIntOverflow <$> do
+        let maxIntAsInteger = toInteger (maxBound :: Int)
+            maxW64 = toInteger (maxBound :: Word64)
+            (minDiv, minMod) = maxIntAsInteger `divMod` (1 + fromIntegral epochSlots)
+            maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
+        leftEpoch <- Types.EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
+        localSlot <-
+            leftToPanic "arbitrary@EoSToIntOverflow" .
+            Types.mkLocalSlotIndex .
+            fromIntegral <$> choose (minMod, toInteger epochSlots)
+        let rightEpoch = Types.EpochIndex . fromIntegral $ minDiv
+        Types.EpochOrSlot <$>
+            oneof [ pure $ Left leftEpoch
+                  , pure $ Right Types.SlotId { siEpoch = rightEpoch
+                                              , siSlot = localSlot}
+                  ]
 
 instance Arbitrary Types.SharedSeed where
     arbitrary = do

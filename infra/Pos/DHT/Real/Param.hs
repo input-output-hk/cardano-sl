@@ -24,11 +24,6 @@ data KademliaParams = KademliaParams
     -- ^ Path to kademlia dump file
     , kpExternalAddress :: !(Maybe NetworkAddress)
     -- ^ External address of node
-    , kpValency         :: !Int
-    -- ^ Maximum number of peers to try to send to
-    , kpFallbacks       :: !Int
-    -- ^ Maximum number of fallbacks per send target (number of send targets
-    -- is bounded by kpValency)
     } deriving (Show)
 
 -- | Get a KademliaParams from its yaml counterpart. Could fail because the
@@ -45,8 +40,6 @@ fromYamlConfig yamlParams = do
         , kpPeers           = kademliaAddressToNetworkAddress <$> Y.kpPeers yamlParams
         , kpDumpFile        = Y.kpDumpFile yamlParams
         , kpExplicitInitial = Y.kpExplicitInitial yamlParams
-        , kpValency         = Y.kpValency yamlParams
-        , kpFallbacks       = Y.kpFallbacks yamlParams
         }
 
 kademliaAddressToNetworkAddress :: Y.KademliaAddress -> NetworkAddress

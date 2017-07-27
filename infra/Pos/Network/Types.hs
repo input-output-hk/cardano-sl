@@ -2,6 +2,8 @@ module Pos.Network.Types
     ( NetworkConfig (..)
     , Topology(..)
     , SubscriptionWorker(..)
+    , Valency
+    , Fallbacks
     , topologyNodeType
     , topologySubscriberNodeType
     , topologySubscriptionWorker
@@ -52,6 +54,10 @@ defaultNetworkConfig ncTopology = NetworkConfig {
     , ..
     }
 
+type Valency = Int
+
+type Fallbacks = Int
+
 -- | Topology of the network, from the point of view of the current node
 data Topology kademlia =
     -- | All peers of the node have been statically configured
@@ -67,11 +73,11 @@ data Topology kademlia =
   | TopologyBehindNAT !DnsDomains
 
     -- | We discover our peers through Kademlia
-  | TopologyP2P !kademlia
+  | TopologyP2P !Valency !Fallbacks !kademlia
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
-  | TopologyTraditional !kademlia
+  | TopologyTraditional !Valency !Fallbacks !kademlia
 
     -- | Light wallets simulate "real" edge nodes, but are configured with
     -- a static set of relays.
@@ -83,40 +89,39 @@ topologyNodeType :: Topology kademlia -> NodeType
 topologyNodeType (TopologyCore _)            = NodeCore
 topologyNodeType (TopologyRelay _ _)         = NodeRelay
 topologyNodeType (TopologyBehindNAT _)       = NodeEdge
-topologyNodeType (TopologyP2P _)             = NodeEdge
-topologyNodeType (TopologyTraditional _)     = NodeCore
+topologyNodeType (TopologyP2P _ _ _)         = NodeEdge
+topologyNodeType (TopologyTraditional _ _ _) = NodeCore
 topologyNodeType (TopologyLightWallet _)     = NodeEdge
 
 -- | The NodeType to assign to subscribers. Give Nothing if subscribtion
 -- is not allowed for a node with this topology.
 topologySubscriberNodeType :: Topology kademlia -> Maybe NodeType
-topologySubscriberNodeType (TopologyRelay _ _)          = Just NodeEdge
-topologySubscriberNodeType (TopologyTraditional _)      = Just NodeCore
-topologySubscriberNodeType (TopologyP2P _)              = Just NodeRelay
-topologySubscriberNodeType _                            = Nothing
+topologySubscriberNodeType (TopologyRelay _ _)         = Just NodeEdge
+topologySubscriberNodeType (TopologyTraditional _ _ _) = Just NodeCore
+topologySubscriberNodeType (TopologyP2P _ _ _)         = Just NodeRelay
+topologySubscriberNodeType _                           = Nothing
 
 data SubscriptionWorker kademlia =
     SubscriptionWorkerBehindNAT DnsDomains
-    -- | Node type of subscribers, valency, and number of fallbacks.
-  | SubscriptionWorkerKademlia kademlia NodeType Int Int
+  | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
 topologySubscriptionWorker :: Topology kademlia -> Maybe (SubscriptionWorker kademlia)
 topologySubscriptionWorker = go
   where
-    go (TopologyBehindNAT doms)       = Just $ SubscriptionWorkerBehindNAT doms
-    go (TopologyP2P kademlia)         = Just $ SubscriptionWorkerKademlia kademlia NodeRelay 3 1
-    go (TopologyTraditional kademlia) = Just $ SubscriptionWorkerKademlia kademlia NodeCore 3 1
-    go _otherwise                     = Nothing
+    go (TopologyBehindNAT doms)           = Just $ SubscriptionWorkerBehindNAT doms
+    go (TopologyP2P v f kademlia)         = Just $ SubscriptionWorkerKademlia kademlia NodeRelay v f
+    go (TopologyTraditional v f kademlia) = Just $ SubscriptionWorkerKademlia kademlia NodeCore v f
+    go _otherwise                         = Nothing
 
 -- | Should we register to the Kademlia network?
 topologyRunKademlia :: Topology kademlia -> Maybe kademlia
 topologyRunKademlia = go
   where
-    go (TopologyRelay _ kademlia)     = Just kademlia
-    go (TopologyP2P kademlia)         = Just kademlia
-    go (TopologyTraditional kademlia) = Just kademlia
-    go _                              = Nothing
+    go (TopologyRelay _ kademlia)         = Just kademlia
+    go (TopologyP2P _ _ kademlia)         = Just kademlia
+    go (TopologyTraditional _ _ kademlia) = Just kademlia
+    go _                                  = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia
@@ -137,8 +142,8 @@ staticallyKnownPeers NetworkConfig{..} = go ncTopology
     go (TopologyCore peers)            = peers
     go (TopologyRelay peers _)         = peers
     go (TopologyBehindNAT _)           = mempty
-    go (TopologyP2P _)                 = mempty
-    go (TopologyTraditional _)         = mempty
+    go (TopologyP2P _ _ _)             = mempty
+    go (TopologyTraditional _ _ _)     = mempty
     go (TopologyLightWallet peers)     = simplePeers $ map (NodeRelay, ) peers
 
 -- | Initialize the outbound queue based on the network configuration

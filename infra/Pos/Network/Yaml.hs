@@ -34,8 +34,8 @@ import           Pos.Network.DnsDomains (DnsDomains(..))
 data Topology =
     TopologyStatic !AllStaticallyKnownPeers
   | TopologyBehindNAT !DnsDomains
-  | TopologyP2P
-  | TopologyTraditional
+  | TopologyP2P !Int !Int
+  | TopologyTraditional !Int !Int
   deriving (Show)
 
 -- | All statically known peers in the newtork
@@ -99,8 +99,6 @@ data KademliaParams = KademliaParams
       -- doesn't suffer this problem.
     , kpExplicitInitial :: !Bool
     , kpDumpFile        :: !(Maybe FilePath)
-    , kpValency         :: !Int
-    , kpFallbacks       :: !Int
     }
     deriving (Show)
 
@@ -112,8 +110,6 @@ instance FromJSON KademliaParams where
         kpBind <- obj .: "address"
         kpExplicitInitial <- obj .:? "explicitInitial" .!= False
         kpDumpFile <- obj .:? "dumpFile"
-        kpValency <- obj .:? "valency" .!= 3
-        kpFallbacks <- obj .:? "fallbacks" .!= 1
         return KademliaParams {..}
 
 instance ToJSON KademliaParams where
@@ -124,8 +120,6 @@ instance ToJSON KademliaParams where
         , "address"         .= kpBind
         , "explicitInitial" .= kpExplicitInitial
         , "dumpFile"        .= kpDumpFile
-        , "valency"         .= kpValency
-        , "fallbacks"       .= kpFallbacks
         ]
 
 -- | A Kademlia identifier in text representation (probably base64-url encoded).
@@ -219,10 +213,15 @@ instance FromJSON Topology where
             TopologyStatic <$> parseJSON nodes
         (Nothing, Just relays, Nothing) ->
             TopologyBehindNAT <$> parseJSON relays
-        (Nothing, Nothing, Just p2p) -> flip (A.withText "P2P variant") p2p $ \txt -> case txt of
-            "traditional" -> pure TopologyTraditional
-            "normal"      -> pure TopologyP2P
-            _             -> fail "P2P variant: expected 'traditional' or 'normal'"
+        (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
+            variantTxt <- obj .: "variant"
+            variant <- flip (A.withText "P2P variant") variantTxt $ \txt -> case txt of
+                "traditional" -> pure TopologyTraditional
+                "normal"      -> pure TopologyP2P
+                _             -> fail "P2P variant: expected 'traditional' or 'normal'"
+            valency <- obj .:? "valency" .!= 3
+            fallbacks <- obj .:? "fallbacks" .!= 1
+            pure (variant valency fallbacks)
         _ ->
           fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
 
@@ -283,5 +282,17 @@ instance ToJSON AllStaticallyKnownPeers where
 instance ToJSON Topology where
   toJSON (TopologyStatic    nodes)  = A.object [ "nodes"  .= nodes                   ]
   toJSON (TopologyBehindNAT relays) = A.object [ "relays" .= relays                  ]
-  toJSON TopologyP2P                = A.object [ "p2p"    .= ("normal" :: Text)      ]
-  toJSON TopologyTraditional        = A.object [ "p2p"    .= ("traditional" :: Text) ]
+  toJSON (TopologyP2P v f)          = A.object
+      [ "p2p" .= A.object [
+            "variant"   .= ("normal" :: Text)
+          , "valency"   .= v
+          , "fallbacks" .= f
+          ]
+      ]
+  toJSON (TopologyTraditional v f)  = A.object
+      [ "p2p" .= A.object [
+            "variant"   .= ("traditional" :: Text)
+          , "valency"   .= v
+          , "fallbacks" .= f
+          ]
+      ]

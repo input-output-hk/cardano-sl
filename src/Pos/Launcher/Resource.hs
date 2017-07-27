@@ -317,8 +317,8 @@ bracketKademlia
     -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a
 bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
-    (TopologyP2P kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyP2P kinst)
-    (TopologyTraditional kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyTraditional kinst)
+    (TopologyP2P v f kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyP2P v f kinst)
+    (TopologyTraditional v f kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyTraditional v f kinst)
     (TopologyRelay peers kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyRelay peers kinst)
     (TopologyCore peers) -> k (TopologyCore peers)
     (TopologyBehindNAT domains) -> k (TopologyBehindNAT domains)

@@ -109,10 +109,10 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
             T.NodeEdge -> throwM NetworkConfigSelfEdge
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
-      Y.TopologyP2P -> withKademliaParams cfg $ \kparams ->
-        return (T.TopologyP2P kparams)
-      Y.TopologyTraditional -> withKademliaParams cfg $ \kparams ->
-        return (T.TopologyTraditional kparams)
+      Y.TopologyP2P v f -> withKademliaParams cfg $ \kparams ->
+        return (T.TopologyP2P v f kparams)
+      Y.TopologyTraditional v f -> withKademliaParams cfg $ \kparams ->
+        return (T.TopologyTraditional v f kparams)
     return T.NetworkConfig {
         ncTopology    = ourTopology
       , ncDefaultPort = networkConfigOptsPort

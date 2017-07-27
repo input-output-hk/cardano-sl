@@ -29,7 +29,7 @@ import           Serokell.AcidState             (ExtendedState, closeExtendedSta
                                                  openMemoryExtendedState, queryExtended,
                                                  tidyExtendedState, updateExtended)
 
-import           Pos.Txp                        (Utxo)
+import           Pos.Txp                        (GenesisUtxo)
 
 import           Pos.Wallet.Light.State.Storage (Storage)
 import           Pos.Wallet.Light.State.Storage as WS
@@ -46,11 +46,11 @@ update
     => WalletState -> event -> m (EventResult event)
 update = updateExtended
 
-openState :: MonadIO m => Bool -> Utxo -> FilePath -> m WalletState
+openState :: MonadIO m => Bool -> GenesisUtxo -> FilePath -> m WalletState
 openState deleteIfExists genUtxo fp =
     openLocalExtendedState deleteIfExists fp $ WS.mkStorage genUtxo
 
-openMemState :: MonadIO m => Utxo -> m WalletState
+openMemState :: MonadIO m => GenesisUtxo -> m WalletState
 openMemState = openMemoryExtendedState . WS.mkStorage
 
 closeState :: MonadIO m => WalletState -> m ()

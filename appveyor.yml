@@ -103,6 +103,7 @@ test_script:
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
+      --test-arguments "--skip Block.Logic.Var"
   - scripts\ci\appveyor-retry call stack install cardano-sl-tools
       -j 2
       --no-terminal

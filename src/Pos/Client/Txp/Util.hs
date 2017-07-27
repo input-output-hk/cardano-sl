@@ -3,7 +3,8 @@
 module Pos.Client.Txp.Util
        (
        -- * Tx creation
-         makeAbstractTx
+         TxCreateMode
+       , makeAbstractTx
        , overrideTxOutDistrBoot
        , overrideTxDistrBoot
        , makePubKeyTx
@@ -20,7 +21,7 @@ module Pos.Client.Txp.Util
        ) where
 
 import           Control.Lens         (traversed, (%=), (.=))
-import           Control.Monad.Except (ExceptT, MonadError (throwError))
+import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
 import           Control.Monad.State  (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            (tail)
@@ -57,7 +58,7 @@ type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
 
 data TxError
-    = TxError !Text
+    = TxError { unTxError :: !Text }
     deriving (Show, Generic)
 
 instance Exception TxError
@@ -117,7 +118,7 @@ overrideTxOutDistrBoot ::
        (TxCreateMode ctx m)
     => Coin
     -> TxOutDistribution
-    -> ExceptT Text m TxOutDistribution
+    -> ExceptT TxError m TxOutDistribution
 overrideTxOutDistrBoot c oldDistr = do
     -- Blocking here should be fine for now (@volhovm)
     -- 1. Code in tx generator must have current slot.
@@ -130,7 +131,7 @@ overrideTxOutDistrBoot c oldDistr = do
       then pure oldDistr
       else do
           when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
-               throwError $
+               throwTxError $
                sformat ("Can't spend "%build%" coins: amount is too small for boot "%
                         " era and can't be distributed among genStakeholders") c
           -- TODO CSL-1351 boot stakeholders' weights are not used
@@ -138,7 +139,7 @@ overrideTxOutDistrBoot c oldDistr = do
 
 -- | Same as 'overrideTxOutDistrBoot' but changes 'TxOutputs' all at once
 overrideTxDistrBoot ::
-       (TxCreateMode ctx m) => TxOutputs -> ExceptT Text m TxOutputs
+       (TxCreateMode ctx m) => TxOutputs -> ExceptT TxError m TxOutputs
 overrideTxDistrBoot outputs = do
     forM outputs $ \TxOutAux{..} -> do
         newStakeDistr <- overrideTxOutDistrBoot (txOutValue toaOut) toaDistr
@@ -183,14 +184,16 @@ type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 -- | Given Utxo, desired source addresses and desired outputs, prepare lists
 -- of correct inputs and outputs to form a transaction
 prepareInpsOuts
-    :: Utxo
+    :: MonadError TxError m
+    => Utxo
     -> NonEmpty Address
     -> TxOutputs
-    -> Either TxError (TxOwnedInputs Address, TxOutputs)
+    -> m (TxOwnedInputs Address, TxOutputs)
 prepareInpsOuts utxo addrs outputs = do
     when (totalMoney == mkCoin 0) $
         throwTxError "Attempted to send 0 money"
-    futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
+    futxo <- either throwError pure $
+        evalStateT (pickInputs []) (totalMoney, sortedUnspent)
     case nonEmpty futxo of
         Nothing       -> throwTxError "Failed to prepare inputs!"
         Just inputsNE -> pure (map formTxInputs inputsNE, outputs)
@@ -216,7 +219,9 @@ prepareInpsOuts utxo addrs outputs = do
     formTxInputs (inp, TxOutAux TxOut{..} _) = (txOutAddress, inp)
 
 -- | Common use case of 'prepaseInpsOuts' - with single source address
-prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either TxError (TxInputs, TxOutputs)
+prepareInpOuts
+    :: MonadError TxError m
+    => Utxo -> Address -> TxOutputs -> m (TxInputs, TxOutputs)
 prepareInpOuts utxo addr outputs =
     prepareInpsOuts utxo (one addr) outputs <&>
     _1 . traversed %~ snd
@@ -234,11 +239,22 @@ createMTx utxo hwdSigners outputs =
         fromMaybe (error "Requested signer for unknown address") $
         HM.lookup (AddressIA addr) signers
 
--- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SafeSigner -> TxOutputs -> Either TxError TxAux
+-- | Make a multi-transaction using given secret key and info for
+-- outputs.
+createTx
+    :: TxCreateMode ctx m
+    => Utxo
+    -> SafeSigner
+    -> TxOutputs
+    -> m (Either TxError TxAux)
 createTx utxo ss outputs =
-    uncurry (makePubKeyTx ss) <$>
-    prepareInpOuts utxo (makePubKeyAddress $ safeToPublic ss) outputs
+    runExceptT $ do
+        properOutputs <- overrideTxDistrBoot outputs
+        uncurry (makePubKeyTx ss) <$>
+            prepareInpOuts
+                utxo
+                (makePubKeyAddress $ safeToPublic ss)
+                properOutputs
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either TxError TxAux

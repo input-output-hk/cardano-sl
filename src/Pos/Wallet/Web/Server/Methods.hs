@@ -770,7 +770,7 @@ prepareTxRaw moneySource dstDistr fee = do
     (remaining, trSpendings) <- selectSrcAddresses addrWBal coins fee
 
     let withDistr foo =
-            either (throwM . RequestError) pure =<<
+            either (throwM . RequestError . unTxError) pure =<<
             runExceptT foo
     trOutputsPre <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr

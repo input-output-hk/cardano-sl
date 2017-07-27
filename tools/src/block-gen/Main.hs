@@ -22,7 +22,7 @@ import           Pos.Generator.Block         (AllSecrets (..), BlockGenParams (.
                                               genBlocks)
 import           Pos.Genesis                 (devAddrDistr, genesisUtxo)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo)
+import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo, _GenesisUtxo)
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
 
 import           Context                     (initTBlockGenMode)
@@ -57,10 +57,12 @@ main = flip catch catchEx $ do
     let bootStakeholders = HM.fromList $ zip (HM.keys secretsMap) (repeat 1)
     -- We need to select from utxo TxOut's corresponding to passed secrets
     -- to avoid error "Secret key of %hash% is required but isn't known"
-    let genUtxo = GenesisUtxo $ filterSecretsUtxo (toList secretsMap) $
-            if isDevelopment
-            then genesisUtxo Nothing (devAddrDistr flatDistr)
-            else genesisUtxo (Just bootStakeholders) genesisProdAddrDistribution
+    let genUtxoUnfiltered
+            | isDevelopment = genesisUtxo Nothing (devAddrDistr flatDistr)
+            | otherwise =
+                 genesisUtxo (Just bootStakeholders) genesisProdAddrDistribution
+    let genUtxo = genUtxoUnfiltered &
+            _GenesisUtxo %~ filterSecretsUtxo (toList secretsMap)
     when (M.null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 

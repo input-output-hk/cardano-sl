@@ -21,7 +21,8 @@ import qualified Data.Vector                as V
 import           Formatting                 (sformat, (%))
 import           System.Random              (RandomGen (..))
 
-import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot)
+import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot,
+                                             unTxError)
 import           Pos.Context                (genesisStakeholdersM)
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
                                              addressDetailedF, coinToInteger,
@@ -191,7 +192,7 @@ genTxPayload = do
                     splitCoins outputsN (unsafeIntegerToCoin inputsSum)
                 let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
                 let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
-                either (lift . throwM . BGFailedToCreate) pure =<<
+                either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
                     runExceptT (overrideTxDistrBoot txOutAuxsPre)
         txOutAuxs <- generateOutputs
 

@@ -23,6 +23,12 @@ flag dev-mode
 
   description: Switch between Development and Production mode
 
+flag dev-custom-config
+  default:     False
+  manual:      True
+
+  description: Enable this to allow setting CONFIG manually, as in --ghc-options=-DCONFIG=benchmark
+
 flag embed-config
   default:     False
   manual:      True
@@ -209,6 +215,8 @@ library
   if flag(asserts)
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
-    cpp-options: -DDEV_MODE -DCONFIG=dev
+    cpp-options: -DDEV_MODE
+    if !flag(dev-custom-config)
+      cpp-options: -DCONFIG=dev
   if flag(embed-config) || !flag(dev-mode)
     cpp-options: -DEMBED_CONFIG

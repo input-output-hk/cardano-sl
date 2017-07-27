@@ -28,6 +28,7 @@ import           Pos.Ssc.Class           (SscListenersClass (sscRelays),
                                           SscWorkersClass (sscWorkers))
 import           Pos.Subscription.Common (subscriptionWorker)
 import           Pos.Subscription.Dns    (dnsSubscriptionWorker)
+import           Pos.Subscription.Dht    (dhtSubscriptionWorker)
 import           Pos.Txp                 (txRelays)
 import           Pos.Txp.Worker          (txpWorkers)
 import           Pos.Update              (usRelays, usWorkers)
@@ -59,9 +60,13 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 
-    , case ncTopology ncNetworkConfig of
+    , wrap' "subscription" $ case ncTopology ncNetworkConfig of
         TopologyBehindNAT dnsDomains ->
-          wrap' "subscription" $ subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains)
+          subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains)
+        TopologyP2P ->
+          subscriptionWorker (dhtSubscriptionWorker (forceDhtInstance nrKademlia))
+        TopologyTransitional ->
+          subscriptionWorker (dhtSubscriptionWorker (forceDhtInstance nrKademlia))
         _otherwise ->
           mempty -- No subscription worker required
 
@@ -69,6 +74,11 @@ allWorkers NodeResources {..} = mconcatPair
       -- There's no cardano-sl worker for them; they're put out by the outbound
       -- queue system from time-warp (enqueueConversation on SendActions).
     , ([], relayPropagateOut (mconcat [delegationRelays, untag sscRelays, txRelays, usRelays] :: [Relay m]))
+
+      -- Kademlia has some workers to run.
+      -- FIXME: perhaps these shouldn't be considered workers, but rather
+      -- spawned when the DHT instance is created and killed when it's
+      -- released.
     , maybe mempty dhtWorkers nrKademlia
     ]
   where
@@ -77,3 +87,6 @@ allWorkers NodeResources {..} = mconcatPair
        fst (localWorker (recoveryCommGuard logNewSlotWorker)) :
        map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
+    forceDhtInstance mkinst = case mkinst of
+        Nothing -> error "internal error: missing dht instance"
+        Just kinst -> kinst

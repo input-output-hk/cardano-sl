@@ -105,7 +105,6 @@ startDHTInstance kconf@KademliaParams {..} peerType subscribe = do
     let kdiExplicitInitial = kpExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
     let kdiPeerType = peerType
-        kdiSubscribe = subscribe
         kdiValency = kpValency
         kdiFallbacks = kpFallbacks
     pure $ KademliaDHTInstance {..}

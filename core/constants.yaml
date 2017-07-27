@@ -173,6 +173,9 @@ benchmark: &benchmark
   genesisN: 50000
   k: 6
 
+  genesisUnlockStakeEpoch: 0 # it effectively disables bootstrap era in
+                             # benchmarks because we don't need it there
+
   protocolmagic: 50988000
   genesisBinSuffix: qa # qa is set here arbitrarily, it won't be actually used
 

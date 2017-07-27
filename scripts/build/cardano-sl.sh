@@ -254,13 +254,12 @@ fi
 echo "Going to build: $to_build"
 
 for prj in $to_build; do
-  echo "Building $prj"
-  stack build                               \
-      --ghc-options="$ghc_opts"             \
-      $commonargs $norun                    \
-      --dependencies-only                   \
-      $args                                 \
-      $prj
+ 
+  echo -e "Building $prj\n"
+  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
+  echo -e "$sbuild\n\n"
+  eval $sbuild
+
   if [[ $no_code == true ]]; then
     ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
   else

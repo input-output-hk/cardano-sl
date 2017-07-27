@@ -17,6 +17,7 @@ module Test.Pos.Block.Logic.Mode
        , runBlockTestMode
 
        , BlockProperty
+       , blockPropertyToProperty
        ) where
 
 import           Universum
@@ -31,8 +32,9 @@ import           Formatting                     (bprint, build, formatToString, 
 import           Mockable                       (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.Wlog                    (HasLoggerName (..), LoggerName)
-import           Test.QuickCheck                (Arbitrary (..), Gen, Testable (..),
-                                                 choose, ioProperty, oneof)
+import           Test.QuickCheck                (Arbitrary (..), Gen, Property,
+                                                 Testable (..), choose, forAll,
+                                                 ioProperty, oneof)
 import           Test.QuickCheck.Monadic        (PropertyM, monadic)
 
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
@@ -282,10 +284,19 @@ runBlockTestMode tp action =
 
 type BlockProperty = PropertyM BlockTestMode
 
+-- | Convert 'BlockProperty' to 'Property' using given generator of
+-- 'TestParams'.
+blockPropertyToProperty :: Gen TestParams -> BlockProperty a -> Property
+blockPropertyToProperty tpGen blockProperty =
+    forAll tpGen $ \tp ->
+        monadic (ioProperty . runBlockTestMode tp) blockProperty
+
+-- | 'Testable' instance allows one to write monadic properties in
+-- do-notation and pass them directly to QuickCheck engine. It uses
+-- arbitrary 'TestParams'. For more fine-grained control over
+-- parameters use 'blockPropertyToProperty'.
 instance Testable (BlockProperty a) where
-    property blockProperty =
-        property $ \testParams' ->
-            (monadic (ioProperty . runBlockTestMode testParams') blockProperty)
+    property = blockPropertyToProperty arbitrary
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances

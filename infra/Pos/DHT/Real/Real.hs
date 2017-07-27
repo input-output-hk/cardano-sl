@@ -82,10 +82,8 @@ startDHTInstance
        , Bi DHTKey
        )
     => KademliaParams
-    -> NodeType -- ^ Type to assign to peers discovered via Kademlia
-    -> Bool     -- ^ True if Kademlia peers should populate known peers (MonadKnownPeers)
     -> m KademliaDHTInstance
-startDHTInstance kconf@KademliaParams {..} peerType _subscribe = do
+startDHTInstance kconf@KademliaParams {..} = do
     let bindAddr = first B8.unpack kpNetworkAddress
         extAddr  = maybe bindAddr (first B8.unpack) kpExternalAddress
     logInfo "Generating dht key.."
@@ -110,9 +108,6 @@ startDHTInstance kconf@KademliaParams {..} peerType _subscribe = do
     let kdiInitialPeers = kpPeers
     let kdiExplicitInitial = kpExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
-    let kdiPeerType = peerType
-        kdiValency = kpValency
-        kdiFallbacks = kpFallbacks
     pure $ KademliaDHTInstance {..}
   where
     catchErrorsHandler e = do

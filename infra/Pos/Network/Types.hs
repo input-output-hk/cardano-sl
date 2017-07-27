@@ -33,14 +33,11 @@ import           Pos.Network.Yaml (NodeName(..))
 import           Pos.Util.TimeWarp  (addressToNodeId)
 import qualified Pos.Network.DnsDomains as DnsDomains
 import qualified Data.ByteString.Char8  as BS.C8
-import           Pos.DHT.Real.Param (KademliaParams (..))
 
 -- | Information about the network in which a node participates.
-data NetworkConfig = NetworkConfig
-    { ncTopology :: !Topology
+data NetworkConfig kademlia = NetworkConfig
+    { ncTopology :: !(Topology kademlia)
       -- ^ Network topology from the point of view of the current node
-    , ncKademlia :: !(Maybe KademliaParams)
-      -- ^ Kademlia instance description if applicable.
     , ncDefaultPort :: !Word16
       -- ^ Port number to use when translating IP addresses to NodeIds
     , ncSelfName :: !(Maybe NodeName)
@@ -48,20 +45,21 @@ data NetworkConfig = NetworkConfig
     }
   deriving (Show)
 
-defaultNetworkConfig :: Topology -> NetworkConfig
+defaultNetworkConfig :: Topology topology -> NetworkConfig topology
 defaultNetworkConfig ncTopology = NetworkConfig {
       ncDefaultPort = 3000
-    , ncKademlia    = Nothing
     , ncSelfName    = Nothing
     , ..
     }
 
 -- | Topology of the network, from the point of view of the current node
-data Topology =
+data Topology kademlia =
     -- | All peers of the node have been statically configured
     --
     -- This is used for core and relay nodes
-    TopologyStatic !NodeType !(Peers NodeId)
+    TopologyCore !(Peers NodeId)
+
+  | TopologyRelay !(Peers NodeId) !kademlia
 
     -- | We discover our peers through DNS
     --
@@ -69,59 +67,59 @@ data Topology =
   | TopologyBehindNAT !DnsDomains
 
     -- | We discover our peers through Kademlia
-  | TopologyP2P
+  | TopologyP2P !kademlia
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
-  | TopologyTraditional
+  | TopologyTraditional !kademlia
 
     -- | Light wallets simulate "real" edge nodes, but are configured with
     -- a static set of relays.
-  | TopologyLightWallet [NodeId]
+  | TopologyLightWallet ![NodeId]
   deriving (Show)
 
 -- | Derive node type from its topology
-topologyNodeType :: Topology -> NodeType
-topologyNodeType (TopologyStatic nodeType _) = nodeType
+topologyNodeType :: Topology kademlia -> NodeType
+topologyNodeType (TopologyCore _)            = NodeCore
+topologyNodeType (TopologyRelay _ _)         = NodeRelay
 topologyNodeType (TopologyBehindNAT _)       = NodeEdge
-topologyNodeType (TopologyP2P)               = NodeEdge
-topologyNodeType (TopologyTraditional)       = NodeCore
+topologyNodeType (TopologyP2P _)             = NodeEdge
+topologyNodeType (TopologyTraditional _)     = NodeCore
 topologyNodeType (TopologyLightWallet _)     = NodeEdge
 
 -- | The NodeType to assign to subscribers. Give Nothing if subscribtion
 -- is not allowed for a node with this topology.
-topologySubscriberNodeType :: Topology -> Maybe NodeType
-topologySubscriberNodeType (TopologyStatic NodeRelay _) = Just NodeEdge
-topologySubscriberNodeType (TopologyTraditional)        = Just NodeCore
-topologySubscriberNodeType (TopologyP2P)                = Just NodeRelay
+topologySubscriberNodeType :: Topology kademlia -> Maybe NodeType
+topologySubscriberNodeType (TopologyRelay _ _)          = Just NodeEdge
+topologySubscriberNodeType (TopologyTraditional _)      = Just NodeCore
+topologySubscriberNodeType (TopologyP2P _)              = Just NodeRelay
 topologySubscriberNodeType _                            = Nothing
 
-data SubscriptionWorker =
+data SubscriptionWorker kademlia =
     SubscriptionWorkerBehindNAT DnsDomains
-  | SubscriptionWorkerKademlia
+    -- | Node type of subscribers, valency, and number of fallbacks.
+  | SubscriptionWorkerKademlia kademlia NodeType Int Int
 
 -- | What kind of subscription worker do we run?
-topologySubscriptionWorker :: Topology -> Maybe SubscriptionWorker
+topologySubscriptionWorker :: Topology kademlia -> Maybe (SubscriptionWorker kademlia)
 topologySubscriptionWorker = go
   where
-    go (TopologyBehindNAT doms) = Just $ SubscriptionWorkerBehindNAT doms
-    go (TopologyP2P)            = Just $ SubscriptionWorkerKademlia
-    go (TopologyTraditional)    = Just $ SubscriptionWorkerKademlia
-    go _otherwise               = Nothing
+    go (TopologyBehindNAT doms)       = Just $ SubscriptionWorkerBehindNAT doms
+    go (TopologyP2P kademlia)         = Just $ SubscriptionWorkerKademlia kademlia NodeRelay 3 1
+    go (TopologyTraditional kademlia) = Just $ SubscriptionWorkerKademlia kademlia NodeCore 3 1
+    go _otherwise                     = Nothing
 
 -- | Should we register to the Kademlia network?
-topologyRunKademlia :: Topology -> Bool
+topologyRunKademlia :: Topology kademlia -> Maybe kademlia
 topologyRunKademlia = go
   where
-    go (TopologyStatic NodeRelay _) = True
-    go (TopologyStatic _ _)         = False
-    go (TopologyBehindNAT _)        = False
-    go (TopologyP2P)                = True
-    go (TopologyTraditional)        = True
-    go (TopologyLightWallet _)      = False
+    go (TopologyRelay _ kademlia)     = Just kademlia
+    go (TopologyP2P kademlia)         = Just kademlia
+    go (TopologyTraditional kademlia) = Just kademlia
+    go _                              = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs
-resolveDnsDomains :: NetworkConfig
+resolveDnsDomains :: NetworkConfig kademlia
                   -> DnsDomains
                   -> IO (Either [DNSError] [NodeId])
 resolveDnsDomains NetworkConfig{..} dnsDomains =
@@ -132,15 +130,16 @@ resolveDnsDomains NetworkConfig{..} dnsDomains =
     ipv4ToNodeId addr = addressToNodeId (BS.C8.pack (show addr), ncDefaultPort)
 
 -- | All statically known peers
-staticallyKnownPeers :: NetworkConfig -> Peers NodeId
+staticallyKnownPeers :: NetworkConfig kademlia -> Peers NodeId
 staticallyKnownPeers NetworkConfig{..} = go ncTopology
   where
-    go :: Topology -> Peers NodeId
-    go (TopologyStatic _selfType peers) = peers
-    go (TopologyBehindNAT _)            = mempty
-    go (TopologyP2P)                    = mempty
-    go (TopologyTraditional)            = mempty
-    go (TopologyLightWallet peers)      = simplePeers $ map (NodeRelay, ) peers
+    go :: Topology kademlia -> Peers NodeId
+    go (TopologyCore peers)            = peers
+    go (TopologyRelay peers _)         = peers
+    go (TopologyBehindNAT _)           = mempty
+    go (TopologyP2P _)                 = mempty
+    go (TopologyTraditional _)         = mempty
+    go (TopologyLightWallet peers)     = simplePeers $ map (NodeRelay, ) peers
 
 -- | Initialize the outbound queue based on the network configuration
 --
@@ -154,7 +153,7 @@ staticallyKnownPeers NetworkConfig{..} = go ncTopology
 -- For behind NAT nodes and Kademlia nodes (P2P or traditional) we start
 -- (elsewhere) specialized workers that add peers to the queue and subscribe
 -- to (some of) those peers.
-initQueue :: FormatMsg msg => NetworkConfig -> IO (OutboundQ msg NodeId)
+initQueue :: FormatMsg msg => NetworkConfig kademlia -> IO (OutboundQ msg NodeId)
 initQueue cfg@NetworkConfig{..} = do
     oq <- OQ.new selfName enqueuePolicy dequeuePolicy failurePolicy
     OQ.addKnownPeers oq (staticallyKnownPeers cfg)

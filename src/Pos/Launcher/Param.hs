@@ -19,6 +19,7 @@ import           System.Wlog             (LoggerName)
 
 import           Pos.Core                (HasPrimaryKey (..), Timestamp)
 import           Pos.Crypto              (SecretKey)
+import           Pos.DHT.Real.Param      (KademliaParams)
 import           Pos.Network.Types       (NetworkConfig)
 import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
@@ -67,7 +68,7 @@ data NodeParams = NodeParams
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
-    , npNetworkConfig  :: !NetworkConfig
+    , npNetworkConfig  :: !(NetworkConfig KademliaParams)
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams
@@ -81,7 +82,7 @@ instance HasLens SecurityParams NodeParams SecurityParams where
 instance HasLens GenesisUtxo NodeParams GenesisUtxo where
     lensOf = npGenesisUtxo_L
 
-instance HasLens NetworkConfig NodeParams NetworkConfig where
+instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
     lensOf = npNetworkConfig_L
 
 instance HasReportServers NodeParams where

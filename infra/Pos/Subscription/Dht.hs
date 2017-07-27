@@ -27,8 +27,11 @@ dhtSubscriptionWorker
        ( DhtWorkMode ctx m
        )
     => KademliaDHTInstance
+    -> NodeType
+    -> Int -- ^ valency
+    -> Int -- ^ fallbacks
     -> Worker m
-dhtSubscriptionWorker kademliaInst _sendActions = do
+dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
     logNotice "Kademlia subscription worker started"
     updateForeverNoSubscribe mempty
     {-
@@ -45,18 +48,6 @@ dhtSubscriptionWorker kademliaInst _sendActions = do
         updateForever subscribed toSubscribe mempty
     -}
   where
-
-    valency :: Int
-    valency = max 0 (kdiValency kademliaInst)
-
-    -- How many alternatives to try.
-    -- Size of the peers set created is at most valency * (1 + fallbacks)
-    fallbacks :: Int
-    fallbacks = max 0 (kdiFallbacks kademliaInst)
-
-    -- The NodeType that we assume our peers to be.
-    peerType :: NodeType
-    peerType = kdiPeerType kademliaInst
 
     {-
     -- Spawn a bunch of threads using withAsync and ignore their results.

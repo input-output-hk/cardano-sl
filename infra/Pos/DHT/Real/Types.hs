@@ -44,7 +44,4 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiExplicitInitial :: !Bool
     , kdiKnownPeersCache :: !(TVar [NetworkAddress])
     , kdiDumpPath        :: !(Maybe FilePath)
-    , kdiPeerType        :: !NodeType
-    , kdiValency         :: !Int
-    , kdiFallbacks       :: !Int
     }

@@ -31,6 +31,7 @@ import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.DHT.Real.Types          (KademliaDHTInstance)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
@@ -94,7 +95,7 @@ type WorkMode ssc ctx m
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
       , HasLens GenesisUtxo ctx GenesisUtxo
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
-      , HasLens NetworkConfig ctx NetworkConfig
+      , HasLens (NetworkConfig KademliaDHTInstance) ctx (NetworkConfig KademliaDHTInstance)
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx

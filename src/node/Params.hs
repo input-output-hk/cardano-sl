@@ -109,7 +109,7 @@ getNodeParams args@Args {..} systemStart = do
         , ..
         }
 
-getTransportParams :: Args -> NetworkConfig -> TransportParams
+getTransportParams :: Args -> NetworkConfig kademlia -> TransportParams
 getTransportParams args networkConfig = TransportParams { tpTcpAddr = tcpAddr }
   where
     tcpAddr = case ncTopology networkConfig of

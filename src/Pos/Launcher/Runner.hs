@@ -108,8 +108,7 @@ runRealModeDo NodeResources {..} outSpecs action =
         oq <- liftIO $ initQueue ncNetworkConfig
 
         runToProd jsonLogConfig oq $
-          runServer ncNetworkConfig
-                    (simpleNodeEndPoint nrTransport)
+          runServer (simpleNodeEndPoint nrTransport)
                     (const noReceiveDelay)
                     (allListeners ncTopology)
                     outSpecs
@@ -200,8 +199,7 @@ oqDequeue oq converse = do
 runServer
     :: forall m t b .
        (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => NetworkConfig
-    -> (m (Statistics m) -> NodeEndPoint m)
+    => (m (Statistics m) -> NodeEndPoint m)
     -> (m (Statistics m) -> ReceiveDelay m)
     -> (EnqueueMsg m -> MkListeners m)
     -> OutSpecs
@@ -210,7 +208,7 @@ runServer
     -> OQ m
     -> ActionSpec m b
     -> m b
-runServer NetworkConfig {..} mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq (ActionSpec action) = do
+runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq (ActionSpec action) = do
     let enq :: EnqueueMsg m
         enq = makeEnqueueMsg ourVerInfo (oqEnqueue oq)
         mkL' = mkL enq

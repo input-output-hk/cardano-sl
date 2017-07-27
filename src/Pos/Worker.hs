@@ -65,8 +65,8 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "subscription" $ case topologySubscriptionWorker (ncTopology ncNetworkConfig) of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
           subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains)
-        Just SubscriptionWorkerKademlia ->
-          subscriptionWorker (dhtSubscriptionWorker (forceDhtInstance nrKademlia))
+        Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
+          subscriptionWorker (dhtSubscriptionWorker kinst nodeType valency fallbacks)
         Nothing ->
           mempty
 
@@ -84,9 +84,9 @@ allWorkers NodeResources {..} = mconcatPair
       -- FIXME: perhaps these shouldn't be considered workers, but rather
       -- spawned when the DHT instance is created and killed when it's
       -- released.
-    , if topologyRunKademlia (ncTopology ncNetworkConfig)
-        then dhtWorkers (forceDhtInstance nrKademlia)
-        else mempty
+    , case topologyRunKademlia (ncTopology ncNetworkConfig) of
+        Just kinst -> dhtWorkers kinst
+        Nothing -> mempty
     ]
   where
     NodeContext {..} = nrContext
@@ -94,6 +94,3 @@ allWorkers NodeResources {..} = mconcatPair
        fst (localWorker (recoveryCommGuard logNewSlotWorker)) :
        map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
-    forceDhtInstance mkinst = case mkinst of
-        Nothing -> error "internal error: missing dht instance"
-        Just kinst -> kinst

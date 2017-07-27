@@ -26,11 +26,13 @@ import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import qualified Pos.Constants       as Const
 import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
-                                      getOurPubKeyAddress, getOurPublicKey)
+                                      getOurPubKeyAddress, getOurPublicKey,
+                                      NodeContext (..))
 import           Pos.DHT.Real        (kademliaJoinNetwork, KademliaDHTInstance (..))
 import qualified Pos.GState          as GS
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB          as LrcDB
+import           Pos.Network.Types   (NetworkConfig (..), topologyRunKademlia)
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
 import           Pos.Shutdown        (waitForWorkers)
@@ -72,7 +74,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     -- Synchronously join the Kademlia network before doing any more.
     -- If we can't join the network, an exception is raised and the program
     -- stops.
-    case nrKademlia of
+    case topologyRunKademlia (ncTopology (ncNetworkConfig nrContext)) of
         Nothing -> return ()
         Just kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
 

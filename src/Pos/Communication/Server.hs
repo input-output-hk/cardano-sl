@@ -32,7 +32,7 @@ import           Pos.WorkMode.Class          (WorkMode)
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc ctx m)
-    => Topology -> EnqueueMsg m -> MkListeners m
+    => Topology kademlia -> EnqueueMsg m -> MkListeners m
 allListeners topology enqueue = mconcat
         -- TODO blockListeners should use 'enqueue' rather than its own
         -- block retrieval queue, no?

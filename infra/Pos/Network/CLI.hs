@@ -12,7 +12,7 @@ module Pos.Network.CLI (
 
 import           Universum
 import           Data.IP (IPv4)
-import           Network.Broadcast.OutboundQueue (Alts, peersFromList)
+import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Pos.DHT.Real.Param         as DHT (fromYamlConfig, MalformedDHTKey (..))
 import           Pos.Network.Types (NodeId)
 import           Pos.Network.Yaml (NodeName(..), NodeMetadata(..), NodeAddr(..))
@@ -25,6 +25,7 @@ import qualified Network.DNS                as DNS
 import qualified Options.Applicative.Simple as Opt
 import qualified Pos.Network.Types          as T
 import qualified Pos.Network.Yaml           as Y
+import           Pos.DHT.Real.Param         as DHT (KademliaParams, fromYamlConfig)
 
 {-------------------------------------------------------------------------------
   Command line arguments
@@ -91,47 +92,60 @@ defaultDnsDomains = DnsDomains [["todo.defaultDnsDomain.com"]]
 -------------------------------------------------------------------------------}
 
 -- | Interpreter for the network config opts
-intNetworkConfigOpts :: NetworkConfigOpts -> IO T.NetworkConfig
+intNetworkConfigOpts :: NetworkConfigOpts -> IO (T.NetworkConfig DHT.KademliaParams)
 intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
     parsedTopology <- case networkConfigOptsTopology of
                         Nothing -> return defaultTopology
                         Just fp -> readTopology fp
     ourTopology <- case parsedTopology of
       Y.TopologyStatic allStaticallyKnownPeers ->
-        fromPovOf cfg allStaticallyKnownPeers networkConfigOptsSelf
+        fromPovOf cfg allStaticallyKnownPeers networkConfigOptsSelf $ \nodeType peers ->
+          case nodeType of
+            T.NodeCore -> return (T.TopologyCore peers)
+            T.NodeRelay -> withKademliaParams cfg $ \kparams ->
+              return (T.TopologyRelay peers kparams)
+            -- This will never happen. Either our node name is not found in
+            -- the table, or it's a core or relay.
+            T.NodeEdge -> throwM NetworkConfigSelfEdge
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
-      Y.TopologyP2P -> return T.TopologyP2P
-      Y.TopologyTraditional -> return T.TopologyTraditional
-    mKademliaParams <- case networkConfigOptsKademlia of
-      Nothing -> return Nothing
-      Just fp -> do
-        kconf <- parseKademlia fp
-        kconf' <- either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
-        return $ Just kconf'
+      Y.TopologyP2P -> withKademliaParams cfg $ \kparams ->
+        return (T.TopologyP2P kparams)
+      Y.TopologyTraditional -> withKademliaParams cfg $ \kparams ->
+        return (T.TopologyTraditional kparams)
     return T.NetworkConfig {
         ncTopology    = ourTopology
-      , ncKademlia    = mKademliaParams
       , ncDefaultPort = networkConfigOptsPort
       , ncSelfName    = networkConfigOptsSelf
       }
+
+withKademliaParams :: NetworkConfigOpts
+                   -> (DHT.KademliaParams -> IO r)
+                   -> IO r
+withKademliaParams cfg k = case networkConfigOptsKademlia cfg of
+    Nothing -> throwM MissingKademliaConfig
+    Just fp -> do
+      kconf <- parseKademlia fp
+      kconf' <- either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
+      k kconf'
 
 -- | Perspective on 'AllStaticallyKnownPeers' from the point of view of
 -- a single node
 fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
           -> Maybe NodeName
-          -> IO T.Topology
-fromPovOf _ _ Nothing =
+          -> (T.NodeType -> Peers NodeId -> IO t)
+          -> IO t
+fromPovOf _ _ Nothing _ =
     throwM NetworkConfigSelfUnknown
-fromPovOf cfg allPeers (Just self) = do
+fromPovOf cfg allPeers (Just self) k = do
     -- TODO: Do we want to allow to override the DNS config?
     resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
     DNS.withResolver resolvSeed $ \resolver -> do
       selfMetadata <- metadataFor allPeers self
       selfPeers    <- mkPeers resolver (Y.nmRoutes selfMetadata)
       let selfType = Y.nmType selfMetadata
-      return $ T.TopologyStatic selfType (peersFromList selfPeers)
+      k selfType (peersFromList selfPeers)
   where
     mkPeers :: DNS.Resolver -> Y.NodeRoutes -> IO [(T.NodeType, Alts NodeId)]
     mkPeers resolver (Y.NodeRoutes routes) = mapM (mkAlts resolver) routes
@@ -216,12 +230,19 @@ data NetworkConfigException =
     -- | We cannot parse the topology .yaml file
     CannotParseNetworkConfig Yaml.ParseException
 
+    -- | A Kademlia configuration file is expected but was not specified.
+  | MissingKademliaConfig
+
     -- | We cannot parse the kademlia .yaml file
   | CannotParseKademliaConfig Yaml.ParseException
 
     -- | We use a set of statically known peers but we weren't given the
     -- name of the current node
   | NetworkConfigSelfUnknown
+
+    -- | We resolved our name under static configuration to be an edge node.
+    -- This indicates a programmer error.
+  | NetworkConfigSelfEdge
 
     -- | The .yaml file contains a node name which is undefined
   | UndefinedNodeName NodeName

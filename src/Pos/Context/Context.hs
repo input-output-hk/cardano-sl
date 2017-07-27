@@ -45,6 +45,8 @@ import           Pos.Block.Slog.Types          (HasSlogContext (..), SlogContext
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (GenesisStakeholders (..),
                                                 HasPrimaryKey (..), HeaderHash, Timestamp)
+import           Pos.DHT.Real.Types            (KademliaDHTInstance)
+import           Pos.DHT.Real.Param            (KademliaParams)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Network.Types             (NetworkConfig (..))
@@ -139,7 +141,7 @@ data NodeContext ssc = NodeContext
     -- ^ Settings for global Txp.
     , ncConnectedPeers      :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
-    , ncNetworkConfig       :: !NetworkConfig
+    , ncNetworkConfig       :: !(NetworkConfig KademliaDHTInstance)
     }
 
 makeLensesWith postfixLFields ''NodeContext
@@ -228,5 +230,8 @@ instance HasReportingContext (NodeContext ssc) where
             set reportServers (rc ^. reportServers) .
             set loggerConfig  (rc ^. loggerConfig)
 
-instance HasLens NetworkConfig (NodeContext scc) NetworkConfig where
-    lensOf = ncNodeParams_L . lensOf @NetworkConfig
+instance HasLens (NetworkConfig KademliaParams) (NodeContext scc) (NetworkConfig KademliaParams) where
+    lensOf = ncNodeParams_L . lensOf @(NetworkConfig KademliaParams)
+
+instance HasLens (NetworkConfig KademliaDHTInstance) (NodeContext scc) (NetworkConfig KademliaDHTInstance) where
+    lensOf = ncNetworkConfig_L

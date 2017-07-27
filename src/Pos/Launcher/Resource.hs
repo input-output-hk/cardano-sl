@@ -57,7 +57,7 @@ import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
                                              TransportParams (..), NodeParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
-import           Pos.Network.Types          (NetworkConfig (..), Topology (..), NodeType (..))
+import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
 import           Pos.Shutdown.Types         (ShutdownContext (..))
 import           Pos.Slotting               (SlottingContextSum (..), SlottingData,
                                              mkNtpSlottingVar, mkSimpleSlottingVar)
@@ -97,7 +97,6 @@ data NodeResources ssc m = NodeResources
     , nrJLogHandle :: !(Maybe Handle)
     -- ^ Handle for JSON logging (optional).
     , nrEkgStore   :: !Metrics.Store
-    , nrKademlia   :: !(Maybe KademliaDHTInstance)
     }
 
 hoistNodeResources ::
@@ -122,11 +121,11 @@ allocateNodeResources
        , MonadMockable m
        )
     => Transport m
-    -> Maybe KademliaDHTInstance
+    -> NetworkConfig KademliaDHTInstance
     -> NodeParams
     -> SscParams ssc
     -> Production (NodeResources ssc m)
-allocateNodeResources transport mKademlia np@NodeParams {..} sscnp = do
+allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
     db <- openNodeDBs npRebuildDb npDbPathM
     (futureLrcContext, putLrcContext) <- newInitFuture
     (futureSlottingVar, putSlottingVar) <- newInitFuture
@@ -142,7 +141,7 @@ allocateNodeResources transport mKademlia np@NodeParams {..} sscnp = do
             futureLrcContext
     runInitMode initModeContext $ do
         initNodeDBs @ssc
-        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
+        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting networkConfig
         putLrcContext ncLrcContext
         setupLoggers $ bpLoggingParams npBaseParams
         dlgVar <- mkDelegationVar @ssc
@@ -174,7 +173,6 @@ allocateNodeResources transport mKademlia np@NodeParams {..} sscnp = do
             , nrSscState = sscState
             , nrTxpState = (txpVar, txpMetrics)
             , nrDlgState = dlgVar
-            , nrKademlia = mKademlia
             , ..
             }
 
@@ -202,8 +200,8 @@ bracketNodeResources :: forall ssc m a.
     -> (NodeResources ssc m -> Production a)
     -> Production a
 bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
-    maybeBracketKademlia np $ \mKademlia ->
-        bracket (allocateNodeResources transport mKademlia np sp) releaseNodeResources k
+    bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
+        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources k
   where
     tcpAddr = tpTcpAddr (npTransport np)
 
@@ -236,8 +234,9 @@ allocateNodeContext
     => NodeParams
     -> SscParams ssc
     -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
+    -> NetworkConfig KademliaDHTInstance
     -> InitMode ssc (NodeContext ssc)
-allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
+allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
@@ -270,8 +269,8 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else
             , ncTxpGlobalSettings = txpGlobalSettings
-            , ncNetworkConfig = npNetworkConfig
 #endif
+            , ncNetworkConfig = networkConfig
             , ..
             }
     -- TODO bounded queue not necessary.
@@ -293,48 +292,39 @@ createKademliaInstance ::
        (MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
     => BaseParams
     -> KademliaParams
-    -> NodeType
-    -> Bool
     -> m KademliaDHTInstance
-createKademliaInstance BaseParams {..} kp peerType subscribe =
-    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig peerType subscribe)
+createKademliaInstance BaseParams {..} kp =
+    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig)
   where
     instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ Const.defaultPeers}
 
 -- | RAII for 'KademliaDHTInstance'.
-bracketKademlia
+bracketKademliaInstance
     :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
     => BaseParams
     -> KademliaParams
-    -> NodeType -- ^ Type to assign to Kademlia peers.
-    -> Bool     -- ^ True if Kademlia peers should be known peers (MonadKnownPeers).
     -> (KademliaDHTInstance -> m a)
     -> m a
-bracketKademlia bp kp peerType subscribe action =
-    bracket (createKademliaInstance bp kp peerType subscribe) stopDHTInstance action
+bracketKademliaInstance bp kp action =
+    bracket (createKademliaInstance bp kp) stopDHTInstance action
 
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
-maybeBracketKademlia
+bracketKademlia
     :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
-    => NodeParams
-    -> (Maybe KademliaDHTInstance -> m a)
+    => BaseParams
+    -> NetworkConfig KademliaParams
+    -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a
-maybeBracketKademlia np action = mKp >>= \case
-    Nothing -> action Nothing
-    Just (kp, peerType, subscribe) -> bracketKademlia bp kp peerType subscribe (action . Just)
+bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
+    (TopologyP2P kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyP2P kinst)
+    (TopologyTraditional kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyTraditional kinst)
+    (TopologyRelay peers kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyRelay peers kinst)
+    (TopologyCore peers) -> k (TopologyCore peers)
+    (TopologyBehindNAT domains) -> k (TopologyBehindNAT domains)
+    (TopologyLightWallet peers) -> k (TopologyLightWallet peers)
   where
-    bp = npBaseParams np
-    NetworkConfig {..} = npNetworkConfig np
-    mKp = case (ncTopology, ncKademlia) of
-        (TopologyP2P, Just kp) -> return $ Just (kp, NodeRelay, True)
-        (TopologyP2P, Nothing) ->
-            throw MissingKademliaParams
-        (TopologyTraditional, Just kp) -> return $ Just (kp, NodeCore, True)
-        (TopologyTraditional, Nothing) ->
-            throw MissingKademliaParams
-        (TopologyStatic NodeRelay _, Just kp) -> return $ Just (kp, NodeEdge, False)
-        _ -> return $ Nothing
+    k topology = action (nc { ncTopology = topology })
 
 data MissingKademliaParams = MissingKademliaParams
     deriving (Show)

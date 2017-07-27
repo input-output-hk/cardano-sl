@@ -44,8 +44,8 @@ activeRelays :: KnownRelays -> [NodeId]
 activeRelays = map fst . filter (relayActive . snd) . M.toList
 
 dnsSubscriptionWorker
-    :: forall m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
-    => NetworkConfig -> DnsDomains -> Worker m
+    :: forall kademlia m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
+    => NetworkConfig kademlia -> DnsDomains -> Worker m
 dnsSubscriptionWorker networkCfg dnsDomains sendActions =
     loop M.empty
   where

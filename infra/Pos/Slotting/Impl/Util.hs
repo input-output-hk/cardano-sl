@@ -17,19 +17,19 @@ import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp
                                               mkLocalSlotIndex)
 import           Pos.Util.Util               (leftToPanic)
 
+import           Pos.Slotting.Util           (getEpochSlottingDataEmpatically)
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
 import           Pos.Slotting.Types          (EpochSlottingData (..))
-import           Pos.Slotting.Util           (getPenultEpochSDEmpatically, getLastEpochSDEmpatically)
 
 -- | Approximate current slot using outdated slotting data.
-approxSlotUsingOutdated 
-    :: (MonadSlotsData m, MonadThrow m)
-    => EpochIndex 
-    -> Timestamp 
+approxSlotUsingOutdated
+    :: (MonadSlotsData m)
+    => EpochIndex
+    -> Timestamp
     -> m SlotId
 approxSlotUsingOutdated penult t = do
-    sdLast      <- getLastEpochSDEmpatically
-    systemStart <- getSystemStart
+    systemStart <- getSystemStartM
+    sdLast      <- getNextEpochSlottingDataM
     let epochStart = esdStartDiff sdLast `addTimeDiffToTimestamp` systemStart
     pure $
         if | t < epochStart -> SlotId (penult + 1) minBound
@@ -37,47 +37,59 @@ approxSlotUsingOutdated penult t = do
   where
     outdatedEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..} =
         let duration = convertUnit esdSlotDuration
-            start = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart) 
+            start = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart)
         in
         unflattenSlotId $
         flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
 
+-- TODO(ks): Move to MonadSlotsData?
 -- | Compute current slot from current timestamp based on data
 -- provided by 'MonadSlotsData'.
 slotFromTimestamp
     :: (MonadSlotsData m, MonadThrow m)
-    => Timestamp 
+    => Timestamp
     -> m (Maybe SlotId)
 slotFromTimestamp approxCurTime = do
-    systemStart <- getSystemStart
-    sdLast      <- getLastEpochSDEmpatically
-    sdPenult    <- getPenultEpochSDEmpatically
 
-    lastEpochI  <- getEpochLastIndex 
-    let sdPenultEpoch = lastEpochI - 1
+    systemStart     <- getSystemStartM
+    allEpochIndex   <- getAllEpochIndexM
 
-    let penultRes = computeSlotUsingEpoch systemStart approxCurTime sdPenultEpoch sdPenult
-    let lastRes   = computeSlotUsingEpoch systemStart approxCurTime (succ lastEpochI) sdLast
+    -- We partially apply the function and then iterate over all epoch indexes.
+    mSlotId         <- forM allEpochIndex (findSlot systemStart approxCurTime)
 
-    return $ penultRes <|> lastRes
+    pure $ head $ catMaybes mSlotId
 
-computeSlotUsingEpoch
-    :: Timestamp
-    -> Timestamp
-    -> EpochIndex
-    -> EpochSlottingData
-    -> Maybe SlotId
-computeSlotUsingEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..}
-    | curTime < epochStart = Nothing
-    | curTime < epochStart + epochDuration = Just $ SlotId epoch localSlot
-    | otherwise = Nothing
   where
-    epochStart = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart)
-    localSlotNumeric = fromIntegral $ (curTime - epochStart) `div` slotDuration
-    localSlot =
-        leftToPanic "computeSlotUsingEpoch: " $
-        mkLocalSlotIndex localSlotNumeric
 
-    slotDuration, epochDuration :: Microsecond
-    slotDuration = convertUnit esdSlotDuration
-    epochDuration = slotDuration * fromIntegral C.epochSlots
+    findSlot
+        :: (MonadSlotsData m, MonadThrow m)
+        => Timestamp
+        -> Timestamp
+        -> EpochIndex
+        -> m (Maybe SlotId)
+    findSlot systemStart approxCurTime' epochIndex = do
+        epochSlotData <- getEpochSlottingDataEmpatically epochIndex
+        pure $ computeSlotUsingEpoch systemStart approxCurTime' epochIndex epochSlotData
+
+    computeSlotUsingEpoch
+        :: Timestamp
+        -> Timestamp
+        -> EpochIndex
+        -> EpochSlottingData
+        -> Maybe SlotId
+    computeSlotUsingEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..}
+        | curTime < epochStart = Nothing
+        | curTime < epochStart + epochDuration = Just $ SlotId epoch localSlot
+        | otherwise = Nothing
+      where
+        epochStart = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart)
+        localSlotNumeric = fromIntegral $ (curTime - epochStart) `div` slotDuration
+        localSlot =
+            leftToPanic "computeSlotUsingEpoch: " $
+            mkLocalSlotIndex localSlotNumeric
+
+        slotDuration :: Microsecond
+        slotDuration = convertUnit esdSlotDuration
+
+        epochDuration :: Microsecond
+        epochDuration = slotDuration * fromIntegral C.epochSlots

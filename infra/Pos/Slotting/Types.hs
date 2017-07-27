@@ -6,10 +6,11 @@ module Pos.Slotting.Types
        , getSlottingDataMap
        , createSlottingDataUnsafe
        , createInitSlottingData
-       , getLastEpochIndex
-       , getPenultEpochIndex
-       , getLastEpochSlottingData
-       , getPenultEpoch
+       , getAllEpochIndex
+       , getCurrentEpochIndex
+       , getCurrentEpochSlottingData
+       , getNextEpochIndex
+       , getNextEpochSlottingData
        , addEpochSlottingData
        , lookupEpochSlottingData
        , computeSlotStart
@@ -20,11 +21,11 @@ import           Universum
 import           Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, convertUnit)
 
-import           Pos.Core        (EpochIndex, EpochIndex (..),
-                                  LocalSlotIndex (..), SlotId (..),
-                                  TimeDiff (..), Timestamp (..),
+import           Pos.Core        (EpochIndex, EpochIndex (..), LocalSlotIndex (..),
+                                  SlotId (..), TimeDiff (..), Timestamp (..),
                                   addTimeDiffToTimestamp, getSlotIndex)
 import           Pos.Util.Util   ()
+
 
 
 -- | Data which is necessary for slotting and corresponds to a particular epoch.
@@ -37,63 +38,70 @@ data EpochSlottingData = EpochSlottingData
 
 instance NFData EpochSlottingData
 
+-- Helpful type aliases
+type CurrentEpochSlottingData = EpochSlottingData
+type NextEpochSlottingData    = EpochSlottingData
 
 -- | Data necessary for slotting to work which is basically part of GState.
--- External code can use functions like getLastEpochIndex or getLastEpochSlottingData and 
--- not worry about cases where it doesn't exist (this module should be responsible for it).
--- Note that it's important to use error rather than default values like 0, because 
+-- Note that it's important to use error rather than default values like 0, because
 -- such cases indicate invariants violation and shouldn't be hidden behind default values.
-type PenultSlottingData = EpochSlottingData
-
-newtype SlottingData = SlottingData 
-    { getSlottingDataMap :: Map EpochIndex EpochSlottingData 
+newtype SlottingData = SlottingData
+    { getSlottingDataMap :: Map EpochIndex EpochSlottingData
+    -- ^ Map containing the @EpochSlottingData@ for all the (known) @Epoch@
     } deriving (Eq, Show, Generic, Monoid)
 
 instance NFData SlottingData
 
--- | Unsafe constructor that can lead to invalid state!
+-- | Unsafe constructor that can lead to unsafe crash!
 createSlottingDataUnsafe :: Map EpochIndex EpochSlottingData -> SlottingData
-createSlottingDataUnsafe = SlottingData
+createSlottingDataUnsafe epochSlottingDataMap =
+    if M.size epochSlottingDataMap < 2
+        then criticalError
+        else SlottingData epochSlottingDataMap
+  where
+    criticalError = error "It's impossible to create slotting data without two epochs."
 
 -- | Restricted constructor function for the (initial) creation of @SlottingData@.
--- Optional: Wrap @EpochSlottingData@ into @PenultSlottingData@ using newtype.
-createInitSlottingData 
-    :: PenultSlottingData 
-    -> EpochSlottingData 
+createInitSlottingData
+    :: CurrentEpochSlottingData
+    -> NextEpochSlottingData
     -> SlottingData
 createInitSlottingData psd esd = SlottingData validInitialSlottingData
   where
 
     validInitialSlottingData :: Map EpochIndex EpochSlottingData
-    validInitialSlottingData = M.union penultEpochSlottingData lastEpochSlottingData
+    validInitialSlottingData = M.union currentEpochSlottingData nextEpochSlottingData
 
-    penultEpochSlottingData :: Map EpochIndex PenultSlottingData
-    penultEpochSlottingData = M.singleton 0 psd
+    currentEpochSlottingData :: Map EpochIndex CurrentEpochSlottingData
+    currentEpochSlottingData = M.singleton 0 psd
 
-    lastEpochSlottingData :: Map EpochIndex EpochSlottingData
-    lastEpochSlottingData = M.singleton 1 esd
+    nextEpochSlottingData :: Map EpochIndex NextEpochSlottingData
+    nextEpochSlottingData = M.singleton 1 esd
 
+-- | Get all epoch index.
+getAllEpochIndex :: SlottingData -> [EpochIndex]
+getAllEpochIndex = M.keys . getSlottingDataMap
 
--- | Get the latest epoch index.
-getLastEpochIndex :: SlottingData -> EpochIndex
-getLastEpochIndex = fst . M.findMax . getSlottingDataMap
+-- | Get the next epoch index.
+getNextEpochIndex :: SlottingData -> EpochIndex
+getNextEpochIndex = fst . M.findMax . getSlottingDataMap
 
--- | Get the latest epoch slotting data.
-getLastEpochSlottingData :: SlottingData -> EpochSlottingData
-getLastEpochSlottingData = snd . M.findMax . getSlottingDataMap
+-- | Get the next epoch slotting data.
+getNextEpochSlottingData :: SlottingData -> EpochSlottingData
+getNextEpochSlottingData = snd . M.findMax . getSlottingDataMap
 
--- | Get the penultimate epoch index. Last epoch - 1.
-getPenultEpochIndex :: SlottingData -> EpochIndex
-getPenultEpochIndex = decreaseEpochIndex . getLastEpochIndex
+-- | Get the current epoch index. Next epoch - 1.
+getCurrentEpochIndex :: SlottingData -> EpochIndex
+getCurrentEpochIndex = decreaseEpochIndex . getNextEpochIndex
   where
     decreaseEpochIndex :: EpochIndex -> EpochIndex
     decreaseEpochIndex ei = EpochIndex $ getEpochIndex ei - 1
 
--- | Get the penultimate epoch slotting data. Last epoch - 1.
-getPenultEpoch :: SlottingData -> EpochSlottingData
-getPenultEpoch sdp@(getSlottingDataMap -> sd) = sd M.! penultEpochIndex 
+-- | Get the current epoch slotting data. Next epoch - 1.
+getCurrentEpochSlottingData :: SlottingData -> EpochSlottingData
+getCurrentEpochSlottingData sdp@(getSlottingDataMap -> sd) = sd M.! currentEpochIndex
   where
-    penultEpochIndex = getPenultEpochIndex sdp
+    currentEpochIndex = getCurrentEpochIndex sdp
 
 -- | Lookup the slotting data for an arbitrary `EpochIndex`.
 lookupEpochSlottingData :: EpochIndex -> SlottingData -> Maybe EpochSlottingData
@@ -104,7 +112,7 @@ lookupEpochSlottingData epochIndex slottingData = M.lookup epochIndex slottingDa
 
 -- | Insert `EpochSlottingData`.
 addEpochSlottingData :: EpochIndex -> EpochSlottingData -> SlottingData -> SlottingData
-addEpochSlottingData epochIndex epochSlottingData slottingData = 
+addEpochSlottingData epochIndex epochSlottingData slottingData =
     SlottingData $ M.insert epochIndex epochSlottingData slottingData'
   where
     slottingData' :: Map EpochIndex EpochSlottingData
@@ -117,16 +125,22 @@ computeSlotStart slotId esd = slotTimestamp localSlotIndex esd
       localSlotIndex :: LocalSlotIndex
       localSlotIndex = siSlot slotId
 
-      slotTimestamp 
-          :: LocalSlotIndex 
-          -> EpochSlottingData 
+      slotTimestamp
+          :: LocalSlotIndex
+          -> EpochSlottingData
           -> Timestamp
-      slotTimestamp localSlotIndex' EpochSlottingData{..} =
-          addTimeDiffToTimestamp esdStartDiff currentSlotTimestamp 
+      slotTimestamp localSlotIndex' epochSlottingData =
+          addTimeDiffToTimestamp epochStartTimeDiff currentSlotTimestamp
         where
           intSlotIndex :: Word16
           intSlotIndex = getSlotIndex localSlotIndex'
 
+          epochStartTimeDiff :: TimeDiff
+          epochStartTimeDiff = esdStartDiff epochSlottingData
+
+          epochSlotDuration :: Millisecond
+          epochSlotDuration = esdSlotDuration epochSlottingData
+
           currentSlotTimestamp :: Timestamp
-          currentSlotTimestamp = 
-              Timestamp (fromIntegral intSlotIndex * convertUnit esdSlotDuration)
+          currentSlotTimestamp =
+              Timestamp (fromIntegral intSlotIndex * convertUnit epochSlotDuration)

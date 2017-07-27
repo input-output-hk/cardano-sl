@@ -27,7 +27,12 @@ import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
 -- Mode
 ----------------------------------------------------------------------------
 
-type SimpleSlottingMode m = (Mockable CurrentTime m, MonadSlotsData m, MonadIO m)
+type SimpleSlottingMode m =
+    ( Mockable CurrentTime m
+    , MonadSlotsData m
+    , MonadIO m
+    , MonadThrow m
+    )
 
 ----------------------------------------------------------------------------
 -- State
@@ -46,35 +51,36 @@ mkSimpleSlottingVar = atomically $ newTVar $ SimpleSlottingState $ unflattenSlot
 -- Implementation
 ----------------------------------------------------------------------------
 
-getCurrentSlotSimple 
-    :: (SimpleSlottingMode m, MonadThrow m)
-    => SimpleSlottingVar 
+getCurrentSlotSimple
+    :: (SimpleSlottingMode m)
+    => SimpleSlottingVar
     -> m (Maybe SlotId)
 getCurrentSlotSimple var = traverse (updateLastSlot var) =<< (currentTimeSlottingSimple >>= slotFromTimestamp)
 
-getCurrentSlotBlockingSimple 
-    :: (SimpleSlottingMode m, MonadThrow m)
-    => SimpleSlottingVar 
+getCurrentSlotBlockingSimple
+    :: (SimpleSlottingMode m)
+    => SimpleSlottingVar
     -> m SlotId
 getCurrentSlotBlockingSimple var = do
-    penult <- getEpochLastIndex
+    currentEpochIndex <- getCurrentEpochIndexM
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing -> do
-            waitPenultEpochEquals (penult + 1)
+            waitCurrentEpochEqualsM (currentEpochIndex + 1)
             getCurrentSlotBlockingSimple var
 
-getCurrentSlotInaccurateSimple 
-    :: (SimpleSlottingMode m, MonadThrow m)
-    => SimpleSlottingVar 
+getCurrentSlotInaccurateSimple
+    :: (SimpleSlottingMode m)
+    => SimpleSlottingVar
     -> m SlotId
 getCurrentSlotInaccurateSimple var = do
-    penult <- getEpochLastIndex
+    currentEpochIndex <- getCurrentEpochIndexM
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing   -> do
             lastSlot <- _sssLastSlot <$> atomically (readTVar var)
-            max lastSlot <$> (currentTimeSlottingSimple >>= approxSlotUsingOutdated penult)
+            max lastSlot <$> (currentTimeSlottingSimple >>=
+                approxSlotUsingOutdated currentEpochIndex)
 
 currentTimeSlottingSimple :: SimpleSlottingMode m => m Timestamp
 currentTimeSlottingSimple = Timestamp <$> currentTime

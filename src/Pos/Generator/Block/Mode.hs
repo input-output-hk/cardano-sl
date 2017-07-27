@@ -57,11 +57,15 @@ import           Pos.Reporting               (HasReportingContext (..), Reportin
 import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
                                               SlottingData, currentTimeSlottingSimple)
 import           Pos.Slotting.MemState       (MonadSlotsData (..),
-                                              getEpochLastIndexDefault,
+                                              getAllEpochIndexDefault,
+                                              getCurrentEpochIndexDefault,
+                                              getCurrentEpochSlottingDataDefault,
                                               getEpochSlottingDataDefault,
+                                              getNextEpochIndexDefault,
+                                              getNextEpochSlottingDataDefault,
                                               getSystemStartDefault,
                                               putEpochSlottingDataDefault,
-                                              waitPenultEpochEqualsDefault)
+                                              waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
@@ -73,6 +77,7 @@ import           Pos.Txp.Toil.Types          (GenesisUtxo (..))
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
+
 
 ----------------------------------------------------------------------------
 -- Constraint
@@ -236,11 +241,15 @@ instance MonadBlockGenBase m =>
     dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance MonadBlockGenBase m => MonadSlotsData (InitBlockGenMode m) where
-    getSystemStart        = getSystemStartDefault
-    getEpochLastIndex     = getEpochLastIndexDefault
-    getEpochSlottingData  = getEpochSlottingDataDefault
-    putEpochSlottingData  = putEpochSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    getSystemStartM = getSystemStartDefault
+    getAllEpochIndexM = getAllEpochIndexDefault
+    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
+    getNextEpochIndexM = getNextEpochIndexDefault
+    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getEpochSlottingDataM = getEpochSlottingDataDefault
+    putEpochSlottingDataM = putEpochSlottingDataDefault
+    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
 
 instance MonadBlockGenBase m => MonadSlots (InitBlockGenMode m) where
     getCurrentSlot = Just <$> view ibgcSlot_L
@@ -334,11 +343,15 @@ instance MonadBlockGenBase m =>
     dbPutBlund = BDB.dbPutBlundSumDefault
 
 instance MonadBlockGenBase m => MonadSlotsData (BlockGenMode m) where
-    getSystemStart        = getSystemStartDefault
-    getEpochLastIndex     = getEpochLastIndexDefault
-    getEpochSlottingData  = getEpochSlottingDataDefault
-    putEpochSlottingData  = putEpochSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    getSystemStartM = getSystemStartDefault
+    getAllEpochIndexM = getAllEpochIndexDefault
+    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
+    getNextEpochIndexM = getNextEpochIndexDefault
+    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getEpochSlottingDataM = getEpochSlottingDataDefault
+    putEpochSlottingDataM = putEpochSlottingDataDefault
+    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
 
 instance MonadBlockGenBase m => MonadSlots (BlockGenMode m) where
     getCurrentSlot = view bgcSlotId_L

@@ -7,10 +7,14 @@ module Pos.Slotting.MemState.Holder
        , SlottingVar
        , cloneSlottingVar
        , getSystemStartDefault
-       , getEpochLastIndexDefault
+       , getAllEpochIndexDefault
+       , getCurrentEpochIndexDefault
+       , getCurrentEpochSlottingDataDefault
+       , getNextEpochIndexDefault
+       , getNextEpochSlottingDataDefault
        , getEpochSlottingDataDefault
        , putEpochSlottingDataDefault
-       , waitPenultEpochEqualsDefault
+       , waitCurrentEpochEqualsDefault
        ) where
 
 import           Universum
@@ -19,9 +23,9 @@ import           Control.Monad.STM  (retry)
 
 import           Pos.Core.Types     (EpochIndex, Timestamp)
 import           Pos.Slotting.Types (EpochSlottingData, SlottingData,
-                                     addEpochSlottingData,
-                                     getLastEpochIndex,
-                                     getPenultEpochIndex,
+                                     addEpochSlottingData, getAllEpochIndex,
+                                     getCurrentEpochIndex, getCurrentEpochSlottingData,
+                                     getNextEpochIndex, getNextEpochSlottingData,
                                      lookupEpochSlottingData)
 
 ----------------------------------------------------------------------------
@@ -47,30 +51,58 @@ class HasSlottingVar ctx where
 type SlotsDefaultEnv ctx m =
     (MonadReader ctx m, HasSlottingVar ctx, MonadIO m)
 
-getSystemStartDefault 
-    :: SlotsDefaultEnv ctx m 
+getSystemStartDefault
+    :: SlotsDefaultEnv ctx m
     => m Timestamp
 getSystemStartDefault = view slottingTimestamp
 
-getEpochLastIndexDefault 
-    :: SlotsDefaultEnv ctx m 
-    => m EpochIndex
-getEpochLastIndexDefault = do
+getAllEpochIndexDefault
+    :: SlotsDefaultEnv ctx m
+    => m [EpochIndex]
+getAllEpochIndexDefault = do
     var <- view slottingVar
-    atomically $ getLastEpochIndex <$> readTVar var
+    atomically $ getAllEpochIndex <$> readTVar var
 
-getEpochSlottingDataDefault 
-    :: SlotsDefaultEnv ctx m 
-    => EpochIndex 
+getCurrentEpochIndexDefault
+    :: SlotsDefaultEnv ctx m
+    => m EpochIndex
+getCurrentEpochIndexDefault = do
+    var <- view slottingVar
+    atomically $ getCurrentEpochIndex <$> readTVar var
+
+getNextEpochIndexDefault
+    :: SlotsDefaultEnv ctx m
+    => m EpochIndex
+getNextEpochIndexDefault = do
+    var <- view slottingVar
+    atomically $ getNextEpochIndex <$> readTVar var
+
+getCurrentEpochSlottingDataDefault
+    :: SlotsDefaultEnv ctx m
+    => m EpochSlottingData
+getCurrentEpochSlottingDataDefault = do
+    var <- view slottingVar
+    atomically $ getCurrentEpochSlottingData <$> readTVar var
+
+getNextEpochSlottingDataDefault
+    :: SlotsDefaultEnv ctx m
+    => m EpochSlottingData
+getNextEpochSlottingDataDefault = do
+    var <- view slottingVar
+    atomically $ getNextEpochSlottingData <$> readTVar var
+
+getEpochSlottingDataDefault
+    :: SlotsDefaultEnv ctx m
+    => EpochIndex
     -> m (Maybe EpochSlottingData)
 getEpochSlottingDataDefault ei = do
     var <- view slottingVar
     atomically $ lookupEpochSlottingData ei <$> readTVar var
 
-putEpochSlottingDataDefault 
-    :: SlotsDefaultEnv ctx m 
-    => EpochIndex 
-    -> EpochSlottingData 
+putEpochSlottingDataDefault
+    :: SlotsDefaultEnv ctx m
+    => EpochIndex
+    -> EpochSlottingData
     -> m ()
 putEpochSlottingDataDefault ei esd = do
     var <- view slottingVar
@@ -78,12 +110,12 @@ putEpochSlottingDataDefault ei esd = do
         slottingData <- readTVar var
         writeTVar var (addEpochSlottingData ei esd slottingData)
 
-waitPenultEpochEqualsDefault 
-    :: SlotsDefaultEnv ctx m 
-    => EpochIndex 
+waitCurrentEpochEqualsDefault
+    :: SlotsDefaultEnv ctx m
+    => EpochIndex
     -> m ()
-waitPenultEpochEqualsDefault target = do
+waitCurrentEpochEqualsDefault target = do
     var <- view slottingVar
     atomically $ do
-        penultEpoch <- getPenultEpochIndex <$> readTVar var
+        penultEpoch <- getCurrentEpochIndex <$> readTVar var
         when (penultEpoch /= target) retry

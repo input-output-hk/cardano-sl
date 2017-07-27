@@ -50,11 +50,15 @@ import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
                                                 getCurrentSlotInaccurateSum,
                                                 getCurrentSlotSum)
 import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsData (..),
-                                                getEpochLastIndexDefault,
+                                                getAllEpochIndexDefault,
+                                                getCurrentEpochIndexDefault,
+                                                getCurrentEpochSlottingDataDefault,
                                                 getEpochSlottingDataDefault,
+                                                getNextEpochIndexDefault,
+                                                getNextEpochSlottingDataDefault,
                                                 getSystemStartDefault,
                                                 putEpochSlottingDataDefault,
-                                                waitPenultEpochEqualsDefault)
+                                                waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (HasJsonLogConfig (..), jsonLogDefault)
@@ -80,6 +84,8 @@ import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..),
                                                 syncWalletOnImportWebWallet,
                                                 txMempoolToModifierWebWallet)
 import           Pos.WorkMode                  (RealModeContext)
+
+
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
@@ -143,11 +149,15 @@ instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeConte
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
 instance MonadSlotsData WalletWebMode where
-    getSystemStart        = getSystemStartDefault
-    getEpochLastIndex     = getEpochLastIndexDefault
-    getEpochSlottingData  = getEpochSlottingDataDefault
-    putEpochSlottingData  = putEpochSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    getSystemStartM = getSystemStartDefault
+    getAllEpochIndexM = getAllEpochIndexDefault
+    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
+    getNextEpochIndexM = getNextEpochIndexDefault
+    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getEpochSlottingDataM = getEpochSlottingDataDefault
+    putEpochSlottingDataM = putEpochSlottingDataDefault
+    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
 
 instance MonadSlots WalletWebMode where
     getCurrentSlot = getCurrentSlotSum

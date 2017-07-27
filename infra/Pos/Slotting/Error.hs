@@ -14,15 +14,15 @@ import           Pos.Exception       (cardanoExceptionFromException,
                                       cardanoExceptionToException)
 
 -- | Type aggregating run-time errors related to Slotting.
-data SlottingError 
+data SlottingError
     = SEUnknownSlotStart !SlotId
-    | SEUnknownLastEpoch !EpochIndex
+    | SEUnknownEpoch !EpochIndex
   deriving (Show, Typeable)
 
 instance Buildable SlottingError where
     build (SEUnknownSlotStart slot) =
         bprint ("start of "%slotIdF%" is surprisingly unknown") slot
-    build (SEUnknownLastEpoch epoch) =
+    build (SEUnknownEpoch epoch) =
         bprint ("epoch "%build%" is surprisingly unknown") epoch
 
 instance Exception SlottingError where

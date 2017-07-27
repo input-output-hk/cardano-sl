@@ -50,9 +50,8 @@ import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, H
                                           unsafeSubCoin)
 import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
-import           Pos.Slotting            (EpochSlottingData (..), addEpochSlottingData, 
-                                          getLastEpochIndex,
-                                          getLastEpochSlottingData)
+import           Pos.Slotting            (EpochSlottingData (..), addEpochSlottingData,
+                                          getNextEpochIndex, getNextEpochSlottingData)
 import           Pos.Update.Core         (BlockVersionData (..),
                                           BlockVersionModifier (..), UpId,
                                           UpdateProposal (..), UpdateVote (..),
@@ -66,6 +65,7 @@ import           Pos.Update.Poll.Types   (BlockVersionState (..),
                                           UpsExtra (..), bvsIsConfirmed, bvsScriptVersion,
                                           cpsBlockVersion)
 import           Pos.Util.Util           (leftToPanic)
+
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -210,7 +210,7 @@ adoptBlockVersion winningBlk bv = do
 -- which currently adopted 'BlockVersion' can be applied.
 updateSlottingData
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => EpochIndex 
+    => EpochIndex
     -> m ()
 updateSlottingData epochIndex = do
     let errFmt =
@@ -218,28 +218,36 @@ updateSlottingData epochIndex = do
              ", while given epoch is "%int%
              ")")
 
+    -- TODO(ks): We don't have to fetch from the database,
+    -- we can use @getNextEpochSlottingDataM@.
+    -- Also, this kind of breaks encapsulation! It would be easier if we could adjust
+    -- class (MonadSlotsData/MonadSlots m, MonadPollRead m) => MonadPoll m where ...
+    -- where we can say that MonadPoll requires MonadSlots to work. And hide
+    -- Pos.Slotting.Types. Then the imports wouldn't break, and we could easily replace
+    -- the functionality... It does make sense (to me, at least).
     slottingData      <- getSlottingData
-    let lastIndex      = getLastEpochIndex slottingData
-    let esd            = getLastEpochSlottingData slottingData
+    let nextEpochIndex = getNextEpochIndex slottingData
+    let nextEpochSD    = getNextEpochSlottingData slottingData
 
-    if | lastIndex + 1 == epochIndex -> updateSlottingDataDo epochIndex slottingData esd
+    if | nextEpochIndex + 1 == epochIndex ->
+          updateSlottingDataDo epochIndex slottingData nextEpochSD
        -- This can happen if there was rollback of genesis block.
-       | lastIndex == epochIndex -> pass
+       | nextEpochIndex == epochIndex -> pass
        | otherwise ->
-           throwError $ PollInternalError $ sformat errFmt lastIndex epochIndex
+           throwError $ PollInternalError $ sformat errFmt nextEpochIndex epochIndex
   where
     -- updateSlottingDataDo :: EpochIndex -> EpochSlottingData -> m ()
-    updateSlottingDataDo lastIndex slottingData esd = do
+    updateSlottingDataDo nextEpochIndex slottingData esd = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
 
         let epochDuration = fromIntegral epochSlots * convertUnit (esdSlotDuration esd)
         let newLastStartDiff = esdStartDiff esd + TimeDiff epochDuration
-        let newLast = EpochSlottingData { 
+        let newLast = EpochSlottingData {
               esdSlotDuration = latestSlotDuration
             , esdStartDiff    = newLastStartDiff
             }
 
-        let newSlottingData = addEpochSlottingData lastIndex newLast slottingData
+        let newSlottingData = addEpochSlottingData nextEpochIndex newLast slottingData
 
         setSlottingData newSlottingData
 

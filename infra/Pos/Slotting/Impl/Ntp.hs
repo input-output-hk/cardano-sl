@@ -118,6 +118,7 @@ mkNtpSlottingVar = do
 
 type NtpMode m =
     ( MonadIO m
+    , MonadThrow m
     , WithLogger m
     , MonadSlotsData m
     , Mockables m
@@ -147,33 +148,33 @@ data SlotStatus
     = CantTrust Text                    -- ^ We can't trust local time.
     | OutdatedSlottingData !EpochIndex  -- ^ We don't know recent
                                         -- slotting data, last known
-                                        -- penult epoch is attached.
+                                        -- current epoch is attached.
     | CurrentSlot !SlotId               -- ^ Slot is calculated successfully.
 
 ntpGetCurrentSlot
-    :: (NtpMode m, MonadThrow m)
-    => NtpSlottingVar 
+    :: (NtpMode m)
+    => NtpSlottingVar
     -> m (Maybe SlotId)
 ntpGetCurrentSlot var = ntpGetCurrentSlotImpl var >>= \case
     CurrentSlot slot -> pure $ Just slot
-    OutdatedSlottingData i -> do
+    OutdatedSlottingData currentEpochIndex -> do
         logWarning $ sformat
             ("Can't get current slot, because slotting data"%
-             " is outdated. Last known penult epoch = "%int)
-            i
+             " is outdated. Last known current epoch = "%int)
+            currentEpochIndex
         Nothing <$ printSlottingData
     CantTrust t -> do
         logWarning $
             "Can't get current slot, because we can't trust local time, details: " <> t
         Nothing <$ printSlottingData
   where
+    -- Here we could print all the slotting data
     printSlottingData = do
-        eli <- getEpochLastIndex
-        sd  <- getEpochSlottingData eli
+        sd  <- getCurrentEpochSlottingDataM
         logWarning $ "Slotting data: " <> show sd
 
 ntpGetCurrentSlotInaccurate
-    :: (NtpMode m, MonadThrow m)
+    :: (NtpMode m)
     => NtpSlottingVar -> m SlotId
 ntpGetCurrentSlotInaccurate var = do
     res <- ntpGetCurrentSlotImpl var
@@ -181,23 +182,23 @@ ntpGetCurrentSlotInaccurate var = do
         CurrentSlot slot -> pure slot
         CantTrust _        -> do
             _nssLastSlot <$> atomically (STM.readTVar var)
-        OutdatedSlottingData penult ->
-            ntpCurrentTime var >>= approxSlotUsingOutdated penult
+        OutdatedSlottingData currentEpochIndex ->
+            ntpCurrentTime var >>= approxSlotUsingOutdated currentEpochIndex
 
 ntpGetCurrentSlotImpl
-    :: (NtpMode m, MonadThrow m)
-    => NtpSlottingVar 
+    :: (NtpMode m)
+    => NtpSlottingVar
     -> m SlotStatus
 ntpGetCurrentSlotImpl var = do
     NtpSlottingState {..} <- atomically $ STM.readTVar var
     t <- Timestamp . (+ _nssLastMargin) <$> currentTime
     case canWeTrustLocalTime _nssLastLocalTime t of
       Nothing -> do
-          lastIndex <- getEpochLastIndex
+          currentEpochIndex <- getCurrentEpochIndexM
           res <- fmap (max _nssLastSlot) <$> slotFromTimestamp t
           let setLastSlot s = atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
           whenJust res setLastSlot
-          pure $ maybe (OutdatedSlottingData lastIndex) CurrentSlot res
+          pure $ maybe (OutdatedSlottingData currentEpochIndex) CurrentSlot res
       Just reason -> pure $ CantTrust reason
   where
     -- We can trust getCurrentTime if it is:
@@ -221,8 +222,8 @@ ntpGetCurrentSlotBlocking var = ntpGetCurrentSlotImpl var >>= \case
     CantTrust _ -> do
         delay C.ntpPollDelay
         ntpGetCurrentSlotBlocking var
-    OutdatedSlottingData penult -> do
-        waitPenultEpochEquals (penult + 1)
+    OutdatedSlottingData current -> do
+        waitCurrentEpochEqualsM (current + 1)
         ntpGetCurrentSlotBlocking var
     CurrentSlot slot -> pure slot
 

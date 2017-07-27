@@ -51,11 +51,14 @@ import           Pos.Exception          (assertionFailed, reportFatalError)
 import qualified Pos.GState             as GS
 import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
-import           Pos.Slotting           (MonadSlots (getCurrentSlot), putEpochSlottingData, getSlottingDataMap)
+import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlottingDataMap,
+                                         putEpochSlottingDataM)
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass (..))
 import           Pos.Util               (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
                                          OldestFirst (..), toOldestFirst)
+
+
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -304,12 +307,13 @@ slogRollbackBlocks blunds = do
         mconcat [forwardLinksBatch, inMainBatch]
 
 -- Common actions for rollback and apply.
-slogCommon 
-    :: MonadSlogApply ssc ctx m 
-    => LastBlkSlots 
+slogCommon
+    :: MonadSlogApply ssc ctx m
+    => LastBlkSlots
     -> m ()
 slogCommon newLastSlots = do
     sanityCheckDB
     slogPutLastSlots newLastSlots
+    -- TODO(ks): Again, we can use memory, and not break encapsulation.
     slotData <- M.toList . getSlottingDataMap <$> GS.getSlottingData
-    forM_ slotData (uncurry putEpochSlottingData)
+    forM_ slotData (uncurry putEpochSlottingDataM)

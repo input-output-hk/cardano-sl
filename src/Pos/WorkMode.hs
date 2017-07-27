@@ -51,13 +51,16 @@ import           Pos.Shutdown          (HasShutdownContext (..))
 import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (currentTimeSlottingSum, getCurrentSlotBlockingSum,
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState (HasSlottingVar (..),
-                                        MonadSlotsData (..),
-                                        getEpochLastIndexDefault,
+import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData (..),
+                                        getAllEpochIndexDefault,
+                                        getCurrentEpochIndexDefault,
+                                        getCurrentEpochSlottingDataDefault,
                                         getEpochSlottingDataDefault,
+                                        getNextEpochIndexDefault,
+                                        getNextEpochSlottingDataDefault,
                                         getSystemStartDefault,
                                         putEpochSlottingDataDefault,
-                                        waitPenultEpochEqualsDefault)
+                                        waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Ssc.Extra         (SscMemTag, SscState)
@@ -71,6 +74,8 @@ import           Pos.Util.TimeWarp     (CanJsonLog (..))
 import           Pos.Util.UserSecret   (HasUserSecret (..))
 import           Pos.Util.Util         (postfixLFields)
 import           Pos.WorkMode.Class    (MinWorkMode, TxpExtra_TMP, WorkMode)
+
+
 
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -147,11 +152,15 @@ instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
     jsonLog = jsonLogDefault
 
 instance MonadSlotsData (RealMode ssc) where
-    getSystemStart        = getSystemStartDefault
-    getEpochLastIndex     = getEpochLastIndexDefault
-    getEpochSlottingData  = getEpochSlottingDataDefault
-    putEpochSlottingData  = putEpochSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    getSystemStartM = getSystemStartDefault
+    getAllEpochIndexM = getAllEpochIndexDefault
+    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
+    getNextEpochIndexM = getNextEpochIndexDefault
+    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getEpochSlottingDataM = getEpochSlottingDataDefault
+    putEpochSlottingDataM = putEpochSlottingDataDefault
+    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
 
 instance MonadSlots (RealMode ssc) where
     getCurrentSlot = getCurrentSlotSum

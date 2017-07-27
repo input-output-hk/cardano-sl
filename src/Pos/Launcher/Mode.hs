@@ -38,33 +38,36 @@ import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Core              (IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
-                                        dbGetHeaderDefault,
-                                        dbGetHeaderSscDefault, dbGetUndoDefault,
-                                        dbGetUndoSscDefault, dbPutBlundDefault)
+                                        dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                        dbGetUndoDefault, dbGetUndoSscDefault,
+                                        dbPutBlundDefault)
 import           Pos.DB.Class          (MonadBlockDBGeneric (..),
-                                        MonadBlockDBGenericWrite (..),
-                                        MonadDB (..), MonadDBRead (..))
+                                        MonadBlockDBGenericWrite (..), MonadDB (..),
+                                        MonadDBRead (..))
 import           Pos.DB.Rocks          (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
 import           Pos.Lrc.Context       (LrcContext)
 import           Pos.Slotting          (HasSlottingVar (..), SlottingData)
 import           Pos.Slotting.Class    (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum (SlottingContextSum,
-                                        currentTimeSlottingSum,
+import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
                                         getCurrentSlotBlockingSum,
-                                        getCurrentSlotInaccurateSum,
-                                        getCurrentSlotSum)
-import           Pos.Slotting.MemState (MonadSlotsData (..),
-                                        getEpochLastIndexDefault,
+                                        getCurrentSlotInaccurateSum, getCurrentSlotSum)
+import           Pos.Slotting.MemState (MonadSlotsData (..), getAllEpochIndexDefault,
+                                        getCurrentEpochIndexDefault,
+                                        getCurrentEpochSlottingDataDefault,
                                         getEpochSlottingDataDefault,
+                                        getNextEpochIndexDefault,
+                                        getNextEpochSlottingDataDefault,
                                         getSystemStartDefault,
                                         putEpochSlottingDataDefault,
-                                        waitPenultEpochEqualsDefault)
+                                        waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Util              (Some (..))
 import           Pos.Util.Util         (postfixLFields)
+
+
 
 
 -- | 'newInitFuture' creates a thunk and a procedure to fill it. This can be
@@ -146,11 +149,15 @@ instance
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
 instance MonadSlotsData (InitMode ssc) where
-    getSystemStart        = getSystemStartDefault
-    getEpochLastIndex     = getEpochLastIndexDefault
-    getEpochSlottingData  = getEpochSlottingDataDefault
-    putEpochSlottingData  = putEpochSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    getSystemStartM = getSystemStartDefault
+    getAllEpochIndexM = getAllEpochIndexDefault
+    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
+    getNextEpochIndexM = getNextEpochIndexDefault
+    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getEpochSlottingDataM = getEpochSlottingDataDefault
+    putEpochSlottingDataM = putEpochSlottingDataDefault
+    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
 
 instance MonadSlots (InitMode ssc) where
     getCurrentSlot = getCurrentSlotSum

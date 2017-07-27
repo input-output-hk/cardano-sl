@@ -10,36 +10,50 @@ import           Universum
 import           Pos.Core.Types      (EpochIndex, Timestamp)
 import           Pos.Slotting.Types  (EpochSlottingData)
 
+
 -- | 'MonadSlotsData' provides access to data necessary for slotting to work.
+-- Both _current_ and _next_ epoch @SlottingData@ need to be present since it's impossible
+-- to create @SlottingData@ without them.
 class Monad m => MonadSlotsData m where
 
-    getSystemStart :: m Timestamp
+    getSystemStartM :: m Timestamp
 
-    getEpochLastIndex :: m EpochIndex
+    getAllEpochIndexM :: m [EpochIndex]
 
-    -- TODO(ks): Maybe add other usefull functions directly?
-    -- getEpochPenultIndex :: m EpochIndex
-    -- getLastEpochSlottingData :: m (Maybe EpochSlottingData)
-    -- getPenultEpochSlottingData :: m (Maybe EpochSlottingData)
+    getCurrentEpochIndexM :: m EpochIndex
 
-    getEpochSlottingData :: EpochIndex -> m (Maybe EpochSlottingData)
+    getNextEpochIndexM :: m EpochIndex
 
-    putEpochSlottingData :: EpochIndex -> EpochSlottingData -> m ()
+    getCurrentEpochSlottingDataM :: m EpochSlottingData
 
-    waitPenultEpochEquals :: EpochIndex -> m ()
+    getNextEpochSlottingDataM :: m EpochSlottingData
+
+    getEpochSlottingDataM :: EpochIndex -> m (Maybe EpochSlottingData)
+
+    putEpochSlottingDataM :: EpochIndex -> EpochSlottingData -> m ()
+
+    waitCurrentEpochEqualsM :: EpochIndex -> m ()
 
 
 instance {-# OVERLAPPABLE #-}
     (MonadSlotsData m, MonadTrans t, Monad (t m)) =>
         MonadSlotsData (t m) where
 
-    getSystemStart = lift getSystemStart
-    
-    getEpochLastIndex = lift getEpochLastIndex
+    getSystemStartM = lift getSystemStartM
 
-    getEpochSlottingData = lift . getEpochSlottingData
+    getAllEpochIndexM = lift getAllEpochIndexM
 
-    putEpochSlottingData = (lift .) . putEpochSlottingData
-    
-    waitPenultEpochEquals = lift . waitPenultEpochEquals
-    
+    getCurrentEpochIndexM = lift getCurrentEpochIndexM
+
+    getNextEpochIndexM = lift getNextEpochIndexM
+
+    getCurrentEpochSlottingDataM = lift getCurrentEpochSlottingDataM
+
+    getNextEpochSlottingDataM = lift getCurrentEpochSlottingDataM
+
+    getEpochSlottingDataM = lift . getEpochSlottingDataM
+
+    putEpochSlottingDataM = (lift .) . putEpochSlottingDataM
+
+    waitCurrentEpochEqualsM = lift . waitCurrentEpochEqualsM
+

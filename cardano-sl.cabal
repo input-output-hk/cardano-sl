@@ -581,6 +581,9 @@ test-suite cardano-test
                        Test.Pos.Block.Logic.Event
                        Test.Pos.Block.Logic.VarSpec
 
+                       -- LRC
+                       Test.Pos.Lrc.FollowTheSatoshiSpec
+
                        -- Everything else
                        Test.Pos.CborSpec
                        Test.Pos.Communication.Identity.BinarySpec
@@ -590,7 +593,6 @@ test-suite cardano-test
                        Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.Explorer.Identity.BinarySpec
-                       Test.Pos.FollowTheSatoshiSpec
                        Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Ssc.GodTossing.ComputeSharesSpec

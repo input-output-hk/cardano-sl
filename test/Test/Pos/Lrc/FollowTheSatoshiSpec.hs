@@ -1,6 +1,7 @@
--- | Specification of Pos.FollowTheSatoshi
+-- | Specification of Pos.Lrc.FtsPure (which is basically a pure
+-- version of 'Pos.Lrc.Fts').
 
-module Test.Pos.FollowTheSatoshiSpec
+module Test.Pos.Lrc.FollowTheSatoshiSpec
        ( spec
        ) where
 

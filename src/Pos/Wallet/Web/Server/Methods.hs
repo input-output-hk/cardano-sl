@@ -776,6 +776,7 @@ prepareTxRaw
     -> TxFee
     -> m TxRaw
 prepareTxRaw moneySource dstDistr fee = do
+    forM_ dstDistr $ checkIsNotRedeem . fst
     allAddrs <- getMoneySourceAddresses moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
         notDstAddrs = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
@@ -798,8 +799,14 @@ prepareTxRaw moneySource dstDistr fee = do
         pure $ TxOutAux (TxOut addr coin) []
     trOutputs <- withDistr $ overrideTxDistrBoot trOutputsPre
     remainingDistr <- withDistr $ overrideTxOutDistrBoot remaining []
-    let trRemaining = (remaining,  remainingDistr)
+    let trRemaining = (remaining, remainingDistr)
     pure TxRaw{..}
+  where
+    checkIsNotRedeem cId = decodeCIdOrFail cId >>= \case
+        RedeemAddress{} ->
+            throwM . RequestError $
+            sformat ("Destination address can't be redeem address: "%build) cId
+        _ -> return ()
 
 -- | Accept all addresses in descending order (by coins)
 -- Addresses available to be source of the transaction, with their balances

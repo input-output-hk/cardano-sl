@@ -113,11 +113,12 @@ topologySubscriptionWorker = go
 topologyRunKademlia :: Topology -> Bool
 topologyRunKademlia = go
   where
-    go (TopologyStatic _ _)    = True
-    go (TopologyBehindNAT _)   = False
-    go (TopologyP2P)           = True
-    go (TopologyTraditional)   = True
-    go (TopologyLightWallet _) = False
+    go (TopologyStatic NodeRelay _) = True
+    go (TopologyStatic _ _)         = False
+    go (TopologyBehindNAT _)        = False
+    go (TopologyP2P)                = True
+    go (TopologyTraditional)        = True
+    go (TopologyLightWallet _)      = False
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig

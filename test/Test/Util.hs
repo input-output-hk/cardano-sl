@@ -31,7 +31,6 @@ module Test.Util
 
        , throwLeft
 
-       , TalkStyle (..)
        , sendAll
        , receiveAll
 
@@ -77,13 +76,12 @@ import           Test.QuickCheck.Property    (Testable (..), failed, reason, suc
 
 import           Node                        (ConversationActions (..),
                                               Listener (..), Message (..),
-                                              NodeAction (..), NodeId, SendActions (..),
-                                              Worker, node, nodeId, defaultNodeEnvironment,
+                                              NodeAction (..), NodeId, Conversation (..),
+                                              node, nodeId, defaultNodeEnvironment,
                                               simpleNodeEndPoint, Conversation (..),
                                               noReceiveDelay, NodeEnvironment,
-                                              enqueueConversation')
+                                              converseWith)
 import           Node.Conversation           (Converse)
-import           Node.OutboundQueue          (freeForAll, OutboundQueue)
 import           Node.Message.Binary         (BinaryP, binaryPacking)
 
 -- | Run a computation, but kill it if it takes more than a given number of
@@ -211,17 +209,6 @@ awaitSTM time predicate = do
     liftIO . atomically $
         check =<< (||) <$> predicate <*> readTVar tvar
 
-
--- * Talk style
-
--- | Way to send pack of messages
-data TalkStyle
-    = ConversationStyle
-    -- ^ corresponds to `withConnectionTo` and `Listener` usage
-
-instance Show TalkStyle where
-    show ConversationStyle  = "conversation style"
-
 sendAll
     :: ( Binary msg, Message msg, MonadIO m
        , Mockable Concurrently m
@@ -231,20 +218,18 @@ sendAll
        , Mockable Catch m
        , Mockable SharedExclusive m
        )
-    => TalkStyle
-    -> SendActions BinaryP () NodeId () m
+    => Converse BinaryP () m
     -> NodeId
     -> [msg]
     -> m ()
-sendAll ConversationStyle sendActions peerId msgs =
+sendAll converse peerId msgs =
     timeout "sendAll" 30000000 $
-        void . enqueueConversation' sendActions (S.singleton peerId) () $
-            \peer peerData ->
-                Conversation $ \cactions -> forM_ msgs $
-                    \msg -> do
-                        send cactions msg
-                        (_ :: Maybe Bool) <- recv cactions maxBound
-                        pure ()
+        void . converseWith converse peerId $
+            \peerData -> Conversation $ \cactions -> forM_ msgs $
+                \msg -> do
+                    send cactions msg
+                    (_ :: Maybe Bool) <- recv cactions maxBound
+                    pure ()
 
 receiveAll
     :: ( Binary msg, Message msg, MonadIO m
@@ -254,14 +239,13 @@ receiveAll
        , Mockable Throw m
        , Mockable Catch m
        )
-    => TalkStyle
-    -> (msg -> m ())
-    -> Listener BinaryP () NodeId () m
+    => (msg -> m ())
+    -> Listener BinaryP () m
 -- For conversation style, we send a response for every message received.
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
-receiveAll ConversationStyle  handler =
-    Listener @_ @_ @_ @_ @_ @Bool $ \_ _ _ cactions ->
+receiveAll handler =
+    Listener @_ @_ @_ @Bool $ \_ _ cactions ->
         let loop = do mmsg <- recv cactions maxBound
                       case mmsg of
                           Nothing -> pure ()
@@ -299,8 +283,8 @@ makeTCPTransport bind hostAddr port qdisc mtu = do
 deliveryTest :: NT.Transport
              -> NodeEnvironment Production
              -> TVar TestState
-             -> [NodeId -> Worker BinaryP () NodeId () Production]
-             -> [Listener BinaryP () NodeId () Production]
+             -> [NodeId -> Converse BinaryP () Production -> Production ()]
+             -> [Listener BinaryP () Production]
              -> IO Property
 deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
 
@@ -313,12 +297,7 @@ deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
     clientFinished <- newSharedExclusive
     serverFinished <- newSharedExclusive
 
-    let mkOutboundQueue
-            :: Converse BinaryP () Production
-            -> Production (OutboundQueue BinaryP () NodeId () Production)
-        mkOutboundQueue converse = pure (freeForAll id converse)
-
-    let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prng1 binaryPacking () nodeEnv $ \serverNode -> do
+    let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng1 binaryPacking () nodeEnv $ \serverNode -> do
             NodeAction (const listeners) $ \_ -> do
                 -- Give our address to the client.
                 putSharedExclusive serverAddressVar (nodeId serverNode)
@@ -329,11 +308,11 @@ deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
                 -- Allow the client to stop.
                 putSharedExclusive serverFinished ()
 
-    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prng2 binaryPacking () nodeEnv $ \clientNode ->
-            NodeAction (const []) $ \sendActions -> do
+    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng2 binaryPacking () nodeEnv $ \clientNode ->
+            NodeAction (const []) $ \converse -> do
                 serverAddress <- takeSharedExclusive serverAddressVar
                 let act = void . forConcurrently workers $ \worker ->
-                        worker serverAddress sendActions
+                        worker serverAddress converse
                 -- Tell the server that we're done.
                 act `finally` putSharedExclusive clientFinished ()
                 -- Wait until the server has finished.

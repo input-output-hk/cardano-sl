@@ -1,5 +1,5 @@
 name:                node-sketch
-version:             0.1.4.0
+version:             0.2.0.0
 license:             MIT
 license-file:        LICENSE
 category:            Network
@@ -19,10 +19,8 @@ Library
                         Network.Transport.Concrete.TCP
                         Network.QDisc.Fair
 
-                        Network.Broadcast.Relay.Simple
-
                         Network.Broadcast.OutboundQueue
-                        Network.Broadcast.OutboundQueue.Classification
+                        Network.Broadcast.OutboundQueue.Types
                         Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
                         Network.Broadcast.OutboundQueue.Demo
 
@@ -43,11 +41,9 @@ Library
 
                         Node.Internal
                         Node.Conversation
-                        Node.OutboundQueue
                         Node.Message.Decoder
                         Node.Message.Class
                         Node.Message.Binary
-                        Node.Message.Store
 
                         Node.Util.Monitor
 
@@ -108,12 +104,11 @@ Library
                       , ekg
                       , mwc-random
                       , statistics
-                      , store
                       , vector
 
   hs-source-dirs:       src
   default-language:     Haskell2010
-  ghc-options:          -Wall -fno-warn-orphans -Werror
+  ghc-options:          -Wall -fno-warn-orphans -Werror -fwarn-redundant-constraints
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -150,7 +145,6 @@ executable ping-pong
                      , node-sketch
                      , random
                      , stm
-                     , store
                      , time-units
 
   hs-source-dirs:      examples

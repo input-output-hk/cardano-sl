@@ -25,7 +25,6 @@ module Node.Message.Class
     ) where
 
 import qualified Data.Binary                   as Bin
-import qualified Data.Store                    as Store
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as LBS
 import           Data.Data                     (Data, dataTypeName, dataTypeOf)
@@ -51,7 +50,6 @@ deriving instance IsString MessageName
 deriving instance Hashable MessageName
 deriving instance Monoid MessageName
 instance Bin.Binary MessageName
-instance Store.Store MessageName
 
 instance Buildable MessageName where
     build (MessageName mn) = F.bprint base16F mn
@@ -99,7 +97,7 @@ data Packing packingType m = Packing
     , unpackM :: forall t . UnpackM packingType t -> m t
     }
 
-pack :: ( Functor m, Serializable packingType t ) => Packing packingType m -> t -> m LBS.ByteString
+pack :: ( Serializable packingType t ) => Packing packingType m -> t -> m LBS.ByteString
 pack Packing {..} = packM . packMsg packingType
 
 unpack :: ( Functor m, Serializable packingType t ) => Packing packingType m -> Decoder m t

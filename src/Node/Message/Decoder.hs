@@ -7,6 +7,9 @@ module Node.Message.Decoder
     , continueDecoding
     , hoistDecoder
     , hoistDecoderStep
+    , pureDone
+    , pureFail
+    , purePartial
     ) where
 
 import           Data.Int         (Int64)
@@ -52,3 +55,13 @@ continueDecoding decoderStep bs = case decoderStep of
     Done trailing offset t -> pure $ Done (BS.append trailing bs) offset t
     Fail trailing offset err -> pure $ Fail (BS.append trailing bs) offset err
     Partial k -> runDecoder (k (Just bs))
+
+
+pureDone :: Monad m => BS.ByteString -> ByteOffset -> t -> Decoder m t
+pureDone trailing offset t = Decoder . return $ Done trailing offset t
+
+pureFail :: Monad m => BS.ByteString -> ByteOffset -> T.Text -> Decoder m t
+pureFail trailing offset err = Decoder . return $ Fail trailing offset err
+
+purePartial :: Monad m => (Maybe BS.ByteString -> Decoder m t) -> Decoder m t
+purePartial k = Decoder . return $ Partial k

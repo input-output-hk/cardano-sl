@@ -25,7 +25,7 @@ import           Test.Hspec.QuickCheck       (prop, modifyMaxSuccess)
 import           Test.QuickCheck             (Property, ioProperty)
 import           Test.QuickCheck.Modifiers   (NonEmptyList(..), getNonEmpty)
 import           Test.Util                   (HeavyParcel (..), Parcel (..),
-                                              TalkStyle (..), TestState, deliveryTest,
+                                              TestState, deliveryTest,
                                               expected, mkTestState, modifyTestState,
                                               newWork, receiveAll, sendAll,
                                               makeTCPTransport, makeInMemoryTransport,
@@ -48,7 +48,6 @@ import           Mockable.Production         (Production, runProduction)
 import           Node.Message.Binary         (BinaryP, binaryPacking)
 import           Node
 import           Node.Conversation
-import           Node.OutboundQueue
 
 spec :: Spec
 spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
@@ -69,12 +68,6 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
             ]
     let nodeEnv = defaultNodeEnvironment { nodeMtu = mtu }
 
-    let mkOutboundQueue
-            :: forall peerData .
-               Converse BinaryP peerData Production
-            -> Production (OutboundQueue BinaryP peerData NodeId () Production)
-        mkOutboundQueue converse = pure (freeForAll id converse)
-
     forM_ transports $ \(name, mkTransport) -> do
 
         transport_ <- mkTransport
@@ -90,7 +83,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                 serverFinished <- newSharedExclusive
                 let attempts = 1
 
-                let listener = Listener $ \pd _ _ cactions -> do
+                let listener = Listener $ \pd _ cactions -> do
                         True <- return $ pd == ("client", 24)
                         initial <- timeout "server waiting for request" 30000000 (recv cactions maxBound)
                         case initial of
@@ -99,16 +92,16 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                                 _ <- timeout "server sending response" 30000000 (send cactions (Parcel i (Payload 32)))
                                 return ()
 
-                let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue serverGen binaryPacking ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
-                        NodeAction (const [listener]) $ \sendActions -> do
+                let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) serverGen binaryPacking ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
+                        NodeAction (const [listener]) $ \converse -> do
                             putSharedExclusive serverAddressVar (nodeId _node)
                             takeSharedExclusive clientFinished
                             putSharedExclusive serverFinished ()
 
-                let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue clientGen binaryPacking ("client" :: String, 24 :: Int) nodeEnv $ \_node ->
-                        NodeAction (const [listener]) $ \sendActions -> do
+                let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) clientGen binaryPacking ("client" :: String, 24 :: Int) nodeEnv $ \_node ->
+                        NodeAction (const [listener]) $ \converse -> do
                             serverAddress <- readSharedExclusive serverAddressVar
-                            forM_ [1..attempts] $ \i -> withConnectionTo sendActions serverAddress $ \peerData -> Conversation $ \cactions -> do
+                            forM_ [1..attempts] $ \i -> converseWith converse serverAddress $ \peerData -> Conversation $ \cactions -> do
                                 True <- return $ peerData == ("server", 42)
                                 _ <- timeout "client sending" 30000000 (send cactions (Parcel i (Payload 32)))
                                 response <- timeout "client waiting for response" 30000000 (recv cactions maxBound)
@@ -135,7 +128,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                 -- of attempts without taking too much time.
                 let attempts = 100
 
-                let listener = Listener $ \pd _ _ cactions -> do
+                let listener = Listener $ \pd _ cactions -> do
                         True <- return $ pd == ("some string", 42)
                         initial <- recv cactions maxBound
                         case initial of
@@ -144,9 +137,9 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                                 _ <- send cactions (Parcel i (Payload 32))
                                 return ()
 
-                node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue gen binaryPacking ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
-                    NodeAction (const [listener]) $ \sendActions -> do
-                        forM_ [1..attempts] $ \i -> withConnectionTo sendActions (nodeId _node) $ \peerData -> Conversation $ \cactions -> do
+                node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
+                    NodeAction (const [listener]) $ \converse -> do
+                        forM_ [1..attempts] $ \i -> converseWith converse (nodeId _node) $ \peerData -> Conversation $ \cactions -> do
                             True <- return $ peerData == ("some string", 42)
                             _ <- send cactions (Parcel i (Payload 32))
                             response <- recv cactions maxBound
@@ -178,10 +171,10 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                         handleThreadKilled Timeout = do
                             --liftIO . putStrLn $ "Thread killed successfully!"
                             return ()
-                    node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue gen binaryPacking () env $ \_node ->
-                        NodeAction (const []) $ \sendActions -> do
+                    node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking () env $ \_node ->
+                        NodeAction (const []) $ \converse -> do
                             timeout "client waiting for ACK" 5000000 $
-                                flip catch handleThreadKilled $ withConnectionTo sendActions peerAddr $ \peerData -> Conversation $ \cactions -> do
+                                flip catch handleThreadKilled $ converseWith converse peerAddr $ \peerData -> Conversation $ \cactions -> do
                                     _ :: Maybe Parcel <- recv cactions maxBound
                                     send cactions (Parcel 0 (Payload 32))
                                     return ()
@@ -192,11 +185,10 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
 
             -- one sender, one receiver
             describe "delivery" $ do
-                for_ [ConversationStyle] $ \talkStyle -> do
-                    prop "plain" $
-                        plainDeliveryTest transport_ nodeEnv talkStyle
-                    prop "heavy messages sent nicely" $
-                        withHeavyParcels $ plainDeliveryTest transport_ nodeEnv talkStyle
+                prop "plain" $
+                    plainDeliveryTest transport_ nodeEnv
+                prop "heavy messages sent nicely" $
+                    withHeavyParcels $ plainDeliveryTest transport_ nodeEnv
 
 prepareDeliveryTestState :: [Parcel] -> IO (TVar TestState)
 prepareDeliveryTestState expectedParcels =
@@ -206,17 +198,16 @@ prepareDeliveryTestState expectedParcels =
 plainDeliveryTest
     :: NT.Transport
     -> NodeEnvironment Production
-    -> TalkStyle
     -> NonEmptyList Parcel
     -> Property
-plainDeliveryTest transport_ nodeEnv talkStyle neparcels = ioProperty $ do
+plainDeliveryTest transport_ nodeEnv neparcels = ioProperty $ do
     let parcels = getNonEmpty neparcels
     testState <- prepareDeliveryTestState parcels
 
-    let worker peerId sendActions = newWork testState "client" $
-            sendAll talkStyle sendActions peerId parcels
+    let worker peerId converse = newWork testState "client" $
+            sendAll converse peerId parcels
 
-        listener = receiveAll talkStyle $
+        listener = receiveAll $
             \parcel -> modifyTestState testState $ expected %= sans parcel
 
     deliveryTest transport_ nodeEnv testState [worker] [listener]

@@ -38,18 +38,16 @@ module Node (
     , Message (..)
     , messageName'
 
+    , Converse(..)
     , Conversation(..)
-    , SendActions(withConnectionTo, enqueueConversation)
-    , enqueueConversation'
-    , waitForConversations
     , ConversationActions(send, recv)
-    , Worker
+    , converseWith
+
     , Listener (..)
     , ListenerAction
 
     , hoistListenerAction
     , hoistListener
-    , hoistSendActions
     , hoistConversationActions
 
     , LL.Statistics(..)
@@ -59,14 +57,14 @@ module Node (
 
     ) where
 
-import           Control.Exception          (SomeException, Exception)
+import           Control.Exception          (SomeException, Exception(..))
 import           Control.Monad              (unless, when)
 import           Control.Monad.Fix          (MonadFix)
 import qualified Data.ByteString            as BS
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as M
-import           Data.Set                   (Set)
 import           Data.Proxy                 (Proxy (..))
+import qualified Data.Text                  as T
 import           Data.Typeable              (Typeable)
 import           Data.Word                  (Word32)
 import           Formatting                 (sformat, shown, (%))
@@ -80,13 +78,13 @@ import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
 import qualified Network.Transport.Abstract as NT
 import           Node.Conversation
-import           Node.OutboundQueue
 import           Node.Internal              (ChannelIn, ChannelOut)
 import qualified Node.Internal              as LL
 import           Node.Message.Class         (Serializable (..), MessageName,
                                              Message (..), messageName',
                                              Packing, pack, unpack)
-import           Node.Message.Decoder       (Decoder (..), DecoderStep (..), continueDecoding)
+import           Node.Message.Decoder       (Decoder (..), DecoderStep (..),
+                                             ByteOffset, continueDecoding)
 import           System.Random              (StdGen)
 import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
 
@@ -106,123 +104,66 @@ data LimitExceeded = LimitExceeded
 
 instance Exception LimitExceeded
 
-data NoParse = NoParse
+-- | Custom exception thrown by recvNext
+--
+-- This carries the fields of the 'Fail' constructor of 'Decoder'
+data NoParse = NoParse !BS.ByteString !ByteOffset !T.Text
   deriving (Show, Typeable)
 
-instance Exception NoParse
-
-type Worker packing peerData peer msgClass m = SendActions packing peerData peer msgClass m -> m ()
+instance Exception NoParse where
+  displayException (NoParse trailing offset err) =
+       "recvNext failed with " ++ T.unpack err
+    ++ " (length trailing = " ++ show (BS.length trailing)
+    ++ ", offset = " ++ show offset ++ ")"
 
 -- | A ListenerAction with existential snd and rcv types and suitable
 --   constraints on them.
-data Listener packingType peerData peer msgClass m where
+data Listener packingType peerData m where
   Listener
     :: ( Serializable packingType snd, Serializable packingType rcv, Message rcv )
-    => ListenerAction packingType peerData peer msgClass snd rcv m
-    -> Listener packingType peerData peer msgClass m
+    => ListenerAction packingType peerData snd rcv m
+    -> Listener packingType peerData m
 
 -- | A listener that handles an incoming bi-directional conversation.
-type ListenerAction packingType peerData peer msgClass snd rcv m =
+type ListenerAction packingType peerData snd rcv m =
        -- TODO do not take the peer data here, it's already in scope because
        -- the listeners are given as a function of the remote peer's
        -- peer data. This remains just because cardano-sl will need a big change
        -- to use it properly.
        peerData
     -> LL.NodeId
-    -> SendActions packingType peerData peer msgClass m
     -> ConversationActions snd rcv m
     -> m ()
 
 hoistListenerAction
-    :: ( Functor n )
+    :: ( )
     => (forall a. n a -> m a)
     -> (forall a. m a -> n a)
-    -> ListenerAction packingType peerData peer msgClass snd rcv n
-    -> ListenerAction packingType peerData peer msgClass snd rcv m
+    -> ListenerAction packingType peerData snd rcv n
+    -> ListenerAction packingType peerData snd rcv m
 hoistListenerAction nat rnat f =
-    \peerData nId sendActions convActions ->
-        nat $ f peerData nId (hoistSendActions rnat nat sendActions)
-                             (hoistConversationActions rnat convActions)
+    \peerData nId convActions ->
+        nat $ f peerData nId (hoistConversationActions rnat convActions)
 
 hoistListener
-    :: ( Functor n )
+    :: ( )
     => (forall a. n a -> m a)
     -> (forall a. m a -> n a)
-    -> Listener packing peerData peer msgClass n
-    -> Listener packing peerData peer msgClass m
+    -> Listener packing peerData n
+    -> Listener packing peerData m
 hoistListener nat rnat (Listener la) = Listener $ hoistListenerAction nat rnat la
 
 -- | Gets message type basing on type of incoming messages
-listenerMessageName :: Listener packing peerData peer msgClass m -> MessageName
+listenerMessageName :: Listener packing peerData m -> MessageName
 listenerMessageName (Listener (
-        _ :: peerData -> LL.NodeId -> SendActions packing peerData peer msgClass m -> ConversationActions snd rcv m -> m ()
+        _ :: peerData -> LL.NodeId -> ConversationActions snd rcv m -> m ()
     )) = messageName (Proxy :: Proxy rcv)
 
-data SendActions packing peerData peer msgClass m = SendActions {
-       -- Skip the outbound queue and directly do a conversation with one
-       -- peer.
-       withConnectionTo :: forall t .
-              LL.NodeId
-           -> (peerData -> Conversation packing m t)
-           -> m t
-       -- Schedule a conversation with 0 or more peers.
-       -- After they have all been enqueued, a map is given with values which
-       -- will return once the conversation to that node has returned, possibly
-       -- throwing exceptions.
-       -- There is no required relationship between the input 'Set peer' and
-       -- the keys in the resulting 'Map peer (m t)'.
-     , enqueueConversation :: forall t .
-              Set peer
-           -> msgClass
-           -> (peer -> peerData -> Conversation packing m t)
-           -> m (Map peer (m t))
-     }
+type ListenerIndex packing peerData m =
+    Map MessageName (Listener packing peerData m)
 
--- | Synchronous variant of enqueueConversation. Does not return until all of
--- the conversation are finished.
-enqueueConversation'
-    :: ( Monad m )
-    => SendActions packing peerData peer msgClass m
-    -> Set peer
-    -> msgClass
-    -> (peer -> peerData -> Conversation packing m t)
-    -> m (Map peer t)
-enqueueConversation' sendActions peers msgClass k =
-    enqueueConversation sendActions peers msgClass k >>= waitForConversations
-
-waitForConversations :: Applicative m => Map peer (m t) -> m (Map peer t)
-waitForConversations = sequenceA
-
-hoistSendActions
-    :: forall packing peerData peer msgClass n m .
-       ( Functor m )
-    => (forall a. n a -> m a)
-    -> (forall a. m a -> n a)
-    -> SendActions packing peerData peer msgClass n
-    -> SendActions packing peerData peer msgClass m
-hoistSendActions nat rnat SendActions {..} = SendActions withConnectionTo' enqueueConversation'
-  where
-    withConnectionTo'
-        :: forall t . LL.NodeId -> (peerData -> Conversation packing m t) -> m t
-    withConnectionTo' nodeId k = nat $ withConnectionTo nodeId $ \peerData -> case k peerData of
-        Conversation l -> Conversation $ \cactions -> rnat (l (hoistConversationActions nat cactions))
-
-    enqueueConversation'
-        :: forall t .
-           Set peer
-        -> msgClass
-        -> (peer -> peerData -> Conversation packing m t)
-        -> m (Map peer (m t))
-    enqueueConversation' peers msgClass k = (fmap . fmap) nat $ nat $ enqueueConversation peers msgClass $
-        \peer peerData -> case k peer peerData of
-            Conversation l -> Conversation $ \cactions ->
-                rnat (l (hoistConversationActions nat cactions))
-
-type ListenerIndex packing peerData peer msgClass m =
-    Map MessageName (Listener packing peerData peer msgClass m)
-
-makeListenerIndex :: [Listener packing peerData peer msgClass m]
-                  -> (ListenerIndex packing peerData peer msgClass m, [MessageName])
+makeListenerIndex :: [Listener packing peerData m]
+                  -> (ListenerIndex packing peerData m, [MessageName])
 makeListenerIndex = foldr combine (M.empty, [])
     where
     combine action (dict, existing) =
@@ -244,7 +185,7 @@ nodeConverse
     => LL.Node packing peerData m
     -> Packing packing m
     -> Converse packing peerData m
-nodeConverse nodeUnit packing = nodeConverse
+nodeConverse nodeUnit packing = Converse nodeConverse
   where
 
     mtu = LL.nodeMtu (LL.nodeEnvironment nodeUnit)
@@ -264,45 +205,11 @@ nodeConverse nodeUnit packing = nodeConverse
                 converse cactions
 
 
--- | Send actions for a given 'LL.Node'.
-nodeSendActions
-    :: forall m packing peerData peer msgClass .
-       ( Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
-       , Mockable Bracket m, Mockable SharedAtomic m, Mockable SharedExclusive m
-       , Mockable Async m, Ord (ThreadId m)
-       , Mockable CurrentTime m, Mockable Metrics.Metrics m
-       , Mockable Delay m
-       , WithLogger m, MonadFix m
-       , Serializable packing peerData
-       , Serializable packing MessageName )
-    => Converse packing peerData m
-    -> (forall t . Set peer -> msgClass -> (peer -> peerData -> Conversation packing m t) -> m (Map peer (m t)))
-    -> SendActions packing peerData peer msgClass m
-nodeSendActions converse enqueue =
-    SendActions nodeWithConnectionTo nodeEnqueueConversation
-  where
-
-    nodeWithConnectionTo
-        :: forall t .
-           LL.NodeId
-        -> (peerData -> Conversation packing m t)
-        -> m t
-    nodeWithConnectionTo = converse
-
-    -- Implementing this will require access to some OutboundQueue.
-    nodeEnqueueConversation
-        :: forall t .
-           Set peer
-        -> msgClass
-        -> (peer -> peerData -> Conversation packing m t)
-        -> m (Map peer (m t))
-    nodeEnqueueConversation = enqueue
-
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
     :: forall packing peerData snd rcv m .
-       ( Mockable Throw m, Mockable Channel.Channel m, Mockable SharedExclusive m
-       , WithLogger m
+       ( Mockable Throw m
+       , Mockable Channel.Channel m
        , Serializable packing snd
        , Serializable packing rcv
        )
@@ -328,9 +235,9 @@ nodeConversationActions node _ packing inchan outchan =
             End     -> pure Nothing
             Input t -> pure (Just t)
 
-data NodeAction packing peerData peer msgClass m t =
-    NodeAction (peerData -> [Listener packing peerData peer msgClass m])
-               (SendActions packing peerData peer msgClass m -> m t)
+data NodeAction packing peerData m t =
+    NodeAction (peerData -> [Listener packing peerData m])
+               (Converse packing peerData m -> m t)
 
 simpleNodeEndPoint
     :: NT.Transport m
@@ -365,7 +272,7 @@ manualNodeEndPoint ep _ = LL.NodeEndPoint {
 --   this time there are any listeners running, they will be allowed to
 --   finish.
 node
-    :: forall packing peerData peer msgClass m t .
+    :: forall packing peerData m t .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel.Channel m
        , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
        , Mockable Async m, Mockable Concurrently m
@@ -378,28 +285,33 @@ node
        )
     => (m (LL.Statistics m) -> LL.NodeEndPoint m)
     -> (m (LL.Statistics m) -> LL.ReceiveDelay m)
+       -- ^ delay on receiving input events.
     -> (m (LL.Statistics m) -> LL.ReceiveDelay m)
-    -> (Converse packing peerData m -> m (OutboundQueue packing peerData peer msgClass m))
-    -- ^ How to enqueue and dequeue outbound conversations.
+       -- ^ delay on receiving new connections.
     -> StdGen
     -> Packing packing m
     -> peerData
     -> LL.NodeEnvironment m
-    -> (Node m -> NodeAction packing peerData peer msgClass m t)
+    -> (Node m -> NodeAction packing peerData m t)
     -> m t
-node mkEndPoint mkReceiveDelay mkConnectDelay mkOq prng packing peerData nodeEnv k = do
+node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = do
     rec { let nId = LL.nodeId llnode
-        ; let endPoint = LL.nodeEndPoint llnode
-        ; let nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
-        ; let NodeAction mkListeners act = k nodeUnit
-          -- Index the listeners by message name, for faster lookup.
-          -- TODO: report conflicting names, or statically eliminate them using
-          -- DataKinds and TypeFamilies.
-        ; let listenerIndices :: peerData -> ListenerIndex packing peerData peer msgClass m
+              endPoint = LL.nodeEndPoint llnode
+              nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
+              NodeAction mkListeners (act :: Converse packing peerData m -> m t) = k nodeUnit
+              -- Index the listeners by message name, for faster lookup.
+              -- TODO: report conflicting names, or statically eliminate them using
+              -- DataKinds and TypeFamilies.
+              listenerIndices :: peerData -> ListenerIndex packing peerData m
               listenerIndices = fmap (fst . makeListenerIndex) mkListeners
-        ; let converse = nodeConverse llnode packing
-        ; let sendActions = nodeSendActions converse (oqEnqueue oq)
-        ; oq <- mkOq converse
+              converse :: Converse packing peerData m
+              converse = nodeConverse llnode packing
+              unexceptional :: m t
+              unexceptional = do
+                  t <- act converse
+                  logNormalShutdown
+                  (LL.stopNode llnode `catch` logNodeException)
+                  return t
         ; llnode <- LL.startNode
               packing
               peerData
@@ -408,13 +320,8 @@ node mkEndPoint mkReceiveDelay mkConnectDelay mkOq prng packing peerData nodeEnv
               (mkConnectDelay . LL.nodeStatistics)
               prng
               nodeEnv
-              (handlerInOut llnode listenerIndices sendActions)
+              (handlerInOut llnode listenerIndices)
         }
-    let unexceptional = do
-            t <- act sendActions `finally` oqClose oq
-            logNormalShutdown
-            (LL.stopNode llnode `catch` logNodeException)
-            return t
     unexceptional
         `catch` logException
         `onException` (LL.stopNode llnode `catch` logNodeException)
@@ -434,14 +341,13 @@ node mkEndPoint mkReceiveDelay mkConnectDelay mkOq prng packing peerData nodeEnv
     -- message name, then choose a listener and fork a thread to run it.
     handlerInOut
         :: LL.Node packing peerData m
-        -> (peerData -> ListenerIndex packing peerData peer msgClass m)
-        -> SendActions packing peerData peer msgClass m
+        -> (peerData -> ListenerIndex packing peerData m)
         -> peerData
         -> LL.NodeId
         -> ChannelIn m
         -> ChannelOut m
         -> m ()
-    handlerInOut nodeUnit listenerIndices sactions peerData peerId inchan outchan = do
+    handlerInOut nodeUnit listenerIndices peerData peerId inchan outchan = do
         let listenerIndex = listenerIndices peerData
         input <- recvNext packing messageNameSizeLimit inchan
         case input of
@@ -451,17 +357,21 @@ node mkEndPoint mkReceiveDelay mkConnectDelay mkOq prng packing peerData nodeEnv
                 case listener of
                     Just (Listener action) ->
                         let cactions = nodeConversationActions nodeUnit peerId packing inchan outchan
-                        in  action peerData peerId sactions cactions
+                        in  action peerData peerId cactions
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
     -- Arbitrary limit on the message size...
     -- TODO make it configurable I guess.
+    -- [CSL-849] will eliminate this; message names will be Word16.
     messageNameSizeLimit :: Int
     messageNameSizeLimit = 256
 
 -- | Try to receive and parse the next message, subject to a limit on the
 --   number of bytes which will be read.
+--
+--   An empty ByteString will never be passed to a decoder.
 recvNext
-    :: ( Mockable Channel.Channel m
+    :: forall packing m thing . 
+       ( Mockable Channel.Channel m
        , Mockable Throw m
        , Serializable packing thing
        )
@@ -469,33 +379,30 @@ recvNext
     -> Int
     -> ChannelIn m
     -> m (Input thing)
-recvNext packing limit (LL.ChannelIn channel) = do
-    -- Check whether the channel is depleted and End if so. Otherwise, push
-    -- the bytes into the type's decoder and try to parse it before reaching
-    -- the byte limit.
-    mbs <- Channel.readChannel channel
-    case mbs of
-        Nothing -> return End
-        Just bs -> do
-            -- limit' is the number of bytes that 'go' is allowed to pull.
-            -- It's assumed that reading from the channel will bring in at most
-            -- some limited number of bytes, so 'go' may bring in at most this
-            -- many more than the limit.
-            let limit' = limit - BS.length bs
-            decoderStep <- runDecoder (unpack packing)
-            (trailing, outcome) <- continueDecoding decoderStep bs >>= go limit'
-            unless (BS.null trailing) (Channel.unGetChannel channel (Just trailing))
-            return outcome
+recvNext packing limit (LL.ChannelIn channel) = readNonEmpty (return End) $ \bs -> do
+    -- limit' is the number of bytes that 'go' is allowed to pull.
+    -- It's assumed that reading from the channel will bring in at most
+    -- some limited number of bytes, so 'go' may bring in at most this
+    -- many more than the limit.
+    let limit' = limit - BS.length bs
+    decoderStep <- runDecoder (unpack packing)
+    (trailing, outcome) <- continueDecoding decoderStep bs >>= go limit'
+    unless (BS.null trailing) (Channel.unGetChannel channel (Just trailing))
+    return outcome
   where
+
+    readNonEmpty :: m t -> (BS.ByteString -> m t) -> m t
+    readNonEmpty nothing just = do
+        mbs <- Channel.readChannel channel
+        case mbs of
+            Nothing -> nothing
+            Just bs -> if BS.null bs then readNonEmpty nothing just else just bs
+
     go !remaining decoderStep = case decoderStep of
-        -- TODO use the error message in the exception.
-        Fail _ _ _ -> throw NoParse
+        Fail trailing offset err -> throw $ NoParse trailing offset err
         Done trailing _ thing -> return (trailing, Input thing)
         Partial next -> do
-            when (remaining <= 0) (throw LimitExceeded)
-            mbs <- Channel.readChannel channel
-            case mbs of
-                Nothing -> runDecoder (next Nothing) >>= go remaining
-                Just bs ->
-                    let remaining' = remaining - BS.length bs
-                    in  runDecoder (next (Just bs)) >>= go remaining'
+            when (remaining < 0) (throw LimitExceeded)
+            readNonEmpty (runDecoder (next Nothing) >>= go remaining) $ \bs ->
+                let remaining' = remaining - BS.length bs
+                in  runDecoder (next (Just bs)) >>= go remaining'

@@ -40,7 +40,6 @@ module Node.Internal (
     closeChannel,
     startNode,
     stopNode,
-    withOutChannel,
     withInOutChannel,
     writeMany,
     Timeout(..)
@@ -94,9 +93,7 @@ instance Binary NodeId
 data NodeState peerData m = NodeState {
       _nodeStateGen                    :: !StdGen
       -- ^ To generate nonces.
-    , _nodeStateOutboundUnidirectional :: !(Map NT.EndPointAddress (SomeHandler m))
-      -- ^ Handlers for each locally-initiated unidirectional connection.
-    , _nodeStateOutboundBidirectional  :: !(Map NT.EndPointAddress (Map Nonce (SomeHandler m, ChannelIn m, Int -> m (), SharedExclusiveT m peerData, NT.ConnectionBundle, Promise m (), Bool)))
+    , _nodeStateOutboundBidirectional  :: !(Map NT.EndPointAddress (Map Nonce (SomeHandler m, Maybe BS.ByteString -> m (), Int -> m (), SharedExclusiveT m peerData, NT.ConnectionBundle, Promise m (), Bool)))
       -- ^ Handlers for each nonce which we generated (locally-initiated
       --   bidirectional connections).
       --   The bool indicates whether we have received an ACK for this.
@@ -133,7 +130,6 @@ initialNodeState prng = do
     !stats <- initialStatistics
     let nodeState = NodeState {
               _nodeStateGen = prng
-            , _nodeStateOutboundUnidirectional = Map.empty
             , _nodeStateOutboundBidirectional = Map.empty
             , _nodeStateInbound = Set.empty
             , _nodeStateConnectedTo = Map.empty
@@ -381,7 +377,7 @@ pstAddHandler provenance map = case provenance of
             let !stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats + 1 }
             in return (stats', (map, False))
 
-    Remote peer _ _ -> case Map.lookup peer map of
+    Remote peer _ -> case Map.lookup peer map of
         Nothing ->
             newSharedAtomic (PeerStatistics 1 0 0) >>= \peerStatistics ->
             return (Map.insert peer peerStatistics map, True)
@@ -408,7 +404,7 @@ pstRemoveHandler provenance map = case provenance of
                         then (stats', (Map.delete peer map, True))
                         else (stats', (map, False))
 
-    Remote peer _ _ -> case Map.lookup peer map of
+    Remote peer _ -> case Map.lookup peer map of
         Nothing ->  do
             logWarning $ sformat ("tried to remove handler for "%shown%", but it is not in the map") peer
             return (map, False)
@@ -438,25 +434,24 @@ initialStatistics = do
         }
 
 data HandlerProvenance peerData m t =
-      -- | Initiated locally, _to_ this peer. The Nonce is present if and only
-      --   if it's a bidirectional connection.
-      Local !NT.EndPointAddress (Maybe (Nonce, SharedExclusiveT m peerData, NT.ConnectionBundle, Promise m (), t))
+      -- | Initiated locally, _to_ this peer.
+      Local !NT.EndPointAddress (Nonce, SharedExclusiveT m peerData, NT.ConnectionBundle, Promise m (), t)
       -- | Initiated remotely, _by_ or _from_ this peer.
-    | Remote !NT.EndPointAddress !NT.ConnectionId t
+    | Remote !NT.EndPointAddress !NT.ConnectionId
 
 instance Show (HandlerProvenance peerData m t) where
     show prov = case prov of
         Local addr mdata -> concat [
               "Local "
             , show addr
-            , show (fmap (\(x,_,_,_,_) -> x) mdata)
+            , show ((\(x,_,_,_,_) -> x) $ mdata)
             ]
-        Remote addr connid _ -> concat ["Remote ", show addr, show connid]
+        Remote addr connid -> concat ["Remote ", show addr, show connid]
 
 handlerProvenancePeer :: HandlerProvenance peerData m t -> NT.EndPointAddress
 handlerProvenancePeer provenance = case provenance of
     Local peer _ -> peer
-    Remote peer _ _ -> peer
+    Remote peer _ -> peer
 
 -- TODO: revise these computations to make them numerically stable (or maybe
 -- use Rational?).
@@ -487,7 +482,7 @@ stAddHandler !provenance !statistics = case provenance of
             , stRunningHandlersLocalAverage = runningHandlersLocalAverage
             }
 
-    Remote !_peer _ _ -> do
+    Remote !_peer _ -> do
         (!peerStatistics, !isNewPeer) <- pstAddHandler provenance (stPeerStatistics statistics)
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersRemote statistics)
@@ -552,7 +547,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
             , stRunningHandlersLocalAverage = runningHandlersLocalAverage
             }
 
-    Remote !_peer _ _ -> do
+    Remote !_peer _ -> do
         (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersRemote statistics)
@@ -725,7 +720,7 @@ data ConnectionState peerData m =
       --
       --   Second argument will be run with the number of bytes each time more
       --   bytes are received. It's used to update shared metrics.
-    | FeedingApplicationHandler !(ChannelIn m) (Int -> m ())
+    | FeedingApplicationHandler !(Maybe BS.ByteString -> m ()) (Int -> m ())
 
 instance Show (ConnectionState peerData m) where
     show term = case term of
@@ -777,8 +772,7 @@ waitForRunningHandlers
 waitForRunningHandlers node = do
     -- Gather the promises for all handlers.
     handlers <- withSharedAtomic (nodeState node) $ \st -> do
-        let outbound_uni = Map.elems (_nodeStateOutboundUnidirectional st)
-            -- List monad computation: grab the values of the map (ignoring
+        let -- List monad computation: grab the values of the map (ignoring
             -- peer keys), then for each of those maps grab its values (ignoring
             -- nonce keys) and then return the promise.
             outbound_bi = do
@@ -786,8 +780,7 @@ waitForRunningHandlers node = do
                 (x, _, _, _, _, _, _) <- Map.elems map
                 return x
             inbound = Set.toList (_nodeStateInbound st)
-            all = outbound_uni ++ outbound_bi ++ inbound
-        logDebug $ sformat ("waiting for " % shown % " outbound unidirectional handlers") (fmap (someHandlerThreadId) outbound_uni)
+            all = outbound_bi ++ inbound
         logDebug $ sformat ("waiting for " % shown % " outbound bidirectional handlers") (fmap (someHandlerThreadId) outbound_bi)
         logDebug $ sformat ("waiting for " % shown % " outbound inbound") (fmap (someHandlerThreadId) inbound)
         return all
@@ -872,8 +865,8 @@ nodeDispatcher node handlerInOut =
         -- optimization.
         when (not (null connections)) $ do
             forM_ connections $ \(_, st) -> case st of
-                (_, FeedingApplicationHandler (ChannelIn channel) _) -> do
-                    Channel.writeChannel channel Nothing
+                (_, FeedingApplicationHandler dumpBytes _) -> do
+                    dumpBytes Nothing
                 _ -> return ()
 
         -- Must plug input channels for all un-acked outbound connections, and
@@ -882,10 +875,10 @@ nodeDispatcher node handlerInOut =
         _ <- modifySharedAtomic nstate $ \st -> do
             let nonceMaps = Map.elems (_nodeStateOutboundBidirectional st)
             let outbounds = nonceMaps >>= Map.elems
-            forM_ outbounds $ \(_, ChannelIn chan, _, peerDataVar, _, _, acked) -> do
+            forM_ outbounds $ \(_, dumpBytes, _, peerDataVar, _, _, acked) -> do
                 when (not acked) $ do
                    _ <- tryPutSharedExclusive peerDataVar (error "no peer data because local node has gone down")
-                   Channel.writeChannel chan Nothing
+                   dumpBytes Nothing
             return (st, ())
 
         _ <- waitForRunningHandlers node
@@ -1067,7 +1060,10 @@ nodeDispatcher node handlerInOut =
                     | w == controlHeaderCodeBidirectionalSyn
                     , Right (ws', _, nonce) <- decodeOrFail (LBS.fromStrict ws) -> do
                           channel <- Channel.newChannel
-                          let provenance = Remote peer connid (ChannelIn channel)
+                          chanVar <- newSharedAtomic (Just channel)
+                          let dumpBytes mBytes = withSharedAtomic chanVar $
+                                  maybe (return ()) (flip Channel.writeChannel mBytes)
+                          let provenance = Remote peer connid
                           let acquire = connectToPeer node (NodeId peer)
                           let respondAndHandle conn = do
                                   outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
@@ -1079,6 +1075,7 @@ nodeDispatcher node handlerInOut =
                           -- No matter what, we must update the node state to
                           -- indicate that we've disconnected from the peer.
                           let cleanup conn (me :: Maybe SomeException) = do
+                                  modifySharedAtomic chanVar $ \_ -> return (Nothing, ())
                                   disconnectFromPeer node (NodeId peer) conn
                                   case me of
                                       Nothing -> return ()
@@ -1091,10 +1088,10 @@ nodeDispatcher node handlerInOut =
                           -- Establish the other direction in a separate thread.
                           (_, incrBytes) <- spawnHandler nstate provenance handler
                           let bs = LBS.toStrict ws'
-                          Channel.writeChannel channel (Just bs)
+                          dumpBytes $ Just bs
                           incrBytes $ fromIntegral (BS.length bs)
                           return $ state {
-                                dsConnections = Map.insert connid (peer, FeedingApplicationHandler (ChannelIn channel) incrBytes) (dsConnections state)
+                                dsConnections = Map.insert connid (peer, FeedingApplicationHandler dumpBytes incrBytes) (dsConnections state)
                               }
 
                     -- Got an ACK. Try to decode the nonce and check that
@@ -1109,15 +1106,15 @@ nodeDispatcher node handlerInOut =
                               case thisNonce of
                                   Nothing -> return (st, Nothing)
                                   Just (_, _, _, _, _, _, True) -> return (st, Just Nothing)
-                                  Just (promise, channel, incrBytes, peerDataVar, connBundle, timeoutPromise, False) -> do
+                                  Just (promise, dumpBytes, incrBytes, peerDataVar, connBundle, timeoutPromise, False) -> do
                                       cancel timeoutPromise
                                       return
                                           ( st { _nodeStateOutboundBidirectional = Map.update updater peer (_nodeStateOutboundBidirectional st)
                                                }
-                                          , Just (Just (channel, incrBytes, peerDataVar))
+                                          , Just (Just (dumpBytes, incrBytes, peerDataVar))
                                           )
                                       where
-                                      updater map = Just $ Map.insert nonce (promise, channel, incrBytes, peerDataVar, connBundle, timeoutPromise, True) map
+                                      updater map = Just $ Map.insert nonce (promise, dumpBytes, incrBytes, peerDataVar, connBundle, timeoutPromise, True) map
                           case outcome of
                               -- We don't know about the nonce. Could be that
                               -- we never sent the SYN for it (protocol error)
@@ -1139,13 +1136,13 @@ nodeDispatcher node handlerInOut =
 
                               -- Got an ACK for a SYN that we sent. Start
                               -- feeding the application handler.
-                              Just (Just (ChannelIn channel, incrBytes, peerDataVar)) -> do
+                              Just (Just (dumpBytes, incrBytes, peerDataVar)) -> do
                                   putSharedExclusive peerDataVar peerData
                                   let bs = LBS.toStrict ws'
-                                  Channel.writeChannel channel (Just bs)
+                                  dumpBytes $ Just bs
                                   incrBytes $ fromIntegral (BS.length bs)
                                   return $ state {
-                                        dsConnections = Map.insert connid (peer, FeedingApplicationHandler (ChannelIn channel) incrBytes) (dsConnections state)
+                                        dsConnections = Map.insert connid (peer, FeedingApplicationHandler dumpBytes incrBytes) (dsConnections state)
                                       }
 
                     -- Handshake failure. Subsequent receives will be ignored.
@@ -1160,9 +1157,9 @@ nodeDispatcher node handlerInOut =
         -- the data. How? Weak reference to the channel perhaps? Or
         -- explcitly close it down when the handler finishes by adding some
         -- mutable cell to FeedingApplicationHandler?
-        Just (_peer, FeedingApplicationHandler (ChannelIn channel) incrBytes) -> do
+        Just (_peer, FeedingApplicationHandler dumpBytes incrBytes) -> do
             let bs = LBS.toStrict (LBS.fromChunks chunks)
-            Channel.writeChannel channel (Just bs)
+            dumpBytes $ Just bs
             incrBytes $ BS.length bs
             return state
 
@@ -1178,9 +1175,9 @@ nodeDispatcher node handlerInOut =
 
         Just (peer, connState) -> do
             case connState of
-                FeedingApplicationHandler (ChannelIn channel) _ -> do
+                FeedingApplicationHandler dumpBytes _ -> do
                     -- Signal end of channel.
-                    Channel.writeChannel channel Nothing
+                    dumpBytes Nothing
                 _ -> return ()
             -- This connection can be removed from the connection states map.
             -- Removing it from the peers map is more involved.
@@ -1228,9 +1225,9 @@ nodeDispatcher node handlerInOut =
                            -> NT.ConnectionId
                            -> m (Map NT.ConnectionId (NT.EndPointAddress, ConnectionState peerData m))
                     folder channels connid = case Map.updateLookupWithKey (\_ _ -> Nothing) connid channels of
-                        (Just (_, FeedingApplicationHandler (ChannelIn channel) _), channels') -> do
+                        (Just (_, FeedingApplicationHandler dumpBytes _), channels') -> do
 
-                            Channel.writeChannel channel Nothing
+                            dumpBytes Nothing
                             return channels'
                         (_, channels') -> return channels'
                 channels' <- foldlM folder (dsConnections state) connids
@@ -1268,9 +1265,9 @@ nodeDispatcher node handlerInOut =
 
         logWarning $ sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channelsAndPeerDataVars) bundle peer
 
-        forM_ channelsAndPeerDataVars $ \(ChannelIn chan, peerDataVar) -> do
+        forM_ channelsAndPeerDataVars $ \(dumpBytes, peerDataVar) -> do
             _ <- tryPutSharedExclusive peerDataVar (error "no peer data because the connection was lost")
-            Channel.writeChannel chan Nothing
+            dumpBytes Nothing
 
         return state'
 
@@ -1286,7 +1283,7 @@ spawnHandler
        , WithLogger m
        , MonadFix m )
     => SharedAtomicT m (NodeState peerData m)
-    -> HandlerProvenance peerData m (ChannelIn m)
+    -> HandlerProvenance peerData m (Maybe BS.ByteString -> m ())
     -> m t
     -> m (Promise m t, Int -> m ())
 spawnHandler stateVar provenance action =
@@ -1303,18 +1300,15 @@ spawnHandler stateVar provenance action =
         -- It is assumed to be highly unlikely that there will be nonce
         -- collisions (that we have a good prng).
         let nodeState' = case provenance of
-                Remote _ _ _ -> nodeState {
+                Remote _ _ -> nodeState {
                       _nodeStateInbound = Set.insert someHandler (_nodeStateInbound nodeState)
                     }
-                Local peer (Just (nonce, peerDataVar, connBundle, timeoutPromise, channelIn)) -> nodeState {
+                Local peer (nonce, peerDataVar, connBundle, timeoutPromise, dumpBytes) -> nodeState {
                       _nodeStateOutboundBidirectional = Map.alter alteration peer (_nodeStateOutboundBidirectional nodeState)
                     }
                     where
-                    alteration Nothing = Just $ Map.singleton nonce (someHandler, channelIn, incrBytes, peerDataVar, connBundle, timeoutPromise, False)
-                    alteration (Just map) = Just $ Map.insert nonce (someHandler, channelIn, incrBytes, peerDataVar, connBundle, timeoutPromise, False) map
-                Local peer Nothing -> nodeState {
-                      _nodeStateOutboundUnidirectional = Map.insert peer someHandler (_nodeStateOutboundUnidirectional nodeState)
-                    }
+                    alteration Nothing = Just $ Map.singleton nonce (someHandler, dumpBytes, incrBytes, peerDataVar, connBundle, timeoutPromise, False)
+                    alteration (Just map) = Just $ Map.insert nonce (someHandler, dumpBytes, incrBytes, peerDataVar, connBundle, timeoutPromise, False) map
 
             incrBytes !n = do
                 nodeState <- readSharedAtomic stateVar
@@ -1344,21 +1338,18 @@ spawnHandler stateVar provenance action =
         totalBytes <- readSharedAtomic totalBytesVar
         modifySharedAtomic stateVar $ \nodeState -> do
             let nodeState' = case provenance of
-                    Remote _ _ _ -> nodeState {
+                    Remote _ _ -> nodeState {
                           _nodeStateInbound = Set.delete someHandler (_nodeStateInbound nodeState)
                         }
                     -- Remove the nonce for this peer, and remove the whole map
                     -- if this was the only nonce for that peer.
-                    Local peer (Just (nonce, _, _, _, _)) -> nodeState {
+                    Local peer (nonce, _, _, _, _) -> nodeState {
                           _nodeStateOutboundBidirectional = Map.update updater peer (_nodeStateOutboundBidirectional nodeState)
                         }
                         where
                         updater map =
                             let map' = Map.delete nonce map
                             in  if Map.null map' then Nothing else Just map'
-                    Local peer Nothing -> nodeState {
-                          _nodeStateOutboundUnidirectional = Map.delete peer (_nodeStateOutboundUnidirectional nodeState)
-                        }
             -- Decrement the live bytes by the total bytes received, and
             -- remove the handler.
             stIncrBytes (handlerProvenancePeer provenance) (-totalBytes) $ _nodeStateStatistics nodeState
@@ -1372,13 +1363,6 @@ controlHeaderCodeBidirectionalSyn = fromIntegral (fromEnum 'S')
 
 controlHeaderCodeBidirectionalAck :: Word8
 controlHeaderCodeBidirectionalAck = fromIntegral (fromEnum 'A')
-
-controlHeaderCodeUnidirectional :: Word8
-controlHeaderCodeUnidirectional = fromIntegral (fromEnum 'U')
-
-controlHeaderUnidirectional :: BS.ByteString
-controlHeaderUnidirectional =
-    BS.singleton controlHeaderCodeUnidirectional
 
 controlHeaderBidirectionalSyn :: Nonce -> BS.ByteString
 controlHeaderBidirectionalSyn (Nonce nonce) =
@@ -1422,6 +1406,13 @@ withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) acti
                let (nonce, !prng') = random (_nodeStateGen nodeState)
                pure (nodeState { _nodeStateGen = prng' }, nonce)
     channel <- fmap ChannelIn Channel.newChannel
+    -- A mutable cell for the channel. We'll swap it to Nothing when we don't
+    -- want to accept any more bytes (the handler has finished).
+    channelVar <- newSharedAtomic (Just channel)
+    let dumpBytes mbs = withSharedAtomic channelVar $ \mchannel -> case mchannel of
+            Nothing -> pure ()
+            Just (ChannelIn channel) -> Channel.writeChannel channel mbs
+        closeChannel = modifySharedAtomic channelVar $ \_ -> pure (Nothing, ())
     -- The dispatcher will fill in the peer data as soon as it's available.
     -- TODO must ensure that at some point it is always filled. What if the
     -- peer never responds? All we can do is time-out I suppose.
@@ -1433,7 +1424,7 @@ withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) acti
     -- before we register, but that's OK, as disconnectFromPeer is forgiving
     -- about this.
     let action' conn = do
-            rec { let provenance = Local peer (Just (nonce, peerDataVar, NT.bundle conn, timeoutPromise, channel))
+            rec { let provenance = Local peer (nonce, peerDataVar, NT.bundle conn, timeoutPromise, dumpBytes)
                 ; (promise, _) <- spawnHandler nodeState provenance $ do
                       -- It's essential that we only send the handshake SYN inside
                       -- the handler, because at this point the nonce is guaranteed
@@ -1458,30 +1449,8 @@ withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) acti
                 }
             wait promise
     bracket (connectToPeer node nodeid)
-            (\conn -> disconnectFromPeer node nodeid conn)
+            (\conn -> disconnectFromPeer node nodeid conn >> closeChannel)
             action'
-
--- | Create, use, and tear down a unidirectional channel to a peer identified
---   by 'NodeId'.
-withOutChannel
-    :: ( Mockable Bracket m, Mockable Async m, Ord (ThreadId m)
-       , Mockable Throw m, Mockable Catch m
-       , Mockable SharedAtomic m, Mockable CurrentTime m
-       , Mockable SharedExclusive m
-       , Mockable Metrics.Metrics m
-       , MonadFix m, WithLogger m
-       , Serializable packingType peerData )
-    => Node packingType peerData m
-    -> NodeId
-    -> (ChannelOut m -> m a)
-    -> m a
-withOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
-    let provenance = Local peer Nothing
-    (promise, _) <- spawnHandler nodeState provenance $
-        bracket (connectOutChannel node nodeid)
-                (\(ChannelOut conn) -> disconnectFromPeer node nodeid conn)
-                action
-    wait promise
 
 data OutboundConnectionState m =
       -- | A stable outbound connection has some positive number of established
@@ -1813,23 +1782,3 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, nodeEnvir
                 readSharedExclusive excl
                 startConnecting
             Right () -> return ()
-
--- | Connect to a peer given by a 'NodeId' unidirectionally.
-connectOutChannel
-    :: ( Mockable Throw m
-       , Mockable Bracket m
-       , Mockable SharedAtomic m
-       , Mockable SharedExclusive m
-       , Serializable packingType peerData
-       , WithLogger m
-       )
-    => Node packingType peerData m
-    -> NodeId
-    -> m (ChannelOut m)
-connectOutChannel node peer = do
-    conn <- connectToPeer node peer
-    outcome <- NT.send conn [controlHeaderUnidirectional]
-    case outcome of
-        Left err -> throw err
-        Right () -> return ()
-    return (ChannelOut conn)

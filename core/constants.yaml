@@ -162,10 +162,13 @@ qanet_tns: &qanet_tns
   protocolMagic: 50987900
   genesisBinSuffix: qa
 
-ci: &ci  # this mode is used by CI
+# This mode is used by CI.
+# It's only an alias for one of the existing modes.
+# It exists for convenience.
+# Don't override any values! It must be consistent with the mode used
+# by cluster!
+ci: &ci
   <<: *qanet_tns
-
-  k: 35  # it's needed for tests
 
 benchmark: &benchmark
   <<: *testnet

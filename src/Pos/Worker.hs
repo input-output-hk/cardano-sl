@@ -10,28 +10,29 @@ module Pos.Worker
 
 import           Universum
 
-import           Data.Tagged          (untag)
+import           Data.Tagged             (untag)
 
-import           Pos.Block.Worker     (blkWorkers)
-import           Pos.Communication    (OutSpecs, WorkerSpec, localWorker,
-                                       wrapActionSpec, Relay,
-                                       relayPropagateOut)
-import           Pos.Context          (NodeContext (..), recoveryCommGuard)
-import           Pos.Delegation       (delegationRelays, dlgWorkers)
-import           Pos.DHT.Workers      (dhtWorkers)
-import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Lrc.Worker       (lrcOnNewSlotWorker)
-import           Pos.Network.Types    (NetworkConfig(..), Topology(..))
-import           Pos.Security.Workers (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting         (logNewSlotWorker, slottingWorkers)
-import           Pos.Ssc.Class        (SscListenersClass (sscRelays),
-                                       SscWorkersClass (sscWorkers))
-import           Pos.Subscription     (subscriptionWorkers)
-import           Pos.Txp              (txRelays)
-import           Pos.Txp.Worker       (txpWorkers)
-import           Pos.Update           (usRelays, usWorkers)
-import           Pos.Util             (mconcatPair)
-import           Pos.WorkMode         (WorkMode)
+import           Pos.Block.Worker        (blkWorkers)
+import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker,
+                                          wrapActionSpec, Relay,
+                                          relayPropagateOut)
+import           Pos.Context             (NodeContext (..), recoveryCommGuard)
+import           Pos.Delegation          (delegationRelays, dlgWorkers)
+import           Pos.DHT.Workers         (dhtWorkers)
+import           Pos.Launcher.Resource    (NodeResources (..))
+import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
+import           Pos.Network.Types       (NetworkConfig(..), Topology(..))
+import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
+import           Pos.Slotting            (logNewSlotWorker, slottingWorkers)
+import           Pos.Ssc.Class           (SscListenersClass (sscRelays),
+                                          SscWorkersClass (sscWorkers))
+import           Pos.Subscription.Common (subscriptionWorker)
+import           Pos.Subscription.Dns    (dnsSubscriptionWorker)
+import           Pos.Txp                 (txRelays)
+import           Pos.Txp.Worker          (txpWorkers)
+import           Pos.Update              (usRelays, usWorkers)
+import           Pos.Util                (mconcatPair)
+import           Pos.WorkMode            (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
@@ -60,7 +61,7 @@ allWorkers NodeResources {..} = mconcatPair
 
     , case ncTopology ncNetworkConfig of
         TopologyBehindNAT dnsDomains ->
-          wrap' "subscription" $ subscriptionWorkers ncNetworkConfig dnsDomains
+          wrap' "subscription" $ subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains)
         _otherwise ->
           mempty -- No subscription worker required
 

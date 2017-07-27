@@ -22,8 +22,9 @@ import           Pos.Communication.Protocol  (MkListeners (..), EnqueueMsg)
 import           Pos.Communication.Relay     (relayListeners)
 import           Pos.Communication.Util      (wrapListener)
 import           Pos.Delegation.Listeners    (delegationRelays)
-import           Pos.Network.Types           (Topology)
+import           Pos.Network.Types           (Topology, topologyNodeType)
 import           Pos.Ssc.Class               (SscListenersClass (..), SscWorkersClass)
+import           Pos.Subscription.Common     (subscriptionListeners)
 import           Pos.Txp                     (txRelays)
 import           Pos.Update                  (usRelays)
 import           Pos.WorkMode.Class          (WorkMode)
@@ -35,11 +36,12 @@ allListeners
 allListeners topology enqueue = mconcat
         -- TODO blockListeners should use 'enqueue' rather than its own
         -- block retrieval queue, no?
-        [ modifier "block"       $ blockListeners topology
-        , modifier "ssc"         $ relayListeners enqueue (untag sscRelays)
-        , modifier "tx"          $ relayListeners enqueue txRelays
-        , modifier "delegation"  $ relayListeners enqueue delegationRelays
-        , modifier "update"      $ relayListeners enqueue usRelays
+        [ modifier "block"        $ blockListeners
+        , modifier "ssc"          $ relayListeners enqueue (untag sscRelays)
+        , modifier "tx"           $ relayListeners enqueue txRelays
+        , modifier "delegation"   $ relayListeners enqueue delegationRelays
+        , modifier "update"       $ relayListeners enqueue usRelays
+        , modifier "subscription" $ subscriptionListeners (topologyNodeType topology)
         ]
   where
     modifier lname mkL = mkL { mkListeners = mkListeners' }

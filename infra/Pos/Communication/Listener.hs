@@ -13,7 +13,6 @@ import           Universum
 
 import           Mockable.Class                 (Mockable)
 import           Mockable.Exception             (Throw)
-import           Mockable.SharedAtomic          (SharedAtomic)
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Infra               ()
 import           Pos.Communication.Limits.Types (MessageLimited)
@@ -35,7 +34,6 @@ listenerConv
        , MessageLimited rcv
        , WithLogger m
        , Mockable Throw m
-       , Mockable SharedAtomic m
        )
     => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
     -> (ListenerSpec m, OutSpecs)

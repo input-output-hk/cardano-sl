@@ -1,43 +1,28 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Pos.Subscription
-    ( SubscriptionMode
-    , subscriptionWorkers
+module Pos.Subscription.Dns
+    ( dnsSubscriptionWorker
     ) where
 
 import           Universum
+import qualified Data.Map.Strict                       as M
+import           Data.Time                             (UTCTime, NominalDiffTime, getCurrentTime,
+                                                        diffUTCTime)
+import           Data.Time.Units                       (Second, Millisecond, convertUnit)
+import           Formatting                            (sformat, shown, (%))
+import qualified Network.DNS                           as DNS
+import           System.Wlog                           (logError)
 
-import           Data.Time.Units         (Second, Millisecond, convertUnit)
-import           Data.Time               (UTCTime, NominalDiffTime, getCurrentTime,
-                                          diffUTCTime)
-import           Formatting              (sformat, shown, (%))
+import           Mockable                              (Mockable, Delay, delay)
 import           Network.Broadcast.OutboundQueue.Types (peersFromList)
-import           System.Wlog             (WithLogger, logInfo, logWarning, logError)
-import qualified Data.Map.Strict         as M
-import           Mockable                (Mockable, Throw, Delay, Catch, delay, try, throw)
-import qualified Network.DNS             as DNS
-import           Node.Message.Class      (Message)
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, MsgSubscribe (..),
-                                             Conversation (..), ConversationActions (..),
-                                             convH, toOutSpecs, worker,
-                                             NodeId, withConnectionTo, SendActions)
-import           Pos.KnownPeers             (MonadKnownPeers(..))
-import           Pos.Network.Types          (NetworkConfig(..), DnsDomains(..),
-                                             resolveDnsDomains, NodeType (..))
-
-type SubscriptionMode m =
-    ( MonadIO m
-    , WithLogger m
-    , Mockable Throw m
-    , Mockable Catch m
-    , Mockable Delay m
-    , MonadKnownPeers m
-    , Message MsgSubscribe
-    , Bi MsgSubscribe
-    , Message Void
-    )
+import           Pos.Communication.Protocol            (Worker)
+import           Pos.KnownPeers                        (MonadKnownPeers (..))
+import           Pos.Network.Types                     (NetworkConfig (..), DnsDomains (..),
+                                                        resolveDnsDomains, NodeId (..),
+                                                        NodeType (..))
+import           Pos.Subscription.Common
+import           Pos.Slotting                          (getLastKnownSlotDuration, MonadSlotsData)
 
 data KnownRelay = Relay {
       -- | When did we find out about this relay?
@@ -50,7 +35,7 @@ data KnownRelay = Relay {
     , relayLastSeen :: UTCTime
 
       -- | When did we last experience an error communicating with this relay?
-    , relayException :: Maybe (UTCTime, SomeException)
+    , relayException :: Maybe (UTCTime, SubscriptionTerminationReason)
     }
 
 type KnownRelays = Map NodeId KnownRelay
@@ -58,30 +43,15 @@ type KnownRelays = Map NodeId KnownRelay
 activeRelays :: KnownRelays -> [NodeId]
 activeRelays = map fst . filter (relayActive . snd) . M.toList
 
--- | We never expect relays to close the connection
-data RelayClosedConnection = RelayClosedConnection
-  deriving (Show)
-
-instance Exception RelayClosedConnection
-
-subscriptionWorkers
-    :: forall m. (SubscriptionMode m)
-    => NetworkConfig -> DnsDomains -> ([WorkerSpec m], OutSpecs)
-subscriptionWorkers networkCfg dnsDomains = first (:[]) <$>
-    worker subscriptionWorkerSpec $ subscriptionWorker' networkCfg dnsDomains
-  where
-    subscriptionWorkerSpec :: OutSpecs
-    subscriptionWorkerSpec = toOutSpecs [ convH (Proxy @MsgSubscribe) (Proxy @Void) ]
-
-subscriptionWorker'
-    :: forall m. (SubscriptionMode m)
-    => NetworkConfig -> DnsDomains -> SendActions m -> m ()
-subscriptionWorker' networkCfg dnsDomains sendActions =
+dnsSubscriptionWorker
+    :: forall m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
+    => NetworkConfig -> DnsDomains -> Worker m
+dnsSubscriptionWorker networkCfg dnsDomains sendActions =
     loop M.empty
   where
     loop :: KnownRelays -> m ()
     loop oldRelays = do
-      slotDur <- error "oops" -- getLastKnownSlotDuration
+      slotDur <- getLastKnownSlotDuration
       now     <- liftIO $ getCurrentTime
       peers   <- findRelays
 
@@ -113,15 +83,9 @@ subscriptionWorker' networkCfg dnsDomains sendActions =
           delay delayInterval
           loop updatedRelays
         (relay:_) -> do
-          logInfo $ msgConnectingTo relay
-          Left ex <- try $ withConnectionTo sendActions relay $ \_peerData ->
-            pure $ Conversation $ \conv -> do
-              send conv MsgSubscribe
-              _void :: Maybe Void <- recv conv 0 -- Other side will never send
-              throw RelayClosedConnection
-          logWarning $ msgLostConnection relay
+          terminationReason <- subscribeTo sendActions relay
           timeOfEx <- liftIO $ getCurrentTime
-          loop $ M.adjust (\r -> r { relayException = Just (timeOfEx, ex) })
+          loop $ M.adjust (\r -> r { relayException = Just (timeOfEx, terminationReason) })
                           relay
                           updatedRelays
 
@@ -178,10 +142,6 @@ subscriptionWorker' networkCfg dnsDomains sendActions =
         , relayLastSeen   = now
         , relayException  = Nothing
         }
-
-    msgConnectingTo, msgLostConnection :: NodeId -> Text
-    msgConnectingTo   = sformat $ "subscriptionWorker: subscribing to " % shown
-    msgLostConnection = sformat $ "subscriptionWorker: lost connection to " % shown
 
     msgDnsFailure :: [DNS.DNSError] -> Text
     msgDnsFailure = sformat $ "subscriptionWorker: DNS failure: " % shown

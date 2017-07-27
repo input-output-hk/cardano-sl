@@ -7,7 +7,7 @@ module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
 import qualified Data.HashMap.Strict   as HM
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop, modifyMaxSuccess)
-import           Test.QuickCheck       (Property, (.&&.), (===), Arbitrary (..))
+import           Test.QuickCheck       (Property, (.&&.), (===))
 import           Universum
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, InvalidRichmenStakes (..),
@@ -102,15 +102,16 @@ isDistrFair rs sd
     | length rs > 20 = error "Too many richmen"
     | otherwise = do
         let n = length rs
-        let totalCases = 2^n
+        let totalCases = toRational (2::Int)^n :: Rational
+        let fivePerc = 0.05 :: Rational
         let totalCoins = sum $ map unsafeGetCoin $ toList rs
         let totalDistr = sum (toList sd)
         let stakeholders = HM.keys rs
         let distrs = map (findStk totalCoins totalDistr) stakeholders
         let !(er, firstCase, secondCase) = fairBrute distrs 0 0
         er < 0.05 &&
-            toRational firstCase < toRational totalCases * 0.05 &&
-            toRational secondCase < toRational totalCases * 0.05
+            toRational firstCase < totalCases * fivePerc &&
+            toRational secondCase < totalCases * fivePerc
   where
     fairBrute :: [(Rational, Rational)] -> Rational -> Rational -> Unfairness
     fairBrute [] real generated = computeUnfairness real generated

@@ -50,7 +50,7 @@ computeShares' stake = computeSharesDistrPure stake genesisMpcThd
 emptyRichmenStakes :: Expectation
 emptyRichmenStakes =
     let emptyRes = computeShares' mempty
-    in isLeft emptyRes `shouldBe` True
+    in isRight emptyRes `shouldBe` True
 
 allRichmenGetShares :: ValidRichmenStakes GenesisMpcThd -> Bool
 allRichmenGetShares (getValid -> richmen) =

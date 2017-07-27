@@ -137,29 +137,31 @@ computeSharesDistrPure
     => RichmenStakes
     -> CoinPortion             -- ^ MPC threshold, e.g. 'genesisMpcThd'
     -> m SharesDistribution
-computeSharesDistrPure richmen threshold = do
-    let total :: Word64
-        total = sum $ map unsafeGetCoin $ toList richmen
-    when (total == 0) $
-        throwError $ TossInternallError "Richmen total stake equals zero"
-    let epsilon = 0.05::Rational
-    -- We accept error in computation = 0.05,
-    -- so stakeholders must have at least 55% of stake (for reveal secret) in the worst case
-    let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
-    let fromX = 1
-    let toX = truncate $ toRational (3::Int) / mpcThreshold
+computeSharesDistrPure richmen threshold
+    | null richmen = pure mempty
+    | otherwise = do
+        let total :: Word64
+            total = sum $ map unsafeGetCoin $ toList richmen
+        when (total == 0) $
+            throwError $ TossInternallError "Richmen total stake equals zero"
+        let epsilon = 0.05::Rational
+        -- We accept error in computation = 0.05,
+        -- so stakeholders must have at least 55% of stake (for reveal secret) in the worst case
+        let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
+        let fromX = 1
+        let toX = truncate $ toRational (3::Int) / mpcThreshold
 
-    let keys = map fst $ HM.toList richmen
-    let portions = map ((`divRat` total) . unsafeGetCoin . snd) $ HM.toList richmen
-    unless (all (>= mpcThreshold) portions) $
-        throwError $ TossInternallError "Richmen stakes less than threshsold"
+        let keys = map fst $ HM.toList richmen
+        let portions = map ((`divRat` total) . unsafeGetCoin . snd) $ HM.toList richmen
+        unless (all (>= mpcThreshold) portions) $
+            throwError $ TossInternallError "Richmen stakes less than threshsold"
 
-    let init = normalize $ multPortions portions toX
-    let initS = sum init
-    let initDelta = calcSumError (map (`divRat` initS) init) portions
-    (_, _, res) <-
-            execStateT (compute fromX toX epsilon portions) (initDelta, initS, init)
-    pure $ HM.fromList $ zip keys res
+        let init = normalize $ multPortions portions toX
+        let initS = sum init
+        let initDelta = calcSumError (map (`divRat` initS) init) portions
+        (_, _, res) <-
+                execStateT (compute fromX toX epsilon portions) (initDelta, initS, init)
+        pure $ HM.fromList $ zip keys res
   where
     -- We multiply all portions by mult and divide them on their gcd
     --     we get commitment distribution

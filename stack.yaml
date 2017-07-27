@@ -51,9 +51,9 @@ packages:
     commit: b4fbd07c077b41c0e948bd377f1662b599f0bc4c
   extra-dep: true
 - location:
-    # Temp Alex's patch on the new Decoder
+    # Temp patch to fix the NoParse errors
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 7bb7c3e254235574e5deebd77a98a4093bfaf067 # master
+    commit: 0361fb8b121355bd2f6d00b37d903be682c2853b # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:

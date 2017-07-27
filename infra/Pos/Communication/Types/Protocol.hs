@@ -294,8 +294,15 @@ instance Monad m => Monoid (MkListeners m) where
 
 -- | 'Subscribe' message
 --
--- This can be used by behind-NAT nodes to subscribe to the 'OutboundQueue'
--- of a relay node. The node will remain subscribed for the duration of the
--- conversation.
+-- Node A can send a MsgSubscribe to Node B to request that Node B adds Node A
+-- to the list of known peers in its outbound queue, so that Node B will send
+-- messages to node A.
+--
+-- This is used by behind-NAT nodes, who join the network by sending a
+-- MsgSubscribe to a relay nodes.
+--
+-- Kademia nodes might also use this if they want a guarantee that they receive
+-- messages from their peers (without subscription we rely on luck for some
+-- nodes to decide to add us to their list of known peers).
 data MsgSubscribe = MsgSubscribe
     deriving (Generic, Show, Eq)

@@ -278,6 +278,7 @@ instance MessageLimited (MsgHeaders ssc) where
         return $
             MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
 
+-- TODO: Update once we move to CBOR.
 instance MessageLimitedPure MsgSubscribe where
     msgLenLimit = 0
 

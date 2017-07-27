@@ -330,8 +330,8 @@ maybeBracketKademlia np action = mKp >>= \case
         (TopologyP2P, Just kp) -> return $ Just (kp, NodeRelay, True)
         (TopologyP2P, Nothing) ->
             throw MissingKademliaParams
-        (TopologyTransitional, Just kp) -> return $ Just (kp, NodeCore, True)
-        (TopologyTransitional, Nothing) ->
+        (TopologyTraditional, Just kp) -> return $ Just (kp, NodeCore, True)
+        (TopologyTraditional, Nothing) ->
             throw MissingKademliaParams
         (TopologyStatic NodeRelay _, Just kp) -> return $ Just (kp, NodeEdge, False)
         _ -> return $ Nothing

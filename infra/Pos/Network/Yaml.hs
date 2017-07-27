@@ -35,7 +35,7 @@ data Topology =
     TopologyStatic !AllStaticallyKnownPeers
   | TopologyBehindNAT !DnsDomains
   | TopologyP2P
-  | TopologyTransitional
+  | TopologyTraditional
   deriving (Show)
 
 -- | All statically known peers in the newtork
@@ -81,7 +81,7 @@ data NodeMetadata = NodeMetadata
     }
     deriving (Show)
 
--- | Parameters for Kademlia, in case P2P or transitional topology are used.
+-- | Parameters for Kademlia, in case P2P or traditional topology are used.
 data KademliaParams = KademliaParams
     { kpId              :: !(Maybe KademliaId)
       -- ^ Kademlia identifier. Optional; one can be generated for you.
@@ -220,9 +220,9 @@ instance FromJSON Topology where
         (Nothing, Just relays, Nothing) ->
             TopologyBehindNAT <$> parseJSON relays
         (Nothing, Nothing, Just p2p) -> flip (A.withText "P2P variant") p2p $ \txt -> case txt of
-            "transitional" -> pure TopologyTransitional
-            "normal"       -> pure TopologyP2P
-            _              -> fail "P2P variant: expected 'transitional' or 'normal'"
+            "traditional" -> pure TopologyTraditional
+            "normal"      -> pure TopologyP2P
+            _             -> fail "P2P variant: expected 'traditional' or 'normal'"
         _ ->
           fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
 
@@ -281,7 +281,7 @@ instance ToJSON AllStaticallyKnownPeers where
       aux (NodeName name, info) = name .= info
 
 instance ToJSON Topology where
-  toJSON (TopologyStatic    nodes)  = A.object [ "nodes"  .= nodes                    ]
-  toJSON (TopologyBehindNAT relays) = A.object [ "relays" .= relays                   ]
-  toJSON TopologyP2P                = A.object [ "p2p"    .= ("normal" :: Text)       ]
-  toJSON TopologyTransitional       = A.object [ "p2p"    .= ("transitional" :: Text) ]
+  toJSON (TopologyStatic    nodes)  = A.object [ "nodes"  .= nodes                   ]
+  toJSON (TopologyBehindNAT relays) = A.object [ "relays" .= relays                  ]
+  toJSON TopologyP2P                = A.object [ "p2p"    .= ("normal" :: Text)      ]
+  toJSON TopologyTraditional        = A.object [ "p2p"    .= ("traditional" :: Text) ]

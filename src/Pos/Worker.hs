@@ -21,7 +21,9 @@ import           Pos.Delegation          (delegationRelays, dlgWorkers)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Launcher.Resource    (NodeResources (..))
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
-import           Pos.Network.Types       (NetworkConfig(..), Topology(..))
+import           Pos.Network.Types       (NetworkConfig(..), SubscriptionWorker(..),
+                                          topologySubscriptionWorker,
+                                          topologyRunKademlia)
 import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting            (logNewSlotWorker, slottingWorkers)
 import           Pos.Ssc.Class           (SscListenersClass (sscRelays),
@@ -60,15 +62,13 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 
-    , wrap' "subscription" $ case ncTopology ncNetworkConfig of
-        TopologyBehindNAT dnsDomains ->
+    , wrap' "subscription" $ case topologySubscriptionWorker (ncTopology ncNetworkConfig) of
+        Just (SubscriptionWorkerBehindNAT dnsDomains) ->
           subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains)
-        TopologyP2P ->
+        Just SubscriptionWorkerKademlia ->
           subscriptionWorker (dhtSubscriptionWorker (forceDhtInstance nrKademlia))
-        TopologyTransitional ->
-          subscriptionWorker (dhtSubscriptionWorker (forceDhtInstance nrKademlia))
-        _otherwise ->
-          mempty -- No subscription worker required
+        Nothing ->
+          mempty
 
       -- MAGIC "relay" out specs.
       -- There's no cardano-sl worker for them; they're put out by the outbound
@@ -76,10 +76,17 @@ allWorkers NodeResources {..} = mconcatPair
     , ([], relayPropagateOut (mconcat [delegationRelays, untag sscRelays, txRelays, usRelays] :: [Relay m]))
 
       -- Kademlia has some workers to run.
+      --
+      -- TODO: Instead of basing this on nrKademlia we should look at the
+      -- topology (but then there's a untracked dependency: when the topology
+      -- says we should run kademlia, then nrKademlia should be Just something).
+      --
       -- FIXME: perhaps these shouldn't be considered workers, but rather
       -- spawned when the DHT instance is created and killed when it's
       -- released.
-    , maybe mempty dhtWorkers nrKademlia
+    , if topologyRunKademlia (ncTopology ncNetworkConfig)
+        then dhtWorkers (forceDhtInstance nrKademlia)
+        else mempty
     ]
   where
     NodeContext {..} = nrContext

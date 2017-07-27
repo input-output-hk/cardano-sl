@@ -66,7 +66,7 @@ dnsSubscriptionWorker networkCfg dnsDomains sendActions =
         -- NOTE: The assumption is that a single part of the code is
         -- responsible for maintaining the set of known peers. For behind NAT
         -- nodes, this is the responsibility of the subscription worker; for
-        -- P2P/transitional nodes, this is the responsibility of the
+        -- P2P/traditional nodes, this is the responsibility of the
         -- Kademlia worker; and for statically known sets of peers (core nodes
         -- and light wallets) this happens at queue initialization time.
         -- Here we just check that nobody else interferred with the set of
@@ -77,6 +77,9 @@ dnsSubscriptionWorker networkCfg dnsDomains sendActions =
           else error "Invariant violated in subscriptionWorker"
 
       -- Subscribe only to a single relay (if we found one)
+      --
+      -- TODO: Make it configurable how many relays we subscribe to (should
+      -- probably share logic with the Kademlia worker).
       case preferredRelays now updatedRelays of
         [] -> do
           logError msgNoRelays

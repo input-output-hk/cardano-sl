@@ -102,7 +102,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
       Y.TopologyP2P -> return T.TopologyP2P
-      Y.TopologyTransitional -> return T.TopologyTransitional
+      Y.TopologyTraditional -> return T.TopologyTraditional
     mKademliaParams <- case networkConfigOptsKademlia of
       Nothing -> return Nothing
       Just fp -> do
@@ -149,6 +149,15 @@ fromPovOf cfg allPeers (Just self) = do
 -- We do this when reading the topology file so that we detect DNS problems
 -- early, and so that we are using canonical addresses (IP addresses) for
 -- node IDs.
+--
+-- NOTE: This is /only/ used for core or edge nodes (nodes with a statically
+-- configured set of peers). For such nodes it makes sense to detect DNS
+-- problems at startup. For behind NAT nodes we do not do any resolution at
+-- this point; instead, it happens dynamically in the subscription worker.
+-- This is important; in user applications we certainly don't want to prevent
+-- the application from starting up because of DNS problems at startup.
+--
+-- TODO: Support re-reading this file after SIGHUP.
 resolveNodeAddr :: NetworkConfigOpts
                 -> DNS.Resolver
                 -> (NodeName, NodeAddr)
@@ -198,6 +207,11 @@ parseKademlia fp = do
 -------------------------------------------------------------------------------}
 
 -- | Something is wrong with the network configuration
+--
+-- NOTE: Behind NAT nodes are not given an explicit network configuration file,
+-- but instead rely on the default topology. These exceptions should never be
+-- thrown for behind NAT nodes, as we don't want to prevent the user application
+-- from starting up.
 data NetworkConfigException =
     -- | We cannot parse the topology .yaml file
     CannotParseNetworkConfig Yaml.ParseException

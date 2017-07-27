@@ -20,7 +20,8 @@ import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (AllSecrets (..), BlockGenParams (..),
                                               genBlocks, mkInvSecretsMap, unInvSecretsMap)
-import           Pos.Genesis                 (devAddrDistr, genesisUtxo)
+import           Pos.Genesis                 (GenesisWStakeholders (..), devAddrDistr,
+                                              genesisUtxo)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo, _GenesisUtxo)
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
@@ -50,14 +51,14 @@ main = flip catch catchEx $ do
 
     let nodes = length invSecretsMap
     let flatDistr = FlatStakes (fromIntegral nodes) (mkCoin $ fromIntegral nodes)
-    let bootStakeholders = HM.fromList $
-            zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
+    let bootStakeholders =
+            GenesisWStakeholders $ HM.fromList $
+            zip (HM.keys $ unInvSecretsMap secretsMap) (repeat 1)
     -- We need to select from utxo TxOut's corresponding to passed secrets
     -- to avoid error "Secret key of %hash% is required but isn't known"
     let genUtxoUnfiltered
-            | isDevelopment = genesisUtxo Nothing (devAddrDistr flatDistr)
-            | otherwise =
-                 genesisUtxo (Just bootStakeholders) genesisProdAddrDistribution
+            | isDevelopment = genesisUtxo bootStakeholders (fst $ devAddrDistr flatDistr)
+            | otherwise = genesisUtxo bootStakeholders genesisProdAddrDistribution
     let genUtxo = genUtxoUnfiltered &
             _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
     when (M.null $ unGenesisUtxo genUtxo) $

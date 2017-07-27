@@ -29,18 +29,18 @@ import qualified Data.Map             as M
 import qualified Data.Text.Buildable
 import qualified Data.Vector          as V
 import           Ether.Internal       (HasLens (..))
-import           Formatting           (bprint, build, sformat, stext, (%))
+import           Formatting           (bprint, stext, (%))
 import           Universum
 
 import           Pos.Binary           ()
-import           Pos.Context          (GenesisStakeholders, genesisStakeholdersM)
 import           Pos.Core             (AddressIgnoringAttributes (AddressIA), siEpoch,
-                                       unsafeGetCoin, unsafeIntegerToCoin, unsafeSubCoin)
+                                       unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto           (PublicKey, RedeemSecretKey, SafeSigner,
                                        SignTag (SignTxIn), hash, redeemSign,
                                        redeemToPublic, safeSign, safeToPublic)
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.DB               (MonadGState, gsIsBootstrapEra)
+import           Pos.Genesis          (GenesisWStakeholders)
 import           Pos.Genesis          (genesisSplitBoot)
 import           Pos.Script           (Script)
 import           Pos.Script.Examples  (multisigRedeemer, multisigValidator)
@@ -77,7 +77,7 @@ type TxCreateMode ctx m
      = ( MonadGState m
        , MonadReader ctx m
        , MonadSlots m
-       , HasLens GenesisStakeholders ctx GenesisStakeholders
+       , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        )
 
 -- | Generic function to create a transaction, given desired inputs,
@@ -121,16 +121,10 @@ overrideTxOutDistrBoot c oldDistr = do
     --    frontend so it's fine too.
     epoch <- siEpoch <$> lift getCurrentSlotBlocking
     bootEra <- lift $ gsIsBootstrapEra epoch
-    genStakeholders <- toList <$> genesisStakeholdersM
+    genStakeholders <- view (lensOf @GenesisWStakeholders)
     if not bootEra
       then pure oldDistr
-      else do
-          when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
-               throwError $
-               sformat ("Can't spend "%build%" coins: amount is too small for boot "%
-                        " era and can't be distributed among genStakeholders") c
-          -- TODO CSL-1351 boot stakeholders' weights are not used
-          pure $ genesisSplitBoot (HM.fromList $ map (,1) genStakeholders) c
+      else either throwError pure (genesisSplitBoot genStakeholders c)
 
 -- | Same as 'overrideTxOutDistrBoot' but changes 'TxOutputs' all at once
 overrideTxDistrBoot ::

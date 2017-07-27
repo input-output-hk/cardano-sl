@@ -59,9 +59,10 @@ import           Pos.Crypto                    (Hash, SecretKey, SignTag (SignUS
                                                 toPublic, unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes           (mkAttributes)
 import           Pos.Discovery                 (findPeers, getPeers)
-import           Pos.Genesis                   (devAddrDistr, devStakesDistr,
+import           Pos.Genesis                   (GenesisContext (..), devAddrDistr,
+                                                devStakesDistr, genesisContextProduction,
                                                 genesisDevSecretKeys, genesisUtxo,
-                                                genesisUtxoProduction)
+                                                gtcUtxo)
 import           Pos.Launcher                  (BaseParams (..), LoggingParams (..),
                                                 bracketTransport, loggerBracket)
 import           Pos.Ssc.GodTossing            (SscGodTossing)
@@ -415,10 +416,12 @@ main = do
                 (CLI.bitcoinDistr woCommonArgs)
                 (CLI.richPoorDistr woCommonArgs)
                 (CLI.expDistr woCommonArgs)
-    let wpGenesisUtxo =
+    let wpGenesisContext =
             if isDevelopment
-            then genesisUtxo Nothing (devAddrDistr devStakeDistr)
-            else genesisUtxoProduction
+            then let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
+                 in GenesisContext (genesisUtxo bootStakeholders aDistr)
+                                   bootStakeholders
+            else genesisContextProduction
     let params =
             WalletParams
             { wpDbPath      = Just woDbPath
@@ -436,7 +439,7 @@ main = do
             then "Development Mode"
             else "Production Mode"
         logInfo $ sformat ("Length of genesis utxo: "%shown)
-            (length $ unGenesisUtxo wpGenesisUtxo)
+            (length $ unGenesisUtxo $ wpGenesisContext ^. gtcUtxo)
         let transport' :: Transport LightWalletMode
             transport' = hoistTransport
                 (powerLift :: forall t . Production t -> LightWalletMode t)

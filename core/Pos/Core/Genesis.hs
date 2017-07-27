@@ -12,7 +12,9 @@ module Pos.Core.Genesis
 
        -- * /genesis-core.bin/
        , StakeDistribution(..)
+       , GenesisWStakeholders(..)
        , GenesisCoreData(..)
+       , bootRelatedDistr
        , mkGenesisCoreData
        , AddrDistribution
        , compileGenCoreData
@@ -34,7 +36,7 @@ import           Control.Lens            (ix)
 import           Data.Hashable           (hash)
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.Text               as T
-import           Formatting              (int, sformat, (%))
+import           Formatting              (build, int, sformat, (%))
 
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Address        (makePubKeyAddress)
@@ -42,8 +44,9 @@ import           Pos.Core.Coin           (unsafeAddCoin, unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
-                                          StakeDistribution (..), getTotalStake,
-                                          mkGenesisCoreData)
+                                          GenesisWStakeholders (..),
+                                          StakeDistribution (..), bootRelatedDistr,
+                                          getTotalStake, mkGenesisCoreData)
 import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
                                           unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
@@ -95,7 +98,7 @@ genesisProdAddrDistribution :: [AddrDistribution]
 genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
 
 -- | Bootstrap era stakeholders for production mode.
-genesisProdBootStakeholders :: HashMap StakeholderId Word16
+genesisProdBootStakeholders :: GenesisWStakeholders
 genesisProdBootStakeholders =
     gcdBootstrapStakeholders compileGenCoreData
 
@@ -123,12 +126,18 @@ generateHdwGenesisSecretKey =
 -- give quotient to every boot addr and assign remainder randomly
 -- based on passed coin hash among addresses.
 genesisSplitBoot ::
-       HashMap StakeholderId Word16 -> Coin -> [(StakeholderId, Coin)]
-genesisSplitBoot bootHolders0 c
+       GenesisWStakeholders -> Coin -> Either Text [(StakeholderId, Coin)]
+genesisSplitBoot (GenesisWStakeholders bootHolders0) c
     | cval <= 0 =
-      error $ "sendMoney#splitBoot: cval <= 0: " <> show cval
+      Left $ "sendMoney#splitBoot: cval <= 0: " <> show cval
+    | unsafeGetCoin c < fromIntegral (length bootHolders) =
+      Left $
+      sformat ("Can't spend "%build%" coins: amount is too small for boot "%
+               " era and can't be distributed among "%int%"genStakeholders")
+              c
+              (length bootHolders)
     | cval < addrsNum =
-      map (,mkCoin 1) $ take cval bootHolders
+      Right $ map (,mkCoin 1) $ take cval bootHolders
     | otherwise =
       let (d :: Word64, m :: Word64) =
               bimap fromIntegral fromIntegral $
@@ -136,7 +145,7 @@ genesisSplitBoot bootHolders0 c
           stakeCoins =
               replicate addrsNum (mkCoin d) &
               ix remReceiver %~ unsafeAddCoin (mkCoin m)
-      in bootHolders `zip` stakeCoins
+      in Right $ bootHolders `zip` stakeCoins
   where
     -- Person who will get the remainder in (2) case.
     remReceiver :: Int

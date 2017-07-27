@@ -11,7 +11,7 @@ module Pos.Generator.Block.Payload
 
 import           Universum
 
-import           Control.Lens               (at, uses, (%=), (.=), (?=))
+import           Control.Lens               (at, uses, views, (%=), (.=), (?=))
 import           Control.Lens.TH            (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
 import qualified Data.HashMap.Strict        as HM
@@ -19,11 +19,11 @@ import           Data.List                  (notElem, (!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (sformat, (%))
 import           System.Random              (RandomGen (..))
 
 import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot)
-import           Pos.Context                (genesisStakeholdersM)
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
                                              addressDetailedF, coinToInteger,
                                              makePubKeyAddress, sumCoins,
@@ -35,6 +35,7 @@ import           Pos.Generator.Block.Error  (BlockGenError (..))
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..),
                                              asSecretKeys, unInvSecretsMap)
+import           Pos.Genesis                (GenesisWStakeholders (..))
 import qualified Pos.GState                 as DB
 import           Pos.Slotting.Class         (MonadSlots (getCurrentSlotBlocking))
 import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
@@ -126,9 +127,9 @@ genTxPayload = do
     genTransaction = do
         epoch <- siEpoch <$> lift (lift getCurrentSlotBlocking)
         bootEra <- lift . lift $ gsIsBootstrapEra epoch
-        genStakeholders <- toList <$> genesisStakeholdersM
+        genStakeholders <- views (lensOf @GenesisWStakeholders) getGenesisWStakeholders
         let dustThd :: Integral a => a
-            dustThd = fromIntegral $ length genStakeholders
+            dustThd = fromIntegral $ HM.size genStakeholders
         utxoSize <- uses gtdUtxoKeys V.length
         when (utxoSize == 0) $
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"

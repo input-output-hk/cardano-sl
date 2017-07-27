@@ -12,8 +12,6 @@ module Pos.Context.Context
        , NodeParams(..)
        , BaseParams(..)
        , TxpGlobalSettings
-       , GenesisUtxo(..)
-       , GenesisStakeholders(..)
        , StartTime(..)
        , LastKnownHeader
        , LastKnownHeaderTag
@@ -47,7 +45,7 @@ import           Pos.Communication.Relay       (HasPropagationFlag (..),
                                                 RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
-import           Pos.Core                      (GenesisStakeholders (..),
+import           Pos.Core                      (GenesisWStakeholders (..),
                                                 HasPrimaryKey (..), HeaderHash, Timestamp)
 import           Pos.Discovery                 (DiscoveryContextSum,
                                                 HasDiscoveryContextSum (..))
@@ -220,8 +218,8 @@ instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = ncNodeParams_L . lensOf @GenesisUtxo
 
-instance HasLens GenesisStakeholders (NodeContext ssc) GenesisStakeholders where
-    lensOf = ncNodeParams_L . lensOf @GenesisStakeholders
+instance HasLens GenesisWStakeholders (NodeContext ssc) GenesisWStakeholders where
+    lensOf = ncNodeParams_L . lensOf @GenesisWStakeholders
 
 instance HasReportServers (NodeContext ssc) where
     reportServers = ncNodeParams_L . reportServers

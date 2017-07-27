@@ -22,11 +22,11 @@ import           Pos.Communication.Types (NodeId)
 import           Pos.Core                (HasPrimaryKey (..), Timestamp)
 import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
+import           Pos.Genesis             (GenesisContext, GenesisUtxo,
+                                          GenesisWStakeholders, gtcUtxo, gtcWStakeholders)
 import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
 import           Pos.Statistics          (EkgParams, StatsdParams)
-import           Pos.Txp.Toil.Types      (GenesisStakeholders, GenesisTxpContext,
-                                          GenesisUtxo, gtcStakeholders, gtcUtxo)
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.UserSecret     (UserSecret)
 import           Pos.Util.Util           (postfixLFields)
@@ -62,17 +62,17 @@ data NodeParams = NodeParams
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
-    , npGenesisTxpCtx  :: !GenesisTxpContext    -- ^ Predefined genesis context related to txp data.
+    , npGenesisCtx     :: !GenesisContext       -- ^ Predefined genesis context
     , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
     , npPropagation    :: !Bool                 -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
     , npSecurityParams :: !SecurityParams       -- ^ Params for "Pos.Security"
-    , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
+    , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers
     , npNetwork        :: !NetworkParams        -- ^ Network parameters
-    , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
-    , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
-    , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
+    , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics
+    , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring
+    , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams
@@ -83,14 +83,14 @@ instance HasLens UpdateParams NodeParams UpdateParams where
 instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npSecurityParams_L
 
-instance HasLens GenesisTxpContext NodeParams GenesisTxpContext where
-    lensOf = npGenesisTxpCtx_L
+instance HasLens GenesisContext NodeParams GenesisContext where
+    lensOf = npGenesisCtx_L
 
 instance HasLens GenesisUtxo NodeParams GenesisUtxo where
-    lensOf = npGenesisTxpCtx_L . gtcUtxo
+    lensOf = npGenesisCtx_L . gtcUtxo
 
-instance HasLens GenesisStakeholders NodeParams GenesisStakeholders where
-    lensOf = npGenesisTxpCtx_L . gtcStakeholders
+instance HasLens GenesisWStakeholders NodeParams GenesisWStakeholders where
+    lensOf = npGenesisCtx_L . gtcWStakeholders
 
 instance HasReportServers NodeParams where
     reportServers = npReportServers_L

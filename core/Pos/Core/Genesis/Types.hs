@@ -6,16 +6,19 @@ module Pos.Core.Genesis.Types
        , getTotalStake
 
        , AddrDistribution
+       , GenesisWStakeholders (..)
        , GenesisCoreData (..)
+       , bootRelatedDistr
        , mkGenesisCoreData
        ) where
 
 import           Universum
 
-import           Serokell.Util  (allDistinct)
+import qualified Data.HashMap.Strict as HM
+import           Serokell.Util       (allDistinct)
 
-import           Pos.Core.Coin  (coinToInteger, sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Types (Address, Coin, StakeholderId, mkCoin)
+import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core.Types      (Address, Coin, StakeholderId, mkCoin)
 
 -- | Balances distribution in genesis block.
 --
@@ -66,15 +69,36 @@ getTotalStake (CustomStakes balances) =
 -- distribute and how).
 type AddrDistribution = ([Address], StakeDistribution)
 
+-- | Wrapper around weighted stakeholders map to be used in genesis
+-- core data.
+newtype GenesisWStakeholders = GenesisWStakeholders
+    { getGenesisWStakeholders :: HashMap StakeholderId Word16
+    } deriving (Show, Eq)
+
 -- | Hardcoded genesis data to generate utxo from.
 data GenesisCoreData = UnsafeGenesisCoreData
     { gcdAddrDistribution      :: ![AddrDistribution]
       -- ^ Address distribution. Determines utxo without boot
       -- stakeholders distribution (addresses and coins).
-    , gcdBootstrapStakeholders :: !(HashMap StakeholderId Word16)
+    , gcdBootstrapStakeholders :: !GenesisWStakeholders
       -- ^ Bootstrap era stakeholders, values are weights.
     } deriving (Show, Eq, Generic)
 
+
+-- | Checks whether txOutDistribution matches the set of weighted boot
+-- stakeholders. Notice: it doesn't use actual txdistr type because
+-- it's defined in txp module above.
+-- TODO it doesn't count for weights.
+-- TODO it doesn't check that distribution of coins is not shifted to single user.
+bootRelatedDistr :: GenesisWStakeholders -> [(StakeholderId, Coin)] -> Bool
+bootRelatedDistr (GenesisWStakeholders bootHolders) txOutDistr =
+    -- All addresses in txDistr are from bootHolders
+    all inBoot addrs &&
+    -- Every boot stakeholder is mentioned in txOutDistr
+    all (`elem` addrs) (HM.keys bootHolders)
+  where
+    addrs = map fst txOutDistr
+    inBoot s = s `HM.member` bootHolders
 
 -- | Safe constructor for 'GenesisCoreData'. Throws error if something
 -- goes wrong.
@@ -100,4 +124,4 @@ mkGenesisCoreData distribution bootStakeholders = do
     unless (allDistinct addrList) $
         Left "mkGenesisCoreData: some address belongs to more than one distr"
     -- All checks passed
-    pure $ UnsafeGenesisCoreData distribution bootStakeholders
+    pure $ UnsafeGenesisCoreData distribution (GenesisWStakeholders bootStakeholders)

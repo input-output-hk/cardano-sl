@@ -28,15 +28,14 @@ import           Data.Time.Units                   (Microsecond, Millisecond,
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
                                                     choose, oneof, scale, shrinkIntegral,
-                                                    suchThat, vector, vectorOf, sized)
+                                                    sized, suchThat, vector, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
 import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
-                                                    SignedVarInt (..),
-                                                    UnsignedVarInt (..),
-                                                    TinyVarInt(..))
+                                                    SignedVarInt (..), TinyVarInt (..),
+                                                    UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
@@ -47,7 +46,7 @@ import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
-import           Pos.Data.Attributes               (Attributes (..), UnparsedFields(..))
+import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -449,7 +448,8 @@ instance Arbitrary G.GenesisCoreData where
         stakeDistrs <- vectorOf outerLen distributionGen
         hashmapOfHolders <- arbitrary :: Gen (HashMap Types.StakeholderId Word16)
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
-            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs) hashmapOfHolders
+            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
+                                hashmapOfHolders
 
 instance Arbitrary G.StakeDistribution where
     arbitrary = oneof

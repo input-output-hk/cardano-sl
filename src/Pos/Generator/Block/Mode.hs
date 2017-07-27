@@ -21,7 +21,7 @@ import           Universum
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Data.Map                    as M
+import qualified Data.HashMap.Strict         as HM
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -31,10 +31,11 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
-                                              Timestamp, epochOrSlotToSlot,
-                                              getEpochOrSlot, makePubKeyAddress, mkCoin)
-import           Pos.Crypto                  (SecretKey, toPublic, unsafeHash)
+import           Pos.Core                    (GenesisWStakeholders (..),
+                                              HasPrimaryKey (..), IsHeader, SlotId (..),
+                                              Timestamp, addressHash, epochOrSlotToSlot,
+                                              getEpochOrSlot)
+import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (DBSum, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
                                               MonadDBRead)
@@ -63,12 +64,9 @@ import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDa
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
-import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), TxOut (..),
-                                              TxOutAux (..), TxpGlobalSettings,
+import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
-import           Pos.Txp.Toil.Types          (GenesisStakeholders (..), GenesisUtxo (..),
-                                              mkGenesisTxpContext, gtcStakeholders)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -124,7 +122,7 @@ data BlockGenContext = BlockGenContext
     , bgcSystemStart       :: !Timestamp
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
-    , bgcGenStakeholders   :: !GenesisStakeholders
+    , bgcGenStakeholders   :: !GenesisWStakeholders
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -182,17 +180,11 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
   where
-    -- Genesis utxo is needed only for boot era stakeholders
     bgcGenStakeholders =
         let addrs =
-                -- So we take three stakeholders in boot era.
-                take 3 $
-                map (makePubKeyAddress . toPublic) . toList $
+                take 4 . map (addressHash . toPublic) . toList $
                 view (bgpSecrets . asSecretKeys) bgcParams
-            utxoTxHash = unsafeHash ("randomutxotx" :: Text)
-            txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
-            txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
-        in (mkGenesisTxpContext $ GenesisUtxo $ M.fromList $ txIns `zip` txOuts) ^. gtcStakeholders
+        in GenesisWStakeholders (HM.fromList $ map (,1) addrs)
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBSum
@@ -268,7 +260,7 @@ instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
-instance HasLens GenesisStakeholders BlockGenContext GenesisStakeholders where
+instance HasLens GenesisWStakeholders BlockGenContext GenesisWStakeholders where
     lensOf = bgcGenStakeholders_L
 
 instance HasLens DBSum BlockGenContext DBSum where

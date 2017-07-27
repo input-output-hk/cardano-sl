@@ -19,8 +19,8 @@ import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 
-import           Pos.Core                    (BlockVersionData, EpochIndex, HeaderHash,
-                                              siEpoch)
+import           Pos.Core                    (BlockVersionData, EpochIndex,
+                                              GenesisWStakeholders, HeaderHash, siEpoch)
 import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Slotting                (MonadSlots (..))
@@ -29,10 +29,10 @@ import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, get
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
-                                              GenesisStakeholders, MonadUtxoRead (..),
-                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
-                                              execToilTLocal, normalizeToil, processTx,
-                                              runDBToil, runToilTLocal, utxoGet)
+                                              MonadUtxoRead (..), ToilVerFailure (..),
+                                              Utxo, evalUtxoStateT, execToilTLocal,
+                                              normalizeToil, processTx, runDBToil,
+                                              runToilTLocal, utxoGet)
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -42,8 +42,7 @@ type TxpLocalWorkMode ctx m =
     , MonadSlots m
     , MonadTxpMem () ctx m
     , WithLogger m
-    , HasLens GenesisStakeholders ctx GenesisStakeholders
-    , MonadReader ctx m
+    , HasLens GenesisWStakeholders ctx GenesisWStakeholders
     )
 
 -- | Process transaction. 'TxId' is expected to be the hash of
@@ -56,8 +55,8 @@ txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
-    genStks <- view (lensOf @GenesisStakeholders)
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
+    bootHolders <- view (lensOf @GenesisWStakeholders)
     localUM <- lift $ getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
@@ -74,7 +73,7 @@ txProcessTransaction itw@(txId, txAux) = do
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- lift $
             modifyTxpLocalData "txProcessTransaction" $
-            processTxDo epoch bvd genStks resolved tipDB itw
+            processTxDo epoch bvd bootHolders resolved tipDB itw
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -85,7 +84,7 @@ txProcessTransaction itw@(txId, txAux) = do
     processTxDo
         :: EpochIndex
         -> BlockVersionData
-        -> GenesisStakeholders
+        -> GenesisWStakeholders
         -> Utxo
         -> HeaderHash
         -> (TxId, TxAux)

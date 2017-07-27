@@ -6,36 +6,47 @@
 
 module Pos.Genesis
        (
+       -- * Reexports
          module Pos.Core.Genesis
        , module Pos.Ssc.GodTossing.Genesis
+       , GenesisUtxo(..)
 
-       -- * Static state
+       -- * Context
+       , GenesisContext (..)
+       , gtcUtxo
+       , gtcWStakeholders
+
+       -- * Static state/functions/common
        , stakeDistribution
        , genesisUtxo
-       , genesisUtxoProduction
-       , genesisDelegation
        , genesisSeed
        , genesisLeaders
+
+       -- * Prod mode genesis
+       , genesisUtxoProduction
+       , genesisContextProduction
 
        -- * Dev mode genesis
        , accountGenesisIndex
        , wAddressGenesisIndex
        , devStakesDistr
        , devAddrDistr
+
        ) where
 
 import           Universum
 
+import           Control.Lens               (makeLenses)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
--- import qualified Data.Ratio                 as Ratio
+import           Ether.Internal             (HasLens (..))
 import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
-import           Pos.Core                   (Address (..), Coin, SlotLeaders,
-                                             StakeholderId, applyCoinPortionUp,
-                                             coinToInteger, deriveLvl2KeyPair, divCoin,
+import           Pos.Core                   (Address (..), Coin, SlotLeaders, addressHash,
+                                             applyCoinPortionUp, coinToInteger,
+                                             deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
@@ -50,7 +61,27 @@ import           Pos.Core.Genesis
 import           Pos.Ssc.GodTossing.Genesis
 
 ----------------------------------------------------------------------------
--- Static state
+-- Context
+----------------------------------------------------------------------------
+
+-- | Genesis context related to transaction processing.
+data GenesisContext = GenesisContext
+    { _gtcUtxo          :: !GenesisUtxo
+      -- ^ Genesis utxo.
+    , _gtcWStakeholders :: !GenesisWStakeholders
+      -- ^ Weighted genesis stakeholders.
+    } deriving (Show)
+
+makeLenses ''GenesisContext
+
+instance HasLens GenesisUtxo GenesisContext GenesisUtxo where
+    lensOf = gtcUtxo
+
+instance HasLens GenesisWStakeholders GenesisContext GenesisWStakeholders where
+    lensOf = gtcWStakeholders
+
+----------------------------------------------------------------------------
+-- Static state & funcitons
 ----------------------------------------------------------------------------
 
 bitcoinDistribution20 :: [Coin]
@@ -120,7 +151,7 @@ stakeDistribution (CustomStakes coins) = coins
 --
 -- TODO [CSL-1351] This documentation will become correct later.
 genesisUtxo ::
-       Maybe (HashMap StakeholderId Word16) -> [AddrDistribution] -> GenesisUtxo
+       GenesisWStakeholders -> [AddrDistribution] -> GenesisUtxo
 genesisUtxo bootStakeholdersMaybe ad
     -- TODO [CSL-1351] Uncomment ↓.
     --- | null bootStakeholders =
@@ -144,7 +175,11 @@ genesisUtxo bootStakeholdersMaybe ad
         , TxOutAux (TxOut addr coin) (outDistr coin))
     -- Empty distribution for PubKey address means that the owner of
     -- this address will have the stake.
-    outDistr coin = maybe [] (flip genesisSplitBoot coin) bootStakeholdersMaybe
+    genesisSplitBoot' x c =
+        either (\e -> error $ "genesisUtxo can't split: " <> show e)
+               identity
+               (genesisSplitBoot x c)
+    outDistr = genesisSplitBoot' bootStakeholdersMaybe
 -- TODO [CSL-1351] Uncomment ↓.
 --         , TxOutAux (TxOut addr coin) (genesisSplitBoot bootStakeholders coin))
 --     bootStakeholdersCalculated = balancesToStakeholders balances
@@ -164,19 +199,24 @@ genesisUtxo bootStakeholdersMaybe ad
 --     step (PubKeyAddress x _, balance) = HM.insertWith (+) x (calcWeight balance)
 --     step _                            = identity
 
--- | 'GenesisUtxo' used in production.
-genesisUtxoProduction :: GenesisUtxo
-genesisUtxoProduction =
-    genesisUtxo (Just genesisProdBootStakeholders) genesisProdAddrDistribution
-
--- This is probably 100% useless.
-genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
-genesisDelegation = mempty
-
 -- | Compute leaders of the 0-th epoch from stake distribution.
 genesisLeaders :: GenesisUtxo -> SlotLeaders
 genesisLeaders (GenesisUtxo utxo) =
     followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
+
+----------------------------------------------------------------------------
+-- Production mode genesis
+----------------------------------------------------------------------------
+
+-- | 'GenesisUtxo' used in production.
+genesisUtxoProduction :: GenesisUtxo
+genesisUtxoProduction =
+    genesisUtxo genesisProdBootStakeholders genesisProdAddrDistribution
+
+-- | 'GenesisContext' that uses all the data for prod.
+genesisContextProduction :: GenesisContext
+genesisContextProduction =
+    GenesisContext genesisUtxoProduction genesisProdBootStakeholders
 
 ----------------------------------------------------------------------------
 -- Development mode genesis
@@ -243,12 +283,14 @@ genesisDevHdwAccountKeyDatas =
 -- | Address distribution for dev mode. It's supposed that you pass
 -- the distribution from 'devStakesDistr' here. This function will add
 -- dev genesis addresses and hd addrs/distr.
-devAddrDistr :: StakeDistribution -> [AddrDistribution]
-devAddrDistr distr =
-    [ (mainAddrs, distr)        -- Addresses from passed stake
-    , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
-    ]
+devAddrDistr :: StakeDistribution -> ([AddrDistribution], GenesisWStakeholders)
+devAddrDistr distr = (aDistr, gws)
   where
+    gws = GenesisWStakeholders $ HM.fromList $
+          map ((,1) . addressHash) $ take distrSize genesisDevPublicKeys
+    aDistr = [ (mainAddrs, distr)        -- Addresses from passed stake
+             , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
+             ]
     distrSize = length $ stakeDistribution distr
     mainAddrs =
         take distrSize $ genesisDevAddresses <> tailAddresses

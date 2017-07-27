@@ -7,10 +7,10 @@
 -}
 
 module Pos.WorkMode.Class
-    ( WorkMode
-    , MinWorkMode
-    , TxpExtra_TMP
-    ) where
+       ( WorkMode
+       , MinWorkMode
+       , TxpExtra_TMP
+       ) where
 
 import           Universum
 
@@ -24,8 +24,7 @@ import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Slog.Types        (HasSlogContext)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
-                                              BlockRetrievalQueueTag, GenesisStakeholders,
-                                              GenesisUtxo, HasSscContext,
+                                              BlockRetrievalQueueTag, HasSscContext,
                                               MonadLastKnownHeader, MonadProgressHeader,
                                               MonadRecoveryHeader, StartTime,
                                               TxpGlobalSettings)
@@ -34,6 +33,7 @@ import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
+import           Pos.Genesis                 (GenesisUtxo, GenesisWStakeholders)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
@@ -94,7 +94,7 @@ type WorkMode ssc ctx m
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
       , HasLens GenesisUtxo ctx GenesisUtxo
-      , HasLens GenesisStakeholders ctx GenesisStakeholders
+      , HasLens GenesisWStakeholders ctx GenesisWStakeholders
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
       , HasSscContext ssc ctx
       , HasReportingContext ctx

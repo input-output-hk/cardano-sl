@@ -26,8 +26,8 @@ import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import qualified Pos.Constants       as Const
 import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
-                                      genesisStakeholdersM, getOurPubKeyAddress,
-                                      getOurPublicKey)
+                                      getOurPubKeyAddress, getOurPublicKey)
+import           Pos.Genesis         (GenesisWStakeholders (..))
 import qualified Pos.GState          as GS
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
@@ -66,7 +66,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
 
-    genesisStakeholders <- genesisStakeholdersM
+    genesisStakeholders <- views (lensOf @GenesisWStakeholders) getGenesisWStakeholders
     logInfo $ sformat ("Genesis stakeholders: " %listJson) genesisStakeholders
 
     lastKnownEpoch <- LrcDB.getEpoch

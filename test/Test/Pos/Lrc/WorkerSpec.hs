@@ -30,10 +30,12 @@ import           Pos.Core                  (Address, Coin, EpochIndex, Stakehold
 import           Pos.Crypto                (SecretKey, toPublic)
 import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
                                             mkInvSecretsMap)
-import           Pos.Genesis               (StakeDistribution (..), genesisUtxo)
+import           Pos.Genesis               (GenesisContext (..),
+                                            GenesisWStakeholders (..),
+                                            StakeDistribution (..), genesisUtxo)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
-import           Pos.Txp                   (TxAux, mkGenesisTxpContext, mkTxPayload)
+import           Pos.Txp                   (TxAux, mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys)
 
@@ -92,8 +94,12 @@ genTestParams = do
             (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
             (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
-    let utxo = genesisUtxo Nothing addressesAndDistrs
-    let _tpGenTxpContext = mkGenesisTxpContext utxo
+    let genStakeholders =
+            GenesisWStakeholders $
+            HM.fromList $ map ((,1) . addressHash . toPublic) $
+            take 4 $ secretKeys
+    let utxo = genesisUtxo genStakeholders addressesAndDistrs
+    let _tpGenesisContext = GenesisContext utxo genStakeholders
     return TestParams {..}
   where
     groupsNumber = length allRichmenComponents

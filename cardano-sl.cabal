@@ -583,6 +583,7 @@ test-suite cardano-test
 
                        -- LRC
                        Test.Pos.Lrc.FollowTheSatoshiSpec
+                       Test.Pos.Lrc.WorkerSpec
 
                        -- Everything else
                        Test.Pos.CborSpec

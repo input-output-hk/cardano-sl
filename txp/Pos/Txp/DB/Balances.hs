@@ -28,7 +28,7 @@ import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
-import           Formatting                   (bprint, bprint, sformat, (%))
+import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
@@ -44,7 +44,7 @@ import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumK
                                                getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.Txp.Core                 (txOutStake)
-import           Pos.Txp.Toil.Types           (Utxo)
+import           Pos.Txp.Toil.Types           (GenesisUtxo (..))
 import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 
 ----------------------------------------------------------------------------
@@ -74,8 +74,8 @@ instance RocksBatchOp BalancesOp where
 initGStateBalances
     :: forall m.
        MonadDB m
-    => Utxo -> m ()
-initGStateBalances genesisUtxo = do
+    => GenesisUtxo -> m ()
+initGStateBalances (GenesisUtxo genesisUtxo) = do
     putFtsStakes
     putGenesisTotalStake
   where

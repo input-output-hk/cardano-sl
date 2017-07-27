@@ -221,18 +221,27 @@ prepareInpsOuts utxo addrs outputs = do
 -- | Common use case of 'prepaseInpsOuts' - with single source address
 prepareInpOuts
     :: MonadError TxError m
-    => Utxo -> Address -> TxOutputs -> m (TxInputs, TxOutputs)
+    => Utxo
+    -> Address
+    -> TxOutputs
+    -> m (TxInputs, TxOutputs)
 prepareInpOuts utxo addr outputs =
     prepareInpsOuts utxo (one addr) outputs <&>
     _1 . traversed %~ snd
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
-createMTx :: Utxo -> NonEmpty (SafeSigner, Address) -> TxOutputs -> Either TxError TxAux
-createMTx utxo hwdSigners outputs =
+createMTx
+    :: TxCreateMode ctx m
+    => Utxo
+    -> NonEmpty (SafeSigner, Address)
+    -> TxOutputs
+    -> m (Either TxError TxAux)
+createMTx utxo hwdSigners outputs = runExceptT $ do
     let addrs = map snd hwdSigners
-    in  uncurry (makeMPubKeyTx getSigner) <$>
-        prepareInpsOuts utxo addrs outputs
+    properOutputs <- overrideTxDistrBoot outputs
+    uncurry (makeMPubKeyTx getSigner) <$>
+        prepareInpsOuts utxo addrs properOutputs
   where
     signers = HM.fromList . toList $ map (swap . second AddressIA) hwdSigners
     getSigner addr =

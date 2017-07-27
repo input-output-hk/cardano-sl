@@ -66,7 +66,7 @@ submitMTx
 submitMTx sendActions hdwSigner na outputs = do
     let addrs = map snd $ toList hdwSigner
     utxo <- getOwnUtxos addrs
-    txw <- eitherToThrow $ createMTx utxo hdwSigner outputs
+    txw <- eitherToThrow =<< createMTx utxo hdwSigner outputs
     submitAndSave sendActions na txw
 
 -- | Construct Tx using secret key and given list of desired outputs

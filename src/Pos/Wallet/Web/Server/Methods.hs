@@ -742,10 +742,11 @@ createFakeTxFromRawTx TxRaw{..} = do
     (_, sk) <- keyGen
     let fakeSigners = NE.fromList $ replicate (length srcAddrs) (fakeSigner sk)
     let hdwSigners = NE.zip fakeSigners srcAddrs
-    let txAuxEi = createMTx utxo hdwSigners txOutsWithRem
+    txAuxEi <- createMTx utxo hdwSigners txOutsWithRem
     either invalidTxEx pure txAuxEi
   where
-    invalidTxEx = throwM . TxError . sformat ("Couldn't create a fake transaction, reason: "%build)
+    invalidTxEx =
+        throwM . TxError . sformat ("Couldn't create a fake transaction, reason: "%build) . unTxError
 
 -- Functions doesn't write to db anything.
 prepareTxRaw

@@ -38,7 +38,7 @@ allWorkers = mempty
 
 -- | WalletMode runner
 runLightWalletMode
-    :: NetworkConfig
+    :: NetworkConfig kademlia
     -> Transport LightWalletMode
     -> Set NodeId
     -> WalletParams
@@ -56,7 +56,7 @@ runWalletStaticPeers
 runWalletStaticPeers transport peers wp =
     runLightWalletMode networkConfig transport peers wp . runWallet
   where
-    networkConfig :: NetworkConfig
+    networkConfig :: NetworkConfig kademlia
     networkConfig = defaultNetworkConfig $ TopologyLightWallet (Set.toList peers)
 
 runWallet
@@ -74,7 +74,7 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     outs = wouts <> pouts
 
 runRawStaticPeersWallet
-    :: NetworkConfig
+    :: NetworkConfig kademlia
     -> Transport LightWalletMode
     -> Set NodeId
     -> WalletParams
@@ -96,7 +96,7 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
                 lpRunnerTag
                 wpGenesisUtxo
             ) .
-            runServer_ networkConfig transport listeners outs oq . ActionSpec $ \vI sa ->
+            runServer_ transport listeners outs oq . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams
@@ -109,9 +109,9 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => NetworkConfig -> Transport m -> MkListeners m -> OutSpecs -> OQ m -> ActionSpec m b -> m b
-runServer_ networkConfig transport mkl outSpecs oq =
-    runServer networkConfig (simpleNodeEndPoint transport) (const noReceiveDelay) (const mkl)
+    => NetworkConfig kademlia -> Transport m -> MkListeners m -> OutSpecs -> OQ m -> ActionSpec m b -> m b
+runServer_ transport mkl outSpecs oq =
+    runServer (simpleNodeEndPoint transport) (const noReceiveDelay) (const mkl)
         outSpecs acquire release oq
   where
     acquire = const pass

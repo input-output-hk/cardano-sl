@@ -16,7 +16,7 @@ import qualified Data.ByteString               as BS
 import           Data.ByteString.Base58        (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     ((!!))
-import qualified Data.Set                      as S (fromList, toList)
+import qualified Data.Set                      as S (fromList)
 import           Data.String.QQ                (s)
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
@@ -32,7 +32,7 @@ import           Mockable                      (Mockable, Production, SharedAtom
 import           Network.Transport.Abstract    (Transport, hoistTransport)
 import           System.IO                     (BufferMode (LineBuffering), hClose,
                                                 hFlush, hSetBuffering, stdout)
-import           System.Wlog                   (logDebug, logError, logInfo, logWarning)
+import           System.Wlog                   (logDebug, logError, logInfo)
 #if !(defined(mingw32_HOST_OS))
 import           System.Exit                   (ExitCode (ExitSuccess))
 import           System.Posix.Process          (exitImmediately)
@@ -44,11 +44,12 @@ import           Pos.Binary                    (Raw, encode)
 import qualified Pos.CLI                       as CLI
 import           Pos.Client.Txp.Balances       (getOwnUtxo)
 import           Pos.Client.Txp.Util           (createTx)
-import           Pos.Communication             (NodeId, OutSpecs, SendActions, Worker',
+import           Pos.Communication             (NodeId, OutSpecs, SendActions, Worker,
                                                 WorkerSpec, dataFlow, delegationRelays,
                                                 relayPropagateOut, submitTx, submitTxRaw,
                                                 submitUpdateProposal, submitVote,
-                                                txRelays, usRelays, worker)
+                                                txRelays, usRelays, worker,
+                                                immediateConcurrentConversations)
 import           Pos.Constants                 (genesisBlockVersionData,
                                                 genesisSlotDuration, isDevelopment)
 import           Pos.Core.Types                (Timestamp (..), mkCoin)
@@ -58,12 +59,12 @@ import           Pos.Crypto                    (Hash, SecretKey, SignTag (SignUS
                                                 safeCreatePsk, safeSign, safeToPublic,
                                                 toPublic, unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes           (mkAttributes)
-import           Pos.Discovery                 (findPeers, getPeers)
 import           Pos.Genesis                   (devAddrDistr, devStakesDistr,
                                                 genesisDevSecretKeys, genesisUtxo,
                                                 genesisUtxoProduction)
 import           Pos.Launcher                  (BaseParams (..), LoggingParams (..),
                                                 bracketTransport, loggerBracket)
+import           Pos.Network.Types             (MsgType (..), Origin (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)
 import           Pos.Ssc.SscAlgo               (SscAlgo (..))
 import           Pos.Txp                       (TxOut (..), TxOutAux (..), txaF,

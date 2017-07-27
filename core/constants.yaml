@@ -162,7 +162,7 @@ qanet_tns: &qanet_tns
   protocolMagic: 50987900
   genesisBinSuffix: qa
 
-travis: &travis
+ci: &ci  # this mode is used by CI
   <<: *qanet_tns
 
   k: 35  # it's needed for tests
@@ -198,6 +198,6 @@ qanet_upd_wallet: &qanet_upd_wallet
   <<: *qanet_upd
   applicationName: csl-daedalus
 
-travis_wallet: &travis_wallet
-  <<: *travis
+ci_wallet: &ci_wallet
+  <<: *ci
   applicationName: csl-daedalus

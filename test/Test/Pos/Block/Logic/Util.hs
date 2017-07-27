@@ -5,6 +5,7 @@ module Test.Pos.Block.Logic.Util
        , bpGoToArbitraryState
        , withCurrentSlot
        , satisfySlotCheck
+       , getAllSecrets
        ) where
 
 import           Universum
@@ -17,7 +18,7 @@ import           Test.QuickCheck.Monadic     (pick)
 import           Pos.Block.Core              (Block)
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (BlockCount, SlotId (..), epochIndexL)
-import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
+import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Chrono             (NE, OldestFirst (..))
@@ -36,7 +37,7 @@ bpGenBlocks ::
     -> Bool
     -> BlockProperty (OldestFirst [] (Blund SscGodTossing))
 bpGenBlocks blkCnt enableTxPayload = do
-    allSecrets <- lift $ view (lensOf @BlockTestContextTag . tpAllSecrets)
+    allSecrets <- getAllSecrets
     let genBlockGenParams s =
             pure
                 BlockGenParams
@@ -49,6 +50,9 @@ bpGenBlocks blkCnt enableTxPayload = do
     params <- pick $ sized genBlockGenParams
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ evalRandT (genBlocks params) g
+
+getAllSecrets :: BlockProperty AllSecrets
+getAllSecrets = lift $ view (lensOf @BlockTestContextTag . tpAllSecrets)
 
 -- | Go to arbitrary global state in 'BlockProperty'.
 bpGoToArbitraryState :: BlockProperty ()

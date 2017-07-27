@@ -123,6 +123,10 @@ library
                         Pos.WorkMode
                         Pos.WorkMode.Class
 
+                        -- Exposed for tests
+                        Pos.Block.Logic.VAR
+                        Pos.Generator.Block.Param
+
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
@@ -168,7 +172,6 @@ library
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
                         Pos.Block.Logic.Util
-                        Pos.Block.Logic.VAR
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
@@ -216,7 +219,6 @@ library
                         Pos.Generator.Block.Logic
                         Pos.Generator.Block.Payload
                         Pos.Generator.Block.Mode
-                        Pos.Generator.Block.Param
 
                         -- GState
                         Pos.GState.BlockExtra
@@ -322,9 +324,8 @@ library
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking
 
-  build-depends:        IfElse
+  build-depends:        QuickCheck
                       , MonadRandom
-                      , QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
@@ -333,8 +334,6 @@ library
                       , base58-bytestring
                       , base64-bytestring
                       , binary
-                      , binary-conduit >= 1.2.4.1
-                      , binary-orphans
                       , bytestring
                       , cardano-crypto
                       , cardano-report-server >= 0.2.0
@@ -378,7 +377,6 @@ library
                       , iproute
                       , kademlia
                       , lens
-                      , lifted-async
                       , list-t
                       , log-warper >= 1.1.1
                       , lrucache
@@ -424,7 +422,6 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
-                      , versions
                       , wreq
                       , yaml
 
@@ -618,11 +615,13 @@ test-suite cardano-test
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
-  build-depends:       QuickCheck
+  build-depends:       MonadRandom
+                     , QuickCheck
                      , base
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
+                     , cardano-sl-godtossing
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-txp
@@ -634,6 +633,7 @@ test-suite cardano-test
                      , cryptonite
                      , data-default
                      , ether
+                     , exceptions
                      , formatting
                      , generic-arbitrary
                      , hspec
@@ -716,7 +716,6 @@ benchmark cardano-bench-criterion
                      , containers
                      , criterion
                      , formatting
-                     , hashtables
                      , lens
                      , log-warper
                      , serokell-util >= 0.1.3.4

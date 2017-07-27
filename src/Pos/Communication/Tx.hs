@@ -11,6 +11,7 @@ module Pos.Communication.Tx
        , sendTxOuts
        ) where
 
+import           Control.Monad.Except       (runExceptT)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
 import           System.Wlog                (logInfo)
@@ -19,8 +20,9 @@ import           Universum
 import           Pos.Binary                 ()
 import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
-import           Pos.Client.Txp.Util        (TxError (..), createMTx, createRedemptionTx,
-                                             createTx)
+import           Pos.Client.Txp.Util        (TxCreateMode, TxError (..), createMTx,
+                                             createRedemptionTx, createTx,
+                                             overrideTxDistrBoot)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (OutSpecs, EnqueueMsg)
 import           Pos.Communication.Specs    (createOutSpecs)
@@ -36,18 +38,18 @@ import           Pos.Types                  (Address, Coin, makePubKeyAddress,
 import           Pos.Util.Util              (eitherToThrow)
 import           Pos.WorkMode.Class         (MinWorkMode)
 
-type TxMode ssc m
+type TxMode ssc ctx m
     = ( MinWorkMode m
       , MonadBalances m
       , MonadTxHistory ssc m
       , MonadMockable m
       , MonadMask m
-      , MonadGState m
       , MonadThrow m
+      , TxCreateMode ctx m
       )
 
 submitAndSave
-    :: TxMode ssc m
+    :: TxMode ssc ctx m
     => EnqueueMsg m -> TxAux -> m TxAux
 submitAndSave enqueue txAux@TxAux {..} = do
     let txId = hash taTx
@@ -57,7 +59,7 @@ submitAndSave enqueue txAux@TxAux {..} = do
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 submitMTx
-    :: TxMode ssc m
+    :: TxMode ssc ctx m
     => EnqueueMsg m
     -> NonEmpty (SafeSigner, Address)
     -> NonEmpty TxOutAux
@@ -71,20 +73,20 @@ submitMTx enqueue hdwSigner outputs = do
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
-    :: TxMode ssc m
+    :: TxMode ssc ctx m
     => EnqueueMsg m
     -> SafeSigner
     -> NonEmpty TxOutAux
     -> m TxAux
 submitTx enqueue ss outputs = do
     utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
-    txw <- eitherToThrow TxError $
-           createTx utxo ss outputs
-    submitAndSave enqueue txw
+    createTx utxo ss outputs >>= \case
+        Left e -> throwM (TxError e)
+        Right txw -> submitAndSave enqueue txw
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx
-    :: TxMode ssc m
+    :: TxMode ssc ctx m
     => EnqueueMsg m
     -> RedeemSecretKey
     -> Address
@@ -94,12 +96,11 @@ submitRedemptionTx enqueue rsk output = do
     utxo <- getOwnUtxo redeemAddress
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
-        txouts = one $
+        txOuts0 = one $
             TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
-    when (redeemBalance == mkCoin 0) $
-        throwM . TxError $ "Redeem balance is 0"
-    txw <- eitherToThrow TxError $
-           createRedemptionTx utxo rsk txouts
+    when (redeemBalance == mkCoin 0) $ throwM . TxError $ "Redeem balance is 0"
+    txOuts <- eitherToThrow TxError =<< runExceptT (overrideTxDistrBoot txOuts0)
+    txw <- eitherToThrow TxError $ createRedemptionTx utxo rsk txOuts
     txAux <- submitAndSave enqueue txw
     pure (txAux, redeemAddress, redeemBalance)
 

@@ -15,7 +15,6 @@ module Pos.Delegation.Logic.Common
 
        -- * Common helpers
        , mkDelegationVar
-       , getPSKsFromThisEpoch
        , getDlgTransPsk
        ) where
 
@@ -25,16 +24,14 @@ import           Control.Exception         (Exception (..))
 import           Control.Lens              ((%=))
 import qualified Data.Cache.LRU            as LRU
 import qualified Data.HashMap.Strict       as HM
-import qualified Data.HashSet              as HS
 import qualified Data.Text.Buildable       as B
 import           Data.Time.Clock           (UTCTime, addUTCTime)
 import           Formatting                (bprint, build, sformat, stext, (%))
 
-import           Pos.Block.Core            (mainBlockDlgPayload)
 import           Pos.Constants             (dlgCacheParam, lightDlgConfirmationTimeout,
                                             messageCacheTimeout)
-import           Pos.Core                  (HeaderHash, ProxySKHeavy, StakeholderId,
-                                            addressHash, epochIndexL, headerHash)
+import           Pos.Core                  (ProxySKHeavy, StakeholderId, addressHash,
+                                            epochIndexL)
 import           Pos.Crypto                (ProxySecretKey (..), PublicKey)
 import           Pos.DB                    (DBError (DBMalformed), MonadDBRead)
 import qualified Pos.DB.Block              as DB
@@ -44,7 +41,6 @@ import           Pos.Delegation.Class      (DelegationVar, DelegationWrap (..),
                                             MonadDelegation, askDelegationState,
                                             dwConfirmationCache, dwMessageCache)
 import           Pos.Delegation.DB         (getDlgTransitive)
-import           Pos.Delegation.Types      (DlgPayload (getDlgPayload))
 import           Pos.Exception             (cardanoExceptionFromException,
                                             cardanoExceptionToException)
 import qualified Pos.Util.Concurrent.RWVar as RWV
@@ -101,36 +97,22 @@ invalidateProxyCaches curTime = do
 -- Common functions
 ----------------------------------------------------------------------------
 
--- | Retrieves psk certificated that have been accumulated before
--- given block. The block itself should be in DB.
-getPSKsFromThisEpoch
-    :: forall ssc m.
-       DB.MonadBlockDB ssc m
-    => HeaderHash -> m [ProxySKHeavy]
-getPSKsFromThisEpoch tip =
-    concatMap (either (const []) (getDlgPayload . view mainBlockDlgPayload)) <$>
-        (DB.loadBlocksWhile @ssc) isRight tip
-
 -- | Make a new 'DelegationVar' and initialize it.
 --
--- * Sets `_dwEpochId` to epoch of tip.
--- * Loads `_dwThisEpochPosted` from database
+-- * Sets '_dwEpochId' to epoch of tip.
+-- * Initializes mempools/LRU caches.
 mkDelegationVar ::
        forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m, MonadMask m)
     => m DelegationVar
 mkDelegationVar = do
     tip <- DB.getTipHeader @ssc
-    let tipEpoch = tip ^. epochIndexL
-    fromGenesisPsks <-
-        map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
     RWV.new
         DelegationWrap
         { _dwMessageCache = LRU.newLRU msgCacheLimit
         , _dwConfirmationCache = LRU.newLRU confCacheLimit
         , _dwProxySKPool = HM.empty
         , _dwPoolSize = 1
-        , _dwEpochId = tipEpoch
-        , _dwThisEpochPosted = HS.fromList fromGenesisPsks
+        , _dwEpochId = tip ^. epochIndexL
         }
   where
     msgCacheLimit = Just dlgCacheParam

@@ -8,11 +8,10 @@ matrix:
     - env: MODE=nix
     - env: MODE=stack2nix
     - os: osx
-      osx_image: xcode8
+      osx_image: xcode8.3
       # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
 
   allow_failures:
-    - os: osx
     - env: MODE=nix
     # https://github.com/input-output-hk/stack2nix/issues/15
     # stack2nix will randomly omit sections of the generated file
@@ -42,6 +41,8 @@ before_install:
 - echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" >> ~/nix.conf
 - echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" >> ~/nix.conf
 - export NIX_CONF_DIR=~
+  # workaround https://github.com/NixOS/nixpkgs/issues/27493
+- nix-env -i bash
 
 install:
 - source scripts/set_nixpath.sh
@@ -54,7 +55,7 @@ script:
 - if [[ "$MODE" == "nix" ]]; then
     nix-build -A cardano-sl-static --no-build-output --keep-going || nix-build -A cardano-sl -j 1 ;
   elif [[ "$MODE" == "hlint" ]]; then
-    nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
+    nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   elif [[ "$MODE" == "stack2nix" ]]; then
     nix-shell -p cabal2nix stack cabal-install ghc -Q -j 4 --run scripts/check-stack2nix.sh ;
   else

@@ -22,12 +22,12 @@ import           Ether.Internal        (HasLens (..))
 import           Pos.Binary.Class      (UnsignedVarInt (..), encode)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core.Types        (Address, Coin, EpochIndex, HeaderHash)
-import           Pos.DB                (DBTag (GStateDB), MonadDB,
-                                        MonadDBRead (dbGet), RocksBatchOp (..))
+import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
+                                        RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core          (Tx, TxId)
-import           Pos.Txp.Toil          (Utxo, utxoToAddressCoinPairs)
+import           Pos.Txp.Toil          (GenesisUtxo (..), utxoToAddressCoinPairs)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
 ----------------------------------------------------------------------------
@@ -89,8 +89,8 @@ areBalancesInitialized = isJust <$> dbGet GStateDB balancesInitFlag
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
-putGenesisBalances :: MonadDB m => Utxo -> m ()
-putGenesisBalances genesisUtxo = writeBatchGState putAddrBalancesOp
+putGenesisBalances :: MonadDB m => GenesisUtxo -> m ()
+putGenesisBalances (GenesisUtxo genesisUtxo) = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]
     putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinsPairs

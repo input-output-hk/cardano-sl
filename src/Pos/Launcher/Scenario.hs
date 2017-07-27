@@ -25,10 +25,10 @@ import           System.Wlog         (WithLogger, getLoggerName, logError, logIn
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import qualified Pos.Constants       as Const
-import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
-                                      getOurPubKeyAddress, getOurPublicKey,
-                                      NodeContext (..))
 import           Pos.DHT.Real        (kademliaJoinNetwork, KademliaDHTInstance (..))
+import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
+                                      genesisStakeholdersM, getOurPubKeyAddress,
+                                      getOurPublicKey, NodeContext (..))
 import qualified Pos.GState          as GS
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB          as LrcDB
@@ -77,6 +77,9 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     case topologyRunKademlia (ncTopology (ncNetworkConfig nrContext)) of
         Nothing -> return ()
         Just kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+
+    genesisStakeholders <- genesisStakeholdersM
+    logInfo $ sformat ("Genesis stakeholders: " %listJson) genesisStakeholders
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"

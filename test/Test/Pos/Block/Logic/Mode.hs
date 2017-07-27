@@ -59,7 +59,8 @@ import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..))
 import           Pos.Genesis                    (stakeDistribution)
 import qualified Pos.GState                     as GS
-import           Pos.KnownPeers                 (MonadKnownPeers (..))
+import           Pos.KnownPeers                 (MonadKnownPeers (..),
+                                                 MonadFormatPeers (..))
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),
@@ -467,4 +468,6 @@ instance MonadKnownPeers BlockTestMode where
     updateKnownPeers _ = pure ()
     addKnownPeers _ = pure ()
     removeKnownPeer _ = pure ()
-    formatKnownPeers formatter = pure (formatter id)
+
+instance MonadFormatPeers BlockTestMode where
+    formatKnownPeers formatter = pure Nothing

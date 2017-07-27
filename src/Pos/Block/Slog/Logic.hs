@@ -284,8 +284,21 @@ slogRollbackBlocks blunds = do
     lastSlotsToPrepend =
         mapMaybe (getSlogUndo . undoSlog . snd) $ toList (toOldestFirst blunds)
     newLastSlots lastSlots = lastSlots & _Wrapped %~ updateLastSlots
+    dropEnd n xs = take (length xs - n) xs
+    -- 'lastSlots' is what we currently store. It contains at most
+    -- 'blkSecurityParam' slots. 'lastSlotsToPrepend' are slots for
+    -- main blocks which are 'blkSecurityParam' far from the blocks we
+    -- want to rollback.  Concatenation of these lists contains slots
+    -- of some sequence of blocks. The last block in this sequence is
+    -- the last block we rollback. The length of this sequence is
+    -- 'min(total, n + blkSecurityParam)', where 'n' is the number of
+    -- main blocks we want to rollback and 'total' is the total number
+    -- of main blocks in our chain. So the final step is to drop last
+    -- 'n' slots from this list.
     updateLastSlots lastSlots =
-        take (fromIntegral blkSecurityParam) (lastSlotsToPrepend ++ lastSlots)
+        dropEnd (length $ filter isRight $ toList blocks) $
+        lastSlotsToPrepend ++
+        lastSlots
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]

@@ -44,6 +44,9 @@ import           Data.Default                (def)
 import           Data.List                   ((!!))
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Semigroup              as Smg
+import qualified Data.Text.Buildable
+import           Formatting                  (bprint, build, formatToString, int, (%))
+import qualified Prelude
 
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (BlockCount (..))
@@ -146,6 +149,7 @@ newtype BlockEventCount = BlockEventCount {getBlockEventCount :: Word64}
 -- | A coefficient in the range [0,1]. Pass it to 'weighted' if you ever get
 -- the chance.
 newtype Chance = Chance {getChance :: Rational}
+    deriving (Buildable, Num, Fractional)
 
 -- | Generate a boolean that may happen to be of true value.
 byChance :: (Monad m, RandomGen g) => Chance -> RandT g m Bool
@@ -169,6 +173,24 @@ data BlockEventGenParams = BlockEventGenParams
     }
 
 makeLenses ''BlockEventGenParams
+
+instance Buildable BlockEventGenParams where
+    build BlockEventGenParams {..} =
+        bprint ("BlockEventGenParams {\n"%
+                "  secrets: "%build%"\n"%
+                "  block count max: "%int%"\n"%
+                "  block event count: "%int%"\n"%
+                "  rollback chance: "%build%"\n"%
+                "  failure chance: "%build%"\n"%
+                "}\n")
+            _begpSecrets
+            _begpBlockCountMax
+            _begpBlockEventCount
+            _begpRollbackChance
+            _begpFailureChance
+
+instance Show BlockEventGenParams where
+    show = formatToString build
 
 {- |
   Return the range of block indices as a half-open interval (closed on the

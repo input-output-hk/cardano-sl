@@ -34,7 +34,7 @@ import           Pos.Context.Context (BlkSemaphore (..), GenesisUtxo (..), Start
 import           Pos.Core            (HeaderHash, SlotLeaders, StakeholderId, StakesMap)
 import           Pos.Genesis         (genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
-import           Pos.Txp.Toil        (Utxo, utxoToStakes)
+import           Pos.Txp.Toil        (utxoToStakes)
 import           Pos.Util.Util       (getKeys)
 
 ----------------------------------------------------------------------------
@@ -43,8 +43,8 @@ import           Pos.Util.Util       (getKeys)
 
 genesisUtxoM ::
        (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo)
-    => m Utxo
-genesisUtxoM = views (lensOf @GenesisUtxo) unGenesisUtxo
+    => m GenesisUtxo
+genesisUtxoM = view (lensOf @GenesisUtxo)
 
 genesisStakesM ::
        (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo)

@@ -1,3 +1,4 @@
+{-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -29,6 +30,9 @@ module Pos.DB.Pure
        , dbDeletePureDefault
        , dbWriteBatchPureDefault
        , atomicModifyIORefPure
+
+       , DBPureDiff(..)
+       , dbPureDiff
        ) where
 
 import           Universum
@@ -41,6 +45,7 @@ import           Data.Conduit                 (Source)
 import qualified Data.Conduit.List            as CL
 import           Data.Default                 (Default (..))
 import qualified Data.Map                     as M
+import qualified Data.Set                     as S
 import qualified Database.RocksDB             as Rocks
 import           Ether.Internal               (HasLens (..))
 
@@ -142,3 +147,85 @@ dbWriteBatchPureDefault (tagToLens -> l) batchOps =
 
 atomicModifyIORefPure :: (MonadIO m) => (a -> a) -> IORef a -> m ()
 atomicModifyIORefPure foo = flip atomicModifyIORef $ \a -> (foo a, ())
+
+-- | A diff between a pair of bytestrings. We could compute some sort of
+-- string difference here, but instead just store them both, as the user will
+-- probably want to preprocess them before comparison.
+-- Invariant: '_bsdLeft /= _bsdRight'.
+data ByteStringDiff = ByteStringDiff
+    { _bsdLeft  :: ByteString
+    , _bsdRight :: ByteString
+    } deriving (Show)
+
+bsDiff :: ByteString -> ByteString -> Maybe ByteStringDiff
+bsDiff b1 b2
+    | b1 == b2 = Nothing
+    | otherwise = Just $ ByteStringDiff b1 b2
+
+-- | A diff between two maps. '_mdMissingKeysLeft' contains the set of keys
+-- not present in the first map (but present in the second).
+-- '_mdMissingKeysRight' containts the set of keys not present in the second
+-- map (but present in the first one).
+-- '_mdDifferentElements' contains the difference between elements present
+-- in both maps (for different elements).
+-- Invariant: at least one of '_mdMissingKeys', '_mdMissingKeysRight', or
+-- '_mdDifferentElements' fields is non-empty.
+data MapDiff k vDiff = MapDiff
+    { _mdMissingKeysLeft   :: !(Set k)
+    , _mdMissingKeysRight  :: !(Set k)
+    , _mdDifferentElements :: !(Map k vDiff)
+    } deriving (Show)
+
+mapDiff ::
+       Ord k
+    => (v -> v -> Maybe vDiff)
+    -> Map k v
+    -> Map k v
+    -> Maybe (MapDiff k vDiff)
+mapDiff elemDiff m1 m2 = [ result | not emptyDiff ]
+  where
+    mCommon = M.intersectionWith (,) m1 m2
+    missingKeysLeft  = M.keysSet (m2 M.\\ mCommon)
+    missingKeysRight = M.keysSet (m1 M.\\ mCommon)
+    mCommonDiff = M.mapMaybe (uncurry elemDiff) mCommon
+    result = MapDiff
+        { _mdMissingKeysLeft = missingKeysLeft
+        , _mdMissingKeysRight = missingKeysRight
+        , _mdDifferentElements = mCommonDiff
+        }
+    emptyDiff =
+        S.null missingKeysLeft &&
+        S.null missingKeysRight &&
+        M.null mCommonDiff
+
+type DBPureMapDiff = MapDiff ByteString ByteStringDiff
+
+-- | A diff between two pure databases.
+-- Invariant: at least one of the fields is not 'Nothing'.
+data DBPureDiff = DBPureDiff
+    { _pdBlockIndexDB  :: Maybe DBPureMapDiff
+    , _pdGStateDB      :: Maybe DBPureMapDiff
+    , _pdLrcDB         :: Maybe DBPureMapDiff
+    , _pdMiscDB        :: Maybe DBPureMapDiff
+    , _pdBlocksStorage :: Maybe (MapDiff HeaderHash ByteStringDiff)
+    } deriving (Show)
+
+dbPureDiff :: DBPure -> DBPure -> Maybe DBPureDiff
+dbPureDiff dbp1 dbp2 = [ result | not emptyDiff ]
+  where
+    mapDiffOn ::
+           Ord k
+        => (DBPure -> Map k ByteString)
+        -> Maybe (MapDiff k ByteStringDiff)
+    mapDiffOn f = mapDiff bsDiff (f dbp1) (f dbp2)
+    purgeVolatileGState =
+        M.delete "c/maxsd" -- this key is not supposed to be rollbacked, so
+                           -- we don't want to take it into account
+    result = DBPureDiff
+        { _pdBlockIndexDB  = mapDiffOn _pureBlockIndexDB
+        , _pdGStateDB      = mapDiffOn (purgeVolatileGState . _pureGStateDB)
+        , _pdLrcDB         = mapDiffOn _pureLrcDB
+        , _pdMiscDB        = mapDiffOn _pureMiscDB
+        , _pdBlocksStorage = mapDiffOn _pureBlocksStorage
+        }
+    emptyDiff = isNothing (_pdGStateDB result)

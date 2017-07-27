@@ -14,7 +14,7 @@ import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
-import           System.Wlog                (LoggerNameBox, usingLoggerName)
+import           System.Wlog                (usingLoggerName)
 
 import           Mockable                   (Production (runProduction))
 
@@ -24,8 +24,8 @@ import qualified Network.Transport.TCP      as TCP
 import           Network.Transport.Concrete (concrete)
 import           Node                       (Listener (..), NodeAction (..), node,
                                              defaultNodeEnvironment, ConversationActions (..),
-                                             simpleNodeEndPoint, noReceiveDelay, NodeId)
-import           Node.Message.Binary        (BinaryP, binaryPacking)
+                                             simpleNodeEndPoint, noReceiveDelay)
+import           Node.Message.Binary        (binaryPacking)
 import           ReceiverOptions            (Args (..), argsParser)
 
 main :: IO ()

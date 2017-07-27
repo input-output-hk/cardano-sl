@@ -41,6 +41,7 @@ instance Binary Pong where
 type Packing = BinaryP
 
 instance Message Void where
+    messageCode _ = 0
     formatMessage = absurd
 
 worker

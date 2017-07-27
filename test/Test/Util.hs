@@ -129,7 +129,7 @@ data Parcel = Parcel
 
 instance Binary Parcel
 instance Message Parcel where
-    messageName _ = "Parcel"
+    messageCode _ = 0
     formatMessage _ = "Parcel"
 
 instance Arbitrary Parcel where

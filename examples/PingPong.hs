@@ -37,6 +37,7 @@ deriving instance Data Ping
 deriving instance Show Ping
 instance Binary Ping
 instance Message Ping where
+    messageCode _ = 0
     formatMessage _ = "Ping"
 
 -- | Type for messages from the listeners to the workers.

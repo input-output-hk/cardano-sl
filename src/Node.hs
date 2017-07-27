@@ -34,9 +34,8 @@ module Node (
 
     , LL.NodeState(..)
 
-    , MessageName
+    , MessageCode
     , Message (..)
-    , messageName'
 
     , Converse(..)
     , Conversation(..)
@@ -80,9 +79,8 @@ import qualified Network.Transport.Abstract as NT
 import           Node.Conversation
 import           Node.Internal              (ChannelIn, ChannelOut)
 import qualified Node.Internal              as LL
-import           Node.Message.Class         (Serializable (..), MessageName,
-                                             Message (..), messageName',
-                                             Packing, pack, unpack)
+import           Node.Message.Class         (Serializable (..), MessageCode,
+                                             Message (..), Packing, pack, unpack)
 import           Node.Message.Decoder       (Decoder (..), DecoderStep (..),
                                              ByteOffset, continueDecoding)
 import           System.Random              (StdGen)
@@ -154,20 +152,20 @@ hoistListener
 hoistListener nat rnat (Listener la) = Listener $ hoistListenerAction nat rnat la
 
 -- | Gets message type basing on type of incoming messages
-listenerMessageName :: Listener packing peerData m -> MessageName
-listenerMessageName (Listener (
+listenerMessageCode :: Listener packing peerData m -> MessageCode
+listenerMessageCode (Listener (
         _ :: peerData -> LL.NodeId -> ConversationActions snd rcv m -> m ()
-    )) = messageName (Proxy :: Proxy rcv)
+    )) = messageCode (Proxy :: Proxy rcv)
 
 type ListenerIndex packing peerData m =
-    Map MessageName (Listener packing peerData m)
+    Map MessageCode (Listener packing peerData m)
 
 makeListenerIndex :: [Listener packing peerData m]
-                  -> (ListenerIndex packing peerData m, [MessageName])
+                  -> (ListenerIndex packing peerData m, [MessageCode])
 makeListenerIndex = foldr combine (M.empty, [])
     where
     combine action (dict, existing) =
-        let name = listenerMessageName action
+        let name = listenerMessageCode action
             (replaced, dict') = M.insertLookupWithKey (\_ _ _ -> action) name action dict
             overlapping = maybe [] (const [name]) replaced
         in  (dict', overlapping ++ existing)
@@ -181,7 +179,7 @@ nodeConverse
        , Mockable Delay m
        , WithLogger m, MonadFix m
        , Serializable packing peerData
-       , Serializable packing MessageName )
+       , Serializable packing MessageCode )
     => LL.Node packing peerData m
     -> Packing packing m
     -> Converse packing peerData m
@@ -198,10 +196,10 @@ nodeConverse nodeUnit packing = Converse nodeConverse
     nodeConverse = \nodeId k ->
         LL.withInOutChannel nodeUnit nodeId $ \peerData inchan outchan -> case k peerData of
             Conversation (converse :: ConversationActions snd rcv m -> m t) -> do
-                let msgName = messageName (Proxy :: Proxy snd)
+                let msgCode = messageCode (Proxy :: Proxy snd)
                     cactions :: ConversationActions snd rcv m
                     cactions = nodeConversationActions nodeUnit nodeId packing inchan outchan
-                pack packing msgName >>= LL.writeMany mtu outchan
+                pack packing msgCode >>= LL.writeMany mtu outchan
                 converse cactions
 
 
@@ -280,7 +278,7 @@ node
        , Mockable SharedExclusive m
        , Mockable Delay m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
-       , MonadFix m, Serializable packing MessageName, WithLogger m
+       , MonadFix m, Serializable packing MessageCode, WithLogger m
        , Serializable packing peerData
        )
     => (m (LL.Statistics m) -> LL.NodeEndPoint m)
@@ -349,21 +347,20 @@ node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = 
         -> m ()
     handlerInOut nodeUnit listenerIndices peerData peerId inchan outchan = do
         let listenerIndex = listenerIndices peerData
-        input <- recvNext packing messageNameSizeLimit inchan
+        -- Use maxBound to receive the MessageCode.
+        -- The understanding is that the Serializable instance for it against
+        -- the given packing type shouldn't accept arbitrarily-long input (it's
+        -- a Word16, surely it serializes to (2 + c) bytes for some c).
+        input <- recvNext packing maxBound inchan
         case input of
             End -> logDebug "handlerInOut : unexpected end of input"
-            Input msgName -> do
-                let listener = M.lookup msgName listenerIndex
+            Input msgCode -> do
+                let listener = M.lookup msgCode listenerIndex
                 case listener of
                     Just (Listener action) ->
                         let cactions = nodeConversationActions nodeUnit peerId packing inchan outchan
                         in  action peerData peerId cactions
-                    Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
-    -- Arbitrary limit on the message size...
-    -- TODO make it configurable I guess.
-    -- [CSL-849] will eliminate this; message names will be Word16.
-    messageNameSizeLimit :: Int
-    messageNameSizeLimit = 256
+                    Nothing -> error ("handlerInOut : no listener for " ++ show msgCode)
 
 -- | Try to receive and parse the next message, subject to a limit on the
 --   number of bytes which will be read.

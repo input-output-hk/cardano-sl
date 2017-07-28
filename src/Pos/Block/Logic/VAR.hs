@@ -29,7 +29,8 @@ import           Pos.Block.Error          (ApplyBlocksException (..),
                                            RollbackException (..),
                                            VerifyBlocksException (..))
 import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
-                                           applyBlocksUnsafe, rollbackBlocksUnsafe,
+                                           MonadMempoolNormalization, applyBlocksUnsafe,
+                                           normalizeMempool, rollbackBlocksUnsafe,
                                            toTxpBlock, toUpdateBlock)
 import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
@@ -104,14 +105,16 @@ type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: forall ssc ctx m. (BlockLrcMode ssc ctx m)
+    :: forall ssc ctx m. (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either ApplyBlocksException HeaderHash)
 verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
         throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
-    rollingVerifyAndApply [] (spanEpoch blocks)
+    hh <- rollingVerifyAndApply [] (spanEpoch blocks)
+    lift $ normalizeMempool
+    pure hh
   where
     spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
     spanEpoch x                              = spanTail x
@@ -220,7 +223,7 @@ rollbackBlocks blunds = do
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
-    :: (BlockLrcMode ssc ctx m)
+    :: (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either ApplyBlocksException HeaderHash)

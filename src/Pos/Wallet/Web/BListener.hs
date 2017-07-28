@@ -24,10 +24,10 @@ import           Pos.Core                   (HeaderHash, difficultyL, headerHash
                                              headerSlotL, prevBlockL)
 import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.DB.Class               (MonadDBRead)
+import qualified Pos.GState                 as GS
 import           Pos.Slotting               (MonadSlotsData (..), getSlotStartPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
-import           Pos.Txp.Toil               (evalToilTEmpty, runDBToil)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
@@ -37,6 +37,24 @@ import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToW
                                              getWalletAddrMetasDB,
                                              rollbackModifierFromWallet, trackingApplyTxs,
                                              trackingRollbackTxs)
+
+walletGuard ::
+    ( AccountMode ctx m
+    , WithLogger m
+    )
+    => HeaderHash
+    -> CId Wal
+    -> m ()
+    -> m ()
+walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
+    Nothing -> logWarning $ sformat ("Wallet Tracking: there is no syncTip corresponding to wallet #"%build) wAddr
+    Just WS.NotSynced    -> logDebug $ sformat ("Wallet Tracking: Wallet #"%build%" hasn't been synced yet") wAddr
+    Just (WS.SyncedWith wTip)
+        | wTip /= curTip ->
+            logDebug $
+                sformat ("Wallet Tracking: skip wallet #"%build
+                        %", because of wallet's tip "%build%" mismatched with current tip") wAddr wTip
+        | otherwise -> action
 
 -- Perform this action under block lock.
 onApplyTracking
@@ -48,35 +66,37 @@ onApplyTracking
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = do
-
     let oldestFirst = getOldestFirst blunds
-        txs = concatMap (gbTxs . fst) oldestFirst
+        txsWUndo = concatMap gbTxsWUndo oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
-    mapM_ (catchInSync "apply" $ syncWallet newTipH txs)
-        =<< WS.getWalletAddresses
+    currentTipHH <- GS.getTip
+    mapM_ (catchInSync "apply" $ syncWallet currentTipHH newTipH txsWUndo)
+       =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWallet :: BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
-    syncWallet newTipH txs wid = do
+    syncWallet :: HeaderHash -> BlockHeader ssc -> [(TxAux, TxUndo)] -> CId Wal -> m ()
+    syncWallet curTip newTipH txsWUndo wAddr = walletGuard curTip wAddr $ do
         systemStart <- getSystemStart
         sd <- getSlottingData
         let mainBlkHeaderTs mBlkH =
                 getSlotStartPure systemStart True (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
-        allAddresses <- getWalletAddrMetasDB WS.Ever wid
-        encSK <- getSKByAddr wid
-        mapModifier <- runDBToil $
-                       evalToilTEmpty $
-                       trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
-                       zip txs $ repeat newTipH
-        applyModifierToWallet wid (headerHash newTipH) mapModifier
-        logMsg "applied" (getOldestFirst blunds) wid mapModifier
+        allAddresses <- getWalletAddrMetasDB WS.Ever wAddr
+        encSK <- getSKByAddr wAddr
+        let mapModifier =
+                trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
+                map (\(tx, undo) -> (tx, undo, newTipH)) txsWUndo
+        applyModifierToWallet wAddr (headerHash newTipH) mapModifier
+        logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
 
-    gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
+    gbTxsWUndo :: Blund ssc -> [(TxAux, TxUndo)]
+    gbTxsWUndo (Left _, _) = []
+    gbTxsWUndo (Right mb, undo) =
+        zip (mb ^. mainBlockTxPayload . to flattenTxPayload) (undoTx undo)
     gbDiff = Just . view difficultyL
 
 -- Perform this action under block lock.
@@ -84,21 +104,24 @@ onRollbackTracking
     :: forall ssc ctx m .
     ( SscHelpersClass ssc
     , AccountMode ctx m
+    , WithLogger m
+    , MonadDBRead m
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . blundTxUn) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
-    mapM_ (catchInSync "rollback" $ syncWallet newTip txs)
+    currentTipHH <- GS.getTip
+    mapM_ (catchInSync "rollback" $ syncWallet currentTipHH newTip txs)
         =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWallet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
-    syncWallet newTip txs wid = do
+    syncWallet :: HeaderHash -> HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
+    syncWallet curTip newTip txs wid = walletGuard curTip wid $ do
         allAddresses <- getWalletAddrMetasDB WS.Ever wid
         encSK <- getSKByAddr wid
         let mapModifier = trackingRollbackTxs encSK allAddresses $

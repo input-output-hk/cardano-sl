@@ -52,7 +52,7 @@ instance Buildable ToilVerFailure where
     build (ToilTipsMismatch dbTip localTip) =
         bprint ("tips mismatch, tip from DB is "%build%", local tip is "%build)
         dbTip localTip
-    build (ToilSlotUnknown) =
+    build ToilSlotUnknown =
         "can't process, current slot is unknown"
     build (ToilOverwhelmed limit) =
         bprint ("max size of the mem pool is reached which is "%memory) limit

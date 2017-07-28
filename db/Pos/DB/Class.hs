@@ -161,6 +161,9 @@ instance {-# OVERLAPPABLE #-}
 class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
 
+instance MonadGState ((->) BlockVersionData) where
+    gsAdoptedBVData = identity
+
 instance {-# OVERLAPPABLE #-}
     (MonadGState m, MonadTrans t,
      Monad (t m)) =>
@@ -187,7 +190,7 @@ gsUnlockStakeEpoch = bvdUnlockStakeEpoch <$> gsAdoptedBVData
 gsIsBootstrapEra :: MonadGState m => EpochIndex -> m Bool
 gsIsBootstrapEra epoch = do
     unlockStakeEpoch <- gsUnlockStakeEpoch
-    return $ isBootstrapEra unlockStakeEpoch epoch
+    pure $ isBootstrapEra unlockStakeEpoch epoch
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction

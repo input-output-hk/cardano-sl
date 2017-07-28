@@ -11,7 +11,6 @@ module Pos.DHT.Real.Real
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import           Data.List                 (intersect, (\\))
-import qualified Data.Store                as Store
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, catch, catchAll, throw,
@@ -24,7 +23,7 @@ import           System.Wlog               (HasLoggerName (modifyLoggerName), Wi
                                             usingLoggerName)
 import           Universum                 hiding (bracket, catch, catchAll)
 
-import           Pos.Binary.Class          (Bi (..))
+import           Pos.Binary.Class          (Bi (..), deserialize)
 import           Pos.Binary.Infra.DHTModel ()
 import           Pos.DHT.Constants         (enhancedMessageBroadcast,
                                             enhancedMessageTimeout,
@@ -83,7 +82,7 @@ startDHTInstance kconf@KademliaParams {..} = do
         then do logInfo "Restoring DHT Instance from snapshot"
                 catchErrors $
                     createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
-                    (Store.decodeEx . BS.toStrict) <$> BS.readFile kpDump
+                    deserialize <$> BS.readFile kpDump
         else do logInfo "Creating new DHT instance"
                 catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
 

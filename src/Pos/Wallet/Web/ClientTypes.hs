@@ -222,7 +222,7 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
         isIncoming = incomingMoney >= outgoingMoney
 
         ctAmount = mkCCoin . unsafeIntegerToCoin $
-            if | isOutgoing && isIncoming -> outgoingMoney
+            if | isOutgoing && isIncoming -> 0
                | isOutgoing -> outgoingMoney - incomingMoney
                | isIncoming -> incomingMoney - outgoingMoney
 

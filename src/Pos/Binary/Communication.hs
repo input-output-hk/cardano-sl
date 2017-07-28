@@ -7,21 +7,16 @@ module Pos.Binary.Communication () where
 
 import           Universum
 
-import           Data.Bits                        (Bits (..))
-import qualified Data.Store                       as Store
 import           Node.Message.Class               (MessageName (..))
 
 import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
-                                                   UnsignedVarInt (..), convertToSizeNPut,
-                                                   decodeFull, deriveSimpleBi, encode,
-                                                   getBytes, getSmallWithLength, getWord8,
-                                                   label, labelS, putBytesS, putField,
-                                                   putS, putSmallWithLengthS, putWord8S)
+                                                   deriveSimpleBi, deserialize',
+                                                   encodeListLen, enforceSize, serialize')
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
-                                                   VerInfo (..), MsgSubscribe (..))
+                                                   MsgSubscribe (..), VerInfo (..))
 import           Pos.Core                         (BlockVersion, HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 
@@ -50,17 +45,22 @@ deriveSimpleBi ''MsgGetBlocks [
     ]]
 
 instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
-    sizeNPut = labelS "MsgHeaders" $ putField $ \(MsgHeaders b) -> b
-    get = label "MsgHeaders" $ MsgHeaders <$> get
+  encode (MsgHeaders b) = encode b
+  decode = MsgHeaders <$> decode
 
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
-    sizeNPut = labelS "MsgBlock" $ putField $ \(MsgBlock b) -> b
-    get = label "MsgBlock" $ MsgBlock <$> get
+  encode (MsgBlock b) = encode b
+  decode = MsgBlock <$> decode
 
 -- deriveSimpleBi is not happy with constructors without arguments
+-- "fake" deriving as per `MempoolMsg`.
+-- TODO: Shall we encode this as `CBOR` TkNull?
 instance Bi MsgSubscribe where
-    sizeNPut = labelS "MsgSubscribe" (Store.ConstSize 0, \_ -> pure ())
-    get = label "MsgSubscribe" $ pure MsgSubscribe
+  encode MsgSubscribe = encode (42 :: Word8)
+  decode = do
+    x <- decode @Word8
+    when (x /= 42) $ fail "wrong byte"
+    pure MsgSubscribe
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related
@@ -78,28 +78,15 @@ instance Bi MsgSubscribe where
 -}
 
 instance Bi HandlerSpec where
-    sizeNPut = labelS "HandlerSpec" $ convertToSizeNPut f
-      where
-        -- CSL-1122: finish with binary literals
-        f (ConvHandler (MessageName m)) =
-            case decodeFull m of
-                Right (UnsignedVarInt a)
-                    | a < 64 -> putWord8S (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
-                _ -> putWord8S 1 <> putS m
-        f (UnknownHandler t b) = putWord8S t <> putSmallWithLengthS (putBytesS b)
-
-    get = label "HandlerSpec" $ getWord8 >>= \case
-        -- 0000 0000: reserved
-        0 -> pure $ UnknownHandler 0 mempty
-        -- 0000 0001: ConvHandler with a message name
-        1 -> ConvHandler <$> get
-        -- 01xx xxxx: ConvHandler (MessageName xxxxxx)
-        t | (t .&. 0b11000000) == 0b01000000 ->
-            pure . ConvHandler . MessageName . encode $
-            UnsignedVarInt (fromIntegral (t .&. 0b00111111) :: Word)
-        -- none of the above: unknown handler
-          | otherwise -> UnknownHandler t <$>
-                getSmallWithLength (getBytes . fromIntegral)
+  encode input = case input of
+    ConvHandler mname        -> encodeListLen 2 <> encode (0 :: Word8) <> encode (serialize' mname)
+    UnknownHandler word8 bs  -> encodeListLen 2 <> encode word8 <> encode bs
+  decode = do
+    enforceSize "HandlerSpec" 2
+    tag <- decode @Word8
+    case tag of
+      0 -> ConvHandler . deserialize' <$> decode
+      _ -> UnknownHandler tag         <$> decode
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

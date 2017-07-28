@@ -16,11 +16,12 @@ import           System.Wlog                     (WithLogger, logDebug, logInfo)
 
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
                                                   OutSpecs, WorkerSpec)
-import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
-                                                  runServer, OQ, initQueue)
-import           Pos.Network.Types               (NetworkConfig, defaultNetworkConfig,
-                                                  Topology(..))
+import           Pos.Launcher                    (BaseParams (..), LoggingParams (..), OQ,
+                                                  initQueue, runServer)
+import           Pos.Network.Types               (NetworkConfig, Topology (..),
+                                                  defaultNetworkConfig)
 import           Pos.Reporting.MemState          (emptyReportingContext)
+import           Pos.Txp                         (gtcStakeholders, mkGenesisTxpContext)
 import           Pos.Util.JsonLog                (JsonLogConfig (..))
 import           Pos.Util.Util                   ()
 import           Pos.Wallet.KeyStorage           (keyDataFromFile)
@@ -94,7 +95,7 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
                 peers
                 JsonLogDisabled
                 lpRunnerTag
-                wpGenesisUtxo
+                (mkGenesisTxpContext wpGenesisUtxo ^. gtcStakeholders)
             ) .
             runServer_ transport listeners outs oq . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
@@ -109,7 +110,7 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => NetworkConfig kademlia -> Transport m -> MkListeners m -> OutSpecs -> OQ m -> ActionSpec m b -> m b
+    => Transport m -> MkListeners m -> OutSpecs -> OQ m -> ActionSpec m b -> m b
 runServer_ transport mkl outSpecs oq =
     runServer (simpleNodeEndPoint transport) (const noReceiveDelay) (const mkl)
         outSpecs acquire release oq

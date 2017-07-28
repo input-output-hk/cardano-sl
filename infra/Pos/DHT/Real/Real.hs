@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.DHT.Real.Real
        ( kademliaJoinNetwork
@@ -19,14 +19,14 @@ module Pos.DHT.Real.Real
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import           Data.List                 (intersect, (\\))
-import qualified Data.Store                as Store
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
-                                            Promise, Throw, catch, catchAll, throw,
-                                            waitAnyUnexceptional, withAsync, try)
+                                            Promise, Throw, catch, catchAll, throw, try,
+                                            waitAnyUnexceptional, withAsync)
 import qualified Network.Kademlia          as K
+import qualified Network.Kademlia.Instance as K (KademliaInstance (state),
+                                                 KademliaState (sTree))
 import qualified Network.Kademlia.Tree     as K (toView)
-import qualified Network.Kademlia.Instance as K (KademliaState (sTree), KademliaInstance (state))
 import           Serokell.Util             (listJson, ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (HasLoggerName (modifyLoggerName), WithLogger,
@@ -34,7 +34,7 @@ import           System.Wlog               (HasLoggerName (modifyLoggerName), Wi
                                             usingLoggerName)
 import           Universum                 hiding (bracket, catch, catchAll)
 
-import           Pos.Binary.Class          (Bi (..))
+import           Pos.Binary.Class          (Bi (..), decodeFull)
 import           Pos.Binary.Infra.DHTModel ()
 import           Pos.DHT.Constants         (enhancedMessageBroadcast,
                                             enhancedMessageTimeout,
@@ -43,7 +43,6 @@ import           Pos.DHT.Model.Types       (DHTData, DHTException (..), DHTKey,
                                             DHTNode (..), randomDHTKey)
 import           Pos.DHT.Real.Param        (KademliaParams (..))
 import           Pos.DHT.Real.Types        (KademliaDHTInstance (..))
-import           Pos.Network.Types         (NodeType)
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress)
 
@@ -99,7 +98,7 @@ startDHTInstance kconf@KademliaParams {..} = do
             logInfo "Restoring DHT Instance from snapshot"
             catchErrors $
                 createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
-                (Store.decodeEx . BS.toStrict) <$> BS.readFile dumpFile
+                (either error identity . decodeFull . BS.toStrict) <$> BS.readFile dumpFile
         Nothing -> do
             logInfo "Creating new DHT instance"
             catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
@@ -221,7 +220,7 @@ kademliaJoinNetwork inst (node : nodes) = do
     outcome <- try (kademliaJoinNetwork' inst node)
     case outcome of
         Left (_e :: DHTException) -> kademliaJoinNetwork inst nodes
-        Right _ -> return ()
+        Right _                   -> return ()
 
 kademliaJoinNetwork'
     :: ( MonadIO m

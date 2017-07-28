@@ -210,6 +210,9 @@ instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = ncNodeParams_L . lensOf @GenesisUtxo
 
+instance HasLens GenesisStakeholders (NodeContext ssc) GenesisStakeholders where
+    lensOf = ncNodeParams_L . lensOf @GenesisStakeholders
+
 instance HasReportServers (NodeContext ssc) where
     reportServers = ncNodeParams_L . reportServers
 

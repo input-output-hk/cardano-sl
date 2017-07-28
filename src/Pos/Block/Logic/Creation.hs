@@ -29,7 +29,8 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
                                              MainBlockchain, mkGenesisBlock, mkMainBlock)
 import qualified Pos.Block.Core             as BC
-import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe)
+import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
+                                             normalizeMempool)
 import           Pos.Block.Logic.Util       (calcChainQualityM, withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Slog             (HasSlogContext (..))
@@ -125,7 +126,8 @@ createGenesisBlockAndApply epoch =
 
 createGenesisBlockDo
     :: forall ssc ctx m.
-       (MonadCreateBlock ssc ctx m, MonadBlockApply ssc ctx m)
+       ( MonadCreateBlock ssc ctx m
+       , MonadBlockApply ssc ctx m)
     => EpochIndex
     -> SlotLeaders
     -> HeaderHash
@@ -153,10 +155,11 @@ createGenesisBlockDo epoch leaders tip = do
         let newTip = headerHash blk
         verifyBlocksPrefix (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
-            Right (undos, pollModifier) ->
+            Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
-                in applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier) $>
-                   (Just blk, newTip)
+                applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier)
+                normalizeMempool
+                pure (Just blk, newTip)
     logShouldNot =
         logDebug
             "After we took lock for genesis block creation, we noticed that we shouldn't create it"
@@ -299,7 +302,8 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
 -- the block we applied (usually it's the same as the argument, but
 -- can differ if verification fails).
 applyCreatedBlock ::
-       forall ssc ctx m. (MonadBlockApply ssc ctx m, MonadCreateBlock ssc ctx m)
+       forall ssc ctx m. ( MonadBlockApply ssc ctx m
+                         , MonadCreateBlock ssc ctx m)
     => ProxySKBlockInfo
     -> MainBlock ssc
     -> m (MainBlock ssc)
@@ -312,12 +316,13 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
-            Right (undos, pollModifier) ->
+            Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
-                in blockToApply <$
-                   applyBlocksUnsafe
-                       (one (Right blockToApply, undo))
-                       (Just pollModifier)
+                applyBlocksUnsafe
+                    (one (Right blockToApply, undo))
+                    (Just pollModifier)
+                normalizeMempool
+                pure blockToApply
     clearMempools :: m ()
     clearMempools = do
         clearTxpMemPool "fallback@applyCreatedBlock"

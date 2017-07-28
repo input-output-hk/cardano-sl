@@ -1,6 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Network-related logic that's mostly methods and dialogs between
 -- nodes. Also see "Pos.Block.Network.Retrieval" for retrieval worker
@@ -56,9 +56,8 @@ import           Pos.Block.RetrievalQueue   (BlockRetrievalQueue, BlockRetrieval
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             NodeId, OutSpecs, EnqueueMsg, convH,
-                                             toOutSpecs, waitForConversations,
-                                             MsgType (..))
+                                             EnqueueMsg, MsgType (..), NodeId, OutSpecs,
+                                             convH, toOutSpecs, waitForConversations)
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryCommGuard, recoveryInProgress)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, gbHeader,

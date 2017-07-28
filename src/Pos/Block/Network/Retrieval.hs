@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Server which deals with blocks processing.
 
@@ -35,10 +35,9 @@ import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             NodeId, OutSpecs, SendActions (..),
-                                             EnqueueMsg, waitForConversations,
-                                             WorkerSpec, convH, toOutSpecs, worker,
-                                             MsgType (..))
+                                             EnqueueMsg, MsgType (..), NodeId, OutSpecs,
+                                             SendActions (..), WorkerSpec, convH,
+                                             toOutSpecs, waitForConversations, worker)
 import           Pos.Context                (BlockRetrievalQueueTag, ProgressHeaderTag,
                                              RecoveryHeaderTag)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,

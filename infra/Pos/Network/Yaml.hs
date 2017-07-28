@@ -13,18 +13,19 @@ module Pos.Network.Yaml (
   , NodeMetadata(..)
   ) where
 
-import           Universum
-import           Data.Aeson (FromJSON(..), ToJSON(..), (.:), (.:?), (.=), (.!=))
+import           Data.Aeson                            (FromJSON (..), ToJSON (..), (.!=),
+                                                        (.:), (.:?), (.=))
+import qualified Data.Aeson                            as A
+import qualified Data.Aeson.Types                      as A
+import qualified Data.ByteString.Char8                 as BS.C8
+import qualified Data.HashMap.Lazy                     as HM
+import qualified Data.Map.Strict                       as M
 import           Network.Broadcast.OutboundQueue.Types
+import qualified Network.DNS                           as DNS
 import           Pos.Util.Config
-import qualified Data.Aeson            as A
-import qualified Data.Aeson.Types      as A
-import qualified Data.ByteString.Char8 as BS.C8
-import qualified Data.HashMap.Lazy     as HM
-import qualified Data.Map.Strict       as M
-import qualified Network.DNS           as DNS
+import           Universum
 
-import           Pos.Network.DnsDomains (DnsDomains(..))
+import           Pos.Network.DnsDomains                (DnsDomains (..))
 
 -- | Description of the network topology in a Yaml file
 --
@@ -68,13 +69,13 @@ data NodeAddr =
 
 data NodeMetadata = NodeMetadata
     { -- | Node type
-      nmType :: !NodeType
+      nmType    :: !NodeType
 
       -- | Region
-    , nmRegion :: !NodeRegion
+    , nmRegion  :: !NodeRegion
 
       -- | Static peers of this node
-    , nmRoutes :: !NodeRoutes
+    , nmRoutes  :: !NodeRoutes
 
       -- | Address for this node
     , nmAddress :: !NodeAddr
@@ -213,7 +214,7 @@ instance FromJSON Topology where
             TopologyStatic <$> parseJSON nodes
         (Nothing, Just relays, Nothing) ->
             TopologyBehindNAT <$> parseJSON relays
-        (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
+        (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \_ -> do
             variantTxt <- obj .: "variant"
             variant <- flip (A.withText "P2P variant") variantTxt $ \txt -> case txt of
                 "traditional" -> pure TopologyTraditional

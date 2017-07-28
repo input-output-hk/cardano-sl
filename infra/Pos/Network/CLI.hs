@@ -10,22 +10,24 @@ module Pos.Network.CLI (
   , fromPovOf
   ) where
 
-import           Universum
-import           Data.IP (IPv4)
+import qualified Data.ByteString.Char8           as BS.C8
+import           Data.IP                         (IPv4)
+import qualified Data.Map.Strict                 as M
+import qualified Data.Yaml                       as Yaml
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
-import qualified Pos.DHT.Real.Param         as DHT (fromYamlConfig, MalformedDHTKey (..))
-import           Pos.Network.Types (NodeId)
-import           Pos.Network.Yaml (NodeName(..), NodeMetadata(..), NodeAddr(..))
-import           Pos.Network.DnsDomains (DnsDomains(..))
-import           Pos.Util.TimeWarp (addressToNodeId)
-import qualified Data.ByteString.Char8      as BS.C8
-import qualified Data.Map.Strict            as M
-import qualified Data.Yaml                  as Yaml
-import qualified Network.DNS                as DNS
-import qualified Options.Applicative.Simple as Opt
-import qualified Pos.Network.Types          as T
-import qualified Pos.Network.Yaml           as Y
-import           Pos.DHT.Real.Param         as DHT (KademliaParams, fromYamlConfig)
+import qualified Network.DNS                     as DNS
+import qualified Options.Applicative.Simple      as Opt
+import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
+                                                         MalformedDHTKey (..),
+                                                         fromYamlConfig)
+import           Pos.Network.DnsDomains          (DnsDomains (..))
+import           Pos.Network.Types               (NodeId)
+import qualified Pos.Network.Types               as T
+import           Pos.Network.Yaml                (NodeAddr (..), NodeMetadata (..),
+                                                  NodeName (..))
+import qualified Pos.Network.Yaml                as Y
+import           Pos.Util.TimeWarp               (addressToNodeId)
+import           Universum
 
 {-------------------------------------------------------------------------------
   Command line arguments
@@ -38,10 +40,10 @@ data NetworkConfigOpts = NetworkConfigOpts {
     , networkConfigOptsKademlia :: Maybe FilePath
 
       -- | Name of the current node
-    , networkConfigOptsSelf :: Maybe NodeName
+    , networkConfigOptsSelf     :: Maybe NodeName
 
       -- | Port number to use when translating IP addresses to NodeIds
-    , networkConfigOptsPort :: Word16
+    , networkConfigOptsPort     :: Word16
     }
   deriving (Show)
 

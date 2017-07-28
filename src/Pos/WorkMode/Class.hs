@@ -23,10 +23,11 @@ import           System.Wlog                 (WithLogger)
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Slog.Types        (HasSlogContext)
 import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
-                                              BlockRetrievalQueueTag, GenesisUtxo,
-                                              HasSscContext, MonadLastKnownHeader,
-                                              MonadProgressHeader, MonadRecoveryHeader,
-                                              StartTime, TxpGlobalSettings)
+                                              BlockRetrievalQueueTag, GenesisStakeholders,
+                                              GenesisUtxo, HasSscContext,
+                                              MonadLastKnownHeader, MonadProgressHeader,
+                                              MonadRecoveryHeader, StartTime,
+                                              TxpGlobalSettings)
 import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
@@ -94,6 +95,7 @@ type WorkMode ssc ctx m
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
       , HasLens GenesisUtxo ctx GenesisUtxo
+      , HasLens GenesisStakeholders ctx GenesisStakeholders
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
       , HasLens (NetworkConfig KademliaDHTInstance) ctx (NetworkConfig KademliaDHTInstance)
       , HasSscContext ssc ctx

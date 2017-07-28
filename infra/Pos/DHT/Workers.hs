@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Pos.DHT.Workers
        ( DhtWorkMode
@@ -9,20 +9,19 @@ module Pos.DHT.Workers
 import           Universum
 
 import qualified Data.ByteString.Lazy       as BSL
-import qualified Data.Store                 as Store
 import           Formatting                 (sformat, (%))
-import           Mockable                   (Delay, Async, Fork, Mockable, Catch)
+import           Mockable                   (Async, Catch, Delay, Fork, Mockable)
 import           Network.Kademlia           (takeSnapshot)
 import           System.Wlog                (WithLogger, logNotice)
 
+import           Pos.Binary.Class           (serialize)
 import           Pos.Binary.Infra.DHTModel  ()
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec,
-                                             localOnNewSlotWorker)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
-import           Pos.KnownPeers             (MonadKnownPeers, MonadFormatPeers)
+import           Pos.KnownPeers             (MonadFormatPeers, MonadKnownPeers)
 import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Shutdown               (HasShutdownContext)
@@ -64,7 +63,7 @@ dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
         let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
         case dumpFile of
-            Just fp -> liftIO . BSL.writeFile fp . BSL.fromStrict $ Store.encode snapshot
+            Just fp -> liftIO . BSL.writeFile fp . serialize $ snapshot
             Nothing -> return ()
   where
     isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0

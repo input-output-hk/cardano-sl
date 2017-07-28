@@ -25,8 +25,8 @@ import           Pos.Block.Logic             (calcChainQualityM,
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (slogGetLastSlots)
-import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker, WorkerSpec,
-                                              onNewSlotWorker)
+import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
+                                              WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (blkSecurityParam, criticalCQ,
                                               criticalCQBootstrap, networkDiameter,
                                               nonCriticalCQ, nonCriticalCQBootstrap)

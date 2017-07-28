@@ -5,9 +5,15 @@
 
 module Pos.Txp.Toil.Types
        ( Utxo
+       , utxoToStakes
        , formatUtxo
        , utxoF
        , GenesisUtxo (..)
+       , GenesisStakeholders (..)
+       , GenesisTxpContext
+       , mkGenesisTxpContext
+       , gtcUtxo
+       , gtcStakeholders
        , _GenesisUtxo
 
        , TxFee(..)
@@ -28,9 +34,6 @@ module Pos.Txp.Toil.Types
        , tmMemPool
        , tmUndos
        , tmExtra
-
-       -- * Env
-       , ToilEnv (..)
        ) where
 
 import           Universum
@@ -38,14 +41,17 @@ import           Universum
 import           Control.Lens               (makeLenses, makePrisms, makeWrapped)
 import           Data.Default               (Default, def)
 import qualified Data.Map                   as M (toList)
+import qualified Data.HashMap.Strict as HM
 import           Data.Text.Lazy.Builder     (Builder)
 import           Formatting                 (Format, later)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (mapBuilderJson)
 
-import           Pos.Core                   (Coin, StakeholderId, TxFeePolicy)
-import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import           Pos.Core                   (Coin, StakeholderId, StakesMap, GenesisStakeholders (..),
+                                             unsafeAddCoin)
+import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo, txOutStake)
 import qualified Pos.Util.Modifier          as MM
+import           Pos.Util.Util              (getKeys)
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -56,6 +62,13 @@ import qualified Pos.Util.Modifier          as MM
 -- Transaction inputs are identified by (transaction ID, index in list of
 -- output) pairs.
 type Utxo = Map TxIn TxOutAux
+
+-- | Convert 'Utxo' to 'StakesMap'.
+utxoToStakes :: Utxo -> StakesMap
+utxoToStakes = foldl' putDistr mempty . M.toList
+  where
+    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
+    putDistr hm (_, toaux) = foldl' plusAt hm (txOutStake toaux)
 
 -- | Format 'Utxo' map for showing
 formatUtxo :: Utxo -> Builder
@@ -72,6 +85,19 @@ newtype GenesisUtxo = GenesisUtxo
 
 makePrisms  ''GenesisUtxo
 makeWrapped ''GenesisUtxo
+
+-- | Genesis context related to transaction processing.
+data GenesisTxpContext = UnsafeGenesisTxpContext
+    { _gtcUtxo         :: !GenesisUtxo
+    , _gtcStakeholders :: !GenesisStakeholders
+    }
+
+makeLenses ''GenesisTxpContext
+
+mkGenesisTxpContext :: GenesisUtxo -> GenesisTxpContext
+mkGenesisTxpContext genUtxo = UnsafeGenesisTxpContext
+    genUtxo
+    (GenesisStakeholders . getKeys . utxoToStakes $ unGenesisUtxo genUtxo)
 
 ----------------------------------------------------------------------------
 -- Fee
@@ -143,14 +169,3 @@ instance Default ext => Default (GenericToilModifier ext) where
     def = ToilModifier mempty def def mempty def
 
 makeLenses ''GenericToilModifier
-
-----------------------------------------------------------------------------
--- Toil environment
-----------------------------------------------------------------------------
-
--- | Environment used by Toil.
-data ToilEnv = ToilEnv
-    { teMaxTxSize    :: !Byte
-    , teMaxBlockSize :: !Byte
-    , teTxFeePolicy  :: !TxFeePolicy
-    }

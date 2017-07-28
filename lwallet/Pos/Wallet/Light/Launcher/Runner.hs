@@ -20,6 +20,7 @@ import           Pos.Discovery                   (findPeers)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   runServer)
 import           Pos.Reporting.MemState          (emptyReportingContext)
+import           Pos.Txp                         (gtcStakeholders, mkGenesisTxpContext)
 import           Pos.Util.JsonLog                (JsonLogConfig (..))
 import           Pos.Util.Util                   ()
 import           Pos.Wallet.KeyStorage           (keyDataFromFile)
@@ -89,7 +90,7 @@ runRawStaticPeersWallet transport peers WalletParams {..}
                 peers
                 JsonLogDisabled
                 lpRunnerTag
-                wpGenesisUtxo
+                (mkGenesisTxpContext wpGenesisUtxo ^. gtcStakeholders)
             ) .
             runServer_ transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa

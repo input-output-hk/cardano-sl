@@ -8,7 +8,6 @@ module Pos.DHT.Workers
 import           Universum
 
 import qualified Data.ByteString.Lazy       as BSL
-import qualified Data.Store                 as Store
 import           Formatting                 (sformat, (%))
 import           Mockable                   (Delay, Fork, Mockable)
 import           Network.Kademlia           (takeSnapshot)
@@ -25,6 +24,7 @@ import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuar
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Shutdown               (HasShutdownContext)
 import           Pos.Slotting.Class         (MonadSlots)
+import           Pos.Binary.Class           (serialize)
 
 type DhtWorkMode ctx m =
     ( WithLogger m
@@ -57,6 +57,6 @@ dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
-        liftIO . BSL.writeFile dumpFile . BSL.fromStrict $ Store.encode snapshot
+        liftIO . BSL.writeFile dumpFile . serialize $ snapshot
   where
     isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0

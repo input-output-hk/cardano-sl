@@ -27,7 +27,7 @@ import           Data.ByteArray               as BA (convert)
 import           Data.ByteString.Char8        as B
 import           Universum
 
-import           Pos.Binary.Class             (Bi, decodeFull, encode)
+import           Pos.Binary.Class             (Bi, decodeFull, serialize')
 import           Pos.Crypto.Hashing           (hash)
 import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..), PassPhrase)
 import           Pos.Crypto.Signing           (PublicKey (..))
@@ -105,7 +105,7 @@ addrAttrNonce = "serokellfore"
 -- | Serialize tree path and encrypt it using passphrase via ChaChaPoly1305.
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
 packHDAddressAttr (HDPassphrase passphrase) path = do
-    let !pathSer = encode path
+    let !pathSer = serialize' path
     let !packCF =
           encryptChaChaPoly
               addrAttrNonce

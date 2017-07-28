@@ -1,5 +1,35 @@
 dist
-cabal-dev
+.virtualenv
+.hsenv
+.hpc
+*.svg
+GTAGS
+GRTAGS
+GPATH
+TAGS
+.DS_Store
+*~
+*#
+.dir-locals.el
+*.html
+nohup.out
+logs
+stats-node-*
+testRun
+*.csv
+my-log-template.yaml
+tags
+run
+*.swp
+zhogovo/
+smartgen-secret.sk
+rocks-smartwallet/
+bla/
+testnetStakes/
+kademlia-abc.dump
+lint
+
+# GHC build artifacts
 *.o
 *.hi
 *.chi
@@ -10,68 +40,56 @@ cabal-dev
 *.aux
 *.hp
 *.tix
-.virtualenv
-.hsenv
-.hpc
-.Werror
-*.svg
-.stack-work/
+
+# Cabal
+cabal-dev
 .cabal-sandbox/
 cabal.sandbox.config
 cabal.config
-GTAGS
-GRTAGS
-GPATH
-TAGS
-.DS_Store
-*~
-*#
-.dir-locals.el
-node-db*
-pos-db*
-cardano-db*
-*.html
-pos-keys
-nohup.out
-logs
-stats-node-*
-testRun
-*.csv
-my-log-template.yaml
-tags
-run
-*.swp
-.ghci
-*.key
-!secrets/*.key
-wallet-db/
-zhogovo/
-smartgen-secret.sk
-rocks-smartwallet/
-cardano-keys/
-bla/
-testnetStakes/
-*.key.lock
+
+# Stack
+.stack-work/
+
+# From daedalus-bridge
 node_modules/*
-db-abc/
-kademlia-abc.dump
-lint
-keys
 
 # Our custom build script (util-scripts/build.sh)
 b
 .no-nix
 .ram
-
-# IPython notebooks
-.ipynb_checkpoints
-*.ipynb
+.Werror
 
 # Config files
+.ghci
 .hindent.yaml
 .stylish-haskell.yaml
+
+# Various DBs
+node-db*
+pos-db*
+cardano-db*
+wallet-db/
+db-abc/
+db-qanet/
+wdb-qanet/
+
+# Keys
+*.key
+*.key.lock
+keys
+pos-keys
+cardano-keys/
+!secrets/*.key
+
+# TLS certificates
+server.crt
+ca.crt
 
 # Intellij Idea & intellij-haskell
 .idea
 .ideaHaskellLib
 *.iml
+
+# IPython notebooks
+.ipynb_checkpoints
+*.ipynb

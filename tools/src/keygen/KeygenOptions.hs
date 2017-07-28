@@ -81,15 +81,15 @@ keygenCommandParser :: Parser KeygenCommand
 keygenCommandParser =
     subparser $ mconcat $
     [ command "rearrange"
-      (infoH rearrangeMask (progDesc "Rearrange keyfiles"))
+      (infoH rearrangeMask (progDesc "Rearrange keyfiles."))
     , command "dump-dev-keys"
-      (infoH dumpKeys (progDesc "Dump CSL dev-mode keys"))
+      (infoH dumpKeys (progDesc "Dump CSL dev-mode keys."))
     , command "generate-avvm-seeds"
       (infoH (fmap DumpAvvmSeeds dumpAvvmSeedsParser)
-            (progDesc "Generate avvm seeds with public keys"))
+            (progDesc "Generate avvm seeds with public keys."))
     , command "generate-genesis"
       (infoH (fmap GenerateGenesis genesisGenParser)
-            (progDesc "Generate CSL genesis files"))
+            (progDesc "Generate CSL genesis files."))
     ]
   where
     infoH a b = info (helper <*> a) b
@@ -108,11 +108,11 @@ dumpAvvmSeedsParser = do
     dasNumber <-
         option auto $
         long "count" <> short 'n' <> metavar "INTEGER" <>
-        help "Number of seeds to generate"
+        help "Number of seeds to generate."
     dasPath <-
         strOption $
         long "output" <> short 'o' <> metavar "FILEPATH" <>
-        help "Path to dump generated seeds to"
+        help "Path to dump generated seeds to."
     pure $ DumpAvvmSeedsOptions {..}
 
 genesisGenParser :: Parser GenesisGenOptions
@@ -121,7 +121,7 @@ genesisGenParser = do
         long    "genesis-dir" <>
         metavar "DIR" <>
         value   "." <>
-        help    "Directory to dump genesis data into"
+        help    "Directory to dump genesis data into."
     ggoTestStake <- optional testStakeParser
     ggoAvvmStake <- optional avvmStakeParser
     ggoFakeAvvmStake <- optional fakeAvvmParser

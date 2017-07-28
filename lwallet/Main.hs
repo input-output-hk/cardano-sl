@@ -16,6 +16,7 @@ import qualified Data.ByteString               as BS
 import           Data.ByteString.Base58        (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     ((!!))
+import qualified Data.List.NonEmpty            as NE
 import qualified Data.Set                      as S (fromList, toList)
 import           Data.String.QQ                (s)
 import qualified Data.Text                     as T
@@ -51,7 +52,7 @@ import           Pos.Communication             (NodeId, OutSpecs, SendActions, W
                                                 txRelays, usRelays, worker)
 import           Pos.Constants                 (genesisBlockVersionData,
                                                 genesisSlotDuration, isDevelopment)
-import           Pos.Core.Types                (Timestamp (..), mkCoin)
+import           Pos.Core.Types                (Address, Timestamp (..), mkCoin)
 import           Pos.Crypto                    (Hash, SecretKey, SignTag (SignUSVote),
                                                 emptyPassphrase, encToPublic, fakeSigner,
                                                 hash, hashHexF, noPassEncrypt,
@@ -124,6 +125,9 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
+printBalance :: MonadWallet ssc ctx m => Address -> m ()
+printBalance addr = getBalance addr >>= putText . sformat ("Current balance: "%coinF)
+
 -- | Count submitted and failed transactions.
 --
 -- This is used in the benchmarks using send-to-all-genesis
@@ -138,9 +142,7 @@ addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed) -> return (TxCount submitted (failed + 1), ()))
 
 runCmd :: forall ssc ctx m. MonadWallet ssc ctx m => SendActions m -> Command -> CmdCtx -> m ()
-runCmd _ (Balance addr) _ =
-    getBalance addr >>=
-    putText . sformat ("Current balance: "%coinF)
+runCmd _ (Balance addrs) _ = mapM printBalance addrs >> pure ()
 runCmd sendActions (Send idx outputs) CmdCtx{na} = do
     skeys <- getSecretKeys
     etx <-
@@ -152,6 +154,20 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
                 ss
                 na
                 (map (flip TxOutAux []) outputs)
+    case etx of
+        Left err -> putText $ sformat ("Error: "%stext) err
+        Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+runCmd sendActions (SendDistr idx txOut txDistr) CmdCtx{na} = do
+    skeys <- getSecretKeys
+    etx <-
+        withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
+        runEitherT $ do
+            ss <- mss `whenNothing` throwError "Invalid passphrase"
+            lift $ submitTx
+                sendActions
+                ss
+                na
+                (NE.fromList [TxOutAux txOut txDistr])
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx

@@ -42,6 +42,8 @@ fi
 if [ -z "$system_start" ]
   then
     system_start=$((`date +%s` + 1))
+    mkdir -p "$base/../../run/"
+    echo $system_start > "$base/../../run/system_start"
 fi
 
 echo "Using system start time "$system_start

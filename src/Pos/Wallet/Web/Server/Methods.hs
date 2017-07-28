@@ -598,9 +598,11 @@ sendMoney sendActions passphrase moneySource dstDistr = do
                    do let remCoins = reqCoins `unsafeSubCoin` balance
                       ((acc, balance) :|) . toList <<$>>
                           selectSrcAccounts remCoins accs
-               | otherwise ->
-                   return
-                       (balance `unsafeSubCoin` reqCoins, (acc, reqCoins) :| [])
+               | otherwise -> return
+                   ( balance `unsafeSubCoin` reqCoins
+                   , (acc, balance) :| []  -- all coins from this address will
+                                           -- be spent
+                   )
 
     mkRemainingTx remaining
         | remaining == mkCoin 0 = return Nothing

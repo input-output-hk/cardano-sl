@@ -209,14 +209,10 @@ mkCTxs
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTxs
 mkCTxs diff THEntry {..} meta wAddrMetas = do
-    ctInputAddrsNe <-
-        nonEmpty ctInputAddrs
-        `whenNothing` throwError "No input addresses in tx!"
-    let isLocalAddr = isTxLocalAddress wAddrMetas ctInputAddrsNe
-        isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
+    let isOurTxOutput = flip S.member wAddrsSet . addressToCId . txOutAddress
 
-        ownInputs = filter isLocalTxOutput inputs
-        ownOutputs = filter isLocalTxOutput outputs
+        ownInputs = filter isOurTxOutput inputs
+        ownOutputs = filter isOurTxOutput outputs
 
     when (null ownInputs && null ownOutputs) $
         throwError "Transaction is irrelevant to given wallet!"
@@ -232,7 +228,7 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
                | isOutgoing -> outgoingMoney - incomingMoney
                | isIncoming -> incomingMoney - outgoingMoney
 
-        mkCTx ctIsOutgoing cond = guard cond >> pure CTx {..}
+        mkCTx ctIsOutgoing cond = guard cond $> CTx {..}
         ctsOutgoing = mkCTx True isOutgoing
         ctsIncoming = mkCTx False isIncoming
     return CTxs {..}
@@ -244,6 +240,7 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
     ctOutputAddrs = map addressToCId _thOutputAddrs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta
+    wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)

@@ -3,6 +3,8 @@
 
 module KeygenOptions
        ( KeygenOptions (..)
+       , KeygenCommand (..)
+       , DumpAvvmSeedsOptions (..)
        , GenesisGenOptions (..)
        , AvvmStakeOptions (..)
        , TestStakeOptions (..)
@@ -12,10 +14,11 @@ module KeygenOptions
 
 import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
-import           Options.Applicative          (Parser, auto, execParser, footerDoc,
-                                               fullDesc, header, help, helper, info,
-                                               infoOption, long, metavar, option,
-                                               progDesc, short, strOption, value)
+import           Options.Applicative          (Parser, auto, command, execParser,
+                                               footerDoc, fullDesc, header, help, helper,
+                                               info, infoOption, long, metavar, option,
+                                               progDesc, short, strOption, subparser,
+                                               value)
 import           Serokell.Util.OptParse       (fromParsec)
 import qualified Text.Parsec                  as P
 import qualified Text.Parsec.String           as P
@@ -27,13 +30,23 @@ import           Pos.Types                    (decodeTextAddress)
 
 import           Paths_cardano_sl             (version)
 
--- Keygen has 3 operation modes. Yes, it's "better" to implement it
--- using optparse command api.
 data KeygenOptions = KeygenOptions
-    { koRearrangeMask  :: Maybe FilePath
-    , koDumpDevGenKeys :: Maybe FilePath
-    , koGenesisGen     :: Maybe GenesisGenOptions
-    }
+    { koCommand :: KeygenCommand
+    } deriving (Show)
+
+data KeygenCommand
+    = RearrangeMask FilePath
+    | DumpDevGenKeys FilePath
+    | DumpAvvmSeeds DumpAvvmSeedsOptions
+    | GenerateGenesis GenesisGenOptions
+    deriving (Show)
+
+data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
+    { dasNumber :: Int
+      -- ^ Number of seeds to generate.
+    , dasPath   :: FilePath
+      -- ^ Path to directory to generate seeds in.
+    } deriving (Show)
 
 data GenesisGenOptions = GenesisGenOptions
     { ggoGenesisDir       :: FilePath
@@ -67,19 +80,43 @@ data FakeAvvmOptions = FakeAvvmOptions
     , faoOneStake :: Word64
     } deriving (Show)
 
-optionsParser :: Parser KeygenOptions
-optionsParser = do
-    koRearrangeMask <- optional $ strOption $
-        long    "rearrange-mask" <>
+keygenCommandParser :: Parser KeygenCommand
+keygenCommandParser =
+    subparser $ mconcat $
+    [ command "rearrange"
+      (infoH rearrangeMask (progDesc "Rearrange keyfiles"))
+    , command "dump-dev-keys"
+      (infoH dumpKeys (progDesc "Dump CSL dev-mode keys"))
+    , command "generate-avvm-seeds"
+      (infoH (fmap DumpAvvmSeeds dumpAvvmSeedsParser)
+            (progDesc "Generate avvm seeds with public keys"))
+    , command "generate-genesis"
+      (infoH (fmap GenerateGenesis genesisGenParser)
+            (progDesc "Generate CSL genesis files"))
+    ]
+  where
+    infoH a b = info (helper <*> a) b
+    rearrangeMask = fmap RearrangeMask . strOption $
+        long    "mask" <>
         metavar "PATTERN" <>
         help    "Secret keyfiles to rearrange."
-    koDumpDevGenKeys <- optional $ strOption $
-        long    "dump-dev-genesis-keys" <>
+    dumpKeys = fmap DumpDevGenKeys . strOption $
+        long    "pattern" <>
         metavar "PATTERN" <>
         help    "Dump keys from genesisDevSecretKeys to files \
                 \named according to this pattern."
-    koGenesisGen <- optional genesisGenParser
-    pure KeygenOptions{..}
+
+dumpAvvmSeedsParser :: Parser DumpAvvmSeedsOptions
+dumpAvvmSeedsParser = do
+    dasNumber <-
+        option auto $
+        long "count" <> short 'n' <> metavar "INTEGER" <>
+        help "Number of seeds to generate"
+    dasPath <-
+        strOption $
+        long "output" <> short 'o' <> metavar "FILEPATH" <>
+        help "Path to dump generated seeds to"
+    pure $ DumpAvvmSeedsOptions {..}
 
 genesisGenParser :: Parser GenesisGenOptions
 genesisGenParser = do
@@ -191,9 +228,8 @@ bootStakeholderParser =
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> optionsParser) $
-        fullDesc <> progDesc "Produce 'genesis-*' directory with generated keys."
-                 <> header "Tool to generate keyfiles."
+    programInfo = info (helper <*> versionOption <*> (KeygenOptions <$> keygenCommandParser)) $
+        fullDesc <> header "Tool to generate keyfiles-related data"
                  <> footerDoc (Just usageExample)
 
     versionOption = infoOption
@@ -204,7 +240,7 @@ usageExample :: Doc
 usageExample = [s|
 Command example:
 
-  stack exec -- cardano-keygen                          \
+  stack exec -- cardano-keygen generate-genesis         \
     --genesis-dir genesis                               \
     -m 5                                                \
     -n 1000                                             \

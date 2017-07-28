@@ -21,6 +21,7 @@ import           Universum
 
 import           Pos.Binary           (decodeFull, serialize')
 import           Pos.Core             (StakeholderId, mkCoin)
+import           Pos.Crypto           (redeemPkB64F)
 import           Pos.Genesis          (AddrDistribution, GenesisCoreData (..),
                                        GenesisGtData (..), StakeDistribution (..),
                                        genesisDevHdwSecretKeys, genesisDevHdwSecretKeys,
@@ -30,8 +31,9 @@ import           Pos.Types            (addressDetailedF, addressHash, makePubKey
 
 import           Avvm                 (aeCoin, applyBlacklisted, avvmAddrDistribution,
                                        utxo)
-import           KeygenOptions        (AvvmStakeOptions (..), FakeAvvmOptions (..),
-                                       GenesisGenOptions (..), KeygenOptions (..),
+import           KeygenOptions        (AvvmStakeOptions (..), DumpAvvmSeedsOptions (..),
+                                       FakeAvvmOptions (..), GenesisGenOptions (..),
+                                       KeygenCommand (..), KeygenOptions (..),
                                        TestStakeOptions (..), getKeygenOptions)
 import           Testnet              (genTestnetDistribution, generateFakeAvvm,
                                        generateKeyfile, rearrangeKeyfile)
@@ -152,6 +154,24 @@ dumpKeys pat = do
         \(i :: Int, k, wk) ->
         generateKeyfile False (Just (k, wk)) $ applyPattern pat i
 
+dumpAvvmSeeds
+    :: (MonadIO m, WithLogger m)
+    => DumpAvvmSeedsOptions -> m ()
+dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
+    logInfo $ "Generating fake avvm data into " <> fromString dasPath
+    liftIO $ createDirectoryIfMissing True dasPath
+
+    when (dasNumber <= 0) $ error $
+        "number of seeds should be positive, but it's " <> show dasNumber
+
+    fakeAvvmPubkeys <- forM [1 .. dasNumber] $
+        generateFakeAvvm . (\x -> dasPath </> ("key"<>show x<>".seed"))
+    forM_ (fakeAvvmPubkeys `zip` [1..dasNumber]) $
+        \(rPk,i) -> writeFile (dasPath </> "key"<>show i<>".pk")
+                              (sformat redeemPkB64F rPk)
+
+    logInfo $ "Seeds were generated"
+
 genGenesisFiles
     :: (MonadIO m, MonadFail m, WithLogger m)
     => GenesisGenOptions -> m ()
@@ -237,7 +257,8 @@ main = do
     setupLogging $ consoleOutB True & lcTermSeverity ?~ Debug
     usingLoggerName "keygen" $ do
         logInfo "Processing command"
-        if | Just msk <- koRearrangeMask  -> rearrange msk
-           | Just pat <- koDumpDevGenKeys -> dumpKeys pat
-           | Just ggo <- koGenesisGen     -> genGenesisFiles ggo
-           | otherwise                    -> error "No commands were specified!"
+        case koCommand of
+            RearrangeMask msk   -> rearrange msk
+            DumpDevGenKeys pat  -> dumpKeys pat
+            DumpAvvmSeeds opts  -> dumpAvvmSeeds opts
+            GenerateGenesis ggo -> genGenesisFiles ggo

@@ -801,9 +801,10 @@ prepareTxRaw moneySource dstDistr fee = do
     pure TxRaw{..}
 
 -- | Accept all addresses in descending order (by coins)
--- Destination addresses
--- Sum of destination addresses
--- Approximate fee for buildable transaction
+-- Addresses available to be source of the transaction, with their balances
+-- Transaction amount
+-- Approximate fee for transaction being built
+-- Remainer + chosen input addresses with their balances
 selectSrcAddresses
     :: WalletWebMode m
     => [(CWAddressMeta, Coin)]
@@ -833,7 +834,7 @@ selectSrcAddresses allAddrs outputCoins (TxFee fee) =
                    -- When balance >= reqCoins,
                    -- then lets try to find input with exactly @reqCoins@ coins,
                    -- in order to use one address instead of two.
-                   maybe (Right (balance `unsafeSubCoin` reqCoins, (ad, reqCoins) :| []))
+                   maybe (Right (balance `unsafeSubCoin` reqCoins, (ad, balance) :| []))
                          (\fa -> Right (mkCoin 0, fa :| []))
                          (find ((reqCoins ==) . snd) addresses)
 

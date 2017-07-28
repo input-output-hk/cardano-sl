@@ -20,19 +20,21 @@ module Pos.Arbitrary.Core
 import           Universum
 
 import qualified Data.ByteString                   as BS (pack)
+import qualified Data.Map                          as M
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     TimeUnit (..))
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
                                                     choose, oneof, scale, shrinkIntegral,
-                                                    suchThat, vector, vectorOf)
+                                                    suchThat, vector, vectorOf, sized)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
 import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
                                                     SignedVarInt (..),
-                                                    UnsignedVarInt (..))
+                                                    UnsignedVarInt (..),
+                                                    TinyVarInt(..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
@@ -43,7 +45,7 @@ import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
-import           Pos.Data.Attributes               (Attributes (..))
+import           Pos.Data.Attributes               (Attributes (..), UnparsedFields(..))
 import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -117,6 +119,17 @@ instance Arbitrary Types.EpochOrSlot where
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
         ]
+    shrink = genericShrink
+
+instance Arbitrary UnparsedFields where
+    arbitrary = sized $ go M.empty
+        where
+            go !acc 0 = pure $ UnparsedFields acc
+            go !acc n = do
+                -- Assume that data type doesn't have more than 100 constructors.
+                k <- choose (100, maxBound)
+                v <- arbitrary
+                go (M.insert k v acc) (n - 1)
     shrink = genericShrink
 
 instance Arbitrary h => Arbitrary (Attributes h) where
@@ -432,3 +445,4 @@ instance Arbitrary SmallHashMap where
 deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
+deriving instance Arbitrary TinyVarInt

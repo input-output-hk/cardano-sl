@@ -2,7 +2,8 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Pos.Explorer.Web.Transform
-       ( explorerServeWebReal
+       ( ExplorerProd
+       , explorerServeWebReal
        , explorerPlugin
        , notifierPlugin
        ) where
@@ -37,15 +38,14 @@ notifierPlugin = first pure . worker mempty .
 
 explorerPlugin
     :: Word16
-    -> FilePath -> FilePath -> FilePath
     -> ([WorkerSpec ExplorerProd], OutSpecs)
-explorerPlugin port walletTLSCert walletTLSKey walletTLSca = first pure $ worker mempty $
-    (\sa -> explorerServeWebReal sa port walletTLSCert walletTLSKey walletTLSca)
+explorerPlugin port =
+    first pure $ worker mempty $
+    (\sa -> explorerServeWebReal sa port)
 
 explorerServeWebReal
     :: SendActions ExplorerProd
     -> Word16
-    -> FilePath -> FilePath -> FilePath
     -> ExplorerProd ()
 explorerServeWebReal sendActions = explorerServeImpl
     (explorerApp $ flip enter (explorerHandlers sendActions) <$> nat)

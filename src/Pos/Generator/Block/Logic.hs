@@ -15,7 +15,7 @@ import           System.Random               (RandomGen (..))
 
 import           Pos.Block.Core              (mkGenesisBlock)
 import           Pos.Block.Logic             (applyBlocksUnsafe, createMainBlockInternal,
-                                              verifyBlocksPrefix)
+                                              normalizeMempool, verifyBlocksPrefix)
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (EpochOrSlot (..), SlotId (..), epochIndexL,
                                               getEpochOrSlot, getSlotIndex)
@@ -96,7 +96,9 @@ genBlock eos = do
     verifyAndApply block =
         verifyBlocksPrefix (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)
-            Right (undos, pollModifier) ->
+            Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                     blund = (block, undo)
-                in blund <$ applyBlocksUnsafe (one blund) (Just pollModifier)
+                applyBlocksUnsafe (one blund) (Just pollModifier)
+                normalizeMempool
+                pure blund

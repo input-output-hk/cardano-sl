@@ -15,9 +15,9 @@ dev: &dev
   genesisMaxBlockSize: 2000000
   genesisMaxHeaderSize: 200000
   genesisMaxTxSize: 4096 # 4 Kb
-  maxReqSize: 100 # 100 bytes
+  maxReqSize: 102 # 102 bytes
   maxMempoolMsgSize: 100 # 100 bytes
-  maxInvSize: 100 # 100 bytes
+  maxInvSize: 102 # 102 bytes
   genesisMpcThd: 0.01 # 1% of stake
   genesisHeavyDelThd: 0.005 # 0.5% of stake
   genesisUpdateVoteThd: 0.001 # 0.1% of total stake
@@ -172,6 +172,9 @@ benchmark: &benchmark
 
   genesisN: 50000
   k: 6
+
+  genesisUnlockStakeEpoch: 0 # it effectively disables bootstrap era in
+                             # benchmarks because we don't need it there
 
   protocolmagic: 50988000
   genesisBinSuffix: qa # qa is set here arbitrarily, it won't be actually used

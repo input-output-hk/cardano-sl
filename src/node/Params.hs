@@ -15,6 +15,7 @@ import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Pos.CLI               as CLI
 import           Pos.Constants         (isDevelopment)
+import           Pos.Context           (mkGenesisTxpContext)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
 import           Pos.DHT.Real          (KademliaParams (..))
@@ -94,9 +95,9 @@ getNodeParams args@Args {..} systemStart = do
                 (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
-    let npGenesisUtxo
-            | isDevelopment = genesisUtxo Nothing (devAddrDistr devStakeDistr)
-            | otherwise = genesisUtxoProduction
+    let npGenesisTxpCtx
+            | isDevelopment = mkGenesisTxpContext $ genesisUtxo Nothing (devAddrDistr devStakeDistr)
+            | otherwise =  mkGenesisTxpContext genesisUtxoProduction
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

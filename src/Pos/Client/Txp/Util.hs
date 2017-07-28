@@ -33,7 +33,7 @@ import           Formatting           (bprint, build, sformat, stext, (%))
 import           Universum
 
 import           Pos.Binary           ()
-import           Pos.Context          (GenesisUtxo, genesisStakeholdersM)
+import           Pos.Context          (GenesisStakeholders, genesisStakeholdersM)
 import           Pos.Core             (AddressIgnoringAttributes (AddressIA), siEpoch,
                                        unsafeGetCoin, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto           (PublicKey, RedeemSecretKey, SafeSigner,
@@ -82,7 +82,7 @@ type TxCreateMode ctx m
      = ( MonadGState m
        , MonadReader ctx m
        , MonadSlots m
-       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens GenesisStakeholders ctx GenesisStakeholders
        )
 
 -- | Generic function to create a transaction, given desired inputs,

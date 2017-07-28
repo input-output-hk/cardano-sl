@@ -38,5 +38,5 @@ sizeProp xs = length (mkMerkleTree xs) === fromIntegral (length xs)
 biProp :: (Eq a, Show a, Bi a) => [a] -> Property
 biProp xs = let m = mkMerkleTree xs in binaryEncodeDecode m
 
-safeProp :: (Eq a, Show a, Bi a, SafeCopy a) => [a] -> Property
+safeProp :: (Eq a, Typeable a, Show a, Bi a, SafeCopy a) => [a] -> Property
 safeProp xs = let m = mkMerkleTree xs in safeCopyEncodeDecode m

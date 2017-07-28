@@ -6,10 +6,8 @@ module Pos.Binary.Block.Core
 
 import           Universum
 
-import           Pos.Binary.Class             (Bi (..), Cons (..), Field (..),
-                                               convertToSizeNPut, deriveSimpleBi,
-                                               getWord8, label, labelS, putField, putS,
-                                               putWord8S)
+import           Pos.Binary.Class             (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
+                                               enforceSize)
 import           Pos.Binary.Core              ()
 import           Pos.Binary.Txp               ()
 import           Pos.Binary.Update            ()
@@ -26,47 +24,58 @@ import           Pos.Ssc.Class.Types          (Ssc (..))
 -- MainBlock
 ----------------------------------------------------------------------------
 
-instance Ssc ssc =>
-         Bi (Core.BodyProof (BC.MainBlockchain ssc)) where
-    sizeNPut = labelS "MainProof" $
-        putField BC.mpTxProof <>
-        putField BC.mpMpcProof <>
-        putField BC.mpProxySKsProof <>
-        putField BC.mpUpdateProof
-    get = label "MainProof" $ BC.MainProof <$> get <*> get <*> get <*> get
+instance Ssc ssc => Bi (Core.BodyProof (BC.MainBlockchain ssc)) where
+  encode bc =  encodeListLen 4
+            <> encode (BC.mpTxProof bc)
+            <> encode (BC.mpMpcProof bc)
+            <> encode (BC.mpProxySKsProof bc)
+            <> encode (BC.mpUpdateProof bc)
+  decode = do
+    enforceSize "Core.BodyProof (BC.MainBlockChain ssc)" 4
+    BC.MainProof <$> decode <*>
+                     decode <*>
+                     decode <*>
+                     decode
 
 instance Bi (BC.BlockSignature ssc) where
-    sizeNPut = labelS "BlockSignature" $ convertToSizeNPut f
-      where
-        f (BC.BlockSignature sig)            = putWord8S 0 <> putS sig
-        f (BC.BlockPSignatureLight proxySig) = putWord8S 1 <> putS proxySig
-        f (BC.BlockPSignatureHeavy proxySig) = putWord8S 2 <> putS proxySig
-    get = label "BlockSignature" $ getWord8 >>= \case
-        0 -> BC.BlockSignature <$> get
-        1 -> BC.BlockPSignatureLight <$> get
-        2 -> BC.BlockPSignatureHeavy <$> get
-        t -> fail $ "get@BlockSignature: unknown tag: " <> show t
+  encode input = case input of
+    BC.BlockSignature sig       -> encodeListLen 2 <> encode (0 :: Word8) <> encode sig
+    BC.BlockPSignatureLight pxy -> encodeListLen 2 <> encode (1 :: Word8) <> encode pxy
+    BC.BlockPSignatureHeavy pxy -> encodeListLen 2 <> encode (2 :: Word8) <> encode pxy
+  decode = do
+    enforceSize "BlockSignature" 2
+    tag <- decode @Word8
+    case tag of
+      0 -> BC.BlockSignature <$> decode
+      1 -> BC.BlockPSignatureLight <$> decode
+      2 -> BC.BlockPSignatureHeavy <$> decode
+      _ -> fail $ "decode@BlockSignature: unknown tag: " <> show tag
 
 instance Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
-    sizeNPut = labelS "MainConsensusData" $
-        putField BC._mcdSlot <>
-        putField BC._mcdLeaderKey <>
-        putField BC._mcdDifficulty <>
-        putField BC._mcdSignature
-    get = label "MainConsensusData" $ BC.MainConsensusData <$> get <*> get <*> get <*> get
+  encode cd =  encodeListLen 4
+            <> encode (BC._mcdSlot cd)
+            <> encode (BC._mcdLeaderKey cd)
+            <> encode (BC._mcdDifficulty cd)
+            <> encode (BC._mcdSignature cd)
+  decode = do
+    enforceSize "BC.ConsensusData (BC.MainBlockchain ssc))" 4
+    BC.MainConsensusData <$> decode <*>
+                             decode <*>
+                             decode <*>
+                             decode
 
 instance (Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
-    sizeNPut = labelS "MainBody" $
-        putField BC._mbTxPayload <>
-        putField BC._mbSscPayload <>
-        putField BC._mbDlgPayload <>
-        putField BC._mbUpdatePayload
-    get = label "MainBody" $ do
-        _mbTxPayload     <- get
-        _mbSscPayload    <- get
-        _mbDlgPayload    <- get
-        _mbUpdatePayload <- get
-        return BC.MainBody{..}
+  encode bc =  encodeListLen 4
+            <> encode (BC._mbTxPayload  bc)
+            <> encode (BC._mbSscPayload bc)
+            <> encode (BC._mbDlgPayload bc)
+            <> encode (BC._mbUpdatePayload bc)
+  decode = do
+    enforceSize "BC.Body (BC.MainBlockchain ssc)" 4
+    BC.MainBody <$> decode <*>
+                    decode <*>
+                    decode <*>
+                    decode
 
 deriveSimpleBi ''BC.MainExtraHeaderData [
     Cons 'BC.MainExtraHeaderData [
@@ -82,13 +91,19 @@ deriveSimpleBi ''BC.MainExtraBodyData [
     ]]
 
 instance Ssc ssc => Bi (BC.MainToSign ssc) where
-    sizeNPut = labelS "MainToSign" $
-        putField BC._msHeaderHash <>
-        putField BC._msBodyProof <>
-        putField BC._msSlot <>
-        putField BC._msChainDiff <>
-        putField BC._msExtraHeader
-    get = label "MainToSign" $ BC.MainToSign <$> get <*> get <*> get <*> get <*> get
+  encode mts = encodeListLen 5
+             <> encode (BC._msHeaderHash mts)
+             <> encode (BC._msBodyProof mts)
+             <> encode (BC._msSlot mts)
+             <> encode (BC._msChainDiff mts)
+             <> encode (BC._msExtraHeader mts)
+  decode = do
+    enforceSize "BC.MainToSign" 5
+    BC.MainToSign <$> decode <*>
+                      decode <*>
+                      decode <*>
+                      decode <*>
+                      decode
 
 -- ----------------------------------------------------------------------------
 -- -- GenesisBlock
@@ -105,15 +120,17 @@ deriveSimpleBi ''BC.GenesisExtraBodyData [
     ]]
 
 instance Bi (BC.BodyProof (BC.GenesisBlockchain ssc)) where
-    sizeNPut = labelS "GenesisProof" $ putField (\(BC.GenesisProof h) -> h)
-    get = label "GenesisProof" $ BC.GenesisProof <$> get
+  encode (BC.GenesisProof h) = encode h
+  decode = BC.GenesisProof <$> decode
 
 instance Bi (BC.ConsensusData (BC.GenesisBlockchain ssc)) where
-    sizeNPut = labelS "GenesisConsensusData" $
-        putField BC._gcdEpoch <>
-        putField BC._gcdDifficulty
-    get = label "GenesisConsensusData" $ BC.GenesisConsensusData <$> get <*> get
+  encode bc =  encodeListLen 2
+            <> encode (BC._gcdEpoch bc)
+            <> encode (BC._gcdDifficulty bc)
+  decode = do
+    enforceSize "BC.ConsensusData (BC.GenesisBlockchain ssc)" 2
+    BC.GenesisConsensusData <$> decode <*> decode
 
 instance Bi (BC.Body (BC.GenesisBlockchain ssc)) where
-    sizeNPut = labelS "GenesisBody" $ putField BC._gbLeaders
-    get = label "GenesisBody" $ BC.GenesisBody <$> get
+  encode = encode . BC._gbLeaders
+  decode = BC.GenesisBody <$> decode

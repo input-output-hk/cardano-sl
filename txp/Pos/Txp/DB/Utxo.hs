@@ -40,7 +40,7 @@ import           Serokell.Util        (Color (Red), colorize)
 import           Serokell.Util.Text   (listJson, pairF)
 import           System.Wlog          (WithLogger, logError)
 
-import           Pos.Binary.Class     (encode)
+import           Pos.Binary.Class     (serialize')
 import           Pos.Binary.Core      ()
 import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
@@ -77,7 +77,7 @@ instance Buildable UtxoOp where
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
-        [Rocks.Put (txInKey txIn) (encode txOut)]
+        [Rocks.Put (txInKey txIn) (serialize' txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
 
 ----------------------------------------------------------------------------

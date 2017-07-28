@@ -325,7 +325,7 @@ type HasLens' s a = HasLens a s a
 
 -- | Version of 'lensOf' which is used when lens is to the same type
 -- as the tag.
-lensOf' :: forall s a. HasLens' s a => Lens' s a
+lensOf' :: forall a s. HasLens' s a => Lens' s a
 lensOf' = lensOf @a
 
 -- | Version of 'lensOf' which uses proxy.

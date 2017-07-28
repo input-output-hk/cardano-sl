@@ -49,7 +49,7 @@ import           System.Wlog                  (WithLogger)
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
+import           Pos.Context                  (GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
                                                Timestamp (..), difficultyL)
 import           Pos.Crypto                   (WithHash (..), withHash)
@@ -64,13 +64,13 @@ import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
 import           Pos.Txp                      (txProcessTransaction)
 #endif
-import           Pos.Txp                      (GenesisUtxo (..), MonadTxpMem, MonadUtxo,
-                                               MonadUtxoRead, ToilT, Tx (..), TxAux (..),
-                                               TxDistribution, TxId, TxOut, TxOutAux (..),
-                                               TxWitness, TxpError (..), applyTxToUtxo,
-                                               evalToilTEmpty, flattenTxPayload,
-                                               getLocalTxs, runDBToil, topsortTxs,
-                                               txOutAddress, utxoGet)
+import           Pos.Txp                      (GenesisStakeholders, MonadTxpMem,
+                                               MonadUtxo, MonadUtxoRead, ToilT, Tx (..),
+                                               TxAux (..), TxDistribution, TxId, TxOut,
+                                               TxOutAux (..), TxWitness, TxpError (..),
+                                               applyTxToUtxo, evalToilTEmpty,
+                                               flattenTxPayload, getLocalTxs, runDBToil,
+                                               topsortTxs, txOutAddress, utxoGet)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
@@ -221,6 +221,7 @@ type TxHistoryEnv ctx m =
     , MonadSlots m
     , MonadReader ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasLens GenesisStakeholders ctx GenesisStakeholders
     , MonadTxpMem TxpExtra_TMP ctx m
     , MonadBaseControl IO m
     )

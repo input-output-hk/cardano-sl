@@ -12,23 +12,20 @@ module KeygenOptions
        , getKeygenOptions
        ) where
 
-import           Data.String.QQ               (s)
-import           Data.Version                 (showVersion)
-import           Options.Applicative          (Parser, auto, command, execParser,
-                                               footerDoc, fullDesc, header, help, helper,
-                                               info, infoOption, long, metavar, option,
-                                               progDesc, short, strOption, subparser,
-                                               value)
-import           Serokell.Util.OptParse       (fromParsec)
-import qualified Text.Parsec                  as P
-import qualified Text.Parsec.String           as P
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Data.Version           (showVersion)
+import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
+                                         header, help, helper, info, infoOption, long,
+                                         metavar, option, progDesc, short, strOption,
+                                         subparser, value)
+import           Serokell.Util.OptParse (fromParsec)
+import qualified Text.Parsec            as P
+import qualified Text.Parsec.String     as P
 import           Universum
 
-import           Pos.Core.Types               (Address (..), StakeholderId)
-import           Pos.Types                    (decodeTextAddress)
+import           Pos.Core.Types         (Address (..), StakeholderId)
+import           Pos.Types              (decodeTextAddress)
 
-import           Paths_cardano_sl             (version)
+import           Paths_cardano_sl       (version)
 
 data KeygenOptions = KeygenOptions
     { koCommand :: KeygenCommand
@@ -230,29 +227,7 @@ getKeygenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> (KeygenOptions <$> keygenCommandParser)) $
         fullDesc <> header "Tool to generate keyfiles-related data"
-                 <> footerDoc (Just usageExample)
 
     versionOption = infoOption
         ("cardano-keygen-" <> showVersion version)
         (long "version" <> help "Show version.")
-
-usageExample :: Doc
-usageExample = [s|
-Command example:
-
-  stack exec -- cardano-keygen generate-genesis         \
-    --genesis-dir genesis                               \
-    -m 5                                                \
-    -n 1000                                             \
-    --richmen-share 0.94                                \
-    --testnet-stake 19072918462000000                   \
-    --utxo-file /tmp/avvm-files/utxo-dump-last-new.json \
-    --randcerts                                         \
-    --blacklisted /tmp/avvm-files/full_blacklist.js     \
-    --fake-avvm-entries 100                             \
-    --bootstakeholder "1fKNcnJ44voGtWmekuKic1HJdbHEwd1YEwZNu6XaAwE8RSk,5" \
-    --bootstakeholder "1HJdbHEwd1YEwZNu6XaAwE8RSk1fKNcnJ44voGtWmekuKic,3" \
-    --bootstakeholder "8RSk1fKNcnJ41HJdbNu6XaAwE4voGtWmekuHEwd1YEwZKic,2"
-
-Subdirectory 'genesis-*/keys-testnet' contains keys for uploading to nodes (in cluster).
-Subdirectory 'genesis-*/keys-fakeavvm' contains AVVM seeds. |]

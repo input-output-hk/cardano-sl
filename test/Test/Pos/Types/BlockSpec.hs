@@ -13,8 +13,8 @@ import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 
+import           Pos.Arbitrary.Block   as T
 import           Pos.Binary            (Bi)
-import           Pos.Block.Arbitrary   as T
 import qualified Pos.Block.Core        as T
 import qualified Pos.Block.Pure        as T
 import           Pos.Constants         (genesisHash)

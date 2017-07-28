@@ -13,7 +13,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-    Pos.Ssc.GodTossing.Arbitrary
+    Pos.Arbitrary.Ssc.GodTossing
 
     Pos.Ssc.GodTossing.Core
     Pos.Ssc.GodTossing.Core.Types
@@ -77,6 +77,7 @@ library
                      , file-embed
                      , formatting
                      , generic-arbitrary
+                     , hashable
                      , lens
                      , log-warper
                      , mmorph

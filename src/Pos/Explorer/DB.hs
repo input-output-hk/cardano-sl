@@ -19,15 +19,15 @@ import           Universum
 import qualified Database.RocksDB      as Rocks
 import           Ether.Internal        (HasLens (..))
 
-import           Pos.Binary.Class      (UnsignedVarInt (..), encode)
+import           Pos.Binary.Class      (UnsignedVarInt (..), serialize')
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core.Types        (Address, Coin, EpochIndex, HeaderHash)
-import           Pos.DB                (DBTag (GStateDB), MonadDB,
-                                        MonadDBRead (dbGet), RocksBatchOp (..))
+import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
+                                        RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core          (Tx, TxId)
-import           Pos.Txp.Toil          (Utxo, utxoToAddressCoinPairs)
+import           Pos.Txp.Toil          (GenesisUtxo (..), utxoToAddressCoinPairs)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
 ----------------------------------------------------------------------------
@@ -89,8 +89,8 @@ areBalancesInitialized = isJust <$> dbGet GStateDB balancesInitFlag
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
-putGenesisBalances :: MonadDB m => Utxo -> m ()
-putGenesisBalances genesisUtxo = writeBatchGState putAddrBalancesOp
+putGenesisBalances :: MonadDB m => GenesisUtxo -> m ()
+putGenesisBalances (GenesisUtxo genesisUtxo) = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]
     putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinsPairs
@@ -120,24 +120,24 @@ data ExplorerOp
 instance RocksBatchOp ExplorerOp where
 
     toBatchOp (AddTxExtra id extra) =
-        [Rocks.Put (txExtraPrefix id) (encode extra)]
+        [Rocks.Put (txExtraPrefix id) (serialize' extra)]
     toBatchOp (DelTxExtra id) =
         [Rocks.Del $ txExtraPrefix id]
 
     toBatchOp (PutPageBlocks page pageBlocks) =
-        [Rocks.Put (blockPagePrefix page) (encode pageBlocks)]
+        [Rocks.Put (blockPagePrefix page) (serialize' pageBlocks)]
 
     toBatchOp (PutEpochBlocks epoch pageBlocks) =
-        [Rocks.Put (blockEpochPrefix epoch) (encode pageBlocks)]
+        [Rocks.Put (blockEpochPrefix epoch) (serialize' pageBlocks)]
 
     toBatchOp (PutLastTxs lastTxs) =
-        [Rocks.Put lastTxsPrefix (encode lastTxs)]
+        [Rocks.Put lastTxsPrefix (serialize' lastTxs)]
 
     toBatchOp (UpdateAddrHistory addr txs) =
-        [Rocks.Put (addrHistoryPrefix addr) (encode txs)]
+        [Rocks.Put (addrHistoryPrefix addr) (serialize' txs)]
 
     toBatchOp (PutAddrBalance addr coin) =
-        [Rocks.Put (addrBalancePrefix addr) (encode coin)]
+        [Rocks.Put (addrBalancePrefix addr) (serialize' coin)]
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalancePrefix addr]
 
@@ -146,21 +146,21 @@ instance RocksBatchOp ExplorerOp where
 ----------------------------------------------------------------------------
 
 txExtraPrefix :: TxId -> ByteString
-txExtraPrefix h = "e/tx/" <> encode h
+txExtraPrefix h = "e/tx/" <> serialize' h
 
 addrHistoryPrefix :: Address -> ByteString
-addrHistoryPrefix addr = "e/ah/" <> encode addr
+addrHistoryPrefix addr = "e/ah/" <> serialize' addr
 
 addrBalancePrefix :: Address -> ByteString
-addrBalancePrefix addr = "e/ab/" <> encode addr
+addrBalancePrefix addr = "e/ab/" <> serialize' addr
 
 blockPagePrefix :: Page -> ByteString
 blockPagePrefix page = "e/page/" <> encodedPage
   where
-    encodedPage = encode $ UnsignedVarInt page
+    encodedPage = serialize' $ UnsignedVarInt page
 
 blockEpochPrefix :: Epoch -> ByteString
-blockEpochPrefix epoch = "e/epoch/" <> encode epoch
+blockEpochPrefix epoch = "e/epoch/" <> serialize' epoch
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"

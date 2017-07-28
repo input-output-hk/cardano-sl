@@ -13,7 +13,7 @@ module Pos.Update
        , module Pos.Update.Worker
        ) where
 
-import           Pos.Update.Arbitrary ()
+import           Pos.Arbitrary.Update ()
 import           Pos.Update.Context
 import           Pos.Update.Core
 import           Pos.Update.Download

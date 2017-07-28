@@ -15,9 +15,11 @@ module Pos.Client.Txp.History
        , thInputAddrs
        , thOutputAddrs
        , thTimestamp
-       , runGenesisToil
 
        , MonadTxHistory(..)
+
+       , GenesisToil
+       , runGenesisToil
 
        -- * History derivation
        , getRelatedTxsByAddrs
@@ -47,7 +49,7 @@ import           System.Wlog                  (WithLogger)
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
+import           Pos.Context                  (GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
                                                Timestamp (..), difficultyL)
 import           Pos.Crypto                   (WithHash (..), withHash)
@@ -62,13 +64,13 @@ import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
 import           Pos.Txp                      (txProcessTransaction)
 #endif
-import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
-                                               ToilT, Tx (..), TxAux (..), TxDistribution,
-                                               TxId, TxOut, TxOutAux (..), TxWitness,
-                                               TxpError (..), applyTxToUtxo,
-                                               evalToilTEmpty, flattenTxPayload,
-                                               getLocalTxs, runDBToil, topsortTxs,
-                                               txOutAddress, utxoGet)
+import           Pos.Txp                      (GenesisStakeholders, MonadTxpMem,
+                                               MonadUtxo, MonadUtxoRead, ToilT, Tx (..),
+                                               TxAux (..), TxDistribution, TxId, TxOut,
+                                               TxOutAux (..), TxWitness, TxpError (..),
+                                               applyTxToUtxo, evalToilTEmpty,
+                                               flattenTxPayload, getLocalTxs, runDBToil,
+                                               topsortTxs, txOutAddress, utxoGet)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
@@ -178,7 +180,7 @@ runGenesisToil = coerce
 
 instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
          MonadUtxoRead (GenesisToil m) where
-    utxoGet txIn = M.lookup txIn <$> genesisUtxoM
+    utxoGet txIn = M.lookup txIn . unGenesisUtxo <$> genesisUtxoM
 
 ----------------------------------------------------------------------------
 -- MonadTxHistory
@@ -219,6 +221,7 @@ type TxHistoryEnv ctx m =
     , MonadSlots m
     , MonadReader ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasLens GenesisStakeholders ctx GenesisStakeholders
     , MonadTxpMem TxpExtra_TMP ctx m
     , MonadBaseControl IO m
     )

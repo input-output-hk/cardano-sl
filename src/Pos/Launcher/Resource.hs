@@ -45,8 +45,7 @@ import           Pos.Block.Slog             (mkSlogContext)
 import           Pos.CLI                    (readLoggerConfig)
 import qualified Pos.Constants              as Const
 import           Pos.Context                (BlkSemaphore (..), ConnectedPeers (..),
-                                             GenesisUtxo (..), NodeContext (..),
-                                             StartTime (..))
+                                             NodeContext (..), StartTime (..))
 import           Pos.Core                   (Timestamp)
 import           Pos.DB                     (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                  (initNodeDBs)
@@ -64,7 +63,7 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
+import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics, gtcUtxo,
                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
@@ -129,7 +128,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            (GenesisUtxo npCustomUtxo)
+            (npGenesisTxpCtx ^. gtcUtxo)
             futureSlottingVar
             futureSlottingContext
             futureLrcContext

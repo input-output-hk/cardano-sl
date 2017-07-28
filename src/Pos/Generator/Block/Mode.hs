@@ -7,6 +7,7 @@ module Pos.Generator.Block.Mode
        , MonadBlockGen
        , BlockGenContext (..)
        , BlockGenMode
+       , BlockGenRandMode
        , mkBlockGenContext
 
        , usingPrimaryKey
@@ -18,7 +19,9 @@ module Pos.Generator.Block.Mode
 import           Universum
 
 import           Control.Lens.TH             (makeLensesWith)
+import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Data.Map                    as M
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -30,11 +33,11 @@ import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
-                                              getEpochOrSlot)
-import           Pos.Crypto                  (SecretKey)
-import           Pos.DB                      (MonadBlockDBGeneric (..),
+                                              getEpochOrSlot, makePubKeyAddress, mkCoin)
+import           Pos.Crypto                  (SecretKey, toPublic, unsafeHash)
+import           Pos.DB                      (DBSum, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
-                                              MonadDBRead, DBSum)
+                                              MonadDBRead)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as BDB
 import           Pos.DB.DB                   (getTipHeader, gsAdoptedBVDataDefault)
@@ -44,7 +47,8 @@ import           Pos.Discovery               (DiscoveryContextSum (..),
                                               MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
 import           Pos.Exception               (reportFatalError)
-import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..))
+import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..),
+                                              HasTxGenParams (..), asSecretKeys)
 import qualified Pos.GState                  as GS
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
@@ -59,9 +63,12 @@ import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDa
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
-import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
+import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), TxOut (..),
+                                              TxOutAux (..), TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
+import           Pos.Txp.Toil.Types          (GenesisStakeholders (..), GenesisUtxo (..),
+                                              mkGenesisTxpContext, gtcStakeholders)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -117,6 +124,7 @@ data BlockGenContext = BlockGenContext
     , bgcSystemStart       :: !Timestamp
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
+    , bgcGenStakeholders   :: !GenesisStakeholders
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -132,6 +140,12 @@ makeLensesWith postfixLFields ''BlockGenContext
 
 -- | Execution mode for blockchain generation.
 type BlockGenMode m = ReaderT BlockGenContext m
+
+-- | Block generation mode with random
+type BlockGenRandMode g m = RandT g (BlockGenMode m)
+
+instance MonadThrow m => MonadThrow (RandT g m) where
+    throwM = lift . throwM
 
 ----------------------------------------------------------------------------
 -- Context creation
@@ -167,6 +181,18 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
+  where
+    -- Genesis utxo is needed only for boot era stakeholders
+    bgcGenStakeholders =
+        let addrs =
+                -- So we take three stakeholders in boot era.
+                take 3 $
+                map (makePubKeyAddress . toPublic) . toList $
+                view (bgpSecrets . asSecretKeys) bgcParams
+            utxoTxHash = unsafeHash ("randomutxotx" :: Text)
+            txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
+            txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
+        in (mkGenesisTxpContext $ GenesisUtxo $ M.fromList $ txIns `zip` txOuts) ^. gtcStakeholders
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBSum
@@ -235,9 +261,15 @@ instance HasLens BlockGenContext BlockGenContext BlockGenContext where
 instance HasBlockGenParams BlockGenContext where
     blockGenParams = bgcParams_L
 
+instance HasTxGenParams BlockGenContext where
+    txGenParams = bgcParams_L . txGenParams
+
 instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
+
+instance HasLens GenesisStakeholders BlockGenContext GenesisStakeholders where
+    lensOf = bgcGenStakeholders_L
 
 instance HasLens DBSum BlockGenContext DBSum where
     lensOf = GS.gStateContext . GS.gscDB

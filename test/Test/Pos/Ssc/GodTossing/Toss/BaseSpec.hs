@@ -10,11 +10,11 @@ import           Control.Lens          (ix)
 import qualified Data.HashMap.Strict   as HM
 import           System.Random         (mkStdGen, randomR)
 
+import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
 import           Pos.Constants         (genesisBlockVersionData)
 import           Pos.Crypto            (PublicKey, SecretKey, Share,
                                         SignTag (SignCommitment), sign, toPublic)
-import           Pos.Lrc.Arbitrary     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Lrc.Types         (RichmenStakes)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
                                         BadSignedCommitment (..), Commitment,

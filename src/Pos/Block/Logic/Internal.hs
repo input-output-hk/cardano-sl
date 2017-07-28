@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -11,8 +12,10 @@ module Pos.Block.Logic.Internal
          MonadBlockBase
        , MonadBlockVerify
        , MonadBlockApply
+       , MonadMempoolNormalization
 
        , applyBlocksUnsafe
+       , normalizeMempool
        , rollbackBlocksUnsafe
 
          -- * Garbage
@@ -22,52 +25,51 @@ module Pos.Block.Logic.Internal
 
 import           Universum
 
-import           Control.Lens                (each, _Wrapped)
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Ether.Internal              (HasLens (..))
-import           Formatting                  (sformat, (%))
-import           Mockable                    (CurrentTime, Mockable)
-import           Serokell.Util.Text          (listJson)
+import           Control.Lens            (each, _Wrapped)
+import           Ether.Internal          (HasLens (..))
+import           Formatting              (sformat, (%))
+import           Mockable                (CurrentTime, Mockable)
+import           Serokell.Util.Text      (listJson)
 
-import           Pos.Block.BListener         (MonadBListener)
-import           Pos.Block.Core              (Block, GenesisBlock, MainBlock, mbTxPayload,
-                                              mbUpdatePayload)
-import           Pos.Block.Slog              (MonadSlogApply, MonadSlogBase,
-                                              slogApplyBlocks, slogRollbackBlocks)
-import           Pos.Block.Types             (Blund, Undo (undoTx, undoUS))
-import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epochIndexL,
-                                              gbBody, gbHeader, headerHash)
-import           Pos.DB                      (MonadDB, MonadGState, SomeBatchOp (..))
-import           Pos.DB.Block                (MonadBlockDB, MonadSscBlockDB)
-import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgNormalizeOnRollback,
-                                              dlgRollbackBlocks)
-import           Pos.Discovery.Class         (MonadDiscovery)
-import           Pos.Exception               (assertionFailed)
-import qualified Pos.GState                  as GS
-import           Pos.Lrc.Context             (LrcContext)
-import           Pos.Reporting               (HasReportingContext, reportingFatal)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscGStateClass)
-import           Pos.Ssc.Extra               (MonadSscMem, sscApplyBlocks, sscNormalize,
-                                              sscRollbackBlocks)
-import           Pos.Ssc.Util                (toSscBlock)
-import           Pos.Txp.Core                (TxPayload)
-import           Pos.Txp.MemState            (MonadTxpMem)
-import           Pos.Txp.Settings            (TxpBlock, TxpBlund, TxpGlobalSettings (..))
-import           Pos.Update.Context          (UpdateContext)
-import           Pos.Update.Core             (UpdateBlock, UpdatePayload)
-import           Pos.Update.Logic            (usApplyBlocks, usNormalize,
-                                              usRollbackBlocks)
-import           Pos.Update.Poll             (PollModifier)
-import           Pos.Util                    (Some (..), spanSafe)
-import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode.Class          (TxpExtra_TMP)
+import           Pos.Block.BListener     (MonadBListener)
+import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
+                                          mbUpdatePayload)
+import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
+                                          slogRollbackBlocks)
+import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
+import           Pos.Core                (GenesisStakeholders, IsGenesisHeader,
+                                          IsMainHeader, epochIndexL, gbBody, gbHeader,
+                                          headerHash)
+import           Pos.DB                  (MonadDB, MonadGState, SomeBatchOp (..))
+import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
+import           Pos.Delegation.Class    (MonadDelegation)
+import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback,
+                                          dlgRollbackBlocks)
+import           Pos.Discovery.Class     (MonadDiscovery)
+import           Pos.Exception           (assertionFailed)
+import qualified Pos.GState              as GS
+import           Pos.Lrc.Context         (LrcContext)
+import           Pos.Reporting           (HasReportingContext, reportingFatal)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
+import           Pos.Ssc.Class.Storage   (SscGStateClass)
+import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
+                                          sscRollbackBlocks)
+import           Pos.Ssc.Util            (toSscBlock)
+import           Pos.Txp.Core            (TxPayload)
+import           Pos.Txp.MemState        (MonadTxpMem)
+import           Pos.Txp.Settings        (TxpBlock, TxpBlund, TxpGlobalSettings (..))
+import           Pos.Update.Context      (UpdateContext)
+import           Pos.Update.Core         (UpdateBlock, UpdatePayload)
+import           Pos.Update.Logic        (usApplyBlocks, usNormalize, usRollbackBlocks)
+import           Pos.Update.Poll         (PollModifier)
+import           Pos.Util                (Some (..), spanSafe)
+import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.WorkMode.Class      (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp            (eTxNormalize)
+import           Pos.Explorer.Txp        (eTxNormalize)
 #else
-import           Pos.Txp.Logic               (txNormalize)
+import           Pos.Txp.Logic           (txNormalize)
 #endif
 
 -- | Set of basic constraints used by high-level block processing.
@@ -81,9 +83,11 @@ type MonadBlockBase ssc ctx m
        -- Needed by some components.
        , MonadGState m
        -- This constraints define block components' global logic.
-       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , HasLens LrcContext ctx LrcContext
+       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , SscGStateClass ssc
+       , HasLens GenesisStakeholders ctx GenesisStakeholders
+       , MonadDelegation ctx m
        , MonadReader ctx m
        )
 
@@ -91,6 +95,7 @@ type MonadBlockBase ssc ctx m
 type MonadBlockVerify ssc ctx m = MonadBlockBase ssc ctx m
 
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
+-- Also normalize mempool.
 type MonadBlockApply ssc ctx m
      = ( MonadBlockBase ssc ctx m
        , MonadSlogApply ssc ctx m
@@ -100,18 +105,48 @@ type MonadBlockApply ssc ctx m
        , MonadMask m
        -- Needed to embed custom logic.
        , MonadBListener m
-       -- Needed for normalization.
-       , MonadTxpMem TxpExtra_TMP ctx m
-       , MonadDelegation ctx m
-       , SscLocalDataClass ssc
-       , HasLens UpdateContext ctx UpdateContext
-       , Mockable CurrentTime m
        -- Needed for error reporting.
        , HasReportingContext ctx
        , MonadDiscovery m
-       , MonadBaseControl IO m
        , MonadReader ctx m
+       -- Needed for rollback
+       , Mockable CurrentTime m
        )
+
+type MonadMempoolNormalization ssc ctx m
+    = ( MonadSlogBase ssc m
+      , MonadTxpMem TxpExtra_TMP ctx m
+      , SscLocalDataClass ssc
+      , MonadSscMem ssc ctx m
+      , HasLens LrcContext ctx LrcContext
+      , HasLens UpdateContext ctx UpdateContext
+      , HasLens GenesisStakeholders ctx GenesisStakeholders
+      -- Needed to load useful information from db
+      , MonadBlockDB ssc m
+      , MonadSscBlockDB ssc m
+      , MonadGState m
+      -- Needed for error reporting.
+      , HasReportingContext ctx
+      , MonadDiscovery m
+      , MonadMask m
+      , MonadReader ctx m
+      )
+
+-- | Normalize mempool.
+normalizeMempool
+    :: forall ssc ctx m . MonadMempoolNormalization ssc ctx m
+    => m ()
+normalizeMempool = reportingFatal $ do
+    -- We normalize all mempools except the delegation one.
+    -- That's because delegation mempool normalization is harder and is done
+    -- within block application.
+    sscNormalize @ssc
+#ifdef WITH_EXPLORER
+    eTxNormalize
+#else
+    txNormalize
+#endif
+    usNormalize
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -141,21 +176,22 @@ applyBlocksUnsafe blunds pModifier = reportingFatal $ do
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
         _                      -> app blunds
   where
-    app x = applyBlocksUnsafeDo x pModifier
+    app x = applyBlocksDbUnsafeDo x pModifier
     app' = app . OldestFirst
     (thisEpoch, nextEpoch) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
-applyBlocksUnsafeDo
+applyBlocksDbUnsafeDo
     :: forall ssc ctx m . MonadBlockApply ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafeDo blunds pModifier = do
+applyBlocksDbUnsafeDo blunds pModifier = do
+    let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
-    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blocks
+    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blunds
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
@@ -167,18 +203,6 @@ applyBlocksUnsafeDo blunds pModifier = do
         , sscBatch
         , slogBatch
         ]
-    -- We normalize all mempools except the delegation one.
-    -- That's because delegation mempool normalization is harder and is done
-    -- within block application.
-    sscNormalize
-#ifdef WITH_EXPLORER
-    eTxNormalize
-#else
-    txNormalize
-#endif
-    usNormalize
-  where
-    blocks = fmap fst blunds
 
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.

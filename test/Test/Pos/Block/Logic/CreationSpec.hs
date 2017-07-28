@@ -11,25 +11,26 @@ import           Universum
 import           Data.Default               (def)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit, fromBytes)
 import           Test.Hspec                 (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck      (prop)
+import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
 import           Test.QuickCheck            (Gen, Property, Testable, arbitrary, choose,
                                              counterexample, elements, forAll, generate,
                                              listOf, listOf1, oneof, property)
 
+import           Pos.Arbitrary.Block        ()
+import           Pos.Arbitrary.Delegation   (genDlgPayload)
+import           Pos.Arbitrary.Txp          (SmallGoodTx (..), goodTxToTxAux)
 import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Arbitrary        ()
 import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication          ()
 import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
 import           Pos.Core                   (SlotId (..), unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
-import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo, genDlgPayload)
+import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              commitmentMapEpochGen, mkVssCertificatesMap,
                                              vssCertificateEpochGen)
-import           Pos.Txp.Arbitrary          (SmallGoodTx (..), goodTxToTxAux)
 import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
@@ -49,11 +50,16 @@ spec = describe "Block.Logic.Creation" $ do
         emptyBSize :: Integral n => n
         emptyBSize = round $ (1.5 * fromIntegral emptyBSize0 :: Double)
 
-    describe "createMainBlockPure" $ do
+    describe "createMainBlockPure" $ modifyMaxSuccess (const 1000) $ do
         prop "empty block size is sane" $ emptyBlk $ \blk0 -> leftToCounter blk0 $ \blk ->
             let s = biSize blk
-            in counterexample ("Real block size: " <> show s) $
-               s <= 500 && s <= genesisMaxBlockSize
+            in counterexample ("Real block size: " <> show s <>
+                               "\n\nBlock: " <> show blk) $
+                 -- Various hashes and signatures in the block take 416
+                 -- bytes; this is *completely* independent of encoding used.
+                 -- Empirically, empty blocks don't get bigger than 550
+                 -- bytes.
+                 s <= 550 && s <= genesisMaxBlockSize
         prop "doesn't create blocks bigger than the limit" $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload) ->

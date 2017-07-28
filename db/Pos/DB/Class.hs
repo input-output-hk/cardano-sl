@@ -69,7 +69,7 @@ import           Serokell.Data.Memory.Units   (Byte)
 
 import           Pos.Binary.Class             (Bi)
 import           Pos.Core                     (BlockVersionData (..), EpochIndex,
-                                               HeaderHash, isBootstrapEra, isDevelopment)
+                                               HeaderHash, isBootstrapEra)
 
 ----------------------------------------------------------------------------
 -- Pure
@@ -161,6 +161,9 @@ instance {-# OVERLAPPABLE #-}
 class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
 
+instance MonadGState ((->) BlockVersionData) where
+    gsAdoptedBVData = identity
+
 instance {-# OVERLAPPABLE #-}
     (MonadGState m, MonadTrans t,
      Monad (t m)) =>
@@ -185,11 +188,9 @@ gsUnlockStakeEpoch = bvdUnlockStakeEpoch <$> gsAdoptedBVData
 
 -- | Checks if provided epoch is in the bootstrap era.
 gsIsBootstrapEra :: MonadGState m => EpochIndex -> m Bool
-gsIsBootstrapEra epoch =
-    if isDevelopment then pure False
-    else do
-        unlockStakeEpoch <- gsUnlockStakeEpoch
-        return $ isBootstrapEra unlockStakeEpoch epoch
+gsIsBootstrapEra epoch = do
+    unlockStakeEpoch <- gsUnlockStakeEpoch
+    pure $ isBootstrapEra unlockStakeEpoch epoch
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction

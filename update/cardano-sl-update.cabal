@@ -12,7 +12,11 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Update.Arbitrary
+  exposed-modules:
+                       -- Arbitrary
+                       Pos.Arbitrary.Update
+
+                       -- Errors
                        Pos.Update.Error
 
                        -- Core
@@ -63,10 +67,10 @@ library
                        Pos.Update.Params
 
   other-modules:
-                       Pos.Update.Arbitrary.Core
-                       Pos.Update.Arbitrary.MemState
-                       Pos.Update.Arbitrary.Network
-                       Pos.Update.Arbitrary.Poll
+                       Pos.Arbitrary.Update.Core
+                       Pos.Arbitrary.Update.MemState
+                       Pos.Arbitrary.Update.Network
+                       Pos.Arbitrary.Update.Poll
 
   build-depends:       QuickCheck
                      , aeson

@@ -28,11 +28,11 @@ import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
-import           Formatting                   (bprint, bprint, sformat, (%))
+import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Binary.Class             (encode)
+import           Pos.Binary.Class             (serialize')
 import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoin,
                                                sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
@@ -44,7 +44,7 @@ import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumK
                                                getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.Txp.Core                 (txOutStake)
-import           Pos.Txp.Toil.Types           (Utxo)
+import           Pos.Txp.Toil.Types           (GenesisUtxo (..))
 import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 
 ----------------------------------------------------------------------------
@@ -62,10 +62,10 @@ instance Buildable BalancesOp where
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
 instance RocksBatchOp BalancesOp where
-    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (encode c)]
+    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (serialize' c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
-        else [Rocks.Put (ftsStakeKey ad) (encode c)]
+        else [Rocks.Put (ftsStakeKey ad) (serialize' c)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -74,8 +74,8 @@ instance RocksBatchOp BalancesOp where
 initGStateBalances
     :: forall m.
        MonadDB m
-    => Utxo -> m ()
-initGStateBalances genesisUtxo = do
+    => GenesisUtxo -> m ()
+initGStateBalances (GenesisUtxo genesisUtxo) = do
     putFtsStakes
     putGenesisTotalStake
   where

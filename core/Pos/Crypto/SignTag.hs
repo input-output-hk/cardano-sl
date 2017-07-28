@@ -54,4 +54,4 @@ signTag = \case
     SignMainBlockHeavy -> "\x08" <> network
     SignProxySK        -> "\x09" <> network
   where
-    network = Bi.encode protocolMagic
+    network = Bi.serialize' protocolMagic

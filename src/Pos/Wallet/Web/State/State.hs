@@ -3,6 +3,7 @@
 module Pos.Wallet.Web.State.State
        ( WalletState
        , MonadWalletWebDB
+       , WalletTip (..)
        , getWalletWebState
        , WebWalletModeDB
        , openState
@@ -14,7 +15,7 @@ module Pos.Wallet.Web.State.State
 
        -- * Getters
        , getProfile
-       , getWAddressIds
+       , getAccountIds
        , getAccountMetas
        , getAccountMeta
        , getAccountWAddresses
@@ -79,7 +80,8 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
-                                               CustomAddressType (..), WalletStorage)
+                                               CustomAddressType (..), WalletStorage,
+                                               WalletTip (..))
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 type MonadWalletWebDB ctx m = (MonadReader ctx m, HasLens WalletState ctx WalletState)
@@ -100,8 +102,8 @@ updateDisk
     => event -> m (EventResult event)
 updateDisk e = getWalletWebState >>= flip A.update e
 
-getWAddressIds :: WebWalletModeDB ctx m => m [AccountId]
-getWAddressIds = queryDisk A.GetWAddressIds
+getAccountIds :: WebWalletModeDB ctx m => m [AccountId]
+getAccountIds = queryDisk A.GetAccountIds
 
 getAccountMetas :: WebWalletModeDB ctx m => m [CAccountMeta]
 getAccountMetas = queryDisk A.GetAccountMetas
@@ -121,7 +123,7 @@ getWalletMetas = queryDisk A.GetWalletMetas
 getWalletPassLU :: WebWalletModeDB ctx m => CId Wal -> m (Maybe PassPhraseLU)
 getWalletPassLU = queryDisk . A.GetWalletPassLU
 
-getWalletSyncTip :: WebWalletModeDB ctx m => CId Wal -> m (Maybe HeaderHash)
+getWalletSyncTip :: WebWalletModeDB ctx m => CId Wal -> m (Maybe WalletTip)
 getWalletSyncTip = queryDisk . A.GetWalletSyncTip
 
 getAccountWAddresses

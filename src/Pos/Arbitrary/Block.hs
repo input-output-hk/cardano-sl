@@ -1,14 +1,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
-module Pos.Block.Arbitrary
+module Pos.Arbitrary.Block
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
        ) where
 
 import           Universum
 
-import           Control.Lens                      (to)
 import qualified Data.Text.Buildable               as Buildable
 import           Formatting                        (bprint, build, (%))
 import qualified Prelude
@@ -17,6 +16,10 @@ import           Test.QuickCheck                   (Arbitrary (..), Gen, choose,
                                                     vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Delegation          (genDlgPayload)
+import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
+import           Pos.Arbitrary.Txp                 ()
+import           Pos.Arbitrary.Update              ()
 import           Pos.Binary.Class                  (Bi, Raw, biSize)
 import qualified Pos.Block.Core                    as T
 import           Pos.Block.Network                 as T
@@ -25,13 +28,9 @@ import           Pos.Constants                     (epochSlots)
 import qualified Pos.Core                          as Core
 import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
                                                     createPsk, hash, toPublic)
-import           Pos.Data.Attributes               (Attributes (..))
-import           Pos.Delegation.Arbitrary          (genDlgPayload)
-import           Pos.Ssc.Arbitrary                 (SscPayloadDependsOnSlot (..))
+import           Pos.Data.Attributes               (areAttributesKnown)
 import           Pos.Ssc.Class                     (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Arbitrary                 ()
 import qualified Pos.Types                         as T
-import           Pos.Update.Arbitrary              ()
 import           Pos.Util.Arbitrary                (makeSmall)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -418,10 +417,10 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                             rndSlot = T.SlotId rndEpoch rndSlotIdx
                         in Just rndSlot
             hasUnknownAttributes =
-                not . null $
+                not . areAttributesKnown $
                 either
-                    (view $ Core.gbhExtra . T.gehAttributes . to attrRemain)
-                    (view $ Core.gbhExtra . T.mehAttributes . to attrRemain)
+                    (view $ Core.gbhExtra . T.gehAttributes)
+                    (view $ Core.gbhExtra . T.mehAttributes)
                     header
             params = T.VerifyHeaderParams
                 { T.vhpPrevHeader = prev

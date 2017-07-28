@@ -23,7 +23,6 @@ import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.Map.Strict                as M
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (Microsecond, TimeUnit (..))
 import           Ether.Internal                 (HasLens (..))
@@ -41,11 +40,10 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Context                    (GenesisUtxo (..))
 import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
                                                  Timestamp (..), addressHash,
                                                  makePubKeyAddress, mkCoin, unsafeGetCoin)
-import           Pos.Crypto                     (SecretKey, toPublic, unsafeHash)
+import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
                                                  MonadDB (..), MonadDBRead (..),
@@ -60,7 +58,7 @@ import           Pos.Discovery                  (DiscoveryContextSum (..),
                                                  MonadDiscovery (..), findPeersSum,
                                                  getPeersSum)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..))
-import           Pos.Genesis                    (stakeDistribution)
+import           Pos.Genesis                    (genesisUtxo)
 import qualified Pos.GState                     as GS
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
@@ -82,11 +80,13 @@ import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (GenericTxpLocalData, TxIn (..),
-                                                 TxOut (..), TxOutAux (..),
+import           Pos.Txp                        (GenericTxpLocalData, GenesisStakeholders,
+                                                 GenesisTxpContext, GenesisUtxo (..),
                                                  TxpGlobalSettings, TxpHolderTag,
-                                                 TxpMetrics, ignoreTxpMetrics,
-                                                 mkTxpLocalData, txpGlobalSettings, utxoF)
+                                                 TxpMetrics, gtcStakeholders, gtcUtxo,
+                                                 ignoreTxpMetrics, mkGenesisTxpContext,
+                                                 mkGenesisTxpContext, mkTxpLocalData,
+                                                 txpGlobalSettings, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -103,7 +103,7 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpGenUtxo           :: !GenesisUtxo
+    { _tpGenTxpContext     :: !GenesisTxpContext
     -- ^ Genesis 'Utxo'.
     , _tpAllSecrets        :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
@@ -136,7 +136,7 @@ instance Buildable TestParams where
             _tpStakeDistribution
             _tpStartTime
       where
-        utxo = _tpGenUtxo & \(GenesisUtxo u) -> u
+        utxo =  unGenesisUtxo (_tpGenTxpContext ^. gtcUtxo)
 
 instance Show TestParams where
     show = formatToString build
@@ -162,16 +162,8 @@ instance Arbitrary TestParams where
         let _tpAllSecrets = AllSecrets secretKeysMap
         _tpStakeDistribution <-
             genSuitableStakeDistribution (fromIntegral $ length secretKeysMap)
-        let zipF secretKey (coin, toaDistr) =
-                let addr = makePubKeyAddress (toPublic secretKey)
-                    toaOut = TxOut addr coin
-                in (TxIn (unsafeHash addr) 0, TxOutAux {..})
-        let _tpGenUtxo =
-                GenesisUtxo . M.fromList $
-                zipWith
-                    zipF
-                    (toList secretKeysMap)
-                    (stakeDistribution _tpStakeDistribution)
+        let addresses = map (makePubKeyAddress . toPublic) (toList secretKeysMap)
+        let _tpGenTxpContext = mkGenesisTxpContext $ genesisUtxo Nothing [(addresses, _tpStakeDistribution)]
         return TestParams {..}
 
 ----------------------------------------------------------------------------
@@ -240,7 +232,7 @@ initBlockTestContext tp@TestParams {..} callback = do
     let initCtx =
             TestInitModeContext
                 dbPureVar
-                _tpGenUtxo
+                (_tpGenTxpContext ^. gtcUtxo)
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -410,6 +402,12 @@ instance HasLens DelegationVar BlockTestContext DelegationVar where
 
 instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
     lensOf = btcTxpMem_L
+
+instance HasLens GenesisUtxo BlockTestContext GenesisUtxo where
+    lensOf = btcParams_L . tpGenTxpContext . gtcUtxo
+
+instance HasLens GenesisStakeholders BlockTestContext GenesisStakeholders where
+    lensOf = btcParams_L . tpGenTxpContext . gtcStakeholders
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName

@@ -64,7 +64,7 @@ lrcOnNewSlotWorker
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     recoveryCommGuard $
         when (getSlotIndex siSlot < fromIntegral slotSecurityParam) $
-            lrcSingleShot @ssc siEpoch `catch` onLrcError
+            lrcSingleShot @ssc @ctx siEpoch `catch` onLrcError
   where
     -- Here we log it as a warning and report an error, even though it
     -- can happen there we don't know recent blocks. That's because if
@@ -184,8 +184,10 @@ lrcDo epoch consumers tip = tip <$ do
                         return s
                     Left err -> do
                         logWarning $ sformat
-                            ("SSC couldn't compute seed: "%build) err
-                        logWarning "Going to reuse seed for previous epoch"
+                            ("SSC couldn't compute seed: "%build%
+                             " for epoch "%build%
+                             ", going to reuse seed for previous epoch")
+                            err epoch
                         getSeed (epoch - 1) >>=
                             maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
                 putSeed epoch seed

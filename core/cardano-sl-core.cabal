@@ -23,6 +23,12 @@ flag dev-mode
 
   description: Switch between Development and Production mode
 
+flag dev-custom-config
+  default:     False
+  manual:      True
+
+  description: Enable this to allow setting CONFIG manually, as in --ghc-options=-DCONFIG=benchmark
+
 flag embed-config
   default:     False
   manual:      True
@@ -30,10 +36,14 @@ flag embed-config
   description: Embed the config even if Development mode is enabled
 
 library
-  exposed-modules:     Pos.Core
+  exposed-modules:
+                       Pos.Arbitrary.Core
+                       Pos.Arbitrary.Core.Unsafe
+                       Pos.Arbitrary.Crypto
+                       Pos.Arbitrary.Crypto.Unsafe
+
+                       Pos.Core
                        Pos.Core.Address
-                       Pos.Core.Arbitrary
-                       Pos.Core.Arbitrary.Unsafe
                        Pos.Core.Block
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
@@ -54,8 +64,6 @@ library
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto
-                       Pos.Crypto.Arbitrary
-                       Pos.Crypto.Arbitrary.Unsafe
                        Pos.Crypto.Encryption
                        Pos.Crypto.AsBinary
                        Pos.Crypto.HD
@@ -73,10 +81,8 @@ library
 
                        Pos.Binary.Class
                        Pos.Binary.Class.Core
-                       Pos.Binary.Class.Instances
                        Pos.Binary.Class.Numbers
                        Pos.Binary.Class.Primitive
-                       Pos.Binary.Class.Store
                        Pos.Binary.Class.TH
                        Pos.Binary.Crypto
                        Pos.Binary.Merkle
@@ -115,6 +121,7 @@ library
                      , autoexporter
                      , base
                      , base58-bytestring
+                     , cborg
                      , concurrent-extra
                      , ether >= 0.5
                      , log-warper >= 1.0.3
@@ -159,8 +166,6 @@ library
                      , semigroups
                      , serokell-util
                      , stm
-                     , store
-                     , store-core
                      , tagged
                      , template-haskell
                      , text
@@ -207,6 +212,8 @@ library
   if flag(asserts)
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
-    cpp-options: -DDEV_MODE -DCONFIG=dev
+    cpp-options: -DDEV_MODE
+    if !flag(dev-custom-config)
+      cpp-options: -DCONFIG=dev
   if flag(embed-config) || !flag(dev-mode)
     cpp-options: -DEMBED_CONFIG

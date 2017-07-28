@@ -1,6 +1,6 @@
 -- | Arbitrary instances for Update System core types.
 
-module Pos.Update.Arbitrary.Core
+module Pos.Arbitrary.Update.Core
        (
        ) where
 
@@ -10,11 +10,11 @@ import qualified Data.HashMap.Strict               as HM
 import           Test.QuickCheck                   (Arbitrary (..), listOf1, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core                ()
+import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Update                 ()
-import           Pos.Core.Arbitrary                ()
 import           Pos.Crypto                        (SignTag (SignUSVote), fakeSigner,
                                                     sign, toPublic)
-import           Pos.Crypto.Arbitrary              ()
 import           Pos.Data.Attributes               (mkAttributes)
 import           Pos.Update.Core.Types             (BlockVersionModifier, SystemTag,
                                                     UpdateData (..), UpdatePayload (..),

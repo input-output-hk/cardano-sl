@@ -6,8 +6,8 @@ module Test.Pos.Update.MemStateSpec
 
 import qualified Data.HashMap.Strict   as HM
 
+import           Pos.Arbitrary.Update  ()
 import           Pos.Crypto            (PublicKey, hash)
-import           Pos.Update.Arbitrary  ()
 import qualified Pos.Update.Core       as Upd
 import qualified Pos.Update.MemState   as Upd
 

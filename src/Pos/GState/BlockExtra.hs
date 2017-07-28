@@ -24,7 +24,7 @@ import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, (%))
 import           Serokell.Util.Text   (listJson)
 
-import           Pos.Binary.Class     (encode)
+import           Pos.Binary.Class     (serialize')
 import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
@@ -32,10 +32,12 @@ import           Pos.Constants        (genesisHash)
 import           Pos.Core             (FlatSlotId, HasHeaderHash, HeaderHash, headerHash,
                                        slotIdF, unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
-import           Pos.DB               (MonadDB, MonadDBRead, RocksBatchOp (..))
+import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
+                                       RocksBatchOp (..))
 import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
+import           Pos.Util.Util        (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -57,7 +59,9 @@ isBlockInMainChain h =
 -- | This function returns 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'.
 getLastSlots :: forall m . MonadDBRead m => m LastBlkSlots
-getLastSlots = fromMaybe noLastBlkSlots <$> gsGetBi lastSlotsKey
+getLastSlots =
+    maybeThrow (DBMalformed "Last slots not found in the global state DB") =<<
+    gsGetBi lastSlotsKey
 
 ----------------------------------------------------------------------------
 -- BlockOp
@@ -89,15 +93,15 @@ instance Buildable BlockExtraOp where
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
-        [Rocks.Put (forwardLinkKey from) (encode to)]
+        [Rocks.Put (forwardLinkKey from) (serialize' to)]
     toBatchOp (RemoveForwardLink from) =
         [Rocks.Del $ forwardLinkKey from]
     toBatchOp (SetInMainChain False h) =
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
-        [Rocks.Put (mainChainKey h) (encode ()) ]
+        [Rocks.Put (mainChainKey h) (serialize' ()) ]
     toBatchOp (SetLastSlots slots) =
-        [Rocks.Put lastSlotsKey (encode slots)]
+        [Rocks.Put lastSlotsKey (serialize' slots)]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links
@@ -169,16 +173,17 @@ initGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
 initGStateBlockExtra firstGenesisHash = do
     gsPutBi (mainChainKey firstGenesisHash) ()
     gsPutBi (forwardLinkKey genesisHash) firstGenesisHash
+    gsPutBi lastSlotsKey noLastBlkSlots
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
 
 forwardLinkKey :: HeaderHash -> ByteString
-forwardLinkKey h = "e/fl/" <> encode h
+forwardLinkKey h = "e/fl/" <> serialize' h
 
 mainChainKey :: HeaderHash -> ByteString
-mainChainKey h = "e/mc/" <> encode h
+mainChainKey h = "e/mc/" <> serialize' h
 
 lastSlotsKey :: ByteString
 lastSlotsKey = "e/ls/"

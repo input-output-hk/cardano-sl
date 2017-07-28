@@ -1,6 +1,6 @@
 -- | Unsafe arbitrary instances for crypto primitives.
 
-module Pos.Crypto.Arbitrary.Unsafe () where
+module Pos.Arbitrary.Crypto.Unsafe () where
 
 import           Universum
 
@@ -19,13 +19,13 @@ import           Pos.Crypto.SignTag        (SignTag)
 import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance Bi PublicKey => ArbitraryUnsafe PublicKey where
-    arbitraryUnsafe = Bi.decodeOrFail <$> arbitrarySizedS 32
+    arbitraryUnsafe = Bi.deserialize' <$> arbitrarySizedS 32
 
 instance Bi SecretKey => ArbitraryUnsafe SecretKey where
-    arbitraryUnsafe = Bi.decodeOrFail <$> arbitrarySizedS 64
+    arbitraryUnsafe = Bi.deserialize' <$> arbitrarySizedS 64
 
 instance Bi (Signature a) => ArbitraryUnsafe (Signature a) where
-    arbitraryUnsafe = Bi.decodeOrFail <$> arbitrarySizedS 64
+    arbitraryUnsafe = Bi.deserialize' <$> arbitrarySizedS 64
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks

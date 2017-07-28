@@ -8,8 +8,9 @@ import           Universum
 
 import           Control.Exception   (Exception (..))
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, stext, (%))
+import           Formatting          (bprint, build, stext, (%))
 
+import           Pos.Block.Error     (VerifyBlocksException)
 import           Pos.Core            (StakeholderId)
 import           Pos.Crypto          (shortHashF)
 import           Pos.Exception       (cardanoExceptionFromException,
@@ -22,10 +23,10 @@ data BlockGenError
     -- be found in the context.
     | BGFailedToCreate !Text
     -- ^ Block generator failed to create a block.
-    | BGCreatedInvalid !Text
+    | BGCreatedInvalid !VerifyBlocksException
     -- ^ Block generator created invalid block.
     | BGInternal !Text
-    -- ^ Internall error occurred.
+    -- ^ Internal error occurred.
     deriving (Show)
 
 instance Buildable BlockGenError where
@@ -35,7 +36,7 @@ instance Buildable BlockGenError where
     build (BGFailedToCreate reason) =
         bprint ("Failed to create a block: "%stext) reason
     build (BGCreatedInvalid reason) =
-        bprint ("Unfortunately, I created invalid block: "%stext) reason
+        bprint ("Unfortunately, I created invalid block: "%build) reason
     build (BGInternal reason) =
         bprint ("Internal error: "%stext) reason
 

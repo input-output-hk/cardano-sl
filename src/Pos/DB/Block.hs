@@ -69,7 +69,7 @@ import           System.FilePath       ((</>))
 import           System.IO.Error       (isDoesNotExistError)
 
 import           Pos.Binary.Block      ()
-import           Pos.Binary.Class      (Bi, decodeFull, decodeOrFail, encode)
+import           Pos.Binary.Class      (Bi, decodeFull, deserialize', serialize')
 import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core        as BC
 import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
@@ -88,6 +88,7 @@ import           Pos.DB.Pure           (DBPureVar, MonadPureDB, atomicModifyIORe
 import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
                                         getNodeDBs, rocksDelete, rocksPutBi)
 import           Pos.DB.Sum            (MonadDBSum, eitherDB)
+import           Pos.Delegation.Types  (DlgUndo (..))
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Ssc.Util          (toSscBlock)
@@ -251,7 +252,7 @@ prepareBlockDB blk =
     genesisUndo =
         Undo
         { undoTx = mempty
-        , undoPsk = mempty
+        , undoDlg = DlgUndo mempty mempty
         , undoUS = def
         , undoSlog = SlogUndo Nothing
         }
@@ -287,7 +288,7 @@ type MonadBlockDBWrite ssc m
 ----------------------------------------------------------------------------
 
 decodeOrFailPureDB :: SscHelpersClass ssc => ByteString -> (Block ssc, Undo)
-decodeOrFailPureDB = decodeOrFail
+decodeOrFailPureDB = deserialize'
 
 dbGetBlundPure ::
        forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
@@ -324,8 +325,8 @@ dbPutBlundPureDefault (blk,undo) = do
     let h = headerHash blk
     (var :: DBPureVar) <- view (lensOf @DBPureVar)
     flip atomicModifyIORefPure var $
-        (pureBlocksStorage . at h .~ Just (encode (blk,undo))) .
-        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (encode $ BC.getBlockHeader blk))
+        (pureBlocksStorage . at h .~ Just (serialize' (blk,undo))) .
+        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (serialize' $ BC.getBlockHeader blk))
 
 dbGetBlockSscPureDefault ::
        forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
@@ -490,7 +491,7 @@ getData fp = flip catch handle $ liftIO $
         | otherwise = throwM e
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp = liftIO . BS.writeFile fp . encode
+putData fp = liftIO . BS.writeFile fp . serialize'
 
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
 deleteData fp = (liftIO $ removeFile fp) `catch` handle

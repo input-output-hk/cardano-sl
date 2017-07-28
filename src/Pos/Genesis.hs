@@ -12,6 +12,7 @@ module Pos.Genesis
        -- * Static state
        , stakeDistribution
        , genesisUtxo
+       , genesisUtxoProduction
        , genesisDelegation
        , genesisSeed
        , genesisLeaders
@@ -28,21 +29,21 @@ import           Universum
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
+-- import qualified Data.Ratio                 as Ratio
 import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
-import           Pos.Core                   (Address, Coin, SlotLeaders, StakeholderId,
-                                             applyCoinPortion, coinToInteger,
-                                             deriveLvl2KeyPair, divCoin,
+import           Pos.Core                   (Address (..), Coin, SlotLeaders,
+                                             StakeholderId, applyCoinPortionUp,
+                                             coinToInteger, deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
-import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),
-                                             TxOutDistribution)
-import           Pos.Txp.Toil               (Utxo, utxoToStakes)
+import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil               (GenesisUtxo (..), utxoToStakes)
 
 -- reexports
 import           Pos.Core.Genesis
@@ -58,7 +59,7 @@ bitcoinDistribution20 = map mkCoin
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders
-    | stakeholders < 20 = map fst $ stakeDistribution
+    | stakeholders < 20 = stakeDistribution
           (FlatStakes stakeholders (mkCoin 1000))
     | stakeholders == 20 = bitcoinDistribution20
     | otherwise =
@@ -83,61 +84,98 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
     toAddValMax = coin `unsafeAddCoin`
                   (toAddValMin `unsafeMulCoin` (toAddNum - 1))
 
--- | Given the stake distribution, produces map from coin to txDistr
--- (which may be empty list).
-stakeDistribution :: StakeDistribution -> [(Coin, TxOutDistribution)]
+-- | Given 'StakeDistribution', calculates a list containing amounts
+-- of coins (balances) belonging to genesis addresses.
+stakeDistribution :: StakeDistribution -> [Coin]
 stakeDistribution (FlatStakes stakeholders coins) =
     genericReplicate stakeholders val
   where
-    val = (coins `divCoin` stakeholders, [])
+    val = coins `divCoin` stakeholders
 stakeDistribution (BitcoinStakes stakeholders coins) =
-    map ((, []) . normalize) $ bitcoinDistribution1000Coins stakeholders
+    map normalize $ bitcoinDistribution1000Coins stakeholders
   where
     normalize x =
         x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
 stakeDistribution (ExponentialStakes n) =
-    [(mkCoin (2 ^ i), []) | i <- [n - 1, n - 2 .. 0]]
+    [mkCoin (2 ^ i) | i <- [n - 1, n - 2 .. 0]]
 stakeDistribution ts@RichPoorStakes {..} =
-    checkMpcThd (getTotalStake ts) sdRichStake $
-    map (, []) basicDist
+    checkMpcThd (getTotalStake ts) sdRichStake basicDist
   where
     -- Node won't start if richmen cannot participate in MPC
     checkMpcThd total richs =
-        if richs < applyCoinPortion Const.genesisMpcThd total
+        if richs < applyCoinPortionUp Const.genesisMpcThd total
         then error "Pos.Genesis: RichPoorStakes: richmen stake \
                    \is less than MPC threshold"
         else identity
     basicDist = genericReplicate sdRichmen sdRichStake ++
                 genericReplicate sdPoor sdPoorStake
-stakeDistribution (CustomStakes coins) = map (,[]) coins
+stakeDistribution (CustomStakes coins) = coins
 
--- | Generates genesis 'Utxo' given optional boot stakeholders list
--- and address distribution. In case boot stakeholders are supplied,
--- all the balance is distributed among them. Otherwise, txDistr is
--- set to @[]@ or left as it is (in case of 'ExplicitStakes').
-genesisUtxo :: Maybe (HashMap StakeholderId Word16) -> [AddrDistribution] -> Utxo
-genesisUtxo bootStakeholders ad =
-    M.fromList $ concatMap (uncurry toUtxo . second stakeDistribution) ad
+-- | Generates genesis 'Utxo' given optional boot stakeholders (with
+-- weights) and address distributions.  If genesis stakeholders are
+-- not supplied, they are calculated from address distributions by
+-- making each 'PubKeyAddress' genesis stakeholder with weight equal
+-- to balance. All the stake is distributed among genesis stakeholders
+-- (using 'genesisSplitBoot').
+--
+-- TODO [CSL-1351] This documentation will become correct later.
+genesisUtxo ::
+       Maybe (HashMap StakeholderId Word16) -> [AddrDistribution] -> GenesisUtxo
+genesisUtxo bootStakeholdersMaybe ad
+    -- TODO [CSL-1351] Uncomment ↓.
+    --- | null bootStakeholders =
+    ---     error "genesisUtxo: no stakeholders for the bootstrap era"
+    -- TODO [CSL-1351] Delete (it's here to please hlint) ↓.
+    | ((*) @Int) 2 3 == 7 = error "hlint — makaka"
+    | otherwise = GenesisUtxo . M.fromList $ map utxoEntry balances
   where
-    defaultStakeDistr coin distr
-        = maybe distr
-                (\genDistr -> genesisSplitBoot genDistr coin)
-                bootStakeholders
-    toUtxo :: [Address] -> [(Coin, TxOutDistribution)] -> [(TxIn, TxOutAux)]
-    toUtxo addr distrs =
-        let utxoEntry a (coin,txOutDistr) =
-                ( TxIn (unsafeHash a) 0
-                , TxOutAux (TxOut a coin) (defaultStakeDistr coin txOutDistr)
-                )
-        in zipWith utxoEntry addr distrs
+    -- This type is drunk.
+    somethingComplicated :: [([Address], [Coin])]
+    somethingComplicated = map (second stakeDistribution) ad
+    balances :: [(Address, Coin)]
+    balances = concatMap (uncurry zip) somethingComplicated
+    utxoEntry (addr, coin) =
+        ( TxIn (unsafeHash addr) 0
+-- Note: it's quite bad because HD wallets become stakeholders and each
+-- transaction will give them quite a lot of stake.
+-- But CSL-1351 is planned for this sprint, so I suppose it's fine (it's
+-- unlikely to cause problems anyway).
+-- TODO [CSL-1351] Delete ↓.
+        , TxOutAux (TxOut addr coin) (outDistr coin))
+    -- Empty distribution for PubKey address means that the owner of
+    -- this address will have the stake.
+    outDistr coin = maybe [] (flip genesisSplitBoot coin) bootStakeholdersMaybe
+-- TODO [CSL-1351] Uncomment ↓.
+--         , TxOutAux (TxOut addr coin) (genesisSplitBoot bootStakeholders coin))
+--     bootStakeholdersCalculated = balancesToStakeholders balances
+--     bootStakeholders =
+--         fromMaybe bootStakeholdersCalculated bootStakeholdersMaybe
+
+-- balancesToStakeholders :: [(Address, Coin)] -> HashMap StakeholderId Word16
+-- balancesToStakeholders balances = foldr step mempty balances
+--   where
+--     totalBalance = sumCoins $ map snd balances
+--     targetTotalWeight = maxBound @Word16 -- for the maximal precision
+--     calcWeight :: Coin -> Word16
+--     calcWeight balance =
+--         floor $
+--         coinToInteger balance Ratio.% totalBalance *
+--         toRational targetTotalWeight
+--     step (PubKeyAddress x _, balance) = HM.insertWith (+) x (calcWeight balance)
+--     step _                            = identity
+
+-- | 'GenesisUtxo' used in production.
+genesisUtxoProduction :: GenesisUtxo
+genesisUtxoProduction =
+    genesisUtxo (Just genesisProdBootStakeholders) genesisProdAddrDistribution
 
 -- This is probably 100% useless.
 genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: Utxo -> SlotLeaders
-genesisLeaders utxo =
+genesisLeaders :: GenesisUtxo -> SlotLeaders
+genesisLeaders (GenesisUtxo utxo) =
     followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
 
 ----------------------------------------------------------------------------

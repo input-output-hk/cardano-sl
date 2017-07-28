@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                 #-}
 
 -- TODO Maybe move it somewhere else.
 -- | Block payload generation.
@@ -38,7 +39,11 @@ import qualified Pos.GState                 as DB
 import           Pos.Slotting.Class         (MonadSlots (getCurrentSlotBlocking))
 import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
                                              TxOut (..), TxOutAux (..), TxSigData (..))
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
+#else
 import           Pos.Txp.Logic              (txProcessTransaction)
+#endif
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types         (Utxo)
 import qualified Pos.Txp.Toil.Utxo          as Utxo
@@ -209,10 +214,14 @@ genTxPayload = do
         let txAux = makeAbstractTx mkWit txInsWithSks txOutAuxs
         let tx = taTx txAux
         let txId = hash tx
+#ifdef WITH_EXPLORER
+        res <- lift . lift $ runExceptT $ eTxProcessTransaction (txId, txAux)
+#else
         res <- lift . lift $ runExceptT $ txProcessTransaction (txId, txAux)
+#endif
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
-            Right () -> do
+            Right _ -> do
                 Utxo.applyTxToUtxo (WithHash tx txId) (taDistribution txAux)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
                 let outsAsIns =

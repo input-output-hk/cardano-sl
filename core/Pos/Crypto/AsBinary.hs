@@ -12,7 +12,7 @@ import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class         (AsBinary (..), AsBinaryClass (..), Bi,
-                                           decodeFull, encode)
+                                           decodeFull, serialize')
 import           Pos.Crypto.Hashing       (hash, shortHashF)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
@@ -44,14 +44,14 @@ checkLenImpl action name expectedLen len
 
 #define Ser(B, Bytes, Name) \
   instance (Bi B, Bi (AsBinary B)) => AsBinaryClass B where {\
-    asBinary = AsBinary . checkLen "asBinary" Name Bytes . encode ;\
-    fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . encode }; \
+    asBinary = AsBinary . checkLen "asBinary" Name Bytes . serialize' ;\
+    fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . getAsBinary }; \
 
-Ser(VssPublicKey, 33, "VssPublicKey")
-Ser(Secret, 33, "Secret")
-Ser(Share, 101, "Share") --4+33+64
-Ser(EncShare, 101, "EncShare")
-Ser(SecretProof, 64, "SecretProof")
+Ser(VssPublicKey, 35, "VssPublicKey") -- 33 data + 2 of CBOR overhead
+Ser(Secret, 35, "Secret")             -- 33 data + 2 of CBOR overhead
+Ser(Share, 103, "Share")              --4+33+64
+Ser(EncShare, 103, "EncShare")
+Ser(SecretProof, 66, "SecretProof")   -- 64 data + 2 of CBOR overhead
 
 instance Buildable (AsBinary Secret) where
     build _ = "secret \\_(o.o)_/"
@@ -66,5 +66,5 @@ instance Bi (AsBinary VssPublicKey) => Buildable (AsBinary VssPublicKey) where
     build = bprint ("vsspub:"%shortHashF) . hash
 
 instance Bi SecretSharingExtra => AsBinaryClass SecretSharingExtra where
-    asBinary = AsBinary . encode
+    asBinary = AsBinary . serialize'
     fromBinary = decodeFull . getAsBinary

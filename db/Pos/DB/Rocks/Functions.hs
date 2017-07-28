@@ -48,7 +48,7 @@ import           System.Directory             (createDirectoryIfMissing,
                                                removeDirectoryRecursive)
 import           System.FilePath              ((</>))
 
-import           Pos.Binary.Class             (Bi, encode)
+import           Pos.Binary.Class             (Bi, serialize')
 import           Pos.DB.BatchOp               (rocksWriteBatch)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType)
 import           Pos.DB.Functions             (processIterEntry)
@@ -146,7 +146,7 @@ rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 
 -- | Write serializable value to RocksDb for given key.
 rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (encode v)
+rocksPutBi k v = rocksPutBytes k (serialize' v)
 
 ----------------------------------------------------------------------------
 -- Snapshot

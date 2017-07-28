@@ -488,7 +488,7 @@ type ScriptVersion = Word16
 -- | A script for inclusion into a transaction.
 data Script = Script
     { scrVersion :: ScriptVersion -- ^ Version
-    , scrScript  :: LByteString   -- ^ Serialized script
+    , scrScript  :: ByteString   -- ^ Serialized script
     } deriving (Eq, Show, Generic, Typeable)
 
 instance NFData Script

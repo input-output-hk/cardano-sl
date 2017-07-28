@@ -1,4 +1,5 @@
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE Rank2Types          #-}
 
 -- | Global settings of Txp.
 
@@ -21,26 +22,29 @@ import           Pos.DB               (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting         (MonadSlots)
 import           Pos.Txp.Core         (TxPayload, TxpUndo)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
+import           Pos.Txp.Toil.Types   (GenesisStakeholders)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util        (Some)
+import           Pos.Util.Util        (HasLens', Some)
 
-type TxpCommonMode m =
+type TxpCommonMode ctx m =
     ( WithLogger m
     , MonadDBRead m
     , MonadGState m
+    , MonadReader ctx m
+    , HasLens' ctx GenesisStakeholders
     )
 
-type TxpGlobalVerifyMode m =
-    ( TxpCommonMode m
+type TxpGlobalVerifyMode ctx m =
+    ( TxpCommonMode ctx m
     , MonadError ToilVerFailure m
     )
 
-type TxpGlobalApplyMode m =
-    ( TxpCommonMode m
+type TxpGlobalApplyMode ctx m =
+    ( TxpCommonMode ctx m
     , MonadSlots m  -- TODO: I don't like it (@gromak)
     )
 
-type TxpGlobalRollbackMode m = TxpCommonMode m
+type TxpGlobalRollbackMode ctx m = TxpCommonMode ctx m
 
 -- [CSL-1156] Maybe find better approach (at least wrap into normal types).
 type TxpBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, TxPayload)
@@ -53,12 +57,12 @@ data TxpGlobalSettings = TxpGlobalSettings
       -- First argument determines whether it should be checked that
       -- all data from transactions is known (script versions,
       -- attributes, addresses, witnesses).
-      tgsVerifyBlocks :: forall m. TxpGlobalVerifyMode m =>
+      tgsVerifyBlocks :: forall ctx m. TxpGlobalVerifyMode ctx m =>
                          Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
     , -- | Apply chain of /definitely/ valid blocks to Txp's GState.
-      tgsApplyBlocks :: forall m . TxpGlobalApplyMode m =>
+      tgsApplyBlocks :: forall ctx m . TxpGlobalApplyMode ctx m =>
                         OldestFirst NE TxpBlund -> m SomeBatchOp
     , -- | Rollback chain of blocks.
-      tgsRollbackBlocks :: forall m . TxpGlobalRollbackMode m =>
+      tgsRollbackBlocks :: forall ctx m . TxpGlobalRollbackMode ctx m =>
                            NewestFirst NE TxpBlund -> m SomeBatchOp
     }

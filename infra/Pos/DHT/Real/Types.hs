@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies  #-}
 
 module Pos.DHT.Real.Types
        ( KademliaDHTInstance (..)
@@ -8,30 +9,22 @@ module Pos.DHT.Real.Types
 import           Universum              hiding (fromStrict, toStrict)
 
 import           Control.Concurrent.STM (TVar)
-import qualified Data.ByteString        as BS
 
-import           Data.Store             (PeekException (..), decodeIOPortionWith)
 import qualified Network.Kademlia       as K
 
-import           Pos.Binary.Class       (Bi (..), encode)
+import           Data.Bifunctor         (bimap)
+import           Pos.Binary.Class       (Bi (..), deserializeOrFail', serialize')
 import           Pos.DHT.Model.Types    (DHTData, DHTKey)
 import           Pos.Util.TimeWarp      (NetworkAddress)
-import           System.IO.Unsafe       (unsafePerformIO)
 
-fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
-fromBSBinary bs = unsafePerformIO $
-    (decodeIOPortionWith get bs >>= \(off, res) -> return $ Right (res, BS.drop off bs))
-      `catch` handler
-  where
-    handler (PeekException {..}) = return $ Left (toString peekExMessage)
 
 instance Bi DHTData => K.Serialize DHTData where
-  toBS = encode
-  fromBS = fromBSBinary
+  toBS   = serialize'
+  fromBS = bimap (show . fst) identity . deserializeOrFail'
 
 instance Bi DHTKey => K.Serialize DHTKey where
-  toBS = encode
-  fromBS = fromBSBinary
+  toBS   = serialize'
+  fromBS = bimap (show . fst) identity . deserializeOrFail'
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData
 

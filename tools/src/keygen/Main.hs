@@ -19,7 +19,7 @@ import           System.Wlog          (Severity (Debug), WithLogger, consoleOutB
                                        usingLoggerName)
 import           Universum
 
-import           Pos.Binary           (decodeFull, encode)
+import           Pos.Binary           (decodeFull, serialize')
 import           Pos.Core             (StakeholderId, mkCoin)
 import           Pos.Genesis          (AddrDistribution, GenesisCoreData (..),
                                        GenesisGtData (..), StakeDistribution (..),
@@ -204,7 +204,7 @@ genGenesisFiles GenesisGenOptions{..} = do
     ------ Writing/dumping
 
     -- write genesis-core.bin
-    do let bin = encode genCoreData
+    do let bin = serialize' genCoreData
            name = "genesis-core.bin"
            path = ggoGenesisDir </> name
        liftIO $ createDirectoryIfMissing True (takeDirectory path)
@@ -216,7 +216,7 @@ genGenesisFiles GenesisGenOptions{..} = do
                logError ("Generated GenesisCoreData can't be read: " <> toText err)
 
     -- write godtossing/genesis-godtossing.bin
-    do let bin = encode genGtData
+    do let bin = serialize' genGtData
            name = "genesis-godtossing.bin"
            path = ggoGenesisDir </> name
        liftIO $ createDirectoryIfMissing True (takeDirectory path)

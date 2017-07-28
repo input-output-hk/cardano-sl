@@ -112,8 +112,8 @@ instance ToJSON IndexedAccountMeta where
 
 instance ToJSON WalletBackup where
     toJSON (WalletBackup skey wMeta wAccounts) = object
-        [ "walletSecretKey" .= B64.encode (Bi.encode prvKey)
-        , "passwordHash" .= B64.encode (Bi.encode passPhraseHash)
+        [ "walletSecretKey" .= B64.encode (Bi.serialize' prvKey)
+        , "passwordHash" .= B64.encode (Bi.serialize' passPhraseHash)
         , "walletMeta" .= wMeta
         , "accounts" .= encodeAccMap wAccounts
         ]

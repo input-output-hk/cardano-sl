@@ -86,7 +86,7 @@ nix:
 extra-deps:
 - universum-0.4.3
 - time-units-1.0.0
-- serokell-util-0.1.5.0
+- serokell-util-0.2.0.0
 - pvss-0.1
 - base58-bytestring-0.1.0
 - log-warper-1.1.2

@@ -1,21 +1,3 @@
-# GHC build artifacts
-*.o
-*.hi
-*.chi
-*.chs.h
-*.dyn_o
-*.dyn_hi
-*.prof
-*.aux
-*.hp
-*.tix
-
-# Cabal
-cabal-dev
-.cabal-sandbox/
-cabal.sandbox.config
-cabal.config
-
 # Stack
 .stack-work/
 
@@ -35,10 +17,7 @@ b
 
 # Various DBs
 node-db*
-pos-db*
-cardano-db*
 wallet-db/
-db-abc/
 db-qanet/
 wdb-qanet/
 
@@ -60,6 +39,10 @@ run
 *~
 *#
 .dir-locals.el
+GTAGS
+GRTAGS
+GPATH
+TAGS
 
 # Intellij Idea & intellij-haskell
 .idea

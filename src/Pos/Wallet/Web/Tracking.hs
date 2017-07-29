@@ -234,8 +234,9 @@ syncWalletWithGStateUnsafe encSK = do
 
         applyBlock :: (WithLogger m1, MonadUtxoRead m1)
                    => [CWAddressMeta] -> Blund ssc -> ToilT () m1 CAccModifier
-        applyBlock allAddresses (b, _) = trackingApplyTxs encSK allAddresses mDiff blkHeaderTs $
-                                         zip (gbTxs b) (repeat $ getBlockHeader b)
+        applyBlock allAddresses (b, _) =
+            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs $
+            zip (gbTxs b) (repeat $ getBlockHeader b)
 
         sync :: HeaderHash -> m ()
         sync wTip = do

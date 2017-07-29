@@ -17,7 +17,8 @@ import           Mockable                   (MonadMockable)
 import           System.Wlog                (WithLogger, logDebug, logWarning)
 
 import           Pos.Block.BListener        (MonadBListener (..))
-import           Pos.Block.Core             (BlockHeader, blockHeader, mainBlockTxPayload)
+import           Pos.Block.Core             (BlockHeader, blockHeader, getBlockHeader,
+                                             mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, difficultyL, genesisHash,
                                              headerHash, headerSlotL, prevBlockL)
@@ -83,18 +84,25 @@ onApplyTracking
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = do
     let oldestFirst = getOldestFirst blunds
-        txs = concatMap (gbTxs . fst) oldestFirst
+        blkTxs = mconcat $ toList oldestFirst <&>
+                 \(blk, _) -> sequence (getBlockHeader blk, gbTxs blk)
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
     currentTip <- GS.getTip
     sd <- GS.getSlottingData
-    mapM_ (syncWallet currentTip sd newTipH txs) =<< WS.getWalletAddresses
+    mapM_ (syncWallet currentTip sd newTipH blkTxs) =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWallet :: HeaderHash -> SlottingData -> BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
-    syncWallet currentTip sd newTipH txs wAddr = walletGuard currentTip wAddr $ do
+    syncWallet
+        :: HeaderHash
+        -> SlottingData
+        -> BlockHeader ssc
+        -> [(BlockHeader ssc, TxAux)]
+        -> CId Wal
+        -> m ()
+    syncWallet currentTip sd newTipH blkTxs wAddr = walletGuard currentTip wAddr $ do
         let mainBlkHeaderTs mBlkH =
                 getSlotStartPure True (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
@@ -104,7 +112,7 @@ onApplyTracking blunds = do
         mapModifier <- runDBTxp $
                        evalToilTEmpty $
                        trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
-                       zip txs $ repeat newTipH
+                       map swap blkTxs
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
 

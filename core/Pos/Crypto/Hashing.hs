@@ -135,7 +135,7 @@ abstractHash = unsafeAbstractHash
 unsafeAbstractHash
     :: (HashAlgorithm algo, Bi a)
     => a -> AbstractHash algo b
-unsafeAbstractHash = AbstractHash . Hash.hash . Bi.encode
+unsafeAbstractHash = AbstractHash . Hash.hash . Bi.serialize'
 
 -- | Type alias for commonly used hash
 type Hash = AbstractHash Blake2b_256

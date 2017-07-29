@@ -207,46 +207,34 @@ mkCTxs
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> [CWAddressMeta]    -- ^ Addresses of wallet
-    -> Bool               -- ^ Workaround for redemption txs (introduced in CSM-330)
     -> Either Text CTxs
-mkCTxs diff THEntry {..} meta wAddrMetas isRedemptionTx = do
-    ctInputAddrsNe <-
-        nonEmpty ctInputAddrs
-        `whenNothing` throwError "No input addresses in tx!"
-    let isLocalAddr = isTxLocalAddress wAddrMetas ctInputAddrsNe
-        isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
-        -- We check against `wAddrsSet` instead of using `isLocalAddr` here
-        -- because of the redeem transactions. `isLocalAddr` checks whether
-        -- the address belongs to the same _wallet_ as the _inputs_ of the
-        -- current transaction, which is never the case for redeem txs.
-        -- TODO(thatguy): since there is only one special case, perhaps we
-        -- want to consider it separately and use `isLocalAddr` in other cases.
-        -- [CSM-309] Bad for multiple-destinations transactions
-        allOutputsBelongToUs = all (`S.member` wAddrsSet) ctOutputAddrs
-        outputsForAmountCalc =
-            outputs &
-            if isRedemptionTx then identity else filter (not . isLocalTxOutput)
-        ctAmount =
-            mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
-            outputsForAmountCalc
-        mkCTx isOutgoing mbSignificantAddrs = do  -- Maybe monad starts here
-            -- Return `Nothing` if none of the significantAddrs belong to us.
-            guard $
-                maybe True
-                (\significantAddrs ->
-                    not . null $ wAddrsSet `S.intersection` S.fromList significantAddrs)
-                mbSignificantAddrs
-            return CTx {ctIsOutgoing = isOutgoing, ..}
-        -- Output addresses whose presence makes us display the transaction
-        -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
-        ctSignificantOutputAddrs =
-            ctOutputAddrs &
-            if allOutputsBelongToUs then identity else filter (not . isLocalAddr)
-        ctsOutgoing = mkCTx True $ Just ctInputAddrs
-        ctsIncoming = mkCTx False $ if isRedemptionTx then Nothing else Just ctSignificantOutputAddrs
+mkCTxs diff THEntry {..} meta wAddrMetas = do
+    let isOurTxOutput = flip S.member wAddrsSet . addressToCId . txOutAddress
+
+        ownInputs = filter isOurTxOutput inputs
+        ownOutputs = filter isOurTxOutput outputs
+
+    when (null ownInputs && null ownOutputs) $
+        throwError "Transaction is irrelevant to given wallet!"
+
+    let sumMoney = sumCoins . map txOutValue
+        outgoingMoney = sumMoney ownInputs
+        incomingMoney = sumMoney ownOutputs
+        isOutgoing = outgoingMoney >= incomingMoney
+        isIncoming = incomingMoney >= outgoingMoney
+
+        ctAmount = mkCCoin . unsafeIntegerToCoin $
+            if | isOutgoing && isIncoming -> 0
+               | isOutgoing -> outgoingMoney - incomingMoney
+               | isIncoming -> incomingMoney - outgoingMoney
+
+        mkCTx ctIsOutgoing cond = guard cond $> CTx {..}
+        ctsOutgoing = mkCTx True isOutgoing
+        ctsIncoming = mkCTx False isIncoming
     return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
+    inputs = _thInputs
     outputs = toList $ _txOutputs _thTx
     ctInputAddrs = map addressToCId _thInputAddrs
     ctOutputAddrs = map addressToCId _thOutputAddrs

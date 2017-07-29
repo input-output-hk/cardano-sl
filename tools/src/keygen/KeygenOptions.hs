@@ -3,6 +3,8 @@
 
 module KeygenOptions
        ( KeygenOptions (..)
+       , KeygenCommand (..)
+       , DumpAvvmSeedsOptions (..)
        , GenesisGenOptions (..)
        , AvvmStakeOptions (..)
        , TestStakeOptions (..)
@@ -10,30 +12,38 @@ module KeygenOptions
        , getKeygenOptions
        ) where
 
-import           Data.String.QQ               (s)
-import           Data.Version                 (showVersion)
-import           Options.Applicative          (Parser, auto, execParser, footerDoc,
-                                               fullDesc, header, help, helper, info,
-                                               infoOption, long, metavar, option,
-                                               progDesc, short, strOption, value)
-import           Serokell.Util.OptParse       (fromParsec)
-import qualified Text.Parsec                  as P
-import qualified Text.Parsec.String           as P
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Data.Version           (showVersion)
+import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
+                                         header, help, helper, info, infoOption, long,
+                                         metavar, option, progDesc, short, strOption,
+                                         subparser, value)
+import           Serokell.Util.OptParse (fromParsec)
+import qualified Text.Parsec            as P
+import qualified Text.Parsec.String     as P
 import           Universum
 
-import           Pos.Core.Types               (Address (..), StakeholderId)
-import           Pos.Types                    (decodeTextAddress)
+import           Pos.Core.Types         (Address (..), StakeholderId)
+import           Pos.Types              (decodeTextAddress)
 
-import           Paths_cardano_sl             (version)
+import           Paths_cardano_sl       (version)
 
--- Keygen has 3 operation modes. Yes, it's "better" to implement it
--- using optparse command api.
 data KeygenOptions = KeygenOptions
-    { koRearrangeMask  :: Maybe FilePath
-    , koDumpDevGenKeys :: Maybe FilePath
-    , koGenesisGen     :: Maybe GenesisGenOptions
-    }
+    { koCommand :: KeygenCommand
+    } deriving (Show)
+
+data KeygenCommand
+    = RearrangeMask FilePath
+    | DumpDevGenKeys FilePath
+    | DumpAvvmSeeds DumpAvvmSeedsOptions
+    | GenerateGenesis GenesisGenOptions
+    deriving (Show)
+
+data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
+    { dasNumber :: Int
+      -- ^ Number of seeds to generate.
+    , dasPath   :: FilePath
+      -- ^ Path to directory to generate seeds in.
+    } deriving (Show)
 
 data GenesisGenOptions = GenesisGenOptions
     { ggoGenesisDir       :: FilePath
@@ -67,19 +77,43 @@ data FakeAvvmOptions = FakeAvvmOptions
     , faoOneStake :: Word64
     } deriving (Show)
 
-optionsParser :: Parser KeygenOptions
-optionsParser = do
-    koRearrangeMask <- optional $ strOption $
-        long    "rearrange-mask" <>
+keygenCommandParser :: Parser KeygenCommand
+keygenCommandParser =
+    subparser $ mconcat $
+    [ command "rearrange"
+      (infoH rearrangeMask (progDesc "Rearrange keyfiles."))
+    , command "dump-dev-keys"
+      (infoH dumpKeys (progDesc "Dump CSL dev-mode keys."))
+    , command "generate-avvm-seeds"
+      (infoH (fmap DumpAvvmSeeds dumpAvvmSeedsParser)
+            (progDesc "Generate avvm seeds with public keys."))
+    , command "generate-genesis"
+      (infoH (fmap GenerateGenesis genesisGenParser)
+            (progDesc "Generate CSL genesis files."))
+    ]
+  where
+    infoH a b = info (helper <*> a) b
+    rearrangeMask = fmap RearrangeMask . strOption $
+        long    "mask" <>
         metavar "PATTERN" <>
         help    "Secret keyfiles to rearrange."
-    koDumpDevGenKeys <- optional $ strOption $
-        long    "dump-dev-genesis-keys" <>
+    dumpKeys = fmap DumpDevGenKeys . strOption $
+        long    "pattern" <>
         metavar "PATTERN" <>
         help    "Dump keys from genesisDevSecretKeys to files \
                 \named according to this pattern."
-    koGenesisGen <- optional genesisGenParser
-    pure KeygenOptions{..}
+
+dumpAvvmSeedsParser :: Parser DumpAvvmSeedsOptions
+dumpAvvmSeedsParser = do
+    dasNumber <-
+        option auto $
+        long "count" <> short 'n' <> metavar "INTEGER" <>
+        help "Number of seeds to generate."
+    dasPath <-
+        strOption $
+        long "output" <> short 'o' <> metavar "FILEPATH" <>
+        help "Path to dump generated seeds to."
+    pure $ DumpAvvmSeedsOptions {..}
 
 genesisGenParser :: Parser GenesisGenOptions
 genesisGenParser = do
@@ -87,7 +121,7 @@ genesisGenParser = do
         long    "genesis-dir" <>
         metavar "DIR" <>
         value   "." <>
-        help    "Directory to dump genesis data into"
+        help    "Directory to dump genesis data into."
     ggoTestStake <- optional testStakeParser
     ggoAvvmStake <- optional avvmStakeParser
     ggoFakeAvvmStake <- optional fakeAvvmParser
@@ -191,32 +225,9 @@ bootStakeholderParser =
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> optionsParser) $
-        fullDesc <> progDesc "Produce 'genesis-*' directory with generated keys."
-                 <> header "Tool to generate keyfiles."
-                 <> footerDoc (Just usageExample)
+    programInfo = info (helper <*> versionOption <*> (KeygenOptions <$> keygenCommandParser)) $
+        fullDesc <> header "Tool to generate keyfiles-related data"
 
     versionOption = infoOption
         ("cardano-keygen-" <> showVersion version)
         (long "version" <> help "Show version.")
-
-usageExample :: Doc
-usageExample = [s|
-Command example:
-
-  stack exec -- cardano-keygen                          \
-    --genesis-dir genesis                               \
-    -m 5                                                \
-    -n 1000                                             \
-    --richmen-share 0.94                                \
-    --testnet-stake 19072918462000000                   \
-    --utxo-file /tmp/avvm-files/utxo-dump-last-new.json \
-    --randcerts                                         \
-    --blacklisted /tmp/avvm-files/full_blacklist.js     \
-    --fake-avvm-entries 100                             \
-    --bootstakeholder "1fKNcnJ44voGtWmekuKic1HJdbHEwd1YEwZNu6XaAwE8RSk,5" \
-    --bootstakeholder "1HJdbHEwd1YEwZNu6XaAwE8RSk1fKNcnJ44voGtWmekuKic,3" \
-    --bootstakeholder "8RSk1fKNcnJ41HJdbNu6XaAwE4voGtWmekuHEwd1YEwZKic,2"
-
-Subdirectory 'genesis-*/keys-testnet' contains keys for uploading to nodes (in cluster).
-Subdirectory 'genesis-*/keys-fakeavvm' contains AVVM seeds. |]

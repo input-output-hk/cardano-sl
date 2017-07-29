@@ -185,12 +185,12 @@ computeSharesDistrPure richmen threshold
                       put (delta, s, curDistr)
 
     calcSumError:: [Rational] -> [Rational] -> Rational
-    calcSumError pNew p = runIdentity $ do
+    calcSumError pNew p = do
         let sorted1 = sortOn (\(a, b) -> b / a) $ zip p pNew
         let sorted2 = sortOn (\(a, b) -> b - a) $ zip p pNew
         let res1 = max (computeError1 0 0 sorted1) (computeError2 0 0 $ reverse sorted1)
         let res2 = max (computeError1 0 0 sorted2) (computeError2 0 0 $ reverse sorted2)
-        pure $ max res1 res2
+        max res1 res2
 
     half = 0.5::Rational
     -- Error when real stake more than 0.5 but our new stake less

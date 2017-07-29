@@ -12,12 +12,10 @@ import           Universum
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, InvalidRichmenStakes (..),
                                         ValidRichmenStakes (..))
-import           Pos.Constants         (genesisMpcThd)
-import           Pos.Core              (Coin, mkCoin, unsafeAddressHash, StakeholderId,
-                                        unsafeCoinPortionFromDouble,
+import           Pos.Core              (Coin, mkCoin, unsafeAddressHash, StakeholderId, CoinPortion,
                                         unsafeCoinPortionFromDouble, unsafeGetCoin,
                                         unsafeSubCoin)
-import           Pos.Core.Coin         (applyCoinPortionDown, coinPortionToDouble,
+import           Pos.Core.Coin         (applyCoinPortionDown,
                                         sumCoins)
 import           Pos.Lrc               (RichmenStakes, RichmenType (RTUsual),
                                         findRichmenPure)
@@ -33,20 +31,21 @@ spec = describe "computeSharesDistr" $ do
     prop validRichmenStakesWorksDesc validRichmenStakesWorks
     prop lrcConsistencyDesc lrcConsistency
 
-    describe "distributionNotBig" $ do
+    describe "Distribution is limited" $ do
         prop oneRichRichmanDesc oneRichRichman
         prop twoRichRichmenDesc twoRichRichmen
         prop onePoorOneRichDesc onePoorOneRich
+        prop severalPoorRichmenDesc severalPoorRichmen
         prop severalPoorOneRichRichmenDesc severalPoorOneRichRichmen
 
-    describe "distributionFairness" $ do
+    describe "Validate distribution fairness" $ do
         prop severalSimilarRichmenDesc severalSimilarRichmen
         prop twentyRichmen1Desc twentyRichmen1
         prop twentyRichmen2Desc twentyRichmen2
         modifyMaxSuccess (const 3) $
             prop validateFairnessDesc validateFairness
   where
-    emptyRichmenStakesDesc = "Fails to calculate a share distribution when the richmen\
+    emptyRichmenStakesDesc = "Doesn't fail to calculate a share distribution when the richmen\
     \ stake is empty."
     allRichmenGetShareDesc = "All richmen are awarded a non-zero share, and richmen who\
     \ do not participate in the share distribution are awarded none"
@@ -64,6 +63,8 @@ spec = describe "computeSharesDistr" $ do
     twoRichRichmenDesc = "Two richmen with almost half of stake, sum of distribution mustn't be big"
     onePoorOneRichDesc = "Two richmen: first with mpcThd stake, second with remained stake,\
     \ sum of distribution mustn't be big"
+    severalPoorRichmenDesc =
+        "Several poor richmen, sum of distribution mustn't be big"
     severalPoorOneRichRichmenDesc =
         "Several richmen, one of them control most of stake, sum of distribution mustn't be big"
 
@@ -74,29 +75,35 @@ spec = describe "computeSharesDistr" $ do
     validateFairnessDesc = "Given a valid richmen, validate fairness"
 
 computeShares' :: RichmenStakes -> Either TossVerFailure SharesDistribution
-computeShares' stake = computeSharesDistrPure stake genesisMpcThd
+computeShares' stake = computeSharesDistrPure stake testMpcThdPortition
+
+testMpcThd :: Double
+testMpcThd = 0.01
+
+testMpcThdPortition :: CoinPortion
+testMpcThdPortition = unsafeCoinPortionFromDouble testMpcThd
 
 -- Check that sum of distribtuion is less than passed value
 isLimitedBy :: Word16 -> SharesDistribution -> Bool
 isLimitedBy mx sd = sum (toList sd) <= mx
 
--- This type descibes the
+-- This type describes the
 -- (max inaccuracy, number of bad cases of the first type, number of bad cases of the second type)
--- More datails see in the @isDistrFair@ description.
+-- More details see in the @isDistrFair@ description.
 type Unfairness = (Rational, Int, Int)
 
--- We will call distribution is fair, if the max inaccuracy less than 0.05
--- and number of bad cases less than 5% of all 2^n cases.
+-- We will call distribution fair, if the max inaccuracy is less than 0.05
+-- and number of bad cases is less than 5% of all 2^n cases.
 -- Max inaccuracy is more or less heuristic value
 -- which means which inaccuracy we can get in the bad case.
--- This inaccuracy can lead two bad situation:
+-- This inaccuracy can lead to two bad situation:
 -- 1. when nodes mustn't reveal commitment, but they can
 -- 2. when nodes must reveal commitment, but they can't.
--- We can get these situations when sum of stakes of nodes which sent shares close to 0.5.
--- Max inaccuracy is comupted as difference between generated stake and 0.5.
--- There is way to estimate inaccurasy as difference between real distribution and
--- generated. On the one hand it make sense but on the other hand this difference
--- isn't not so important.
+-- We can get these situations when sum of stakes of nodes which sent shares is close to 0.5.
+-- Max inaccuracy is computed as difference between generated stake and 0.5.
+-- There is way to estimate inaccuracy as difference between real distribution and
+-- generated. On the one hand it makes sense but on the other hand this difference
+-- is not so important.
 isDistrFair :: RichmenStakes -> SharesDistribution -> Bool
 isDistrFair rs sd
     | length rs > 20 = error "Too many richmen"
@@ -116,7 +123,7 @@ isDistrFair rs sd
     fairBrute :: [(Rational, Rational)] -> Rational -> Rational -> Unfairness
     fairBrute [] real generated = computeUnfairness real generated
     fairBrute ((r, g):xs) !real !generated
-        -- We get the situation when both these values more than 0.5,
+        -- We get the situation when both these values are greater than 0.5,
         -- so we can't get some unfairness afterwards.
         | real > 0.5 && generated > 0.5 = (0, 0, 0)
         | otherwise = do
@@ -137,12 +144,12 @@ isDistrFair rs sd
     computeUnfairness :: Rational -> Rational -> Unfairness
     computeUnfairness real generated
         -- Strictly say constant 0.5 depends on number of shares required
-        -- to reaval of commitment.
-        -- Bad case of the first type when
+        -- to reveal of commitment.
+        -- Bad case of the first type is
         -- nodes can reveal commitment using shares
         -- but real coin distribution says that nodes can't do it.
         | real < 0.5 && generated > 0.5 = (generated - 0.5, 1, 0)
-        -- Bad case of the second type when
+        -- Bad case of the second type is
         -- nodes can't reveal commitment using shares of honest nodes
         -- but real coin distribution says that nodes can do it.
         | real > 0.5 && generated < 0.5 = (0.5 - generated, 0, 1)
@@ -157,7 +164,7 @@ isDistrReasonable mx rs (Right sd) =
     isDistrFair rs sd
 
 isDistrReasonableMax :: RichmenStakes -> Either TossVerFailure SharesDistribution -> Bool
-isDistrReasonableMax = isDistrReasonable 300
+isDistrReasonableMax = isDistrReasonable $ truncate $ toRational (3::Int) / toRational testMpcThd
 
 maxCoin :: Coin
 maxCoin = maxBound @Coin
@@ -197,12 +204,17 @@ twoRichRichmen = isDistrReasonable 2 richmen $ computeShares' richmen
 onePoorOneRich :: Bool
 onePoorOneRich = isDistrReasonable 100 richmen $ computeShares' richmen
   where
-    richmen = richmenStakesFromFractions [0.01, 0.99]
+    richmen = richmenStakesFromFractions [testMpcThd, 1 - testMpcThd]
+
+severalPoorRichmen :: Bool
+severalPoorRichmen = isDistrReasonable 19 richmen $ computeShares' richmen
+  where
+    richmen = richmenStakesFromFractions [testMpcThd, 0.051, 0.13]
 
 severalPoorOneRichRichmen :: Bool
-severalPoorOneRichRichmen = isDistrReasonable 100 richmen $ computeShares' richmen
+severalPoorOneRichRichmen = isDistrReasonable 99 richmen $ computeShares' richmen
   where
-    distr = [0.01, 0.051, 0.13]
+    distr = [testMpcThd, 0.051, 0.13]
     richmen = richmenStakesFromFractions $ 1 - sum distr : distr
 
 ----------------------------------------------------------------------------
@@ -251,8 +263,7 @@ validRichmenStakesWorks :: ValidRichmenStakes GenesisMpcThd -> Bool
 validRichmenStakesWorks (getValid -> richmen) =
     let outputStakeholder = computeShares' richmen
         totalCoins = sumCoins $ HM.elems richmen
-        mpcThreshold = coinPortionToDouble genesisMpcThd
-        minStake = mkCoin . ceiling $ (fromIntegral totalCoins) * mpcThreshold
+        minStake = mkCoin . ceiling $ (fromIntegral totalCoins) * testMpcThd
     in case outputStakeholder of
         Left _  -> False
         Right _ -> all (\x -> x >= minStake && x > (mkCoin 0)) richmen
@@ -269,8 +280,8 @@ invalidStakeErrors (getInvalid -> richmen) =
 lrcConsistency :: Property
 lrcConsistency =
     let
-        (_, richmen) = findRichmenPure stakes mpcThd RTUsual
-        Right sharesDistr = computeSharesDistrPure richmen mpcThd
+        (_, richmen) = findRichmenPure stakes mpcThd' RTUsual
+        Right sharesDistr = computeSharesDistrPure richmen mpcThd'
     in
         all (> 0) (toList sharesDistr) .&&.
         HM.keys sharesDistr === HM.keys richmen
@@ -280,4 +291,4 @@ lrcConsistency =
     stakeholders = map unsafeAddressHash [0 :: Integer ..]
     coins        = map mkCoin [1,2,4,6,8,19,39,78,156,312]
     -- threshold used for the test
-    mpcThd = unsafeCoinPortionFromDouble 0.01
+    mpcThd' = unsafeCoinPortionFromDouble 0.01

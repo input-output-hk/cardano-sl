@@ -1,0 +1,80 @@
+
+.explorer-dashboard {
+
+  &__hero {
+    color: var(--color0);
+    background-color: transparent;
+    text-align: center;
+  }
+
+  .hero {
+
+    &-container {
+      @extend .hide;
+    }
+
+    @media (--md) {
+      &-container {
+        @extend .show;
+        @extend .outer-container;
+        lost-utility: clearfix;
+
+        padding: 18px 48px var(--height-header-top) 48px;
+
+        .logo__container {
+          width: 100%;
+          padding-bottom: 18px;
+        }
+
+        .logo__wrapper {
+          height: 100%;
+          box: horizontal center;
+        }
+
+        .logo__img {
+          width: 49px;
+          height: 45px;
+        }
+
+        .explorer-search {
+          &__container {
+            lost-column: 7/12;
+            lost-offset: 2.5/12;
+
+            @extend .animated;
+            @extend .fadeIn;
+
+            animation-duration: .3s;
+            /* We do need a little delay
+            to hide previous state */
+            animation-delay: .1s;
+
+            &.focused {
+              transition: all 0.3s ease;
+              lost-column: 10/12;
+              lost-offset: 1/12;
+            }
+          }
+        }
+      }
+    }
+
+
+    &-headline {
+      font-size: 26px;
+      line-height: 1.25;
+      color: var(--color3);
+      font-family: var(--fontFamily0-Light);
+    }
+
+    &-subheadline {
+      font-size: 13px;
+      line-height: 1.4;
+      font-family: var(--fontFamily0-Light);
+      color: color(var(--color3) a(0.5));
+      margin:10px 0;
+      padding-bottom: 15px;
+    }
+
+  }
+}

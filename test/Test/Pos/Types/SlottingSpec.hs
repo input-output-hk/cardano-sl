@@ -11,9 +11,9 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (NonNegative (..), Positive (..), Property, (===),
                                         (==>))
 
-import           Pos.Arbitrary.Core    (EoSToIntOverflow (..))
-import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
-                                        flattenSlotId, unflattenSlotId)
+import           Pos.Arbitrary.Core    (EoSToIntOverflow (..), UnreasonableEoS (..))
+import           Pos.Types             (EpochOrSlot, SlotId (..), flattenSlotId,
+                                        unflattenSlotId)
 import           Test.Pos.Util         (shouldThrowException, (.=.))
 
 spec :: Spec
@@ -36,6 +36,8 @@ spec = describe "Slotting" $ do
             succToMaxBound
         prop "from . toEnum = id @Int" toFromEnum
         prop "toEnum . fromEnum = id @EpochOrSlot" fromToEnum
+        prop "toEnum . fromEnum = id @EpochOrSlot (with very large, larger than \
+             \ 'maxReasonableEpoch', epochs" fromToEnumLargeEpoch
         prop "calling 'fromEnum' with a result greater than 'maxBound :: Int' will raise \
               \ an exception" fromEnumOverflow
         prop "calling 'toEnum' with a negative number will raise an exception"
@@ -52,7 +54,7 @@ predThenSucc eos = eos > minBound ==> succ (pred eos) === eos
 
 predToMinBound :: Expectation
 predToMinBound =
-    shouldThrowException pred anyErrorCall (EpochOrSlot $ Left (EpochIndex 0))
+    shouldThrowException pred anyErrorCall (minBound :: EpochOrSlot)
 
 succThenPred :: EpochOrSlot -> Property
 succThenPred eos = eos < maxBound ==> pred (succ eos) === eos
@@ -60,14 +62,19 @@ succThenPred eos = eos < maxBound ==> pred (succ eos) === eos
 succToMaxBound :: Expectation
 succToMaxBound = shouldThrowException succ anyErrorCall (maxBound :: EpochOrSlot)
 
+-- It is not necessary to check that 'int < fromEnum (maxBound :: EpochOrSlot)' because
+-- this is not possible with the current implementation of the type.
 toFromEnum :: NonNegative Int -> Property
 toFromEnum (getNonNegative -> int) = fromEnum (toEnum @EpochOrSlot int) === int
 
 fromToEnum :: EpochOrSlot -> Property
 fromToEnum = toEnum . fromEnum .=. identity
 
+fromToEnumLargeEpoch :: UnreasonableEoS -> Property
+fromToEnumLargeEpoch (getUnreasonable -> eos) = toEnum (fromEnum eos) === eos
+
 fromEnumOverflow :: EoSToIntOverflow-> Expectation
-fromEnumOverflow (getInt -> eos) =
+fromEnumOverflow (getEoS -> eos) =
     shouldThrowException (fromEnum @EpochOrSlot) anyErrorCall eos
 
 toEnumNegative :: Positive Int -> Expectation

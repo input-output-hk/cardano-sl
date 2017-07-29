@@ -104,14 +104,16 @@ instance Enum EpochOrSlot where
     fromEnum (EpochOrSlot (Left e)) =
         let res = toInteger e * toInteger (epochSlots + 1)
             maxIntAsInteger = toInteger (maxBound :: Int)
-        in if | res > maxIntAsInteger -> error "fromEnum @EpochOrSlot"
+        in if | res > maxIntAsInteger ->
+                  error "fromEnum @EpochOrSlot: Argument larger than 'maxBound :: Int'"
               | otherwise -> fromIntegral res
     fromEnum (EpochOrSlot (Right SlotId {..})) =
         let res = toInteger (fromEnum (EpochOrSlot (Left siEpoch))) +
                   toInteger (getSlotIndex siSlot) +
                   1
             maxIntAsInteger = toInteger (maxBound :: Int)
-        in if | res > maxIntAsInteger -> error "fromEnum @EpochOrSlot"
+        in if | res > maxIntAsInteger ->
+                  error "fromEnum @EpochOrSlot: Argument larger than 'maxBound :: Int'"
               | otherwise -> fromIntegral res
     toEnum x =
         let (fromIntegral -> epoch, fromIntegral -> slot) =

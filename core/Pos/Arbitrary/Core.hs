@@ -16,6 +16,7 @@ module Pos.Arbitrary.Core
        , SafeCoinPairSub (..)
        , SafeWord (..)
        , SmallHashMap (..)
+       , UnreasonableEoS (..)
        ) where
 
 import           Universum
@@ -95,7 +96,7 @@ Using, as an example,
     import Data.Derive.TH (derive, makeArbitrary)
 
     data A = A
-        { getA  :: [(String, Int)]
+        { getA1 :: [(String, Int)]
         , getA2 :: Float
         } deriving (Show, Eq, Generic)
     -- `A`'s inner types can be anything for which the constraints make sense
@@ -118,6 +119,53 @@ instance Arbitrary Types.EpochOrSlot where
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
         ]
+    shrink = genericShrink
+
+-- | A wrapper over 'EpochOrSlot'. When converted to 'EpochOrSlot' via 'fromEnum', using
+-- this type ensures there's an exception.
+newtype EoSToIntOverflow = EoSToIntOverflow
+    { getEoS :: Types.EpochOrSlot
+    } deriving (Show, Eq)
+
+instance Arbitrary EoSToIntOverflow where
+    arbitrary = EoSToIntOverflow <$> do
+        let maxIntAsInteger = toInteger (maxBound :: Int)
+            maxW64 = toInteger (maxBound :: Word64)
+            (minDiv, minMod) = maxIntAsInteger `divMod` (fromIntegral $ succ epochSlots)
+            maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
+        leftEpoch <- Types.EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
+        localSlot <-
+            leftToPanic "arbitrary@EoSToIntOverflow" .
+            Types.mkLocalSlotIndex .
+            fromIntegral <$> choose (minMod, toInteger epochSlots)
+        let rightEpoch = Types.EpochIndex . fromIntegral $ minDiv
+        Types.EpochOrSlot <$>
+            oneof [ pure $ Left leftEpoch
+                  , pure $ Right Types.SlotId { siEpoch = rightEpoch
+                                              , siSlot = localSlot}
+                  ]
+
+-- | Wrapper over 'EpochOrSlot'. Its 'Arbitrary' instance is made to guarantee its
+-- 'EpochIndex' is in the interval (maxReasonableEpoch, maxBound :: Word64 ].
+-- This is to ensure the property 'toEnum . fromEnum = id' holds for all 'EpochOrSlot',
+-- not just the ones whose 'EpochIndex' uses the "reasonable" 'Arbitrary' instance.
+newtype UnreasonableEoS = Unreasonable
+    { getUnreasonable :: Types.EpochOrSlot
+    } deriving (Show, Eq, Generic)
+
+instance Arbitrary UnreasonableEoS where
+    arbitrary = Unreasonable . Types.EpochOrSlot <$> do
+        let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
+        localSlot <- arbitrary
+        let lsIntegral = fromIntegral . Types.getSlotIndex $ localSlot
+        let epoch n = Types.EpochIndex <$>
+                choose (succ maxReasonableEpoch
+                       , fromIntegral maxI - (n * fromIntegral (succ epochSlots)))
+        leftEpoch <- Left <$> epoch 0
+        rightSlot <- Right . (flip Types.SlotId localSlot) <$> epoch lsIntegral
+        oneof [ pure leftEpoch
+              , pure rightSlot
+              ]
     shrink = genericShrink
 
 instance Arbitrary h => Arbitrary (Attributes h) where
@@ -285,30 +333,6 @@ newtype SafeWord = SafeWord
 
 instance Arbitrary SafeWord where
     arbitrary = SafeWord . Types.getCoinPortion <$> arbitrary
-
--- | A wrapper over 'Int'. When converted to 'EpochOrSlot' via 'fromEnum', using this
--- type ensures there's an exception.
-newtype EoSToIntOverflow = EoSToIntOverflow
-    { getInt :: Types.EpochOrSlot
-    } deriving (Show, Eq)
-
-instance Arbitrary EoSToIntOverflow where
-    arbitrary = EoSToIntOverflow <$> do
-        let maxIntAsInteger = toInteger (maxBound :: Int)
-            maxW64 = toInteger (maxBound :: Word64)
-            (minDiv, minMod) = maxIntAsInteger `divMod` (1 + fromIntegral epochSlots)
-            maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
-        leftEpoch <- Types.EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
-        localSlot <-
-            leftToPanic "arbitrary@EoSToIntOverflow" .
-            Types.mkLocalSlotIndex .
-            fromIntegral <$> choose (minMod, toInteger epochSlots)
-        let rightEpoch = Types.EpochIndex . fromIntegral $ minDiv
-        Types.EpochOrSlot <$>
-            oneof [ pure $ Left leftEpoch
-                  , pure $ Right Types.SlotId { siEpoch = rightEpoch
-                                              , siSlot = localSlot}
-                  ]
 
 instance Arbitrary Types.SharedSeed where
     arbitrary = do

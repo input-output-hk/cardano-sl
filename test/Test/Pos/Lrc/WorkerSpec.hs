@@ -9,23 +9,29 @@ module Test.Pos.Lrc.WorkerSpec
 import           Universum
 
 import           Control.Lens              (_head, _tail)
+import qualified Data.HashMap.Strict       as HM
 import           Serokell.Util             (enumerate, subList)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck           (Gen, arbitrary)
 
+import qualified Pos.Constants             as Const
 import           Pos.Core                  (Address, Coin, applyCoinPortionUp,
                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
                                             unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic)
 import           Pos.Generator.Block       (AllSecrets (..), mkInvSecretsMap)
 import           Pos.Genesis               (StakeDistribution (..), genesisUtxo)
+import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (mkGenesisTxpContext)
 import           Pos.Util.Arbitrary        (nonrepeating)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
                                             blockPropertyToProperty)
+import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..),
+                                            bpGenBlocks)
+import           Test.Pos.Util             (maybeStopProperty, stopProperty)
 
 spec :: Spec
 -- Currently we want to run it only once, because there is no much
@@ -91,4 +97,27 @@ genTestParams = do
         return (addresses, CustomStakes stakes)
 
 lrcCorrectnessProp :: BlockProperty ()
-lrcCorrectnessProp = pass
+lrcCorrectnessProp = do
+    -- We don't use 'crucialSlot' or anything similar, because we
+    -- don't want to rely on the code, but rather want to use our knowledge.
+    let blockCount0 = 8 * Const.blkSecurityParam
+    () <$ bpGenBlocks (Just blockCount0) (EnableTxPayload False) (InplaceDB True)
+    stableUtxo <- lift GS.getAllPotentiallyHugeUtxo
+    stableStakes <- lift GS.getAllPotentiallyHugeStakesMap
+    let blockCount1 = 2 * Const.blkSecurityParam
+    () <$ bpGenBlocks (Just blockCount1) (EnableTxPayload False) (InplaceDB True)
+    lift $ Lrc.lrcSingleShotNoLock 1
+    leaders1 <-
+        maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
+    -- Here we use 'genesisSeed' (which is the seed for the 0-th
+    -- epoch) because we have a contract that if there is no ssc
+    -- payload the previous seed must be reused (which is the case in
+    -- this test).
+    let expectedLeadersUtxo =
+            Lrc.followTheSatoshiUtxo Lrc.genesisSeed stableUtxo
+    let expectedLeadersStakes =
+            Lrc.followTheSatoshi Lrc.genesisSeed (HM.toList stableStakes)
+    unless (expectedLeadersUtxo /= leaders1) $
+        stopProperty "expectedLeadersUtxo /= leaders1"
+    unless (expectedLeadersStakes /= leaders1) $
+        stopProperty "expectedLeadersStakes /= leaders1"

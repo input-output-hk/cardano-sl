@@ -7,13 +7,14 @@ module Pos.Txp.Toil.Failure
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, build, int, sformat, stext, (%))
+import           Formatting                 (bprint, build, int, sformat,
+                                             shown, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util.Base16       (base16F)
 import           Serokell.Util.Text         (listJson, pairF)
 import           Serokell.Util.Verify       (formatAllErrors)
 
 import           Pos.Core                   (HeaderHash, TxFeePolicy)
+import           Pos.Data.Attributes        (UnparsedFields)
 import           Pos.Txp.Core               (TxIn, TxOutDistribution)
 import           Pos.Txp.Toil.Types         (TxFee)
 
@@ -40,7 +41,7 @@ data ToilVerFailure
                           , tifFee    :: !TxFee
                           , tifMinFee :: !TxFee
                           , tifSize   :: !Byte }
-    | ToilUnknownAttributes !ByteString
+    | ToilUnknownAttributes !UnparsedFields
     | ToilBootDifferentStake !TxOutDistribution
     deriving (Show, Eq)
 
@@ -52,7 +53,7 @@ instance Buildable ToilVerFailure where
     build (ToilTipsMismatch dbTip localTip) =
         bprint ("tips mismatch, tip from DB is "%build%", local tip is "%build)
         dbTip localTip
-    build (ToilSlotUnknown) =
+    build ToilSlotUnknown =
         "can't process, current slot is unknown"
     build (ToilOverwhelmed limit) =
         bprint ("max size of the mem pool is reached which is "%memory) limit
@@ -83,8 +84,8 @@ instance Buildable ToilVerFailure where
             tifPolicy
             tifFee
             tifMinFee
-    build (ToilUnknownAttributes bs) =
-        bprint ("transaction has unknown attributes: "%base16F) bs
+    build (ToilUnknownAttributes uf) =
+        bprint ("transaction has unknown attributes: "%shown) uf
     build (ToilBootDifferentStake distr) =
         bprint ("transaction has non-boot stake distr in boot era: "%listJson)
                (map (sformat pairF) distr)

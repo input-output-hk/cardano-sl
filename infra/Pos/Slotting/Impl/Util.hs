@@ -15,25 +15,27 @@ import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId
 import           Pos.Core.Timestamp          (addTimeDiffToTimestamp)
 import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..),
                                               mkLocalSlotIndex)
-import           Pos.Util.Util               (leftToPanic)
+import           Pos.Util.Util               (leftToPanic, maybeThrow)
 
-import           Pos.Slotting.Util           (getEpochSlottingDataEmpatically)
+import           Pos.Slotting.Error          (SlottingError (..))
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
 import           Pos.Slotting.Types          (EpochSlottingData (..))
 
 -- | Approximate current slot using outdated slotting data.
 approxSlotUsingOutdated
     :: (MonadSlotsData m)
-    => EpochIndex
-    -> Timestamp
+    => Timestamp
     -> m SlotId
-approxSlotUsingOutdated penult t = do
-    systemStart <- getSystemStartM
-    sdLast      <- getNextEpochSlottingDataM
-    let epochStart = esdStartDiff sdLast `addTimeDiffToTimestamp` systemStart
+approxSlotUsingOutdated t = do
+
+    systemStart  <- getSystemStartM
+    currentIndex <- getCurrentEpochIndexM
+    sdNext       <- getNextEpochSlottingDataM
+
+    let epochStart = esdStartDiff sdNext `addTimeDiffToTimestamp` systemStart
     pure $
-        if | t < epochStart -> SlotId (penult + 1) minBound
-           | otherwise      -> outdatedEpoch systemStart t (penult + 1) sdLast
+        if | t < epochStart -> SlotId (currentIndex + 1) minBound
+           | otherwise      -> outdatedEpoch systemStart t (currentIndex + 1) sdNext
   where
     outdatedEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..} =
         let duration = convertUnit esdSlotDuration
@@ -42,7 +44,6 @@ approxSlotUsingOutdated penult t = do
         unflattenSlotId $
         flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
 
--- TODO(ks): Move to MonadSlotsData?
 -- | Compute current slot from current timestamp based on data
 -- provided by 'MonadSlotsData'.
 slotFromTimestamp
@@ -52,24 +53,46 @@ slotFromTimestamp
 slotFromTimestamp approxCurTime = do
 
     systemStart     <- getSystemStartM
-    allEpochIndex   <- getAllEpochIndexM
+    allEpochIndex   <- getAllEpochIndicesM
 
-    -- We partially apply the function and then iterate over all epoch indexes.
-    mSlotId         <- forM allEpochIndex (findSlot systemStart approxCurTime)
+    -- We first reverse the indices since the most common calls to this funcion
+    -- will be from next/current index and close.
+    let reversedEpochIndices = reverse allEpochIndex
 
-    pure $ head $ catMaybes mSlotId
+    let iterateIndicesUntilJust
+            :: (MonadSlotsData m, MonadThrow m)
+            => [EpochIndex]
+            -> m (Maybe SlotId)
+        iterateIndicesUntilJust indices = do
+          -- Get current index or throw exception if the indices list is empty.
+          currentIndex <- maybeThrow SEUnknownSlot $ head indices
+          -- Try to find a slot.
+          mFoundSlot   <- findSlot systemStart approxCurTime currentIndex
+          case mFoundSlot of
+            -- If you found a slot, then return it
+            Just foundSlot  -> pure $ Just foundSlot
+            -- If no slot is found, iterate with the rest of the list
+            Nothing         -> iterateIndicesUntilJust $ tailSafe indices
 
+    -- Iterate the indices recursively with the reverse indices, starting
+    -- with the most recent one.
+    iterateIndicesUntilJust reversedEpochIndices
   where
 
+    -- Find a slot using timestamps. If no @EpochSlottingData@ is found return
+    -- @Nothing@.
     findSlot
-        :: (MonadSlotsData m, MonadThrow m)
+        :: (MonadSlotsData m)
         => Timestamp
         -> Timestamp
         -> EpochIndex
         -> m (Maybe SlotId)
     findSlot systemStart approxCurTime' epochIndex = do
-        epochSlotData <- getEpochSlottingDataEmpatically epochIndex
-        pure $ computeSlotUsingEpoch systemStart approxCurTime' epochIndex epochSlotData
+      mEpochSlottingData <- getEpochSlottingDataM epochIndex
+      -- Chaining @Maybe@ since they both return it.
+      pure $ do
+        epochSlottingData <- mEpochSlottingData
+        computeSlotUsingEpoch systemStart approxCurTime' epochIndex epochSlottingData
 
     computeSlotUsingEpoch
         :: Timestamp

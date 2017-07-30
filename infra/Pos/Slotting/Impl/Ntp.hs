@@ -182,8 +182,8 @@ ntpGetCurrentSlotInaccurate var = do
         CurrentSlot slot -> pure slot
         CantTrust _        -> do
             _nssLastSlot <$> atomically (STM.readTVar var)
-        OutdatedSlottingData currentEpochIndex ->
-            ntpCurrentTime var >>= approxSlotUsingOutdated currentEpochIndex
+        OutdatedSlottingData _ ->
+            ntpCurrentTime var >>= approxSlotUsingOutdated
 
 ntpGetCurrentSlotImpl
     :: (NtpMode m)

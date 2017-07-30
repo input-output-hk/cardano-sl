@@ -33,7 +33,7 @@ import           Pos.DB                    (MonadRealDB)
 import           Pos.DB.Block              (MonadBlockDB)
 import           Pos.DB.DB                 (getTipHeader)
 import           Pos.Shutdown              (HasShutdownContext, triggerShutdown)
-import           Pos.Slotting              (MonadSlots (..), getLastKnownSlotDuration)
+import           Pos.Slotting              (MonadSlots (..), getNextEpochSlotDuration)
 import           Pos.Ssc.Class             (Ssc)
 import           Pos.Update.Context        (UpdateContext (ucUpdateSemaphore))
 import           Pos.Update.Poll.Types     (ConfirmedProposalState)
@@ -99,7 +99,7 @@ connectedPeersWebWallet = fromIntegral . length <$> do
 blockchainSlotDurationWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m Millisecond
-blockchainSlotDurationWebWallet = getLastKnownSlotDuration
+blockchainSlotDurationWebWallet = getNextEpochSlotDuration
 
 ----------------------------------------------------------------------------
 -- Updates

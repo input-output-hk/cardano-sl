@@ -37,7 +37,7 @@ import           Pos.DB.DB                  (getTipHeader, loadBlundsFromTipByDe
 import           Pos.Reporting.Methods      (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Security.Class         (SecurityWorkersClass (..))
 import           Pos.Shutdown               (runIfNotShutdown)
-import           Pos.Slotting               (getCurrentSlot, getLastKnownSlotDuration,
+import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration,
                                              onNewSlot)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
@@ -128,10 +128,10 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
         reportEclipse
     repeatOnInterval delF action = runIfNotShutdown $ do
         () <- action
-        getLastKnownSlotDuration >>= delay . delF
+        getNextEpochSlotDuration >>= delay . delF
         repeatOnInterval delF action
     reportEclipse = do
-        bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration
+        bootstrapMin <- (+ sec 10) . convertUnit <$> getNextEpochSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>

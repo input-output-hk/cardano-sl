@@ -74,7 +74,7 @@ while [[ $i -lt $panesCnt ]]; do
   wallet_args=''
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
-          wallet_args=' --wallet --tlscert scripts/tls-files/server.crt --tlskey scripts/tls-files/server.key --tlsca scripts/tls-files/ca.crt ' # --wallet-rebuild-db'
+          wallet_args=" --wallet --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt " # --wallet-rebuild-db'
           if [[ $WALLET_DEBUG != "" ]]; then
               wallet_args="$wallet_args --wallet-debug"
           fi

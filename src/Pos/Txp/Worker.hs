@@ -27,7 +27,7 @@ import           Pos.Communication   (Conversation (..), ConversationActions (..
                                       expectData, handleDataDo, handleInvDo, recvLimited,
                                       toOutSpecs, withConnectionTo, worker)
 import           Pos.Discovery.Class (getPeers)
-import           Pos.Slotting        (getLastKnownSlotDuration)
+import           Pos.Slotting        (getNextEpochSlotDuration)
 import           Pos.Txp.Core        (TxId)
 import           Pos.Txp.Network     (txInvReqDataParams)
 #endif
@@ -56,7 +56,7 @@ queryTxsWorker
     :: (WorkMode ssc ctx m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
 queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
-    slotDur <- getLastKnownSlotDuration
+    slotDur <- getNextEpochSlotDuration
     nodesRef <- liftIO . newIORef . toList =<< getPeers
     let delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
         action = forever $ do

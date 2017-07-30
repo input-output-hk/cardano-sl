@@ -2,16 +2,21 @@
 
 module Pos.Arbitrary.Slotting () where
 
-import           Test.QuickCheck                   (Arbitrary (..))
+import           Universum
+
+import           Test.QuickCheck                   (Arbitrary (..), oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core                ()
-import           Pos.Slotting.Types                (EpochSlottingData (..), SlottingData)
+import           Pos.Slotting.Types                (EpochSlottingData (..), SlottingData, createInitSlottingData)
 
 instance Arbitrary EpochSlottingData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary SlottingData where
-    arbitrary = genericArbitrary
-    shrink = genericShrink    
+    -- Fixed instance since it's impossible to create and instance
+    -- where one creates @SlottingData@ without at least two parameters.
+    arbitrary = oneof [ createInitSlottingData <$> genericArbitrary <*> genericArbitrary ]
+    shrink = genericShrink
+

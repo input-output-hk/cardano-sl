@@ -46,12 +46,12 @@ import           Data.Time.Units              (Microsecond, convertUnit)
 import qualified Database.RocksDB             as Rocks
 import           Serokell.Data.Memory.Units   (Byte)
 
-import           Pos.Binary.Class             (encode)
+import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
                                                ChainDifficulty, NumSoftwareVersion,
-                                               SlotId, SoftwareVersion (..), 
+                                               SlotId, SoftwareVersion (..),
                                                StakeholderId, TimeDiff (..))
 import           Pos.Core.Constants           (epochSlots, genesisBlockVersionData,
                                                genesisSlotDuration)
@@ -121,7 +121,7 @@ getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
 getEpochProposers :: MonadDBRead m => m (HashSet StakeholderId)
 getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
   where
-    msg = 
+    msg =
       "Update System part of GState DB is not initialized (epoch proposers are missing)"
 
 ----------------------------------------------------------------------------
@@ -143,30 +143,30 @@ data UpdateOp
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
-        [ Rocks.Put (proposalKey upId) (encode ps)]
+        [ Rocks.Put (proposalKey upId) (serialize' ps)]
       where
         up = psProposal ps
         upId = hash up
     toBatchOp (DeleteProposal upId) =
         [Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =
-        [Rocks.Put (confirmedVersionKey $ svAppName sv) (encode $ svNumber sv)]
+        [Rocks.Put (confirmedVersionKey $ svAppName sv) (serialize' $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
         [Rocks.Del (confirmedVersionKey app)]
     toBatchOp (AddConfirmedProposal cps) =
-        [Rocks.Put (confirmedProposalKey cps) (encode cps)]
+        [Rocks.Put (confirmedProposalKey cps) (serialize' cps)]
     toBatchOp (DelConfirmedProposal sv) =
         [Rocks.Del (confirmedProposalKeySV sv)]
     toBatchOp (SetAdopted bv bvd) =
-        [Rocks.Put adoptedBVKey (encode (bv, bvd))]
+        [Rocks.Put adoptedBVKey (serialize' (bv, bvd))]
     toBatchOp (SetBVState bv st) =
-        [Rocks.Put (bvStateKey bv) (encode st)]
+        [Rocks.Put (bvStateKey bv) (serialize' st)]
     toBatchOp (DelBV bv) =
         [Rocks.Del (bvStateKey bv)]
-    toBatchOp (PutSlottingData sd) = 
-        [Rocks.Put slottingDataKey (encode sd)]
+    toBatchOp (PutSlottingData sd) =
+        [Rocks.Put slottingDataKey (serialize' sd)]
     toBatchOp (PutEpochProposers proposers) =
-        [Rocks.Put epochProposersKey (encode proposers)]
+        [Rocks.Put epochProposersKey (serialize' proposers)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -183,20 +183,20 @@ initGStateUS = do
     genesisEpochDuration :: Microsecond
     genesisEpochDuration = fromIntegral epochSlots * convertUnit genesisSlotDuration
 
-    esdPenult :: EpochSlottingData
-    esdPenult = EpochSlottingData
+    esdCurrent :: EpochSlottingData
+    esdCurrent = EpochSlottingData
         { esdSlotDuration = genesisSlotDuration
         , esdStartDiff    = 0
         }
 
-    esdLast :: EpochSlottingData
-    esdLast = EpochSlottingData
+    esdNext :: EpochSlottingData
+    esdNext = EpochSlottingData
         { esdSlotDuration = genesisSlotDuration
         , esdStartDiff    = TimeDiff genesisEpochDuration
         }
 
     genesisSlottingData :: SlottingData
-    genesisSlottingData = createInitSlottingData esdPenult esdLast
+    genesisSlottingData = createInitSlottingData esdCurrent esdNext
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -313,7 +313,7 @@ proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
 
 confirmedVersionKey :: ApplicationName -> ByteString
-confirmedVersionKey = mappend "us/cv/" . encode
+confirmedVersionKey = mappend "us/cv/" . serialize'
 
 iterationPrefix :: ByteString
 iterationPrefix = "us/p/"

@@ -7,7 +7,7 @@ module Pos.Slotting.MemState.Holder
        , SlottingVar
        , cloneSlottingVar
        , getSystemStartDefault
-       , getAllEpochIndexDefault
+       , getAllEpochIndicesDefault
        , getCurrentEpochIndexDefault
        , getCurrentEpochSlottingDataDefault
        , getNextEpochIndexDefault
@@ -23,7 +23,7 @@ import           Control.Monad.STM  (retry)
 
 import           Pos.Core.Types     (EpochIndex, Timestamp)
 import           Pos.Slotting.Types (EpochSlottingData, SlottingData,
-                                     addEpochSlottingData, getAllEpochIndex,
+                                     addEpochSlottingData, getAllEpochIndices,
                                      getCurrentEpochIndex, getCurrentEpochSlottingData,
                                      getNextEpochIndex, getNextEpochSlottingData,
                                      lookupEpochSlottingData)
@@ -56,12 +56,12 @@ getSystemStartDefault
     => m Timestamp
 getSystemStartDefault = view slottingTimestamp
 
-getAllEpochIndexDefault
+getAllEpochIndicesDefault
     :: SlotsDefaultEnv ctx m
     => m [EpochIndex]
-getAllEpochIndexDefault = do
+getAllEpochIndicesDefault = do
     var <- view slottingVar
-    atomically $ getAllEpochIndex <$> readTVar var
+    atomically $ getAllEpochIndices <$> readTVar var
 
 getCurrentEpochIndexDefault
     :: SlotsDefaultEnv ctx m
@@ -117,5 +117,6 @@ waitCurrentEpochEqualsDefault
 waitCurrentEpochEqualsDefault target = do
     var <- view slottingVar
     atomically $ do
-        penultEpoch <- getCurrentEpochIndex <$> readTVar var
-        when (penultEpoch /= target) retry
+        currentEpoch <- getCurrentEpochIndex <$> readTVar var
+        when (currentEpoch /= target) retry
+

@@ -52,7 +52,7 @@ import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (currentTimeSlottingSum, getCurrentSlotBlockingSum,
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData (..),
-                                        getAllEpochIndexDefault,
+                                        getAllEpochIndicesDefault,
                                         getCurrentEpochIndexDefault,
                                         getCurrentEpochSlottingDataDefault,
                                         getEpochSlottingDataDefault,
@@ -153,7 +153,7 @@ instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
 
 instance MonadSlotsData (RealMode ssc) where
     getSystemStartM = getSystemStartDefault
-    getAllEpochIndexM = getAllEpochIndexDefault
+    getAllEpochIndicesM = getAllEpochIndicesDefault
     getCurrentEpochIndexM = getCurrentEpochIndexDefault
     getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
     getNextEpochIndexM = getNextEpochIndexDefault

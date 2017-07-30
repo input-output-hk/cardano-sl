@@ -18,7 +18,7 @@ class Monad m => MonadSlotsData m where
 
     getSystemStartM :: m Timestamp
 
-    getAllEpochIndexM :: m [EpochIndex]
+    getAllEpochIndicesM :: m [EpochIndex]
 
     getCurrentEpochIndexM :: m EpochIndex
 
@@ -41,7 +41,7 @@ instance {-# OVERLAPPABLE #-}
 
     getSystemStartM = lift getSystemStartM
 
-    getAllEpochIndexM = lift getAllEpochIndexM
+    getAllEpochIndicesM = lift getAllEpochIndicesM
 
     getCurrentEpochIndexM = lift getCurrentEpochIndexM
 
@@ -49,11 +49,11 @@ instance {-# OVERLAPPABLE #-}
 
     getCurrentEpochSlottingDataM = lift getCurrentEpochSlottingDataM
 
-    getNextEpochSlottingDataM = lift getCurrentEpochSlottingDataM
+    getNextEpochSlottingDataM = lift getNextEpochSlottingDataM
 
     getEpochSlottingDataM = lift . getEpochSlottingDataM
 
-    putEpochSlottingDataM = (lift .) . putEpochSlottingDataM
+    putEpochSlottingDataM = lift ... putEpochSlottingDataM
 
     waitCurrentEpochEqualsM = lift . waitCurrentEpochEqualsM
 

@@ -6,7 +6,7 @@ module Pos.Slotting.Types
        , getSlottingDataMap
        , createSlottingDataUnsafe
        , createInitSlottingData
-       , getAllEpochIndex
+       , getAllEpochIndices
        , getCurrentEpochIndex
        , getCurrentEpochSlottingData
        , getNextEpochIndex
@@ -79,8 +79,8 @@ createInitSlottingData psd esd = SlottingData validInitialSlottingData
     nextEpochSlottingData = M.singleton 1 esd
 
 -- | Get all epoch index.
-getAllEpochIndex :: SlottingData -> [EpochIndex]
-getAllEpochIndex = M.keys . getSlottingDataMap
+getAllEpochIndices :: SlottingData -> [EpochIndex]
+getAllEpochIndices = M.keys . getSlottingDataMap
 
 -- | Get the next epoch index.
 getNextEpochIndex :: SlottingData -> EpochIndex
@@ -94,8 +94,9 @@ getNextEpochSlottingData = snd . M.findMax . getSlottingDataMap
 getCurrentEpochIndex :: SlottingData -> EpochIndex
 getCurrentEpochIndex = decreaseEpochIndex . getNextEpochIndex
   where
+    -- Left for readability.
     decreaseEpochIndex :: EpochIndex -> EpochIndex
-    decreaseEpochIndex ei = EpochIndex $ getEpochIndex ei - 1
+    decreaseEpochIndex = pred
 
 -- | Get the current epoch slotting data. Next epoch - 1.
 getCurrentEpochSlottingData :: SlottingData -> EpochSlottingData
@@ -118,29 +119,42 @@ addEpochSlottingData epochIndex epochSlottingData slottingData =
     slottingData' :: Map EpochIndex EpochSlottingData
     slottingData' = getSlottingDataMap slottingData
 
--- | Compute when the slot started.
-computeSlotStart :: SlotId -> EpochSlottingData -> Timestamp
-computeSlotStart slotId esd = slotTimestamp localSlotIndex esd
+-- | Compute when the slot started. We give it @SlotId@, the @SlotId@
+-- @EpochSlottingData@ and find when did that @SlotId@ occur.
+computeSlotStart :: Timestamp -> SlotId -> EpochSlottingData -> Timestamp
+computeSlotStart systemStart slotId esd =
+      slotTimestamp systemStart siLocalSlotIndex esd
     where
-      localSlotIndex :: LocalSlotIndex
-      localSlotIndex = siSlot slotId
+      siLocalSlotIndex :: LocalSlotIndex
+      siLocalSlotIndex = siSlot slotId
 
       slotTimestamp
-          :: LocalSlotIndex
+          :: Timestamp
+          -> LocalSlotIndex
           -> EpochSlottingData
           -> Timestamp
-      slotTimestamp localSlotIndex' epochSlottingData =
-          addTimeDiffToTimestamp epochStartTimeDiff currentSlotTimestamp
+      slotTimestamp systemStart' localSlotIndex' epochSlottingData =
+          epochStartTime + currentSlotTimestamp
         where
           intSlotIndex :: Word16
           intSlotIndex = getSlotIndex localSlotIndex'
 
-          epochStartTimeDiff :: TimeDiff
-          epochStartTimeDiff = esdStartDiff epochSlottingData
-
-          epochSlotDuration :: Millisecond
-          epochSlotDuration = esdSlotDuration epochSlottingData
+          -- We get the epoch start time by adding the epoch slotting data start diff
+          -- which is:
+          --   currentEpochStart - systemStart + systemStart = currentEpochStart
+          --
+          -- Seems kind of dubious.
+          epochStartTime :: Timestamp
+          epochStartTime = addTimeDiffToTimestamp epochStartTimeDiff systemStart'
+            where
+              epochStartTimeDiff :: TimeDiff
+              epochStartTimeDiff = esdStartDiff epochSlottingData
 
           currentSlotTimestamp :: Timestamp
           currentSlotTimestamp =
               Timestamp (fromIntegral intSlotIndex * convertUnit epochSlotDuration)
+            where
+              epochSlotDuration :: Millisecond
+              epochSlotDuration = esdSlotDuration epochSlottingData
+
+

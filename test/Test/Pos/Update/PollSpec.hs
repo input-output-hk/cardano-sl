@@ -15,8 +15,7 @@ import           Test.QuickCheck                   (Arbitrary (..), Property, co
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Core                          (ApplicationName, BlockVersion,
-                                                    SoftwareVersion (..), StakeholderId,
-                                                    addressHash)
+                                                    SoftwareVersion (..), addressHash)
 import           Pos.Crypto                        (hash)
 import           Pos.Slotting.Types                (SlottingData)
 import           Pos.Update.Core                   (UpId, UpdateProposal (..), applyBVM)
@@ -70,8 +69,7 @@ data PollAction
     | DelConfirmedProposal SoftwareVersion
     | InsertActiveProposal Poll.ProposalState
     | DeactivateProposal UpId
-    | PutEpochSlottingData EpochIndex EpochSlottingData
-    | SetEpochProposers (HashSet StakeholderId)
+    | SetSlottingData SlottingData
     deriving (Show, Eq, Generic)
 
 instance Arbitrary PollAction where
@@ -88,9 +86,7 @@ actionToMonad (AddConfirmedProposal cps)    = Poll.addConfirmedProposal cps
 actionToMonad (DelConfirmedProposal sv)     = Poll.delConfirmedProposal sv
 actionToMonad (InsertActiveProposal ps)     = Poll.insertActiveProposal ps
 actionToMonad (DeactivateProposal ui)       = Poll.deactivateProposal ui
-actionToMonad (PutEpochSlottingData ei esd) = Poll.putEpochSlottingData ei esd
-actionToMonad (SetEpochProposers hs)        = Poll.setEpochProposers hs
-
+actionToMonad (SetSlottingData sd)          = Poll.setSlottingData sd
 
 applyActionToModifier
     :: PollAction
@@ -135,8 +131,7 @@ applyActionToModifier (DeactivateProposal ui) pst = \p ->
   where
     innerLookupFun k = pst ^. Poll.psActiveProposals . at k
 
-applyActionToModifier (PutEpochSlottingData ei esd) _ = Poll.pmSlottingDataL %~ (MM.insert ei esd)
-applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
+applyActionToModifier (SetSlottingData sd) _ = Poll.pmSlottingDataL .~ (Just sd)
 
 type PollActions = [PollAction]
 

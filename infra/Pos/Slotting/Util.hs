@@ -9,8 +9,7 @@ module Pos.Slotting.Util
        , getSlotStart
        , getSlotStartPure
        , getSlotStartEmpatically
-       , getEpochSlottingDataEmpatically
-       , getLastKnownSlotDuration
+       , getNextEpochSlotDuration
 
          -- * Worker which ticks when slot starts
        , onNewSlot
@@ -31,8 +30,8 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
                                          logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Core               (EpochIndex, FlatSlotId, SlotId (..),
-                                         Timestamp (..), flattenSlotId, slotIdF)
+import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
+                                         flattenSlotId, slotIdF)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
@@ -52,23 +51,21 @@ getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
 getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
--- TODO(ks): This function is suspicious. It could be moved to @MonadSlotsData@.
 getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
 getSlotStart si@(SlotId {..}) = do
+    systemStart        <- getSystemStartM
     mEpochSlottingData <- getEpochSlottingDataM siEpoch
     -- Maybe epoch slotting data.
     pure $ do
       epochSlottingData <- mEpochSlottingData
-      pure $ getSlotStartPureFromEpoch si epochSlottingData
+      pure $ computeSlotStart systemStart si epochSlottingData
 
 -- | Pure timestamp calculation for a given slot.
-getSlotStartPureFromEpoch :: SlotId -> EpochSlottingData -> Timestamp
-getSlotStartPureFromEpoch = computeSlotStart
-
--- | Pure timestamp calculation for a given slot.
-getSlotStartPure :: SlotId -> SlottingData -> Maybe Timestamp
-getSlotStartPure si sd = getSlotStartPureFromEpoch si <$> esd
-  where esd = lookupEpochSlottingData (siEpoch si) sd
+getSlotStartPure :: Timestamp -> SlotId -> SlottingData -> Maybe Timestamp
+getSlotStartPure systemStart si sd =
+    computeSlotStart systemStart si <$> esd
+  where
+    esd = lookupEpochSlottingData (siEpoch si) sd
 
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.
@@ -79,20 +76,11 @@ getSlotStartEmpatically
 getSlotStartEmpatically slot =
     getSlotStart slot >>= maybeThrow (SEUnknownSlotStart slot)
 
--- | Get epoch slotting data empatically, which means
--- that function throws exception when epoch index is unknown.
-getEpochSlottingDataEmpatically
-    :: (MonadSlotsData m, MonadThrow m)
-    => EpochIndex
-    -> m EpochSlottingData
-getEpochSlottingDataEmpatically epochIndex =
-    getEpochSlottingDataM epochIndex >>= maybeThrow (SEUnknownEpoch epochIndex)
-
 -- | Get last known slot duration.
-getLastKnownSlotDuration
+getNextEpochSlotDuration
     :: (MonadSlotsData m)
     => m Millisecond
-getLastKnownSlotDuration = esdSlotDuration <$> getNextEpochSlottingDataM
+getNextEpochSlotDuration = esdSlotDuration <$> getNextEpochSlottingDataM
 
 -- | Type constraint for `onNewSlot*` workers
 type OnNewSlot ctx m =
@@ -142,7 +130,7 @@ onNewSlotImpl withLogging startImmediately action =
         logError $ msg
         -- [CSL-1340] FIXME: it's not misbehavior, it should be reported as 'RError'.
         reportMisbehaviourSilent False msg
-        delay =<< getLastKnownSlotDuration
+        delay =<< getNextEpochSlotDuration
         onNewSlotImpl withLogging startImmediately action
 
 onNewSlotDo

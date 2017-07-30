@@ -57,7 +57,7 @@ import           Pos.WorkMode.Class          (WorkMode)
 import           Data.Time.Units             (Second, convertUnit)
 import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
-import           Pos.Slotting                (getLastKnownSlotDuration)
+import           Pos.Slotting                (getNextEpochSlotDuration)
 #endif
 
 ----------------------------------------------------------------------------
@@ -296,7 +296,7 @@ queryBlocksWorker
     => (WorkerSpec m, OutSpecs)
 queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
     let action = forever $ do
-            slotDur <- getLastKnownSlotDuration
+            slotDur <- getNextEpochSlotDuration
             let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
             recoveryCommGuard $ do
                 logInfo "Querying blocks from behind NAT"
@@ -304,7 +304,7 @@ queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
             delay $ delayInterval
         handler (e :: SomeException) = do
             logWarning $ "Exception arised in queryBlocksWorker: " <> show e
-             -- getLastKnownSlotDuration may fail, so we'll just wait
+             -- getNextEpochSlotDuration may fail, so we'll just wait
              -- arbitrary number of seconds (instead of e.g. slotDur / 4)
             delay $ sec 4
             action `catch` handler

@@ -53,7 +53,7 @@ import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
                                         getCurrentSlotBlockingSum,
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState (MonadSlotsData (..), getAllEpochIndexDefault,
+import           Pos.Slotting.MemState (MonadSlotsData (..), getAllEpochIndicesDefault,
                                         getCurrentEpochIndexDefault,
                                         getCurrentEpochSlottingDataDefault,
                                         getEpochSlottingDataDefault,
@@ -150,7 +150,7 @@ instance
 
 instance MonadSlotsData (InitMode ssc) where
     getSystemStartM = getSystemStartDefault
-    getAllEpochIndexM = getAllEpochIndexDefault
+    getAllEpochIndicesM = getAllEpochIndicesDefault
     getCurrentEpochIndexM = getCurrentEpochIndexDefault
     getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
     getNextEpochIndexM = getNextEpochIndexDefault

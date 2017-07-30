@@ -438,8 +438,9 @@ addLocalSlotIndex x (LocalSlotIndex i)
     s :: Word64
     s = fromIntegral x + fromIntegral i
 
--- | Slot is identified by index of epoch and local index of slot in
--- this epoch. This is a global index
+-- | Slot is identified by index of epoch and index of slot in
+-- this epoch. This is a global index, an index to a global
+-- slot position.
 data SlotId = SlotId
     { siEpoch :: !EpochIndex
     , siSlot  :: !LocalSlotIndex
@@ -488,7 +489,7 @@ type ScriptVersion = Word16
 -- | A script for inclusion into a transaction.
 data Script = Script
     { scrVersion :: ScriptVersion -- ^ Version
-    , scrScript  :: LByteString   -- ^ Serialized script
+    , scrScript  :: ByteString   -- ^ Serialized script
     } deriving (Eq, Show, Generic, Typeable)
 
 instance NFData Script

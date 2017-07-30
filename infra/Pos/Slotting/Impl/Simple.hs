@@ -74,13 +74,13 @@ getCurrentSlotInaccurateSimple
     => SimpleSlottingVar
     -> m SlotId
 getCurrentSlotInaccurateSimple var = do
-    currentEpochIndex <- getCurrentEpochIndexM
+
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing   -> do
             lastSlot <- _sssLastSlot <$> atomically (readTVar var)
             max lastSlot <$> (currentTimeSlottingSimple >>=
-                approxSlotUsingOutdated currentEpochIndex)
+                approxSlotUsingOutdated)
 
 currentTimeSlottingSimple :: SimpleSlottingMode m => m Timestamp
 currentTimeSlottingSimple = Timestamp <$> currentTime

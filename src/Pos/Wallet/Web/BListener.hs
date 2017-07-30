@@ -79,10 +79,12 @@ onApplyTracking blunds = do
   where
     syncWallet :: HeaderHash -> BlockHeader ssc -> [(TxAux, TxUndo)] -> CId Wal -> m ()
     syncWallet curTip newTipH txsWUndo wAddr = walletGuard curTip wAddr $ do
-        systemStart <- getSystemStart
-        sd <- getSlottingData
+
+        systemStart <- getSystemStartM
+        sd          <- GS.getSlottingData
+
         let mainBlkHeaderTs mBlkH =
-                getSlotStartPure (mBlkH ^. headerSlotL) sd
+              getSlotStartPure systemStart (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         allAddresses <- getWalletAddrMetasDB WS.Ever wAddr

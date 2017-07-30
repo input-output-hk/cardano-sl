@@ -40,7 +40,6 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Context                    (GenesisUtxo (..))
 import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
                                                  Timestamp (..), addressHash,
                                                  makePubKeyAddress, mkCoin, unsafeGetCoin)
@@ -67,23 +66,30 @@ import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
                                                  SimpleSlottingVar, SlottingData,
-                                                 currentTimeSlottingSimple,
+                                                 mkSimpleSlottingVar, getCurrentSlotSimple,
                                                  getCurrentSlotBlockingSimple,
                                                  getCurrentSlotInaccurateSimple,
-                                                 getCurrentSlotSimple,
-                                                 mkSimpleSlottingVar)
+                                                 currentTimeSlottingSimple)
 import           Pos.Slotting.MemState          (MonadSlotsData (..),
-                                                 getSlottingDataDefault,
+                                                 getAllEpochIndicesDefault,
+                                                 getCurrentEpochIndexDefault,
+                                                 getCurrentEpochSlottingDataDefault,
+                                                 getEpochSlottingDataDefault,
+                                                 getNextEpochIndexDefault,
+                                                 getNextEpochSlottingDataDefault,
                                                  getSystemStartDefault,
-                                                 putSlottingDataDefault,
-                                                 waitPenultEpochEqualsDefault)
+                                                 putEpochSlottingDataDefault,
+                                                 waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
-                                                 TxpHolderTag, TxpMetrics,
-                                                 ignoreTxpMetrics, mkTxpLocalData,
+import           Pos.Txp                        (GenericTxpLocalData, GenesisStakeholders,
+                                                 GenesisTxpContext, GenesisUtxo (..),
+                                                 TxpGlobalSettings, TxpHolderTag,
+                                                 TxpMetrics, gtcStakeholders, gtcUtxo,
+                                                 ignoreTxpMetrics, mkGenesisTxpContext,
+                                                 mkGenesisTxpContext, mkTxpLocalData,
                                                  txpGlobalSettings, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
@@ -101,7 +107,7 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpGenUtxo           :: !GenesisUtxo
+    { _tpGenTxpContext     :: !GenesisTxpContext
     -- ^ Genesis 'Utxo'.
     , _tpAllSecrets        :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
@@ -134,7 +140,7 @@ instance Buildable TestParams where
             _tpStakeDistribution
             _tpStartTime
       where
-        utxo = _tpGenUtxo & \(GenesisUtxo u) -> u
+        utxo =  unGenesisUtxo (_tpGenTxpContext ^. gtcUtxo)
 
 instance Show TestParams where
     show = formatToString build
@@ -161,7 +167,7 @@ instance Arbitrary TestParams where
         _tpStakeDistribution <-
             genSuitableStakeDistribution (fromIntegral $ length secretKeysMap)
         let addresses = map (makePubKeyAddress . toPublic) (toList secretKeysMap)
-        let _tpGenUtxo = genesisUtxo Nothing [(addresses, _tpStakeDistribution)]
+        let _tpGenTxpContext = mkGenesisTxpContext $ genesisUtxo Nothing [(addresses, _tpStakeDistribution)]
         return TestParams {..}
 
 ----------------------------------------------------------------------------
@@ -230,7 +236,7 @@ initBlockTestContext tp@TestParams {..} callback = do
     let initCtx =
             TestInitModeContext
                 dbPureVar
-                _tpGenUtxo
+                (_tpGenTxpContext ^. gtcUtxo)
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -332,10 +338,15 @@ instance
     dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
 
 instance MonadSlotsData (TestInitMode ssc) where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
+    getSystemStartM = getSystemStartDefault
+    getAllEpochIndicesM = getAllEpochIndicesDefault
+    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
+    getNextEpochIndexM = getNextEpochIndexDefault
+    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getEpochSlottingDataM = getEpochSlottingDataDefault
+    putEpochSlottingDataM = putEpochSlottingDataDefault
+    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
 
 instance MonadSlots (TestInitMode ssc) where
     getCurrentSlot = getCurrentSlotSimple =<< mkSimpleSlottingVar
@@ -401,6 +412,12 @@ instance HasLens DelegationVar BlockTestContext DelegationVar where
 instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
     lensOf = btcTxpMem_L
 
+instance HasLens GenesisUtxo BlockTestContext GenesisUtxo where
+    lensOf = btcParams_L . tpGenTxpContext . gtcUtxo
+
+instance HasLens GenesisStakeholders BlockTestContext GenesisStakeholders where
+    lensOf = btcParams_L . tpGenTxpContext . gtcStakeholders
+
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName
 
@@ -409,10 +426,16 @@ instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
     modifyLoggerName = modifyLoggerNameDefault
 
 instance MonadSlotsData BlockTestMode where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
+    getSystemStartM = getSystemStartDefault
+    getAllEpochIndicesM = getAllEpochIndicesDefault
+    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
+    getNextEpochIndexM = getNextEpochIndexDefault
+    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getEpochSlottingDataM = getEpochSlottingDataDefault
+    putEpochSlottingDataM = putEpochSlottingDataDefault
+    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
+
 
 instance MonadSlots BlockTestMode where
     getCurrentSlot = do

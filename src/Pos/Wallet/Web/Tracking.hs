@@ -281,8 +281,9 @@ syncWalletWithGStateUnsafe
     -> BlockHeader ssc         -- ^ GState header hash
     -> m ()
 syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
-    systemStart <- getSystemStart
-    slottingData <- getSlottingData
+
+    systemStart  <- getSystemStartM
+    slottingData <- GS.getSlottingData
 
     let gstateHHash = headerHash gstateH
         loadCond (b, _) _ = b ^. difficultyL <= gstateH ^. difficultyL
@@ -293,7 +294,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
         mainBlkHeaderTs mBlkH =
-            getSlotStartPure (mBlkH ^. headerSlotL) slottingData
+            getSlotStartPure systemStart (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier

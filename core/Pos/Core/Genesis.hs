@@ -11,13 +11,9 @@ module Pos.Core.Genesis
        , genesisDevFlatDistr
 
        -- * /genesis-core.bin/
-       , StakeDistribution(..)
-       , GenesisWStakeholders(..)
-       , GenesisCoreData(..)
-       , bootRelatedDistr
-       , mkGenesisCoreData
-       , AddrDistribution
+       , module Pos.Core.Genesis.Types
        , compileGenCoreData
+
        -- ** Derived data
        , genesisProdAddresses
        , genesisProdAddrDistribution
@@ -26,7 +22,6 @@ module Pos.Core.Genesis
        -- * Utils
        , generateGenesisKeyPair
        , generateHdwGenesisSecretKey
-       , getTotalStake
        , genesisSplitBoot
        ) where
 
@@ -45,8 +40,9 @@ import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
                                           GenesisWStakeholders (..),
-                                          StakeDistribution (..), bootRelatedDistr,
-                                          getTotalStake, mkGenesisCoreData)
+                                          StakeDistribution (..), bootDustThreshold,
+                                          bootRelatedDistr, getTotalStake,
+                                          mkGenesisCoreData)
 import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
                                           unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
@@ -127,15 +123,16 @@ generateHdwGenesisSecretKey =
 -- based on passed coin hash among addresses.
 genesisSplitBoot ::
        GenesisWStakeholders -> Coin -> Either Text [(StakeholderId, Coin)]
-genesisSplitBoot (GenesisWStakeholders bootHolders0) c
+genesisSplitBoot g@(GenesisWStakeholders bootHolders0) c
     | cval <= 0 =
       Left $ "sendMoney#splitBoot: cval <= 0: " <> show cval
-    | unsafeGetCoin c < fromIntegral (length bootHolders) =
+    | c < bootDustThreshold g =
       Left $
-      sformat ("Can't spend "%build%" coins: amount is too small for boot "%
-               " era and can't be distributed among "%int%"genStakeholders")
+      sformat ("Can't spend "%build%" coins: amount is too small for boot era, "%
+               "threshold is "%build%" in respect to boot stakeholders set "%build)
               c
-              (length bootHolders)
+              (bootDustThreshold g)
+              g
     | cval < addrsNum =
       Right $ map (,mkCoin 1) $ take cval bootHolders
     | otherwise =

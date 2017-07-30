@@ -8,6 +8,7 @@ module Pos.Core.Genesis.Types
        , AddrDistribution
        , GenesisWStakeholders (..)
        , GenesisCoreData (..)
+       , bootDustThreshold
        , bootRelatedDistr
        , mkGenesisCoreData
        ) where
@@ -15,7 +16,9 @@ module Pos.Core.Genesis.Types
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Serokell.Util       (allDistinct)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting          (bprint, (%))
+import           Serokell.Util       (allDistinct, listJson)
 
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Types      (Address, Coin, StakeholderId, mkCoin)
@@ -75,6 +78,10 @@ newtype GenesisWStakeholders = GenesisWStakeholders
     { getGenesisWStakeholders :: HashMap StakeholderId Word16
     } deriving (Show, Eq)
 
+instance Buildable GenesisWStakeholders where
+    build (GenesisWStakeholders m) =
+        bprint ("GenesisWStakeholders: "%listJson) m
+
 -- | Hardcoded genesis data to generate utxo from.
 data GenesisCoreData = UnsafeGenesisCoreData
     { gcdAddrDistribution      :: ![AddrDistribution]
@@ -84,12 +91,20 @@ data GenesisCoreData = UnsafeGenesisCoreData
       -- ^ Bootstrap era stakeholders, values are weights.
     } deriving (Show, Eq, Generic)
 
+-- | Calculates a minimum amount of coins user can set as an output in
+-- boot era.
+bootDustThreshold :: GenesisWStakeholders -> Coin
+bootDustThreshold (GenesisWStakeholders bootHolders) =
+    -- it's safe to use it here because weights are word16 and should
+    -- be really low in production, so this sum is not going to be
+    -- even more than 10-15 coins.
+    unsafeIntegerToCoin . sum $ map fromIntegral $ HM.elems bootHolders
 
 -- | Checks whether txOutDistribution matches the set of weighted boot
 -- stakeholders. Notice: it doesn't use actual txdistr type because
 -- it's defined in txp module above.
--- TODO it doesn't count for weights.
--- TODO it doesn't check that distribution of coins is not shifted to single user.
+-- TODO CSL-1351 it doesn't count for weights.
+-- TODO CSL-1351 it doesn't check that distribution of coins is not shifted to single user.
 bootRelatedDistr :: GenesisWStakeholders -> [(StakeholderId, Coin)] -> Bool
 bootRelatedDistr (GenesisWStakeholders bootHolders) txOutDistr =
     -- All addresses in txDistr are from bootHolders

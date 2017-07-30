@@ -191,8 +191,7 @@ data SoftwareVersion = SoftwareVersion
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =
-      bprint (stext % ":" % int)
-         (getApplicationName svAppName) svNumber
+        bprint (stext % ":" % int) (getApplicationName svAppName) svNumber
 
 instance Show SoftwareVersion where
     show = toString . pretty

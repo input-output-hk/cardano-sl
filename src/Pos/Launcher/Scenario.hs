@@ -66,8 +66,8 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
 
-    genesisStakeholders <- views (lensOf @GenesisWStakeholders) getGenesisWStakeholders
-    logInfo $ sformat ("Genesis stakeholders: " %listJson) genesisStakeholders
+    genesisStakeholders <- view (lensOf @GenesisWStakeholders)
+    logInfo $ sformat ("Genesis stakeholders: " %build) genesisStakeholders
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"

@@ -17,8 +17,8 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, (%))
-import           Serokell.Util       (allDistinct, listJson)
+import           Formatting          (bprint, sformat, (%))
+import           Serokell.Util       (allDistinct, listJson, pairF)
 
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Types      (Address, Coin, StakeholderId, mkCoin)
@@ -80,7 +80,8 @@ newtype GenesisWStakeholders = GenesisWStakeholders
 
 instance Buildable GenesisWStakeholders where
     build (GenesisWStakeholders m) =
-        bprint ("GenesisWStakeholders: "%listJson) m
+        bprint ("GenesisWStakeholders: "%listJson)
+               (map (sformat pairF) $ HM.toList m)
 
 -- | Hardcoded genesis data to generate utxo from.
 data GenesisCoreData = UnsafeGenesisCoreData

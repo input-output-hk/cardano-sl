@@ -287,7 +287,7 @@ devAddrDistr :: StakeDistribution -> ([AddrDistribution], GenesisWStakeholders)
 devAddrDistr distr = (aDistr, gws)
   where
     gws = GenesisWStakeholders $ HM.fromList $
-          map ((,1) . addressHash) $ take distrSize genesisDevPublicKeys
+          map (first addressHash) $ take distrSize genesisDevPublicKeys `zip` [1..]
     aDistr = [ (mainAddrs, distr)        -- Addresses from passed stake
              , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
              ]

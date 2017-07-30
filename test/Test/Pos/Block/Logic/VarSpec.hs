@@ -28,7 +28,8 @@ import           Pos.Util.Chrono             (NE, OldestFirst (..))
 
 import           Test.Pos.Block.Logic.Event  (BlockScenarioResult (..), runBlockScenario)
 import           Test.Pos.Block.Logic.Mode   (BlockProperty, BlockTestMode)
-import           Test.Pos.Block.Logic.Util   (bpGenBlocks, bpGoToArbitraryState,
+import           Test.Pos.Block.Logic.Util   (EnableTxPayload (..), InplaceDB (..),
+                                              bpGenBlocks, bpGoToArbitraryState,
                                               getAllSecrets, satisfySlotCheck)
 import           Test.Pos.Util               (splitIntoChunks, stopProperty)
 
@@ -65,14 +66,18 @@ verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
     -- unsafeHead is safe here, because we explicitly request to
     -- generate exactly 1 block
-    emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1) False
+    emptyBlock <-
+        fst . unsafeHead . getOldestFirst <$>
+        bpGenBlocks (Just 1) (EnableTxPayload False) (InplaceDB False)
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
         stopProperty . pretty
 
 verifyValidBlocks :: BlockProperty ()
 verifyValidBlocks = do
     bpGoToArbitraryState
-    blocks <- map fst . toList <$> bpGenBlocks Nothing True
+    blocks <-
+        map fst . toList <$>
+        bpGenBlocks Nothing (EnableTxPayload True) (InplaceDB False)
     pre (not $ null blocks)
     let blocksToVerify =
             OldestFirst $
@@ -131,7 +136,9 @@ applyByOneOrAllAtOnce ::
     -> BlockProperty ()
 applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
-    blunds <- getOldestFirst <$> bpGenBlocks Nothing True
+    blunds <-
+        getOldestFirst <$>
+        bpGenBlocks Nothing (EnableTxPayload True) (InplaceDB False)
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
     stateAfter1by1 <-

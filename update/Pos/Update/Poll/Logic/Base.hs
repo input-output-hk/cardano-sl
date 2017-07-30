@@ -218,13 +218,6 @@ updateSlottingData epochIndex = do
              ", while given epoch is "%int%
              ")")
 
-    -- TODO(ks): We don't have to fetch from the database,
-    -- we can use @getNextEpochSlottingDataM@.
-    -- Also, this kind of breaks encapsulation! It would be easier if we could adjust
-    -- class (MonadSlotsData/MonadSlots m, MonadPollRead m) => MonadPoll m where ...
-    -- where we can say that MonadPoll requires MonadSlots to work. And hide
-    -- Pos.Slotting.Types. Then the imports wouldn't break, and we could easily replace
-    -- the functionality... It does make sense (to me, at least).
     slottingData      <- getSlottingData
     let nextEpochIndex = getNextEpochIndex slottingData
     let nextEpochSD    = getNextEpochSlottingData slottingData
@@ -236,7 +229,6 @@ updateSlottingData epochIndex = do
        | otherwise ->
            throwError $ PollInternalError $ sformat errFmt nextEpochIndex epochIndex
   where
-    -- updateSlottingDataDo :: EpochIndex -> EpochSlottingData -> m ()
     updateSlottingDataDo nextEpochIndex slottingData esd = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
 

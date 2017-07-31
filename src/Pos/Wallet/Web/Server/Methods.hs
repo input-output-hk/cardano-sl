@@ -61,6 +61,7 @@ import           System.Wlog                      (logDebug, logError, logInfo,
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
+import           Pos.Block.Logic.Util             (withBlkSemaphore_)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
@@ -79,7 +80,6 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
 import           Pos.DB.Class                     (MonadGState)
-import           Pos.DB.GState.Common             (getTip)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (MonadReportingMem, rcReportServers)
@@ -815,8 +815,7 @@ newWallet passphrase cwInit = do
     updateHistoryCache wId []
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
-    tip <- getTip
-    setWalletSyncTip wId tip
+    withBlkSemaphore_ $ \tip -> tip <$ setWalletSyncTip wId tip
     getWallet wId
 
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet

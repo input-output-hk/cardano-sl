@@ -9,86 +9,93 @@ module Main
        ( main
        ) where
 
-import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Monad.Error.Class     (throwError)
-import           Control.Monad.Trans.Either    (EitherT (..))
-import qualified Data.ByteString               as BS
-import           Data.ByteString.Base58        (bitcoinAlphabet, encodeBase58)
-import qualified Data.HashMap.Strict           as HM
-import           Data.List                     ((!!))
-import qualified Data.Set                      as S (fromList)
-import           Data.String.QQ                (s)
-import qualified Data.Text                     as T
-import qualified Data.Text.IO                  as T
-import           Data.Time.Units               (convertUnit, toMicroseconds)
-import           Data.Void                     (absurd)
-import           Formatting                    (build, int, sformat, shown, stext, string,
-                                                (%))
-import           Mockable                      (Mockable, Production, SharedAtomic,
-                                                SharedAtomicT, bracket, currentTime,
-                                                delay, forConcurrently,
-                                                modifySharedAtomic, newSharedAtomic, race,
-                                                runProduction)
-import           Network.Transport.Abstract    (Transport, hoistTransport)
-import           System.IO                     (BufferMode (LineBuffering), hClose,
-                                                hFlush, hSetBuffering, stdout)
-import           System.Wlog                   (logDebug, logError, logInfo)
+import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
+import           Control.Monad.Error.Class        (throwError)
+import           Control.Monad.Trans.Either       (EitherT (..))
+import qualified Data.ByteString                  as BS
+import           Data.ByteString.Base58           (bitcoinAlphabet, encodeBase58)
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        ((!!))
+import qualified Data.Set                         as S (fromList)
+import           Data.String.QQ                   (s)
+import qualified Data.Text                        as T
+import qualified Data.Text.IO                     as T
+import           Data.Time.Units                  (convertUnit, toMicroseconds)
+import           Data.Void                        (absurd)
+import           Formatting                       (build, int, sformat, shown, stext,
+                                                   string, (%))
+import           Mockable                         (Mockable, Production, SharedAtomic,
+                                                   SharedAtomicT, bracket, currentTime,
+                                                   delay, forConcurrently,
+                                                   modifySharedAtomic, newSharedAtomic,
+                                                   race, runProduction)
+import           Network.Transport.Abstract       (Transport, hoistTransport)
+import           System.IO                        (BufferMode (LineBuffering), hClose,
+                                                   hFlush, hSetBuffering, stdout)
+import           System.Wlog                      (logDebug, logError, logInfo)
 #if !(defined(mingw32_HOST_OS))
-import           System.Exit                   (ExitCode (ExitSuccess))
-import           System.Posix.Process          (exitImmediately)
+import           System.Exit                      (ExitCode (ExitSuccess))
+import           System.Posix.Process             (exitImmediately)
 #endif
-import           Serokell.Util                 (ms, sec)
+import           Serokell.Util                    (ms, sec)
 import           Universum
 
-import           Pos.Binary                    (Raw, serialize')
-import qualified Pos.CLI                       as CLI
-import           Pos.Client.Txp.Balances       (getOwnUtxo)
-import           Pos.Client.Txp.Util           (createTx)
-import           Pos.Communication             (NodeId, OutSpecs, SendActions, Worker,
-                                                WorkerSpec, dataFlow, delegationRelays,
-                                                relayPropagateOut, submitTx, submitTxRaw,
-                                                submitUpdateProposal, submitVote,
-                                                txRelays, usRelays, worker,
-                                                immediateConcurrentConversations)
-import           Pos.Constants                 (genesisBlockVersionData,
-                                                genesisSlotDuration, isDevelopment)
-import           Pos.Core.Types                (Timestamp (..), mkCoin)
-import           Pos.Crypto                    (Hash, SecretKey, SignTag (SignUSVote),
-                                                emptyPassphrase, encToPublic, fakeSigner,
-                                                hash, hashHexF, noPassEncrypt,
-                                                safeCreatePsk, safeSign, safeToPublic,
-                                                toPublic, unsafeHash, withSafeSigner)
-import           Pos.Data.Attributes           (mkAttributes)
-import           Pos.Genesis                   (devAddrDistr, devStakesDistr,
-                                                genesisDevSecretKeys, genesisUtxo,
-                                                genesisUtxoProduction)
-import           Pos.Launcher                  (BaseParams (..), LoggingParams (..),
-                                                bracketTransport, loggerBracket)
-import           Pos.Network.Types             (MsgType (..), Origin (..))
-import           Pos.Ssc.GodTossing            (SscGodTossing)
-import           Pos.Ssc.SscAlgo               (SscAlgo (..))
-import           Pos.Txp                       (TxOut (..), TxOutAux (..), txaF,
-                                                unGenesisUtxo)
-import           Pos.Types                     (coinF, makePubKeyAddress)
-import           Pos.Update                    (BlockVersionData (..),
-                                                BlockVersionModifier (..), SystemTag (..),
-                                                UpdateData (..), UpdateVote (..),
-                                                mkUpdateProposalWSign)
-import           Pos.Util.UserSecret           (readUserSecret, usKeys)
-import           Pos.Util.Util                 (powerLift)
-import           Pos.Wallet                    (MonadWallet, addSecretKey, getBalance,
-                                                getSecretKeys)
-import           Pos.Wallet.Light              (LightWalletMode, WalletParams (..),
-                                                runWalletStaticPeers)
-import           Pos.WorkMode                  (RealMode, RealModeContext)
+import           Pos.Binary                       (Raw, serialize')
+import qualified Pos.CLI                          as CLI
+import           Pos.Client.Txp.Balances          (getOwnUtxo)
+import           Pos.Client.Txp.Util              (createTx)
+import           Pos.Communication                (NodeId, OutSpecs, SendActions, Worker,
+                                                   WorkerSpec, dataFlow, delegationRelays,
+                                                   immediateConcurrentConversations,
+                                                   relayPropagateOut, submitTx,
+                                                   submitTxRaw, submitUpdateProposal,
+                                                   submitVote, txRelays, usRelays, worker)
+import           Pos.Constants                    (genesisBlockVersionData,
+                                                   genesisSlotDuration, isDevelopment)
+import           Pos.Core.Types                   (Timestamp (..), mkCoin)
+import           Pos.Crypto                       (Hash, SecretKey, SignTag (SignUSVote),
+                                                   emptyPassphrase, encToPublic,
+                                                   fakeSigner, hash, hashHexF,
+                                                   noPassEncrypt, safeCreatePsk, safeSign,
+                                                   safeToPublic, toPublic, unsafeHash,
+                                                   withSafeSigner)
+import           Pos.Data.Attributes              (mkAttributes)
+import           Pos.Genesis                      (devAddrDistr, devStakesDistr,
+                                                   genesisDevSecretKeys, genesisUtxo,
+                                                   genesisUtxoProduction)
+import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
+                                                   bracketTransport, loggerBracket)
+import           Pos.Network.Types                (MsgType (..), Origin (..))
+import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Ssc.SscAlgo                  (SscAlgo (..))
+import           Pos.Txp                          (TxOut (..), TxOutAux (..), txaF,
+                                                   unGenesisUtxo)
+import           Pos.Types                        (coinF, makePubKeyAddress)
+import           Pos.Update                       (BlockVersionData (..),
+                                                   BlockVersionModifier (..),
+                                                   SystemTag (..), UpdateData (..),
+                                                   UpdateVote (..), mkUpdateProposalWSign)
+import           Pos.Util.UserSecret              (readUserSecret, usKeys)
+import           Pos.Util.Util                    (powerLift)
+import           Pos.Wallet                       (MonadWallet, addSecretKey, getBalance,
+                                                   getSecretKeys)
+import           Pos.Wallet.Light                 (LightWalletMode, WalletParams (..),
+                                                   runWalletStaticPeers)
+import           Pos.WorkMode                     (RealMode, RealModeContext)
 
 
-import           Command                       (Command (..), ProposeUpdateSystem (..),
-                                                SendMode (..), parseCommand)
-import qualified Network.Transport.TCP         as TCP (TCPAddr (..))
-import           System.Random                 (randomRIO)
-import           WalletOptions                 (WalletAction (..), WalletOptions (..),
-                                                getWalletOptions)
+import           Command                          (Command (..), ProposeUpdateSystem (..),
+                                                   SendMode (..), parseCommand)
+import qualified Network.Transport.TCP            as TCP (TCPAddr (..))
+import           System.Random                    (randomRIO)
+import           WalletOptions                    (WalletAction (..), WalletOptions (..),
+                                                   getWalletOptions)
+
+import           Node.Conversation                (ConversationActions (..))
+import           Node.Message.Class               (Message (..))
+import           Pos.Communication.Types.Protocol (Conversation (..), SendActions (..),
+                                                   enqueueMsg, withConnectionTo)
+import           System.Wlog.CanLog
 
 data CmdCtx =
   CmdCtx
@@ -391,6 +398,8 @@ main = do
             }
         baseParams = BaseParams { bpLoggingParams = logParams }
 
+    print logParams
+
     let sysStart = CLI.sysStart woCommonArgs
     let devStakeDistr =
             devStakesDistr
@@ -425,10 +434,12 @@ main = do
                 (powerLift :: forall t . Production t -> LightWalletMode t)
                 transport
 
+            worker' specs w = worker specs $ \sa -> w (addLogging sa)
+
             plugins :: ([ WorkerSpec LightWalletMode ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl    -> worker runCmdOuts $ runWalletRepl opts
-                Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
+                Repl    -> worker' runCmdOuts $ runWalletRepl opts
+                Cmd cmd -> worker' runCmdOuts $ runWalletCmd opts cmd
                 Serve __webPort __webDaedalusDbPath -> error "light wallet server is disabled"
                 -- Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                 --     walletServeWebLite sendActions webDaedalusDbPath False webPort
@@ -440,3 +451,27 @@ main = do
                 runWalletStaticPeers transport' (S.fromList allPeers) params plugins
             NistBeaconAlgo ->
                 logError "Wallet does not support NIST beacon!"
+
+addLogging :: forall m. WithLogger m => SendActions m -> SendActions m
+addLogging SendActions{..} = SendActions{
+      enqueueMsg = error "unused"
+    , withConnectionTo = aux
+    }
+  where
+    aux nid k = withConnectionTo nid $ \peerData -> fmap auxConv (k peerData)
+    auxConv (Conversation k) = Conversation (\acts -> k (auxActs acts))
+
+    auxActs :: (Message snd, Message rcv)
+            => ConversationActions snd rcv m -> ConversationActions snd rcv m
+    auxActs (ConversationActions{..}) = ConversationActions {
+        send = \body -> do
+                 logDebug $ sformat ("Light wallet sending " % stext) (formatMessage body)
+                 send body
+      , recv = \limit -> do
+                 mRcv <- recv limit
+                 logDebug $
+                   case mRcv of
+                     Nothing  -> sformat ("Light wallet received end of input")
+                     Just rcv -> sformat ("Light wallet received " % stext) (formatMessage rcv)
+                 return mRcv
+      }

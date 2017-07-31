@@ -3,7 +3,9 @@ rotation:
     keepFiles: 20
 severity: Debug
 smart-wallet:
-    severity: Error
+    severity: Debug
+    handlers:
+      - file: smart-wallet-{{file}}
 node:
     severity: Debug
     handlers:

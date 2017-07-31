@@ -214,13 +214,13 @@ instance FromJSON Topology where
         (Nothing, Just relays, Nothing) ->
             TopologyBehindNAT <$> parseJSON relays
         (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
-            variantTxt <- obj .: "variant"
+            variantTxt <- p2pObj .: "variant"
             variant <- flip (A.withText "P2P variant") variantTxt $ \txt -> case txt of
                 "traditional" -> pure TopologyTraditional
                 "normal"      -> pure TopologyP2P
                 _             -> fail "P2P variant: expected 'traditional' or 'normal'"
-            valency <- obj .:? "valency" .!= 3
-            fallbacks <- obj .:? "fallbacks" .!= 1
+            valency <- p2pObj .:? "valency" .!= 3
+            fallbacks <- p2pObj .:? "fallbacks" .!= 1
             pure (variant valency fallbacks)
         _ ->
           fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"

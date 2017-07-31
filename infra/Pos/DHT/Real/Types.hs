@@ -15,7 +15,6 @@ import qualified Network.Kademlia       as K
 
 import           Pos.Binary.Class       (Bi (..), encode)
 import           Pos.DHT.Model.Types    (DHTData, DHTKey)
-import           Pos.Network.Types      (NodeType)
 import           Pos.Util.TimeWarp      (NetworkAddress)
 import           System.IO.Unsafe       (unsafePerformIO)
 

@@ -13,7 +13,6 @@ module Pos.Network.CLI (
 import           Universum
 import           Data.IP (IPv4)
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
-import qualified Pos.DHT.Real.Param         as DHT (fromYamlConfig, MalformedDHTKey (..))
 import           Pos.Network.Types (NodeId)
 import           Pos.Network.Yaml (NodeName(..), NodeMetadata(..), NodeAddr(..))
 import           Pos.Network.DnsDomains (DnsDomains(..))
@@ -23,9 +22,9 @@ import qualified Data.Map.Strict            as M
 import qualified Data.Yaml                  as Yaml
 import qualified Network.DNS                as DNS
 import qualified Options.Applicative.Simple as Opt
+import qualified Pos.DHT.Real.Param         as DHT
 import qualified Pos.Network.Types          as T
 import qualified Pos.Network.Yaml           as Y
-import           Pos.DHT.Real.Param         as DHT (KademliaParams, fromYamlConfig)
 
 {-------------------------------------------------------------------------------
   Command line arguments

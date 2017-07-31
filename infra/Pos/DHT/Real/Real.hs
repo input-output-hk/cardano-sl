@@ -43,7 +43,6 @@ import           Pos.DHT.Model.Types       (DHTData, DHTException (..), DHTKey,
                                             DHTNode (..), randomDHTKey)
 import           Pos.DHT.Real.Param        (KademliaParams (..))
 import           Pos.DHT.Real.Types        (KademliaDHTInstance (..))
-import           Pos.Network.Types         (NodeType)
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress)
 

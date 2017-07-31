@@ -68,8 +68,8 @@ before_test:
 test_script:
   - cd "%WORK_DIR%"
   - stack setup --no-reinstall
-  # Install happy separately: https://github.com/commercialhaskell/stack/issues/3151#issuecomment-310642487
-  - stack install happy
+  # Install happy separately: https://github.com/commercialhaskell/stack/issues/3151#issuecomment-310642487. Also install cpphs because it's a build-tool and Stack can't figure out by itself that it should be installed
+  - stack install happy cpphs
       -j 2
       --no-terminal
       --local-bin-path %SYSTEMROOT%\system32

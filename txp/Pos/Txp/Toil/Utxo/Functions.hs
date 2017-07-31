@@ -134,8 +134,12 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs)=
                      , sformat ("output #"%int%" with pubkey address "%
                                 build%" has unknown attributes") i txOutAddress)
                    ]
-               ScriptAddress{} -> checkDist i d txOutValue
-               RedeemAddress{} -> checkDist i d txOutValue
+               ScriptAddress{} ->
+                   checkDist i d txOutValue
+               RedeemAddress{} ->
+                   [ (False, sformat ("output #"%int%" sends money to a "%
+                                      "RedeemAddress, this is prohibited")
+                                     i) ]
                UnknownAddressType t _
                    | vtcVerifyAllIsKnown ->
                          [ (False, sformat ("output #"%int%" has "%

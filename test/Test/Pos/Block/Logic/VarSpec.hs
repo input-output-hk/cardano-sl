@@ -169,7 +169,7 @@ blockEventSuccessProp :: BlockProperty ()
 blockEventSuccessProp = do
     allSecrets <- getAllSecrets
     let
-        eventCount = BlockEventCount 10
+        eventCount = min (BlockEventCount 10) (fromIntegral blkSecurityParam)
         blockEventGenParams = BlockEventGenParams
             { _begpSecrets = allSecrets
             , _begpBlockCountMax =

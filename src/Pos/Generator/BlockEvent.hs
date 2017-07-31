@@ -52,6 +52,7 @@ import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (BlockCount (..))
 import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..),
                                               MonadBlockGen, genBlocks)
+import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
                                               toNewestFirst, toOldestFirst, _NewestFirst,
@@ -157,17 +158,22 @@ byChance (Chance c) = weighted [(False, 1 - c), (True, c)]
 
 data BlockEventGenParams = BlockEventGenParams
     { _begpSecrets         :: !AllSecrets
-    , _begpBlockCountMax   :: !BlockCount {- ^ the maximum possible amount of
-    blocks in a BlockApply event. Must be 1 or more. Can be violated by 1 in
-    some cases (see Note on reordering corner cases), so if you specify '52'
-    here, some rare events may contain up to '53' blocks. -}
-    , _begpBlockEventCount :: !BlockEventCount {- ^ the amount of events to
-    generate excluding the last complete rollback event. There can be less
-    events if we generate an expected failure. For example, if you specify '10'
-    here, you'll either get 11 events (the last is a complete rollback) or
-    some amount of events from 1 to 10 (the last is an expected failure).
-    If you set the failure chance to '0', you'll always get the requested
-    amount of events. -}
+      -- ^ Passed directly to 'BlockGenParams'
+    , _begpGenStakeholders :: !GenesisWStakeholders
+      -- ^ Passed directly to 'BlockGenParams'
+    , _begpBlockCountMax   :: !BlockCount
+      -- ^ the maximum possible amount of blocks in a BlockApply
+      -- event. Must be 1 or more. Can be violated by 1 in some cases
+      -- (see Note on reordering corner cases), so if you specify '52'
+      -- here, some rare events may contain up to '53' blocks.
+    , _begpBlockEventCount :: !BlockEventCount
+      -- ^ the amount of events to generate excluding the last
+      -- complete rollback event. There can be less events if we
+      -- generate an expected failure. For example, if you specify
+      -- '10' here, you'll either get 11 events (the last is a
+      -- complete rollback) or some amount of events from 1 to 10 (the
+      -- last is an expected failure).  If you set the failure chance
+      -- to '0', you'll always get the requested amount of events.
     , _begpRollbackChance  :: !Chance
     , _begpFailureChance   :: !Chance
     }
@@ -222,10 +228,11 @@ genBlockEvents begp = do
         blockCount = BlockCount $
             fromIntegral (blockIndexEnd - blockIndexStart)
     blocks <- genBlocks $ BlockGenParams
-        { _bgpSecrets     = begp ^. begpSecrets
-        , _bgpBlockCount  = blockCount
-        , _bgpTxGenParams = def -- should be better, right?
-        , _bgpInplaceDB   = False
+        { _bgpSecrets         = begp ^. begpSecrets
+        , _bgpGenStakeholders = begp ^. begpGenStakeholders
+        , _bgpBlockCount      = blockCount
+        , _bgpTxGenParams     = def -- should be better, right?
+        , _bgpInplaceDB       = False
         }
     let
         toZeroBased :: BlockIndex -> Int

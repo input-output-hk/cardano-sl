@@ -10,6 +10,7 @@ import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List                   (span)
 import           Data.List.NonEmpty          (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty          as NE
+import           Ether.Internal              (HasLens (..))
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Gen         (Gen (MkGen))
@@ -21,6 +22,7 @@ import           Pos.Core                    (blkSecurityParam)
 import           Pos.DB.Pure                 (dbPureDump)
 import           Pos.Generator.BlockEvent    (BlockEventCount (..),
                                               BlockEventGenParams (..), genBlockEvents)
+import           Pos.Genesis                 (GenesisWStakeholders)
 import qualified Pos.GState                  as GS
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Chrono             (NE, OldestFirst (..))
@@ -171,10 +173,11 @@ blockEventSuccessSpec = do
 blockEventSuccessProp :: BlockProperty ()
 blockEventSuccessProp = do
     allSecrets <- getAllSecrets
-    let
-        eventCount = min (BlockEventCount 10) (fromIntegral blkSecurityParam)
+    genStakeholders <- view (lensOf @GenesisWStakeholders)
+    let eventCount = min (BlockEventCount 10) (fromIntegral blkSecurityParam)
         blockEventGenParams = BlockEventGenParams
             { _begpSecrets = allSecrets
+            , _begpGenStakeholders = genStakeholders
             , _begpBlockCountMax =
                   blkSecurityParam `div` fromIntegral eventCount
             , _begpBlockEventCount = eventCount

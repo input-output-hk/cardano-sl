@@ -42,9 +42,11 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
-                                                 Timestamp (..), addressHash,
-                                                 makePubKeyAddress, mkCoin, unsafeGetCoin)
+import           Pos.Core                       (Coin, IsHeader, SlotId,
+                                                 StakeDistribution (..), Timestamp (..),
+                                                 addressHash, makePubKeyAddress, mkCoin,
+                                                 unsafeAddCoin, unsafeGetCoin)
+import           Pos.Core.Genesis               (stakeDistrMapCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
@@ -62,8 +64,9 @@ import           Pos.Discovery                  (DiscoveryContextSum (..),
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..),
                                                  mkInvSecretsMap)
 import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
-                                                 GenesisWStakeholders (..), genesisUtxo,
-                                                 gtcUtxo, gtcWStakeholders)
+                                                 GenesisWStakeholders (..),
+                                                 bootDustThreshold, genesisUtxo, gtcUtxo,
+                                                 gtcWStakeholders)
 import qualified Pos.GState                     as GS
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
@@ -144,16 +147,16 @@ instance Show TestParams where
     show = formatToString build
 
 -- More distributions can be added if we want (e. g. RichPoor).
-genSuitableStakeDistribution :: Word -> Gen StakeDistribution
-genSuitableStakeDistribution stakeholdersNum =
-    oneof [genFlat{-, genBitcoin-}, pure (ExponentialStakes stakeholdersNum)]
+genSuitableStakeDistribution :: Coin -> Word -> Gen StakeDistribution
+genSuitableStakeDistribution dustThd stakeholdersNum =
+    -- Minimum coin in distribution should be equal or greater than
+    -- boot dust threshold.
+    stakeDistrMapCoin (`unsafeAddCoin` dustThd) <$>
+    oneof [ genFlat {-, genBitcoin-} -- is broken
+          , pure (ExponentialStakes stakeholdersNum (mkCoin 0))]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
-    genFlat =
-        FlatStakes stakeholdersNum <$> totalCoins
-    -- Apparently bitcoin distribution is broken (it produces total stake
-    -- greater than requested one) and I don't think it's worth fixing it.
-    -- genBitcoin = BitcoinStakes stakeholdersNum <$> totalCoins
+    genFlat = FlatStakes stakeholdersNum <$> totalCoins
 
 instance Arbitrary TestParams where
     arbitrary = do
@@ -161,13 +164,15 @@ instance Arbitrary TestParams where
         let _tpStartTime = fromMicroseconds 0
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let _tpAllSecrets = AllSecrets invSecretsMap
-        stakeDistribution <-
-            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
         let addresses =
                 map (makePubKeyAddress . toPublic) (toList invSecretsMap)
         let genStakeholders =
-                GenesisWStakeholders $
-                HM.fromList $ map ((,1) . addressHash . toPublic) secretKeysList
+                GenesisWStakeholders $ HM.fromList $
+                -- at most 10 boot stakeholders
+                map (addressHash . toPublic) secretKeysList `zip` (take 10 $ cycle [1,2,3,4])
+        stakeDistribution <-
+            genSuitableStakeDistribution (bootDustThreshold genStakeholders)
+                                         (fromIntegral $ length invSecretsMap)
         let utxo = genesisUtxo genStakeholders [(addresses, stakeDistribution)]
         let _tpGenesisContext = GenesisContext utxo genStakeholders
         let _tpStakeDistributions = one stakeDistribution

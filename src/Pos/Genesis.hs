@@ -48,7 +48,7 @@ import           Pos.Core                   (Address (..), Coin, SlotLeaders, ad
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                             unsafeMulCoin)
+                                             unsafeGetCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
@@ -127,8 +127,8 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
   where
     normalize x =
         x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
-stakeDistribution (ExponentialStakes n) =
-    [mkCoin (2 ^ i) | i <- [n - 1, n - 2 .. 0]]
+stakeDistribution (ExponentialStakes n (fromIntegral . unsafeGetCoin -> mc)) =
+    reverse $ map mkCoin $ take (fromIntegral n) $ iterate (*2) mc
 stakeDistribution ts@RichPoorStakes {..} =
     checkMpcThd (getTotalStake ts) sdRichStake basicDist
   where
@@ -176,7 +176,7 @@ genesisUtxo bootStakeholdersMaybe ad
     -- Empty distribution for PubKey address means that the owner of
     -- this address will have the stake.
     genesisSplitBoot' x c =
-        either (\e -> error $ "genesisUtxo can't split: " <> show e)
+        either (\e -> error $ "genesisUtxo can't split: " <> show e <> ", genesis utxo " <> show ad)
                identity
                (genesisSplitBoot x c)
     outDistr = genesisSplitBoot' bootStakeholdersMaybe
@@ -261,7 +261,7 @@ devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) Nothing =
         then error "Impossible to make RichPoorStakes with given parameters."
         else identity
 devStakesDistr Nothing Nothing Nothing (Just n) =
-    ExponentialStakes (fromIntegral n)
+    ExponentialStakes (fromIntegral n) (mkCoin 0)
 devStakesDistr _ _ _ _ =
     error "Conflicting distribution options were enabled. \
           \Choose one at most or nothing."

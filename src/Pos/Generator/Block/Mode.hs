@@ -21,7 +21,6 @@ import           Universum
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Data.HashMap.Strict         as HM
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -33,9 +32,9 @@ import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Core                    (GenesisWStakeholders (..),
                                               HasPrimaryKey (..), IsHeader, SlotId (..),
-                                              Timestamp, addressHash, epochOrSlotToSlot,
+                                              Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
-import           Pos.Crypto                  (SecretKey, toPublic)
+import           Pos.Crypto                  (SecretKey)
 import           Pos.DB                      (DBSum, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
                                               MonadDBRead)
@@ -49,7 +48,7 @@ import           Pos.Discovery               (DiscoveryContextSum (..),
                                               getPeersSum)
 import           Pos.Exception               (reportFatalError)
 import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..),
-                                              HasTxGenParams (..), asSecretKeys)
+                                              HasTxGenParams (..))
 import qualified Pos.GState                  as GS
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
@@ -164,6 +163,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     let bgcTxpGlobalSettings = txpGlobalSettings
     let bgcReportingContext = emptyReportingContext
     let bgcDiscoveryContext = DCStatic mempty
+    let bgcGenStakeholders = _bgpGenStakeholders
     let initCtx =
             InitBlockGenContext
                 (bgcGState ^. GS.gscDB)
@@ -179,12 +179,6 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
-  where
-    bgcGenStakeholders =
-        let addrs =
-                take 4 . map (addressHash . toPublic) . toList $
-                view (bgpSecrets . asSecretKeys) bgcParams
-        in GenesisWStakeholders (HM.fromList $ map (,1) addrs)
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBSum

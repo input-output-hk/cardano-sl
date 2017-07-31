@@ -42,7 +42,7 @@ import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..)
                                           GenesisWStakeholders (..),
                                           StakeDistribution (..), bootDustThreshold,
                                           bootRelatedDistr, getTotalStake,
-                                          mkGenesisCoreData)
+                                          mkGenesisCoreData, stakeDistrMapCoin)
 import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
                                           unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,

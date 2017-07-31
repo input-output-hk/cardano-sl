@@ -21,7 +21,7 @@ instance Bi StakeDistribution where
                                                     <> encode c1
                                                     <> encode w2
                                                     <> encode c2
-      ExponentialStakes w        -> encodeListLen 2 <> encode (3 :: Word8) <> encode w
+      ExponentialStakes w mc     -> encodeListLen 3 <> encode (3 :: Word8) <> encode w <> encode mc
       CustomStakes c             -> encodeListLen 2 <> encode (4 :: Word8) <> encode c
     decode = do
       len <- decodeListLen
@@ -37,8 +37,8 @@ instance Bi StakeDistribution where
               matchSize 5 "StakeDistribution.RichPoorStakes" len
               RichPoorStakes    <$> decode <*> decode <*> decode <*> decode
           3 -> do
-              matchSize 2 "StakeDistribution.ExponentialStakes" len
-              ExponentialStakes <$> decode
+              matchSize 3 "StakeDistribution.ExponentialStakes" len
+              ExponentialStakes <$> decode <*> decode
           4 -> do
               matchSize 2 "StakeDistribution.CustomStakes" len
               CustomStakes      <$> decode

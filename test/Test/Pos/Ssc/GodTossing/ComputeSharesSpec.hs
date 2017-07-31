@@ -20,7 +20,7 @@ import           Pos.Core.Coin         (applyCoinPortionDown,
 import           Pos.Lrc               (RichmenStakes, RichmenType (RTUsual),
                                         findRichmenPure)
 import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
-                                        computeSharesDistrPure)
+                                        computeSharesDistrPure, sharesDistrInaccuracy)
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do
@@ -116,7 +116,7 @@ isDistrFair rs sd
         let stakeholders = HM.keys rs
         let distrs = map (findStk totalCoins totalDistr) stakeholders
         let !(er, firstCase, secondCase) = fairBrute distrs 0 0
-        er < 0.05 &&
+        er < sharesDistrInaccuracy &&
             toRational firstCase < totalCases * fivePerc &&
             toRational secondCase < totalCases * fivePerc
   where

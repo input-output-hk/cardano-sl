@@ -16,6 +16,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        , computeParticipants
        , computeSharesDistrPure
        , computeSharesDistr
+       , sharesDistrInaccuracy
 
        -- * Payload processing
        , checkCommitmentsPayload
@@ -132,6 +133,9 @@ checkShares epoch (id, sh) = do
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 
+sharesDistrInaccuracy :: Fractional a => a
+sharesDistrInaccuracy = 0.05
+
 computeSharesDistrPure
     :: MonadError TossVerFailure m
     => RichmenStakes
@@ -144,7 +148,7 @@ computeSharesDistrPure richmen threshold
             total = sum $ map unsafeGetCoin $ toList richmen
         when (total == 0) $
             throwError $ TossInternallError "Richmen total stake equals zero"
-        let epsilon = 0.05::Rational
+        let epsilon = sharesDistrInaccuracy::Rational
         -- We accept error in computation = 0.05,
         -- so stakeholders must have at least 55% of stake (for reveal secret) in the worst case
         let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator

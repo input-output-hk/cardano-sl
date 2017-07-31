@@ -180,7 +180,7 @@ verifyBootEra
        , MonadReader ctx m)
     => EpochIndex -> EpochIndex -> TxAux -> m ()
 verifyBootEra curEpoch unlockEpoch txAux = do
-    let bootEra = isBootstrapEra curEpoch unlockEpoch
+    let bootEra = isBootstrapEra unlockEpoch curEpoch
     bootHolders <- view (lensOf' @GenesisWStakeholders)
     let bootRel = notBootRelated bootHolders
     when (bootEra && not (null bootRel)) $

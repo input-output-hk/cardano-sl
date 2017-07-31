@@ -128,7 +128,6 @@ genTxPayload = do
         epoch <- siEpoch <$> lift (lift getCurrentSlotBlocking)
         bootEra <- lift . lift $ gsIsBootstrapEra epoch
         genWStakeholders <- view (lensOf @GenesisWStakeholders)
-        putText $ "genesisWStakeholders: " <> pretty genWStakeholders
         let dustThd :: Integral a => a
             dustThd = fromIntegral $ unsafeGetCoin $ bootDustThreshold genWStakeholders
         utxoSize <- uses gtdUtxoKeys V.length

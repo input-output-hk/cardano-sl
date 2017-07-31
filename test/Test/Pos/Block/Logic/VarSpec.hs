@@ -5,7 +5,6 @@ module Test.Pos.Block.Logic.VarSpec
        ) where
 
 import           Universum
-import           Unsafe                      (unsafeHead)
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List                   (span)
@@ -29,8 +28,9 @@ import           Pos.Util.Chrono             (NE, OldestFirst (..))
 import           Test.Pos.Block.Logic.Event  (BlockScenarioResult (..), runBlockScenario)
 import           Test.Pos.Block.Logic.Mode   (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util   (EnableTxPayload (..), InplaceDB (..),
-                                              bpGenBlocks, bpGoToArbitraryState,
-                                              getAllSecrets, satisfySlotCheck)
+                                              bpGenBlock, bpGenBlocks,
+                                              bpGoToArbitraryState, getAllSecrets,
+                                              satisfySlotCheck)
 import           Test.Pos.Util               (splitIntoChunks, stopProperty)
 
 spec :: Spec
@@ -64,11 +64,7 @@ verifyBlocksPrefixSpec = do
 
 verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
-    -- unsafeHead is safe here, because we explicitly request to
-    -- generate exactly 1 block
-    emptyBlock <-
-        fst . unsafeHead . getOldestFirst <$>
-        bpGenBlocks (Just 1) (EnableTxPayload False) (InplaceDB False)
+    emptyBlock <- fst <$> bpGenBlock (EnableTxPayload False) (InplaceDB False)
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
         stopProperty . pretty
 

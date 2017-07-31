@@ -4,6 +4,7 @@ module Test.Pos.Block.Logic.Util
        ( EnableTxPayload (..)
        , InplaceDB (..)
        , bpGenBlocks
+       , bpGenBlock
        , bpGoToArbitraryState
        , withCurrentSlot
        , satisfySlotCheck
@@ -11,6 +12,7 @@ module Test.Pos.Block.Logic.Util
        ) where
 
 import           Universum
+import           Unsafe                      (unsafeHead)
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default                (def)
@@ -59,6 +61,12 @@ bpGenBlocks blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
     params <- pick $ sized genBlockGenParams
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ evalRandT (genBlocks params) g
+
+-- | A version of 'bpGenBlocks' which generates exactly one
+-- block. Allows one to avoid unsafe functions sometimes.
+bpGenBlock :: EnableTxPayload -> InplaceDB -> BlockProperty (Blund SscGodTossing)
+-- 'unsafeHead' is safe because we create exactly 1 block
+bpGenBlock = fmap (unsafeHead . toList) ... bpGenBlocks (Just 1)
 
 getAllSecrets :: BlockProperty AllSecrets
 getAllSecrets = lift $ view (lensOf @BlockTestContextTag . tpAllSecrets)

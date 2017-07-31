@@ -8,13 +8,16 @@ module Test.Pos.Lrc.WorkerSpec
 
 import           Universum
 
-import           Control.Lens              (_head, _tail)
+import           Control.Lens              (_Right, _head, _tail)
 import qualified Data.HashMap.Strict       as HM
 import           Serokell.Util             (enumerate, subList)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
-import           Test.QuickCheck           (Gen, arbitrary)
+import           Test.QuickCheck           (Gen, arbitrary, choose)
+import           Test.QuickCheck.Monadic   (pick)
 
+import           Pos.Block.Core            (mainBlockTxPayload)
+import           Pos.Block.Logic           (applyBlocksUnsafe)
 import qualified Pos.Constants             as Const
 import           Pos.Core                  (Address, Coin, applyCoinPortionUp,
                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
@@ -24,13 +27,13 @@ import           Pos.Generator.Block       (AllSecrets (..), mkInvSecretsMap)
 import           Pos.Genesis               (StakeDistribution (..), genesisUtxo)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
-import           Pos.Txp                   (mkGenesisTxpContext)
+import           Pos.Txp                   (TxAux, mkGenesisTxpContext, mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
                                             blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..),
-                                            bpGenBlocks)
+                                            bpGenBlock, bpGenBlocks)
 import           Test.Pos.Util             (maybeStopProperty, stopProperty)
 
 spec :: Spec
@@ -60,9 +63,12 @@ genTestParams = do
     let invSecretsMap = mkInvSecretsMap secretKeys
     let _tpAllSecrets = AllSecrets invSecretsMap
     totalStake <- max minTotalStake <$> arbitrary
+    -- It's essential to use 'toList invSecretsMap' instead of
+    -- 'secretKeys' here, because we rely on the order further. Later
+    -- we can add ability to extend 'TestParams' or context.
     addressesAndDistrs <-
         mapM
-            (genAddressesAndDistrs totalStake secretKeys)
+            (genAddressesAndDistrs totalStake (toList invSecretsMap))
             (enumerate Lrc.richmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
     let utxo = genesisUtxo Nothing addressesAndDistrs
@@ -98,14 +104,29 @@ genTestParams = do
 
 lrcCorrectnessProp :: BlockProperty ()
 lrcCorrectnessProp = do
-    -- We don't use 'crucialSlot' or anything similar, because we
-    -- don't want to rely on the code, but rather want to use our knowledge.
-    let blockCount0 = 8 * Const.blkSecurityParam
-    () <$ bpGenBlocks (Just blockCount0) (EnableTxPayload False) (InplaceDB True)
+    let k = Const.blkSecurityParam
+    -- This value is how many blocks we need to generate first. We
+    -- want to generate blocks for all slots which will be considered
+    -- in LRC except the last one, because we want to include some
+    -- special transactions into it.  We don't use 'crucialSlot' or
+    -- anything similar, because we don't want to rely on the code,
+    -- but rather want to use our knowledge.
+    let blkCount0 = 8 * k - 1
+    () <$ bpGenBlocks (Just blkCount0) (EnableTxPayload False) (InplaceDB True)
+    genAndApplyBlockFixedTxs =<< txsBeforeBoundary
+    -- At this point we have applied '8 * k' blocks. The current state
+    -- will be used in LRC.
     stableUtxo <- lift GS.getAllPotentiallyHugeUtxo
     stableStakes <- lift GS.getAllPotentiallyHugeStakesMap
-    let blockCount1 = 2 * Const.blkSecurityParam
-    () <$ bpGenBlocks (Just blockCount1) (EnableTxPayload False) (InplaceDB True)
+    -- All further blocks will not be considered by LRC for the 1-st
+    -- epoch. So we include some transactions to make sure they are
+    -- not considered.
+    genAndApplyBlockFixedTxs =<< txsAfterBoundary
+    -- We need to have at least 'k' blocks after the boundary to make
+    -- sure that stable blocks are indeed stable. Note that we have
+    -- already applied 1 blocks, hence 'pred'.
+    blkCount1 <- pred <$> pick (choose (k, 2 * k))
+    () <$ bpGenBlocks (Just blkCount1) (EnableTxPayload False) (InplaceDB True)
     lift $ Lrc.lrcSingleShotNoLock 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
@@ -121,3 +142,31 @@ lrcCorrectnessProp = do
         stopProperty "expectedLeadersUtxo /= leaders1"
     unless (expectedLeadersStakes /= leaders1) $
         stopProperty "expectedLeadersStakes /= leaders1"
+
+genAndApplyBlockFixedTxs :: [TxAux] -> BlockProperty ()
+genAndApplyBlockFixedTxs txs =
+    case mkTxPayload txs of
+        Left err -> stopProperty err
+        Right txPayload -> do
+            emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)
+            let blund =
+                    emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
+            lift $ applyBlocksUnsafe (one blund) Nothing
+
+-- TODO: we can't change stake in bootstrap era!
+-- This part should be implemented in CSL-1450.
+
+txsBeforeBoundary :: BlockProperty [TxAux]
+txsBeforeBoundary = pure []
+
+txsAfterBoundary :: BlockProperty [TxAux]
+txsAfterBoundary = pure []
+
+-- mkStakeTransfer :: SecretKey -> SecretKey -> BlockProperty TxAux
+-- mkStakeTransfer fromSK toSK = do
+--     utxo <- lift GS.getAllPotentiallyHugeUtxo -- utxo is small
+--     let fromAddr = makePubKeyAddress . toPublic $ fromSK
+--     -- We don't care about balances, only stakes, so we won't change
+--     -- balances.
+--     let toAddr = fromAddr
+--     return undefined

@@ -62,6 +62,14 @@ spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (const 1) $ do
 -- components.
 type GroupId = Int
 
+-- It's copy-pasted here because we rely on the order.
+allRichmenComponents :: [Lrc.SomeRichmenComponent]
+allRichmenComponents =
+    [ Lrc.someRichmenComponent @Lrc.RCSsc
+    , Lrc.someRichmenComponent @Lrc.RCUs
+    , Lrc.someRichmenComponent @Lrc.RCDlg
+    ]
+
 -- | We need to generate some genesis with
 -- genesis stakeholders `RC × {A, B, C, D}` (where `RC` is the set of
 -- all richmen components and `{A, B, C, D}` is just a set of 4 items)
@@ -82,13 +90,13 @@ genTestParams = do
     addressesAndDistrs <-
         mapM
             (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
-            (enumerate Lrc.richmenComponents)
+            (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
     let utxo = genesisUtxo Nothing addressesAndDistrs
     let _tpGenTxpContext = mkGenesisTxpContext utxo
     return TestParams {..}
   where
-    groupsNumber = length Lrc.richmenComponents
+    groupsNumber = length allRichmenComponents
     minTotalStake = mkCoin 100000
     genAddressesAndDistrs ::
            Coin
@@ -162,8 +170,8 @@ lrcCorrectnessProp = do
 
 checkRichmen :: BlockProperty ()
 -- Here we check richmen.  The order must be the same as the one
--- in 'Lrc.richmenComponents'. Unfortunately, I don't know how to
--- do it better (@gromak).
+-- in 'allRichmenComponents'. Unfortunately, I don't know how to
+-- do it better without spending too much time on it (@gromak).
 checkRichmen = do
     checkRichmenStakes 0 =<< getRichmen (lift . Lrc.getRichmenSsc)
     checkRichmenFull 1 =<< getRichmen (lift . Lrc.getRichmenUS)

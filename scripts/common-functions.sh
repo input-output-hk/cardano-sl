@@ -172,13 +172,12 @@ function node_cmd {
 
 function bench_cmd {
   local i=$1
-  local dht_cmd=$2
-  local stake_distr=$3
-  local system_start=$4
-  local time=$5
-  local conc=$6
-  local delay=$7
-  local sendmode=$8
+  local stake_distr=$2
+  local system_start=$3
+  local time=$4
+  local conc=$5
+  local delay=$6
+  local sendmode=$7
   ensure_run
 
   echo -n "$(find_binary cardano-wallet)"
@@ -189,7 +188,7 @@ function bench_cmd {
   echo -n " $(logs node_lightwallet.log)"
   echo -n " --system-start $system_start"
   echo -n " $stake_distr"
-  echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay 10 $sendmode tps-sent.csv\""
+  echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode tps-sent.csv\""
 
   echo ''
 }

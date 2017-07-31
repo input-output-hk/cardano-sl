@@ -80,12 +80,6 @@ while [[ $i -lt $panesCnt ]]; do
   fi
 
   stake_distr=" --rich-poor-distr \"($n,50000,6000000000,0.99)\" "
-  kademlia_dump_path="kademlia$i.dump"
-  static_peers=''
-
-  if [[ $STATIC_PEERS != "" ]]; then
-      static_peers=' --static-peers'
-  fi
 
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       stake_distr=""
@@ -96,7 +90,10 @@ while [[ $i -lt $panesCnt ]]; do
   if [[ $i -lt $n ]]; then
     tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir") --no-ntp" C-m
   else
-    tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$dht_conf" "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
+    # Number of transactions to send per-thread: 300
+    # Concurrency (number of threads sending transactions); $CONC
+    # Delay between sends on each thread: 500 milliseconds
+    tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
   fi
   i=$((i+1))
 done

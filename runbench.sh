@@ -29,7 +29,7 @@ fi
 #
 # node_cmd , bench_cmd defined in scripts/common_functions.sh
 
-CONC=4 scripts/launch/demo.sh 3 ./run/demo/static
+CONC=4 scripts/launch/demo.sh 3 ./run
 
 # transaction generator generates file tps-sent.csv
 #

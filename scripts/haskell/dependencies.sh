@@ -91,9 +91,18 @@ normalisePackage txt = case T.breakOnEnd "-" txt of
         Just _  -> txt
         Nothing -> if x == "" then error ("normalisePackage: " <> show txt) else T.init x
 
+
 --------------------------------------------------------------------------------
+unavoidableDeps :: Package -> Package -> Bool
+unavoidableDeps myself x = and [
+      x /= myself
+    , not ("cardano" `T.isInfixOf` (fst x))
+    ]
+
+--------------------------------------------------------------------------------
+-- | Filter "unavoilable" dependencies like the ones of the cardano family.
 reverseDependenciesFor :: Package -> [Package] -> DepMap -> [Package]
-reverseDependenciesFor pkg allDeps directDeps = go (filter ((/=) pkg) allDeps) mempty
+reverseDependenciesFor pkg allDeps directDeps = go (filter (unavoidableDeps pkg) allDeps) mempty
   where
     go [] revDeps     = revDeps
     go (x:xs) revDeps = case reachableFrom x of
@@ -137,11 +146,11 @@ main = do
     (directDepMap, depDag) <- buildDependencyContext allDeps
 
     let tableHeader         =  printf "%-40s" ("Package" :: String)
-                            <> printf "%-20s" ("Direct dependencies"  :: String)
-                            <> printf "%-20s" ("Reverse dependencies" :: String)
+                            <> printf "%-15s" ("Direct deps"  :: String)
+                            <> printf "%-70s" ("Reverse deps (excluding cardano-*)"  :: String)
     let tableEntry pkg deps revDeps =  printf "%-40s" (T.unpack pkg)
-                                    <> printf "%-20s" (show deps)
-                                    <> printf "%-20s\n" (T.unpack $ showRevDeps revDeps)
+                                    <> printf "%-15s" (show deps)
+                                    <> printf "%-70s\n" (T.unpack $ showRevDeps revDeps)
     putStrLn tableHeader
 
     let depsMap = M.map length directDepMap
@@ -157,8 +166,8 @@ main = do
     putStrLn $ tableEntry "Total project deps" (length allDeps + length blacklistedPackages) []
 
 showRevDeps :: [Package] -> T.Text
-showRevDeps []  = "0"
+showRevDeps []  = "0 (possibly cardano depends on it)"
 showRevDeps [(pkgName,_)] = "1 (" <> pkgName <> ")"
 showRevDeps xs
-  | length xs <= 3 = T.pack (show $ length xs) <> " (" <> T.intercalate "," (map fst xs) <> ")"
-  | otherwise      = T.pack (show $ length xs) <> " (" <> T.intercalate "," (map fst (take 2 xs)) <> ",...)"
+  | length xs <= 5 = T.pack (show $ length xs) <> " (" <> T.intercalate "," (map fst xs) <> ")"
+  | otherwise      = T.pack (show $ length xs) <> " (" <> T.intercalate "," (map fst (take 5 xs)) <> ",...)"

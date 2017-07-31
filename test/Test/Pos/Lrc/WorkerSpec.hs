@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Specification of 'Pos.Lrc.Worker' (actually only
 -- 'lrcSingleShotNoLock' which probably shouldn't be there, but it
 -- doesn't matter now).
@@ -7,9 +9,11 @@ module Test.Pos.Lrc.WorkerSpec
        ) where
 
 import           Universum
+import           Unsafe                    (unsafeHead, unsafeTail)
 
-import           Control.Lens              (_Right, _head, _tail)
+import           Control.Lens              (At (at), Index, _Right, _head, _tail)
 import qualified Data.HashMap.Strict       as HM
+import           Formatting                (sformat, (%))
 import           Serokell.Util             (enumerate, subList)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
@@ -19,16 +23,19 @@ import           Test.QuickCheck.Monadic   (pick)
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
 import qualified Pos.Constants             as Const
-import           Pos.Core                  (Address, Coin, applyCoinPortionUp,
+import           Pos.Core                  (Address, Coin, EpochIndex, StakeholderId,
+                                            addressHash, applyCoinPortionUp, coinF,
                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
                                             unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic)
-import           Pos.Generator.Block       (AllSecrets (..), mkInvSecretsMap)
+import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
+                                            mkInvSecretsMap)
 import           Pos.Genesis               (StakeDistribution (..), genesisUtxo)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, mkGenesisTxpContext, mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
+import           Pos.Util.Util             (getKeys)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
                                             blockPropertyToProperty)
@@ -50,6 +57,10 @@ spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (const 1) $ do
         "right before the '8 * k'-th slot.\n" <>
         "Computes leaders using follow-the-satoshi algorithm using stake " <>
         "distribution or utxo right before the '8 * k'-th slot."
+
+-- We split everything into groups corresponding to different richmen
+-- components.
+type GroupId = Int
 
 -- | We need to generate some genesis with
 -- genesis stakeholders `RC × {A, B, C, D}` (where `RC` is the set of
@@ -79,7 +90,7 @@ genTestParams = do
     genAddressesAndDistrs ::
            Coin
         -> [SecretKey]
-        -> (Int, Lrc.SomeRichmenComponent)
+        -> (GroupId, Lrc.SomeRichmenComponent)
         -> Gen ([Address], StakeDistribution)
     genAddressesAndDistrs totalStake allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
         let secretKeysRange = subList (4 * i, 4 * (i + 1) - 1) allSecretKeys
@@ -142,6 +153,74 @@ lrcCorrectnessProp = do
         stopProperty "expectedLeadersUtxo /= leaders1"
     unless (expectedLeadersStakes /= leaders1) $
         stopProperty "expectedLeadersStakes /= leaders1"
+    checkRichmen
+
+checkRichmen :: BlockProperty ()
+-- Here we check richmen.  The order must be the same as the one
+-- in 'Lrc.richmenComponents'. Unfortunately, I don't know how to
+-- do it better (@gromak).
+checkRichmen = do
+    checkRichmenStakes 0 =<< getRichmen (lift . Lrc.getRichmenSsc)
+    checkRichmenFull 1 =<< getRichmen (lift . Lrc.getRichmenUS)
+    checkRichmenSet 2 =<< getRichmen (lift . Lrc.getRichmenDlg)
+  where
+    relevantStakeholders :: GroupId -> BlockProperty [StakeholderId]
+    -- The order is important, so we don't use `keys`.
+    relevantStakeholders i =
+        map (addressHash . toPublic) . subList (4 * i, 4 * (i + 1) - 1) . toList <$>
+        view asSecretKeys
+    getRichmen ::
+           (EpochIndex -> BlockProperty (Maybe richmen))
+        -> BlockProperty richmen
+    getRichmen getter = maybeStopProperty "No richmen for epoch#1!" =<< getter 1
+    checkRichmenFull :: GroupId -> Lrc.FullRichmenData -> BlockProperty ()
+    checkRichmenFull i (totalStake, richmenStakes) = do
+        realTotalStake <- lift GS.getRealTotalStake
+        unless (totalStake == realTotalStake) $
+            stopProperty $ sformat
+            ("Total stake returned by LRC differs from the real one: (LRC = "
+             %coinF% ", real = " %coinF%")")
+             totalStake realTotalStake
+        checkRichmenStakes i richmenStakes
+    checkRichmenStakes :: GroupId -> Lrc.RichmenStakes -> BlockProperty ()
+    checkRichmenStakes i richmenStakes = do
+        checkRichmenSet i (getKeys richmenStakes)
+        let checkRich (id, realStake)
+                | Just lrcStake <- richmenStakes ^. at id
+                , lrcStake /= realStake =
+                    stopProperty $ sformat
+                    ("Richman's stake differs from the real one (LRC returned "
+                     %coinF%", the real one is "%coinF%")")
+                     lrcStake realStake
+                | otherwise = pass
+        mapM_ checkRich =<< expectedRichmenStakes i
+    checkRichmenSet :: GroupId -> Lrc.RichmenSet -> BlockProperty ()
+    checkRichmenSet i richmenSet = do
+        checkPoor i richmenSet
+        let checkRich (id, realStake) =
+                when (isNothing (richmenSet ^. at id)) $
+                stopProperty $ sformat
+                ("Someone has stake "%coinF%", but wasn't considered richman")
+                 realStake
+        mapM_ checkRich =<< expectedRichmenStakes i
+    expectedRichmenStakes :: GroupId -> BlockProperty [(StakeholderId, Coin)]
+    expectedRichmenStakes i = do
+        richmen <- unsafeTail <$> relevantStakeholders i
+        let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
+        lift $ mapM resolve richmen
+    checkPoor ::
+           (Index m ~ StakeholderId, At m) => GroupId -> m -> BlockProperty ()
+    checkPoor i richmen = do
+        let __unit = () -- workaround for hindent
+        -- It's safe because there must be 4 stakeholders by construction.
+        poorGuy <- unsafeHead <$> relevantStakeholders i
+        poorGuyStake <- lift $ fromMaybe minBound <$> GS.getRealStake poorGuy
+        totalStake <- lift GS.getRealTotalStake
+        unless (isNothing $ richmen ^. at poorGuy) $
+            stopProperty $ sformat
+                ("Poor guy was considered rich by LRC! His real stake is "
+                 %coinF%", real total stake is "%coinF)
+                poorGuyStake totalStake
 
 genAndApplyBlockFixedTxs :: [TxAux] -> BlockProperty ()
 genAndApplyBlockFixedTxs txs =

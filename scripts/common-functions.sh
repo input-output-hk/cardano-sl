@@ -80,6 +80,7 @@ function node_cmd {
   local stake_distr=$3
   local wallet_args=$4
   local system_start=$5
+  local config_dir=$6
   local st=''
   local reb=''
   local no_ntp=''
@@ -120,8 +121,6 @@ function node_cmd {
 
   echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
-  $dht_cmd
-
   ekg_server="127.0.0.1:"$((8000+$i))
   statsd_server="127.0.0.1:"$((8125+$i))
 
@@ -136,9 +135,9 @@ function node_cmd {
   echo -n " --metrics +RTS -T -RTS"
   echo -n " --ekg-server $ekg_server"
   #echo -n " --statsd-server $statsd_server"
-  echo -n " --node-id node{$i}"
-  echo -n " --topology $run_dir/topology$i.yaml"
-  echo -n " --kademlia $run_dir/kademlia$i.yaml"
+  echo -n " --node-id node$i"
+  echo -n " --topology $config_dir/topology$i.yaml"
+  echo -n " --kademlia $config_dir/kademlia$i.yaml"
   echo ''
 }
 

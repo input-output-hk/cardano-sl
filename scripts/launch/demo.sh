@@ -24,8 +24,12 @@ if [[ "$n" == "" ]]; then
   n=$DEFAULT_NODES_N
 fi
 
-# Mode is not mandatory
-mode=$2
+config_dir=$2
+
+if [[ $config_dir == "" ]]
+  then
+    config_dir="./run"
+fi
 
 # Stats are not mandatory either
 stats=$3
@@ -62,15 +66,6 @@ while [[ $i -lt $panesCnt ]]; do
   echo "Launching node $i in tab $im of window $ir"
   tmux select-pane -t $im
 
-  if [[ "$mode" == "no_dht" ]]; then
-      dht_conf='dht_config '$i' all '$n
-  else
-    dht_conf='dht_config rand 0'
-    if [[ $i == 0 ]]; then
-      dht_conf='dht_config 0'
-    fi
-  fi
-
   wallet_args=''
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
@@ -88,7 +83,7 @@ while [[ $i -lt $panesCnt ]]; do
   fi
 
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" ) --no-ntp" C-m
+    tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir") --no-ntp" C-m
   else
     tmux send-keys "NODE_COUNT=$n $base/../bench/run-smart-generator.sh 0 -R 1 -N 2 -t $TPS -S 3 --init-money 100000 --recipients-share 0" C-m
   fi

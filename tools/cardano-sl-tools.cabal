@@ -574,3 +574,79 @@ executable cardano-block-gen
 
   if flag(for-installer)
     buildable: False
+
+executable cardano-post-mortem
+  hs-source-dirs:      src/post-mortem
+  main-is:             Main.hs
+  other-modules:       JSONLog
+                     , Options
+                     , Statistics
+                     , Statistics.Block
+                     , Statistics.Chart
+                     , Statistics.CSV
+                     , Statistics.Focus
+                     , Statistics.Graph
+                     , Statistics.Histogram
+                     , Statistics.MemPool
+                     , Statistics.Report
+                     -- , Statistics.Relay
+                     , Statistics.Throughput
+                     , Statistics.Tx
+                     , Types
+                     , Util.Aeson
+                     , Util.Pipes
+                     , Util.Safe
+  build-depends:       base
+                     , aeson
+                     , attoparsec
+                     , cardano-sl
+                     , cardano-sl-txp
+                     , Chart
+                     , Chart-diagrams
+                     , containers
+                     , directory
+                     , filepath
+                     , fgl
+                     , graphviz
+                     , foldl
+                     , MonadRandom
+                     , optparse-applicative
+                     , pipes
+                     , pipes-bytestring
+                     , pipes-interleave
+                     , pipes-safe
+                     , random
+                     , text
+                     , time-units
+                     , turtle
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        ScopedTypeVariables
+                        BangPatterns

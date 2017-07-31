@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Count number of blocks sent by last invocation of the runbench
 

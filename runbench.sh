@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # dev-mode : allow to generate custom genesis block
 # CONFIG=.. selects section from config file (core/constants.yaml)
@@ -6,14 +6,19 @@
 
 stack build --flag cardano-sl-core:dev-mode --flag cardano-sl-core:dev-custom-config --ghc-options=-DCONFIG=benchmark
 
+if [[ $? -ne 0 ]]
+then
+  exit $?
+fi
+
 # CONC=4 transaction generator spawns 4 threads 
 #   all send about 2 transactions per second
 # 3 : 3 nodes
-# no_dht: no Kalemdia
+# ./run/demo/static : find topology yaml config in this directory
 #
 # To modify the behaviour of the benchmark generator: demo.sh, line 104 
 # 
-# > tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$dht_conf" "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
+# > tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
 #
 #   300         number of seconds it runs for
 #   $CONC       number of threads
@@ -24,7 +29,7 @@ stack build --flag cardano-sl-core:dev-mode --flag cardano-sl-core:dev-custom-co
 #
 # node_cmd , bench_cmd defined in scripts/common_functions.sh
 
-CONC=4 scripts/launch/demo.sh 3 no_dht
+CONC=4 scripts/launch/demo.sh 3 ./run/demo/static
 
 # transaction generator generates file tps-sent.csv
 #

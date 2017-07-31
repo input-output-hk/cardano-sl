@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Count number of transactions that ended up in a block in latest logs/
 

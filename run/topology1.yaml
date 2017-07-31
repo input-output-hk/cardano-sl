@@ -1,1 +1,4 @@
-p2p: traditional
+p2p:
+  variant: traditional
+  valency: 3
+  fallbacks: 1

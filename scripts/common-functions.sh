@@ -103,12 +103,11 @@ function dht_config {
 
 function node_cmd {
   local i=$1
-  local dht_cmd=$2
-  local is_stat=$3
-  local stake_distr=$4
-  local wallet_args=$5
-  local kademlia_dump_path=$6
-  local system_start=$7
+  local is_stat=$2
+  local stake_distr=$3
+  local wallet_args=$4
+  local system_start=$5
+  local config_dir=$6
   local st=''
   local reb=''
   local no_ntp=''
@@ -148,8 +147,6 @@ function node_cmd {
 
   echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
-  $dht_cmd
-
   ekg_server="127.0.0.1:"$((8000+$i))
   statsd_server="127.0.0.1:"$((8125+$i))
 
@@ -167,7 +164,8 @@ function node_cmd {
   echo -n " --ekg-server $ekg_server"
   #echo -n " --statsd-server $statsd_server"
   echo -n " --node-id node$i"
-  echo -n " --topology ./topology-bench.yaml"
+  echo -n " --topology $config_dir/topology$i.yaml"
+  echo -n " --kademlia $config_dir/kademlia$i.yaml"
   echo ''
   sleep 0.8
 }

@@ -42,28 +42,29 @@ import           Control.Monad.Catch        (handleAll)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.DList                 (DList)
 import qualified Data.DList                 as DL
+import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
-import qualified Data.HashMap.Strict        as HM
 import qualified Data.Map                   as M
 import qualified Data.Text.Buildable
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, sformat, (%))
 import           Mockable                   (SharedAtomicT)
 import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning, logError)
+import           System.Wlog                (WithLogger, logDebug, logError, logInfo,
+                                             logWarning)
 
 import           Pos.Block.Core             (BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Constants              (genesisHash, blkSecurityParam)
-import           Pos.Context                (BlkSemaphore, genesisUtxoM, GenesisUtxo (..))
+import           Pos.Constants              (blkSecurityParam, genesisHash)
+import           Pos.Context                (BlkSemaphore, GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                   (AddrPkAttrs (..), Address (..),
-                                             ChainDifficulty, HasDifficulty (..), BlockHeaderStub,
-                                             HeaderHash, Timestamp, headerHash,
-                                             headerSlotL, makePubKeyAddress)
+                                             BlockHeaderStub, ChainDifficulty,
+                                             HasDifficulty (..), HeaderHash, Timestamp,
+                                             headerHash, headerSlotL, makePubKeyAddress)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              WithHash (..), deriveHDPassphrase,
                                              encToPublic, hash, shortHashF,
@@ -93,8 +94,8 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
-                                             CustomAddressType (..),
-                                             WebWalletModeDB, WalletTip (..))
+                                             CustomAddressType (..), WalletTip (..),
+                                             WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
 -- VoidModifier describes a difference between two states.

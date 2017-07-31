@@ -18,7 +18,8 @@ import           Formatting                 (build, sformat, (%))
 import           System.Wlog                (WithLogger, logDebug, logWarning)
 
 import           Pos.Block.BListener        (MonadBListener (..))
-import           Pos.Block.Core             (BlockHeader, blockHeader, mainBlockTxPayload)
+import           Pos.Block.Core             (BlockHeader, blockHeader, getBlockHeader,
+                                             mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, difficultyL, headerHash,
                                              headerSlotL, prevBlockL)
@@ -77,8 +78,13 @@ onApplyTracking blunds = do
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWallet :: HeaderHash -> BlockHeader ssc -> [(TxAux, TxUndo)] -> CId Wal -> m ()
-    syncWallet curTip newTipH txsWUndo wAddr = walletGuard curTip wAddr $ do
+    syncWallet
+        :: HeaderHash
+        -> BlockHeader ssc
+        -> [(TxAux, TxUndo, BlockHeader ssc)]
+        -> CId Wal
+        -> m ()
+    syncWallet curTip newTipH blkTxsWUndo wAddr = walletGuard curTip wAddr $ do
         systemStart <- getSystemStart
         sd <- getSlottingData
         let mainBlkHeaderTs mBlkH =
@@ -88,15 +94,16 @@ onApplyTracking blunds = do
         allAddresses <- getWalletAddrMetasDB WS.Ever wAddr
         encSK <- getSKByAddr wAddr
         let mapModifier =
-                trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
-                map (\(tx, undo) -> (tx, undo, newTipH)) txsWUndo
+                trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs blkTxsWUndo
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
 
-    gbTxsWUndo :: Blund ssc -> [(TxAux, TxUndo)]
+    gbTxsWUndo :: Blund ssc -> [(TxAux, TxUndo, BlockHeader ssc)]
     gbTxsWUndo (Left _, _) = []
-    gbTxsWUndo (Right mb, undo) =
-        zip (mb ^. mainBlockTxPayload . to flattenTxPayload) (undoTx undo)
+    gbTxsWUndo (blk@(Right mb), undo) =
+        zip3 (mb ^. mainBlockTxPayload . to flattenTxPayload)
+             (undoTx undo)
+             (repeat $ getBlockHeader blk)
     gbDiff = Just . view difficultyL
 
 -- Perform this action under block lock.

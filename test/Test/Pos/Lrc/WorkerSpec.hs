@@ -11,7 +11,7 @@ module Test.Pos.Lrc.WorkerSpec
 import           Universum
 import           Unsafe                    (unsafeHead, unsafeTail)
 
-import           Control.Lens              (At (at), Index, _Right, _head, _tail)
+import           Control.Lens              (At (at), Index, _Right)
 import qualified Data.HashMap.Strict       as HM
 import           Formatting                (sformat, (%))
 import           Serokell.Util             (enumerate, subList)
@@ -25,8 +25,8 @@ import           Pos.Block.Logic           (applyBlocksUnsafe)
 import qualified Pos.Constants             as Const
 import           Pos.Core                  (Address, Coin, EpochIndex, StakeholderId,
                                             addressHash, applyCoinPortionUp, coinF,
-                                            makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                            unsafeSubCoin)
+                                            divCoin, makePubKeyAddress, mkCoin,
+                                            unsafeAddCoin, unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic)
 import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
                                             mkInvSecretsMap)
@@ -69,49 +69,54 @@ type GroupId = Int
 genTestParams :: Gen TestParams
 genTestParams = do
     let _tpStartTime = 0
-    let stakeholdersNum = 4 * length Lrc.richmenComponents
+    let stakeholdersNum = 4 * groupsNumber
     secretKeys <- nonrepeating stakeholdersNum
     let invSecretsMap = mkInvSecretsMap secretKeys
     let _tpAllSecrets = AllSecrets invSecretsMap
-    totalStake <- max minTotalStake <$> arbitrary
+    -- Total stake inside one group.
+    totalStakeGroup <-
+        (`divCoin` groupsNumber) . max minTotalStake <$> arbitrary
     -- It's essential to use 'toList invSecretsMap' instead of
     -- 'secretKeys' here, because we rely on the order further. Later
     -- we can add ability to extend 'TestParams' or context.
     addressesAndDistrs <-
         mapM
-            (genAddressesAndDistrs totalStake (toList invSecretsMap))
+            (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
             (enumerate Lrc.richmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
     let utxo = genesisUtxo Nothing addressesAndDistrs
     let _tpGenTxpContext = mkGenesisTxpContext utxo
     return TestParams {..}
   where
+    groupsNumber = length Lrc.richmenComponents
     minTotalStake = mkCoin 100000
     genAddressesAndDistrs ::
            Coin
         -> [SecretKey]
         -> (GroupId, Lrc.SomeRichmenComponent)
         -> Gen ([Address], StakeDistribution)
-    genAddressesAndDistrs totalStake allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
-        let secretKeysRange = subList (4 * i, 4 * (i + 1) - 1) allSecretKeys
+    genAddressesAndDistrs totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
+        let secretKeysRange = subList (4 * i, 4 * (i + 1)) allSecretKeys
         let skToAddr = makePubKeyAddress . toPublic
         let addresses = map skToAddr secretKeysRange
+        let totalStake = totalStakeGroup `unsafeMulCoin` groupsNumber
         let thresholdCoin =
                 Lrc.rcInitialThreshold proxy `applyCoinPortionUp` totalStake
-        -- Let's add some stake to richmen just for fun. Total stake
-        -- is at least 100000, so it should be harmless.
-        let genSummand = min (mkCoin 10) <$> arbitrary
-        summands <- replicateM 3 genSummand
-        let subtrahend = mkCoin 1
-        -- We give 'thresholdCoin' to 4 stakeholders and all of them
-        -- become richmen.  Then we decrease stake of one of them by 1
-        -- and this stakeholder is no loger richman.  Then we add
-        -- small amount of coins to richmen.
-        let stakes =
-                replicate 4 thresholdCoin &
-                _head %~ flip unsafeSubCoin subtrahend &
-                _tail %~ zipWith unsafeAddCoin summands
-        return (addresses, CustomStakes stakes)
+        let poorStake = thresholdCoin `unsafeSubCoin` mkCoin 1
+        -- Let's add small stake to two richmen just for fun.
+        let genSmallRichStake =
+                unsafeAddCoin thresholdCoin . mkCoin <$> choose (0, 10)
+        richStake1 <- genSmallRichStake
+        richStake2 <- genSmallRichStake
+        let richStake3 =
+                foldl'
+                    unsafeSubCoin
+                    totalStakeGroup
+                    [poorStake, richStake1, richStake2]
+        let stakes = [poorStake, richStake1, richStake2, richStake3]
+        case richStake3 >= thresholdCoin of
+            True  -> return (addresses, CustomStakes stakes)
+            False -> error "threshold is too big, tests are not ready for it"
 
 lrcCorrectnessProp :: BlockProperty ()
 lrcCorrectnessProp = do
@@ -167,7 +172,7 @@ checkRichmen = do
     relevantStakeholders :: GroupId -> BlockProperty [StakeholderId]
     -- The order is important, so we don't use `keys`.
     relevantStakeholders i =
-        map (addressHash . toPublic) . subList (4 * i, 4 * (i + 1) - 1) . toList <$>
+        map (addressHash . toPublic) . subList (4 * i, 4 * (i + 1)) . toList <$>
         view asSecretKeys
     getRichmen ::
            (EpochIndex -> BlockProperty (Maybe richmen))

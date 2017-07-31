@@ -1,12 +1,16 @@
 #!/usr/bin/env stack
 -- stack runghc --package turtle
 
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 import           Control.Monad
 import           Data.Functor.Identity
+import           Data.List
+import qualified Data.Map.Strict       as M
 import qualified Data.Text             as T
+import           Text.Printf
 import           Text.Read
-import           Turtle
+import           Turtle                hiding (printf)
 
 type PackageName = T.Text
 data Version = V [Int] deriving (Eq, Ord)
@@ -58,7 +62,17 @@ normalisePackage txt = case T.breakOnEnd "-" txt of
 main :: IO ()
 main = do
     allDeps <- getTotalPackages
-    forM_ allDeps $ \pkg@(name, _) -> do
-        deps <- directDependenciesFor pkg
-        putStr $ T.unpack $ name <> " -> "
-        putStrLn (show $ length deps)
+    putStrLn "Building direct dependency map..."
+    directDepMap <- foldM (\acc pkg@(pkgName, ver) -> do
+                                  d <- directDependenciesFor pkg
+                                  return $ M.insert pkgName d acc
+                          ) M.empty allDeps
+
+    let tableHeader         = printf "%-40s" ("Package" :: String) <> printf "%-10s" ("Direct dependencies" :: String)
+    let tableEntry pkg deps = printf "%-40s" (T.unpack pkg) <> printf "%-10s" (show deps)
+    putStrLn tableHeader
+
+    let depsMap = M.map length directDepMap
+
+    forM_ (sortOn snd $ M.toList depsMap) $ \(pkgName, deps) -> do
+        putStrLn (tableEntry pkgName deps)

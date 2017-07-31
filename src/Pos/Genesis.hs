@@ -142,22 +142,14 @@ stakeDistribution ts@RichPoorStakes {..} =
                 genericReplicate sdPoor sdPoorStake
 stakeDistribution (CustomStakes coins) = coins
 
--- | Generates genesis 'Utxo' given optional boot stakeholders (with
--- weights) and address distributions.  If genesis stakeholders are
--- not supplied, they are calculated from address distributions by
--- making each 'PubKeyAddress' genesis stakeholder with weight equal
--- to balance. All the stake is distributed among genesis stakeholders
--- (using 'genesisSplitBoot').
---
--- TODO [CSL-1351] This documentation will become correct later.
+-- | Generates genesis 'Utxo' given weighted boot stakeholders and
+--  address distributions. All the stake is distributed among genesis
+--  stakeholders (using 'genesisSplitBoot').
 genesisUtxo ::
        GenesisWStakeholders -> [AddrDistribution] -> GenesisUtxo
-genesisUtxo bootStakeholdersMaybe ad
-    -- TODO [CSL-1351] Uncomment ↓.
-    --- | null bootStakeholders =
-    ---     error "genesisUtxo: no stakeholders for the bootstrap era"
-    -- TODO [CSL-1351] Delete (it's here to please hlint) ↓.
-    | ((*) @Int) 2 3 == 7 = error "hlint — makaka"
+genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
+    | null bootStakeholders =
+        error "genesisUtxo: no stakeholders for the bootstrap era"
     | otherwise = GenesisUtxo . M.fromList $ map utxoEntry balances
   where
     -- This type is drunk.
@@ -167,37 +159,15 @@ genesisUtxo bootStakeholdersMaybe ad
     balances = concatMap (uncurry zip) somethingComplicated
     utxoEntry (addr, coin) =
         ( TxIn (unsafeHash addr) 0
--- Note: it's quite bad because HD wallets become stakeholders and each
--- transaction will give them quite a lot of stake.
--- But CSL-1351 is planned for this sprint, so I suppose it's fine (it's
--- unlikely to cause problems anyway).
--- TODO [CSL-1351] Delete ↓.
         , TxOutAux (TxOut addr coin) (outDistr coin))
     -- Empty distribution for PubKey address means that the owner of
     -- this address will have the stake.
     genesisSplitBoot' x c =
-        either (\e -> error $ "genesisUtxo can't split: " <> show e <> ", genesis utxo " <> show ad)
+        either (\e -> error $ "genesisUtxo can't split: " <> show e <>
+                              ", genesis utxo " <> show ad)
                identity
                (genesisSplitBoot x c)
-    outDistr = genesisSplitBoot' bootStakeholdersMaybe
--- TODO [CSL-1351] Uncomment ↓.
---         , TxOutAux (TxOut addr coin) (genesisSplitBoot bootStakeholders coin))
---     bootStakeholdersCalculated = balancesToStakeholders balances
---     bootStakeholders =
---         fromMaybe bootStakeholdersCalculated bootStakeholdersMaybe
-
--- balancesToStakeholders :: [(Address, Coin)] -> HashMap StakeholderId Word16
--- balancesToStakeholders balances = foldr step mempty balances
---   where
---     totalBalance = sumCoins $ map snd balances
---     targetTotalWeight = maxBound @Word16 -- for the maximal precision
---     calcWeight :: Coin -> Word16
---     calcWeight balance =
---         floor $
---         coinToInteger balance Ratio.% totalBalance *
---         toRational targetTotalWeight
---     step (PubKeyAddress x _, balance) = HM.insertWith (+) x (calcWeight balance)
---     step _                            = identity
+    outDistr = genesisSplitBoot' gws
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
 genesisLeaders :: GenesisUtxo -> SlotLeaders

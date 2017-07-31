@@ -77,10 +77,6 @@ allWorkers NodeResources {..} = mconcatPair
 
       -- Kademlia has some workers to run.
       --
-      -- TODO: Instead of basing this on nrKademlia we should look at the
-      -- topology (but then there's a untracked dependency: when the topology
-      -- says we should run kademlia, then nrKademlia should be Just something).
-      --
       -- FIXME: perhaps these shouldn't be considered workers, but rather
       -- spawned when the DHT instance is created and killed when it's
       -- released.

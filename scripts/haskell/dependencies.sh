@@ -92,24 +92,24 @@ normalisePackage txt = case T.breakOnEnd "-" txt of
         Nothing -> if x == "" then error ("normalisePackage: " <> show txt) else T.init x
 
 --------------------------------------------------------------------------------
-reverseDependenciesFor :: Package -> [Package] -> DepMap -> DAG -> [Package]
-reverseDependenciesFor pkg allDeps directDeps dag = go allDeps mempty
+reverseDependenciesFor :: Package -> [Package] -> DepMap -> [Package]
+reverseDependenciesFor pkg allDeps directDeps = go (filter ((/=) pkg) allDeps) mempty
   where
     go [] revDeps     = revDeps
-    go (x:xs) revDeps = case reachableFrom x pkg directDeps of
+    go (x:xs) revDeps = case reachableFrom x pkg of
         True  -> go xs (x : revDeps)
         False -> go xs revDeps
         -- For each package x, check the graph to see if there is a path going
         -- from x to `pkg`. If there is, we found a reverse dep.
-
-reachableFrom :: Package -> Package -> DepMap -> Bool
-reachableFrom start end directDeps = go (M.findWithDefault mempty start directDeps)
-  where
-    go :: [Package] -> Bool
-    go [] = False
-    go (x:xs) = case x == end of
-        True  -> True
-        False -> any (\newStart -> reachableFrom newStart end directDeps) xs
+    reachableFrom :: Package -> Package -> Bool
+    reachableFrom directDep initialPackage =
+        case directDep == initialPackage of
+            True  -> True
+            False -> go (M.findWithDefault mempty directDep directDeps)
+      where
+        go :: [Package] -> Bool
+        go [] = False
+        go xs = any (\newStart -> reachableFrom newStart directDep) xs
 
 --------------------------------------------------------------------------------
 style :: Style Package String
@@ -140,17 +140,24 @@ main = do
                             <> printf "%-20s" ("Reverse dependencies" :: String)
     let tableEntry pkg deps revDeps =  printf "%-40s" (T.unpack pkg)
                                     <> printf "%-20s" (show deps)
-                                    <> printf "%-20s\n" (show (revDeps :: Int))
+                                    <> printf "%-20s\n" (T.unpack $ showRevDeps revDeps)
     putStrLn tableHeader
 
     let depsMap = M.map length directDepMap
 
     let sortedDepList = reverse (sortOn snd $ M.toList depsMap)
     let mkTableEntry  (pkg@(pkgName,_), deps) =
-            let revDeps = reverseDependenciesFor pkg allDeps directDepMap depDag
-            in tableEntry pkgName deps (length revDeps)
+            let revDeps = reverseDependenciesFor pkg allDeps directDepMap
+            in tableEntry pkgName deps revDeps
     let table         = parMap rpar mkTableEntry sortedDepList
 
     putStrLn $ mconcat table
     -- Display the total deps
-    putStrLn $ tableEntry "Total project deps" (length allDeps + length blacklistedPackages) 0
+    putStrLn $ tableEntry "Total project deps" (length allDeps + length blacklistedPackages) []
+
+showRevDeps :: [Package] -> T.Text
+showRevDeps []  = "0"
+showRevDeps [(pkgName,_)] = "1 (" <> pkgName <> ")"
+showRevDeps xs
+  | length xs <= 3 = T.pack (show $ length xs) <> "(" <> T.intercalate "," (map fst xs) <> ")"
+  | otherwise      = T.pack (show $ length xs) <> "(" <> T.intercalate "," (map fst (take 2 xs)) <> ",...)"

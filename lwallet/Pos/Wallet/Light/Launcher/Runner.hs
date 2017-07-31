@@ -109,7 +109,7 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => NetworkConfig kademlia -> Transport m -> MkListeners m -> OutSpecs -> OQ m -> ActionSpec m b -> m b
+    => Transport m -> MkListeners m -> OutSpecs -> OQ m -> ActionSpec m b -> m b
 runServer_ transport mkl outSpecs oq =
     runServer (simpleNodeEndPoint transport) (const noReceiveDelay) (const mkl)
         outSpecs acquire release oq

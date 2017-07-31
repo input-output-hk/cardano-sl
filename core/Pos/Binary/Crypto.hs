@@ -8,30 +8,31 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet      as CC
-import qualified Crypto.ECC.Edwards25519    as Ed25519
-import           Crypto.Hash                (digestFromByteString)
-import qualified Crypto.PVSS                as Pvss
-import qualified Crypto.Sign.Ed25519        as EdStandard
-import qualified Data.ByteArray             as ByteArray
-import qualified Data.ByteString            as BS
-import           Data.SafeCopy              (SafeCopy (..))
-import           Formatting                 (int, sformat, (%))
+import qualified Cardano.Crypto.Wallet    as CC
+import qualified Crypto.ECC.Edwards25519  as Ed25519
+import           Crypto.Hash              (digestFromByteString)
+import qualified Crypto.PVSS              as Pvss
+import qualified Crypto.Sign.Ed25519      as EdStandard
+import qualified Data.ByteArray           as ByteArray
+import qualified Data.ByteString          as BS
+import           Data.SafeCopy            (SafeCopy (..))
+import           Formatting               (int, sformat, (%))
 
-import           Pos.Binary.Class           (AsBinary (..), Bi (..), encodeBinary, decodeBinary, getCopyBi, putCopyBi,
-                                            encodeListLen, enforceSize)
-import           Pos.Crypto.Hashing         (AbstractHash (..), HashAlgorithm,
-                                             WithHash (..), withHash)
-import           Pos.Crypto.HD              (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning   (RedeemPublicKey (..), RedeemSecretKey (..),
-                                             RedeemSignature (..))
-import           Pos.Crypto.SafeSigning     (EncryptedSecretKey (..), PassPhrase)
-import           Pos.Crypto.SecretSharing   (EncShare (..), Secret (..), SecretProof (..),
-                                             SecretSharingExtra (..), Share (..),
-                                             VssKeyPair (..), VssPublicKey (..))
-import           Pos.Crypto.Signing         (ProxyCert (..), ProxySecretKey (..),
-                                             ProxySignature (..), PublicKey (..),
-                                             SecretKey (..), Signature (..), Signed (..))
+import           Pos.Binary.Class         (AsBinary (..), Bi (..), decodeBinary,
+                                           encodeBinary, encodeListLen, enforceSize,
+                                           getCopyBi, putCopyBi)
+import           Pos.Crypto.Hashing       (AbstractHash (..), HashAlgorithm,
+                                           WithHash (..), withHash)
+import           Pos.Crypto.HD            (HDAddressPayload (..))
+import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
+                                           RedeemSignature (..))
+import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase)
+import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
+                                           SecretSharingExtra (..), Share (..),
+                                           VssKeyPair (..), VssPublicKey (..))
+import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
+                                           ProxySignature (..), PublicKey (..),
+                                           SecretKey (..), Signature (..), Signed (..))
 
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
@@ -93,16 +94,21 @@ deriving instance Bi (AsBinary SecretSharingExtra)
 -- SecretSharing AsBinary
 ----------------------------------------------------------------------------
 
-#define BiMacro(B) \
+#define BiMacro(B, BYTES) \
   instance Bi (AsBinary B) where {\
     encode (AsBinary bs) = encode bs ;\
-    decode = AsBinary <$> decode}; \
+    decode = do\
+      let origLen = BYTES;\
+      bs      <- decode;\
+      when (origLen /= length bs) $\
+        fail $ "AsBinary B: length mismatch!"\
+      return (AsBinary bs) }; \
 
-BiMacro(VssPublicKey)
-BiMacro(Secret)
-BiMacro(Share)
-BiMacro(EncShare)
-BiMacro(SecretProof)
+BiMacro(VssPublicKey, vssPublicKeyBytes)
+BiMacro(Secret, secretBytes)
+BiMacro(Share, shareBytes)
+BiMacro(EncShare, encShareBytes)
+BiMacro(SecretProof, secretPr)
 
 ----------------------------------------------------------------------------
 -- Signing

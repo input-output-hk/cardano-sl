@@ -30,6 +30,9 @@ mkPackage t = case T.splitOn " " (T.strip t) of
     [name, ver] -> (name, readVersion ver)
     _           -> error $ "Cannot mkPackage: " <> show t
 
+blacklistedPackages :: [T.Text]
+blacklistedPackages = ["cardano-sl-lwallet", "cardano-sl-tools"]
+
 -- Filter `cardano-sl-lwallet` & `cardano-sl-tools` as they cannot be
 -- found by `ghc-pkg`, for some reason.
 getTotalPackages :: IO [Package]
@@ -37,9 +40,7 @@ getTotalPackages = do
     (_, rawList) <- shellStrict "stack list-dependencies --test --bench" mempty
     return $ map mkPackage (filter (not . blacklisted) (T.lines rawList))
     where
-      blacklisted x = or [ T.isInfixOf "cardano-sl-lwallet" x
-                         , T.isInfixOf "cardano-sl-tools" x
-                         ]
+      blacklisted x = or $ map (flip T.isInfixOf x) blacklistedPackages
 
 directDependenciesFor :: Package -> IO [Package]
 directDependenciesFor (name, ver) = do
@@ -76,3 +77,5 @@ main = do
 
     forM_ (sortOn snd $ M.toList depsMap) $ \(pkgName, deps) -> do
         putStrLn (tableEntry pkgName deps)
+    -- Display the total deps
+    putStrLn $ tableEntry "Total project deps" (length allDeps + length blacklistedPackages)

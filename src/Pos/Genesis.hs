@@ -127,8 +127,8 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
   where
     normalize x =
         x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
-stakeDistribution (ExponentialStakes n (fromIntegral . unsafeGetCoin -> mc)) =
-    reverse $ map mkCoin $ take (fromIntegral n) $ iterate (*2) mc
+stakeDistribution (ExponentialStakes n mc) =
+    reverse $ take (fromIntegral n) $ iterate (`unsafeMulCoin` 2) mc
 stakeDistribution ts@RichPoorStakes {..} =
     checkMpcThd (getTotalStake ts) sdRichStake basicDist
   where
@@ -160,8 +160,6 @@ genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
     utxoEntry (addr, coin) =
         ( TxIn (unsafeHash addr) 0
         , TxOutAux (TxOut addr coin) (outDistr coin))
-    -- Empty distribution for PubKey address means that the owner of
-    -- this address will have the stake.
     genesisSplitBoot' x c =
         either (\e -> error $ "genesisUtxo can't split: " <> show e <>
                               ", genesis utxo " <> show ad)

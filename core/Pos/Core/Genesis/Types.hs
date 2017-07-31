@@ -2,7 +2,6 @@
 
 module Pos.Core.Genesis.Types
        ( StakeDistribution (..)
-       , stakeDistrMapCoin
        , getDistributionSize
        , getTotalStake
 
@@ -17,7 +16,7 @@ module Pos.Core.Genesis.Types
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Data.List           ((!!))
+import qualified Data.HashSet        as HS
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, sformat, (%))
 import           Serokell.Util       (allDistinct, listJson, pairF)
@@ -25,6 +24,7 @@ import           Serokell.Util       (allDistinct, listJson, pairF)
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeGetCoin,
                                       unsafeIntegerToCoin)
 import           Pos.Core.Types      (Address, Coin, StakeholderId, mkCoin)
+import           Pos.Util.Util       (getKeys)
 
 -- | Balances distribution in genesis block.
 --
@@ -51,23 +51,6 @@ data StakeDistribution
     -- | Custom balances list.
     | CustomStakes [Coin]
     deriving (Show, Eq, Generic)
-
--- | Map each participant coin in the distribution.
-stakeDistrMapCoin :: (Coin -> Coin) -> StakeDistribution -> StakeDistribution
-stakeDistrMapCoin f d = case d of
-    (FlatStakes n c)       -> FlatStakes n (applyN n c)
-    (BitcoinStakes n c)    -> BitcoinStakes n (applyN n c)
-    (CustomStakes cs)      -> CustomStakes $ map f cs
-    r@RichPoorStakes{..}   -> r { sdRichStake = applyN sdRichmen sdRichStake
-                                , sdPoorStake = applyN sdPoor sdPoorStake
-                                }
-    -- there's no way to make the fair mapping of exp stakes since
-    -- it's defined above and 'ExponentialStakes' doesn't contain all
-    -- the data needed to describe distr in full.
-    ExponentialStakes n mc -> ExponentialStakes n (f mc)
-  where
-    applyN :: (Integral n) => n -> Coin -> Coin
-    applyN n c = (iterate f) c !! (fromIntegral n)
 
 -- | Get the amount of stakeholders in a distribution.
 getDistributionSize :: StakeDistribution -> Word
@@ -127,16 +110,15 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
 -- it's defined in txp module above.
 bootRelatedDistr :: GenesisWStakeholders -> [(StakeholderId, Coin)] -> Bool
 bootRelatedDistr (GenesisWStakeholders bootHolders) txOutDistr =
-    -- All addresses in txDistr are from bootHolders
-    all (`HM.member` bootHolders) addrs &&
-    -- Every boot stakeholder is mentioned in txOutDistr
-    all (`elem` addrs) (HM.keys bootHolders) &&
+    -- All addresses in txDistr are from bootHolders and every boot
+    -- stakeholder is mentioned in txOutDistr
+    getKeys bootHolders == HS.fromList stakeholders &&
     -- Every stakeholder gets his divisor. It's safe to use ! here
     -- because we're already sure that bootHolders ~ addrs is
     -- bijective.
     all (\(a,c) -> c >= (minimumPerStakeholder HM.! a)) txOutDistr
   where
-    addrs = map fst txOutDistr
+    stakeholders = map fst txOutDistr
     coins = map snd txOutDistr
     -- It's safe to sum here since txOutDistr is a distribution of
     -- coins such that their sum is a coin itself.

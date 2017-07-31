@@ -45,8 +45,8 @@ import           Pos.Block.Types                (Undo)
 import           Pos.Core                       (Coin, IsHeader, SlotId,
                                                  StakeDistribution (..), Timestamp (..),
                                                  addressHash, makePubKeyAddress, mkCoin,
-                                                 unsafeAddCoin, unsafeGetCoin)
-import           Pos.Core.Genesis               (stakeDistrMapCoin)
+                                                 unsafeAddCoin, unsafeGetCoin,
+                                                 unsafeMulCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
@@ -146,14 +146,34 @@ instance Buildable TestParams where
 instance Show TestParams where
     show = formatToString build
 
+-- It's safe to use unsafeX here because these functions are only used
+-- in the test initialization. If something fails, tests are
+-- misconfigured and it should be fixed immediately.
+-- | Map each participant coin in the distribution.
+stakeDistrAddCoin :: Coin -> StakeDistribution -> StakeDistribution
+stakeDistrAddCoin a d = case d of
+    (FlatStakes n c)       -> FlatStakes n (addMul c n)
+    (BitcoinStakes n c)    -> BitcoinStakes n (addMul c n)
+    (CustomStakes cs)      -> CustomStakes $ map (`unsafeAddCoin` a) cs
+    r@RichPoorStakes{..}   -> r { sdRichStake = addMul sdRichStake sdRichmen
+                                , sdPoorStake = addMul sdPoorStake sdPoor
+                                }
+    -- there's no way to make the fair mapping of exp stakes since
+    -- it's defined above and 'ExponentialStakes' doesn't contain all
+    -- the data needed to describe distr in full.
+    ExponentialStakes n mc -> ExponentialStakes n (a `unsafeAddCoin` mc)
+  where
+    addMul :: Coin -> Word -> Coin
+    addMul c n = c `unsafeAddCoin` (a `unsafeMulCoin` n)
+
 -- More distributions can be added if we want (e. g. RichPoor).
 genSuitableStakeDistribution :: Coin -> Word -> Gen StakeDistribution
 genSuitableStakeDistribution dustThd stakeholdersNum =
     -- Minimum coin in distribution should be equal or greater than
     -- boot dust threshold.
-    stakeDistrMapCoin (`unsafeAddCoin` dustThd) <$>
+    stakeDistrAddCoin dustThd <$>
     oneof [ genFlat {-, genBitcoin-} -- is broken
-          , pure (ExponentialStakes stakeholdersNum (mkCoin 0))]
+          , pure (ExponentialStakes stakeholdersNum (mkCoin 1))]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
     genFlat = FlatStakes stakeholdersNum <$> totalCoins

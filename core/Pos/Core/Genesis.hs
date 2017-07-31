@@ -42,7 +42,7 @@ import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..)
                                           GenesisWStakeholders (..),
                                           StakeDistribution (..), bootDustThreshold,
                                           bootRelatedDistr, getTotalStake,
-                                          mkGenesisCoreData, stakeDistrMapCoin)
+                                          mkGenesisCoreData)
 import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
                                           unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
@@ -143,16 +143,14 @@ genesisSplitBoot g@(GenesisWStakeholders bootWHolders) c
     bootHolders :: [StakeholderId]
     bootHolders = HM.keys bootWHolders
 
-    (d :: Word64, m :: Word64) =
-        bimap fromIntegral fromIntegral $
-        divMod cval weightsSum
+    (d :: Word64, m :: Word64) = divMod cval weightsSum
 
     -- Person who will get the remainder in (2) case.
     remReceiver :: Int
     remReceiver = abs (hash c) `mod` addrsNum
 
     cval :: Word64
-    cval = fromIntegral $ unsafeGetCoin c
+    cval = unsafeGetCoin c
 
     addrsNum :: Int
     addrsNum = length bootHolders

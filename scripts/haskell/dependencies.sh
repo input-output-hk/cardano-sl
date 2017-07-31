@@ -36,13 +36,13 @@ mkPackage t = case T.splitOn " " (T.strip t) of
         ("", _)     -> error $ "mkPackage: " <> show t
         (name, ver) -> (T.init name, readVersion ver)
 
+--------------------------------------------------------------------------------
 blacklistedPackages :: [T.Text]
 blacklistedPackages = [ "cardano-sl-lwallet"
                       , "cardano-sl-tools"
-                      , "Cabal"
-                      , "base"
-                      , "Glob"]
+                      ]
 
+--------------------------------------------------------------------------------
 -- Filter `cardano-sl-lwallet` & `cardano-sl-tools` as they cannot be
 -- found by `ghc-pkg`, for some reason.
 getTotalPackages :: IO [Package]
@@ -52,6 +52,7 @@ getTotalPackages = do
     where
       blacklisted x = or $ map (flip T.isInfixOf x) blacklistedPackages
 
+--------------------------------------------------------------------------------
 directDependenciesFor :: Package -> IO [Package]
 directDependenciesFor (name, ver) = do
     (_, rawOutput) <- shellStrict ("stack exec ghc-pkg field " <> name <> " depends") mempty
@@ -62,6 +63,7 @@ directDependenciesFor (name, ver) = do
 
 type DAG = Graph Package
 
+--------------------------------------------------------------------------------
 buildDependencyContext :: [Package] -> IO (M.Map PackageName [Package], DAG)
 buildDependencyContext [] = return (M.empty, Algebra.Graph.empty)
 buildDependencyContext pkgs = go pkgs (M.empty, Set.empty)
@@ -74,11 +76,13 @@ buildDependencyContext pkgs = go pkgs (M.empty, Set.empty)
       let !newDag = dag <> Set.fromList (map (pkg,) directDeps)
       go xs (newMap, newDag)
 
+--------------------------------------------------------------------------------
 -- | >>> normalisePackage "conduit-1.2.10-GgLn1U1QYcf9wsQecuZ1A4"
 -- "conduit-1.2.10"
 -- >>> normalisePackage "conduit-1.2.10"
 -- "conduit-1.2.10"
 normalisePackage :: T.Text -> T.Text
+normalisePackage "rts" = "rts-0.0.0.0"
 normalisePackage txt = case T.breakOnEnd "-" txt of
     (x, xs) -> case readVersionMaybe xs of
         Just _  -> txt

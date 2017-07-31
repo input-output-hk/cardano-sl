@@ -96,20 +96,21 @@ reverseDependenciesFor :: Package -> [Package] -> DepMap -> [Package]
 reverseDependenciesFor pkg allDeps directDeps = go (filter ((/=) pkg) allDeps) mempty
   where
     go [] revDeps     = revDeps
-    go (x:xs) revDeps = case reachableFrom x pkg of
+    go (x:xs) revDeps = case reachableFrom x of
         True  -> go xs (x : revDeps)
         False -> go xs revDeps
         -- For each package x, check the graph to see if there is a path going
         -- from x to `pkg`. If there is, we found a reverse dep.
-    reachableFrom :: Package -> Package -> Bool
-    reachableFrom directDep initialPackage =
-        case directDep == initialPackage of
+    reachableFrom :: Package -> Bool
+    reachableFrom directDep =
+        let depsForThis = M.findWithDefault mempty directDep directDeps
+        in case pkg `elem` depsForThis of
             True  -> True
-            False -> go (M.findWithDefault mempty directDep directDeps)
+            False -> go depsForThis
       where
         go :: [Package] -> Bool
         go [] = False
-        go xs = any (\newStart -> reachableFrom newStart directDep) xs
+        go xs = any reachableFrom xs
 
 --------------------------------------------------------------------------------
 style :: Style Package String
@@ -159,5 +160,5 @@ showRevDeps :: [Package] -> T.Text
 showRevDeps []  = "0"
 showRevDeps [(pkgName,_)] = "1 (" <> pkgName <> ")"
 showRevDeps xs
-  | length xs <= 3 = T.pack (show $ length xs) <> "(" <> T.intercalate "," (map fst xs) <> ")"
-  | otherwise      = T.pack (show $ length xs) <> "(" <> T.intercalate "," (map fst (take 2 xs)) <> ",...)"
+  | length xs <= 3 = T.pack (show $ length xs) <> " (" <> T.intercalate "," (map fst xs) <> ")"
+  | otherwise      = T.pack (show $ length xs) <> " (" <> T.intercalate "," (map fst (take 2 xs)) <> ",...)"

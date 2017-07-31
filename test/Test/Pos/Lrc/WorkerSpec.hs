@@ -47,7 +47,7 @@ spec :: Spec
 -- Currently we want to run it only once, because there is no much
 -- randomization (its effect is likely negligible) and performance is
 -- the issue.
-spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (const 1) $ do
+spec = describe "Lrc.Worker" $ modifyMaxSuccess (const 1) $ do
     describe "lrcSingleShotNoLock" $ do
         prop lrcCorrectnessDesc $
             blockPropertyToProperty genTestParams lrcCorrectnessProp

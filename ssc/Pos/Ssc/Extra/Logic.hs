@@ -35,7 +35,7 @@ import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           System.Wlog              (NamedPureLogger, WithLogger,
-                                           launchNamedPureLog, logDebug)
+                                           launchNamedPureLog)
 
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
@@ -235,9 +235,6 @@ sscApplyBlocksFinish
     => SscGlobalState ssc -> m [SomeBatchOp]
 sscApplyBlocksFinish gs = do
     sscRunGlobalUpdate (put gs)
-    inAssertMode $
-        logDebug $
-        sformat ("After applying blocks SSC global state is:\n"%build) gs
     pure $ untag @ssc $ sscGlobalStateToBatch gs
 
 sscVerifyValidBlocks

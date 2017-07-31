@@ -15,7 +15,7 @@ import           Universum
 import           Control.Lens        (views)
 import           Development.GitRev  (gitBranch, gitHash)
 import           Ether.Internal      (HasLens (..))
-import           Formatting          (build, sformat, shown, (%))
+import           Formatting          (build, sformat, shown, int, (%))
 import           Mockable            (fork)
 import           Serokell.Util.Text  (listJson)
 import           System.Exit         (ExitCode (..))
@@ -79,7 +79,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         Just kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
 
     genesisStakeholders <- genesisStakeholdersM
-    logInfo $ sformat ("Genesis stakeholders: " %listJson) genesisStakeholders
+    logInfo $ sformat ("Genesis stakeholders: " %int) (length genesisStakeholders)
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"

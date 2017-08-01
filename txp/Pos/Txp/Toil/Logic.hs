@@ -24,20 +24,23 @@ import           Universum
 import           Unsafe                     (unsafeHead)
 
 import           Control.Monad.Except       (MonadError (..))
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashSet               as HS
 import qualified Data.List.NonEmpty         as NE
 import           Serokell.Data.Memory.Units (Byte)
 import           System.Wlog                (WithLogger)
 
 import           Pos.Binary.Class           (biSize)
-import           Pos.Core.Coin              (integerToCoin)
+import           Pos.Core.Coin              (integerToCoin, mkCoin, unsafeGetCoin)
 import           Pos.Core.Constants         (memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
-import           Pos.Core.Genesis           (GenesisWStakeholders (..), bootRelatedDistr)
+import           Pos.Core.Genesis           (GenesisWStakeholders (..))
 import           Pos.Core.Slotting          (isBootstrapEra)
-import           Pos.Core.Types             (BlockVersionData (..), EpochIndex)
+import           Pos.Core.Types             (BlockVersionData (..), Coin, EpochIndex,
+                                             StakeholderId)
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.DB.Class               (MonadGState (..))
-import           Pos.Util.Util              (HasLens', lensOf')
+import           Pos.Util.Util              (HasLens', getKeys, lensOf')
 
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOutDistribution, TxUndo,
                                              TxpUndo, getTxDistribution, topsortTxs)
@@ -172,6 +175,34 @@ verifyGState curEpoch txAux txFee = do
     verifyTxFeePolicy txFee bvdTxFeePolicy txSize
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
+
+-- | Checks whether txOutDistribution matches the set of weighted boot
+-- stakeholders. Notice: it doesn't use actual txdistr type because
+-- it's defined in txp module above.
+bootRelatedDistr :: GenesisWStakeholders -> [(StakeholderId, Coin)] -> Bool
+bootRelatedDistr (GenesisWStakeholders bootHolders) txOutDistr =
+    -- All addresses in txDistr are from bootHolders and every boot
+    -- stakeholder is mentioned in txOutDistr
+    getKeys bootHolders == HS.fromList stakeholders &&
+    -- Every stakeholder gets his divisor. It's safe to use ! here
+    -- because we're already sure that bootHolders ~ addrs is
+    -- bijective.
+    all (\(a,c) -> c >= (minimumPerStakeholder HM.! a)) txOutDistr
+  where
+    stakeholders = map fst txOutDistr
+    coins = map snd txOutDistr
+    -- It's safe to sum here since txOutDistr is a distribution of
+    -- coins such that their sum is a coin itself.
+    coinSum = sum $ map unsafeGetCoin coins
+    weightSum :: Word64
+    weightSum = sum $ map fromIntegral $ HM.elems bootHolders
+    coinItem = coinSum `div` weightSum
+    -- For each stakeholder the minimum amount of coins the tx should
+    -- send to him (weighted). The multiplication can't overflow
+    -- Word64 because sum of values of minimumPerStakeholder is less
+    -- than coinSum.
+    minimumPerStakeholder :: HashMap StakeholderId Coin
+    minimumPerStakeholder = HM.map (mkCoin . (* coinItem) . fromIntegral) bootHolders
 
 verifyBootEra
     :: forall ctx m .

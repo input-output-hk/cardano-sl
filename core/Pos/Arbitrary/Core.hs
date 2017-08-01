@@ -442,7 +442,7 @@ instance Arbitrary G.GenesisCoreData where
                          <$> arbitrary
                          <*> pure (wordILen - a)
                          <*> arbitrary
-                , pure $ G.ExponentialStakes wordILen (Types.mkCoin 0)
+                , pure $ G.ExponentialStakes wordILen (Types.mkCoin 1024)
                 , G.CustomStakes <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
@@ -464,7 +464,7 @@ instance Arbitrary G.StakeDistribution where
            sdPoor <- choose (0, 20)
            sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
            return G.RichPoorStakes{..}
-      , G.ExponentialStakes <$> choose (0, 20) <*> pure (Types.mkCoin 0)
+      , G.ExponentialStakes <$> choose (0, 20) <*> pure (Types.mkCoin 1024)
       , G.CustomStakes <$> arbitrary
       ]
     shrink = genericShrink

@@ -9,7 +9,6 @@ module Pos.Core.Genesis.Types
        , GenesisWStakeholders (..)
        , GenesisCoreData (..)
        , bootDustThreshold
-       , bootRelatedDistr
        , mkGenesisCoreData
        ) where
 
@@ -104,34 +103,6 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
     -- be really low in production, so this sum is not going to be
     -- even more than 10-15 coins.
     unsafeIntegerToCoin . sum $ map fromIntegral $ HM.elems bootHolders
-
--- | Checks whether txOutDistribution matches the set of weighted boot
--- stakeholders. Notice: it doesn't use actual txdistr type because
--- it's defined in txp module above.
-bootRelatedDistr :: GenesisWStakeholders -> [(StakeholderId, Coin)] -> Bool
-bootRelatedDistr (GenesisWStakeholders bootHolders) txOutDistr =
-    -- All addresses in txDistr are from bootHolders and every boot
-    -- stakeholder is mentioned in txOutDistr
-    getKeys bootHolders == HS.fromList stakeholders &&
-    -- Every stakeholder gets his divisor. It's safe to use ! here
-    -- because we're already sure that bootHolders ~ addrs is
-    -- bijective.
-    all (\(a,c) -> c >= (minimumPerStakeholder HM.! a)) txOutDistr
-  where
-    stakeholders = map fst txOutDistr
-    coins = map snd txOutDistr
-    -- It's safe to sum here since txOutDistr is a distribution of
-    -- coins such that their sum is a coin itself.
-    coinSum = sum $ map unsafeGetCoin coins
-    weightSum :: Word64
-    weightSum = sum $ map fromIntegral $ HM.elems bootHolders
-    coinItem = coinSum `div` weightSum
-    -- For each stakeholder the minimum amount of coins the tx should
-    -- send to him (weighted). The multiplication can't overflow
-    -- Word64 because sum of values of minimumPerStakeholder is less
-    -- than coinSum.
-    minimumPerStakeholder :: HashMap StakeholderId Coin
-    minimumPerStakeholder = HM.map (mkCoin . (* coinItem) . fromIntegral) bootHolders
 
 -- | Safe constructor for 'GenesisCoreData'. Throws error if something
 -- goes wrong.

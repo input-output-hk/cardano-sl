@@ -23,7 +23,6 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
-import qualified Data.HashMap.Strict            as HM
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (Microsecond, TimeUnit (..))
 import           Ether.Internal                 (HasLens (..))
@@ -34,7 +33,7 @@ import qualified Prelude
 import           System.Wlog                    (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck                (Arbitrary (..), Gen, Property,
                                                  Testable (..), choose, forAll,
-                                                 ioProperty, oneof)
+                                                 ioProperty, oneof, suchThat)
 import           Test.QuickCheck.Monadic        (PropertyM, monadic)
 
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
@@ -42,11 +41,9 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Core                       (Coin, IsHeader, SlotId,
-                                                 StakeDistribution (..), Timestamp (..),
-                                                 addressHash, makePubKeyAddress, mkCoin,
-                                                 unsafeAddCoin, unsafeGetCoin,
-                                                 unsafeMulCoin)
+import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
+                                                 Timestamp (..), makePubKeyAddress,
+                                                 mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
@@ -65,7 +62,7 @@ import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets 
                                                  mkInvSecretsMap)
 import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
                                                  GenesisWStakeholders (..),
-                                                 bootDustThreshold, genesisUtxo, gtcUtxo,
+                                                 genesisContextImplicit, gtcUtxo,
                                                  gtcWStakeholders)
 import qualified Pos.GState                     as GS
 import           Pos.Launcher                   (newInitFuture)
@@ -146,60 +143,52 @@ instance Buildable TestParams where
 instance Show TestParams where
     show = formatToString build
 
--- It's safe to use unsafeX here because these functions are only used
--- in the test initialization. If something fails, tests are
--- misconfigured and it should be fixed immediately.
--- | Map each participant coin in the distribution.
-stakeDistrAddCoin :: Coin -> StakeDistribution -> StakeDistribution
-stakeDistrAddCoin a d = case d of
-    (FlatStakes n c)       -> FlatStakes n (addMul c n)
-    (BitcoinStakes n c)    -> BitcoinStakes n (addMul c n)
-    (CustomStakes cs)      -> CustomStakes $ map (`unsafeAddCoin` a) cs
-    r@RichPoorStakes{..}   -> r { sdRichStake = addMul sdRichStake sdRichmen
-                                , sdPoorStake = addMul sdPoorStake sdPoor
-                                }
-    -- there's no way to make the fair mapping of exp stakes since
-    -- it's defined above and 'ExponentialStakes' doesn't contain all
-    -- the data needed to describe distr in full.
-    ExponentialStakes n mc -> ExponentialStakes n (a `unsafeAddCoin` mc)
-  where
-    addMul :: Coin -> Word -> Coin
-    addMul c n = c `unsafeAddCoin` (a `unsafeMulCoin` n)
+-- -- It's safe to use unsafeX here because these functions are only used
+-- -- in the test initialization. If something fails, tests are
+-- -- misconfigured and it should be fixed immediately.
+-- -- | Map each participant coin in the distribution.
+-- stakeDistrAddCoin :: Coin -> StakeDistribution -> StakeDistribution
+-- stakeDistrAddCoin a d = case d of
+--     (FlatStakes n c)       -> FlatStakes n (addMul c n)
+--     (BitcoinStakes n c)    -> BitcoinStakes n (addMul c n)
+--     (CustomStakes cs)      -> CustomStakes $ map (`unsafeAddCoin` a) cs
+--     r@RichPoorStakes{..}   -> r { sdRichStake = addMul sdRichStake sdRichmen
+--                                 , sdPoorStake = addMul sdPoorStake sdPoor
+--                                 }
+--     -- there's no way to make the fair mapping of exp stakes since
+--     -- it's defined above and 'ExponentialStakes' doesn't contain all
+--     -- the data needed to describe distr in full.
+--     ExponentialStakes n mc -> ExponentialStakes n (a `unsafeAddCoin` mc)
+--   where
+--     addMul :: Coin -> Word -> Coin
+--     addMul c n = c `unsafeAddCoin` (a `unsafeMulCoin` n)
 
 -- More distributions can be added if we want (e. g. RichPoor).
-genSuitableStakeDistribution :: Coin -> Word -> Gen StakeDistribution
-genSuitableStakeDistribution dustThd stakeholdersNum =
-    -- Minimum coin in distribution should be equal or greater than
-    -- boot dust threshold.
-    --
-    -- Notice: it's only a _balance_ distribution, the real stake
-    -- distribution in boot era is defined by the boot stakeholders
-    -- set.
-    stakeDistrAddCoin dustThd <$>
+genSuitableStakeDistribution :: Word -> Gen StakeDistribution
+genSuitableStakeDistribution stakeholdersNum =
     oneof [ genFlat
           {-, genBitcoin-} -- is broken
-          , pure (ExponentialStakes stakeholdersNum (mkCoin 1))]
+          , pure (ExponentialStakes stakeholdersNum (mkCoin 8200))
+          ]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
     genFlat = FlatStakes stakeholdersNum <$> totalCoins
 
 instance Arbitrary TestParams where
     arbitrary = do
-        secretKeysList <- toList @(NonEmpty SecretKey) <$> arbitrary -- might have repetitions
+        secretKeysList <-
+            toList @(NonEmpty SecretKey) <$>
+             -- might have repetitions
+            (arbitrary `suchThat` (\l -> length l < 15))
         let _tpStartTime = fromMicroseconds 0
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let _tpAllSecrets = AllSecrets invSecretsMap
         let addresses =
                 map (makePubKeyAddress . toPublic) (toList invSecretsMap)
-        let genStakeholders =
-                GenesisWStakeholders $ HM.fromList $
-                -- at most 10 boot stakeholders
-                map (addressHash . toPublic) secretKeysList `zip` (take 10 $ cycle [1,2,3,4])
         stakeDistribution <-
-            genSuitableStakeDistribution (bootDustThreshold genStakeholders)
-                                         (fromIntegral $ length invSecretsMap)
-        let utxo = genesisUtxo genStakeholders [(addresses, stakeDistribution)]
-        let _tpGenesisContext = GenesisContext utxo genStakeholders
+            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
+        let addrDistribution = [(addresses, stakeDistribution)]
+        let _tpGenesisContext = genesisContextImplicit addrDistribution
         let _tpStakeDistributions = one stakeDistribution
         return TestParams {..}
 

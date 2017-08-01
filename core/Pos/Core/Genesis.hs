@@ -41,8 +41,7 @@ import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
                                           GenesisWStakeholders (..),
                                           StakeDistribution (..), bootDustThreshold,
-                                          bootRelatedDistr, getTotalStake,
-                                          mkGenesisCoreData)
+                                          getTotalStake, mkGenesisCoreData)
 import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
                                           unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,

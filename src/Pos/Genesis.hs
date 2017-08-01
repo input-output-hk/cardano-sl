@@ -21,6 +21,8 @@ module Pos.Genesis
        , genesisUtxo
        , genesisSeed
        , genesisLeaders
+       , generateWStakeholders
+       , genesisContextImplicit
 
        -- * Prod mode genesis
        , genesisUtxoProduction
@@ -42,7 +44,8 @@ import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
 import qualified Data.Ratio                 as Ratio
 import           Ether.Internal             (HasLens (..))
-import           Serokell.Util              (enumerate)
+import           Formatting                 (sformat)
+import           Serokell.Util              (enumerate, listJson, pairF)
 
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (Address (..), Coin, SlotLeaders,
@@ -144,6 +147,11 @@ stakeDistribution ts@RichPoorStakes {..} =
                 genericReplicate sdPoor sdPoorStake
 stakeDistribution (CustomStakes coins) = coins
 
+-- Converts list of addr distrs to pre-map (addr,coin)
+concatAddrDistrs :: [AddrDistribution] -> [(Address, Coin)]
+concatAddrDistrs addrDistrs =
+    concatMap (uncurry zip . second stakeDistribution) addrDistrs
+
 -- | Generates genesis 'Utxo' given weighted boot stakeholders and
 -- address distributions. All the stake is distributed among genesis
 -- stakeholders (using 'genesisSplitBoot').
@@ -153,11 +161,8 @@ genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
         error "genesisUtxo: no stakeholders for the bootstrap era"
     | otherwise = GenesisUtxo . M.fromList $ map utxoEntry balances
   where
-    -- This type is drunk.
-    somethingComplicated :: [([Address], [Coin])]
-    somethingComplicated = map (second stakeDistribution) ad
     balances :: [(Address, Coin)]
-    balances = concatMap (uncurry zip) somethingComplicated
+    balances = concatAddrDistrs ad
     utxoEntry (addr, coin) =
         ( TxIn (unsafeHash addr) 0
         , TxOutAux (TxOut addr coin) (outDistr coin))
@@ -168,14 +173,24 @@ genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
                (genesisSplitBoot x c)
     outDistr = genesisSplitBoot' gws
 
--- | Generate weighted stakeholders using passed address distribution.
-genWStakeholders :: [AddrDistribution] -> GenesisWStakeholders
-genWStakeholders [] = GenesisWStakeholders mempty
-genWStakeholders addrDistrs =
-    GenesisWStakeholders $ foldr step mempty withCoins
+-- | Same as 'genesisUtxo' but generates 'GenesisWStakeholders' set
+-- using 'generateWStakeholders' inside and wraps it all in
+-- 'GenesisContext'.
+genesisContextImplicit :: [AddrDistribution] -> GenesisContext
+genesisContextImplicit addrDistr =
+    GenesisContext utxo genStakeholders
   where
-    withCoins :: [(Address, Coin)]
-    withCoins = concat $ map (uncurry zip . second stakeDistribution) addrDistrs
+    genStakeholders = generateWStakeholders addrDistr
+    utxo = genesisUtxo genStakeholders addrDistr
+
+-- | Generate weighted stakeholders using passed address distribution.
+generateWStakeholders :: [AddrDistribution] -> GenesisWStakeholders
+generateWStakeholders addrDistrs =
+    if null withCoins
+    then GenesisWStakeholders mempty
+    else GenesisWStakeholders $ foldr step mempty withCoins
+  where
+    withCoins = concatAddrDistrs addrDistrs
     coins = map snd withCoins
     intCoins = map coinToInteger coins
     commonGcd = foldr1 gcd intCoins
@@ -183,9 +198,10 @@ genWStakeholders addrDistrs =
     safeConvert :: Integer -> Word16
     safeConvert i
         | i <= 0 =
-          error $ "genStakeholders can't convert: non-positive coin " <> show i
+          error $ "generateWStakeholders can't convert: non-positive coin " <> show i
         | i > fromIntegral targetTotalWeight =
-          error "genStakeholders can't convert: too big"
+          error $ "generateWStakeholders can't convert: too big " <> show i <>
+                  ", withCoins: " <> sformat listJson (map (sformat pairF) withCoins)
         | otherwise = fromIntegral i
     calcWeight :: Coin -> Word16
     calcWeight balance =
@@ -283,9 +299,7 @@ genesisDevHdwAccountKeyDatas =
 devAddrDistr :: StakeDistribution -> ([AddrDistribution], GenesisWStakeholders)
 devAddrDistr distr = (aDistr, gws)
   where
-    gws = genWStakeholders [(mainAddrs, distr)]
---        GenesisWStakeholders $ HM.fromList $
---          map (first addressHash) $ take distrSize genesisDevPublicKeys `zip` [1..]
+    gws = generateWStakeholders [(mainAddrs, distr)]
     aDistr = [ (mainAddrs, distr)        -- Addresses from passed stake
              , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
              ]

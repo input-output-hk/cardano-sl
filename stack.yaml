@@ -79,6 +79,12 @@ packages:
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
 
+# Use an outstanding PR to the `dns` library which fixes the Windows build failure
+- location:
+    git: https://github.com/RyanGlScott/dns
+    commit: 125fa9a49a2f68e4d1e625e11cdce373c6a8df8b
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 

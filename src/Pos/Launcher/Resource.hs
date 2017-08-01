@@ -34,7 +34,7 @@ import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import qualified Network.Transport          as NT (closeTransport)
-import           System.IO                  (Handle, hClose)
+import           System.IO                  (Handle, hClose, hSetBuffering, BufferMode (..))
 import qualified System.Metrics             as Metrics
 import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
                                              getLoggerName, logError, productionB,
@@ -151,7 +151,10 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
         nrJLogHandle <-
             case npJLFile of
                 Nothing -> pure Nothing
-                Just fp -> Just <$> openFile fp WriteMode
+                Just fp -> do
+                    h <- liftIO $ openFile fp WriteMode
+                    liftIO $ hSetBuffering h NoBuffering
+                    return $ Just h
 
         -- EKG monitoring stuff.
         --

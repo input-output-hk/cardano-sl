@@ -22,8 +22,8 @@ import           Pos.Slotting            (getLastKnownSlotDuration, onNewSlot)
 import           Pos.Txp.Core            (TxAux (..), topsortTxs)
 import           Pos.Txp.MemState        (getMemPool)
 import           Pos.Txp.Pending         (PendingTx (..), PtxCondition (..),
-                                          isPtxInBlocks, ptxCreationSlot, ptxExpireSlot)
-import           Pos.Txp.Toil            (ToilVerFailure (..), execToilTLocal, processTx,
+                                          ptxCreationSlot)
+import           Pos.Txp.Toil            (ToilVerFailure (..), runToilTLocal, processTx,
                                           runDBToil)
 import           Pos.WorkMode.Class      (WorkMode)
 
@@ -32,10 +32,6 @@ type MonadPendings ssc ctx m =
     , MonadTxHistory ssc m
     , MonadBalances m
     )
-
--- | 'Left' stands for stable pending transaction state,
--- 'Right' means that transaction have to be resubmitted.
-type ResubmitCond = Bool
 
 setPtxCondition :: PendingTx -> PtxCondition -> m ()
 setPtxCondition = undefined
@@ -46,52 +42,61 @@ getPtxCondition = undefined
 getPendingTxs :: PtxCondition -> m [PendingTx]
 getPendingTxs = undefined
 
+type ToResubmit x = x
+
+-- | Checks whether transaction is applicable.
+-- Making it to work with all prepared pending transactions
+-- is crucial due to chain transactions. TODO: complete. Maybe this have to go to resubmitter
 canSubmitPtx
     :: MonadPendings ssc ctx m
-    => PendingTx -> m ResubmitCond
-canSubmitPtx ptx@PendingTx{..} = do
+    => [PendingTx] -> m (ToResubmit [PendingTx])
+canSubmitPtx ptxs = do
     -- FIXME [CSM-256] do under blk semaphore!
     mp <- getMemPool
-    res <- runExceptT . runDBToil . execToilTLocal mempty mp mempty $
-        processTx (ptxTxId, ptxTxAux)
-    either processFailure return $ res $> True
+    runDBToil . fmap fst . runToilTLocal mempty mp mempty $
+        concatForM ptxs $ \ptx@PendingTx{..} -> do
+            res <- runExceptT $ processTx (ptxTxId, ptxTxAux)
+            case res of
+                Left e  -> processFailure ptx e $> []
+                Right _ -> return [ptx]
   where
-    await     = return False
-    discard e = False <$ setPtxCondition ptx (PtxWon'tApply $ sformat build e)
-
     -- | What should happen with pending transaction if attempt
     -- to resubmit it failed.
-    processFailure e = case e of
+    -- If number of 'ToilVerFailure' constructors will ever change, compiler
+    -- will complain - for this purpose we consider all cases here.
+    processFailure ptx e = do
+    let await   = return False
+        discard = False <$ setPtxCondition ptx (PtxWon'tApply $ sformat build e)
+    case e of
         ToilKnown                -> await
         ToilTipsMismatch{}       -> await
         ToilSlotUnknown          -> await
         ToilOverwhelmed{}        -> await
-        ToilNotUnspent{}         -> discard e
-        ToilOutGTIn{}            -> discard e
-        ToilInconsistentTxAux{}  -> discard e
-        ToilInvalidOutputs{}     -> discard e
-        ToilInvalidInputs{}      -> discard e
-        ToilTooLargeTx{}         -> discard e
-        ToilInvalidMinFee{}      -> discard e
-        ToilInsufficientFee{}    -> discard e
-        ToilUnknownAttributes{}  -> discard e
-        ToilBootDifferentStake{} -> discard e
+        ToilNotUnspent{}         -> discard
+        ToilOutGTIn{}            -> discard
+        ToilInconsistentTxAux{}  -> discard
+        ToilInvalidOutputs{}     -> discard
+        ToilInvalidInputs{}      -> discard
+        ToilTooLargeTx{}         -> discard
+        ToilInvalidMinFee{}      -> discard
+        ToilInsufficientFee{}    -> discard
+        ToilUnknownAttributes{}  -> discard
+        ToilBootDifferentStake{} -> discard
 
-processPtx
+processPtxs
     :: MonadPendings ssc ctx m
-    => SlotId -> PendingTx -> m ResubmitCond
-processPtx curSlot ptx = do
-    cond <- getPtxCondition ptx
-    if | and
-         [ cond == PtxInUpperBlocks
-         , flattenSlotId (ptxCreationSlot ptx) + getSlotCount undefined
+    => SlotId -> [PendingTx] -> m (ToResubmit [PendingTx])
+processPtxs curSlot ptxs = do
+    ptxs' <- forM ptxs $ \ptx -> (ptx, ) <$> getPtxCondition ptx
+    mapM_ markPersistent ptxs'
+    canSubmitPtx $ map fst $ filter ((PtxApplying ==) . snd) ptxs'
+   where
+     isPersistent ptx = 
+         flattenSlotId (ptxCreationSlot ptx) + getSlotCount undefined
              < flattenSlotId curSlot
-         ] ->
-           False <$ setPtxCondition ptx PtxPersisted
-       | cond == PtxApplying ->
-           canSubmitPtx ptx
-       | otherwise ->
-           return False
+     markPersistent (ptx, PtxInUpperBlocks) =
+         when (isPersistent ptx) $ setPtxCondition ptx PtxPersisted
+     markPersistent _ = return ()
 
 whetherCheckPtxOnSlot :: SlotId -> PendingTx -> Bool
 whetherCheckPtxOnSlot curSlot ptx =
@@ -113,7 +118,7 @@ startPendingTxsResubmitter sendActions =
                 filter (whetherCheckPtxOnSlot curSlot) $
                 ptxs
         -- FIXME [CSM-256]: add limit on number of resent transactions per slot or on speed?
-        toResubmit <- filterM (processPtx curSlot) ptxsToCheck
+        toResubmit <- processPtxs curSlot ptxsToCheck
 
         -- distribute txs submition over current slot ~evenly
         interval <- evalSubmitDelay (length toResubmit)

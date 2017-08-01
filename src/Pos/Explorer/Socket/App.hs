@@ -139,7 +139,8 @@ notifierServer notifierSettings connVar = do
                     Just $ simpleCorsResourcePolicy { corsOrigins = Just ([bsValue], True) }
                 -- If we didn't find the "Origin" header then the result is
                 -- "Access-Control-Allow-Origin = '*'", which WON'T WORK FOR socket.io.
-                Nothing           -> Nothing
+                Nothing           ->
+                    Just $ simpleCorsResourcePolicy
 
           where
             findJustOriginValue :: [Header]

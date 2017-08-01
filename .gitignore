@@ -44,6 +44,9 @@ GRTAGS
 GPATH
 TAGS
 
+# Vim
+tags
+
 # Intellij Idea & intellij-haskell
 .idea
 .ideaHaskellLib

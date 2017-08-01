@@ -24,7 +24,7 @@ import           Pos.Lrc.Types    (FullRichmenData)
 
 -- | Class for components that store info about richmen.
 class Bi (RichmenData a) => RichmenComponent a where
-    -- | Datatype that is stored. Consider using 'Richmen' or
+    -- | Datatype that is stored. Consider using 'RichmenSet' or
     -- 'RichmenStakes' or 'FullRichmenData'.
     type RichmenData a :: *
     -- | Converts 'FullRichmenData' to what is needs to be saved.

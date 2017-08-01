@@ -129,11 +129,12 @@ type MonadMempoolNormalization ssc ctx m
       , HasReportingContext ctx
       , MonadMask m
       , MonadReader ctx m
+      , MonadFormatPeers m
       )
 
 -- | Normalize mempool.
 normalizeMempool
-    :: forall ssc ctx m . (MonadFormatPeers m, MonadMempoolNormalization ssc ctx m)
+    :: forall ssc ctx m . (MonadMempoolNormalization ssc ctx m)
     => m ()
 normalizeMempool = reportingFatal $ do
     -- We normalize all mempools except the delegation one.

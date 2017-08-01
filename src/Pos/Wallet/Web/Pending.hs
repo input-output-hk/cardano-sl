@@ -4,92 +4,126 @@ module Pos.Wallet.Web.Pending
     ( startPendingTxsResubmitter
     ) where
 
-import Universum
+import           Universum
 
-import Mockable (delay, fork)
+import           Data.Time.Units         (Second, convertUnit)
+import           Formatting              (build, sformat)
+import           Mockable                (delay, fork)
 
-import           Pos.Core             (SlotId, getSlotCount)
-import           Pos.Communication.Tx (submitAndSaveTx)
-import           Pos.Constants       (slotSecurityParam)
-import           Pos.Slotting        (getLastKnownSlotDuration, onNewSlot)
-import           Pos.Core.Slotting    (flattenSlotId)
-import           Pos.Txp.Pending         (MonadPendingTxs (..), PendingTx (..),
-                                          TxPendingState (..), ptxCreationSlot,
-                                          ptxExpireSlot)
 import           Pos.Client.Txp.Balances (MonadBalances)
-import           Pos.WorkMode.Class  (WorkMode)
-import Pos.Discovery.Class ( getPeers)
-import Pos.Communication (SendActions)
 import           Pos.Client.Txp.History  (MonadTxHistory)
-import Data.Time.Units (Second, convertUnit)
+import           Pos.Communication       (SendActions)
+import           Pos.Communication.Tx    (submitAndSaveTx)
+import           Pos.Core                (SlotId, getSlotCount)
+import           Pos.Core.Slotting       (flattenSlotId)
+import           Pos.Crypto              (WithHash (..))
+import           Pos.Discovery.Class     (getPeers)
+import           Pos.Slotting            (getLastKnownSlotDuration, onNewSlot)
+import           Pos.Txp.Core            (TxAux (..), topsortTxs)
+import           Pos.Txp.MemState        (getMemPool)
+import           Pos.Txp.Pending         (PendingTx (..), PtxCondition (..),
+                                          isPtxInBlocks, ptxCreationSlot, ptxExpireSlot)
+import           Pos.Txp.Toil            (ToilVerFailure (..), execToilTLocal, processTx,
+                                          runDBToil)
+import           Pos.WorkMode.Class      (WorkMode)
 
-type MonadPendings ssc m =
-    ( MonadBalances m
+type MonadPendings ssc ctx m =
+    ( WorkMode ssc ctx m
     , MonadTxHistory ssc m
-    , MonadPendingTxs m
+    , MonadBalances m
     )
 
-canSubmitPtx
-    :: (WorkMode ssc ctx m, MonadPendings ssc m)
-    => PendingTx -> m Bool
-canSubmitPtx ptx@PendingTx{..} = do
-    present   <- checkTxIsInMempool ptTxAux
-    applicable <- checkTxIsApplicable ptTxAux
-    if | present    -> return False
-       | applicable -> return True
-       | otherwise  -> False <$ setPendingTx ptx TxWon'tSend
-  where
-    checkTxIsInMempool = undefined
-    checkTxIsApplicable = undefined
+-- | 'Left' stands for stable pending transaction state,
+-- 'Right' means that transaction have to be resubmitted.
+type ResubmitCond = Bool
 
-whetherToResubmitPtx
-    :: (WorkMode ssc ctx m, MonadPendings ssc m)
-    => SlotId -> PendingTx -> m Bool
-whetherToResubmitPtx curSlot ptx = do
-    inBlocks <- isPtxInRecentBlocks ptx
-    if | and
-       [ inBlocks
-       , flattenSlotId (ptxCreationSlot ptx) + getSlotCount slotSecurityParam
-           < flattenSlotId curSlot
-       ] ->
-           False <$ removePendingTx ptx
-       | expired ->
-           False <$ setPendingTx ptx TxWon'tSend
-       | not inBlocks ->
-           canSubmitPtx ptx
-       | otherwise    ->
-           return False
+setPtxCondition :: PendingTx -> PtxCondition -> m ()
+setPtxCondition = undefined
+
+getPtxCondition :: PendingTx -> m PtxCondition
+getPtxCondition = undefined
+
+getPendingTxs :: PtxCondition -> m [PendingTx]
+getPendingTxs = undefined
+
+canSubmitPtx
+    :: MonadPendings ssc ctx m
+    => PendingTx -> m ResubmitCond
+canSubmitPtx ptx@PendingTx{..} = do
+    -- FIXME [CSM-256] do under blk semaphore!
+    mp <- getMemPool
+    res <- runExceptT . runDBToil . execToilTLocal mempty mp mempty $
+        processTx (ptxTxId, ptxTxAux)
+    either processFailure return $ res $> True
   where
-    isPtxInRecentBlocks = undefined
-    expired = ptxExpireSlot ptx <= curSlot
+    await     = return False
+    discard e = False <$ setPtxCondition ptx (PtxWon'tApply $ sformat build e)
+
+    -- | What should happen with pending transaction if attempt
+    -- to resubmit it failed.
+    processFailure e = case e of
+        ToilKnown                -> await
+        ToilTipsMismatch{}       -> await
+        ToilSlotUnknown          -> await
+        ToilOverwhelmed{}        -> await
+        ToilNotUnspent{}         -> discard e
+        ToilOutGTIn{}            -> discard e
+        ToilInconsistentTxAux{}  -> discard e
+        ToilInvalidOutputs{}     -> discard e
+        ToilInvalidInputs{}      -> discard e
+        ToilTooLargeTx{}         -> discard e
+        ToilInvalidMinFee{}      -> discard e
+        ToilInsufficientFee{}    -> discard e
+        ToilUnknownAttributes{}  -> discard e
+        ToilBootDifferentStake{} -> discard e
+
+processPtx
+    :: MonadPendings ssc ctx m
+    => SlotId -> PendingTx -> m ResubmitCond
+processPtx curSlot ptx = do
+    cond <- getPtxCondition ptx
+    if | and
+         [ cond == PtxInUpperBlocks
+         , flattenSlotId (ptxCreationSlot ptx) + getSlotCount undefined
+             < flattenSlotId curSlot
+         ] ->
+           False <$ setPtxCondition ptx PtxPersisted
+       | cond == PtxApplying ->
+           canSubmitPtx ptx
+       | otherwise ->
+           return False
 
 whetherCheckPtxOnSlot :: SlotId -> PendingTx -> Bool
 whetherCheckPtxOnSlot curSlot ptx =
     -- TODO [CSM-256]: move 3 in constants?
     flattenSlotId (ptxCreationSlot ptx) + 3 < flattenSlotId curSlot
 
--- | On each slot takes several pending transactions (using
+-- | On each slot this takes several pending transactions (using
 -- 'whetherToResubmitPtx' rule) and resubmits them if needed & possible.
 -- It's not /worker/, because it requires some constraints, natural only for
 -- wallet environment.
 startPendingTxsResubmitter
-    :: (WorkMode ssc ctx m, MonadPendings ssc m)
+    :: MonadPendings ssc ctx m
     => SendActions m -> m ()
 startPendingTxsResubmitter sendActions =
     onNewSlot False $ \curSlot -> do
-        pendingTxs <- getPendingTxs TxApplying
+        ptxs <- getPendingTxs PtxApplying
         let ptxsToCheck =
-                filter (whetherCheckPtxOnSlot curSlot) pendingTxs
+                flip fromMaybe =<< topsortTxs wHash $
+                filter (whetherCheckPtxOnSlot curSlot) $
+                ptxs
         -- FIXME [CSM-256]: add limit on number of resent transactions per slot or on speed?
-        toResubmit <- filterM (whetherToResubmitPtx curSlot) ptxsToCheck
+        toResubmit <- filterM (processPtx curSlot) ptxsToCheck
 
         -- distribute txs submition over current slot ~evenly
         interval <- evalSubmitDelay (length toResubmit)
         na <- toList <$> getPeers
         forM_ toResubmit $ \PendingTx{..} -> do
             delay interval
-            fork $ submitAndSaveTx sendActions na ptTxAux
+            -- FIXME [CSM-256] Doesn't it introduce a race condition?
+            fork $ submitAndSaveTx sendActions na ptxTxAux
   where
+    wHash PendingTx{..} = WithHash (taTx ptxTxAux) ptxTxId
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
         slotDuration <- getLastKnownSlotDuration

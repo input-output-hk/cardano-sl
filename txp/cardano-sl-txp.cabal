@@ -26,7 +26,6 @@ library
     Pos.Txp.DB.Utxo
 
     Pos.Txp.Pending
-    Pos.Txp.Pending.Class
     Pos.Txp.Pending.Types
     Pos.Txp.Pending.Util
 

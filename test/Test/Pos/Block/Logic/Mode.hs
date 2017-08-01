@@ -54,16 +54,12 @@ import qualified Pos.DB.Block                   as DB
 import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
-import           Pos.Discovery                  (DiscoveryContextSum (..),
-                                                 HasDiscoveryContextSum (..),
-                                                 MonadDiscovery (..), findPeersSum,
-                                                 getPeersSum)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..),
                                                  mkInvSecretsMap)
 import           Pos.Genesis                    (genesisUtxo)
 import qualified Pos.GState                     as GS
-import           Pos.KnownPeers                 (MonadKnownPeers (..),
-                                                 MonadFormatPeers (..))
+import           Pos.KnownPeers                 (MonadFormatPeers (..),
+                                                 MonadKnownPeers (..))
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),

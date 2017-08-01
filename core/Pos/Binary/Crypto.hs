@@ -17,6 +17,8 @@ import qualified Data.ByteArray           as ByteArray
 import qualified Data.ByteString          as BS
 import           Data.SafeCopy            (SafeCopy (..))
 import           Formatting               (int, sformat, (%))
+import           Pos.Crypto.AsBinary      (encShareBytes, secretBytes, secretProofBytes,
+                                           shareBytes, vssPublicKeyBytes)
 
 import           Pos.Binary.Class         (AsBinary (..), Bi (..), decodeBinary,
                                            encodeBinary, encodeListLen, enforceSize,
@@ -97,18 +99,15 @@ deriving instance Bi (AsBinary SecretSharingExtra)
 #define BiMacro(B, BYTES) \
   instance Bi (AsBinary B) where {\
     encode (AsBinary bs) = encode bs ;\
-    decode = do\
-      let origLen = BYTES;\
-      bs      <- decode;\
-      when (origLen /= length bs) $\
-        fail $ "AsBinary B: length mismatch!"\
-      return (AsBinary bs) }; \
+    decode = do { bs <- decode \
+                ; when (BYTES /= length bs) (fail $ "AsBinary B: length mismatch!") \
+                ; return (AsBinary bs) } }; \
 
 BiMacro(VssPublicKey, vssPublicKeyBytes)
 BiMacro(Secret, secretBytes)
 BiMacro(Share, shareBytes)
 BiMacro(EncShare, encShareBytes)
-BiMacro(SecretProof, secretPr)
+BiMacro(SecretProof, secretProofBytes)
 
 ----------------------------------------------------------------------------
 -- Signing

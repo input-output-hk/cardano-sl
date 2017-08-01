@@ -142,9 +142,13 @@ newtype Raw = Raw ByteString
     deriving (Bi, Eq, Ord, Show, Typeable, NFData)
 
 ----------------------------------------------------------------------------
--- Binary serialization
+-- Helper functions, types, classes
 ----------------------------------------------------------------------------
 
+-- | A wrapper over 'ByteString' representing a serialized value of
+-- type 'a'. This wrapper is used to delay decoding of some data. Note
+-- that by default nothing guarantees that the stored 'ByteString' is
+-- a valid representation of some value of type 'a'.
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
     } deriving (Show, Eq, Ord, Hashable, NFData)
@@ -153,10 +157,12 @@ instance SafeCopy (AsBinary a) where
     getCopy = contain $ AsBinary <$> safeGet
     putCopy = contain . safePut . getAsBinary
 
+-- | A simple helper class simplifying work with 'AsBinary'.
 class AsBinaryClass a where
     asBinary :: a -> AsBinary a
     fromBinary :: AsBinary a -> Either Text a
 
+-- | Version of 'fromBinary' which works in any 'MonadFail'.
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either (fail . toString) return . fromBinary
 

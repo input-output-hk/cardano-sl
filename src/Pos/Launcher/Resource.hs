@@ -152,7 +152,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             case npJLFile of
                 Nothing -> pure Nothing
                 Just fp -> do
-                    h <- liftIO $ openFile fp WriteMode
+                    h <- openFile fp WriteMode
                     liftIO $ hSetBuffering h NoBuffering
                     return $ Just h
 

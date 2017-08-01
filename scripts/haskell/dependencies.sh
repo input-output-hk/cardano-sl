@@ -1,22 +1,38 @@
 #!/usr/bin/env stack
--- stack runghc --package turtle --package algebraic-graphs-0.0.5 --package parallel
+-- stack runghc --package shelly --package algebraic-graphs-0.0.5 --package async
+
+{-
+
+It's warmly recommended to compile this script as a binary, in order to exploit multicore
+parallelism, e.g.:
+
+stack exec ghc -- --make -O2 -threaded scripts/haskell/dependencies.hs
+./dependencies +RTS -N
+
+-}
 
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+
+module Main where
+
 import           Algebra.Graph
-import           Algebra.Graph.Export.Dot    (Attribute (..), Style (..), export)
+import           Algebra.Graph.Export.Dot (Attribute (..), Style (..), export)
+import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Monad
-import           Control.Parallel.Strategies (parMap, rpar)
 import           Data.Functor.Identity
 import           Data.List
-import qualified Data.Map.Strict             as M
-import qualified Data.Set                    as Set
-import qualified Data.Text                   as T
+import qualified Data.Map.Strict          as M
+import           Data.Monoid
+import qualified Data.Set                 as Set
+import qualified Data.Text                as T
+import           Shelly
+import           System.IO
 import           Text.Printf
 import           Text.Read
-import           Turtle                      hiding (export, printf)
 
 type PackageName = T.Text
 data Version = V [Int] deriving (Eq, Ord)
@@ -49,7 +65,7 @@ blacklistedPackages = [ "cardano-sl-lwallet"
 -- found by `ghc-pkg`, for some reason.
 getTotalPackages :: IO [Package]
 getTotalPackages = do
-    (_, rawList) <- shellStrict "stack list-dependencies --test --bench" mempty
+    rawList <- shelly $ silently $ run "stack" ["list-dependencies", "--test", "--bench"]
     return $ map mkPackage (filter (not . blacklisted) (T.lines rawList))
     where
       blacklisted x = or $ map (flip T.isInfixOf x) blacklistedPackages
@@ -57,27 +73,49 @@ getTotalPackages = do
 --------------------------------------------------------------------------------
 directDependenciesFor :: Package -> IO [Package]
 directDependenciesFor (name, ver) = do
-    (_, rawOutput) <- shellStrict ("stack exec ghc-pkg field " <> name <> " depends") mempty
+    rawOutput <- shelly $ silently $ run "stack" ["exec", "ghc-pkg", "field", name, "depends"]
     return $ case map T.strip (T.lines rawOutput) of
         ("depends:" : deps) ->
             concatMap (map (mkPackage . normalisePackage) . T.splitOn " ") (takeWhile (/= "depends:") deps)
         _ -> mempty
 
-type DAG    = Graph Package
-type DepMap = M.Map Package [Package]
+type DAG       = Graph Package
+type DepMap    = M.Map Package [Package]
+type RevDepMap = M.Map Package [Package]
 
 --------------------------------------------------------------------------------
-buildDependencyContext :: [Package] -> IO (DepMap, DAG)
-buildDependencyContext [] = return (M.empty, Algebra.Graph.empty)
-buildDependencyContext pkgs = go pkgs (M.empty, Set.empty)
+buildPackageMap :: forall m. Monad m => (Package -> m [Package]) -> [Package] -> m DepMap
+buildPackageMap _ [] = return M.empty
+buildPackageMap f pkgs = go pkgs M.empty
   where
-    go :: [Package] -> (DepMap, Set.Set (Package, Package)) -> IO (DepMap, DAG)
-    go [] (depMap, dag) = return (depMap, edges (Set.toList dag))
-    go (pkg:xs) (depMap, dag) = do
-      directDeps <- directDependenciesFor pkg
+    go :: [Package] -> DepMap -> m DepMap
+    go [] depMap = return depMap
+    go (pkg:xs) depMap = do
+      directDeps <- f pkg
       let !newMap = M.insert pkg directDeps $! depMap
-      let !newDag = dag <> Set.fromList (map (pkg,) directDeps)
-      go xs (newMap, newDag)
+      go xs newMap
+
+--------------------------------------------------------------------------------
+buildDependencyMap :: [Package] -> IO DepMap
+buildDependencyMap allDeps = do
+    mapAsList <- mapConcurrently (\pkg -> (pkg,) <$> directDependenciesFor pkg) allDeps
+    return $ M.fromList mapAsList
+
+--------------------------------------------------------------------------------
+buildReverseDependencyMap :: [Package] -> DepMap -> RevDepMap
+buildReverseDependencyMap allDeps depMap =
+    runIdentity $ buildPackageMap (Identity . reverseDependenciesFor allDeps depMap) allDeps
+
+--------------------------------------------------------------------------------
+buildDependencyDAG :: [Package] -> DepMap -> IO DAG
+buildDependencyDAG allPkgs depMap = go allPkgs Set.empty
+  where
+    go :: [Package] -> Set.Set (Package, Package) -> IO DAG
+    go [] dagEdges = return . edges . Set.toList $ dagEdges
+    go (pkg:xs) dagEdges = do
+      let directDeps   = M.findWithDefault mempty pkg depMap
+      let !newDag = dagEdges <> Set.fromList (map (pkg,) directDeps)
+      go xs newDag
 
 --------------------------------------------------------------------------------
 -- | >>> normalisePackage "conduit-1.2.10-GgLn1U1QYcf9wsQecuZ1A4"
@@ -101,8 +139,8 @@ unavoidableDeps myself x = and [
 
 --------------------------------------------------------------------------------
 -- | Filter "unavoilable" dependencies like the ones of the cardano family.
-reverseDependenciesFor :: Package -> [Package] -> DepMap -> [Package]
-reverseDependenciesFor pkg allDeps directDeps = go (filter (unavoidableDeps pkg) allDeps) mempty
+reverseDependenciesFor :: [Package] -> DepMap -> Package -> [Package]
+reverseDependenciesFor allDeps directDeps pkg = go (filter (unavoidableDeps pkg) allDeps) mempty
   where
     go [] revDeps     = revDeps
     go (x:xs) revDeps = case reachableFrom x of
@@ -141,9 +179,12 @@ dottify dag = writeFile "dep_dot.graphviz" (export style dag)
 --------------------------------------------------------------------------------
 main :: IO ()
 main = do
+    hSetBuffering System.IO.stdout NoBuffering
     allDeps <- getTotalPackages
-    putStrLn "Building direct dependency map..."
-    (directDepMap, depDag) <- buildDependencyContext allDeps
+    putStr "Building direct dependency map..."
+    directDepMap  <- buildDependencyMap allDeps
+    putStrLn "ok."
+    let revDepMap = buildReverseDependencyMap allDeps directDepMap
 
     let tableHeader         =  printf "%-40s" ("Package" :: String)
                             <> printf "%-15s" ("Direct deps"  :: String)
@@ -154,20 +195,20 @@ main = do
     putStrLn tableHeader
 
     let depsMap = M.map length directDepMap
-
     let sortedDepList = reverse (sortOn snd $ M.toList depsMap)
-    let mkTableEntry  (pkg@(pkgName,_), deps) =
-            let revDeps = reverseDependenciesFor pkg allDeps directDepMap
-            in tableEntry pkgName deps revDeps
-    let table         = parMap rpar mkTableEntry sortedDepList
 
-    putStrLn $ mconcat table
+    let mkTableEntry  (pkg@(pkgName,_), deps) =
+            let revDeps = M.findWithDefault mempty pkg revDepMap
+            in tableEntry pkgName deps revDeps
+
+    forM_ sortedDepList (putStr . mkTableEntry)
+
     -- Display the total deps
     putStrLn $ tableEntry "Total project deps" (length allDeps + length blacklistedPackages) []
 
 showRevDeps :: [Package] -> T.Text
-showRevDeps []  = "0 (possibly cardano depends on it)"
-showRevDeps [(pkgName,_)] = "1 (" <> pkgName <> ")"
+showRevDeps []  = T.pack $ printf "%-4d%s" (0 :: Int) ("(possibly cardano depends on it)" :: String)
+showRevDeps [(pkgName,_)] = T.pack $ printf "%-4d%s" (1 :: Int) ("(" <> T.unpack pkgName <> ")")
 showRevDeps xs
-  | length xs <= 5 = T.pack (show $ length xs) <> " (" <> T.intercalate "," (map fst xs) <> ")"
-  | otherwise      = T.pack (show $ length xs) <> " (" <> T.intercalate "," (map fst (take 5 xs)) <> ",...)"
+  | length xs <= 5 = T.pack $ printf "%-4d%s" (length xs) (T.unpack $ "(" <> T.intercalate "," (map fst xs) <> ")")
+  | otherwise      = T.pack $ printf "%-4d%s" (length xs) (T.unpack $ "(" <> T.intercalate "," (map fst (take 5 xs)) <> ",...)")

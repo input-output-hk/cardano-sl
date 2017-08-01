@@ -21,7 +21,8 @@ module Pos.Wallet.Web.Server.Methods
 import           Universum
 
 import           Control.Concurrent               (forkFinally)
-import           Control.Lens                     (each, ix, makeLenses, traversed, (.=))
+import           Control.Lens                     (each, has, ix, makeLenses, traversed,
+                                                   (.=))
 import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
@@ -60,6 +61,7 @@ import           System.Wlog                      (logDebug, logError, logInfo,
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
 import           Pos.Binary.Class                 (biSize)
+import           Pos.Block.Logic.Util             (withBlkSemaphore_)
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (TxError (..), createMTx,
@@ -76,7 +78,7 @@ import           Pos.Core                         (Address (..), Coin, TxFeePoli
                                                    getTimestamp, integerToCoin,
                                                    makeRedeemAddress, mkCoin, sumCoins,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   unsafeSubCoin, _RedeemAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SafeSigner, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
@@ -86,7 +88,6 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
 import           Pos.DB.Class                     (gsAdoptedBVData)
-import           Pos.DB.GState.Common             (getTip)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
@@ -776,6 +777,7 @@ prepareTxRaw
     -> TxFee
     -> m TxRaw
 prepareTxRaw moneySource dstDistr fee = do
+    forM_ dstDistr $ checkIsNotRedeem . fst
     allAddrs <- getMoneySourceAddresses moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
         notDstAddrs = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
@@ -798,8 +800,13 @@ prepareTxRaw moneySource dstDistr fee = do
         pure $ TxOutAux (TxOut addr coin) []
     trOutputs <- withDistr $ overrideTxDistrBoot trOutputsPre
     remainingDistr <- withDistr $ overrideTxOutDistrBoot remaining []
-    let trRemaining = (remaining,  remainingDistr)
+    let trRemaining = (remaining, remainingDistr)
     pure TxRaw{..}
+  where
+    checkIsNotRedeem cId =
+        whenM (has _RedeemAddress <$> decodeCIdOrFail cId) $
+            throwM . RequestError $
+            sformat ("Destination address can't be redeem address: "%build) cId
 
 -- | Accept all addresses in descending order (by coins)
 -- Addresses available to be source of the transaction, with their balances
@@ -1007,8 +1014,7 @@ newWallet passphrase cwInit = do
     updateHistoryCache wId []
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
-    tip <- getTip
-    setWalletSyncTip wId tip
+    withBlkSemaphore_ $ \tip -> tip <$ setWalletSyncTip wId tip
     getWallet wId
 
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet

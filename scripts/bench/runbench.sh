@@ -18,7 +18,7 @@
 #
 # node_cmd , bench_cmd defined in scripts/common_functions.sh
 
-CONC=4 scripts/launch/demo.sh 3 ./run/demo/static
+CONC=4 scripts/launch/demo.sh 3 `dirname $0`/topology
 
 # transaction generator generates file tps-sent.csv
 #

@@ -4,20 +4,20 @@ module Pos.Subscription.Dht
     ( dhtSubscriptionWorker
     ) where
 
-import qualified Control.Concurrent.STM     as STM
+import qualified Control.Concurrent.STM                as STM
 import           Universum
 
-import           Formatting                 (sformat, shown, (%))
-import           Network.Broadcast.OutboundQueue.Types (peersFromList, Peers)
-import           System.Wlog                (logNotice)
+import           Formatting                            (sformat, shown, (%))
+import           Network.Broadcast.OutboundQueue.Types (Peers, peersFromList)
+import           System.Wlog                           (logNotice)
 
-import           Pos.Communication.Protocol (NodeId, Worker)
-import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
-import           Pos.DHT.Real.Real          (kademliaGetKnownPeers)
-import           Pos.DHT.Workers            (DhtWorkMode)
-import           Pos.KnownPeers             (MonadKnownPeers (..))
-import           Pos.Network.Types          (NodeType)
-import           Pos.Util.TimeWarp          (addressToNodeId)
+import           Pos.Communication.Protocol            (NodeId, Worker)
+import           Pos.DHT.Real.Real                     (kademliaGetKnownPeers)
+import           Pos.DHT.Real.Types                    (KademliaDHTInstance (..))
+import           Pos.DHT.Workers                       (DhtWorkMode)
+import           Pos.KnownPeers                        (MonadKnownPeers (..))
+import           Pos.Network.Types                     (NodeType)
+import           Pos.Util.TimeWarp                     (addressToNodeId)
 
 
 -- | This worker will update the known peers (via MonadKnownPeers) every time
@@ -167,7 +167,7 @@ dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
         -> m ()
     updateForeverNoSubscribe peers = do
         -- Will block until at least one of the current best peers changes.
-        peers' <- liftIO . atomically $ updateFromKademliaNoSubscribe peers
+        peers' <- atomically $ updateFromKademliaNoSubscribe peers
         logNotice $
             sformat ("Kademlia peer set changed to "%shown) peers'
         updateKnownPeers (const peers')

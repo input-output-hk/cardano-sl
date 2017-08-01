@@ -24,25 +24,25 @@ module Pos.Network.Types
     , NodeId (..)
     ) where
 
-import           Universum
-import           Data.IP (IPv4)
+import qualified Data.ByteString.Char8                 as BS.C8
+import           Data.IP                               (IPv4)
+import           Network.Broadcast.OutboundQueue       (OutboundQ)
+import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
-import           Network.Broadcast.OutboundQueue (OutboundQ)
-import qualified Network.Broadcast.OutboundQueue as OQ
-import           Node.Internal (NodeId (..))
-import           Pos.Network.DnsDomains (DnsDomains(..), DNSError)
-import           Pos.Network.Yaml (NodeName(..))
-import           Pos.Util.TimeWarp  (addressToNodeId)
-import qualified Pos.Network.DnsDomains as DnsDomains
-import qualified Data.ByteString.Char8  as BS.C8
+import           Node.Internal                         (NodeId (..))
+import           Pos.Network.DnsDomains                (DNSError, DnsDomains (..))
+import qualified Pos.Network.DnsDomains                as DnsDomains
+import           Pos.Network.Yaml                      (NodeName (..))
+import           Pos.Util.TimeWarp                     (addressToNodeId)
+import           Universum
 
 -- | Information about the network in which a node participates.
 data NetworkConfig kademlia = NetworkConfig
-    { ncTopology :: !(Topology kademlia)
+    { ncTopology    :: !(Topology kademlia)
       -- ^ Network topology from the point of view of the current node
     , ncDefaultPort :: !Word16
       -- ^ Port number to use when translating IP addresses to NodeIds
-    , ncSelfName :: !(Maybe NodeName)
+    , ncSelfName    :: !(Maybe NodeName)
       -- ^ Our node name (if known)
     }
   deriving (Show)
@@ -86,20 +86,20 @@ data Topology kademlia =
 
 -- | Derive node type from its topology
 topologyNodeType :: Topology kademlia -> NodeType
-topologyNodeType (TopologyCore _)            = NodeCore
-topologyNodeType (TopologyRelay _ _)         = NodeRelay
-topologyNodeType (TopologyBehindNAT _)       = NodeEdge
-topologyNodeType (TopologyP2P _ _ _)         = NodeEdge
-topologyNodeType (TopologyTraditional _ _ _) = NodeCore
-topologyNodeType (TopologyLightWallet _)     = NodeEdge
+topologyNodeType TopologyCore{}        = NodeCore
+topologyNodeType TopologyRelay{}       = NodeRelay
+topologyNodeType TopologyBehindNAT{}   = NodeEdge
+topologyNodeType TopologyP2P{}         = NodeEdge
+topologyNodeType TopologyTraditional{} = NodeCore
+topologyNodeType TopologyLightWallet{} = NodeEdge
 
 -- | The NodeType to assign to subscribers. Give Nothing if subscribtion
 -- is not allowed for a node with this topology.
 topologySubscriberNodeType :: Topology kademlia -> Maybe NodeType
-topologySubscriberNodeType (TopologyRelay _ _)         = Just NodeEdge
-topologySubscriberNodeType (TopologyTraditional _ _ _) = Just NodeCore
-topologySubscriberNodeType (TopologyP2P _ _ _)         = Just NodeRelay
-topologySubscriberNodeType _                           = Nothing
+topologySubscriberNodeType TopologyRelay{}       = Just NodeEdge
+topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
+topologySubscriberNodeType TopologyP2P{}         = Just NodeRelay
+topologySubscriberNodeType _                     = Nothing
 
 data SubscriptionWorker kademlia =
     SubscriptionWorkerBehindNAT DnsDomains
@@ -139,12 +139,12 @@ staticallyKnownPeers :: NetworkConfig kademlia -> Peers NodeId
 staticallyKnownPeers NetworkConfig{..} = go ncTopology
   where
     go :: Topology kademlia -> Peers NodeId
-    go (TopologyCore peers)            = peers
-    go (TopologyRelay peers _)         = peers
-    go (TopologyBehindNAT _)           = mempty
-    go (TopologyP2P _ _ _)             = mempty
-    go (TopologyTraditional _ _ _)     = mempty
-    go (TopologyLightWallet peers)     = simplePeers $ map (NodeRelay, ) peers
+    go (TopologyCore peers)        = peers
+    go (TopologyRelay peers _)     = peers
+    go (TopologyBehindNAT _)       = mempty
+    go TopologyP2P{}               = mempty
+    go TopologyTraditional{}       = mempty
+    go (TopologyLightWallet peers) = simplePeers $ map (NodeRelay, ) peers
 
 -- | Initialize the outbound queue based on the network configuration
 --

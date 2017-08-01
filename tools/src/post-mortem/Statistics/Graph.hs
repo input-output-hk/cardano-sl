@@ -5,25 +5,24 @@ module Statistics.Graph
     ) where
 
 import           Control.Foldl                     (Fold (..))
+import           Data.Graph.Inductive.Graph        (Graph (mkGraph))
+import           Data.Graph.Inductive.PatriciaTree (Gr)
 import           Data.GraphViz                     (DotGraph)
 import qualified Data.GraphViz                     as G
 import qualified Data.GraphViz.Attributes.Complete as A
 import           Data.GraphViz.Commands.IO         (hPutDot)
-import           Data.Graph.Inductive.Graph        (Graph (mkGraph))
-import           Data.Graph.Inductive.PatriciaTree (Gr)
 import           Data.Map.Strict                   (Map)
 import qualified Data.Map.Strict                   as M
 import           Data.Set                          (Set)
 import qualified Data.Set                          as S
-import qualified Data.Text                         as T
-import qualified Data.Text.Lazy                    as L
 import           System.IO                         (hPutStrLn)
-import           Turtle                            hiding (FilePath, f, g, toText, stderr)
+import           Turtle                            hiding (FilePath, f, g, stderr, toText)
 import qualified Turtle.Prelude                    as T
 
 import           JSONLog                           (IndexedJLTimedEvent)
 import           Prelude                           (unlines)
-import           Statistics.Block                  (BlockHeader (..), blockHeadersF, blockChain)
+import           Statistics.Block                  (BlockHeader (..), blockChain,
+                                                    blockHeadersF)
 import           Types
 import           Universum                         hiding (unlines)
 
@@ -47,7 +46,7 @@ graphF = f <$> blockHeadersF
         chain = blockChain m
 
         fmt :: (Int, BlockHeader) -> G.Attributes
-        fmt (_, bh) = [ A.Label $ A.StrLabel $ L.pack $ unlines labels
+        fmt (_, bh) = [ A.Label $ A.StrLabel $ toLText $ unlines labels
                       , A.FillColor (if S.member (bhHash bh) chain
                             then [A.WC (A.X11Color G.Yellow) Nothing]
                             else [A.WC (A.X11Color G.LightGray) Nothing])
@@ -55,7 +54,7 @@ graphF = f <$> blockHeadersF
                       ]
           where
             labels :: [String]
-            labels = [ '#' : take 6 (T.unpack $ bhHash bh)
+            labels = [ '#' : take 6 (toString $ bhHash bh)
                      , show (bhNode bh)
                      , show (bhSlot bh)
                      ]
@@ -65,7 +64,7 @@ writeGraph f g = with (T.mktempfile "." "graph.dot") $ \tmp -> do
     with (T.writeonly tmp) $ flip hPutDot g
     with (T.readonly tmp) $ \h -> do
         b <-G.isGraphvizInstalled
-        if b 
+        if b
             then do
                 ex <- T.proc "dot" ["-Tpng", toText $ "-o" ++ f] (T.inhandle h)
                 case ex of

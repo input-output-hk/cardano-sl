@@ -4,38 +4,39 @@ module Pos.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
-import           Universum
 import qualified Data.Map.Strict                       as M
-import           Data.Time                             (UTCTime, NominalDiffTime, getCurrentTime,
-                                                        diffUTCTime)
-import           Data.Time.Units                       (Second, Millisecond, convertUnit)
+import           Data.Time                             (NominalDiffTime, UTCTime,
+                                                        diffUTCTime, getCurrentTime)
+import           Data.Time.Units                       (Millisecond, Second, convertUnit)
 import           Formatting                            (sformat, shown, (%))
 import qualified Network.DNS                           as DNS
 import           System.Wlog                           (logError)
+import           Universum
 
-import           Mockable                              (Mockable, Delay, delay)
+import           Mockable                              (Delay, Mockable, delay)
 import           Network.Broadcast.OutboundQueue.Types (peersFromList)
 
 import           Pos.Communication.Protocol            (Worker)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (NetworkConfig (..), DnsDomains (..),
-                                                        resolveDnsDomains, NodeId (..),
-                                                        NodeType (..))
+import           Pos.Network.Types                     (DnsDomains (..),
+                                                        NetworkConfig (..), NodeId (..),
+                                                        NodeType (..), resolveDnsDomains)
+import           Pos.Slotting                          (MonadSlotsData,
+                                                        getLastKnownSlotDuration)
 import           Pos.Subscription.Common
-import           Pos.Slotting                          (getLastKnownSlotDuration, MonadSlotsData)
 
 data KnownRelay = Relay {
       -- | When did we find out about this relay?
       relayDiscovered :: UTCTime
 
       -- | Was this relay reported last call to findRelays?
-    , relayActive :: Bool
+    , relayActive     :: Bool
 
       -- | When was the last time it _was_ reported by findRelays?
-    , relayLastSeen :: UTCTime
+    , relayLastSeen   :: UTCTime
 
       -- | When did we last experience an error communicating with this relay?
-    , relayException :: Maybe (UTCTime, SubscriptionTerminationReason)
+    , relayException  :: Maybe (UTCTime, SubscriptionTerminationReason)
     }
 
 type KnownRelays = Map NodeId KnownRelay
@@ -106,7 +107,7 @@ dnsSubscriptionWorker networkCfg dnsDomains sendActions =
     preferredRelays :: UTCTime -> KnownRelays -> [NodeId]
     preferredRelays now =
           map fst
-        . sortBy (comparing (relayDiscovered . snd))
+        . sortOn (relayDiscovered . snd)
         . filter (relaySuitable now . snd)
         . M.toList
 

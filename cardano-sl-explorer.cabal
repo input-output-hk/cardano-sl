@@ -32,33 +32,8 @@ library
                       , aeson
                       , binary
                       , bytestring
+                      , containers
                       , base16-bytestring
-                      , cardano-sl
-                      , cardano-sl-core
-                      , cardano-sl-infra
-                      , cardano-sl-db
-                      , cardano-sl-ssc
-                      , engine-io
-                      , engine-io-snap
-                      , exceptions
-                      , either
-                      , ether >= 0.5.1
-                      , formatting
-                      , lens
-                      , log-warper
-                      , lifted-base
-                      , mtl
-                      , monad-control
-                      , monad-loops
-                      , node-sketch
-                      , serokell-util
-                      , servant
-                      , servant-server
-                      , socket-io
-                      , snap-core
-                      , snap-cors
-                      , snap-server
-                      , engine-io-wai
                       , stm
                       , tagged
                       , text-format
@@ -68,9 +43,40 @@ library
                       , transformers
                       , universum
                       , unordered-containers
+                      , node-sketch
+                      , serokell-util
+                      , exceptions
+                      , either
+                      , ether >= 0.5.1
+                      , formatting
+                      , lens
+                      , log-warper
+
+                      -- cardano sl
+                      , cardano-sl
+                      , cardano-sl-core
+                      , cardano-sl-infra
+                      , cardano-sl-db
+                      , cardano-sl-ssc
+
+                      -- mtl ++
+                      , lifted-base
+                      , mtl
+                      , monad-control
+                      , monad-loops
+
+                      -- servant
+                      , servant
+                      , servant-server
+                      , http-types
+
+                      -- socket-io + deps
+                      , socket-io
+                      , engine-io
+                      , engine-io-wai
                       , wai
+                      , wai-cors
                       , warp
-                      , containers
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall

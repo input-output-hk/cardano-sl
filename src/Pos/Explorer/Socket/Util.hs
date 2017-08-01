@@ -27,11 +27,11 @@ import qualified Data.Map                 as M
 import           Data.Text                (Text)
 import           Data.Time.Units          (TimeUnit (..))
 import           Formatting               (sformat, shown, (%))
+import           Network.EngineIO.Wai     (WaiMonad)
 
 import           Mockable                 (Fork, Mockable, fork)
 import qualified Network.SocketIO         as S
 import           Serokell.Util.Concurrent (threadDelay)
-import           Snap.Core                (Snap)
 import           System.Wlog              (CanLog (..), WithLogger, logWarning)
 import           Universum                hiding (on)
 
@@ -75,7 +75,7 @@ on eventName = S.on (toName eventName)
 
 -- * Instances
 
-instance CanLog Snap where
+instance CanLog WaiMonad where
     dispatchMessage logName sev msg = liftIO $ dispatchMessage logName sev msg
 
 -- * Misc

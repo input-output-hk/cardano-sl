@@ -17,4 +17,5 @@ rm -rf node-db/
 rm -rf node-*.*key*
 rm -rf kademlia-abc.dump
 rm -rf *.log
-
+rm *key*
+rm kademlia.dump

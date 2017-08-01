@@ -11,75 +11,72 @@ module Pos.Explorer.Socket.App
        , notifierApp
        ) where
 
-import qualified Control.Concurrent.STM           as STM
-import           Control.Lens                     ((<<.=))
-import           Control.Monad.Trans.Control      (MonadBaseControl)
-import qualified Data.Set                         as S
-import           Data.Time.Units                  (Millisecond)
-import           Ether.TaggedTrans                ()
-import           Formatting                       (int, sformat, (%))
-import qualified GHC.Exts                         as Exts
-import           Network.EngineIO                 (SocketId)
-import           Network.EngineIO.Snap            (snapAPI)
-import           Network.SocketIO                 (RoutingTable, Socket,
-                                                   appendDisconnectHandler, initialize,
-                                                   socketId)
-import           Pos.Block.Types                  (Blund)
-import           Pos.Core                         (addressF)
-import qualified Pos.GState                       as DB
-import           Pos.Ssc.Class                    (SscHelpersClass)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
-import           Serokell.Util.Text               (listJson)
-import           Snap.Core                        (MonadSnap, route)
-import qualified Snap.CORS                        as CORS
-import           Snap.Http.Server                 (httpServe)
-import qualified Snap.Internal.Http.Server.Config as Config
-import           System.Wlog                      (CanLog, LoggerName, NamedPureLogger,
-                                                   Severity (..), WithLogger,
-                                                   getLoggerName, logDebug, logInfo,
-                                                   logMessage, logWarning,
-                                                   modifyLoggerName, usingLoggerName)
-import           Universum                        hiding (on)
+import           Universum                      hiding (on)
 
-import           Pos.Explorer.Aeson.ClientTypes   ()
-import           Pos.Explorer.Socket.Holder       (ConnectionsState, ConnectionsVar,
-                                                   askingConnState, mkConnectionsState,
-                                                   withConnState)
-import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent (..),
-                                                   Subscription (..), finishSession,
-                                                   getBlockTxs, getBlundsFromTo,
-                                                   getTxInfo, notifyAddrSubscribers,
-                                                   notifyBlocksLastPageSubscribers,
-                                                   notifyTxsSubscribers, startSession,
-                                                   subscribeAddr, subscribeBlocksLastPage,
-                                                   subscribeTxs, unsubscribeAddr,
-                                                   unsubscribeBlocksLastPage,
-                                                   unsubscribeTxs)
-import           Pos.Explorer.Socket.Util         (emitJSON, forkAccompanion, on, on_,
-                                                   regroupBySnd, runPeriodicallyUnless)
-import           Pos.Explorer.Web.ClientTypes     (cteId, tiToTxEntry)
-import           Pos.Explorer.Web.Server          (ExplorerMode, getMempoolTxs)
+import qualified Control.Concurrent.STM         as STM
+import           Control.Lens                   ((<<.=))
+import qualified Data.Set                       as S
+import           Data.Time.Units                (Millisecond)
+import           Ether.TaggedTrans              ()
+import           Formatting                     (int, sformat, (%))
+import qualified GHC.Exts                       as Exts
+import           Network.EngineIO               (SocketId)
+import           Network.EngineIO.Wai           (WaiMonad, toWaiApplication, waiAPI)
+import           Network.HTTP.Types.Header      (Header, HeaderName)
+import           Network.HTTP.Types.Status      (status404)
+import           Network.SocketIO               (RoutingTable, Socket,
+                                                 appendDisconnectHandler, initialize,
+                                                 socketId)
+import           Network.Wai                    (Application, Middleware, Request,
+                                                 Response, pathInfo, requestHeaders,
+                                                 responseLBS)
+import           Network.Wai.Handler.Warp       (Settings, defaultSettings, runSettings,
+                                                 setPort)
+import           Network.Wai.Middleware.Cors    (CorsResourcePolicy, cors, corsOrigins,
+                                                 simpleCorsResourcePolicy)
+import           System.Wlog                    (CanLog, LoggerName, NamedPureLogger,
+                                                 WithLogger, getLoggerName, logDebug,
+                                                 logInfo, logWarning, modifyLoggerName,
+                                                 usingLoggerName)
+import           Serokell.Util.Text             (listJson)
+
+import           Pos.Block.Types                (Blund)
+import           Pos.Core                       (addressF)
+import qualified Pos.GState                     as DB
+import           Pos.Ssc.Class                  (SscHelpersClass)
+import           Pos.Ssc.GodTossing             (SscGodTossing)
+
+import           Pos.Explorer.Aeson.ClientTypes ()
+import           Pos.Explorer.Socket.Holder     (ConnectionsState, ConnectionsVar,
+                                                 askingConnState, mkConnectionsState,
+                                                 withConnState)
+import           Pos.Explorer.Socket.Methods    (ClientEvent (..), ServerEvent (..),
+                                                 Subscription (..), finishSession,
+                                                 getBlockTxs, getBlundsFromTo, getTxInfo,
+                                                 notifyAddrSubscribers,
+                                                 notifyBlocksLastPageSubscribers,
+                                                 notifyTxsSubscribers, startSession,
+                                                 subscribeAddr, subscribeBlocksLastPage,
+                                                 subscribeTxs, unsubscribeAddr,
+                                                 unsubscribeBlocksLastPage,
+                                                 unsubscribeTxs)
+import           Pos.Explorer.Socket.Util       (emitJSON, forkAccompanion, on, on_,
+                                                 regroupBySnd, runPeriodicallyUnless)
+import           Pos.Explorer.Web.ClientTypes   (cteId, tiToTxEntry)
+import           Pos.Explorer.Web.Server        (ExplorerMode, getMempoolTxs)
 
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
     }
 
-toSnapConfig :: MonadSnap m => NotifierSettings -> LoggerName -> Config.Config m ()
-toSnapConfig NotifierSettings{..} loggerName = Config.defaultConfig
-    { Config.port      = Just $ fromIntegral nsPort
-    , Config.accessLog = logHandler Debug
-    , Config.errorLog  = logHandler Error
-    }
-  where
-    logHandler severity =
-        Just . Config.ConfigIoLog $
-            usingLoggerName (loggerName <> "requests") .
-            logMessage severity . decodeUtf8
+-- TODO(ks): Add logging, currently it's missing.
+toConfig :: NotifierSettings -> LoggerName -> Settings
+toConfig NotifierSettings{..} _ =
+   setPort (fromIntegral nsPort) defaultSettings
 
 notifierHandler
-    :: (MonadState RoutingTable m, MonadReader Socket m, CanLog m, MonadIO m,
-        MonadBaseControl IO m)
+    :: (MonadState RoutingTable m, MonadReader Socket m, CanLog m, MonadIO m)
     => ConnectionsVar -> LoggerName -> m ()
 notifierHandler connVar loggerName = do
     _ <- asHandler' startSession
@@ -103,7 +100,7 @@ notifierHandler connVar loggerName = do
     asHandler' f    = inHandlerCtx . f                =<< ask
 
     inHandlerCtx
-        :: (MonadIO m, CanLog m, MonadBaseControl IO m)
+        :: (MonadIO m, CanLog m)
         => NamedPureLogger (StateT ConnectionsState STM) a
         -> m ()
     inHandlerCtx =
@@ -112,15 +109,57 @@ notifierHandler connVar loggerName = do
 
 notifierServer
     :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)
-    => NotifierSettings -> ConnectionsVar -> m ()
-notifierServer settings connVar = do
+    => NotifierSettings
+    -> ConnectionsVar
+    -> m ()
+notifierServer notifierSettings connVar = do
+
     loggerName <- getLoggerName
+
+    let settings :: Settings
+        settings = toConfig notifierSettings loggerName
+
     liftIO $ do
-        handler <- liftIO . initialize snapAPI $
-            notifierHandler connVar loggerName
-        httpServe (toSnapConfig settings loggerName) $
-            CORS.applyCORS CORS.defaultOptions $
-            route [("/socket.io", handler)]
+        handler <- initialize waiAPI $ notifierHandler connVar loggerName
+        runSettings settings (addRequestCORSHeaders . app $ handler)
+
+  where
+    -- This is an unfortunate hack because of a socket.io wai issue:
+    -- https://github.com/socketio/socket.io-client/issues/641
+    -- The Snap counterpart does this in it's CORS library.
+    -- TODO(ks): Maybe we could export this in wai-cors?
+    addRequestCORSHeaders :: Middleware
+    addRequestCORSHeaders = cors addCORSHeader
+      where
+        addCORSHeader :: Request -> Maybe CorsResourcePolicy
+        addCORSHeader request = case head findJustOriginValue of
+                -- If we found the "Origin" header from the client, then add it as a
+                -- "Access-Control-Allow-Origin" value in the response
+                Just (_, bsValue) ->
+                    Just $ simpleCorsResourcePolicy { corsOrigins = Just ([bsValue], True) }
+                -- If we didn't find the "Origin" header then the result is
+                -- "Access-Control-Allow-Origin = '*'", which WON'T WORK FOR socket.io.
+                Nothing           -> Nothing
+
+          where
+            findJustOriginValue :: [Header]
+            findJustOriginValue = filter findOriginValue (requestHeaders request)
+
+            findOriginValue :: (HeaderName, ByteString) -> Bool
+            findOriginValue (headerName, _) = headerName == "Origin"
+
+    app :: WaiMonad () -> Application
+    app sHandle req respond
+        | (elem "socket.io" $ pathInfo req) = toWaiApplication sHandle req respond
+        | otherwise = respond notFound
+
+    -- A simple response when the socket.io route isn't matched. This is on a separate
+    -- port then the main application.
+    notFound :: Response
+    notFound = responseLBS
+        status404
+        [("Content-Type", "text/plain")]
+        "404 - Not Found"
 
 periodicPollChanges
     :: forall ssc ctx m.

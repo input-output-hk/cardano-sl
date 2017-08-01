@@ -40,15 +40,16 @@ import           Control.Lens               (makeLenses)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
+import qualified Data.Ratio                 as Ratio
 import           Ether.Internal             (HasLens (..))
 import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
-import           Pos.Core                   (Address (..), Coin, SlotLeaders, addressHash,
+import           Pos.Core                   (Address (..), Coin, SlotLeaders,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                             unsafeGetCoin, unsafeMulCoin)
+                                             unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
@@ -128,7 +129,8 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
     normalize x =
         x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
 stakeDistribution (ExponentialStakes n mc) =
-    reverse $ take (fromIntegral n) $ iterate (`unsafeMulCoin` 2) mc
+    reverse $ take (fromIntegral n) $
+    iterate (`unsafeMulCoin` (2::Integer)) mc
 stakeDistribution ts@RichPoorStakes {..} =
     checkMpcThd (getTotalStake ts) sdRichStake basicDist
   where
@@ -143,10 +145,9 @@ stakeDistribution ts@RichPoorStakes {..} =
 stakeDistribution (CustomStakes coins) = coins
 
 -- | Generates genesis 'Utxo' given weighted boot stakeholders and
---  address distributions. All the stake is distributed among genesis
---  stakeholders (using 'genesisSplitBoot').
-genesisUtxo ::
-       GenesisWStakeholders -> [AddrDistribution] -> GenesisUtxo
+-- address distributions. All the stake is distributed among genesis
+-- stakeholders (using 'genesisSplitBoot').
+genesisUtxo :: GenesisWStakeholders -> [AddrDistribution] -> GenesisUtxo
 genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
     | null bootStakeholders =
         error "genesisUtxo: no stakeholders for the bootstrap era"
@@ -166,6 +167,33 @@ genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
                identity
                (genesisSplitBoot x c)
     outDistr = genesisSplitBoot' gws
+
+-- | Generate weighted stakeholders using passed address distribution.
+genWStakeholders :: [AddrDistribution] -> GenesisWStakeholders
+genWStakeholders [] = GenesisWStakeholders mempty
+genWStakeholders addrDistrs =
+    GenesisWStakeholders $ foldr step mempty withCoins
+  where
+    withCoins :: [(Address, Coin)]
+    withCoins = concat $ map (uncurry zip . second stakeDistribution) addrDistrs
+    coins = map snd withCoins
+    intCoins = map coinToInteger coins
+    commonGcd = foldr1 gcd intCoins
+    targetTotalWeight = maxBound @Word16 -- for the maximal precision
+    safeConvert :: Integer -> Word16
+    safeConvert i
+        | i <= 0 =
+          error $ "genStakeholders can't convert: non-positive coin " <> show i
+        | i > fromIntegral targetTotalWeight =
+          error "genStakeholders can't convert: too big"
+        | otherwise = fromIntegral i
+    calcWeight :: Coin -> Word16
+    calcWeight balance =
+        safeConvert $ floor $
+        (coinToInteger balance) Ratio.%
+        (commonGcd)
+    step (PubKeyAddress x _, balance) = HM.insertWith (+) x (calcWeight balance)
+    step _                            = identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
 genesisLeaders :: GenesisUtxo -> SlotLeaders
@@ -229,7 +257,8 @@ devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) Nothing =
         then error "Impossible to make RichPoorStakes with given parameters."
         else identity
 devStakesDistr Nothing Nothing Nothing (Just n) =
-    ExponentialStakes (fromIntegral n) (mkCoin 0)
+    -- minimum stake allows to have max 11 weighted stakeholders in boot era
+    ExponentialStakes (fromIntegral n) (mkCoin 2048)
 devStakesDistr _ _ _ _ =
     error "Conflicting distribution options were enabled. \
           \Choose one at most or nothing."
@@ -254,8 +283,9 @@ genesisDevHdwAccountKeyDatas =
 devAddrDistr :: StakeDistribution -> ([AddrDistribution], GenesisWStakeholders)
 devAddrDistr distr = (aDistr, gws)
   where
-    gws = GenesisWStakeholders $ HM.fromList $
-          map (first addressHash) $ take distrSize genesisDevPublicKeys `zip` [1..]
+    gws = genWStakeholders [(mainAddrs, distr)]
+--        GenesisWStakeholders $ HM.fromList $
+--          map (first addressHash) $ take distrSize genesisDevPublicKeys `zip` [1..]
     aDistr = [ (mainAddrs, distr)        -- Addresses from passed stake
              , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
              ]

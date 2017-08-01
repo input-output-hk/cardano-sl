@@ -171,8 +171,13 @@ genSuitableStakeDistribution :: Coin -> Word -> Gen StakeDistribution
 genSuitableStakeDistribution dustThd stakeholdersNum =
     -- Minimum coin in distribution should be equal or greater than
     -- boot dust threshold.
+    --
+    -- Notice: it's only a _balance_ distribution, the real stake
+    -- distribution in boot era is defined by the boot stakeholders
+    -- set.
     stakeDistrAddCoin dustThd <$>
-    oneof [ genFlat {-, genBitcoin-} -- is broken
+    oneof [ genFlat
+          {-, genBitcoin-} -- is broken
           , pure (ExponentialStakes stakeholdersNum (mkCoin 1))]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)

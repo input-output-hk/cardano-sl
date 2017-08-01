@@ -27,7 +27,7 @@ import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
 import qualified Pos.Constants       as Const
 import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
                                       getOurPubKeyAddress, getOurPublicKey)
-import           Pos.Genesis         (GenesisWStakeholders (..))
+import           Pos.Genesis         (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState          as GS
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
@@ -67,6 +67,8 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                         ", pk hash: "%build) pk addr pkHash
 
     genesisStakeholders <- view (lensOf @GenesisWStakeholders)
+    logInfo $ sformat ("Dust threshold: "%build)
+        (bootDustThreshold genesisStakeholders)
     logInfo $ sformat ("Genesis stakeholders: " %build) genesisStakeholders
 
     lastKnownEpoch <- LrcDB.getEpoch

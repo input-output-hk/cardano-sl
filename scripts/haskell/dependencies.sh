@@ -34,19 +34,32 @@ import           System.IO
 import           Text.Printf
 import           Text.Read
 
+--------------------------------------------------------------------------------
 type PackageName = T.Text
+
 data Version = V [Int] deriving (Eq, Ord)
+
 type Package = (PackageName, Version)
 
+type DAG       = Graph Package
+
+type DepMap    = M.Map Package [Package]
+
+type RevDepMap = M.Map Package [Package]
+
+--------------------------------------------------------------------------------
 readVersionM :: Monad m => (String -> m Int) -> T.Text -> m Version
 readVersionM f = fmap V . sequence . map (f . T.unpack) . T.splitOn "."
 
+--------------------------------------------------------------------------------
 readVersionMaybe :: T.Text -> Maybe Version
 readVersionMaybe = readVersionM readMaybe
 
+--------------------------------------------------------------------------------
 readVersion :: T.Text -> Version
 readVersion = runIdentity . readVersionM (liftM read . pure)
 
+--------------------------------------------------------------------------------
 mkPackage :: T.Text -> Package
 mkPackage t = case T.splitOn " " (T.strip t) of
     [name, ver] -> (name, readVersion ver)
@@ -79,10 +92,6 @@ directDependenciesFor (name, ver) = do
             concatMap (map (mkPackage . normalisePackage) . T.splitOn " ") (takeWhile (/= "depends:") deps)
         _ -> mempty
 
-type DAG       = Graph Package
-type DepMap    = M.Map Package [Package]
-type RevDepMap = M.Map Package [Package]
-
 --------------------------------------------------------------------------------
 buildPackageMap :: forall m. Monad m => (Package -> m [Package]) -> [Package] -> m DepMap
 buildPackageMap _ [] = return M.empty
@@ -105,6 +114,11 @@ buildDependencyMap allDeps = do
 buildReverseDependencyMap :: [Package] -> DepMap -> RevDepMap
 buildReverseDependencyMap allDeps depMap =
     runIdentity $ buildPackageMap (Identity . reverseDependenciesFor allDeps depMap) allDeps
+
+--------------------------------------------------------------------------------
+buildUniqueDependencyMap :: [Package] -> DepMap -> RevDepMap -> DepMap
+buildUniqueDependencyMap allDeps depMap revMap =
+    runIdentity $ buildPackageMap (Identity . uniqueDependenciesFor depMap revMap) allDeps
 
 --------------------------------------------------------------------------------
 buildDependencyDAG :: [Package] -> DepMap -> IO DAG
@@ -142,8 +156,8 @@ unavoidableDeps myself x = and [
 reverseDependenciesFor :: [Package] -> DepMap -> Package -> [Package]
 reverseDependenciesFor allDeps directDeps pkg = go (filter (unavoidableDeps pkg) allDeps) mempty
   where
-    go [] revDeps     = revDeps
-    go (x:xs) revDeps = case reachableFrom x of
+    go [] !revDeps     = revDeps
+    go (x:xs) !revDeps = case reachableFrom x of
         True  -> go xs (x : revDeps)
         False -> go xs revDeps
         -- For each package x, check the graph to see if there is a path going
@@ -158,6 +172,20 @@ reverseDependenciesFor allDeps directDeps pkg = go (filter (unavoidableDeps pkg)
         go :: [Package] -> Bool
         go [] = False
         go xs = any reachableFrom xs
+
+--------------------------------------------------------------------------------
+-- | Compute the "unique direct dependencies", which are the dependencies that
+-- only this package introduces into the project.
+-- In other terms, we need to count for each DIRECT dependency, the number of
+-- REVERSE dependencies. If it's one, and it's the package in question, it
+-- means that removing that dependency would also remove the associated package.
+uniqueDependenciesFor :: DepMap -> RevDepMap -> Package -> [Package]
+uniqueDependenciesFor directDeps revDeps pkg = go (M.findWithDefault mempty pkg directDeps) []
+    where
+      go [] !deps     = deps
+      go (d:ds) !deps = case M.findWithDefault mempty d revDeps of
+          [x] | x == pkg -> go ds (d : deps)
+          _   -> go ds deps
 
 --------------------------------------------------------------------------------
 style :: Style Package String
@@ -184,27 +212,32 @@ main = do
     putStr "Building direct dependency map..."
     directDepMap  <- buildDependencyMap allDeps
     putStrLn "ok."
-    let revDepMap = buildReverseDependencyMap allDeps directDepMap
+    let revDepMap    = buildReverseDependencyMap allDeps directDepMap
+    let uniqueDepMap = buildUniqueDependencyMap allDeps directDepMap revDepMap
 
     let tableHeader         =  printf "%-40s" ("Package" :: String)
-                            <> printf "%-15s" ("Direct deps"  :: String)
+                            <> printf "%-20s" ("Direct deps"  :: String)
+                            <> printf "%-20s" ("Unique deps"  :: String)
                             <> printf "%-70s" ("Reverse deps (excluding cardano-*)"  :: String)
-    let tableEntry pkg deps revDeps =  printf "%-40s" (T.unpack pkg)
-                                    <> printf "%-15s" (show deps)
-                                    <> printf "%-70s\n" (T.unpack $ showRevDeps revDeps)
+    let tableEntry pkg (totalDeps, uniqueDeps) revDeps =
+               printf "%-40s" (T.unpack pkg)
+            <> printf "%-20s" (show totalDeps)
+            <> printf "%-20s" (show uniqueDeps)
+            <> printf "%-70s\n" (T.unpack $ showRevDeps revDeps)
     putStrLn tableHeader
 
     let depsMap = M.map length directDepMap
     let sortedDepList = reverse (sortOn snd $ M.toList depsMap)
 
     let mkTableEntry  (pkg@(pkgName,_), deps) =
-            let revDeps = M.findWithDefault mempty pkg revDepMap
-            in tableEntry pkgName deps revDeps
+            let revDeps    = M.findWithDefault mempty pkg revDepMap
+                uniqueDeps = M.findWithDefault mempty pkg uniqueDepMap
+            in tableEntry pkgName (deps, length uniqueDeps) revDeps
 
     forM_ sortedDepList (putStr . mkTableEntry)
 
     -- Display the total deps
-    putStrLn $ tableEntry "Total project deps" (length allDeps + length blacklistedPackages) []
+    putStrLn $ "Total project deps: " <> (show $ length allDeps + length blacklistedPackages)
 
 showRevDeps :: [Package] -> T.Text
 showRevDeps []  = T.pack $ printf "%-4d%s" (0 :: Int) ("(possibly cardano depends on it)" :: String)

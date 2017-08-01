@@ -1,4 +1,4 @@
--- | Common defintiions for definition peer discovery and subscription workers.
+-- | Common definitions for peer discovery and subscription workers.
 
 {-# LANGUAGE ScopedTypeVariables #-}
 

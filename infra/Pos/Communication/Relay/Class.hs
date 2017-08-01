@@ -72,7 +72,4 @@ data DataParams contents m = DataParams
     { dataMsgType    :: !(Origin NodeId -> Msg)
     , handleDataOnly :: EnqueueMsg m -> NodeId -> contents -> m Bool
       -- ^ Handle data msg and return True if message is to be propagated
-      -- FIXME the SendActions shouldn't be there. It is for the benefit of
-      -- a delegation listener which, in its handleDataOnly callback, must
-      -- enqueue some conversations.
     }

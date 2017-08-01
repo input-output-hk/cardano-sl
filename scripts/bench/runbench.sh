@@ -1,16 +1,5 @@
 #!/bin/sh
 
-# dev-mode : allow to generate custom genesis block
-# CONFIG=.. selects section from config file (core/constants.yaml)
-# dev-custom-config needed to override config file section 
-
-stack build --flag cardano-sl-core:dev-mode --flag cardano-sl-core:dev-custom-config --ghc-options=-DCONFIG=benchmark
-
-if [[ $? -ne 0 ]]
-then
-  exit $?
-fi
-
 # CONC=4 transaction generator spawns 4 threads 
 #   all send about 2 transactions per second
 # 3 : 3 nodes

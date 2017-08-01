@@ -43,18 +43,15 @@ showLogDirs logDirs = do
     for_ logDirs $ \d -> err $ " - " ++ show d
 
 processLogDirOverview :: FilePath -> Double -> IO (String, Map TxHash (Maybe Timestamp))
-processLogDirOverview logDir _sampleProb = do
+processLogDirOverview logDir sampleProb = do
     err $ "processing log directory " ++ show logDir ++ " ..."
 
-    (rc, g, mp, cr, ft -- , fulls, waits
-        ) <-
+    (rc, g, mp, cr, ft) <-
         runJSONFold logDir $ (,,,,) <$> receivedCreatedF
-                                      <*> graphF
-                                      <*> memPoolF
-                                      <*> txCntInChainF
-                                      <*> txFateF
-                                      -- <*> relayQueueFullF
-                                      -- <*> relayEnqueueDequeueTimeF
+                                    <*> graphF
+                                    <*> memPoolF
+                                    <*> txCntInChainF
+                                    <*> txFateF
     let total    = M.size rc
         included = sort $ mapMaybe snd $ M.toList rc
         lost     = total - length included
@@ -70,7 +67,7 @@ processLogDirOverview logDir _sampleProb = do
     when b $ err $ "wrote graph png to " ++ show graphFile
 
     let csvFile = getName "csv" dirName "csv"
-    -- txCntInChainMemPoolToCSV csvFile sampleProb cr mp fulls waits
+    txCntInChainMemPoolToCSV csvFile sampleProb cr mp
     err $ "wrote csv file to " ++ show csvFile
     let reportFile = getName "report" dirName "txt"
     void (reportTxFate reportFile ft)
@@ -100,13 +97,11 @@ processLogDirTxRelay logDir = do
 processLogDirThroughput :: Double -> Double -> FilePath -> IO ()
 processLogDirThroughput txWindow waitWindow logDir = do
     err $ "processing log directory " ++ show logDir ++ " ..."
-    (xs, ys-- , zs
-        ) <- runJSONFold logDir $ (,) <$> txCntInChainF <*> memPoolF -- <*> relayEnqueueDequeueTimeF
+    (xs, ys) <- runJSONFold logDir $ (,) <$> txCntInChainF <*> memPoolF
     err $ "chain length: " ++ show (length xs) ++ " block(s)"
     err $ show (length ys) ++ " mem pool event(s)"
-    -- err $ show (length zs) ++ " relay waiting events"
     let svgFile = getName "throughput" (extractName logDir) "svg"
-    throughput svgFile txWindow waitWindow 1000 xs ys -- zs
+    throughput svgFile txWindow waitWindow 1000 xs ys
     err $ "wrote chart to " ++ show svgFile
 
 err :: String -> IO ()

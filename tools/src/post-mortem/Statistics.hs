@@ -9,7 +9,6 @@ module Statistics
     , module Statistics.Histogram
     , module Statistics.MemPool
     , module Statistics.Report
-    -- , module Statistics.Relay
     , module Statistics.Throughput
     , module Statistics.Tx
     ) where

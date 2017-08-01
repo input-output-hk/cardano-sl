@@ -595,7 +595,6 @@ executable cardano-post-mortem
                      , Statistics.Histogram
                      , Statistics.MemPool
                      , Statistics.Report
-                     -- , Statistics.Relay
                      , Statistics.Throughput
                      , Statistics.Tx
                      , Types

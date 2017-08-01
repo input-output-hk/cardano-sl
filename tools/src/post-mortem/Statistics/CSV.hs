@@ -6,10 +6,7 @@ module Statistics.CSV
 import           Control.Monad.Random   (MonadRandom (..), evalRandT)
 import           System.IO              (hPutStrLn)
 import           System.Random          (mkStdGen)
-import           Data.IntMap.Strict     (IntMap)
-import qualified Data.IntMap.Strict     as I
 import qualified Data.Text              as T
-import           Data.Time.Units        (Microsecond)
 
 import           Statistics.Focus       (Focus (..))
 import           Pos.Txp.MemState.Types (MemPoolModifyReason (..))
@@ -17,14 +14,12 @@ import           Pos.Util.JsonLog       (JLMemPool (..))
 import           Types
 import           Universum
 
-txCntInChainMemPoolToCSV :: FilePath 
+txCntInChainMemPoolToCSV :: FilePath
                          -> Double
-                         -> [(NodeIndex, Timestamp, Int)] 
-                         -> [(NodeIndex, Timestamp, JLMemPool)] 
-                         -> [(NodeIndex, Timestamp)]
-                         -> [(NodeIndex, Timestamp, Microsecond)]
+                         -> [(NodeIndex, Timestamp, Int)]
+                         -> [(NodeIndex, Timestamp, JLMemPool)]
                          -> IO ()
-txCntInChainMemPoolToCSV f sp txCnt mp fulls waits = 
+txCntInChainMemPoolToCSV f sp txCnt mp =
     flip evalRandT (mkStdGen 918273) $ liftIO $ withFile f WriteMode $ \h -> do
         hPutStrLn h "time,txCount,txType,node"
         for_ txCnt $ \(n, ts, cnt) -> csvLine h "written" n ts (fromIntegral cnt)
@@ -33,13 +28,10 @@ txCntInChainMemPoolToCSV f sp txCnt mp fulls waits =
                 csvLine h (toTxType "Wait" p) n ts jlmWait
                 csvLine h (toTxType "Modify" p) n ts jlmModify
                 csvLine h (toTxType "SizeAfter" p) n ts (fromIntegral jlmSizeAfter)
-        foldM_ (foldFull h) I.empty fulls
-        for_ waits $ \(n, ts, t) ->
-            whenM draw $ csvLine h "relay_wait" n ts (fromIntegral t)
   where
     csvLine :: MonadIO m => Handle -> String -> NodeIndex -> Timestamp -> Integer -> m ()
     csvLine h txType node time txCount = liftIO $ hPutStrLn h $ show (fromIntegral time :: Integer) ++ "," ++ show txCount ++ "," ++ txType ++ "," ++ show node
-  
+
     draw :: MonadRandom m => m Bool
     draw = (<= sp) <$> getRandomR (0, 1)
 
@@ -56,12 +48,6 @@ txCntInChainMemPoolToCSV f sp txCnt mp fulls waits =
                 Custom t             -> toString t
                 Unknown              -> "Unknown"
         in  "mp_" ++ reason ++ "_" ++ s
-
-    foldFull :: (MonadRandom m, MonadIO m) => Handle -> IntMap Integer -> (NodeIndex, Timestamp) -> m (IntMap Integer)
-    foldFull h cnts (n, ts) = do
-        let cnts' = I.insertWith (+) n 1 cnts
-        whenM draw $ csvLine h "relay_full" n ts (cnts' I.! n)
-        return cnts'
 
 focusToCSV :: FilePath -> [(Timestamp, NodeIndex, Focus)] -> IO ()
 focusToCSV f xs = withFile f WriteMode $ \h -> do
@@ -82,4 +68,4 @@ focusToCSV f xs = withFile f WriteMode $ \h -> do
 
     csvLine :: Handle -> Timestamp -> Double -> Double -> NodeIndex -> String -> BlockHash -> IO ()
     csvLine h ts dt0 dt node t he =
-        hPutStrLn h $ show ts ++ "," ++ show dt0 ++ "," ++ show dt ++ "," ++ show node ++ "," ++ t ++ "," ++ toString he 
+        hPutStrLn h $ show ts ++ "," ++ show dt0 ++ "," ++ show dt ++ "," ++ show node ++ "," ++ t ++ "," ++ toString he

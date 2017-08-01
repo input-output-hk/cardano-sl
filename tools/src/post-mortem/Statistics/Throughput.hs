@@ -21,21 +21,17 @@ throughput :: FilePath
            -> Int
            -> [(NodeIndex, Timestamp, Int)]
            -> [(NodeIndex, Timestamp, JLMemPool)]
-           -- -> [(NodeIndex, Timestamp, Microsecond)]
            -> IO ()
-throughput f txW waitW cnt xs ys -- zs
-    =
+throughput f txW waitW cnt xs ys =
     let xs'    = [(t, c) | (_, t, c) <- xs]
         ys'    = mapMaybe wait ys
-        -- zs'    = [(t, w) | (_, t, w) <- zs]
-        times  = map fst xs' ++ map fst ys' -- ++ map fst zs'
+        times  = map fst xs' ++ map fst ys'
         tmin   = minimum times
         tmax   = maximum times
         times' = sample tmin tmax cnt
         xs''   = scaleShift tmin $ sliding txW   times' (\ws -> fromIntegral (sum ws) / txW)       xs'
         ys''   = scaleShift tmin $ sliding waitW times' (lg 100 . average)                         ys'
-        -- zs''   = scaleShift tmin $ sliding waitW times' (lg 10000000 . average . map fromIntegral) zs'
-    in  grid f txW waitW xs'' ys'' -- zs''
+    in grid f txW waitW xs'' ys''
   where
     wait :: (NodeIndex, Timestamp, JLMemPool) -> Maybe (Timestamp, Integer)
     wait (_, t, JLMemPool{..}) = case jlmReason of
@@ -50,10 +46,9 @@ grid :: FilePath
      -> Double
      -> [(Double, Double)]
      -> [(Double, Double)]
-     -- -> [(Double, Double)]
      -> IO ()
-grid f txW waitW xs ys -- zs
-    = void $ renderableToFile def f $ fillBackground def $ gridToRenderable $ chart1 `above` chart2 -- `above` chart3
+grid f txW waitW xs ys =
+    void $ renderableToFile def f $ fillBackground def $ gridToRenderable $ chart1 `above` chart2 -- `above` chart3
   where
     chart1 = layoutToGrid $ execEC $ do
         setColors [opaque blue]
@@ -66,12 +61,6 @@ grid f txW waitW xs ys -- zs
         layout_x_axis . laxis_title .= "time (s)"
         layout_y_axis . laxis_title .= "wait (lg s)"
         plot $ line ("mempool wait for tx processing (window " ++ show waitW ++ "s)") [ys]
-
-    -- chart3 = layoutToGrid $ execEC $ do
-    --     setColors [opaque green]
-    --     layout_x_axis . laxis_title .= "time (s)"
-    --     layout_y_axis . laxis_title .= "wait (lg s)"
-    --     plot $ line ("tx relay wait (window " ++ show waitW ++ "s)") [zs]
 
 sample :: Integral a => a -> a -> Int -> [a]
 sample tmin tmax cnt =

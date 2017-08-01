@@ -17,6 +17,12 @@ Flag with-web
 
   description: Build with web part.
 
+Flag with-post-mortem-tool
+  default:     False
+  manual:      True
+
+  description: Build with web part.
+
 Flag with-wallet
   default:     True
   manual:      True
@@ -596,30 +602,34 @@ executable cardano-post-mortem
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe
-  build-depends:       base
-                     , aeson
-                     , attoparsec
-                     , cardano-sl
-                     , cardano-sl-txp
-                     , Chart
-                     , Chart-diagrams
-                     , containers
-                     , directory
-                     , filepath
-                     , fgl
-                     , graphviz
-                     , foldl
-                     , MonadRandom
-                     , optparse-applicative
-                     , pipes
-                     , pipes-bytestring
-                     , pipes-interleave
-                     , pipes-safe
-                     , random
-                     , text
-                     , time-units
-                     , turtle
-                     , universum >= 0.1.11
+  if flag(with-post-mortem-tool)
+    buildable: True
+    build-depends:       base
+                       , aeson
+                       , attoparsec
+                       , cardano-sl
+                       , cardano-sl-txp
+                       , Chart
+                       , Chart-diagrams
+                       , containers
+                       , directory
+                       , filepath
+                       , fgl
+                       , graphviz
+                       , foldl
+                       , MonadRandom
+                       , optparse-applicative
+                       , pipes
+                       , pipes-bytestring
+                       , pipes-interleave
+                       , pipes-safe
+                       , random
+                       , text
+                       , time-units
+                       , turtle
+                       , universum >= 0.1.11
+  else
+    buildable: False
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

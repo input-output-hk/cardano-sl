@@ -60,9 +60,7 @@ module Network.Broadcast.OutboundQueue (
   , Alts
   , simplePeers
   , peersFromList
-  , updateKnownPeers
-  , addKnownPeers
-  , removeKnownPeer
+  , updatePeersBucket
     -- * Debugging
   , dumpState
   ) where
@@ -75,7 +73,6 @@ import Control.Monad.IO.Class
 import Data.Either (rights)
 import Data.Maybe (maybeToList)
 import Data.Map.Strict (Map)
-import Data.Monoid ((<>))
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Time
@@ -411,12 +408,16 @@ inFlightWithPrec :: Ord nid => nid -> Precedence -> Lens' (InFlight nid) Int
 inFlightWithPrec nid prec = inFlightTo nid . at prec . anon 0 (== 0)
 
 -- | The outbound queue (opaque data structure)
-data OutboundQ msg nid = forall self .
-                         ( FormatMsg msg
-                         , Ord nid
-                         , Show nid
-                         , Show self
-                         ) => OutQ {
+--
+-- NOTE: The 'Ord' instance on the type of the buckets @buck@ determines the
+-- final 'Peers' value that the queue gets every time it reads all buckets.
+data OutboundQ msg nid buck = forall self .
+                            ( FormatMsg msg
+                            , Ord nid
+                            , Show nid
+                            , Show self
+                            , Ord buck
+                            ) => OutQ {
       -- | Node ID of the current node (primarily for debugging purposes)
       qSelf :: self
 
@@ -435,8 +436,12 @@ data OutboundQ msg nid = forall self .
       -- | Messages scheduled but not yet sent
     , qScheduled :: MQ msg nid
 
-      -- | Known peers
-    , qPeers :: MVar (Peers nid)
+      -- | Buckets with known peers
+      --
+      -- Invariant: this map must have an entry for every bucket (it is
+      -- morally equivalent to @buck -> Bucket nid@, but that would not allow
+      -- us to get all buckets easily).
+    , qBuckets :: Map buck (Bucket nid)
 
       -- | Recent communication failures
     , qFailures :: MVar (Failures nid)
@@ -452,11 +457,11 @@ data OutboundQ msg nid = forall self .
 -- Currently this just shows the known peers.
 dumpState
     :: MonadIO m
-    => OutboundQ msg nid
+    => OutboundQ msg nid buck
     -> (forall a . (Format r a) -> a)
     -> m r
-dumpState OutQ {..} formatter = do
-    peers <- liftIO $ readMVar qPeers
+dumpState outQ@OutQ{} formatter = do
+    peers <- getAllPeers outQ
     let formatted = formatter format peers
     return formatted
   where
@@ -465,21 +470,25 @@ dumpState OutQ {..} formatter = do
 -- | Initialize the outbound queue
 --
 -- NOTE: The dequeuing thread must be started separately. See 'dequeueThread'.
-new :: ( MonadIO m
+new :: forall m msg nid buck self.
+       ( MonadIO m
        , FormatMsg msg
        , Ord nid
        , Show nid
        , Show self
+       , Ord buck
+       , Enum buck
+       , Bounded buck
        )
     => self -- ^ Showable identifier of this node, for logging purposes.
     -> EnqueuePolicy nid
     -> DequeuePolicy
     -> FailurePolicy nid
-    -> m (OutboundQ msg nid)
+    -> m (OutboundQ msg nid buck)
 new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
     qInFlight  <- newMVar Map.empty
     qScheduled <- MQ.new
-    qPeers     <- newMVar mempty
+    qBuckets   <- Map.fromList <$> mapM mkBucket [minBound .. maxBound]
     qCtrlMsg   <- newEmptyMVar
     qFailures  <- newMVar Set.empty
 
@@ -494,13 +503,16 @@ new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
     qSignal <- newSignal checkCtrlMsg
 
     return OutQ{..}
+  where
+    mkBucket :: buck -> IO (buck, Bucket nid)
+    mkBucket buck = (\mvar -> (buck, Bucket mvar)) <$> newMVar mempty
 
 {-------------------------------------------------------------------------------
   Interpreter for the enqueing policy
 -------------------------------------------------------------------------------}
 
-intEnqueue :: forall m msg nid a. (MonadIO m, WithLogger m)
-           => OutboundQ msg nid
+intEnqueue :: forall m msg nid buck a. (MonadIO m, WithLogger m)
+           => OutboundQ msg nid buck
            -> MsgType nid
            -> msg a
            -> Peers nid
@@ -622,8 +634,8 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
               )
               qSelf enq msg fwdSets
 
-pickAlt :: forall m msg nid. (MonadIO m, WithLogger m)
-        => OutboundQ msg nid
+pickAlt :: forall m msg nid buck. (MonadIO m, WithLogger m)
+        => OutboundQ msg nid buck
         -> MaxAhead
         -> Precedence
         -> Alts nid
@@ -660,8 +672,8 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts =
 -- NOTE: This is of course a highly dynamic value; by the time we get to
 -- actually enqueue the message the value might be slightly different. Bounds
 -- are thus somewhat fuzzy.
-countAhead :: forall m msg nid. (MonadIO m, WithLogger m)
-           => OutboundQ msg nid -> nid -> Precedence -> m Int
+countAhead :: forall m msg nid buck. (MonadIO m, WithLogger m)
+           => OutboundQ msg nid buck -> nid -> Precedence -> m Int
 countAhead OutQ{..} nid prec = do
     logDebug . msgInFlight =<< liftIO (readMVar qInFlight)
     (inFlight, inQueue) <- liftIO $ (,)
@@ -694,8 +706,8 @@ applyRateLimit dequeuePolicy nodeType sendExecTime = liftIO $
       NoRateLimiting -> return ()
       MaxMsgPerSec n -> threadDelay (1000000 `div` n - sendExecTime)
 
-intDequeue :: forall m msg nid. WithLogger m
-           => OutboundQ msg nid
+intDequeue :: forall m msg nid buck. WithLogger m
+           => OutboundQ msg nid buck
            -> ThreadRegistry m
            -> SendMsg m msg nid
            -> m (Maybe CtrlMsg)
@@ -785,8 +797,8 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
 --
 -- NOTE: Since we don't send messages to nodes listed in failures, we can
 -- assume that there isn't an existing failure here.
-intFailure :: forall m msg nid a.
-              OutboundQ msg nid
+intFailure :: forall m msg nid buck a.
+              OutboundQ msg nid buck
            -> ThreadRegistry m
            -> Packet msg nid a  -- ^ Packet we failed to send
            -> ExecutionTime     -- ^ How long did the send take?
@@ -805,7 +817,7 @@ intFailure OutQ{..} threadRegistry@TR{} p sendExecTime err = do
                      (packetMsgType  p)
                      err
 
-hasRecentFailure :: MonadIO m => OutboundQ msg nid -> nid -> m Bool
+hasRecentFailure :: MonadIO m => OutboundQ msg nid buck -> nid -> m Bool
 hasRecentFailure OutQ{..} nid = liftIO $ Set.member nid <$> readMVar qFailures
 
 {-------------------------------------------------------------------------------
@@ -814,7 +826,7 @@ hasRecentFailure OutQ{..} nid = liftIO $ Set.member nid <$> readMVar qFailures
 
 -- | Queue a message to be sent, but don't wait (asynchronous API)
 enqueue :: (MonadIO m, WithLogger m)
-        => OutboundQ msg nid
+        => OutboundQ msg nid buck
         -> MsgType nid -- ^ Type of the message being sent
         -> msg a       -- ^ Message to send
         -> m [(nid, m (Either SomeException a))]
@@ -826,7 +838,7 @@ enqueue outQ msgType msg = do
 -- Returns for each node that the message got enqueued the result of the
 -- send action (or an exception if it failed).
 enqueueSync' :: (MonadIO m, WithLogger m)
-             => OutboundQ msg nid
+             => OutboundQ msg nid buck
              -> MsgType nid -- ^ Type of the message being sent
              -> msg a       -- ^ Message to send
              -> m [(nid, Either SomeException a)]
@@ -841,8 +853,8 @@ enqueueSync' outQ msgType msg = do
 -- warnings will be logged when individual sends fail. Additionally, we will
 -- log an error when /all/ sends failed (this doesn't currently happen in the
 -- asynchronous API).
-enqueueSync :: forall m msg nid a. (MonadIO m, WithLogger m)
-            => OutboundQ msg nid
+enqueueSync :: forall m msg nid buck a. (MonadIO m, WithLogger m)
+            => OutboundQ msg nid buck
             -> MsgType nid -- ^ Type of the message being sent
             -> msg a       -- ^ Message to send
             -> m ()
@@ -852,8 +864,8 @@ enqueueSync outQ msgType msg =
 -- | Enqueue a message which really should not get lost
 --
 -- Returns 'True' if the message was successfully sent.
-enqueueCherished :: forall m msg nid a. (MonadIO m, WithLogger m)
-                 => OutboundQ msg nid
+enqueueCherished :: forall m msg nid buck a. (MonadIO m, WithLogger m)
+                 => OutboundQ msg nid buck
                  -> MsgType nid -- ^ Type of the message being sent
                  -> msg a       -- ^ Message to send
                  -> m Bool
@@ -866,13 +878,13 @@ enqueueCherished outQ msgType msg =
 
 -- | Enqueue message to the specified set of peers
 intEnqueueTo :: (MonadIO m, WithLogger m)
-             => OutboundQ msg nid
+             => OutboundQ msg nid buck
              -> MsgType nid
              -> msg a
              -> EnqueueTo nid
              -> m [Packet msg nid a]
-intEnqueueTo outQ@OutQ{..} msgType msg enqTo = do
-    peers <- liftIO $ readMVar qPeers
+intEnqueueTo outQ@OutQ{} msgType msg enqTo = do
+    peers <- getAllPeers outQ
     intEnqueue outQ msgType msg (restriction peers)
   where
     restriction = case enqTo of
@@ -884,8 +896,8 @@ waitAsync :: MonadIO m
 waitAsync = map $ \Packet{..} -> (packetDestId, liftIO $ readMVar packetSent)
 
 -- | Make sure a synchronous send succeeds to at least one peer
-warnIfNotOneSuccess :: forall m msg nid a. (MonadIO m, WithLogger m)
-                    => OutboundQ msg nid
+warnIfNotOneSuccess :: forall m msg nid buck a. (MonadIO m, WithLogger m)
+                    => OutboundQ msg nid buck
                     -> msg a
                     -> m [(nid, Either SomeException a)]
                     -> m ()
@@ -906,8 +918,8 @@ warnIfNotOneSuccess OutQ{qSelf} msg act = do
 
 -- | Repeatedly run an action until at least one send succeeds, we run out of
 -- options, or we reach a predetermined maximum number of iterations.
-cherish :: forall m msg nid a. (MonadIO m, WithLogger m)
-        => OutboundQ msg nid
+cherish :: forall m msg nid buck a. (MonadIO m, WithLogger m)
+        => OutboundQ msg nid buck
         -> m [(nid, Either SomeException a)]
         -> m Bool
 cherish OutQ{qSelf} act =
@@ -967,7 +979,7 @@ type SendMsg m msg nid = forall a. msg a -> nid -> m a
 --
 -- It is the responsibility of the next layer up to fork this thread; this
 -- function does not return unless told to terminate using 'waitShutdown'.
-dequeueThread :: forall m msg nid. (
+dequeueThread :: forall m msg nid buck. (
                    MonadIO              m
                  , M.Mockable M.Bracket m
                  , M.Mockable M.Catch   m
@@ -976,7 +988,7 @@ dequeueThread :: forall m msg nid. (
                  , Ord (M.ThreadId      m)
                  , WithLogger           m
                  )
-              => OutboundQ msg nid -> SendMsg m msg nid -> m ()
+              => OutboundQ msg nid buck -> SendMsg m msg nid -> m ()
 dequeueThread outQ@OutQ{..} sendMsg = withThreadRegistry $ \threadRegistry ->
     let loop :: m ()
         loop = do
@@ -1004,7 +1016,7 @@ data CtrlMsg =
   | Flush    (MVar ())
 
 -- | Gracefully shutdown the relayer
-waitShutdown :: MonadIO m => OutboundQ msg nid -> m ()
+waitShutdown :: MonadIO m => OutboundQ msg nid buck -> m ()
 waitShutdown OutQ{..} = liftIO $ do
     ack <- newEmptyMVar
     putMVar qCtrlMsg $ Shutdown ack
@@ -1012,7 +1024,7 @@ waitShutdown OutQ{..} = liftIO $ do
     takeMVar ack
 
 -- | Wait for all messages currently enqueued to have been sent
-flush :: MonadIO m => OutboundQ msg nid -> m ()
+flush :: MonadIO m => OutboundQ msg nid buck -> m ()
 flush OutQ{..} = liftIO $ do
     ack <- newEmptyMVar
     putMVar qCtrlMsg $ Flush ack
@@ -1020,7 +1032,7 @@ flush OutQ{..} = liftIO $ do
     takeMVar ack
 
 {-------------------------------------------------------------------------------
-  Knowledge of peers
+  Buckets
 
   NOTE: Behind NAT nodes: Edge nodes behind NAT can contact a relay node to ask
   to be notified of messages. The listener on the relay node should call
@@ -1032,31 +1044,32 @@ flush OutQ{..} = liftIO $ do
   queue again.
 -------------------------------------------------------------------------------}
 
--- | Update the set of peers
+newtype Bucket nid = Bucket { bucketMVar :: MVar (Peers nid) }
+
+-- | Internal method: read all buckets of peers
+getAllPeers :: MonadIO m => OutboundQ msg nid buck -> m (Peers nid)
+getAllPeers OutQ{..} = liftIO $
+    mconcat <$> mapM (readMVar . bucketMVar) (Map.elems qBuckets)
+
+-- | Update a bucket of peers
 --
--- NOTE: Any messages to removed peers will be deleted from the queue.
---
--- TODO check for overlap in the Peers terms. This should never happen but
--- could, due to misconfiguration.
-updateKnownPeers :: MonadIO m
-                 => OutboundQ msg nid -> (Peers nid -> Peers nid) -> m ()
-updateKnownPeers OutQ{..} f = do
-    removed <- applyMVar qPeers $ \peers ->
-      let peers'  = f peers
-          removed = peersToSet peers Set.\\ peersToSet peers'
-      in (peers', removed)
+-- NOTE: Any messages to peers that no longer exist in _any_ bucket will be
+-- removed from the queue.
+updatePeersBucket :: MonadIO m
+                  => OutboundQ msg nid buck
+                  -> buck
+                  -> (Peers nid -> Peers nid)
+                  -> m ()
+updatePeersBucket outQ@OutQ{..} buck f = do
+    before <- getAllPeers outQ
+    let Bucket bucket = qBuckets Map.! buck
+    applyMVar_ bucket f
+    after <- getAllPeers outQ
+    let removed = peersToSet before Set.\\ peersToSet after
     forM_ removed $ \nid -> do
       applyMVar_ qInFlight $ at nid .~ Nothing
       applyMVar_ qFailures $ Set.delete nid
       liftIO $ MQ.removeAllIn (KeyByDest nid) qScheduled
-
--- | Remember a set of Peers.
-addKnownPeers :: MonadIO m => OutboundQ msg nid -> Peers nid -> m ()
-addKnownPeers outQ peers' = updateKnownPeers outQ (<> peers')
-
--- | Forget about some peers.
-removeKnownPeer :: MonadIO m => Ord nid => OutboundQ msg nid -> nid -> m ()
-removeKnownPeer outQ nid = updateKnownPeers outQ (removePeer nid)
 
 {-------------------------------------------------------------------------------
   Auxiliary: starting and registering threads

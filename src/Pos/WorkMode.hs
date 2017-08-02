@@ -24,10 +24,6 @@ import           Control.Lens                (makeLensesWith)
 import qualified Control.Monad.Reader        as Mtl
 import           Ether.Internal              (HasLens (..))
 import           Mockable                    (Production)
-import           Formatting                  (shown)
-import           Network.Broadcast.OutboundQueue.Types (FormatMsg (..))
-import qualified Network.Broadcast.OutboundQueue as OQ
-import qualified Node                        as N (Conversation)
 import           System.Wlog                 (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
@@ -35,11 +31,9 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog.Types        (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Communication.Types     (PeerData, PackingType, NodeId, Msg)
 import           Pos.Context                 (NodeContext, HasSscContext (..),
                                               HasPrimaryKey (..), HasNodeContext (..))
 import           Pos.Core                    (IsHeader)
-import           Pos.Network.Types           (Bucket)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
 import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDefault,
                                               dbGetHeaderDefault, dbGetHeaderSscDefault,
@@ -76,18 +70,12 @@ import           Pos.Util.JsonLog            (HasJsonLogConfig (..), JsonLogConf
                                               jsonLogDefault)
 import           Pos.Util.LoggerName         (HasLoggerName' (..), getLoggerNameDefault,
                                               modifyLoggerNameDefault)
+import           Pos.Util.OutboundQueue      (OQ, EnqueuedConversation (..))
+import qualified Pos.Util.OutboundQueue      as OQ.Reader
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.Util.UserSecret         (HasUserSecret (..))
 import           Pos.Util.Util               (postfixLFields)
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
-
-newtype EnqueuedConversation m t =
-    EnqueuedConversation (Msg, NodeId -> PeerData -> N.Conversation PackingType m t)
-
-instance FormatMsg (EnqueuedConversation m) where
-    formatMsg = (\k (EnqueuedConversation (msg, _)) -> k msg) <$> shown
-
-type OQ m = OQ.OutboundQ (EnqueuedConversation m) NodeId Bucket
 
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -210,11 +198,7 @@ instance SscHelpersClass ssc =>
     dbPutBlund = dbPutBlundDefault
 
 instance MonadKnownPeers (RealMode ssc) where
-    updatePeersBucket buck f = do
-        oq <- rmcOutboundQ <$> ask
-        OQ.updatePeersBucket oq buck f
+    updatePeersBucket = OQ.Reader.updatePeersBucketReader rmcOutboundQ
 
 instance MonadFormatPeers (RealMode scc) where
-    formatKnownPeers formatter = do
-        oq <- rmcOutboundQ <$> ask
-        Just <$> OQ.dumpState oq formatter
+    formatKnownPeers = OQ.Reader.formatKnownPeersReader rmcOutboundQ

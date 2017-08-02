@@ -14,7 +14,6 @@ import           Control.Lens                  (makeLensesWith)
 import qualified Control.Monad.Reader          as Mtl
 import           Ether.Internal                (HasLens (..))
 import           Mockable                      (Production)
-import qualified Network.Broadcast.OutboundQueue as OQ
 import           System.Wlog                   (HasLoggerName (..))
 
 import           Pos.Block.Core                (Block, BlockHeader)
@@ -58,6 +57,7 @@ import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName           (HasLoggerName' (..), getLoggerNameDefault,
                                                 modifyLoggerNameDefault)
+import qualified Pos.Util.OutboundQueue        as OQ.Reader
 import           Pos.Util.TimeWarp             (CanJsonLog (..))
 import           Pos.Util.UserSecret           (HasUserSecret (..))
 import           Pos.Util.Util                 (postfixLFields)
@@ -211,11 +211,7 @@ instance MonadWalletTracking WalletWebMode where
     txMempoolToModifier = txMempoolToModifierWebWallet
 
 instance MonadKnownPeers WalletWebMode where
-    updatePeersBucket buck f = do
-        oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
-        OQ.updatePeersBucket oq buck f
+    updatePeersBucket = OQ.Reader.updatePeersBucketReader (rmcOutboundQ . wwmcRealModeContext)
 
 instance MonadFormatPeers WalletWebMode where
-    formatKnownPeers formatter = do
-        oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
-        Just <$> OQ.dumpState oq formatter
+    formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . wwmcRealModeContext)

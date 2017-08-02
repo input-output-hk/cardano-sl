@@ -104,16 +104,19 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         fromPovOf cfg allStaticallyKnownPeers networkConfigOptsSelf $ \nodeType peers ->
           case nodeType of
             T.NodeCore -> return (T.TopologyCore peers)
-            T.NodeRelay -> withKademliaParams cfg $ \kparams ->
+            T.NodeRelay -> do
+              kparams <- getKademliaParams cfg
               return (T.TopologyRelay peers kparams)
             -- This will never happen. Either our node name is not found in
             -- the table, or it's a core or relay.
             T.NodeEdge -> throwM NetworkConfigSelfEdge
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
-      Y.TopologyP2P v f -> withKademliaParams cfg $ \kparams ->
+      Y.TopologyP2P v f -> do
+        kparams <- getKademliaParams cfg
         return (T.TopologyP2P v f kparams)
-      Y.TopologyTraditional v f -> withKademliaParams cfg $ \kparams ->
+      Y.TopologyTraditional v f -> do
+        kparams <- getKademliaParams cfg
         return (T.TopologyTraditional v f kparams)
     return T.NetworkConfig {
         ncTopology    = ourTopology
@@ -121,15 +124,15 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
       , ncSelfName    = networkConfigOptsSelf
       }
 
-withKademliaParams :: NetworkConfigOpts
-                   -> (DHT.KademliaParams -> IO r)
-                   -> IO r
-withKademliaParams cfg k = case networkConfigOptsKademlia cfg of
+-- | Come up with kademlia parameters, possibly throwing an exception in case
+-- there's no configuration file path given, or if it couldn't be parsed.
+getKademliaParams :: NetworkConfigOpts
+                  -> IO DHT.KademliaParams
+getKademliaParams cfg = case networkConfigOptsKademlia cfg of
     Nothing -> throwM MissingKademliaConfig
     Just fp -> do
       kconf <- parseKademlia fp
-      kconf' <- either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
-      k kconf'
+      either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
 
 -- | Perspective on 'AllStaticallyKnownPeers' from the point of view of
 -- a single node

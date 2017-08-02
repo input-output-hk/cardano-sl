@@ -9,7 +9,7 @@ import qualified Data.Map                    as M
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
 import           System.Directory            (doesDirectoryExist)
-import           System.Random               (newStdGen)
+import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
 import           Pos.Core                    (StakeDistribution (..),
@@ -69,19 +69,17 @@ main = flip catch catchEx $ do
                 (fromIntegral bgoBlockN)
                 def
                 True
-    --seed <- maybe randomIO pure bgoSeed
-    -- TODO use seed in the future
+    seed <- maybe randomIO pure bgoSeed
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
-        initTBlockGenMode db genUtxo $ do
-            g <- liftIO newStdGen
-            void $ evalRandT (genBlocks bgenParams) g
+        initTBlockGenMode db genUtxo $
+            void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
     if isDevelopment then
-        putText $ "Generated in DEV mode"
+        putText $ "Generated in DEV mode with seed " <> show seed
     else
-        putText $ "Generated in PROD mode"
+        putText $ "Generated in PROD mode with seed " <> show seed
   where
     catchEx :: TBlockGenError -> IO ()
     catchEx e = putText $ sformat ("Error: "%build) e

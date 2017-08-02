@@ -46,9 +46,9 @@ import           Pos.Exception               (reportFatalError)
 import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..),
                                               HasTxGenParams (..), asSecretKeys)
 import qualified Pos.GState                  as GS
+import           Pos.KnownPeers              (MonadFormatPeers)
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
-import           Pos.KnownPeers              (MonadKnownPeers (..), MonadFormatPeers (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
 import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
@@ -349,12 +349,6 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode m) where
 instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance ( Monad m, MonadKnownPeers m ) => MonadKnownPeers (BlockGenMode m) where
-    updatePeersBucket buck = lift . updatePeersBucket buck
-
-instance ( Monad m, MonadFormatPeers m ) => MonadFormatPeers (BlockGenMode m) where
-    formatKnownPeers formatter = lift (formatKnownPeers formatter)
 
 ----------------------------------------------------------------------------
 -- Utilities

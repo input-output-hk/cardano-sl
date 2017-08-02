@@ -6,7 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import           Control.Applicative          ((<|>))
-import           Control.Monad                (foldM, forM)
+import           Control.Monad                (forM)
 import           Control.Monad.IO.Class       (MonadIO (..))
 import qualified Data.Attoparsec.Text         as P
 import           Data.Function                (on)
@@ -24,10 +24,10 @@ import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fu
 import qualified Options.Applicative.Simple   as S
 import           Options.Applicative.Text     (textOption)
 import           Paths_cardano_sl             (version)
-import           Prelude                      hiding (FilePath)
-import           System.Directory             (canonicalizePath, doesDirectoryExist,
-                                               listDirectory)
-import           System.FilePath              (FilePath, takeExtension, (</>))
+import           Pos.Util                     (lstree)
+import           Prelude
+import           System.Directory             (canonicalizePath)
+import           System.FilePath              (takeExtension)
 import qualified System.IO                    as IO
 import           System.Process               (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
@@ -118,24 +118,6 @@ data Module = Module
     , modChecks :: ![Check]
     } deriving Show
 
--- | Stream all immediate children of the given directory, excluding "." and ".."
--- Returns all the files inclusive of the initial `FilePath`.
-ls :: MonadIO m => FilePath -> m [FilePath]
-ls initialFp = map ((</>) initialFp) <$> liftIO (listDirectory initialFp)
-
--- | Lists all recursive descendants of the given directory.
-lstree :: MonadIO m => FilePath -> m [FilePath]
-lstree fp = go mempty fp
-  where
-    consUniq :: FilePath -> [FilePath] -> [FilePath]
-    consUniq x xs = if x /= fp then (x : xs) else xs
-
-    go :: MonadIO m => [FilePath] -> FilePath -> m [FilePath]
-    go !acc currentFp = do
-        isDirectory <- liftIO (doesDirectoryExist currentFp)
-        case isDirectory of
-            True  -> ls currentFp >>= foldM go (consUniq currentFp acc)
-            False -> return (consUniq currentFp acc)
 
 hsFiles :: MonadIO m => FilePath -> m [FilePath]
 hsFiles folder = filter ((== ".hs") . takeExtension) <$> (lstree folder)

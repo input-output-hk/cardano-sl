@@ -298,14 +298,17 @@ executable cardano-genupdate
                      , bytestring
                      , cardano-sl
                      , cryptonite
-                     , foldl
+                     , filepath
+                     , formatting
                      , optparse-simple
                      , optparse-text
                      , string-qq
                      , system-filepath
+                     , process
                      , tar
                      , text
                      , universum
+                     , unix
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

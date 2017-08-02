@@ -128,6 +128,8 @@ notifierServer notifierSettings connVar = do
       where
         addCORSHeader :: Request -> Maybe CorsResourcePolicy
         addCORSHeader _ = Just $ simpleCorsResourcePolicy
+                                    -- HTTP origins that are allowed in CORS requests.
+                                    -- Add more resources to the following list if needed.
                                     { corsOrigins = Just ([ "https://cardanoexplorer.com"
                                                           , "https://explorer.iohkdev.io"
                                                           , "http://localhost:3100"

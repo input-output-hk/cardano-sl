@@ -42,6 +42,16 @@ stack exec cardano-explorer-mock
 - run `./scripts/build/cardano-sl.sh --tns`
 - run `./scripts/launch/staging.sh`
 - run `./frontend/scripts/build-frontend-simple.sh`
-- open http://localhost:3100/ 
+- open http://localhost:3100/
 
-NOTE: before running explorer if you want clean sync (explorer will have to sync and download blockchain from start) - remove db with `rm -rf db-testnet` 
+NOTE: before running explorer if you want clean sync (explorer will have to sync and download blockchain from start) - remove db with `rm -rf db-testnet`
+
+
+## Sockets
+
+`CORS` requests to connect `socket` server are currently restricted to following resources:
+* https://cardanoexplorer.com
+* https://explorer.iohkdev.io
+* http://localhost:3100
+
+Change `CORS` policies in `src/Pos/Explorer/Socket/App.hs` whenever you have to add more resources.

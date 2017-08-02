@@ -61,6 +61,14 @@ script:
   else
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
+# build explorer
+- pushd explorer
+- pushd frontend
+- "./scripts/build.sh"
+- nix-shell --run "yarn test"
+- popd
+- "./update_explorer_web_api_docs.sh"
+- popd
 
 deploy:
   provider: s3

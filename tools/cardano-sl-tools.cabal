@@ -17,12 +17,6 @@ Flag with-web
 
   description: Build with web part.
 
-Flag with-post-mortem-tool
-  default:     False
-  manual:      True
-
-  description: Build only the cardano-post-mortem tool.
-
 Flag with-wallet
   default:     True
   manual:      True
@@ -601,7 +595,7 @@ executable cardano-post-mortem
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe
-  if flag(with-post-mortem-tool)
+  if !flag(for-installer)
     buildable: True
     build-depends:       base
                        , aeson

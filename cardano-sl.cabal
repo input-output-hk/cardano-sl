@@ -420,7 +420,6 @@ library
                       , transformers
                       , transformers-base
                       , transformers-lift
-                      , turtle
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector

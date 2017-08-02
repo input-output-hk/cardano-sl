@@ -5,12 +5,18 @@
 {-# LANGUAGE QuasiQuotes     #-}
 {-# LANGUAGE RecordWildCards #-}
 
-import qualified Control.Foldl                as F
+import           Control.Applicative          ((<|>))
+import           Control.Monad                (foldM, forM)
+import           Control.Monad.IO.Class       (MonadIO (..))
+import qualified Data.Attoparsec.Text         as P
 import           Data.Function                (on)
 import           Data.List                    (foldl', sortBy)
 import qualified Data.Map.Strict              as M
+import           Data.Monoid                  ((<>))
 import           Data.String.QQ               (s)
+import           Data.Text                    (Text)
 import qualified Data.Text                    as T
+import qualified Data.Text.IO                 as T
 import           Data.Version                 (showVersion)
 import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fullDesc,
                                                help, helper, info, infoOption, long,
@@ -19,8 +25,12 @@ import qualified Options.Applicative.Simple   as S
 import           Options.Applicative.Text     (textOption)
 import           Paths_cardano_sl             (version)
 import           Prelude                      hiding (FilePath)
+import           System.Directory             (canonicalizePath, doesDirectoryExist,
+                                               listDirectory)
+import           System.FilePath              (FilePath, takeExtension, (</>))
+import qualified System.IO                    as IO
+import           System.Process               (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Turtle                       hiding (s)
 
 data ChecksOptions = ChecksOptions
     { sourcesDir :: !Text
@@ -77,13 +87,19 @@ Example of output file content:
 main :: IO ()
 main = do
     ChecksOptions{..} <- getChecksOptions
-    folder' <- realpath $ fromText sourcesDir
-    let file' = fromText outputFile
-        md    = filesToMd $ hsFiles folder'
-    case extension file' of
-        Just "md"  -> output file' md
-        Just "pdf" -> pandoc outputFile md
-        _          -> err "Expected *.md or *.pdf extension for output file."
+    folder' <- canonicalizePath (T.unpack sourcesDir)
+    let file' = T.unpack outputFile
+    md    <- filesToMd =<< hsFiles folder'
+    case takeExtension file' of
+        ".md"  -> do
+            T.writeFile file' mempty
+            mapM_ (T.appendFile file') md
+        ".pdf" -> pandoc file' md
+        _      -> err "Expected *.md or *.pdf extension for output file."
+
+-- | Print exactly one line to @stderr@
+err :: MonadIO m => T.Text -> m ()
+err = liftIO . T.hPutStrLn IO.stderr
 
 type Tag = Text
 
@@ -102,32 +118,47 @@ data Module = Module
     , modChecks :: ![Check]
     } deriving Show
 
-hsFiles :: FilePath -> Shell FilePath
-hsFiles folder = do
-    file <- lstree folder
-    case extension file of
-        Just "hs" -> return file
-        _         -> mzero
+-- | Stream all immediate children of the given directory, excluding "." and ".."
+-- Returns all the files inclusive of the initial `FilePath`.
+ls :: MonadIO m => FilePath -> m [FilePath]
+ls initialFp = map ((</>) initialFp) <$> liftIO (listDirectory initialFp)
 
-filesToMd :: Shell FilePath -> Shell Line
+-- | Lists all recursive descendants of the given directory.
+lstree :: MonadIO m => FilePath -> m [FilePath]
+lstree fp = go mempty fp
+  where
+    consUniq :: FilePath -> [FilePath] -> [FilePath]
+    consUniq x xs = if x /= fp then (x : xs) else xs
+
+    go :: MonadIO m => [FilePath] -> FilePath -> m [FilePath]
+    go !acc currentFp = do
+        isDirectory <- liftIO (doesDirectoryExist currentFp)
+        case isDirectory of
+            True  -> ls currentFp >>= foldM go (consUniq currentFp acc)
+            False -> return (consUniq currentFp acc)
+
+hsFiles :: MonadIO m => FilePath -> m [FilePath]
+hsFiles folder = filter ((== ".hs") . takeExtension) <$> (lstree folder)
+
+filesToMd :: MonadIO m => [FilePath] -> m [T.Text]
 filesToMd files = do
-    ms <- sortBy (compare `on` modName) <$> fold (files >>= fileToModule) F.list
-    select . textToLines =<< select (renderModules ms)
+    ms <- sortBy (compare `on` modName) <$> (forM files fileToModule)
+    return (renderModules ms)
 
-pandoc :: Text -> Shell Line -> IO ()
-pandoc file markdown = procs
-    "pandoc"
-    [ "-f"
-    , "markdown"
-    , "-t"
-    , "latex"
-    , "-o"
-    , file
-    ]
-    markdown
+pandoc :: FilePath -> [T.Text] -> IO ()
+pandoc file markdown = do
+    _ <- readProcess "pandoc" [ "-f"
+                              , "markdown"
+                              , "-t"
+                              , "latex"
+                              , "-o"
+                              , file
+                              ]
+         (T.unpack . T.unlines $ markdown)
+    return ()
 
-fileToModule :: FilePath -> Shell Module
-fileToModule file = toModule . map lineToText <$> fold (input file) F.list
+fileToModule :: MonadIO m => FilePath -> m Module
+fileToModule file = toModule . T.lines <$> liftIO (T.readFile file)
 
 renderModules :: [Module] -> [Text]
 renderModules xs =
@@ -170,29 +201,38 @@ renderModules xs =
           Right t -> return t
 
     renderPos :: Int -> [Text]
-    renderPos p = ["", fromString $ "_(line " ++ show p ++ ")_"]
+    renderPos p = ["", T.pack $ "_(line " ++ show p ++ ")_"]
 
 toModule :: [Text] -> Module
 toModule xs = Module (getModuleName xs) (getChecks xs)
 
   where
 
+    chars :: P.Parser Text
+    chars = star P.anyChar
+
+    noneOf :: [Char] -> P.Parser Char
+    noneOf cs = P.satisfy (`notElem` cs)
+
+    star :: P.Parser Char -> P.Parser Text
+    star = fmap T.pack . P.many'
+
     getModuleName :: [Text] -> ModuleName
     getModuleName []     = Nothing
-    getModuleName (t:ts) = case match moduleNamePattern t of
-        [y] -> Just y
-        _   -> getModuleName ts
+    getModuleName (t:ts) = case P.parseOnly (P.many' moduleNamePattern) t of
+        Right [y] -> Just y
+        _         -> getModuleName ts
 
-    moduleNamePattern :: Pattern Text
-    moduleNamePattern = text "module " *> star (noneOf " ") <* (char ' ' <* chars <|> eof *> pure ' ')
+    moduleNamePattern :: P.Parser Text
+    moduleNamePattern = P.string "module " *> star (noneOf " ") <* (P.char ' ' <* chars <|> P.endOfInput *> pure ' ')
 
     getChecks :: [Text] -> [Check]
     getChecks = loop [] 1
 
     loop :: [Check] -> Int -> [Text] -> [Check]
     loop acc _ []     = reverse acc
-    loop acc i (t:ts) = case match checkPattern t of
-        [c]
+    loop acc i (t:ts) = case P.parseOnly (P.many' checkPattern) t of
+        Right [c]
             | T.null c        -> loop  acc (succ i)                                       ts
             | T.head c == '@' -> loop' acc (succ i) i (Just $ T.tail c) []                ts
             | T.head c == '#' -> loop' acc (succ i) i Nothing           [Left $ T.tail c] ts
@@ -201,21 +241,21 @@ toModule xs = Module (getModuleName xs) (getChecks xs)
 
     loop' :: [Check] -> Int -> Int -> Maybe Tag -> Body -> [Text] -> [Check]
     loop' acc _ j mt bs []       = reverse (Check mt j (reverse bs) : acc)
-    loop' acc i j mt bs (t : ts) = case match checkComment t of
-        [c]
+    loop' acc i j mt bs (t : ts) = case P.parseOnly (P.many' checkComment) t of
+        Right [c]
             | (not $ T.null c) && T.head c == '#' -> loop' acc                             (succ i) j mt (Left (T.tail c) : bs) ts
             | otherwise                           -> loop' acc                             (succ i) j mt (Right c : bs)         ts
         _                                         -> loop  (Check mt j (reverse bs) : acc) (succ i)                             ts
 
-    noHyphens :: Pattern Text
-    noHyphens = star $ notChar '-'
+    noHyphens :: P.Parser Text
+    noHyphens = star $ P.notChar '-'
 
-    checkPattern :: Pattern Text
-    checkPattern = noHyphens *> (text "-- CHECK: " <|> text "-- | CHECK: ") *> chars
+    checkPattern :: P.Parser Text
+    checkPattern = noHyphens *> (P.string "-- CHECK: " <|> P.string "-- | CHECK: ") *> chars
 
-    checkComment :: Pattern Text
+    checkComment :: P.Parser Text
     checkComment = do
-        ys <- noHyphens *> ((text "-- " *> chars) <|> (text "--" *> pure ""))
+        ys <- noHyphens *> ((P.string "-- " *> chars) <|> (P.string "--" *> pure ""))
         return $ if T.length ys <= 1 || T.head ys /= '|'
            then ys
            else T.tail $ T.tail ys

@@ -35,12 +35,13 @@ import qualified Data.Text.Buildable
 import           Formatting            (bprint, build, formatToString, (%))
 import qualified Prelude
 import           Serokell.Util.Text    (listJson)
+import           System.Directory      (doesFileExist)
 import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
                                         unlockFile, withFileLock)
-import qualified Turtle                as T
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..), decodeFull, serialize', encodeListLen, enforceSize)
+import           Pos.Binary.Class      (Bi (..), decodeFull, encodeListLen, enforceSize,
+                                        serialize')
 import           Pos.Binary.Crypto     ()
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
@@ -174,7 +175,7 @@ ensureModeIs600 _ = do
 -- already exist.
 initializeUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m ()
 initializeUserSecret secretPath = do
-    exists <- T.testfile (fromString secretPath)
+    exists <- liftIO $ doesFileExist secretPath
 #ifdef POSIX
     if exists
     then ensureModeIs600 secretPath
@@ -186,7 +187,7 @@ initializeUserSecret secretPath = do
 #endif
   where
     createEmptyFile :: (MonadIO m) => FilePath -> m ()
-    createEmptyFile filePath = T.output (fromString filePath) empty
+    createEmptyFile = liftIO . flip writeFile mempty
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case

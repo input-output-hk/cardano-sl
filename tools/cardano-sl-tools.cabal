@@ -264,14 +264,16 @@ executable cardano-checks
   if !flag(for-installer)
    build-depends:      base
                      , ansi-wl-pprint
+                     , attoparsec
                      , cardano-sl
                      , containers
-                     , foldl
+                     , directory
+                     , filepath
                      , optparse-simple
                      , optparse-text
                      , string-qq
+                     , process
                      , text
-                     , turtle
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall
@@ -303,7 +305,6 @@ executable cardano-genupdate
                      , system-filepath
                      , tar
                      , text
-                     , turtle >= 1.3.0
                      , universum
   default-language:    Haskell2010
   ghc-options:         -threaded
@@ -406,7 +407,6 @@ executable cardano-launcher
                      , string-qq
                      , system-filepath
                      , text
-                     , turtle
                      , universum
                      , wreq
                      , lens
@@ -445,7 +445,6 @@ executable cardano-addr-convert
                      , string-qq
                      , system-filepath
                      , text
-                     , turtle
                      , universum
                      , lens
   default-language:    Haskell2010

@@ -19,8 +19,6 @@ import qualified Options.Applicative.Simple   as S
 import           Options.Applicative.Text     (textOption)
 import           Paths_cardano_sl             (version)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Turtle                       hiding (f, s, toText)
-import           Turtle.Prelude               (stat)
 import           Universum                    hiding (FilePath, fold)
 
 data UpdateGenOptions = UpdateGenOptions

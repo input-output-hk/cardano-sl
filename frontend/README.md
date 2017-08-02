@@ -169,11 +169,11 @@ stack exec cardano-keygen -- --dump-dev-genesis-keys keys/{}.key
   # use node REPL to import key
   node
   > var api = require('../output/Daedalus.ClientApi')
-  > api.importKey('{/path/to/cardano-sl/keys/{number}.key').then(console.log).catch(console.log)
-  # check wallets
-  > api.getWallets().then(console.log)
+  # TODO: Add information about how to get `ca.crt`
+  > var tls = api.tlsInit('/home/jk/Wrk/iohk/repos/cardano-sl/ca.crt')
+  > api.importKey(tls, '{/path/to/cardano-sl/keys/{number}.key').then(console.log).catch(console.log)
   ```
-
+  For recent API of `daedalus-bridge` check documentation of [`CARDANO SL WALLET FRONTEND`](https://cardanodocs.com/technical/wallet-frontend/)
 
 *2. Run `cardano-sl-explorer` (in another terminal window)*
 
@@ -208,6 +208,8 @@ rm secret.key secret.key.lock
 
 *3. Send a transaction (using a valid address listed in `http://localhost:8090/api/get_wallets`)*
 
+**DEPRECATED** _For recent API of `daedalus-bridge` check documentation of [`CARDANO SL WALLET FRONTEND`](https://cardanodocs.com/technical/wallet-frontend/)_
+
 Hint: A value can be sent by to the same address.
 
 ```bash
@@ -216,6 +218,8 @@ http POST http://localhost:8090/api/send/{address}/{address}/{value}
 ```
 
 *4. Check data*
+
+**DEPRECATED** _For recent API of `daedalus-bridge` check documentation of [`CARDANO SL WALLET FRONTEND`](https://cardanodocs.com/technical/wallet-frontend/)_
 
 Note: It might take some times to get a non empty result.
 
@@ -249,16 +253,13 @@ These are:
 * [`postcss-inline-svg`](https://github.com/TrySound/postcss-inline-svg) - Inlines SVG and customize its styles.
 * [`postcss-svgo`](https://github.com/ben-eb/postcss-svgo) - Optimizes inline SVG.
 * [`postcss-flexbox`](https://github.com/archana-s/postcss-flexbox) - Easy to use CSS3 Flexbox layouts.
-* [`postcss-neat`](http://jo-asakura.github.io/postcss-neat/) - Grid framework.
+* [`lost`](https://github.com/peterramsing/lost) - Grid framework.
 * [`postcss-media-minmax`](https://github.com/postcss/postcss-media-minmax) - Simplified writing of Media Queries.
 * [`postcss-custom-media`](https://github.com/postcss/postcss-custom-media) - Transforms W3C CSS Custom Media Queries syntax.
 * [`postcss-extend`](https://github.com/travco/postcss-extend) - Minimizes number of repeated selectors and rules.
 * [`postcss-cssnext`](http://cssnext.io/) - Using tomorrow’s CSS syntax.
 * [`cssnano`](http://cssnext.io/) - Compresses your css.
-
-require('postcss-extend'),
-require('postcss-custom-media'),
-require('postcss-media-minmax'),
+* [`postcss-discard-comments`](https://github.com/ben-eb/postcss-discard-comments) - Discard comments in your CSS files with PostCSS.
 
 The entry point of all CSS is [`index.css`](src/index.css). This file includes all `@import`s to all other CSS files. There are also definitions of `@reset-global` (needed by `postcss-css-reset`).
 

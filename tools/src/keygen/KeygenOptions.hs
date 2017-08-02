@@ -34,6 +34,8 @@ data KeygenOptions = KeygenOptions
 data KeygenCommand
     = RearrangeMask FilePath
     | DumpDevGenKeys FilePath
+    | GenerateKey FilePath
+    | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
     | GenerateGenesis GenesisGenOptions
     deriving (Show)
@@ -82,6 +84,10 @@ keygenCommandParser =
     subparser $ mconcat $
     [ command "rearrange"
       (infoH rearrangeMask (progDesc "Rearrange keyfiles."))
+    , command "generate-key"
+      (infoH generateKey (progDesc "Generate keyfile."))
+    , command "read-key"
+      (infoH readKey (progDesc "Dump keyfile contents."))
     , command "dump-dev-keys"
       (infoH dumpKeys (progDesc "Dump CSL dev-mode keys."))
     , command "generate-avvm-seeds"
@@ -97,6 +103,14 @@ keygenCommandParser =
         long    "mask" <>
         metavar "PATTERN" <>
         help    "Secret keyfiles to rearrange."
+    generateKey = fmap GenerateKey . strOption $
+        long    "path" <>
+        metavar "PATH" <>
+        help    "Write the key to this path"
+    readKey = fmap ReadKey . strOption $
+        long "path" <>
+        metavar "PATH" <>
+        help "Dump the contents of this keyfile"
     dumpKeys = fmap DumpDevGenKeys . strOption $
         long    "pattern" <>
         metavar "PATTERN" <>

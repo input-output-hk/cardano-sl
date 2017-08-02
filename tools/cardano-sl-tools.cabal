@@ -21,7 +21,7 @@ Flag with-post-mortem-tool
   default:     False
   manual:      True
 
-  description: Build with web part.
+  description: Build only the cardano-post-mortem tool.
 
 Flag with-wallet
   default:     True

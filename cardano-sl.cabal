@@ -361,7 +361,7 @@ library
                       , digest
                       , directory
                       , dlist
-                      , dns
+                      , dns >= 2.0.11
                       , ed25519
                       , ekg
                       , ekg-core

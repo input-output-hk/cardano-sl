@@ -79,12 +79,6 @@ packages:
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
 
-# Use an outstanding PR to the `dns` library which fixes the Windows build failure
-- location:
-    git: https://github.com/RyanGlScott/dns
-    commit: 125fa9a49a2f68e4d1e625e11cdce373c6a8df8b
-  extra-dep: true
-
 nix:
   shell-file: shell.nix
 
@@ -114,6 +108,7 @@ extra-deps:
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
+- dns-2.0.11                      # Fix Windows failures
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

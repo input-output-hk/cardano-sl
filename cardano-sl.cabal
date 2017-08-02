@@ -94,6 +94,7 @@ library
                         Pos.Statistics
 
                         -- Client
+                        Pos.Client.Txp.Addresses
                         Pos.Client.Txp.Balances
                         Pos.Client.Txp.History
                         Pos.Client.Txp.Util

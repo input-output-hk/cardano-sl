@@ -33,6 +33,7 @@ module Pos.Util
        , ls
        , lstree
        , withTempDir
+       , directory
 
        -- * Instances
        -- ** MonadFail ParsecT
@@ -51,7 +52,7 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Either                  (rights)
 import           Data.Hashable                (Hashable)
 import qualified Data.HashMap.Strict          as HM
-import           Data.List                    (span, zipWith3, zipWith4)
+import           Data.List                    (last, span, zipWith3, zipWith4)
 import           Data.Ratio                   ((%))
 import qualified Data.Text                    as T
 import           Data.Time.Clock              (UTCTime)
@@ -61,7 +62,7 @@ import           Serokell.Util                (VerificationRes (..))
 import           System.Directory             (canonicalizePath, createDirectory,
                                                doesDirectoryExist, listDirectory,
                                                removeDirectory)
-import           System.FilePath              ((</>))
+import           System.FilePath              (normalise, takeDirectory, (</>))
 import           System.IO                    (hClose)
 import           System.Wlog                  (LoggerNameBox (..))
 import           Text.Parsec                  (ParsecT)
@@ -178,7 +179,7 @@ instance MonadFail m => MonadFail (ResourceT m) where
 -- | Lists all immediate children of the given directory, excluding "." and ".."
 -- Returns all the files inclusive of the initial `FilePath`.
 ls :: MonadIO m => FilePath -> m [FilePath]
-ls initialFp = map ((</>) initialFp) <$> liftIO (listDirectory initialFp)
+ls initialFp = map ((</>) initialFp) <$> liftIO (listDirectory (normalise initialFp))
 
 -- | Lists all recursive descendants of the given directory.
 lstree :: MonadIO m => FilePath -> m [FilePath]
@@ -207,9 +208,17 @@ withTempDir parentDir template = bracket acquire dispose
     acquire :: IO FilePath
     acquire = do
         tid <- myThreadId
-        pth <- canonicalizePath $ parentDir </> (toString template <> show tid)
+        pth <- canonicalizePath $ normalise $ parentDir </> (toString template <> show tid)
         createDirectory pth
         return pth
 
     dispose :: FilePath -> IO ()
     dispose = removeDirectory
+
+-- | Simple shim to emulate the behaviour of `Filesystem.Path.directory`,
+-- which is a bit more lenient than `System.FilePath.takeDirectory`.
+directory :: FilePath -> FilePath
+directory "" = ""
+directory f = case last f of
+    '/' -> f
+    _   -> takeDirectory (normalise f)

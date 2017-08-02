@@ -406,6 +406,7 @@ executable cardano-launcher
                      , cardano-sl-infra
                      , directory
                      , filepath
+                     , formatting
                      , process
                      , string-qq
                      , system-filepath

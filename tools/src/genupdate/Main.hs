@@ -8,7 +8,7 @@ module Main
 import qualified Codec.Archive.Tar            as Tar
 import           Crypto.Hash                  (Digest, SHA512, hashlazy)
 import qualified Data.ByteString.Lazy         as BSL
-import           Data.List                    (last, (\\))
+import           Data.List                    ((\\))
 import           Data.String.QQ               (s)
 import qualified Data.Text                    as T
 import qualified Data.Text.IO                 as T
@@ -21,9 +21,9 @@ import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fu
 import qualified Options.Applicative.Simple   as S
 import           Options.Applicative.Text     (textOption)
 import           Paths_cardano_sl             (version)
-import           Pos.Util                     (ls, withTempDir)
+import           Pos.Util                     (directory, ls, withTempDir)
 import           System.Exit                  (ExitCode (ExitFailure))
-import           System.FilePath              (takeDirectory, takeFileName, (<.>), (</>))
+import           System.FilePath              (normalise, takeFileName, (<.>), (</>))
 import qualified System.Posix.Files           as Posix
 import           System.Process               (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
@@ -92,8 +92,8 @@ createUpdate oldDir newDir updPath = do
     newFiles <- ls newDir
     -- find directories and fail if there are any (we can't handle
     -- directories)
-    do oldNotFiles <- filterM (fmap (not . Posix.isRegularFile) . Posix.getFileStatus) oldFiles
-       newNotFiles <- filterM (fmap (not . Posix.isRegularFile) . Posix.getFileStatus) newFiles
+    do oldNotFiles <- filterM (fmap (not . Posix.isRegularFile) . Posix.getFileStatus . normalise) oldFiles
+       newNotFiles <- filterM (fmap (not . Posix.isRegularFile) . Posix.getFileStatus . normalise) newFiles
        unless (null oldNotFiles && null newNotFiles) $ do
            unless (null oldNotFiles) $ do
                TL.putStr $ format (fp%" contains not-files:\n") oldDir
@@ -137,14 +137,6 @@ createUpdate oldDir newDir updPath = do
       T.writeFile (tempDir </> "MANIFEST") (unlines manifest)
       -- put diffs and a manifesto into a tar file
       Tar.create updPath tempDir ("MANIFEST" : bsdiffs)
-
--- | Simple shim to emulate the behaviour of `Filesystem.Path.directory`,
--- which is a bit more lenient than `System.FilePath.takeDirectory`.
-directory :: FilePath -> FilePath
-directory "" = ""
-directory f = case last f of
-    '/' -> f
-    _   -> takeDirectory f
 
 hashLBS :: LByteString -> Text
 hashLBS lbs = show $ hashSHA512 lbs

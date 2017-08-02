@@ -3,6 +3,7 @@ module Pos.Network.Types
     , Topology(..)
     , SubscriptionWorker(..)
     , Valency
+    , Bucket(..)
     , Fallbacks
     , topologyNodeType
     , topologySubscriberNodeType
@@ -146,6 +147,21 @@ staticallyKnownPeers NetworkConfig{..} = go ncTopology
     go TopologyTraditional{}       = mempty
     go (TopologyLightWallet peers) = simplePeers $ map (NodeRelay, ) peers
 
+-- | The various buckets we use for the outbound queue
+data Bucket =
+    -- | Bucket for nodes we add statically
+    BucketStatic
+
+    -- | Bucket for nodes added by the behind-NAT worker
+  | BucketBehindNatWorker
+
+    -- | Bucket for nodes added by the Kademlia worker
+  | BucketKademliaWorker
+
+    -- | Bucket for nodes added by the subscription listener
+  | BucketSubscriptionListener
+  deriving (Eq, Ord, Enum, Bounded, Show)
+
 -- | Initialize the outbound queue based on the network configuration
 --
 -- We add all statically known peers to the queue, so that we know to send
@@ -158,10 +174,15 @@ staticallyKnownPeers NetworkConfig{..} = go ncTopology
 -- For behind NAT nodes and Kademlia nodes (P2P or traditional) we start
 -- (elsewhere) specialized workers that add peers to the queue and subscribe
 -- to (some of) those peers.
-initQueue :: FormatMsg msg => NetworkConfig kademlia -> IO (OutboundQ msg NodeId)
+initQueue :: FormatMsg msg
+          => NetworkConfig kademlia
+          -> IO (OutboundQ msg NodeId Bucket)
 initQueue cfg@NetworkConfig{..} = do
     oq <- OQ.new selfName enqueuePolicy dequeuePolicy failurePolicy
-    OQ.addKnownPeers oq (staticallyKnownPeers cfg)
+
+    -- TODO: Deal with SIGHUP
+    OQ.updatePeersBucket oq BucketStatic (\_ -> staticallyKnownPeers cfg)
+
     return oq
   where
     ourNodeType   = topologyNodeType ncTopology

@@ -351,9 +351,7 @@ instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onRollbackBlocks = onRollbackBlocksStub
 
 instance ( Monad m, MonadKnownPeers m ) => MonadKnownPeers (BlockGenMode m) where
-    updateKnownPeers = lift . updateKnownPeers
-    addKnownPeers = lift . addKnownPeers
-    removeKnownPeer = lift . removeKnownPeer
+    updatePeersBucket buck = lift . updatePeersBucket buck
 
 instance ( Monad m, MonadFormatPeers m ) => MonadFormatPeers (BlockGenMode m) where
     formatKnownPeers formatter = lift (formatKnownPeers formatter)

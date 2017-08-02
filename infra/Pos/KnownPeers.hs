@@ -8,12 +8,11 @@ module Pos.KnownPeers (
 import Universum
 import Formatting (Format)
 import Pos.Communication.Types.Protocol (NodeId)
+import Pos.Network.Types (Bucket)
 import Network.Broadcast.OutboundQueue (Peers)
 
 class MonadKnownPeers m where
-  updateKnownPeers :: (Peers NodeId -> Peers NodeId) -> m ()
-  addKnownPeers    :: Peers NodeId -> m ()
-  removeKnownPeer  :: NodeId -> m ()
+  updatePeersBucket :: Bucket -> (Peers NodeId -> Peers NodeId) -> m ()
 
 -- | For debugging: return formatted list of peers, if available
 class MonadFormatPeers m where

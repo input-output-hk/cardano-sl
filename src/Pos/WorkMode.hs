@@ -39,6 +39,7 @@ import           Pos.Communication.Types     (PeerData, PackingType, NodeId, Msg
 import           Pos.Context                 (NodeContext, HasSscContext (..),
                                               HasPrimaryKey (..), HasNodeContext (..))
 import           Pos.Core                    (IsHeader)
+import           Pos.Network.Types           (Bucket)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
 import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDefault,
                                               dbGetHeaderDefault, dbGetHeaderSscDefault,
@@ -86,7 +87,7 @@ newtype EnqueuedConversation m t =
 instance FormatMsg (EnqueuedConversation m) where
     formatMsg = (\k (EnqueuedConversation (msg, _)) -> k msg) <$> shown
 
-type OQ m = OQ.OutboundQ (EnqueuedConversation m) NodeId
+type OQ m = OQ.OutboundQ (EnqueuedConversation m) NodeId Bucket
 
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -209,15 +210,9 @@ instance SscHelpersClass ssc =>
     dbPutBlund = dbPutBlundDefault
 
 instance MonadKnownPeers (RealMode ssc) where
-    updateKnownPeers f = do
+    updatePeersBucket buck f = do
         oq <- rmcOutboundQ <$> ask
-        OQ.updateKnownPeers oq f
-    addKnownPeers peers = do
-        oq <- rmcOutboundQ <$> ask
-        OQ.updateKnownPeers oq (<> peers)
-    removeKnownPeer nid = do
-        oq <- rmcOutboundQ <$> ask
-        OQ.removeKnownPeer oq nid
+        OQ.updatePeersBucket oq buck f
 
 instance MonadFormatPeers (RealMode scc) where
     formatKnownPeers formatter = do

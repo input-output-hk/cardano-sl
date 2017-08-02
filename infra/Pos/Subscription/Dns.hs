@@ -18,7 +18,7 @@ import           Network.Broadcast.OutboundQueue.Types (peersFromList)
 
 import           Pos.Communication.Protocol            (Worker)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (DnsDomains (..),
+import           Pos.Network.Types                     (DnsDomains (..), Bucket(..),
                                                         NetworkConfig (..), NodeId (..),
                                                         NodeType (..), resolveDnsDomains)
 import           Pos.Slotting                          (MonadSlotsData,
@@ -63,19 +63,8 @@ dnsSubscriptionWorker networkCfg dnsDomains sendActions =
           updatedRelays = updateKnownRelays now peers oldRelays
 
       -- Declare all active relays as a single list of alternative relays
-      updateKnownPeers $ \peersOld -> do
-        -- NOTE: The assumption is that a single part of the code is
-        -- responsible for maintaining the set of known peers. For behind NAT
-        -- nodes, this is the responsibility of the subscription worker; for
-        -- P2P/traditional nodes, this is the responsibility of the
-        -- Kademlia worker; and for statically known sets of peers (core nodes
-        -- and light wallets) this happens at queue initialization time.
-        -- Here we just check that nobody else interferred with the set of
-        -- peers, just as a sanity check.
-        let expectedOld = peersFromList [(NodeRelay, activeRelays oldRelays)]
-        if peersOld == expectedOld
-          then peersFromList [(NodeRelay, activeRelays updatedRelays)]
-          else error "Invariant violated in subscriptionWorker"
+      updatePeersBucket BucketBehindNatWorker $ \_ ->
+        peersFromList [(NodeRelay, activeRelays updatedRelays)]
 
       -- Subscribe only to a single relay (if we found one)
       --

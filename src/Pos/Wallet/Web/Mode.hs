@@ -211,15 +211,9 @@ instance MonadWalletTracking WalletWebMode where
     txMempoolToModifier = txMempoolToModifierWebWallet
 
 instance MonadKnownPeers WalletWebMode where
-    updateKnownPeers f = do
+    updatePeersBucket buck f = do
         oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
-        OQ.updateKnownPeers oq f
-    addKnownPeers peers = do
-        oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
-        OQ.updateKnownPeers oq (<> peers)
-    removeKnownPeer nid = do
-        oq <- rmcOutboundQ . wwmcRealModeContext <$> ask
-        OQ.removeKnownPeer oq nid
+        OQ.updatePeersBucket oq buck f
 
 instance MonadFormatPeers WalletWebMode where
     formatKnownPeers formatter = do

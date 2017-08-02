@@ -12,7 +12,7 @@ module Pos.Subscription.Common
     ) where
 
 import           Universum                  hiding (bracket_)
-import           Network.Broadcast.OutboundQueue.Types (simplePeers)
+import           Network.Broadcast.OutboundQueue.Types (simplePeers, removePeer)
 
 import           Formatting                 (sformat, shown, (%))
 import           System.Wlog                (WithLogger, logNotice)
@@ -30,7 +30,7 @@ import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
 import           Pos.DB.Class               (MonadGState)
 import           Pos.KnownPeers             (MonadKnownPeers(..))
-import           Pos.Network.Types          (NodeType)
+import           Pos.Network.Types          (NodeType, Bucket(..))
 
 type SubscriptionMode m =
     ( MonadIO m
@@ -77,9 +77,6 @@ subscribeTo sendActions peer = do
 -- | A listener for subscriptions: add the subscriber to the set of known
 -- peers, annotating it with a given NodeType. Remove that peer from the set
 -- of known peers when the connection is dropped.
---
--- FIXME this may clash with the subscription worker, which may also modify
--- the known peers.
 subscriptionListener
     :: forall m.
        (SubscriptionMode m)
@@ -89,9 +86,9 @@ subscriptionListener nodeType = listenerConv @Void $ \__ourVerInfo nodeId conv -
     mbMsg <- recvLimited conv
     whenJust mbMsg $ \MsgSubscribe -> do
       let peers = simplePeers [(nodeType, nodeId)]
-      bracket_ (addKnownPeers peers)
-                 (removeKnownPeer nodeId)
-                 (void $ recvLimited conv)
+      bracket_ (updatePeersBucket BucketSubscriptionListener (<> peers))
+               (updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
+               (void $ recvLimited conv)
 
 subscriptionListeners
     :: forall m.

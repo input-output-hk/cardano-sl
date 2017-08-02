@@ -16,7 +16,7 @@ import           Pos.DHT.Real.Real                     (kademliaGetKnownPeers)
 import           Pos.DHT.Real.Types                    (KademliaDHTInstance (..))
 import           Pos.DHT.Workers                       (DhtWorkMode)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (NodeType)
+import           Pos.Network.Types                     (NodeType, Bucket(..))
 import           Pos.Util.TimeWarp                     (addressToNodeId)
 
 
@@ -170,7 +170,7 @@ dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
         peers' <- atomically $ updateFromKademliaNoSubscribe peers
         logNotice $
             sformat ("Kademlia peer set changed to "%shown) peers'
-        updateKnownPeers (const peers')
+        updatePeersBucket BucketKademliaWorker (const peers')
         updateForeverNoSubscribe peers'
 
     updateFromKademliaNoSubscribe

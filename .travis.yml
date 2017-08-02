@@ -62,7 +62,7 @@ script:
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
 # build explorer
-- pushd explore
+- pushd explorer
 - "./scripts/build.sh"
 - pushd frontend
 - "./scripts/build.sh"

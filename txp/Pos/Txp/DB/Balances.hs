@@ -15,6 +15,7 @@ module Pos.Txp.DB.Balances
          -- * Iteration
        , BalanceIter
        , balanceSource
+       , getAllPotentiallyHugeStakesMap
 
          -- * Sanity checks
        , sanityCheckBalances
@@ -22,6 +23,7 @@ module Pos.Txp.DB.Balances
 
 import           Universum
 
+import           Control.Lens                 (at)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
@@ -33,8 +35,8 @@ import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (serialize')
-import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoin,
-                                               sumCoins, unsafeAddCoin,
+import           Pos.Core                     (Coin, StakeholderId, StakesMap, coinF,
+                                               mkCoin, sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
@@ -87,7 +89,7 @@ initGStateBalances (GenesisUtxo genesisUtxo) = do
     putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
 
 ----------------------------------------------------------------------------
--- Balance
+-- Iteration
 ----------------------------------------------------------------------------
 
 -- | Run iterator over effective balances.
@@ -95,6 +97,14 @@ balanceSource ::
        forall m. (MonadDBRead m)
     => Source (ResourceT m) (IterType BalanceIter)
 balanceSource = dbIterSource GStateDB (Proxy @BalanceIter)
+
+-- | Get stakes of all stakeholders. Use with care – the resulting map
+-- can be very big.
+getAllPotentiallyHugeStakesMap :: MonadDBRead m => m StakesMap
+getAllPotentiallyHugeStakesMap =
+    runConduitRes $
+    dbIterSource GStateDB (Proxy @BalanceIter) .|
+    CL.fold (\stakes (k, v) -> stakes & at k .~ Just v) mempty
 
 ----------------------------------------------------------------------------
 -- Sanity checks

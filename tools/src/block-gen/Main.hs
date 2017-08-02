@@ -12,14 +12,14 @@ import           System.Directory            (doesDirectoryExist)
 import           System.Random               (newStdGen)
 import           System.Wlog                 (usingLoggerName)
 
-import           Pos.Core                    (StakeDistribution (..), addressHash,
-                                              genesisDevKeyPairs,
+import           Pos.Core                    (StakeDistribution (..),
+                                              genesisDevSecretKeys,
                                               genesisProdAddrDistribution, isDevelopment,
                                               makePubKeyAddress, mkCoin)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (AllSecrets (..), BlockGenParams (..),
-                                              genBlocks)
+                                              genBlocks, mkInvSecretsMap, unInvSecretsMap)
 import           Pos.Genesis                 (devAddrDistr, genesisUtxo)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo, _GenesisUtxo)
@@ -37,24 +37,21 @@ main = flip catch catchEx $ do
         putText $ "Generating in PROD mode"
     BlockGenOptions{..} <- getBlockGenOptions
     when bgoAppend $ checkExistence bgoPath
-    secretsMap <- case bgoNodes of
+    invSecretsMap <- mkInvSecretsMap <$> case bgoNodes of
         Left bgoNodesN -> do
             unless (bgoNodesN > 0) $
                 throwM NoOneSecrets
-            let keys = take (fromIntegral bgoNodesN) genesisDevKeyPairs
-            let secretsMap = HM.fromList $ map (first addressHash) keys
-            pure secretsMap
+            let secretKeys = take (fromIntegral bgoNodesN) genesisDevSecretKeys
+            pure secretKeys
         Right bgoSecretFiles -> do
             when (null bgoSecretFiles) $
                 throwM NoOneSecrets
-            secrets <- usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
-            let secretsMap = HM.fromList $
-                                map (first (addressHash . toPublic) . join (,)) secrets
-            pure secretsMap
+            usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
-    let nodes = length secretsMap
+    let nodes = length invSecretsMap
     let flatDistr = FlatStakes (fromIntegral nodes) (mkCoin $ fromIntegral nodes)
-    let bootStakeholders = HM.fromList $ zip (HM.keys secretsMap) (repeat 1)
+    let bootStakeholders = HM.fromList $
+            zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
     -- We need to select from utxo TxOut's corresponding to passed secrets
     -- to avoid error "Secret key of %hash% is required but isn't known"
     let genUtxoUnfiltered
@@ -62,11 +59,16 @@ main = flip catch catchEx $ do
             | otherwise =
                  genesisUtxo (Just bootStakeholders) genesisProdAddrDistribution
     let genUtxo = genUtxoUnfiltered &
-            _GenesisUtxo %~ filterSecretsUtxo (toList secretsMap)
+            _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
     when (M.null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 
-    let bgenParams = BlockGenParams (AllSecrets secretsMap) (fromIntegral bgoBlockN) def True
+    let bgenParams =
+            BlockGenParams
+                (AllSecrets invSecretsMap)
+                (fromIntegral bgoBlockN)
+                def
+                True
     --seed <- maybe randomIO pure bgoSeed
     -- TODO use seed in the future
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->

@@ -5,7 +5,6 @@ module Test.Pos.Block.Logic.VarSpec
        ) where
 
 import           Universum
-import           Unsafe                      (unsafeHead)
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List                   (span)
@@ -28,8 +27,10 @@ import           Pos.Util.Chrono             (NE, OldestFirst (..))
 
 import           Test.Pos.Block.Logic.Event  (BlockScenarioResult (..), runBlockScenario)
 import           Test.Pos.Block.Logic.Mode   (BlockProperty, BlockTestMode)
-import           Test.Pos.Block.Logic.Util   (bpGenBlocks, bpGoToArbitraryState,
-                                              getAllSecrets, satisfySlotCheck)
+import           Test.Pos.Block.Logic.Util   (EnableTxPayload (..), InplaceDB (..),
+                                              bpGenBlock, bpGenBlocks,
+                                              bpGoToArbitraryState, getAllSecrets,
+                                              satisfySlotCheck)
 import           Test.Pos.Util               (splitIntoChunks, stopProperty)
 
 spec :: Spec
@@ -63,16 +64,16 @@ verifyBlocksPrefixSpec = do
 
 verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
-    -- unsafeHead is safe here, because we explicitly request to
-    -- generate exactly 1 block
-    emptyBlock <- fst . unsafeHead . getOldestFirst <$> bpGenBlocks (Just 1) False
+    emptyBlock <- fst <$> bpGenBlock (EnableTxPayload False) (InplaceDB False)
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
         stopProperty . pretty
 
 verifyValidBlocks :: BlockProperty ()
 verifyValidBlocks = do
     bpGoToArbitraryState
-    blocks <- map fst . toList <$> bpGenBlocks Nothing True
+    blocks <-
+        map fst . toList <$>
+        bpGenBlocks Nothing (EnableTxPayload True) (InplaceDB False)
     pre (not $ null blocks)
     let blocksToVerify =
             OldestFirst $
@@ -131,7 +132,9 @@ applyByOneOrAllAtOnce ::
     -> BlockProperty ()
 applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
-    blunds <- getOldestFirst <$> bpGenBlocks Nothing True
+    blunds <-
+        getOldestFirst <$>
+        bpGenBlocks Nothing (EnableTxPayload True) (InplaceDB False)
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
     stateAfter1by1 <-
@@ -169,7 +172,7 @@ blockEventSuccessProp :: BlockProperty ()
 blockEventSuccessProp = do
     allSecrets <- getAllSecrets
     let
-        eventCount = BlockEventCount 10
+        eventCount = min (BlockEventCount 10) (fromIntegral blkSecurityParam)
         blockEventGenParams = BlockEventGenParams
             { _begpSecrets = allSecrets
             , _begpBlockCountMax =

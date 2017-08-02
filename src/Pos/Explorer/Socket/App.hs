@@ -22,13 +22,12 @@ import           Formatting                     (int, sformat, (%))
 import qualified GHC.Exts                       as Exts
 import           Network.EngineIO               (SocketId)
 import           Network.EngineIO.Wai           (WaiMonad, toWaiApplication, waiAPI)
-import           Network.HTTP.Types.Header      (Header, HeaderName)
 import           Network.HTTP.Types.Status      (status404)
 import           Network.SocketIO               (RoutingTable, Socket,
                                                  appendDisconnectHandler, initialize,
                                                  socketId)
 import           Network.Wai                    (Application, Middleware, Request,
-                                                 Response, pathInfo, requestHeaders,
+                                                 Response, pathInfo,
                                                  responseLBS)
 import           Network.Wai.Handler.Warp       (Settings, defaultSettings, runSettings,
                                                  setPort)
@@ -124,30 +123,16 @@ notifierServer notifierSettings connVar = do
         runSettings settings (addRequestCORSHeaders . app $ handler)
 
   where
-    -- This is an unfortunate hack because of a socket.io wai issue:
-    -- https://github.com/socketio/socket.io-client/issues/641
-    -- The Snap counterpart does this in it's CORS library.
-    -- TODO(ks): Maybe we could export this in wai-cors?
     addRequestCORSHeaders :: Middleware
     addRequestCORSHeaders = cors addCORSHeader
       where
         addCORSHeader :: Request -> Maybe CorsResourcePolicy
-        addCORSHeader request = case head findJustOriginValue of
-                -- If we found the "Origin" header from the client, then add it as a
-                -- "Access-Control-Allow-Origin" value in the response
-                Just (_, bsValue) ->
-                    Just $ simpleCorsResourcePolicy { corsOrigins = Just ([bsValue], True) }
-                -- If we didn't find the "Origin" header then the result is
-                -- "Access-Control-Allow-Origin = '*'", which WON'T WORK FOR socket.io.
-                Nothing           ->
-                    Just $ simpleCorsResourcePolicy
-
-          where
-            findJustOriginValue :: [Header]
-            findJustOriginValue = filter findOriginValue (requestHeaders request)
-
-            findOriginValue :: (HeaderName, ByteString) -> Bool
-            findOriginValue (headerName, _) = headerName == "Origin"
+        addCORSHeader _ = Just $ simpleCorsResourcePolicy
+                                    { corsOrigins = Just ([ "https://cardanoexplorer.com"
+                                                          , "https://explorer.iohkdev.io"
+                                                          , "http://localhost:3100"
+                                                          ], True)
+                                    }
 
     app :: WaiMonad () -> Application
     app sHandle req respond

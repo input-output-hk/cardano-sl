@@ -70,11 +70,11 @@ for trgt in $targets; do
 
 done
 
-#if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
-  #./update-wallet-web-api-docs.sh
-  #./update-cli-docs.sh
+if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
+  ./update-wallet-web-api-docs.sh
+  ./update-cli-docs.sh
   #./update-haddock.sh
-#fi
+fi
 
 stack exec --nix -- cardano-wallet-hs2purs
 

@@ -34,6 +34,7 @@ module Pos.Util
        , lstree
        , withTempDir
        , directory
+       , sleep
 
        -- * Instances
        -- ** MonadFail ParsecT
@@ -46,7 +47,7 @@ module Pos.Util
 
 import           Universum                    hiding (finally)
 
-import           Control.Concurrent           (myThreadId)
+import           Control.Concurrent           (myThreadId, threadDelay)
 import qualified Control.Monad                as Monad (fail)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Either                  (rights)
@@ -55,7 +56,7 @@ import qualified Data.HashMap.Strict          as HM
 import           Data.List                    (last, span, zipWith3, zipWith4)
 import           Data.Ratio                   ((%))
 import qualified Data.Text                    as T
-import           Data.Time.Clock              (UTCTime)
+import           Data.Time.Clock              (NominalDiffTime, UTCTime)
 import           Data.Time.Clock.POSIX        (posixSecondsToUTCTime)
 import           Data.Time.Units              (Microsecond, toMicroseconds)
 import           Serokell.Util                (VerificationRes (..))
@@ -222,3 +223,11 @@ directory "" = ""
 directory f = case last f of
     '/' -> f
     _   -> takeDirectory (normalise f)
+
+{-| Sleep for the given duration
+
+    A numeric literal argument is interpreted as seconds.  In other words,
+    @(sleep 2.0)@ will sleep for two seconds.
+-}
+sleep :: MonadIO m => NominalDiffTime -> m ()
+sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))

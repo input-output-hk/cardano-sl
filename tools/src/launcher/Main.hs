@@ -7,20 +7,23 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Concurrent           (modifyMVar_)
-import           Control.Concurrent.Async     (Async, cancel, poll, waitAny,
+import           Control.Concurrent.Async     (Async, async, cancel, poll, wait, waitAny,
                                                withAsyncWithUnmask)
 import           Data.List                    (isSuffixOf)
 import qualified Data.String.QQ               as Q
+import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
-import           Formatting                   (Format, format, mapf, text, (%))
+import           Formatting                   (format, int, stext, string, text, (%))
 import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
                                                metavar, option, progDesc, short,
                                                strOption)
-import           Pos.Util                     (directory)
-import           System.Directory             (doesFileExist, getTemporaryDirectory)
+import           Pos.Util                     (directory, sleep)
+import           Prelude                      (putStrLn)
+import           System.Directory             (createDirectoryIfMissing, doesFileExist,
+                                               getTemporaryDirectory, removeFile)
 import           System.Environment           (getExecutablePath)
 import           System.Exit                  (ExitCode (..))
 import           System.FilePath              (normalise, (</>))
@@ -30,7 +33,7 @@ import qualified System.Process               as Process
 import           System.Timeout               (timeout)
 import           System.Wlog                  (lcFilePrefix)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Universum
+import           Universum                    hiding (putStrLn)
 
 -- Modules needed for the “Turtle internals” session
 import           Control.Exception            (handle, mask_, throwIO)
@@ -204,11 +207,11 @@ serverScenario logConf node updater report = do
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync, nodeLog) <- spawnNode node
     exitCode <- wait nodeAsync
-    TL.putStr $ format ("The node has exited with "%s%"\n") (show exitCode)
+    TL.putStr $ format ("The node has exited with "%string%"\n") (show exitCode)
     if exitCode == ExitFailure 20
         then serverScenario logConf node updater report
         else whenJust report $ \repServ -> do
-                 TL.putStr $ format ("Sending logs to "%s%"\n") (toText repServ)
+                 TL.putStr $ format ("Sending logs to "%stext%"\n") (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
 
 -- | If we are on desktop, we want the following algorithm:
@@ -230,18 +233,18 @@ clientScenario logConf node wallet updater nodeTimeout report = do
     -- I don't know why but a process started with turtle just can't be
     -- killed, so let's use 'terminateProcess' and modified 'system'
     (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
-    walletAsync <- fork (runWallet wallet)
+    walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
-             TL.putStr $ format ("The node has exited with "%s%"\n") (show exitCode)
+             TL.putStr $ format ("The node has exited with "%string%"\n") (show exitCode)
              whenJust report $ \repServ -> do
-                 TL.putStr $ format ("Sending logs to "%s%"\n") (toText repServ)
+                 TL.putStr $ format ("Sending logs to "%stext%"\n") (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
              putStrLn "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
              putStrLn "The wallet has exited with code 20"
-             TL.putStr $ format ("Killing the node in "%d%" seconds\n") nodeTimeout
+             TL.putStr $ format ("Killing the node in "%int%" seconds\n") nodeTimeout
              sleep (fromIntegral nodeTimeout)
              putStrLn "Killing the node now"
              liftIO $ do
@@ -249,7 +252,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
                  cancel nodeAsync
              clientScenario logConf node wallet updater nodeTimeout report
        | otherwise -> do
-             TL.putStr $ format ("The wallet has exited with "%s%"\n") (show exitCode)
+             TL.putStr $ format ("The wallet has exited with "%string%"\n") (show exitCode)
              -- TODO: does the wallet have some kind of log?
              putStrLn "Killing the node"
              liftIO $ do
@@ -270,7 +273,7 @@ runUpdater (path, args, runnerPath, updateArchive) = do
                 liftIO $ writeWindowsUpdaterRunner $ rp
                 -- The script will terminate this updater so this function shouldn't return
                 runUpdaterProc rp ((toText path):args')
-        TL.putStr $ format ("The updater has exited with "%s%"\n") (show exitCode)
+        TL.putStr $ format ("The updater has exited with "%text%"\n") (show exitCode)
         when (exitCode == ExitSuccess) $ do
             -- this will throw an exception if the file doesn't exist but
             -- hopefully if the updater has succeeded it *does* exist
@@ -313,13 +316,20 @@ spawnNode
     -> IO (ProcessHandle, Async ExitCode, FilePath)
 spawnNode (path, args, mbLogPath) = do
     putStrLn "Starting the node"
+    -- We don't explicitly close the `logHandle` here,
+    -- but this will be done when we run the `CreateProcess` built
+    -- by proc later is `system'`:
+    -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
     (logPath, logHandle) <- case mbLogPath of
         Just lp -> do
-            mktree (directory lp)
-            (lp,) <$> appendonly lp
+            createDirectoryIfMissing True (directory lp)
+            (lp,) <$> openFile lp AppendMode
         Nothing -> do
             tempdir <- liftIO (fromString <$> getTemporaryDirectory)
-            mktemp tempdir "cardano-node-output.log"
+            -- FIXME (adinapoli): `Shell` from `turtle` was giving us no-resource-leak guarantees
+            -- via the `Managed` monad, which is something we have lost here, and we are back to manual
+            -- resource control.
+            IO.openTempFile tempdir "cardano-node-output.log"
     -- TODO (jmitchell): Find a safe, reliable way to print `logPath`. Cardano
     -- fails when it prints unicode characters. In the meantime, don't print it.
     -- See DAEF-12.
@@ -332,7 +342,7 @@ spawnNode (path, args, mbLogPath) = do
                  , Process.std_err = Process.UseHandle logHandle
                  }
     phvar <- newEmptyMVar
-    asc <- fork (system' phvar cr mempty)
+    asc <- async (system' phvar cr mempty)
     mbPh <- liftIO $ timeout 5000000 (takeMVar phvar)
     case mbPh of
         Nothing -> error "couldn't run the node (it didn't start after 5s)"
@@ -417,6 +427,9 @@ system' phvar p sl = liftIO (do
             Process.waitForProcess ph
 
     bracket open close' handle_ )
+    where
+      outhandle :: Handle -> [Text] -> IO ()
+      outhandle hdl txt = forM_ txt (T.hPutStrLn hdl)
 
 halt :: Async a -> IO ()
 halt a = do

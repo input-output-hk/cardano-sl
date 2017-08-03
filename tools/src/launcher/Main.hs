@@ -35,7 +35,7 @@ import           System.Wlog                  (lcFilePrefix)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum                    hiding (putStrLn)
 
--- Modules needed for the “Turtle internals” session
+-- Modules needed for system'
 import           Control.Exception            (handle, mask_, throwIO)
 import           Foreign.C.Error              (Errno (..), ePIPE)
 import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
@@ -230,8 +230,6 @@ clientScenario
     -> IO ()
 clientScenario logConf node wallet updater nodeTimeout report = do
     runUpdater updater
-    -- I don't know why but a process started with turtle just can't be
-    -- killed, so let's use 'terminateProcess' and modified 'system'
     (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
@@ -328,7 +326,9 @@ spawnNode (path, args, mbLogPath) = do
             tempdir <- liftIO (fromString <$> getTemporaryDirectory)
             -- FIXME (adinapoli): `Shell` from `turtle` was giving us no-resource-leak guarantees
             -- via the `Managed` monad, which is something we have lost here, and we are back to manual
-            -- resource control.
+            -- resource control. In this case though, shall we really want to nuke the file? It seems
+            -- something useful to have lying around in the filesystem. We should probably close the
+            -- `Handle`, though, but if this program is short lived it won't matter anyway.
             IO.openTempFile tempdir "cardano-node-output.log"
     -- TODO (jmitchell): Find a safe, reliable way to print `logPath`. Cardano
     -- fails when it prints unicode characters. In the meantime, don't print it.
@@ -382,10 +382,6 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
             ExitSuccess   -> 0
             ExitFailure n -> n
     sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
-
-----------------------------------------------------------------------------
--- Turtle internals, modified to give access to process handles
-----------------------------------------------------------------------------
 
 system'
     :: MonadIO io

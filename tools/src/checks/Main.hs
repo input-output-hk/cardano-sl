@@ -1,5 +1,5 @@
 #!/usr/bin/env stack
--- stack --install-ghc runghc --package turtle
+-- stack --install-ghc runghc
 
 {-# LANGUAGE ApplicativeDo   #-}
 {-# LANGUAGE QuasiQuotes     #-}

@@ -84,6 +84,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
+- containers-0.5.10.2
 - universum-0.4.3
 - time-units-1.0.0
 - serokell-util-0.2.0.0

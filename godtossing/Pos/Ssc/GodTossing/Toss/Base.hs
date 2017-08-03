@@ -173,45 +173,42 @@ computeSharesDistrPure richmen threshold
     -- select optimum using next strategy:
     --   * if sum error < epsilon - we try minimize sum of commitments
     --   * otherwise we try minimize sum error
-    compute fromX toX epsilon portions = do
-        for_ [fromX..toX] $ \x -> do
-            let curDistrN = multPortions portions x
-            when (all (> 0) curDistrN) $ do
-                let curDistr = normalize curDistrN
-                let s = sum curDistr
-                let curPortions = map (`divRat` s) curDistr
-                let delta = calcSumError curPortions portions
-                (optDelta, optS, _) <- get
-                -- if delta less than epsilon then we try minimize sum of commitments
-                when (delta <= epsilon && s < optS ||
-                     -- otherwise we try minimize sum error of rounding
-                      delta <= optDelta && delta > epsilon) $
-                      put (delta, s, curDistr)
+    compute fromX toX epsilon portions = for_ [fromX..toX] $ \x -> do
+        let curDistrN = multPortions portions x
+        when (all (> 0) curDistrN) $ do
+            let curDistr = normalize curDistrN
+            let !s = sum curDistr
+            let curPortions = map (`divRat` s) curDistr
+            let delta = calcSumError portions curPortions
+            (optDelta, optS, _) <- get
+            -- if delta less than epsilon then we try minimize sum of commitments
+            when (delta <= epsilon && s < optS ||
+                    -- otherwise we try minimize sum error of rounding
+                    delta <= optDelta && delta > epsilon) $
+                    put (delta, s, curDistr)
 
     calcSumError:: [Rational] -> [Rational] -> Rational
-    calcSumError pNew p = do
-        let sorted1 = sortOn (\(a, b) -> b / a) $ zip p pNew
-        let sorted2 = sortOn (\(a, b) -> b - a) $ zip p pNew
-        let res1 = max (computeError1 0 0 sorted1) (computeError2 0 0 $ reverse sorted1)
-        let res2 = max (computeError1 0 0 sorted2) (computeError2 0 0 $ reverse sorted2)
-        max res1 res2
+    calcSumError p pGen = do
+        let sorted = sortOn (\(r, g) -> r - g) (zip p pGen)
+        max (computeError1 0 0 sorted) (computeError2 0 0 $ reverse sorted)
 
     half = 0.5::Rational
-    -- Error when real stake is more than 0.5 but generated stake is less
+    -- Error wheh real stake is less than 0.5 but generated is stake more
     computeError1 _ _ [] = 0
     computeError1 real generated (x:xs)
+        | real > half = 0
+        | generated > half && real < half =
+            max (generated - real) (computeError2 (real + fst x) (generated + snd x) xs)
+        | otherwise = computeError2 (real + fst x) (generated + snd x) xs
+
+     -- Error when real stake is more than 0.5 but generated stake is less
+    computeError2 _ _ [] = 0
+    computeError2 real generated (x:xs)
         | generated > half = 0
         | generated < half && real > half =
             max (real - generated) (computeError1 (real + fst x) (generated + snd x) xs)
         | otherwise = computeError1 (real + fst x) (generated + snd x) xs
 
-    -- Error wheh real stake is less than 0.5 but generated is stake more
-    computeError2 _ _ [] = 0
-    computeError2 real generated (x:xs)
-        | real > half = 0
-        | generated > half && real < half =
-            max (generated - real) (computeError2 (real + fst x) (generated + snd x) xs)
-        | otherwise = computeError2 (real + fst x) (generated + snd x) xs
 
     multPortions :: [Rational] -> Word16 -> [Word16]
     multPortions p (toRational -> mult) = map (truncate . (* mult)) p

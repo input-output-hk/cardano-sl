@@ -17,6 +17,8 @@ import qualified Data.ByteArray           as ByteArray
 import qualified Data.ByteString          as BS
 import           Data.SafeCopy            (SafeCopy (..))
 import           Formatting               (int, sformat, (%))
+import           Pos.Crypto.AsBinary      (encShareBytes, secretBytes, secretProofBytes,
+                                           shareBytes, vssPublicKeyBytes)
 
 import           Pos.Binary.Class         (AsBinary (..), Bi (..), decodeBinary,
                                            encodeBinary, encodeListLen, enforceSize,
@@ -104,17 +106,18 @@ instance Bi SecretSharingExtra where
 -- don't know its length in advance). Currently we check that
 -- 'SecretSharingExtra' can be parsed in 'verifyCommitment' function.
 --
--- FIXME [CSL-1412] Check length here (the note above is currently incorrect)!
-#define BiMacro(B) \
+#define BiMacro(B, BYTES) \
   instance Bi (AsBinary B) where {\
     encode (AsBinary bs) = encode bs ;\
-    decode = AsBinary <$> decode}; \
+    decode = do { bs <- decode \
+                ; when (BYTES /= length bs) (fail $ "AsBinary B: length mismatch!") \
+                ; return (AsBinary bs) } }; \
 
-BiMacro(VssPublicKey)
-BiMacro(Secret)
-BiMacro(Share)
-BiMacro(EncShare)
-BiMacro(SecretProof)
+BiMacro(VssPublicKey, vssPublicKeyBytes)
+BiMacro(Secret, secretBytes)
+BiMacro(Share, shareBytes)
+BiMacro(EncShare, encShareBytes)
+BiMacro(SecretProof, secretProofBytes)
 
 deriving instance Bi (AsBinary SecretSharingExtra)
 

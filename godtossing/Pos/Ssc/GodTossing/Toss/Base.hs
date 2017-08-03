@@ -197,19 +197,21 @@ computeSharesDistrPure richmen threshold
         max res1 res2
 
     half = 0.5::Rational
-    -- Error when real stake more than 0.5 but our new stake less
+    -- Error when real stake is more than 0.5 but generated stake is less
     computeError1 _ _ [] = 0
-    computeError1 real new (x:xs)
-        | new < half && real >= half =
-            max (real - half) $ computeError1 (real + fst x) (new + snd x) xs
-        | otherwise = computeError1 (real + fst x) (new + snd x) xs
+    computeError1 real generated (x:xs)
+        | generated > half = 0
+        | generated < half && real > half =
+            max (real - generated) (computeError1 (real + fst x) (generated + snd x) xs)
+        | otherwise = computeError1 (real + fst x) (generated + snd x) xs
 
-    -- Error when real stake less than 0.5 but our new stake more
+    -- Error wheh real stake is less than 0.5 but generated is stake more
     computeError2 _ _ [] = 0
-    computeError2 real new (x:xs)
-        | new >= half && real < half =
-            max (half - real) $ computeError2 (real + fst x) (new + snd x) xs
-        | otherwise = computeError2 (real + fst x) (new + snd x) xs
+    computeError2 real generated (x:xs)
+        | real > half = 0
+        | generated > half && real < half =
+            max (generated - real) (computeError2 (real + fst x) (generated + snd x) xs)
+        | otherwise = computeError2 (real + fst x) (generated + snd x) xs
 
     multPortions :: [Rational] -> Word16 -> [Word16]
     multPortions p (toRational -> mult) = map (truncate . (* mult)) p

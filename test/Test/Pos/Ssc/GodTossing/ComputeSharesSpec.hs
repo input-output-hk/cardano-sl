@@ -42,7 +42,7 @@ spec = describe "computeSharesDistr" $ do
         prop severalSimilarRichmenDesc severalSimilarRichmen
         prop twentyRichmen1Desc twentyRichmen1
         prop twentyRichmen2Desc twentyRichmen2
-        modifyMaxSuccess (const 3) $
+        modifyMaxSuccess (const 10) $
             prop validateFairnessDesc validateFairness
   where
     emptyRichmenStakesDesc = "Doesn't fail to calculate a share distribution when the richmen\
@@ -101,9 +101,8 @@ type Unfairness = (Rational, Int, Int)
 -- 2. when nodes must reveal commitment, but they can't.
 -- We can get these situations when sum of stakes of nodes which sent shares is close to 0.5.
 -- Max inaccuracy is computed as difference between generated stake and 0.5.
--- There is way to estimate inaccuracy as difference between real distribution and
--- generated. On the one hand it makes sense but on the other hand this difference
--- is not so important.
+-- We estimate inaccuracy as difference between real distribution and
+-- generated.
 isDistrFair :: RichmenStakes -> SharesDistribution -> Bool
 isDistrFair rs sd
     | length rs > 20 = error "Too many richmen"
@@ -116,6 +115,7 @@ isDistrFair rs sd
         let stakeholders = HM.keys rs
         let distrs = map (findStk totalCoins totalDistr) stakeholders
         let !(er, firstCase, secondCase) = fairBrute distrs 0 0
+        --error $ show (er, firstCase, secondCase)
         er < sharesDistrInaccuracy &&
             toRational firstCase < totalCases * fivePerc &&
             toRational secondCase < totalCases * fivePerc
@@ -148,11 +148,11 @@ isDistrFair rs sd
         -- Bad case of the first type is
         -- nodes can reveal commitment using shares
         -- but real coin distribution says that nodes can't do it.
-        | real < 0.5 && generated > 0.5 = (generated - 0.5, 1, 0)
+        | real < 0.5 && generated > 0.5 = (generated - real, 1, 0)
         -- Bad case of the second type is
         -- nodes can't reveal commitment using shares of honest nodes
         -- but real coin distribution says that nodes can do it.
-        | real > 0.5 && generated < 0.5 = (0.5 - generated, 0, 1)
+        | real > 0.5 && generated < 0.5 = (real - generated, 0, 1)
         | otherwise = (0, 0, 0)
 
 isDistrReasonable :: Word16 -> RichmenStakes -> Either TossVerFailure SharesDistribution -> Bool

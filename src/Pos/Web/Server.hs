@@ -21,7 +21,7 @@ import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import qualified Control.Monad.Reader                 as Mtl
 import           Mockable                             (Production (runProduction))
-import           Network.Wai                          (Application)
+import           Network.Wai                          (Application, Middleware)
 import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
                                                        setHost, setPort)
 import           Network.Wai.Handler.WarpTLS          (runTLS, tlsSettingsChain)
@@ -32,6 +32,7 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
+import           Pos.Constants                        (webLoggingEnabled)
 import           Pos.Context                          (HasNodeContext (..),
                                                        HasSscContext (..), NodeContext,
                                                        getOurPublicKey)
@@ -78,19 +79,22 @@ applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
 
--- [CSL-217]: do not hardcode logStdoutDev.
+webLogger :: Middleware
+webLogger
+    | webLoggingEnabled = logStdoutDev
+    | otherwise         = identity
+
 serveImpl :: MonadIO m => m Application -> String -> Word16 -> FilePath -> FilePath -> FilePath -> m ()
 serveImpl application host port walletTLSCert walletTLSKey walletTLSca =
-    liftIO . runTLS tlsConfig mySettings . logStdoutDev =<< application
+    liftIO . runTLS tlsConfig mySettings . webLogger =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
     tlsConfig = tlsSettingsChain walletTLSCert [walletTLSca] walletTLSKey
 
--- [CSL-217]: do not hardcode logStdoutDev.
 serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
 serveImplNoTLS application host port =
-    liftIO . runSettings mySettings . logStdoutDev =<< application
+    liftIO . runSettings mySettings . webLogger =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings

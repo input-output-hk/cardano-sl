@@ -14,8 +14,7 @@ import qualified Data.String.QQ               as Q
 import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
-import           Formatting                   (format, int, shown, stext, string, text,
-                                               (%))
+import           Formatting                   (format, int, shown, stext, text, (%))
 import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
@@ -207,11 +206,11 @@ serverScenario logConf node updater report = do
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync, nodeLog) <- spawnNode node
     exitCode <- wait nodeAsync
-    putStrLn $ format ("The node has exited with "%shown%"\n") exitCode
+    putStrLn $ format ("The node has exited with "%shown) exitCode
     if exitCode == ExitFailure 20
         then serverScenario logConf node updater report
         else whenJust report $ \repServ -> do
-                 TL.putStr $ format ("Sending logs to "%stext%"\n") (toText repServ)
+                 TL.putStrLn $ format ("Sending logs to "%stext) (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
 
 -- | If we are on desktop, we want the following algorithm:
@@ -234,15 +233,15 @@ clientScenario logConf node wallet updater nodeTimeout report = do
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
-             TL.putStr $ format ("The node has exited with "%string%"\n") (show exitCode)
+             TL.putStrLn $ format ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
-                 TL.putStr $ format ("Sending logs to "%stext%"\n") (toText repServ)
+                 TL.putStrLn $ format ("Sending logs to "%stext) (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
              putText "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
              putText "The wallet has exited with code 20"
-             TL.putStr $ format ("Killing the node in "%int%" seconds\n") nodeTimeout
+             TL.putStrLn $ format ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
              putText "Killing the node now"
              liftIO $ do
@@ -250,7 +249,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
                  cancel nodeAsync
              clientScenario logConf node wallet updater nodeTimeout report
        | otherwise -> do
-             TL.putStr $ format ("The wallet has exited with "%string%"\n") (show exitCode)
+             TL.putStrLn $ format ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
              putText "Killing the node"
              liftIO $ do
@@ -326,7 +325,7 @@ spawnNode (path, args, mbLogPath) = do
             tempdir <- liftIO (fromString <$> getTemporaryDirectory)
             -- FIXME (adinapoli): `Shell` from `turtle` was giving us no-resource-leak guarantees
             -- via the `Managed` monad, which is something we have lost here, and we are back to manual
-            -- resource control. In this case though, shall we really want to nuke the file? It seems
+            -- resource control. In this case, however, shall we really want to nuke the file? It seems
             -- something useful to have lying around in the filesystem. We should probably close the
             -- `Handle`, though, but if this program is short lived it won't matter anyway.
             IO.openTempFile tempdir "cardano-node-output.log"

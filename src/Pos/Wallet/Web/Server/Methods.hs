@@ -21,7 +21,8 @@ module Pos.Wallet.Web.Server.Methods
 import           Universum
 
 import           Control.Concurrent               (forkFinally)
-import           Control.Lens                     (each, ix, makeLenses, traversed, (.=))
+import           Control.Lens                     (each, has, ix, makeLenses, traversed,
+                                                   (.=))
 import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
@@ -60,6 +61,7 @@ import           System.Wlog                      (logDebug, logError, logInfo,
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
 import           Pos.Binary.Class                 (biSize)
+import           Pos.Block.Logic.Util             (withBlkSemaphore_)
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (TxError (..), createMTx,
@@ -76,7 +78,7 @@ import           Pos.Core                         (Address (..), Coin, TxFeePoli
                                                    getTimestamp, integerToCoin,
                                                    makeRedeemAddress, mkCoin, sumCoins,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   unsafeSubCoin, _RedeemAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SafeSigner, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
@@ -157,8 +159,8 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    removeTxMetas, removeWallet,
                                                    setAccountMeta, setProfile,
                                                    setWalletMeta, setWalletPassLU,
-                                                   setWalletTxMeta, testReset,
-                                                   updateHistoryCache)
+                                                   setWalletSyncTip, setWalletTxMeta,
+                                                   testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInsertions,
                                                    syncWalletOnImport,
@@ -644,7 +646,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
             let txHash    = hash tx
                 srcWallet = getMoneySourceWallet moneySource
             ts <- Just <$> getCurrentTimestamp
-            ctxs <- addHistoryTx srcWallet False $
+            ctxs <- addHistoryTx srcWallet $
                 THEntry txHash tx inpTxOuts Nothing (toList srcAddrs) dstAddrs ts
             ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
@@ -775,6 +777,7 @@ prepareTxRaw
     -> TxFee
     -> m TxRaw
 prepareTxRaw moneySource dstDistr fee = do
+    forM_ dstDistr $ checkIsNotRedeem . fst
     allAddrs <- getMoneySourceAddresses moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
         notDstAddrs = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
@@ -797,13 +800,19 @@ prepareTxRaw moneySource dstDistr fee = do
         pure $ TxOutAux (TxOut addr coin) []
     trOutputs <- withDistr $ overrideTxDistrBoot trOutputsPre
     remainingDistr <- withDistr $ overrideTxOutDistrBoot remaining []
-    let trRemaining = (remaining,  remainingDistr)
+    let trRemaining = (remaining, remainingDistr)
     pure TxRaw{..}
+  where
+    checkIsNotRedeem cId =
+        whenM (has _RedeemAddress <$> decodeCIdOrFail cId) $
+            throwM . RequestError $
+            sformat ("Destination address can't be redeem address: "%build) cId
 
 -- | Accept all addresses in descending order (by coins)
--- Destination addresses
--- Sum of destination addresses
--- Approximate fee for buildable transaction
+-- Addresses available to be source of the transaction, with their balances
+-- Transaction amount
+-- Approximate fee for transaction being built
+-- Remainer + chosen input addresses with their balances
 selectSrcAddresses
     :: WalletWebMode m
     => [(CWAddressMeta, Coin)]
@@ -833,7 +842,7 @@ selectSrcAddresses allAddrs outputCoins (TxFee fee) =
                    -- When balance >= reqCoins,
                    -- then lets try to find input with exactly @reqCoins@ coins,
                    -- in order to use one address instead of two.
-                   maybe (Right (balance `unsafeSubCoin` reqCoins, (ad, reqCoins) :| []))
+                   maybe (Right (balance `unsafeSubCoin` reqCoins, (ad, balance) :| []))
                          (\fa -> Right (mkCoin 0, fa :| []))
                          (find ((reqCoins ==) . snd) addresses)
 
@@ -866,7 +875,7 @@ getFullWalletHistory cWalId = do
     localHistory <- getLocalHistory addrs
 
     let fullHistory = DL.toList $ localHistory <> blockHistory
-    ctxs <- forM fullHistory $ addHistoryTx cWalId False
+    ctxs <- forM fullHistory $ addHistoryTx cWalId
     let cHistory = concatMap toList ctxs
     pure (cHistory, fromIntegral $ length cHistory)
 
@@ -922,10 +931,9 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit =
 addHistoryTx
     :: WalletWebMode m
     => CId Wal
-    -> Bool            -- ^ Workaround for redemption txs (introduced in CSM-330)
     -> TxHistoryEntry
     -> m CTxs
-addHistoryTx cWalId isRedemptionTx wtx@THEntry{..} = do
+addHistoryTx cWalId wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
@@ -936,7 +944,7 @@ addHistoryTx cWalId isRedemptionTx wtx@THEntry{..} = do
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
     walAddrMetas <- getWalletAddrMetas Ever cWalId
-    mkCTxs diff wtx meta' walAddrMetas isRedemptionTx & either (throwM . InternalError) pure
+    mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
 
 newAddress
     :: WalletWebMode m
@@ -1004,6 +1012,9 @@ newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit
     updateHistoryCache wId []
+    -- BListener checks current syncTip before applying update,
+    -- thus setting it up to date manually here
+    withBlkSemaphore_ $ \tip -> tip <$ setWalletSyncTip wId tip
     getWallet wId
 
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
@@ -1148,10 +1159,8 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     _ <- fixingCachedAccModifier getAccount accId
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
-    dstCWAddrMeta <- genUniqueAccountAddress RandomSeed passphrase accId
-    -- TODO(thatguy): the absence of `addWAddress` here is probably a bug.
-    -- Need to talk to @martoon about this. Discovered in CSM-330.
-    dstAddr <- decodeCIdOrFail $ cwamId dstCWAddrMeta
+    dstAddr <- decodeCIdOrFail . cadId =<<
+               newAddress RandomSeed passphrase accId
     na <- getPeers
     (TxAux {..}, redeemAddress, redeemBalance) <-
         rewrapTxError "Cannot send redemption transaction" $
@@ -1159,7 +1168,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     -- add redemption transaction to the history of new wallet
     let txInputs = [TxOut redeemAddress redeemBalance]
     ts <- Just <$> getCurrentTimestamp
-    ctxs <- addHistoryTx (aiWId accId) True $
+    ctxs <- addHistoryTx (aiWId accId) $
         THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts
     ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where

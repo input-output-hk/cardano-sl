@@ -7,6 +7,7 @@ module Pos.Core.Types
        (
        -- * Address
          Address (..)
+       , _RedeemAddress
        , AddrPkAttrs (..)
        , AddressHash
        , StakeholderId
@@ -81,7 +82,7 @@ module Pos.Core.Types
 
 import           Universum
 
-import           Control.Lens               (makeLensesFor)
+import           Control.Lens               (makeLensesFor, makePrisms)
 import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
@@ -520,3 +521,5 @@ newtype SlotCount = SlotCount {getSlotCount :: Word64}
 flip makeLensesFor ''SlotId [
     ("siEpoch", "siEpochL"),
     ("siSlot" , "siSlotL") ]
+
+makePrisms ''Address

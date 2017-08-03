@@ -17,7 +17,6 @@ module Pos.Wallet.Redirect
 
 import           Universum
 
-import           Control.Concurrent.STM    (tryReadTMVar)
 import           Control.Lens              (views)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.Time.Units           (Millisecond)
@@ -34,7 +33,6 @@ import           Pos.DB.Block              (MonadBlockDB)
 import           Pos.DB.DB                 (getTipHeader)
 import           Pos.Shutdown              (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting              (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class             (Ssc)
 import           Pos.Update.Context        (UpdateContext (ucUpdateSemaphore))
 import           Pos.Update.Poll.Types     (ConfirmedProposalState)
 import           Pos.Wallet.WalletMode     (MonadBlockchainInfo (..), MonadUpdates (..))
@@ -48,12 +46,6 @@ getLastKnownHeader
   => m (Maybe (BlockHeader ssc))
 getLastKnownHeader =
     atomically . readTVar =<< view (lensOf @PC.LastKnownHeaderTag)
-
-downloadHeader
-    :: (Ssc ssc, MonadIO m, PC.MonadProgressHeader ssc ctx m)
-    => m (Maybe (BlockHeader ssc))
-downloadHeader = do
-    atomically . tryReadTMVar =<< view (lensOf @PC.ProgressHeaderTag)
 
 type BlockchainInfoEnv ssc ctx m =
     ( MonadBlockDB ssc m
@@ -85,9 +77,7 @@ networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
 localChainDifficultyWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m ChainDifficulty
-localChainDifficultyWebWallet = downloadHeader >>= \case
-    Just dh -> return $ dh ^. difficultyL
-    Nothing -> view difficultyL <$> getTipHeader @ssc
+localChainDifficultyWebWallet = view difficultyL <$> getTipHeader @ssc
 
 connectedPeersWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m

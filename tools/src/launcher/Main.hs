@@ -14,14 +14,14 @@ import qualified Data.String.QQ               as Q
 import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
-import           Formatting                   (format, int, stext, string, text, (%))
+import           Formatting                   (format, int, shown, stext, string, text,
+                                               (%))
 import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
                                                metavar, option, progDesc, short,
                                                strOption)
 import           Pos.Util                     (directory, sleep)
-import           Prelude                      (putStrLn)
 import           System.Directory             (createDirectoryIfMissing, doesFileExist,
                                                getTemporaryDirectory, removeFile)
 import           System.Environment           (getExecutablePath)
@@ -33,7 +33,7 @@ import qualified System.Process               as Process
 import           System.Timeout               (timeout)
 import           System.Wlog                  (lcFilePrefix)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Universum                    hiding (putStrLn)
+import           Universum
 
 -- Modules needed for system'
 import           Control.Exception            (handle, mask_, throwIO)
@@ -174,14 +174,14 @@ main = do
             Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     case loWalletPath of
         Nothing -> do
-            putStrLn "Running in the server scenario"
+            putText "Running in the server scenario"
             serverScenario
                 loNodeLogConfig
                 (loNodePath, realNodeArgs, loNodeLogPath)
                 (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
                 loReportServer
         Just wpath -> do
-            putStrLn "Running in the client scenario"
+            putText "Running in the client scenario"
             clientScenario
                 loNodeLogConfig
                 (loNodePath, realNodeArgs, loNodeLogPath)
@@ -207,7 +207,7 @@ serverScenario logConf node updater report = do
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync, nodeLog) <- spawnNode node
     exitCode <- wait nodeAsync
-    TL.putStr $ format ("The node has exited with "%string%"\n") (show exitCode)
+    putStrLn $ format ("The node has exited with "%shown%"\n") exitCode
     if exitCode == ExitFailure 20
         then serverScenario logConf node updater report
         else whenJust report $ \repServ -> do
@@ -238,13 +238,13 @@ clientScenario logConf node wallet updater nodeTimeout report = do
              whenJust report $ \repServ -> do
                  TL.putStr $ format ("Sending logs to "%stext%"\n") (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
-             putStrLn "Waiting for the wallet to die"
+             putText "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
-             putStrLn "The wallet has exited with code 20"
+             putText "The wallet has exited with code 20"
              TL.putStr $ format ("Killing the node in "%int%" seconds\n") nodeTimeout
              sleep (fromIntegral nodeTimeout)
-             putStrLn "Killing the node now"
+             putText "Killing the node now"
              liftIO $ do
                  Process.terminateProcess nodeHandle
                  cancel nodeAsync
@@ -252,7 +252,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
        | otherwise -> do
              TL.putStr $ format ("The wallet has exited with "%string%"\n") (show exitCode)
              -- TODO: does the wallet have some kind of log?
-             putStrLn "Killing the node"
+             putText "Killing the node"
              liftIO $ do
                  Process.terminateProcess nodeHandle
                  cancel nodeAsync
@@ -262,7 +262,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
 runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> IO ()
 runUpdater (path, args, runnerPath, updateArchive) = do
     whenM (doesFileExist path) $ do
-        putStrLn "Running the updater"
+        putText "Running the updater"
         let args' = args ++ maybe [] (one . toText) updateArchive
         exitCode <- case runnerPath of
             Nothing -> runUpdaterProc path args'
@@ -313,7 +313,7 @@ spawnNode
     :: (FilePath, [Text], Maybe FilePath)
     -> IO (ProcessHandle, Async ExitCode, FilePath)
 spawnNode (path, args, mbLogPath) = do
-    putStrLn "Starting the node"
+    putText "Starting the node"
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later is `system'`:
@@ -350,8 +350,8 @@ spawnNode (path, args, mbLogPath) = do
 
 runWallet :: (FilePath, [Text]) -> IO ExitCode
 runWallet (path, args) = do
-    putStrLn "Starting the wallet"
-    (\(e, _, _) -> e) <$> readProcessWithExitCode path (map toString args) mempty
+    putText "Starting the wallet"
+    view _1 <$> readProcessWithExitCode path (map toString args) mempty
 
 ----------------------------------------------------------------------------
 -- Working with the report server

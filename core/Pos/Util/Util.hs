@@ -69,7 +69,7 @@ module Pos.Util.Util
 
        , dumpSplices
 
-       -- * Filesystem utilities
+       -- * Filesystem & process utilities
        , ls
        , lstree
        , withTempDir
@@ -121,7 +121,8 @@ import           System.Directory               (canonicalizePath, createDirecto
                                                  doesDirectoryExist,
                                                  getTemporaryDirectory, listDirectory,
                                                  removeDirectory, removeFile)
-import           System.FilePath                (normalise, takeDirectory, (</>))
+import           System.FilePath                (normalise, pathSeparator, takeDirectory,
+                                                 (</>))
 import           System.IO                      (hClose, openTempFile)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
@@ -478,8 +479,8 @@ withTempDir parentDir template = bracket acquire dispose
 directory :: FilePath -> FilePath
 directory "" = ""
 directory f = case last f of
-    '/' -> f
-    _   -> takeDirectory (normalise f)
+    x | x == pathSeparator -> f
+    _ -> takeDirectory (normalise f)
 
 {-| Sleep for the given duration
 

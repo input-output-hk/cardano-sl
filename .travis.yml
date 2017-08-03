@@ -54,8 +54,6 @@ script:
 # DEVOPS-107: wait 20min for output due to haddock generation
 - if [[ "$MODE" == "nix" ]]; then
     nix-build -A cardano-sl-static --no-build-output --keep-going || nix-build -A cardano-sl -j 1 ;
-    # We build explorer after cardano-sl
-    nix-build -A cardano-sl-explorer --no-build-output --keep-going || nix-build -A cardano-sl-explorer -j 1 ;
   elif [[ "$MODE" == "hlint" ]]; then
     nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   elif [[ "$MODE" == "stack2nix" ]]; then
@@ -63,6 +61,9 @@ script:
   else
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
+# We build explorer after cardano-sl
+- if [[ "$MODE" == "nix" ]]; then
+    nix-build -A cardano-sl-explorer --no-build-output --keep-going || nix-build -A cardano-sl-explorer -j 1 ;
 
 deploy:
   provider: s3

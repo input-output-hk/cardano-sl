@@ -18,6 +18,7 @@ packages:
 - godtossing
 - tools
 - txp
+- explorer
 
 - location:
     git: https://github.com/arybczak/binary-serialise-cbor
@@ -80,6 +81,16 @@ packages:
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
 
+# Required for explorer
+- location:
+    git: https://github.com/serokell/engine.io.git
+    commit: a594e402fd450f11ad60d09ddbd93db500000632
+  extra-dep: true
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
+
 nix:
   shell-file: shell.nix
 
@@ -124,3 +135,11 @@ ghc-options:
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror
   cardano-sl-lwallet:    -Werror
+  cardano-sl-explorer:   -Werror
+
+# Added for explorer
+flags:
+  cardano-sl:
+    with-explorer: True
+  ether:
+    disable-tup-instances: True

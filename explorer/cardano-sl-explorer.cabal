@@ -51,6 +51,7 @@ library
                       , formatting
                       , lens
                       , log-warper
+                      , memory
 
                       -- cardano sl
                       , cardano-sl
@@ -60,8 +61,8 @@ library
                       , cardano-sl-ssc
 
                       -- mtl ++
-                      , lifted-base
                       , mtl
+                      , lifted-base
                       , monad-control
                       , monad-loops
 

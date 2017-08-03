@@ -18,12 +18,12 @@ import qualified Data.Set              as S (fromList)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
 import qualified Pos.CLI               as CLI
 import           Pos.Constants         (isDevelopment)
+import           Pos.Context           (mkGenesisTxpContext)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
 import           Pos.DHT.Real          (KademliaParams (..))
-import           Pos.Genesis           (devAddrDistr, devStakesDistr,
-                                        genesisProdAddrDistribution,
-                                        genesisProdBootStakeholders, genesisUtxo)
+import           Pos.Genesis           (devAddrDistr, devStakesDistr, genesisUtxo,
+                                        genesisUtxoProduction)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NetworkParams (..), NodeParams (..))
 import           Pos.Security.Params   (SecurityParams (..))
@@ -35,6 +35,8 @@ import           Pos.Util.UserSecret   (peekUserSecret)
 
 import           ExplorerOptions       (Args (..))
 import           Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
+
+
 
 gtSscParams :: Args -> VssKeyPair -> GtParams
 gtSscParams Args {..} vssSK =
@@ -102,13 +104,20 @@ getNodeParams args@Args {..} systemStart = do
         userSecretWithGenesisKey args =<<
         updateUserSecretVSS args =<<
         peekUserSecret keyfilePath
+
+    npNetwork <- liftIO $ getNetworkParams args
+
     let devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
                 (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
-    npNetwork <- liftIO $ getNetworkParams args
+
+    let npGenesisTxpCtx
+            | isDevelopment = mkGenesisTxpContext $ genesisUtxo Nothing (devAddrDistr devStakeDistr)
+            | otherwise =  mkGenesisTxpContext genesisUtxoProduction
+
     return NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
@@ -116,11 +125,6 @@ getNodeParams args@Args {..} systemStart = do
         , npUserSecret = userSecret
         , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" args
-        , npCustomUtxo =
-            if isDevelopment
-            then genesisUtxo Nothing (devAddrDistr devStakeDistr)
-            else genesisUtxo (Just genesisProdBootStakeholders)
-                                genesisProdAddrDistribution
         , npJLFile = jlPath
         , npPropagation = not (CLI.disablePropagation commonArgs)
         , npUpdateParams = UpdateParams

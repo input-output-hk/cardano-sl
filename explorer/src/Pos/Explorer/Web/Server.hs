@@ -43,15 +43,15 @@ import qualified Pos.DB.DB                      as DB
 import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
-import           Pos.Context                    (genesisUtxoM)
+import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId, TxMap,
-                                                 TxOutAux (..), getLocalTxs, getMemPool,
-                                                 mpLocalTxs, taTx, topsortTxs, txOutValue,
-                                                 txpTxs, utxoToAddressCoinPairs,
-                                                 _txOutputs)
+                                                 TxOutAux (..), Utxo, getLocalTxs,
+                                                 getMemPool, mpLocalTxs, taTx, topsortTxs,
+                                                 txOutValue, txpTxs,
+                                                 utxoToAddressCoinPairs, _txOutputs)
 import           Pos.Types                      (Address (..), Coin, EpochIndex,
                                                  HeaderHash, Timestamp, difficultyL,
                                                  gbHeader, gbhConsensus,
@@ -500,14 +500,19 @@ getTxSummary cTxId = do
 
 getRedeemAddressCoinPairs :: ExplorerMode ctx m => m [(Address, Coin)]
 getRedeemAddressCoinPairs = do
-    genesisUtxo <- genesisUtxoM
-    let addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
-        redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
-    pure redeemOnly
+    genesisUtxo :: Utxo <- unGenesisUtxo <$> genesisUtxoM
 
-isRedeemAddress :: Address -> Bool
-isRedeemAddress (RedeemAddress _) = True
-isRedeemAddress _                 = False
+    let addressCoinPairs :: [(Address, Coin)]
+        addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
+
+        redeemOnly :: [(Address, Coin)]
+        redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
+
+    pure redeemOnly
+  where
+    isRedeemAddress :: Address -> Bool
+    isRedeemAddress (RedeemAddress _) = True
+    isRedeemAddress _                 = False
 
 isAddressRedeemed :: MonadDBRead m => Address -> Coin -> m Bool
 isAddressRedeemed address initialBalance = do

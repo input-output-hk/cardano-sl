@@ -43,6 +43,7 @@ import           Universum
 import           Control.Arrow          ((&&&))
 import           Control.Lens           (ix, _Left)
 import qualified Data.ByteString.Base16 as B16
+import qualified Data.ByteArray         as BA
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
@@ -93,11 +94,11 @@ newtype CTxId = CTxId CHash
 
 -- | Transformation of core hash-types to client representations and vice versa
 encodeHashHex :: Hash a -> Text
-encodeHashHex = decodeUtf8 . B16.encode . Bi.encode
+encodeHashHex = decodeUtf8 . B16.encode . BA.convert
 
 -- | We need this for stakeholders
 encodeAHashHex :: AddressHash a -> Text
-encodeAHashHex = decodeUtf8 . B16.encode . Bi.encode
+encodeAHashHex = decodeUtf8 . B16.encode . BA.convert
 
 decodeHashHex :: Text -> Either Text (Hash a)
 decodeHashHex hashText = do

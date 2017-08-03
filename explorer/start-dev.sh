@@ -4,7 +4,7 @@
 rm *.log
 
 # Optional path for `cardano-sl`
-cardano_path=${1:-../cardano-sl}
+cardano_path=${1:-../}
 
 system_start=$((`date +%s` + 1))
 

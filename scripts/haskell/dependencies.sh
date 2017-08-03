@@ -1,5 +1,5 @@
 #!/usr/bin/env stack
--- stack runghc --package shelly --package algebraic-graphs-0.0.5 --package async
+-- stack runghc --package shelly --package async
 
 {-
 
@@ -20,7 +20,6 @@ stack exec ghc -- --make -O2 -threaded scripts/haskell/dependencies.hs
 module Main where
 
 import           Algebra.Graph
-import           Algebra.Graph.Export.Dot (Attribute (..), Style (..), export)
 import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Monad
 import           Data.Functor.Identity
@@ -186,23 +185,6 @@ uniqueDependenciesFor directDeps revDeps pkg = go (M.findWithDefault mempty pkg 
       go (d:ds) !deps = case M.findWithDefault mempty d revDeps of
           [x] | x == pkg -> go ds (d : deps)
           _   -> go ds deps
-
---------------------------------------------------------------------------------
-style :: Style Package String
-style = Style
-    { graphName               = ""
-    , preamble                = ""
-    , graphAttributes         = ["label" := "Example", "labelloc" := "top"]
-    , defaultVertexAttributes = ["shape" := "circle"]
-    , defaultEdgeAttributes   = mempty
-    , vertexName              = \(name,_)   -> T.unpack name
-    , vertexAttributes        = \_   -> ["color" := "blue"]
-    , edgeAttributes          = \_ _ -> ["style" := "dashed"]
-    }
-
---------------------------------------------------------------------------------
-dottify :: DAG -> IO ()
-dottify dag = writeFile "dep_dot.graphviz" (export style dag)
 
 --------------------------------------------------------------------------------
 main :: IO ()

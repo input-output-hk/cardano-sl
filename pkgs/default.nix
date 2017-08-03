@@ -1072,6 +1072,7 @@ self: {
             cereal
             conduit
             containers
+            cpphs
             cryptonite
             cryptonite-openssl
             data-default
@@ -1157,7 +1158,6 @@ self: {
             wreq
             yaml
           ];
-          libraryToolDepends = [ cpphs ];
           executableHaskellDepends = [
             ansi-wl-pprint
             base
@@ -1188,9 +1188,6 @@ self: {
             time
             time-units
             universum
-          ];
-          executableToolDepends = [
-            cpphs
           ];
           doHaddock = false;
           doCheck = false;
@@ -1313,7 +1310,7 @@ self: {
       cardano-sl-explorer = callPackage ({ aeson, base, base16-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-update, containers, cpphs, either, engine-io, engine-io-wai, ether, exceptions, formatting, http-types, lens, lifted-base, log-warper, memory, mkDerivation, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-simple, purescript-bridge, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, socket-io, stdenv, stm, swagger2, tagged, text, text-format, time, time-units, transformers, universum, unordered-containers, wai, wai-cors, warp }:
       mkDerivation {
           pname = "cardano-sl-explorer";
-          version = "0.1.0";
+          version = "0.2.0";
           src = ./..;
           postUnpack = "sourceRoot+=/explorer; echo source root reset to \$sourceRoot";
           isLibrary = true;
@@ -2191,6 +2188,33 @@ self: {
           homepage = "http://github.com/snoyberg/cookie";
           description = "HTTP cookie parsing and rendering";
           license = stdenv.lib.licenses.mit;
+        }) {};
+      cpphs = callPackage ({ base, directory, mkDerivation, old-locale, old-time, polyparse, stdenv }:
+      mkDerivation {
+          pname = "cpphs";
+          version = "1.20.5";
+          sha256 = "1cx565wv9r60xw8la5mjfpvsry5wxh9h6ai40jbwd727nwq0r8y5";
+          isLibrary = true;
+          isExecutable = true;
+          libraryHaskellDepends = [
+            base
+            directory
+            old-locale
+            old-time
+            polyparse
+          ];
+          executableHaskellDepends = [
+            base
+            directory
+            old-locale
+            old-time
+            polyparse
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://projects.haskell.org/cpphs/";
+          description = "A liberalised re-implementation of cpp, the C pre-processor";
+          license = "LGPL";
         }) {};
       criterion = callPackage ({ Glob, aeson, ansi-wl-pprint, base, binary, bytestring, cassava, code-page, containers, deepseq, directory, filepath, hastache, js-flot, js-jquery, mkDerivation, mtl, mwc-random, optparse-applicative, parsec, statistics, stdenv, text, time, transformers, transformers-compat, vector, vector-algorithms }:
       mkDerivation {
@@ -4808,6 +4832,22 @@ self: {
           homepage = "iohk.io";
           description = "Prototype of the Plutus language";
           license = stdenv.lib.licenses.mit;
+        }) {};
+      polyparse = callPackage ({ base, bytestring, mkDerivation, stdenv, text }:
+      mkDerivation {
+          pname = "polyparse";
+          version = "1.12";
+          sha256 = "05dya1vdvq29hkhkdlsglzhw7bdn51rvs1javs0q75nf99c66k7m";
+          libraryHaskellDepends = [
+            base
+            bytestring
+            text
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://code.haskell.org/~malcolm/polyparse/";
+          description = "A variety of alternative parser combinator libraries";
+          license = "LGPL";
         }) {};
       prelude-extras = callPackage ({ base, mkDerivation, stdenv }:
       mkDerivation {

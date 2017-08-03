@@ -329,7 +329,6 @@ library
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking
-
   build-depends:        QuickCheck
                       , MonadRandom
                       , acid-state
@@ -354,6 +353,7 @@ library
                       , cereal
                       , conduit >= 1.2.8
                       , containers
+                      , cpphs
                       , cryptonite >= 0.23 && <= 0.23
                       , cryptonite-openssl >= 0.6
                       , data-default

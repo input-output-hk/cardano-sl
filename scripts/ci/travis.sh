@@ -88,3 +88,19 @@ popd
 echo "Packing up daedalus-bridge ..."
 XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}.tar.xz daedalus/
 echo "Done"
+
+# For explorer
+stack exec --nix -- cardano-explorer-hs2purs
+
+pushd explorer
+  pushd frontend
+    nix-shell --run "npm install && npm run build:prod"
+    echo $TRAVIS_BUILD_NUMBER > build-id
+    cp ../log-config-prod.yaml .
+  popd
+popd
+
+# Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
+echo "Packing up explorer-frontend ..."
+XZ_OPT=-1 tar cJf s3/explorer-frontend-$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}.tar.xz explorer/frontend/
+echo "Done"

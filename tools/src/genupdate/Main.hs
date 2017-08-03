@@ -22,7 +22,7 @@ import           Paths_cardano_sl             (version)
 import           Pos.Util                     (directory, ls, withTempDir)
 import           System.Exit                  (ExitCode (ExitFailure))
 import           System.FilePath              (normalise, takeFileName, (<.>), (</>))
-import qualified System.Posix.Files           as Posix
+import qualified System.PosixCompat           as PosixCompat
 import           System.Process               (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum                    hiding (fold)
@@ -90,8 +90,8 @@ createUpdate oldDir newDir updPath = do
     newFiles <- ls newDir
     -- find directories and fail if there are any (we can't handle
     -- directories)
-    do oldNotFiles <- filterM (fmap (not . Posix.isRegularFile) . Posix.getFileStatus . normalise) oldFiles
-       newNotFiles <- filterM (fmap (not . Posix.isRegularFile) . Posix.getFileStatus . normalise) newFiles
+    do oldNotFiles <- filterM (fmap (not . PosixCompat.isRegularFile) . PosixCompat.getFileStatus . normalise) oldFiles
+       newNotFiles <- filterM (fmap (not . PosixCompat.isRegularFile) . PosixCompat.getFileStatus . normalise) newFiles
        unless (null oldNotFiles && null newNotFiles) $ do
            unless (null oldNotFiles) $ do
                TL.putStr $ format (fp%" contains not-files:\n") oldDir

@@ -308,7 +308,7 @@ executable cardano-genupdate
                      , tar
                      , text
                      , universum
-                     , unix
+                     , unix-compat
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

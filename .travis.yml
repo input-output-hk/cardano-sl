@@ -63,7 +63,7 @@ script:
   fi
 # build explorer
 - pushd explorer
-- "./scripts/build.sh"
+- nix-build -A cardano-sl-explorer --no-build-output
 - pushd frontend
 - "./scripts/build.sh"
 - nix-shell --run "yarn test"

@@ -35,7 +35,6 @@ import           System.Directory         (doesFileExist)
 import           System.FilePath          (takeFileName)
 import           System.Info              (arch, os)
 import           System.IO                (hClose)
-import           System.IO.Temp           (withSystemTempFile)
 import           System.Wlog              (LoggerConfig (..), WithLogger, hwFilePath,
                                            lcTree, logDebug, logError, logInfo, ltFiles,
                                            ltSubloggers, retrieveLogContent)
@@ -47,7 +46,7 @@ import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
                                            HasReportingContext (..))
-import           Pos.Util.Util            (maybeThrow)
+import           Pos.Util.Util            (maybeThrow, withSystemTempFile)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.

@@ -134,7 +134,6 @@ library
                       , stm-containers
                       , tagged
                       , text
-                      , temporary
                       , template-haskell
                       , text-format
                       , time

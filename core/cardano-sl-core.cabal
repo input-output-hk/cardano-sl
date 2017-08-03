@@ -124,6 +124,7 @@ library
                      , cborg
                      , concurrent-extra
                      , ether >= 0.5
+                     , exceptions
                      , log-warper >= 1.0.3
                      , mmorph
                      , reflection

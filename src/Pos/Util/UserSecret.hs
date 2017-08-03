@@ -48,8 +48,7 @@ import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPai
 import           Pos.Types             (Address)
 import           System.Directory      (renameFile)
 import           System.FilePath       (takeDirectory, takeFileName)
-import           System.IO             (hClose)
-import           System.IO.Temp        (openBinaryTempFile)
+import           System.IO             (hClose, openBinaryTempFile)
 import           System.Wlog           (WithLogger)
 
 import           Pos.Wallet.Web.Secret (WalletUserSecret)

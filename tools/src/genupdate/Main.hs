@@ -10,8 +10,6 @@ import           Crypto.Hash                  (Digest, SHA512, hashlazy)
 import qualified Data.ByteString.Lazy         as BSL
 import           Data.List                    ((\\))
 import           Data.String.QQ               (s)
-import qualified Data.Text                    as T
-import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
 import           Formatting                   (Format, format, mapf, text, (%))
@@ -78,9 +76,9 @@ Please note that 'cardano-genupdate' uses 'bsdiff' program, so make sure 'bsdiff
 main :: IO ()
 main = do
     UpdateGenOptions{..} <- getUpdateGenOptions
-    createUpdate (T.unpack oldDir)
-                 (T.unpack newDir)
-                 (T.unpack outputTar)
+    createUpdate (toString oldDir)
+                 (toString newDir)
+                 (toString outputTar)
 
 -- | Outputs a `FilePath` as a `LText`.
 fp :: Format LText (String -> LText)
@@ -134,7 +132,7 @@ createUpdate oldDir newDir updPath = do
                       return (Just (unwords [oldHash, newHash, diffHash],
                                     takeFileName diffFile))
       -- write the MANIFEST file
-      T.writeFile (tempDir </> "MANIFEST") (unlines manifest)
+      writeFile (tempDir </> "MANIFEST") (unlines manifest)
       -- put diffs and a manifesto into a tar file
       Tar.create updPath tempDir ("MANIFEST" : bsdiffs)
 

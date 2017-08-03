@@ -29,13 +29,6 @@ module Pos.Util
        , neZipWith4
        , spanSafe
 
-       -- * Filesystem utilities
-       , ls
-       , lstree
-       , withTempDir
-       , directory
-       , sleep
-
        -- * Instances
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
@@ -47,23 +40,18 @@ module Pos.Util
 
 import           Universum                    hiding (finally)
 
-import           Control.Concurrent           (myThreadId, threadDelay)
 import qualified Control.Monad                as Monad (fail)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Either                  (rights)
 import           Data.Hashable                (Hashable)
 import qualified Data.HashMap.Strict          as HM
-import           Data.List                    (last, span, zipWith3, zipWith4)
+import           Data.List                    (span, zipWith3, zipWith4)
 import           Data.Ratio                   ((%))
 import qualified Data.Text                    as T
-import           Data.Time.Clock              (NominalDiffTime, UTCTime)
+import           Data.Time.Clock              (UTCTime)
 import           Data.Time.Clock.POSIX        (posixSecondsToUTCTime)
 import           Data.Time.Units              (Microsecond, toMicroseconds)
 import           Serokell.Util                (VerificationRes (..))
-import           System.Directory             (canonicalizePath, createDirectory,
-                                               doesDirectoryExist, listDirectory,
-                                               removeDirectory)
-import           System.FilePath              (normalise, takeDirectory, (</>))
 import           System.IO                    (hClose)
 import           System.Wlog                  (LoggerNameBox (..))
 import           Text.Parsec                  (ParsecT)
@@ -172,62 +160,3 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail m => MonadFail (ResourceT m) where
     fail = lift . fail
-
-----------------------------------------------------------------------------
--- Filesystem utilities
-----------------------------------------------------------------------------
-
--- | Lists all immediate children of the given directory, excluding "." and ".."
--- Returns all the files inclusive of the initial `FilePath`.
-ls :: MonadIO m => FilePath -> m [FilePath]
-ls initialFp = map ((</>) initialFp) <$> liftIO (listDirectory (normalise initialFp))
-
--- | Lists all recursive descendants of the given directory.
-lstree :: MonadIO m => FilePath -> m [FilePath]
-lstree fp = go mempty fp
-  where
-    consUniq :: FilePath -> [FilePath] -> [FilePath]
-    consUniq x xs = if x /= fp then (x : xs) else xs
-
-    go :: MonadIO m => [FilePath] -> FilePath -> m [FilePath]
-    go !acc currentFp = do
-        isDirectory <- liftIO (doesDirectoryExist currentFp)
-        case isDirectory of
-            True  -> ls currentFp >>= foldM go (consUniq currentFp acc)
-            False -> return (consUniq currentFp acc)
-
--- | Creates a temporary directory, nuking it after the inner action completes,
--- even if an exception is raised.
-withTempDir :: FilePath
-            -- ^ Parent directory
-            -> Text
-            -- ^ Directory name template
-            -> (FilePath -> IO a)
-            -> IO a
-withTempDir parentDir template = bracket acquire dispose
-  where
-    acquire :: IO FilePath
-    acquire = do
-        tid <- myThreadId
-        pth <- canonicalizePath $ normalise $ parentDir </> (toString template <> show tid)
-        createDirectory pth
-        return pth
-
-    dispose :: FilePath -> IO ()
-    dispose = removeDirectory
-
--- | Simple shim to emulate the behaviour of `Filesystem.Path.directory`,
--- which is a bit more lenient than `System.FilePath.takeDirectory`.
-directory :: FilePath -> FilePath
-directory "" = ""
-directory f = case last f of
-    '/' -> f
-    _   -> takeDirectory (normalise f)
-
-{-| Sleep for the given duration
-
-    A numeric literal argument is interpreted as seconds.  In other words,
-    @(sleep 2.0)@ will sleep for two seconds.
--}
-sleep :: MonadIO m => NominalDiffTime -> m ()
-sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))

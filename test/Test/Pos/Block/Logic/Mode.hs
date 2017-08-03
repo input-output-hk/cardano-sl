@@ -58,8 +58,7 @@ import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets 
                                                  mkInvSecretsMap)
 import           Pos.Genesis                    (genesisUtxo)
 import qualified Pos.GState                     as GS
-import           Pos.KnownPeers                 (MonadFormatPeers (..),
-                                                 MonadKnownPeers (..))
+import           Pos.KnownPeers                 (MonadFormatPeers (..))
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),
@@ -472,11 +471,6 @@ instance MonadGState BlockTestMode where
 instance MonadBListener BlockTestMode where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance MonadKnownPeers BlockTestMode where
-    updateKnownPeers _ = pure ()
-    addKnownPeers _ = pure ()
-    removeKnownPeer _ = pure ()
 
 instance MonadFormatPeers BlockTestMode where
     formatKnownPeers _ = pure Nothing

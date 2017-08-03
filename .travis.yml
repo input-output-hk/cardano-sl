@@ -64,6 +64,7 @@ script:
 # We build explorer after cardano-sl
 - if [[ "$MODE" == "nix" ]]; then
     nix-build -A cardano-sl-explorer --no-build-output --keep-going || nix-build -A cardano-sl-explorer -j 1 ;
+  fi
 
 deploy:
   provider: s3

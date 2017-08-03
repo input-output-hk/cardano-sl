@@ -7,7 +7,6 @@ module Pos.Web.Server
        ( MyWorkMode
        , WebMode
        , serveImpl
-       , serveImplNoTLS
        , nat
        , serveWebBase
        , applicationBase
@@ -24,7 +23,8 @@ import           Mockable                             (Production (runProduction
 import           Network.Wai                          (Application, Middleware)
 import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
                                                        setHost, setPort)
-import           Network.Wai.Handler.WarpTLS          (runTLS, tlsSettingsChain)
+import           Network.Wai.Handler.WarpTLS          (TLSSettings, runTLS,
+                                                       tlsSettingsChain)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
@@ -50,7 +50,7 @@ import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
--- import           Pos.Web.Types                        (GodTossingStage (..))
+import           Pos.Web.Types                        (TlsParams (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -63,7 +63,7 @@ type MyWorkMode ssc ctx m =
     , HasNodeContext ssc ctx -- for ConvertHandler
     )
 
-serveWebBase :: MyWorkMode ssc ctx m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
+serveWebBase :: MyWorkMode ssc ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
 
 applicationBase :: MyWorkMode ssc ctx m => m Application
@@ -71,7 +71,7 @@ applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
+serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
 
 applicationGT :: MyWorkMode SscGodTossing ctx m => m Application
@@ -79,26 +79,24 @@ applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
 
+serveImpl
+    :: MonadIO m
+    => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
+serveImpl application host port walletTLSParams =
+    liftIO . maybe runSettings runTLS mTlsConfig mySettings . webLogger
+        =<< application
+  where
+    mySettings = setHost (fromString host) $
+                 setPort (fromIntegral port) defaultSettings
+    mTlsConfig = tlsParamsToWai <$> walletTLSParams
+
 webLogger :: Middleware
 webLogger
     | webLoggingEnabled = logStdoutDev
     | otherwise         = identity
 
-serveImpl :: MonadIO m => m Application -> String -> Word16 -> FilePath -> FilePath -> FilePath -> m ()
-serveImpl application host port walletTLSCert walletTLSKey walletTLSca =
-    liftIO . runTLS tlsConfig mySettings . webLogger =<< application
-  where
-    mySettings = setHost (fromString host) $
-                 setPort (fromIntegral port) defaultSettings
-    tlsConfig = tlsSettingsChain walletTLSCert [walletTLSca] walletTLSKey
-
-serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
-serveImplNoTLS application host port =
-    liftIO . runSettings mySettings . webLogger =<< application
-  where
-    mySettings = setHost (fromString host) $
-                 setPort (fromIntegral port) defaultSettings
-
+tlsParamsToWai :: TlsParams -> TLSSettings
+tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

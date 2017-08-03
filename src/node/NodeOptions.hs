@@ -18,8 +18,8 @@ import           Options.Applicative.Simple   (Parser, auto, execParser, footerD
                                                value)
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import qualified Text.Parsec.Char             as P
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
@@ -29,13 +29,15 @@ import           Pos.DHT.Model                (DHTKey)
 import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyOption,
                                                dhtNetworkAddressOption,
                                                dhtPeersFileOption)
-import           Pos.Network.Types            (NodeType (..), NodeId)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
+import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Security                 (AttackTarget, AttackType)
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
-import           Pos.Util.TimeWarp            (addressToNodeId, NetworkAddress, addrParser)
+import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
+                                               addressToNodeId)
+import           Pos.Web                      (TlsParams)
 
 data Args = Args
     { dbPath                    :: !FilePath
@@ -73,9 +75,7 @@ data Args = Args
 #ifdef WITH_WEB
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
-    , walletTLSCertPath         :: !FilePath
-    , walletTLSKeyPath          :: !FilePath
-    , walletTLSCAPath           :: !FilePath
+    , walletTLSParams           :: !TlsParams
 #ifdef WITH_WALLET
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
@@ -166,21 +166,7 @@ argsParser = do
         help "Activate web API (it’s not linked with a wallet web API)."
     webPort <-
         CLI.webPortOption 8080 "Port for web API."
-    walletTLSCertPath <- strOption $
-        long    "tlscert" <>
-        metavar "FILEPATH" <>
-        value   "server.crt" <>
-        help    "Path to file with TLS certificate"
-    walletTLSKeyPath <- strOption $
-        long    "tlskey" <>
-        metavar "FILEPATH" <>
-        value   "server.key" <>
-        help    "Path to file with TLS key"
-    walletTLSCAPath <- strOption $
-        long    "tlsca" <>
-        metavar "FILEPATH" <>
-        value   "ca.crt" <>
-        help    "Path to file with TLS certificate authority"
+    walletTLSParams <- CLI.tlsParamsOption
 #ifdef WITH_WALLET
     enableWallet <- switch $
         long "wallet" <>

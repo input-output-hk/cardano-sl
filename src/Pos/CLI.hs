@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
 
 -- | Module for command-line utilites, parsers and convenient handlers.
 
@@ -27,6 +28,7 @@ module Pos.CLI
 
        , sysStartOption
        , nodeIdOption
+       , tlsParamsOption
        ) where
 
 import           Universum
@@ -58,6 +60,9 @@ import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
+#ifdef WITH_WEB
+import           Pos.Web.Types                        (TlsParams (..))
+#endif
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -343,3 +348,30 @@ sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.help    helpMsg
   where
     helpMsg = "System start time. Format - seconds since Unix Epoch."
+
+#ifdef WITH_WEB
+tlsParamsOption :: Opt.Parser TlsParams
+tlsParamsOption = do
+    tpCertPath <-
+        Opt.strOption $
+            templateParser
+                "tlscert"
+                "FILEPATH"
+                "Path to file with TLS certificate"
+                <> Opt.value "server.crt"
+    tpKeyPath <-
+        Opt.strOption $
+            templateParser
+                "tlskey"
+                "FILEPATH"
+                "Path to file with TLS key"
+                <> Opt.value "server.key"
+    tpCaPath <-
+        Opt.strOption $
+            templateParser
+                "tlsca"
+                "FILEPATH"
+                "Path to file with TLS certificate authority"
+                <> Opt.value "ca.crt"
+    return TlsParams{..}
+#endif

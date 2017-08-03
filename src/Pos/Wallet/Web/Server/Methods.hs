@@ -166,7 +166,7 @@ import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInse
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds, rewrapTxError)
-import           Pos.Web.Server                   (serveImpl)
+import           Pos.Web                          (TlsParams, serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -203,9 +203,7 @@ walletServeImpl
     :: WalletWebMode m
     => m Application     -- ^ Application getter
     -> Word16            -- ^ Port to listen
-    -> FilePath          -- ^ TLS Certificate path
-    -> FilePath          -- ^ TLS Key file
-    -> FilePath          -- ^ TLS ca file
+    -> Maybe TlsParams
     -> m ()
 walletServeImpl app =
     serveImpl app "127.0.0.1"

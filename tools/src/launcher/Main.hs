@@ -14,7 +14,7 @@ import qualified Data.String.QQ               as Q
 import           Data.Version                 (showVersion)
 import qualified Filesystem.Path              as FP
 import           Filesystem.Path.CurrentOS    (encodeString)
-import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
+import           Options.Applicative          (Mod, OptionFields, Parser, auto,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
                                                metavar, option, progDesc, short,

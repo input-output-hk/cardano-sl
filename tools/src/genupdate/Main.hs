@@ -12,14 +12,13 @@ import           Data.List                    ((\\))
 import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
 import           Filesystem.Path              (filename)
-import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fullDesc,
-                                               help, helper, info, infoOption, long,
-                                               metavar, progDesc, short)
-import qualified Options.Applicative.Simple   as S
-import           Options.Applicative.Text     (textOption)
+import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
+                                               header, help, helper, info, infoOption,
+                                               long, metavar, option, progDesc, short)
+import           Options.Applicative.Types    (readerAsk)
 import           Paths_cardano_sl             (version)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Turtle                       hiding (f, s, toText)
+import           Turtle                       hiding (f, header, option, s, toText)
 import           Turtle.Prelude               (stat)
 import           Universum                    hiding (FilePath, fold)
 
@@ -45,13 +44,15 @@ optionsParser = do
         <> metavar "PATH"
         <> help    "Path to output .tar-file with diff."
     pure UpdateGenOptions{..}
+    where
+      textOption = option (toText <$> readerAsk)
 
 getUpdateGenOptions :: IO UpdateGenOptions
 getUpdateGenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc ("")
-                 <> S.header "Cardano SL updates generator."
+                 <> header "Cardano SL updates generator."
                  <> footerDoc usageExample
 
     versionOption = infoOption

@@ -126,7 +126,7 @@ library
                       , network-transport
                       , network-transport-tcp
                       , node-sketch
-                      , optparse-simple
+                      , optparse-applicative
                       , QuickCheck
                       , reflection
                       , serokell-util >= 0.1.3.4

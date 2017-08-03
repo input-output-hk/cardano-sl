@@ -10,8 +10,9 @@ import qualified Data.Text                    as T
 import           Data.Version                 (showVersion)
 import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
                                                header, help, helper, info, infoOption,
-                                               long, metavar, optional, progDesc, short)
-import           Options.Applicative.Text     (textOption)
+                                               long, metavar, option, optional, progDesc,
+                                               short)
+import           Options.Applicative.Types    (readerAsk)
 import qualified Serokell.Util.Base64         as B64
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
@@ -31,6 +32,8 @@ optionsParser = do
         <> help    "Address to convert. It must be in base64(url) format."
         <> metavar "STRING"
     return AddrConvertOptions{..}
+    where
+      textOption = option (toText <$> readerAsk)
 
 getAddrConvertOptions :: IO AddrConvertOptions
 getAddrConvertOptions = execParser programInfo

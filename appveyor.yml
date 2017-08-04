@@ -99,6 +99,7 @@ test_script:
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode
+      --flag cardano-sl:bench
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"

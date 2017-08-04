@@ -11,10 +11,11 @@ import           Universum
 
 import qualified Data.HashMap.Strict   as HM
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
-import           Test.Hspec.QuickCheck (prop, modifyMaxSuccess)
+import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (.&&.), (===))
 import           Data.Array.MArray     (newArray, readArray, writeArray)
 import           Data.Array.ST         (STUArray)
+import           Data.Reflection       (Reifies (..))
 import           Control.Monad.ST (ST, runST)
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, InvalidRichmenStakes (..),
@@ -35,7 +36,6 @@ spec = describe "computeSharesDistr" $ do
     prop allRichmenGetShareDesc allRichmenGetShares
     prop invalidStakeErrorsDesc invalidStakeErrors
     prop totalStakeZeroDesc totalStakeIsZero
-    prop validRichmenStakesWorksDesc validRichmenStakesWorks
     prop lrcConsistencyDesc lrcConsistency
 
     describe "Distribution is limited" $ do
@@ -49,8 +49,7 @@ spec = describe "computeSharesDistr" $ do
         prop severalSimilarRichmenDesc severalSimilarRichmen
         prop twentyRichmen1Desc twentyRichmen1
         prop twentyRichmen2Desc twentyRichmen2
-        modifyMaxSuccess (const 10) $
-            prop validateFairnessDesc validateFairness
+        prop validateFairnessDesc validateFairness
   where
     emptyRichmenStakesDesc = "Doesn't fail to calculate a share distribution when the richmen\
     \ stake is empty."
@@ -61,8 +60,6 @@ spec = describe "computeSharesDistr" $ do
     \ fails to be calculated."
     totalStakeZeroDesc = "If the total stake is zero, then the distribution fails to be\
     \ calculated"
-    validRichmenStakesWorksDesc = "Given a valid distribution of stake, calculating the\
-    \ distribution of shares successfully works."
     lrcConsistencyDesc = "computeSharesDistr's definition of richmen is\
     \ consistent with one used by LRC."
 
@@ -79,7 +76,12 @@ spec = describe "computeSharesDistr" $ do
     \ to test validity of @computeSharesDistr@"
     twentyRichmen1Desc = "20 richmen with similar stake to test fairness of generated distribution"
     twentyRichmen2Desc = "20 richmen with similar stake to test fairness of generated distribution"
-    validateFairnessDesc = "Given a valid richmen, validate fairness"
+    validateFairnessDesc = "Given a valid richmen, validate fairness and some reasonable statements"
+
+data TestMpcThd
+
+instance Reifies TestMpcThd CoinPortion where
+    reflect _ = testMpcThdPortition
 
 computeShares' :: RichmenStakes -> Either TossVerFailure SharesDistribution
 computeShares' stake = computeSharesDistrPure stake testMpcThdPortition
@@ -248,8 +250,14 @@ twentyRichmen2 = isDistrReasonableMax richmen $ computeShares' richmen
     less = map (\x -> 0.05 - x * 0.001) [1..10]
     richmen = richmenStakesFromFractions $ more ++ less
 
-validateFairness :: ValidRichmenStakes GenesisMpcThd -> Bool
-validateFairness (getValid -> richmen) = isDistrReasonableMax richmen $ computeShares' richmen
+validateFairness :: ValidRichmenStakes TestMpcThd -> Bool
+validateFairness (getValid -> richmen) =
+    all (\x -> x >= minStake && x > (mkCoin 0)) richmen
+    && isDistrReasonableMax richmen outputDistr
+  where
+    totalCoins = sumCoins $ HM.elems richmen
+    minStake = mkCoin . ceiling $ (fromIntegral totalCoins) * testMpcThd
+    outputDistr = computeShares' richmen
 
 ----------------------------------------------------------------------------
 -- Other tests
@@ -267,15 +275,6 @@ allRichmenGetShares (getValid -> richmen) =
         Left _ -> False
         Right result ->
             (HM.keys richmen) == (HM.keys result) && (all (/= 0) result)
-
-validRichmenStakesWorks :: ValidRichmenStakes GenesisMpcThd -> Bool
-validRichmenStakesWorks (getValid -> richmen) =
-    let outputStakeholder = computeShares' richmen
-        totalCoins = sumCoins $ HM.elems richmen
-        minStake = mkCoin . ceiling $ (fromIntegral totalCoins) * testMpcThd
-    in case outputStakeholder of
-        Left _  -> False
-        Right _ -> all (\x -> x >= minStake && x > (mkCoin 0)) richmen
 
 totalStakeIsZero :: ValidRichmenStakes GenesisMpcThd -> Bool
 totalStakeIsZero (getValid -> richmen) =

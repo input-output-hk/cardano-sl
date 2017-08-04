@@ -29,6 +29,7 @@ import           Pos.DB.DB            (initNodeDBs)
 import           Pos.DB.Sum           (DBSum (..))
 import           Pos.GState           (GStateContext (..))
 import qualified Pos.GState           as GS
+import           Pos.KnownPeers       (MonadFormatPeers (..))
 import           Pos.Launcher         (newInitFuture)
 import           Pos.Lrc.Context      (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting         (HasSlottingVar (..))
@@ -44,6 +45,7 @@ data TBlockGenContext = TBlockGenContext
     }
 
 makeLensesWith postfixLFields ''TBlockGenContext
+
 type TBlockGenMode = ReaderT TBlockGenContext Production
 
 runTBlockGenMode :: TBlockGenContext -> TBlockGenMode a -> Production a
@@ -119,3 +121,6 @@ instance
   where
     dbPutBlund = BDB.dbPutBlundSumDefault
 
+-- | In TBlockGenMode we don't have a queue available (we do no comms)
+instance MonadFormatPeers TBlockGenMode where
+    formatKnownPeers _ = return Nothing

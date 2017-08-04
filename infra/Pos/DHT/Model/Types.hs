@@ -13,8 +13,6 @@ module Pos.DHT.Model.Types
        -- * Parsers
        , dhtKeyParser
        , dhtNodeParser
-
-       , dhtNodeToNodeId
        ) where
 
 import qualified Control.Monad               as Monad (fail)
@@ -33,9 +31,8 @@ import qualified Text.Parsec.Char            as P
 import qualified Text.Parsec.String          as P
 import           Universum
 
-import           Pos.Communication.Protocol  (NodeId)
 import           Pos.Crypto.Random           (runSecureRandom)
-import           Pos.Util.TimeWarp           (NetworkAddress, addrParser, addressToNodeId)
+import           Pos.Util.TimeWarp           (NetworkAddress, addrParser)
 
 -- | Data type for DHT exceptions.
 data DHTException = NodeDown | AllPeersUnavailable
@@ -109,14 +106,3 @@ dhtKeyParser = P.base64Url >>= toDHTKey
 -- | Parser for 'DHTNode'.
 dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
-
--- | FIXME this is flimsy. It assumes that the node has a TCP server running
---   at the same host/port of its Kademlia instance, and that its 0'th EndPoint
---   is the desired target.
---
---   TBD would storing the opaque NodeId (a ByteString) as a value in the DHT,
---   keyed on the Kademlia ID of its host, work well?
-dhtNodeToNodeId :: DHTNode -> (DHTKey, NodeId)
-dhtNodeToNodeId dhtNode =
-    let twNodeId = addressToNodeId . dhtAddr $ dhtNode
-    in  (dhtNodeId dhtNode, twNodeId)

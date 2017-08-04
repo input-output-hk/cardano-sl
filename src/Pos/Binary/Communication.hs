@@ -10,12 +10,13 @@ import           Universum
 import           Node.Message.Class               (MessageName (..))
 
 import           Pos.Binary.Block                 ()
-import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..), deriveSimpleBi,
-                                                   serialize', encodeListLen, enforceSize, deserialize')
+import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
+                                                   deriveSimpleBi, deserialize',
+                                                   encodeListLen, enforceSize, serialize')
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
-                                                   VerInfo (..))
+                                                   MsgSubscribe (..), VerInfo (..))
 import           Pos.Core                         (BlockVersion, HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 
@@ -50,6 +51,16 @@ instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
   encode (MsgBlock b) = encode b
   decode = MsgBlock <$> decode
+
+-- deriveSimpleBi is not happy with constructors without arguments
+-- "fake" deriving as per `MempoolMsg`.
+-- TODO: Shall we encode this as `CBOR` TkNull?
+instance Bi MsgSubscribe where
+  encode MsgSubscribe = encode (42 :: Word8)
+  decode = do
+    x <- decode @Word8
+    when (x /= 42) $ fail "wrong byte"
+    pure MsgSubscribe
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related

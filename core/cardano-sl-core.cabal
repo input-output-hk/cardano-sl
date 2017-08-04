@@ -176,7 +176,6 @@ library
                      , universum
                      , unordered-containers
                      , vector
-                     , witherable
                      , yaml
 
   default-language:    Haskell2010

@@ -345,7 +345,9 @@ spawnNode (path, args, mbLogPath) = do
     mbPh <- liftIO $ timeout 5000000 (takeMVar phvar)
     case mbPh of
         Nothing -> error "couldn't run the node (it didn't start after 5s)"
-        Just ph -> return (ph, asc, logPath)
+        Just ph -> do
+            putText "Node started"
+            return (ph, asc, logPath)
 
 runWallet :: (FilePath, [Text]) -> IO ExitCode
 runWallet (path, args) = do

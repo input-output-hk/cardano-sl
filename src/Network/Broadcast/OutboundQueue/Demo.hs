@@ -99,7 +99,6 @@ relayDemo = do
 
     setPeers nodeC3 [nodeC4]
 
-
     runEnqueue $ do
 
       block "* Basic relay test: edge to core" [nodeR] $ do
@@ -158,7 +157,7 @@ data Node = Node {
       nodeType    :: NodeType
     , nodeId      :: NodeId
     , nodeMsgPool :: MVar (Set MsgId)
-    , nodeOutQ    :: OutboundQ MsgObj_ NodeId
+    , nodeOutQ    :: OutboundQ MsgObj_ NodeId ()
     }
 
 -- | Create a new node, and spawn dequeue worker and forwarding listener
@@ -211,8 +210,10 @@ nodeForwardListener node = forever $ do
     received  = sformat (shown % ": received "  % formatMsg) (nodeId node)
     discarded = sformat (shown % ": discarded " % formatMsg) (nodeId node)
 
+-- | Set the peers of a node
 setPeers :: Node -> [Node] -> IO ()
-setPeers peersOf = OutQ.addKnownPeers (nodeOutQ peersOf) . simplePeers
+setPeers peersOf peers =
+    OutQ.updatePeersBucket (nodeOutQ peersOf) () (\_ -> simplePeers peers)
 
 simplePeers :: [Node] -> OutQ.Peers NodeId
 simplePeers = OutQ.simplePeers . map (\n -> (nodeType n, nodeId n))

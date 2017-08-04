@@ -37,12 +37,10 @@ import           Pos.Update.Context  (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode, WorkMode)
-#ifdef WITH_WEB
-import           Pos.Web             (serveWebGT)
 #ifdef WITH_WALLET
+import           Pos.Web             (serveWebGT)
 import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                       runWRealMode, walletServeWebFull, walletServerOuts)
-#endif
 #endif
 
 import           NodeOptions         (Args (..), getNodeOptions)
@@ -109,7 +107,7 @@ actionWithWallet = error "actionWithWallet"
 
 #endif
 
-#ifdef WITH_WEB
+#ifdef WITH_WALLET
 pluginsGT ::
     ( WorkMode SscGodTossing ctx m
     , HasNodeContext SscGodTossing ctx
@@ -128,9 +126,6 @@ printFlags = do
     if isDevelopment
         then putText "[Attention] We are in DEV mode"
         else putText "[Attention] We are in PRODUCTION mode"
-#ifdef WITH_WEB
-    putText "[Attention] Software is built with web part"
-#endif
 #ifdef WITH_WALLET
     putText "[Attention] Software is built with wallet part"
 #endif
@@ -165,7 +160,7 @@ action args@Args {..} = do
 
     let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
         sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
-#if defined(WITH_WALLET) && defined(WITH_WEB)
+#if defined(WITH_WALLET)
     let userWantsWallet = enableWallet
 #else
     let userWantsWallet = False

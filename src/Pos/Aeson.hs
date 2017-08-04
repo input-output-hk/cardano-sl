@@ -6,13 +6,11 @@ module Pos.Aeson
        (
        ) where
 
-#ifdef WITH_WEB
+#ifdef WITH_WALLET
 import           Pos.Aeson.Crypto        ()
 import           Pos.Aeson.Types         ()
-#ifdef WITH_WALLET
 import           Pos.Aeson.ClientTypes   ()
 import           Pos.Aeson.WalletBackup  ()
-#endif
 #endif
 
 import           Pos.Aeson.CompileConfig ()

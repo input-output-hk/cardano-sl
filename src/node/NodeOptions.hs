@@ -70,19 +70,17 @@ data Args = Args
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
     , kademliaDumpPath          :: !FilePath
-#ifdef WITH_WEB
+#ifdef WITH_WALLET
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
     , walletTLSCertPath         :: !FilePath
     , walletTLSKeyPath          :: !FilePath
     , walletTLSCAPath           :: !FilePath
-#ifdef WITH_WALLET
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
     , walletDbPath              :: !FilePath
     , walletRebuildDb           :: !Bool
     , walletDebug               :: !Bool
-#endif
 #endif
     , commonArgs                :: !CLI.CommonArgs
     , updateLatestPath          :: !FilePath
@@ -160,7 +158,7 @@ argsParser = do
         value   "kademlia.dump" <>
         help    "Path to Kademlia dump file. If file doesn't exist, it will be created." <>
         showDefault
-#ifdef WITH_WEB
+#ifdef WITH_WALLET
     enableWeb <- switch $
         long "web" <>
         help "Activate web API (it’s not linked with a wallet web API)."
@@ -181,7 +179,6 @@ argsParser = do
         metavar "FILEPATH" <>
         value   "ca.crt" <>
         help    "Path to file with TLS certificate authority"
-#ifdef WITH_WALLET
     enableWallet <- switch $
         long "wallet" <>
         help "Activate Wallet web API."
@@ -199,7 +196,6 @@ argsParser = do
         long "wallet-debug" <>
         help "Run wallet with debug params (e.g. include \
              \all the genesis keys in the set of secret keys)."
-#endif
 #endif
     commonArgs <- CLI.commonArgsParser
     updateLatestPath <- strOption $

@@ -189,8 +189,8 @@ if [[ $for_installer == true ]]; then
   commonargs="$commonargs --flag cardano-sl-tools:for-installer"
 fi
 
-if [[ $wallet == false ]]; then
-  commonargs="$commonargs --flag cardano-sl:-with-wallet"
+if [[ $wallet == true ]]; then
+  commonargs="$commonargs --flag cardano-sl:with-wallet"
 fi
 
 # CONFIG = dev, prod, or wallet

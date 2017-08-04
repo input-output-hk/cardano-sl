@@ -12,12 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-Flag with-web
-  default:     True
-  manual:      True
-
-  description: Build with web part.
-
 Flag with-wallet
   default:     True
   manual:      True
@@ -140,14 +134,24 @@ library
 
                         -- Needed for testing
                         Pos.Arbitrary.Explorer
-  if flag(with-web)
-    exposed-modules:    Pos.Web
   if flag(with-wallet)
-    exposed-modules:    Pos.Wallet
-  if flag(with-wallet) && flag(with-web)
-    exposed-modules:    Pos.Wallet.Web
-  if flag(with-web) || flag(with-explorer)
+    exposed-modules:
+                        Pos.Aeson.Crypto
+                        Pos.Aeson.Types
+                        Pos.Wallet
+                        Pos.Wallet.Redirect
+                        Pos.Wallet.WalletMode
+                        Pos.Wallet.Web
+                        Pos.Wallet.SscType
+                        Pos.Web
+                        Pos.Web.Api
+                        Pos.Web.Mode
+                        Pos.Web.Server
+                        Pos.Web.Types
+
+  if flag(with-wallet) || flag(with-explorer)
     exposed-modules:    Pos.Util.Servant
+
   other-modules:        Pos.Aeson.CompileConfig
 
                         -- Binary serialization
@@ -297,19 +301,7 @@ library
                         Pos.Explorer.DB
                         Pos.Explorer.BListener
 
-  if flag(with-web)
-    other-modules:      Pos.Aeson.Crypto
-                        Pos.Aeson.Types
-                        Pos.Web.Api
-                        Pos.Web.Mode
-                        Pos.Web.Server
-                        Pos.Web.Types
   if flag(with-wallet)
-    exposed-modules:
-                        Pos.Wallet.Redirect
-                        Pos.Wallet.WalletMode
-                        Pos.Wallet.SscType
-  if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Aeson.WalletBackup
                         Pos.Wallet.Web.Account
@@ -431,7 +423,7 @@ library
   if !os(windows)
     build-depends:      unix
 
-  if flag(with-web)
+  if flag(with-wallet)
     build-depends:      http-types
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
@@ -479,8 +471,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
   if flag(with-explorer)
@@ -558,8 +548,6 @@ executable cardano-node
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 

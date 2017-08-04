@@ -11,12 +11,6 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
-Flag with-web
-  default:     True
-  manual:      True
-
-  description: Build with web part.
-
 Flag with-wallet
   default:     True
   manual:      True
@@ -140,13 +134,13 @@ executable cardano-wallet-hs2purs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet) && flag(with-web)
+  if flag(with-wallet)
     buildable:         True
   else
     buildable:         False
 
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
+  if flag(with-wallet)
+    cpp-options: -DWITH_WALLET
 
 executable cardano-dht-keygen
   hs-source-dirs:      src/dht-keygen
@@ -255,7 +249,7 @@ executable cardano-swagger
   if flag(for-installer)
     buildable: False
 
-  if !flag(with-wallet) || !flag(with-web)
+  if !flag(with-wallet)
     buildable: False
 
 executable cardano-genupdate

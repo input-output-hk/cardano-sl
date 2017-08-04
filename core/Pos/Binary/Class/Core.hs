@@ -322,13 +322,13 @@ encodeMapSkel size foldrWithKey =
 -- See: https://tools.ietf.org/html/rfc7049#section-3.9
 -- "[..]The keys in every map must be sorted lowest value to highest.[...]"
 decodeMapSkel :: (Ord k, Bi k, Bi v) => ([(k,v)] -> m) -> D.Decoder s m
-decodeMapSkel fromList = do
+decodeMapSkel fromDistinctDescList = do
   n <- D.decodeMapLen
   case n of
-      0 -> return (fromList mempty)
+      0 -> return (fromDistinctDescList [])
       _ -> do
           (firstKey, firstValue) <- decodeEntry
-          fromList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
+          fromDistinctDescList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
   where
     -- Decode a single (k,v).
     decodeEntry :: (Bi k, Bi v) => D.Decoder s (k,v)
@@ -338,14 +338,18 @@ decodeMapSkel fromList = do
         return (k, v)
 
     -- Decode all the entries, enforcing canonicity by ensuring that the
-    -- previous key is smaller or equal than the next one.
+    -- previous key is smaller than the next one.
     decodeEntries :: (Bi k, Bi v, Ord k) => Int -> k -> [(k,v)] -> D.Decoder s [(k,v)]
-    decodeEntries 0 _ acc = return (reverse acc)
+    decodeEntries 0 _ acc = pure acc
     decodeEntries !remainingPairs previousKey !acc = do
         p@(newKey, _) <- decodeEntry
-        case newKey < previousKey of
-            True  -> fail "Canonicity violation whilst decoding a Map!"
-            False -> decodeEntries (remainingPairs - 1) newKey (p : acc)
+        -- Order of keys needs to be strictly increasing, because otherwise it's
+        -- possible to supply lists with various amount of duplicate keys which
+        -- will result in the same map as long as the last value of the given
+        -- key on the list is the same in all of them.
+        case newKey > previousKey of
+            True  -> decodeEntries (remainingPairs - 1) newKey (p : acc)
+            False -> fail "Canonicity violation whilst decoding a Map!"
 {-# INLINE decodeMapSkel #-}
 
 instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
@@ -357,7 +361,7 @@ instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
 
 instance (Ord k, Bi k, Bi v) => Bi (Map k v) where
   encode = encodeMapSkel M.size M.foldrWithKey
-  decode = decodeMapSkel M.fromAscList
+  decode = decodeMapSkel M.fromDistinctDescList
 
 encodeSetSkel :: Bi a
               => (s -> Int)
@@ -386,22 +390,25 @@ decodeSetTag = do
     when (t /= setTag) $ fail ("decodeSetTag: this doesn't appear to be a Set. Found tag: " <> show t)
 
 decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> D.Decoder s c
-decodeSetSkel fromList = do
+decodeSetSkel fromDistinctDescList = do
   decodeSetTag
   n <- D.decodeListLen
   case n of
-      0 -> return (fromList mempty)
+      0 -> return (fromDistinctDescList [])
       _ -> do
           firstValue <- decode
-          fromList <$> decodeEntries (n - 1) firstValue [firstValue]
+          fromDistinctDescList <$> decodeEntries (n - 1) firstValue [firstValue]
   where
     decodeEntries :: (Bi v, Ord v) => Int -> v -> [v] -> D.Decoder s [v]
-    decodeEntries 0 _ acc = return (reverse acc)
+    decodeEntries 0 _ acc = pure acc
     decodeEntries !remainingEntries previousValue !acc = do
         newValue <- decode
-        case newValue < previousValue of
-            True  -> fail "Canonicity violation whilst decoding a Set!"
-            False -> decodeEntries (remainingEntries - 1) newValue (newValue : acc)
+        -- Order of values needs to be strictly increasing, because otherwise
+        -- it's possible to supply lists with various amount of duplicates which
+        -- will result in the same set.
+        case newValue > previousValue of
+            True  -> decodeEntries (remainingEntries - 1) newValue (newValue : acc)
+            False -> fail "Canonicity violation whilst decoding a Set!"
 {-# INLINE decodeSetSkel #-}
 
 instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
@@ -413,7 +420,7 @@ instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
 
 instance (Ord a, Bi a) => Bi (Set a) where
   encode = encodeSetSkel S.size S.foldr
-  decode = decodeSetSkel S.fromAscList
+  decode = decodeSetSkel S.fromDistinctDescList
 
 -- | Generic encoder for vectors. Its intended use is to allow easy
 -- definition of 'Serialise' instances for custom vector

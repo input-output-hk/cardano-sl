@@ -26,7 +26,7 @@ deriveSimpleBi ''User [
     Cons 'FullName [
         Field [| firstName :: String |],
         Field [| lastName  :: String |],
-        Unused 'sex
+        Field [| sex       :: Bool   |]
     ]]
 
 will generate:
@@ -38,7 +38,7 @@ instance Bi User where
                                        <> encode (age val)
         val@FullName{} -> encodeListLen 3 <> encode (1 :: Word8)
                                           <> encode (firstName val)
-                                          <> encode (age val)
+                                          <> encode (sex val)
     decode = do
         expectedLen <- decodeListLen
         tag <- decode @Word8
@@ -51,8 +51,8 @@ instance Bi User where
             1 -> do
                 matchSize 3 "FullName" expectedLen
                 firstName <- decode
-                lastName <- decode
-                let sex = def
+                lastName  <- decode
+                sex       <- decode
                 pure $ FullName {..}
             _ -> fail ("Found invalid tag while getting User")
 -}
@@ -66,17 +66,16 @@ module Pos.Binary.Class.TH
 import           Universum
 
 import           Control.Lens          (imap)
-import           Data.Default          (def)
-import           Data.List             (notElem, nubBy, partition)
+import           Data.List             (notElem, nubBy)
 import qualified Data.Text             as T
 import           Formatting            (sformat, shown, (%))
 import           Language.Haskell.TH
 import           TH.ReifySimple        (DataCon (..), DataType (..), reifyDataType)
 import           TH.Utilities          (plainInstanceD)
 
-import qualified Pos.Binary.Class.Core as Bi
-import qualified Codec.CBOR.Encoding   as Cbor
 import qualified Codec.CBOR.Decoding   as Cbor
+import qualified Codec.CBOR.Encoding   as Cbor
+import qualified Pos.Binary.Class.Core as Bi
 
 data Cons = Cons
     { -- | Name of a constructor.
@@ -92,12 +91,6 @@ data Field
       fFieldAndType :: ExpQ
     -- ^ You're expected to write something like @[|foo :: Bar|]@ here
     }
-    | Unused {
-    -- ^ The constructor means that you don't want
-    -- a field to participate in serialisation/deserialization
-      fName :: Name
-    -- ^ Name of unused field
-    }
 
 -- | Turn something like @[|foo :: Bar|]@ into @(foo, Bar)@.
 expToNameAndType :: ExpQ -> Q (Name, Type)
@@ -108,15 +101,13 @@ expToNameAndType ex = ex >>= \case
                               <> show other
 
 fieldToPair :: Field -> Q (Name, Maybe Type)
-fieldToPair (Unused nm) = pure (nm, Nothing)
 fieldToPair (Field ex)  = over _2 Just <$> expToNameAndType ex
 
 -- Some part of code copied from
 -- https://hackage.haskell.org/package/store-0.4.3.1/docs/src/Data-Store-TH-Internal.html#makeStore
 
 -- | Takes the name of datatype and constructors of datatype and generates Bi instances.
--- You should pass all constructors explicitly. Also, you should pass all fields explicitly,
--- each of them should be @Field@ or @Unused@,
+-- You should pass all constructors explicitly. Also, you should pass all fields explicitly.
 -- and the real type of field and the passed (in the Field) type should be same.
 -- All field of datatype should be named explicitly.
 -- The numbers of constructors must be at least one and at most 255.
@@ -172,7 +163,7 @@ deriveSimpleBi headTy constrs = do
 
     -- Constructor and its used fields.
     filteredConstrs :: [Cons]
-    filteredConstrs = map (\Cons{..} -> Cons cName (filter isUsed cFields)) constrs
+    filteredConstrs = map (\Cons{..} -> Cons cName cFields) constrs
 
     -- Useful variables for @size@, @put@, @get@ --
     tagType :: TypeQ
@@ -181,10 +172,6 @@ deriveSimpleBi headTy constrs = do
     -- Helpers --
     failText :: MonadFail m => T.Text -> m a
     failText = fail . toString
-
-    isUsed :: Field -> Bool
-    isUsed (Unused _) = False
-    isUsed _          = True
 
     -- Decode definition --
     biEncodeExpr :: Q Exp
@@ -222,7 +209,6 @@ deriveSimpleBi headTy constrs = do
     encodeField val Field{..} = do
         (fName, _) <- expToNameAndType fFieldAndType
         [| Bi.encode ($(varE fName) $val) |]
-    encodeField _  (Unused _) = fail "Something went wrong: encode Unused field"
 
     actualLen :: Name
     actualLen = mkName "actualLen"
@@ -260,29 +246,26 @@ deriveSimpleBi headTy constrs = do
             , noBindS (appE (varE 'pure) (conE name))
             ]
     biDecodeConstr Cons{..} = do
-        let (usedFields, unusedFields) = partition isUsed cFields
-
-        let usedFieldsNum        = length usedFields
+        let usedFieldsNum        = length cFields
         let prettyName :: String = show cName
         let expectedLen          = varE actualLen
         -- We need to take into account the possibility we are dealing
         -- with a "tagged" encoding or not.
         let tagsIfAny :: Int = if length constrs >= 2 then 1 else 0
 
-        fieldNames :: [Name] <- mapM (fmap fst . fieldToPair) usedFields
+        fieldNames :: [Name] <- mapM (fmap fst . fieldToPair) cFields
         varNames   :: [Name] <- mapM (newName . nameBase) fieldNames
         varPs :: [Pat] <- mapM varP varNames
         biGets :: [Exp] <- replicateM (length varPs) [| Bi.decode |]
         bindExprs :: [Stmt] <- mapM (uncurry bindS . bimap pure pure) (zip varPs biGets)
         let recWildUsedVars = map (\(f, ex) -> (f,) <$> varE ex) $ zip fieldNames varNames
-        let recWildUnusedVars = map (\f -> (fName f,) <$> [| def |]) unusedFields
         -- The +1 is because we need to take into account the tag we used to discriminate on the
         -- different constructors in the encoding phase.
         let lenCheck = noBindS [| Bi.matchSize (usedFieldsNum + tagsIfAny) ("biDecodeConstr@" <> prettyName) $expectedLen |]
         recordWildCardReturn <- noBindS $
                                 appE (varE 'pure) $
                                 recConE cName $
-                                recWildUsedVars ++ recWildUnusedVars
+                                recWildUsedVars
         doE $ lenCheck : (map pure bindExprs ++ [pure recordWildCardReturn])
 
 makeBiInstanceTH :: Type -> Exp -> Exp -> [Dec]

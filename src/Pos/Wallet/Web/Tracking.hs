@@ -52,7 +52,7 @@ import           Pos.Block.Core             (Block, BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
-import           Pos.Client.Txp.History     (TxHistoryEntry (..))
+import           Pos.Client.Txp.History     (TxHistoryEntry (..), mergeTxOuts)
 import           Pos.Constants              (genesisHash)
 import           Pos.Context                (BlkSemaphore, GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                   (AddrPkAttrs (..), Address (..),
@@ -332,15 +332,15 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _) = taTx
             txId = hash tx
 
-        resolvedInputs <- catMaybes <$> mapM (\tin -> fmap (tin, ) <$> utxoGet tin) inps
+        resolvedInputs <- catMaybes <$> mapM (\tin -> (tin, ) <<$>> utxoGet tin) inps
         let txOutgoings = map txOutAddress outs
-            txInputs = map (toaOut . snd) resolvedInputs
+            txInputs = mergeTxOuts $ map (toaOut . snd) resolvedInputs
             txIncomings = map txOutAddress txInputs
 
             ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
             ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
                          zip3 [0..] outs (NE.toList $ getTxDistribution taDistribution)
-            ownInpAddrMetas = map snd ownInputs
+            ownInpAddrMetas = ordNub $ map snd ownInputs
             ownOutAddrMetas = map snd ownOutputs
             ownTxIns = map (fst . fst) ownInputs
             ownTxOuts = map (toTxInOut txId . fst) ownOutputs

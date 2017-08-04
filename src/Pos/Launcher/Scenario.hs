@@ -16,7 +16,7 @@ import           Control.Lens        (views)
 import           Development.GitRev  (gitBranch, gitHash)
 import           Ether.Internal      (HasLens (..))
 import           Formatting          (build, sformat, shown, (%))
-import           Mockable            (fork)
+import           Mockable            (race, mapConcurrently)
 import           Serokell.Util.Text  (listJson)
 import           System.Exit         (ExitCode (..))
 import           System.Wlog         (WithLogger, getLoggerName, logError, logInfo,
@@ -29,17 +29,17 @@ import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), No
                                       genesisStakeholdersM, getOurPubKeyAddress,
                                       getOurPublicKey)
 import qualified Pos.GState          as GS
+import           Pos.Shutdown.Logic (waitForShutdown)
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
-import           Pos.Shutdown        (waitForWorkers)
 import           Pos.Slotting        (waitSystemStart)
 import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Types           (addressHash)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.LogSafe    (logInfoS)
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Worker          (allWorkers, allWorkersCount)
+import           Pos.Worker          (allWorkers)
 import           Pos.WorkMode.Class  (WorkMode)
 
 -- | Entry point of full node.
@@ -81,12 +81,14 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
-    mapM_ (fork . unpackPlugin) plugins'
 
-    nc <- view nodeContext
-
-    -- Instead of sleeping forever, we wait until graceful shutdown
-    waitForWorkers (allWorkersCount @ssc nc)
+    -- Either all the plugins are cancelled in the case one of them
+    -- throws an error, or otherwise when the shutdown signal comes,
+    -- they are killed automatically.
+    void
+      (race
+           (void (mapConcurrently (unpackPlugin) plugins'))
+           waitForShutdown)
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?

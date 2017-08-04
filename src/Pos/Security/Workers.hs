@@ -36,7 +36,6 @@ import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
 import           Pos.DB.DB                  (getTipHeader, loadBlundsFromTipByDepth)
 import           Pos.Reporting.Methods      (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Security.Class         (SecurityWorkersClass (..))
-import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getLastKnownSlotDuration,
                                              onNewSlot)
 import           Pos.Ssc.Class              (SscWorkersClass)
@@ -126,7 +125,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
         reportEclipse
-    repeatOnInterval delF action = runIfNotShutdown $ do
+    repeatOnInterval delF action = void $ do
         () <- action
         getLastKnownSlotDuration >>= delay . delF
         repeatOnInterval delF action

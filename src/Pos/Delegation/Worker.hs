@@ -19,7 +19,7 @@ import           Pos.Delegation.Logic       (invalidateProxyCaches,
 import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Reporting.Methods      (reportingFatal)
-import           Pos.Shutdown               (HasShutdownContext, runIfNotShutdown)
+import           Pos.Shutdown               (HasShutdownContext)
 import           Pos.Util                   (microsecondsToUTC)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -42,7 +42,7 @@ dlgInvalidateCaches
        , Mockable CurrentTime m
        )
     => m ()
-dlgInvalidateCaches = runIfNotShutdown $ do
+dlgInvalidateCaches = do
     reportingFatal invalidate `catch` handler
     delay (sec 1)
     dlgInvalidateCaches

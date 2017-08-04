@@ -40,7 +40,7 @@ prepareLrcIssuers _ =
     unlessM isInitialized $ putIssuersStakes (EpochIndex 0) mempty
 
 isInitialized :: MonadDB m => m Bool
-isInitialized = (isJust @(Maybe IssuersStakes)) <$> getBi (issuersKey $ EpochIndex 0)
+isInitialized = (isJust @IssuersStakes) <$> getBi (issuersKey $ EpochIndex 0)
 
 ----------------------------------------------------------------------------
 -- Keys

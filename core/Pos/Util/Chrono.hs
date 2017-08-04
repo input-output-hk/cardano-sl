@@ -21,7 +21,6 @@ import qualified Control.Lens       as Lens (Each (..))
 import           Data.Binary        (Binary)
 import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup     (Semigroup)
-import           Data.Witherable    (Witherable (..))
 import qualified GHC.Exts           as IL
 import           Test.QuickCheck    (Arbitrary)
 
@@ -48,12 +47,6 @@ makeWrapped ''OldestFirst
 
 deriving instance Semigroup (f a) => Semigroup (NewestFirst f a)
 deriving instance Semigroup (f a) => Semigroup (OldestFirst f a)
-
-instance Witherable t => Witherable (NewestFirst t) where
-    mapMaybe f = over _Wrapped (mapMaybe f)
-
-instance Witherable t => Witherable (OldestFirst t) where
-    mapMaybe f = over _Wrapped (mapMaybe f)
 
 instance Lens.Each (f a) (f b) a b =>
          Lens.Each (NewestFirst f a) (NewestFirst f b) a b where

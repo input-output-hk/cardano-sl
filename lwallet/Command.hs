@@ -38,7 +38,9 @@ data SendMode =
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
-    | SendToAllGenesis !Int !Int !Int !Int !SendMode !FilePath
+    | SendToAllGenesis !Int !Int !Int !SendMode !FilePath
+      -- ^ In-order: number of txs to send per-thread, number of threads, and
+      -- delay (milliseconds) between sends.
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -136,7 +138,7 @@ sendMode = lexeme $ text "neighbours" $> SendNeighbours
                 <|> text "send-random" $> SendRandom
 
 sendToAllGenesis :: Parser Command
-sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
+sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash

@@ -65,7 +65,7 @@ import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (computeTxFee)
-import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
+import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Context                      (GenesisUtxo)
@@ -80,7 +80,6 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
@@ -571,11 +570,10 @@ sendMoney
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
-sendMoney sendActions passphrase moneySource dstDistr = do
+sendMoney SendActions{..} passphrase moneySource dstDistr = do
     addrMetas' <- getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
-    na <- getPeers
     sks <- forM addrMetas $ getSKByAccAddr passphrase
     srcAddrs <- forM addrMetas $ decodeCIdOrFail . cwamId
 
@@ -584,7 +582,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
         relatedAccount <- getSomeMoneySourceAccount moneySource
         outputs <- coinDistrToOutputs dstDistr
         TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
-            submitMTx sendActions hdwSigner (toList na) outputs (relatedAccount, passphrase)
+            submitMTx enqueueMsg hdwSigner outputs (relatedAccount, passphrase)
 
         ownUtxo <- getOwnUtxos $ toList srcAddrs
         let txHash    = hash tx
@@ -918,7 +916,7 @@ redeemAdaInternal
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal sendActions passphrase cAccId seedBs = do
+redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCAccountIdOrFail cAccId
@@ -928,10 +926,9 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstAddr <- decodeCIdOrFail . cadId =<<
                newAddress RandomSeed passphrase accId
-    na <- getPeers
     (TxAux {..}, redeemAddress, redeemBalance) <-
         rewrapTxError "Cannot send redemption transaction" $
-        submitRedemptionTx sendActions redeemSK (toList na) dstAddr
+        submitRedemptionTx enqueueMsg redeemSK dstAddr
     -- add redemption transaction to the history of new wallet
     let txInputs = [TxOut redeemAddress redeemBalance]
     ts <- Just <$> getCurrentTimestamp

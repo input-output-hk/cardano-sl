@@ -126,7 +126,8 @@ createGenesisBlockAndApply epoch =
 
 createGenesisBlockDo
     :: forall ssc ctx m.
-       (MonadCreateBlock ssc ctx m, MonadBlockApply ssc ctx m)
+       ( MonadCreateBlock ssc ctx m
+       , MonadBlockApply ssc ctx m)
     => EpochIndex
     -> SlotLeaders
     -> HeaderHash
@@ -301,7 +302,8 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
 -- the block we applied (usually it's the same as the argument, but
 -- can differ if verification fails).
 applyCreatedBlock ::
-       forall ssc ctx m. (MonadBlockApply ssc ctx m, MonadCreateBlock ssc ctx m)
+       forall ssc ctx m. ( MonadBlockApply ssc ctx m
+                         , MonadCreateBlock ssc ctx m)
     => ProxySKBlockInfo
     -> MainBlock ssc
     -> m (MainBlock ssc)

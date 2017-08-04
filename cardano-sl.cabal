@@ -86,7 +86,6 @@ library
                         Pos.Security.Workers
 
                         -- SSC
-
                         Pos.Ssc.GodTossing
                         Pos.Ssc.SscAlgo
 
@@ -112,6 +111,7 @@ library
                         Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
+                        Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
 
                         -- Wallets
@@ -362,6 +362,7 @@ library
                       , digest
                       , directory
                       , dlist
+                      , dns
                       , ed25519
                       , ekg
                       , ekg-core
@@ -379,6 +380,7 @@ library
                       , http-client
                       , http-client-tls
                       , http-conduit
+                      , iproute
                       , kademlia
                       , lens
                       , list-t
@@ -393,6 +395,7 @@ library
                       , mtl
                       , neat-interpolation
                       , network-info >= 0.2.0.8
+                      , network-transport
                       , network-transport-tcp
                       , node-sketch >= 0.1.0.0
                       , optparse-applicative

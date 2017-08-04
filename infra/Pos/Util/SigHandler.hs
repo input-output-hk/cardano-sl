@@ -13,66 +13,24 @@ import           System.IO.Unsafe     (unsafePerformIO)
 import qualified Data.Map.Strict      as Map
 import qualified System.Posix.Signals as Posix
 
-data Signal =
-      SigABRT
-    | SigALRM
-    | SigBUS
-    | SigCHLD
-    | SigCONT
-    | SigFPE
-    | SigHUP
-    | SigILL
-    | SigINT
-    | SigKILL
-    | SigPIPE
-    | SigQUIT
-    | SigSEGV
-    | SigSTOP
-    | SigTERM
-    | SigTSTP
-    | SigTTIN
-    | SigTTOU
-    | SigUSR1
-    | SigUSR2
-    | SigPOLL
-    | SigPROF
-    | SigSYS
-    | SigTRAP
-    | SigURG
-    | SigVTALRM
-    | SigXCPU
-    | SigXFSZ
+{-------------------------------------------------------------------------------
+  Enumeratate signals
+
+  (The unix package doesn't use an enumeration but just uses numbers.)
+  We don't list all supported signals because these are not available on
+  all platforms; instead, we just introduce them when we need them.
+-------------------------------------------------------------------------------}
+
+-- | POSIX signal
+data Signal = SigHUP
   deriving (Show, Eq, Ord)
 
 toPosixSignal :: Signal -> Posix.Signal
-toPosixSignal SigABRT   = Posix.sigABRT
-toPosixSignal SigALRM   = Posix.sigALRM
-toPosixSignal SigBUS    = Posix.sigBUS
-toPosixSignal SigCHLD   = Posix.sigCHLD
-toPosixSignal SigCONT   = Posix.sigCONT
-toPosixSignal SigFPE    = Posix.sigFPE
-toPosixSignal SigHUP    = Posix.sigHUP
-toPosixSignal SigILL    = Posix.sigILL
-toPosixSignal SigINT    = Posix.sigINT
-toPosixSignal SigKILL   = Posix.sigKILL
-toPosixSignal SigPIPE   = Posix.sigPIPE
-toPosixSignal SigQUIT   = Posix.sigQUIT
-toPosixSignal SigSEGV   = Posix.sigSEGV
-toPosixSignal SigSTOP   = Posix.sigSTOP
-toPosixSignal SigTERM   = Posix.sigTERM
-toPosixSignal SigTSTP   = Posix.sigTSTP
-toPosixSignal SigTTIN   = Posix.sigTTIN
-toPosixSignal SigTTOU   = Posix.sigTTOU
-toPosixSignal SigUSR1   = Posix.sigUSR1
-toPosixSignal SigUSR2   = Posix.sigUSR2
-toPosixSignal SigPOLL   = Posix.sigPOLL
-toPosixSignal SigPROF   = Posix.sigPROF
-toPosixSignal SigSYS    = Posix.sigSYS
-toPosixSignal SigTRAP   = Posix.sigTRAP
-toPosixSignal SigURG    = Posix.sigURG
-toPosixSignal SigVTALRM = Posix.sigVTALRM
-toPosixSignal SigXCPU   = Posix.sigXCPU
-toPosixSignal SigXFSZ   = Posix.sigXFSZ
+toPosixSignal SigHUP = Posix.sigHUP
+
+{-------------------------------------------------------------------------------
+  Internal but global state
+-------------------------------------------------------------------------------}
 
 -- | The old Posix handlers (before we installed our own)
 regOldHandlers :: MVar (Map Signal Posix.Handler)
@@ -88,6 +46,10 @@ regAllHandlers = unsafePerformIO $ newMVar Map.empty
 delegationHandler :: Signal -> IO ()
 delegationHandler signal =
     sequence_ =<< Map.findWithDefault [] signal <$> readMVar regAllHandlers
+
+{-------------------------------------------------------------------------------
+  Public API
+-------------------------------------------------------------------------------}
 
 -- | Install handler for given signal
 --

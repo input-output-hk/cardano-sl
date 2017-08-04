@@ -197,17 +197,17 @@ computeSharesDistrPure richmen threshold
     computeError1 _ _ [] = 0
     computeError1 real generated (x:xs)
         | real > half = 0
-        | generated > half && real < half =
-            max (generated - real) (computeError2 (real + fst x) (generated + snd x) xs)
-        | otherwise = computeError2 (real + fst x) (generated + snd x) xs
+        | generated > half && real <= half =
+            max (generated - real) (computeError1 (real + fst x) (generated + snd x) xs)
+        | otherwise = computeError1 (real + fst x) (generated + snd x) xs
 
      -- Error when real stake is more than 0.5 but generated stake is less
     computeError2 _ _ [] = 0
     computeError2 real generated (x:xs)
         | generated > half = 0
-        | generated < half && real > half =
-            max (real - generated) (computeError1 (real + fst x) (generated + snd x) xs)
-        | otherwise = computeError1 (real + fst x) (generated + snd x) xs
+        | generated <= half && real > half =
+            max (real - generated) (computeError2 (real + fst x) (generated + snd x) xs)
+        | otherwise = computeError2 (real + fst x) (generated + snd x) xs
 
 
     multPortions :: [Rational] -> Word16 -> [Word16]

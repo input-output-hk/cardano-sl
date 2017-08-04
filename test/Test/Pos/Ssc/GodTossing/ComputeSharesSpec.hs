@@ -1,14 +1,21 @@
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Specification of Pos.Ssc.GodTossing.Toss.Base.computeSharesdistr
 
 module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
        ( spec
        ) where
 
+import           Universum
+
 import qualified Data.HashMap.Strict   as HM
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop, modifyMaxSuccess)
 import           Test.QuickCheck       (Property, (.&&.), (===))
-import           Universum
+import           Data.Array.MArray     (newArray, readArray, writeArray)
+import           Data.Array.ST         (STUArray)
+import           Control.Monad.ST (ST, runST)
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, InvalidRichmenStakes (..),
                                         ValidRichmenStakes (..))
@@ -87,10 +94,7 @@ testMpcThdPortition = unsafeCoinPortionFromDouble testMpcThd
 isLimitedBy :: Word16 -> SharesDistribution -> Bool
 isLimitedBy mx sd = sum (toList sd) <= mx
 
--- This type describes the
--- (max inaccuracy, number of bad cases of the first type, number of bad cases of the second type)
--- More details see in the @isDistrFair@ description.
-type Unfairness = (Rational, Int, Int)
+type Knapsack s = STUArray s Word16 Int
 
 -- We will call distribution fair, if the max inaccuracy is less than 0.05
 -- and number of bad cases is less than 5% of all 2^n cases.
@@ -104,56 +108,61 @@ type Unfairness = (Rational, Int, Int)
 -- We estimate inaccuracy as difference between real distribution and
 -- generated.
 isDistrFair :: RichmenStakes -> SharesDistribution -> Bool
-isDistrFair rs sd
-    | length rs > 20 = error "Too many richmen"
-    | otherwise = do
-        let n = length rs
-        let totalCases = toRational (2::Int)^n :: Rational
-        let fivePerc = 0.05 :: Rational
-        let totalCoins = sum $ map unsafeGetCoin $ toList rs
-        let totalDistr = sum (toList sd)
-        let stakeholders = HM.keys rs
-        let distrs = map (findStk totalCoins totalDistr) stakeholders
-        let !(er, firstCase, secondCase) = fairBrute distrs 0 0
-        --error $ show (er, firstCase, secondCase)
-        er < sharesDistrInaccuracy &&
-            toRational firstCase < totalCases * fivePerc &&
-            toRational secondCase < totalCases * fivePerc
+isDistrFair (HM.map unsafeGetCoin -> rs) sd = do
+    let !totalDistr = sum sd
+    let !totalCoins = sum rs
+    let stakeholders = HM.keys rs
+    let coinsNDistr = map findStk stakeholders
+    let !maxEr = fairKnapsack (totalCoins, totalDistr) coinsNDistr
+    maxEr < sharesDistrInaccuracy
   where
-    fairBrute :: [(Rational, Rational)] -> Rational -> Rational -> Unfairness
-    fairBrute [] real generated = computeUnfairness real generated
-    fairBrute ((r, g):xs) !real !generated
-        -- We get the situation when both these values are greater than 0.5,
-        -- so we can't get some unfairness afterwards.
-        | real > 0.5 && generated > 0.5 = (0, 0, 0)
-        | otherwise = do
-            let !whenNodeOffline = fairBrute xs real generated
-            let !whenNodeOnline  = fairBrute xs (real + r) (generated + g)
-            whenNodeOnline `combineUnfair` whenNodeOffline
-    divRat a b = toRational a / toRational b
-    findStk :: Word64 -> Word16 -> StakeholderId -> (Rational, Rational)
-    findStk totalCoins totalDistr stId = do
-        let rFrac = fromMaybe (error "Real stake isn't found")
-                              (unsafeGetCoin <$> HM.lookup stId rs) `divRat` totalCoins
-        let gFrac = fromMaybe (error "Distribution isn't found")
-                              (HM.lookup stId sd) `divRat` totalDistr
-        (rFrac, gFrac)
+    -- ATTENTION: IMPERATIVE CODE! PROTECT YOUR EYES! --
+    fairKnapsack :: (Word64, Word16) -> [(Word64, Word16)] -> Double
+    fairKnapsack (fromIntegral -> totalCoins, totalDistr) (map (first fromIntegral) -> coinsNDistr) = runST $ do
+        let halfDistr = totalDistr `div` 2 + 1
+        let invalid = totalCoins + 1 :: Int
+        dpMax <- newArray (0, totalDistr) (-invalid) :: ST s (Knapsack s)
+        dpMin <- newArray (0, totalDistr) invalid    :: ST s (Knapsack s)
+        writeArray dpMax 0 0
+        writeArray dpMin 0 0
+        let relax dp coins w nw cmp = do
+                dpW <- readArray dp w
+                dpNw <- readArray dp nw
+                when ((dpW + coins) `cmp` dpNw) $
+                    writeArray dp nw (dpW + coins)
 
-    combineUnfair (er1, c1, c2) (er2, c3, c4) =
-        (max er1 er2, c1 + c3, c2 + c4)
-    computeUnfairness :: Rational -> Rational -> Unfairness
-    computeUnfairness real generated
-        -- Strictly say constant 0.5 depends on number of shares required
-        -- to reveal of commitment.
-        -- Bad case of the first type is
-        -- nodes can reveal commitment using shares
-        -- but real coin distribution says that nodes can't do it.
-        | real < 0.5 && generated > 0.5 = (generated - real, 1, 0)
-        -- Bad case of the second type is
-        -- nodes can't reveal commitment using shares of honest nodes
-        -- but real coin distribution says that nodes can do it.
-        | real > 0.5 && generated < 0.5 = (real - generated, 0, 1)
-        | otherwise = (0, 0, 0)
+        let weights = [totalDistr-1, totalDistr-2..0]
+        forM_ coinsNDistr $ \(coins, distr) -> do
+            forM_ weights $ \w -> when (w + distr <= totalDistr) $ do
+                relax dpMax coins w (w + distr) (>)
+                relax dpMin coins w (w + distr) (<)
+
+        let computeError :: Word16 -> Int -> Double
+            computeError i sCoins = abs $
+                fromIntegral i / fromIntegral totalDistr -
+                fromIntegral sCoins / fromIntegral totalCoins
+        let selectMax = flip execStateT 0.0 $ forM_ [0..totalDistr] $ \i -> do
+                if | i < halfDistr -> do
+                    -- Bad case of the second type is
+                    -- nodes can't reveal commitment using shares of honest nodes
+                    -- but real coin distribution says that nodes can do it.
+                        sCoins <- lift (readArray dpMax i)
+                        when (2 * sCoins > totalCoins) $
+                            modify $ max $ computeError i sCoins
+                   | otherwise                -> do
+                    -- Bad case of the first type is
+                    -- nodes can reveal commitment using shares
+                    -- but real coin distribution says that nodes can't do it.
+                        sCoins <- lift (readArray dpMin i)
+                        when (2 * sCoins <= totalCoins) $
+                            modify $ max $ computeError i sCoins
+        selectMax
+
+    findStk :: StakeholderId -> (Word64, Word16)
+    findStk stId = do
+        let r = fromMaybe (error "Real stake isn't found") (HM.lookup stId rs)
+        let g = fromMaybe (error "Distribution isn't found") (HM.lookup stId sd)
+        (r, g)
 
 isDistrReasonable :: Word16 -> RichmenStakes -> Either TossVerFailure SharesDistribution -> Bool
 isDistrReasonable _ _ (Left _) = False

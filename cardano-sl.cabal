@@ -623,6 +623,7 @@ test-suite cardano-test
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
+                     , array
                      , base
                      , bytestring
                      , cardano-sl-core

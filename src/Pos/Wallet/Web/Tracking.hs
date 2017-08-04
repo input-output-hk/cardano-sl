@@ -44,8 +44,9 @@ import qualified Data.Text.Buildable
 import qualified Ether
 import           Formatting                 (bprint, build, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
-import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
+import           Serokell.Util              (listJson, listJsonIndent)
+import           System.Wlog                (WithLogger, logInfo, logWarning,
+                                             modifyLoggerName)
 
 import           Pos.Block.Core             (Block, BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
@@ -130,14 +131,18 @@ instance Monoid CAccModifier where
 instance Buildable CAccModifier where
     build CAccModifier{..} =
         bprint
-            (  "added accounts: "%listJson
-            %", deleted accounts: "%listJson
-            %", used address: "%listJson
-            %", change address: "%listJson)
+            ( "\n    added addresses: "%listJsonIndent 8
+            %",\n    deleted addresses: "%listJsonIndent 8
+            %",\n    used addresses: "%listJson
+            %",\n    change addresses: "%listJson
+            %",\n    added txs: "%listJsonIndent 8
+            %",\n    removed txs: "%listJsonIndent 8)
         (sortedInsertions camAddresses)
         (indexedDeletions camAddresses)
         (map (fst . fst) $ MM.insertions camUsed)
         (map (fst . fst) $ MM.insertions camChange)
+        camAddedHistory
+        camDeletedHistory
 
 type BlockLockMode ssc m =
     ( WithLogger m
@@ -211,7 +216,8 @@ syncWalletWithGStateUnsafe
     , WithLogger m)
     => EncryptedSecretKey
     -> m ()
-syncWalletWithGStateUnsafe encSK = do
+syncWalletWithGStateUnsafe encSK = modifyLoggerName (<> "wallet" <> "sync") $ do
+    logWarning "Mega ololo!"
     tipHeader <- DB.getTipHeader @(Block ssc)
     slottingData <- GS.getSlottingData
 
@@ -265,14 +271,14 @@ syncWalletWithGStateUnsafe encSK = do
 
                     mapModifier@CAccModifier{..} <- computeAccModifier genesisUtxo wHeader
                     applyModifierToWallet wAddr (headerHash tipHeader) mapModifier
-                    logDebug $ sformat ("Wallet "%build%" has been synced with tip "
-                                        %shortHashF%", "%build)
+                    logInfo $ sformat ("Wallet "%build%" has been synced with tip "
+                                       %shortHashF%", "%build)
                         wAddr wTip mapModifier
 
         computeAccModifier :: Utxo -> BlockHeader ssc -> m CAccModifier
         computeAccModifier genUtxo wHeader = do
             allAddresses <- getWalletAddrMetasDB Ever wAddr
-            logDebug $
+            logInfo $
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader tipHeader
             if | diff tipHeader > diff wHeader -> runDBTxp $ evalGenesisToil genUtxo $ do
@@ -295,7 +301,7 @@ syncWalletWithGStateUnsafe encSK = do
 
     whenJustM (WS.getWalletSyncTip wAddr) $ \wTip ->
         if | wTip == genesisHash && headerHash tipHeader == genesisHash ->
-               logDebug $ sformat ("Wallet "%build%" at genesis state, synced") wAddr
+               logInfo $ sformat ("Wallet "%build%" at genesis state, synced") wAddr
            | otherwise -> sync wTip
 
 -- Process transactions on block application,
@@ -561,11 +567,11 @@ getWalletAddrMetasDB lookupMode cWalId = do
 --     -> m [CWAddressMeta]
 -- syncAddressesWithUtxoUnsafe tip encSKs = do
 --     let (hdPass, wAddr) = unzip $ map getEncInfo encSKs
---     logDebug $ sformat ("Sync addresses with Utxo: tip "%build%" for "%listJson) tip wAddr
+--     logInfo $ sformat ("Sync addresses with Utxo: tip "%build%" for "%listJson) tip wAddr
 --     addresses <- discoverHDAddresses hdPass
 --     let allAddresses = concatMap createWAddresses $ zip wAddr addresses
 --     mapM_ addMetaInfo allAddresses
---     logDebug (sformat ("After syncing with Utxo addresses was added: "%listJson) allAddresses)
+--     logInfo (sformat ("After syncing with Utxo addresses was added: "%listJson) allAddresses)
 --     pure allAddresses
 --   where
 --     createWAddresses :: (CId Wal, [(Address, [Word32])]) -> [CWAddressMeta]

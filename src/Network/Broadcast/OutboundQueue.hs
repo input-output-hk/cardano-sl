@@ -71,6 +71,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Either (rights)
+import Data.Foldable (fold)
 import Data.Maybe (maybeToList)
 import Data.Map.Strict (Map)
 import Data.Set (Set)
@@ -438,10 +439,9 @@ data OutboundQ msg nid buck = forall self .
 
       -- | Buckets with known peers
       --
-      -- Invariant: this map must have an entry for every bucket (it is
-      -- morally equivalent to @buck -> Bucket nid@, but that would not allow
-      -- us to get all buckets easily).
-    , qBuckets :: Map buck (Bucket nid)
+      -- NOTE: When taking multiple MVars at the same time, qBuckets must be
+      -- taken first (lock ordering).
+    , qBuckets :: MVar (Map buck (Peers nid))
 
       -- | Recent communication failures
     , qFailures :: MVar (Failures nid)
@@ -477,8 +477,6 @@ new :: forall m msg nid buck self.
        , Show nid
        , Show self
        , Ord buck
-       , Enum buck
-       , Bounded buck
        )
     => self -- ^ Showable identifier of this node, for logging purposes.
     -> EnqueuePolicy nid
@@ -488,7 +486,7 @@ new :: forall m msg nid buck self.
 new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
     qInFlight  <- newMVar Map.empty
     qScheduled <- MQ.new
-    qBuckets   <- Map.fromList <$> mapM mkBucket [minBound .. maxBound]
+    qBuckets   <- newMVar Map.empty
     qCtrlMsg   <- newEmptyMVar
     qFailures  <- newMVar Set.empty
 
@@ -503,9 +501,6 @@ new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
     qSignal <- newSignal checkCtrlMsg
 
     return OutQ{..}
-  where
-    mkBucket :: buck -> IO (buck, Bucket nid)
-    mkBucket buck = (\mvar -> (buck, Bucket mvar)) <$> newMVar mempty
 
 {-------------------------------------------------------------------------------
   Interpreter for the enqueing policy
@@ -1044,32 +1039,40 @@ flush OutQ{..} = liftIO $ do
   queue again.
 -------------------------------------------------------------------------------}
 
-newtype Bucket nid = Bucket { bucketMVar :: MVar (Peers nid) }
-
 -- | Internal method: read all buckets of peers
 getAllPeers :: MonadIO m => OutboundQ msg nid buck -> m (Peers nid)
-getAllPeers OutQ{..} = liftIO $
-    mconcat <$> mapM (readMVar . bucketMVar) (Map.elems qBuckets)
+getAllPeers OutQ{..} = liftIO $ fold <$> readMVar qBuckets
 
 -- | Update a bucket of peers
 --
--- NOTE: Any messages to peers that no longer exist in _any_ bucket will be
+-- Any messages to peers that no longer exist in _any_ bucket will be
 -- removed from the queue.
-updatePeersBucket :: MonadIO m
+--
+-- It is assumed that every bucket is modified by exactly one thread.
+-- Provided that assumption is true, then we guarantee the invariant that if
+-- thread @T@ adds node @n@ to its (private) bucket and then enqueues a message,
+-- that message will not be deleted because another thread happened to remove
+-- node @n@ from _their_ bucket.
+updatePeersBucket :: forall m msg nid buck. MonadIO m
                   => OutboundQ msg nid buck
                   -> buck
                   -> (Peers nid -> Peers nid)
                   -> m ()
-updatePeersBucket outQ@OutQ{..} buck f = do
-    before <- getAllPeers outQ
-    let Bucket bucket = qBuckets Map.! buck
-    applyMVar_ bucket f
-    after <- getAllPeers outQ
-    let removed = peersToSet before Set.\\ peersToSet after
-    forM_ removed $ \nid -> do
-      applyMVar_ qInFlight $ at nid .~ Nothing
-      applyMVar_ qFailures $ Set.delete nid
-      liftIO $ MQ.removeAllIn (KeyByDest nid) qScheduled
+updatePeersBucket OutQ{..} buck f = liftIO $
+    modifyMVar_ qBuckets $ \buckets -> do
+      let before   = fold buckets
+          buckets' = Map.alter f' buck buckets
+          after    = fold buckets'
+          removed  = peersToSet before Set.\\ peersToSet after
+      forM_ removed $ \nid -> do
+        applyMVar_ qInFlight $ at nid .~ Nothing
+        applyMVar_ qFailures $ Set.delete nid
+        MQ.removeAllIn (KeyByDest nid) qScheduled
+      return buckets'
+  where
+    f' :: Maybe (Peers nid) -> Maybe (Peers nid)
+    f' Nothing      = Just $ f mempty
+    f' (Just peers) = Just $ f peers
 
 {-------------------------------------------------------------------------------
   Auxiliary: starting and registering threads

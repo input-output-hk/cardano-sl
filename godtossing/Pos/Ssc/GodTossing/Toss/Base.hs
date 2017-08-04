@@ -16,6 +16,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        , computeParticipants
        , computeSharesDistrPure
        , computeSharesDistr
+       , computeDistrInaccuracy
        , sharesDistrInaccuracy
 
        -- * Payload processing
@@ -32,13 +33,15 @@ module Pos.Ssc.GodTossing.Toss.Base
 import           Universum
 
 import           Control.Monad.Except            (MonadError (throwError))
-import           Control.Monad.State             (get, put)
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
 import qualified Data.List.NonEmpty              as NE
 import           Formatting                      (ords, sformat, (%))
 import           System.Wlog                     (logWarning)
+import           Data.Array.MArray               (newArray, readArray, writeArray)
+import           Data.Array.ST                   (STUArray)
+import           Control.Monad.ST                (ST, runST)
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Core                        (CoinPortion, EpochIndex, StakeholderId,
@@ -136,6 +139,58 @@ computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 sharesDistrInaccuracy :: Fractional a => a
 sharesDistrInaccuracy = 0.05
 
+-- | Internal type for work with Coin.
+type CoinUnsafe = Int
+
+-- | Types represents one dimensional array
+-- used for knapsack algorithm in the @computeDistrInaccuracy@
+type Knapsack s = STUArray s Word16 CoinUnsafe
+
+-- ATTENTION: IMPERATIVE CODE! PROTECT YOUR EYES! --
+-- | Compute inaccuracy betwee real distribution and generared.
+-- It take O(totalDistr * length consNDistr) time.
+computeDistrInaccuracy :: (CoinUnsafe, Word16) -> [(CoinUnsafe, Word16)] -> Double
+computeDistrInaccuracy (totalCoins, totalDistr) coinsNDistr = runST $ do
+    let halfDistr = totalDistr `div` 2 + 1
+    let invalid = totalCoins + 1 :: Int
+    dpMax <- newArray (0, totalDistr) (-invalid) :: ST s (Knapsack s)
+    dpMin <- newArray (0, totalDistr) invalid    :: ST s (Knapsack s)
+    writeArray dpMax 0 0
+    writeArray dpMin 0 0
+
+    let relax dp coins w nw cmp = do
+            dpW <- readArray dp w
+            dpNw <- readArray dp nw
+            when ((dpW + coins) `cmp` dpNw) $
+                writeArray dp nw (dpW + coins)
+
+    let weights = [totalDistr-1, totalDistr-2..0]
+    forM_ coinsNDistr $ \(coins, distr) -> do
+        forM_ weights $ \w -> when (w + distr <= totalDistr) $ do
+            relax dpMax coins w (w + distr) (>)
+            relax dpMin coins w (w + distr) (<)
+
+    let computeError :: Word16 -> Int -> Double
+        computeError i sCoins = abs $
+            fromIntegral i / fromIntegral totalDistr -
+            fromIntegral sCoins / fromIntegral totalCoins
+    let selectMax = flip execStateT 0.0 $ forM_ [0..totalDistr] $ \i -> do
+            if | i < halfDistr -> do
+                -- Bad case of the second type is
+                -- nodes can't reveal commitment using shares of honest nodes
+                -- but real coin distribution says that nodes can do it.
+                    sCoins <- lift (readArray dpMax i)
+                    when (2 * sCoins > totalCoins) $
+                        modify $ max $ computeError i sCoins
+                | otherwise                -> do
+                -- Bad case of the first type is
+                -- nodes can reveal commitment using shares
+                -- but real coin distribution says that nodes can't do it.
+                    sCoins <- lift (readArray dpMin i)
+                    when (2 * sCoins <= totalCoins) $
+                        modify $ max $ computeError i sCoins
+    selectMax
+
 computeSharesDistrPure
     :: MonadError TossVerFailure m
     => RichmenStakes
@@ -144,77 +199,54 @@ computeSharesDistrPure
 computeSharesDistrPure richmen threshold
     | null richmen = pure mempty
     | otherwise = do
-        let total :: Word64
-            total = sum $ map unsafeGetCoin $ toList richmen
-        when (total == 0) $
+        when (totalCoins == 0) $
             throwError $ TossInternallError "Richmen total stake equals zero"
-        let epsilon = sharesDistrInaccuracy::Rational
         -- We accept error in computation = 0.05,
         -- so stakeholders must have at least 55% of stake (for reveal secret) in the worst case
         let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
-        let fromX = 1
+        let fromX = ceiling $ 1.0 / minimum portions
         let toX = truncate $ toRational (3::Int) / mpcThreshold
 
         let keys = map fst $ HM.toList richmen
-        let portions = map ((`divRat` total) . unsafeGetCoin . snd) $ HM.toList richmen
-        unless (all (>= mpcThreshold) portions) $
+        unless (all ((>= mpcThreshold) . toRational) portions) $
             throwError $ TossInternallError "Richmen stakes less than threshsold"
 
-        let init = normalize $ multPortions portions toX
-        let initS = sum init
-        let initDelta = calcSumError (map (`divRat` initS) init) portions
-        (_, _, res) <-
-                execStateT (compute fromX toX epsilon portions) (initDelta, initS, init)
-        pure $ HM.fromList $ zip keys res
+        case compute fromX toX 0 of
+            Nothing -> throwError $ TossInternallError "There is no appropriate distribution"
+            Just res -> pure $ HM.fromList $ zip keys res
   where
+    sharesDistrInaccuracyR = sharesDistrInaccuracy :: Double
+
+    coins :: [CoinUnsafe]
+    coins = map (fromIntegral . unsafeGetCoin) (toList richmen)
+
+    portions :: [Double]
+    portions = map ((/ fromIntegral totalCoins) . fromIntegral) coins
+
+    totalCoins :: CoinUnsafe
+    totalCoins = sum coins
+
     -- We multiply all portions by mult and divide them on their gcd
     --     we get commitment distribution
     -- compute sum difference between real portions and current portions
     -- select optimum using next strategy:
     --   * if sum error < epsilon - we try minimize sum of commitments
     --   * otherwise we try minimize sum error
-    compute fromX toX epsilon portions = for_ [fromX..toX] $ \x -> do
-        let curDistrN = multPortions portions x
-        when (all (> 0) curDistrN) $ do
+    compute :: Word16 -> Word16 -> Word16 -> Maybe [Word16]
+    compute !x !toX !prevSum
+        | x > toX = Nothing
+        | otherwise = do
+            let curDistrN = multPortions x
             let curDistr = normalize curDistrN
             let !s = sum curDistr
-            let curPortions = map (`divRat` s) curDistr
-            let delta = calcSumError portions curPortions
-            (optDelta, optS, _) <- get
-            -- if delta less than epsilon then we try minimize sum of commitments
-            when (delta <= epsilon && s < optS ||
-                    -- otherwise we try minimize sum error of rounding
-                    delta <= optDelta && delta > epsilon) $
-                    put (delta, s, curDistr)
+            if s == prevSum then compute (x + 1) toX prevSum
+            else do
+                let curInaccuracy = computeDistrInaccuracy (totalCoins, s) (zip coins curDistr)
+                if curInaccuracy <= sharesDistrInaccuracyR then Just curDistr
+                else compute (x + 1) toX s
 
-    calcSumError:: [Rational] -> [Rational] -> Rational
-    calcSumError p pGen = do
-        let sorted = sortOn (\(r, g) -> r - g) (zip p pGen)
-        max (computeError1 0 0 sorted) (computeError2 0 0 $ reverse sorted)
-
-    half = 0.5::Rational
-    -- Error wheh real stake is less than 0.5 but generated is stake more
-    computeError1 _ _ [] = 0
-    computeError1 real generated (x:xs)
-        | real > half = 0
-        | generated > half && real <= half =
-            max (generated - real) (computeError1 (real + fst x) (generated + snd x) xs)
-        | otherwise = computeError1 (real + fst x) (generated + snd x) xs
-
-     -- Error when real stake is more than 0.5 but generated stake is less
-    computeError2 _ _ [] = 0
-    computeError2 real generated (x:xs)
-        | generated > half = 0
-        | generated <= half && real > half =
-            max (real - generated) (computeError2 (real + fst x) (generated + snd x) xs)
-        | otherwise = computeError2 (real + fst x) (generated + snd x) xs
-
-
-    multPortions :: [Rational] -> Word16 -> [Word16]
-    multPortions p (toRational -> mult) = map (truncate . (* mult)) p
-
-    divRat :: (Real a, Real b) => a -> b -> Rational
-    divRat x y = toRational x / toRational y
+    multPortions :: Word16 -> [Word16]
+    multPortions mult = map (truncate . (fromIntegral mult *)) portions
 
     normalize :: [Word16] -> [Word16]
     normalize x = let g = listGCD x in map (`div` g) x
@@ -406,8 +438,6 @@ checkPayload epoch payload = do
     -- It's ok, because empty commitments are always valid.
     -- And it certainly makes sense, because commitments check requires us to
     -- compute 'SharesDistribution' which might expensive.
-    -- Apart from that there is another important reason for it: currently
-    -- 'computeSharesDistr' is quite broken. See [CSL-1283] for details.
     case payload of
         CommitmentsPayload comms _
             | null comms -> pass

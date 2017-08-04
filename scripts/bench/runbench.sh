@@ -9,7 +9,7 @@
 # 
 # > tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
 #
-#   300         number of seconds it runs for
+#   300         number of transactions to send per thread
 #   $CONC       number of threads
 #   500         number of msec wait after sending a transaction (per thread)
 #   neighbours  send transaction to every neighbour

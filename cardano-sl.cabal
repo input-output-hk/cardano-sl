@@ -86,7 +86,6 @@ library
                         Pos.Security.Workers
 
                         -- SSC
-
                         Pos.Ssc.GodTossing
                         Pos.Ssc.SscAlgo
 
@@ -112,6 +111,7 @@ library
                         Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
+                        Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
 
                         -- Wallets
@@ -342,7 +342,7 @@ library
                       , binary
                       , bytestring
                       , cardano-crypto
-                      , cardano-report-server >= 0.2.0
+                      , cardano-report-server >= 0.2.1
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-godtossing
@@ -362,6 +362,7 @@ library
                       , digest
                       , directory
                       , dlist
+                      , dns
                       , ed25519
                       , ekg
                       , ekg-core
@@ -379,6 +380,7 @@ library
                       , http-client
                       , http-client-tls
                       , http-conduit
+                      , iproute
                       , kademlia
                       , lens
                       , list-t
@@ -393,6 +395,7 @@ library
                       , mtl
                       , neat-interpolation
                       , network-info >= 0.2.0.8
+                      , network-transport
                       , network-transport-tcp
                       , node-sketch >= 0.1.0.0
                       , optparse-applicative
@@ -410,7 +413,6 @@ library
                       , stm-containers
                       , tagged
                       , template-haskell
-                      , temporary >= 1.2.0.4
                       , text
                       , text-format
                       , th-lift-instances
@@ -419,7 +421,6 @@ library
                       , transformers
                       , transformers-base
                       , transformers-lift
-                      , turtle
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
@@ -661,7 +662,6 @@ test-suite cardano-test
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
-                     , temporary
                      , text-format
                      , time-units
                      , transformers-base

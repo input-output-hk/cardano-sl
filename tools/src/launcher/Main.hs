@@ -7,34 +7,34 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Concurrent           (modifyMVar_)
-import           Control.Concurrent.Async     (Async, cancel, poll, waitAny,
+import           Control.Concurrent.Async     (Async, async, cancel, poll, wait, waitAny,
                                                withAsyncWithUnmask)
 import           Data.List                    (isSuffixOf)
 import qualified Data.String.QQ               as Q
+import qualified Data.Text.IO                 as T
+import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
-import qualified Filesystem.Path              as FP
-import           Filesystem.Path.CurrentOS    (encodeString)
+import           Formatting                   (format, int, shown, stext, text, (%))
 import           Options.Applicative          (Mod, OptionFields, Parser, auto,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
                                                metavar, option, progDesc, short,
                                                strOption)
-import           System.Directory             (getTemporaryDirectory)
+import           Pos.Util                     (directory, sleep)
+import           System.Directory             (createDirectoryIfMissing, doesFileExist,
+                                               getTemporaryDirectory, removeFile)
 import           System.Environment           (getExecutablePath)
-import           System.FilePath              ((</>))
+import           System.Exit                  (ExitCode (..))
+import           System.FilePath              (normalise, (</>))
 import qualified System.IO                    as IO
-import           System.Process               (ProcessHandle)
+import           System.Process               (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
 import           System.Wlog                  (lcFilePrefix)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Turtle                       (ExitCode (..), FilePath, Line, Shell,
-                                               appendonly, d, echo, fork, format, fp,
-                                               mktemp, mktree, outhandle, printf, proc,
-                                               rm, s, sh, sleep, testfile, wait, (%))
-import           Universum                    hiding (FilePath)
+import           Universum
 
--- Modules needed for the “Turtle internals” session
+-- Modules needed for system'
 import           Control.Exception            (handle, mask_, throwIO)
 import           Foreign.C.Error              (Errno (..), ePIPE)
 import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
@@ -171,23 +171,23 @@ main = do
     let realNodeArgs = case loNodeLogConfig of
             Nothing -> loNodeArgs
             Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    sh $ case loWalletPath of
-             Nothing -> do
-                 echo "Running in the server scenario"
-                 serverScenario
-                     loNodeLogConfig
-                     (loNodePath, realNodeArgs, loNodeLogPath)
-                     (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
-                     loReportServer
-             Just wpath -> do
-                 echo "Running in the client scenario"
-                 clientScenario
-                     loNodeLogConfig
-                     (loNodePath, realNodeArgs, loNodeLogPath)
-                     (wpath, loWalletArgs)
-                     (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
-                     loNodeTimeoutSec
-                     loReportServer
+    case loWalletPath of
+        Nothing -> do
+            putText "Running in the server scenario"
+            serverScenario
+                loNodeLogConfig
+                (loNodePath, realNodeArgs, loNodeLogPath)
+                (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
+                loReportServer
+        Just wpath -> do
+            putText "Running in the client scenario"
+            clientScenario
+                loNodeLogConfig
+                (loNodePath, realNodeArgs, loNodeLogPath)
+                (wpath, loWalletArgs)
+                (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
+                loNodeTimeoutSec
+                loReportServer
 
 -- | If we are on server, we want the following algorithm:
 --
@@ -200,17 +200,17 @@ serverScenario
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Maybe String                        -- ^ Report server
-    -> Shell ()
+    -> IO ()
 serverScenario logConf node updater report = do
     runUpdater updater
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync, nodeLog) <- spawnNode node
     exitCode <- wait nodeAsync
-    printf ("The node has exited with "%s%"\n") (show exitCode)
+    putStrLn $ format ("The node has exited with "%shown) exitCode
     if exitCode == ExitFailure 20
         then serverScenario logConf node updater report
         else whenJust report $ \repServ -> do
-                 printf ("Sending logs to "%s%"\n") (toText repServ)
+                 TL.putStrLn $ format ("Sending logs to "%stext) (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
 
 -- | If we are on desktop, we want the following algorithm:
@@ -226,54 +226,42 @@ clientScenario
     -- ^ Updater, args, updater runner, the update .tar
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
-    -> Shell ()
+    -> IO ()
 clientScenario logConf node wallet updater nodeTimeout report = do
     runUpdater updater
-    -- I don't know why but a process started with turtle just can't be
-    -- killed, so let's use 'terminateProcess' and modified 'system'
     (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
-    walletAsync <- fork (runWallet wallet)
+    walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
-             printf ("The node has exited with "%s%"\n") (show exitCode)
+             TL.putStrLn $ format ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
-                 printf ("Sending logs to "%s%"\n") (toText repServ)
+                 TL.putStrLn $ format ("Sending logs to "%stext) (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
-             echo "Waiting for the wallet to die"
+             putText "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
-             echo "The wallet has exited with code 20"
-             printf ("Killing the node in "%d%" seconds\n") nodeTimeout
+             putText "The wallet has exited with code 20"
+             TL.putStrLn $ format ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
-             echo "Killing the node now"
+             putText "Killing the node now"
              liftIO $ do
                  Process.terminateProcess nodeHandle
                  cancel nodeAsync
              clientScenario logConf node wallet updater nodeTimeout report
        | otherwise -> do
-             printf ("The wallet has exited with "%s%"\n") (show exitCode)
+             TL.putStrLn $ format ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
-             echo "Killing the node"
+             putText "Killing the node"
              liftIO $ do
                  Process.terminateProcess nodeHandle
                  cancel nodeAsync
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> Shell ()
+runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> IO ()
 runUpdater (path, args, runnerPath, updateArchive) = do
-    {-
-    exists <- testfile path
-    if not exists then
-      -- See DAEF-12
-        printf ("The updater at "%fp%" doesn't exist, skipping the update\n")
-               path
-        return ()
-    else
-    -}
-
-    whenM (testfile path) $ do
-        echo "Running the updater"
+    whenM (doesFileExist path) $ do
+        putText "Running the updater"
         let args' = args ++ maybe [] (one . toText) updateArchive
         exitCode <- case runnerPath of
             Nothing -> runUpdaterProc path args'
@@ -282,13 +270,13 @@ runUpdater (path, args, runnerPath, updateArchive) = do
                 liftIO $ writeWindowsUpdaterRunner $ rp
                 -- The script will terminate this updater so this function shouldn't return
                 runUpdaterProc rp ((toText path):args')
-        printf ("The updater has exited with "%s%"\n") (show exitCode)
+        TL.putStr $ format ("The updater has exited with "%text%"\n") (show exitCode)
         when (exitCode == ExitSuccess) $ do
             -- this will throw an exception if the file doesn't exist but
             -- hopefully if the updater has succeeded it *does* exist
-            whenJust updateArchive rm
+            whenJust updateArchive removeFile
 
-runUpdaterProc :: FilePath -> [Text] -> Shell (ExitCode)
+runUpdaterProc :: FilePath -> [Text] -> IO ExitCode
 runUpdaterProc path args = do
     let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe
@@ -322,16 +310,25 @@ writeWindowsUpdaterRunner runnerPath = do
 
 spawnNode
     :: (FilePath, [Text], Maybe FilePath)
-    -> Shell (ProcessHandle, Async ExitCode, FilePath)
+    -> IO (ProcessHandle, Async ExitCode, FilePath)
 spawnNode (path, args, mbLogPath) = do
-    echo "Starting the node"
+    putText "Starting the node"
+    -- We don't explicitly close the `logHandle` here,
+    -- but this will be done when we run the `CreateProcess` built
+    -- by proc later is `system'`:
+    -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
     (logPath, logHandle) <- case mbLogPath of
         Just lp -> do
-            mktree (FP.directory lp)
-            (lp,) <$> appendonly lp
+            createDirectoryIfMissing True (directory lp)
+            (lp,) <$> openFile lp AppendMode
         Nothing -> do
             tempdir <- liftIO (fromString <$> getTemporaryDirectory)
-            mktemp tempdir "cardano-node-output.log"
+            -- FIXME (adinapoli): `Shell` from `turtle` was giving us no-resource-leak guarantees
+            -- via the `Managed` monad, which is something we have lost here, and we are back to manual
+            -- resource control. In this case, however, shall we really want to nuke the file? It seems
+            -- something useful to have lying around in the filesystem. We should probably close the
+            -- `Handle`, though, but if this program is short lived it won't matter anyway.
+            IO.openTempFile tempdir "cardano-node-output.log"
     -- TODO (jmitchell): Find a safe, reliable way to print `logPath`. Cardano
     -- fails when it prints unicode characters. In the meantime, don't print it.
     -- See DAEF-12.
@@ -344,16 +341,18 @@ spawnNode (path, args, mbLogPath) = do
                  , Process.std_err = Process.UseHandle logHandle
                  }
     phvar <- newEmptyMVar
-    asc <- fork (system' phvar cr mempty)
+    asc <- async (system' phvar cr mempty)
     mbPh <- liftIO $ timeout 5000000 (takeMVar phvar)
     case mbPh of
         Nothing -> error "couldn't run the node (it didn't start after 5s)"
-        Just ph -> return (ph, asc, logPath)
+        Just ph -> do
+            putText "Node started"
+            return (ph, asc, logPath)
 
 runWallet :: (FilePath, [Text]) -> IO ExitCode
 runWallet (path, args) = do
-    echo "Starting the wallet"
-    proc (toText path) args mempty
+    putText "Starting the wallet"
+    view _1 <$> readProcessWithExitCode path (map toString args) mempty
 
 ----------------------------------------------------------------------------
 -- Working with the report server
@@ -383,41 +382,7 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    sendReport (encodeString logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
-
-----------------------------------------------------------------------------
--- Utils
-----------------------------------------------------------------------------
-
-instance ToString FilePath where
-    toString = toString . format fp
-
-instance ToText FilePath where
-    toText = format fp
-
-----------------------------------------------------------------------------
--- Turtle internals, modified to give access to process handles
-----------------------------------------------------------------------------
-
-{-
-shell'
-    :: MonadIO io
-    => MVar ProcessHandle
-    -- ^ Where to put process handle
-    -> Text
-    -- ^ Command line
-    -> Shell Line
-    -- ^ Lines of standard input
-    -> io ExitCode
-    -- ^ Exit code
-shell' phvar cmdLine =
-    system' phvar
-        ( (Process.shell (toString cmdLine))
-            { Process.std_in  = Process.CreatePipe
-            , Process.std_out = Process.Inherit
-            , Process.std_err = Process.Inherit
-            } )
--}
+    sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
 
 system'
     :: MonadIO io
@@ -425,7 +390,7 @@ system'
     -- ^ Where to put process handle
     -> Process.CreateProcess
     -- ^ Command
-    -> Shell Line
+    -> [Text]
     -- ^ Lines of standard input
     -> io ExitCode
     -- ^ Exit code
@@ -459,6 +424,9 @@ system' phvar p sl = liftIO (do
             Process.waitForProcess ph
 
     bracket open close' handle_ )
+    where
+      outhandle :: Handle -> [Text] -> IO ()
+      outhandle hdl txt = forM_ txt (T.hPutStrLn hdl)
 
 halt :: Async a -> IO ()
 halt a = do

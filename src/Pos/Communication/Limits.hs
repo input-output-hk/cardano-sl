@@ -26,6 +26,7 @@ import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
                                                      MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
+import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
@@ -282,6 +283,12 @@ instance MessageLimited (MsgHeaders ssc) where
         headerLimit <- getMsgLenLimit (Proxy @(BlockHeader ssc))
         return $
             MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
+
+-- TODO: Update once we move to CBOR.
+instance MessageLimitedPure MsgSubscribe where
+    msgLenLimit = 0
+
+instance MessageLimited MsgSubscribe
 
 ----------------------------------------------------------------------------
 -- Arbitrary

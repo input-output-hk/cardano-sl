@@ -1,12 +1,26 @@
+b3b31d69a [CSL-1441] N=4 in genesis.sh. We usually deploy cluster w/ 4 nodes
+diff --git a/scripts/generate/genesis.sh b/scripts/generate/genesis.sh
+index 4a886bd9f..c10ba4174 100755
+--- a/scripts/generate/genesis.sh
++++ b/scripts/generate/genesis.sh
+@@ -21,7 +21,7 @@ utxo_file=$scriptsDir/avvm-files/utxo-dump-last-new.json
+ blacklisted=$scriptsDir/avvm-files/full_blacklist.js
+ 
+ if [[ "$M" == "" ]]; then 
+-  M=5 # rich keys amount
++  M=4 # rich keys amount
+ fi
+ if [[ "$N" == "" ]]; then 
+   N=12000 # poor keys amount
 [94m[keygen:INFO:ThreadId 4] [0mProcessing command
 [94m[keygen:INFO:ThreadId 4] [0mGenerating requested raw data
 [94m[keygen:INFO:ThreadId 4] [0mGenerating avvm data
 [94m[keygen:INFO:ThreadId 4] [0mRemoving 101 entries from utxo (out of 188 total entries in the blacklist)
 [94m[keygen:INFO:ThreadId 4] [0mTotal avvm stake after applying blacklist: 25927070538000000
-[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-qanet-2017-07-18_18-06/keys-fakeavvm
+[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-qanet-2017-07-28_20-17/keys-fakeavvm
 [94m[keygen:INFO:ThreadId 4] [0m100 fake avvm seeds are generated
-[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-qanet-2017-07-18_18-06/keys-testnet
+[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-qanet-2017-07-28_20-17/keys-testnet
 [94m[keygen:INFO:ThreadId 4] [0m1204 keyfiles are generated
-[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKeyAddress 63e179914e2d87974d857d759e9cb45c279f637149d66179d6bdf700 (attrs: {}), PubKeyAddress 954b3030a5bf4f369a51e4ee6c6e3061730359987f14f538af31d90b (attrs: {}), PubKeyAddress 818aa1d10806bf3b6038f4cfd8c6fb5bc7f9b0e5c1893ab7b8689e83 (attrs: {}), PubKeyAddress 48b631c627dff0f39b55ee2212f226fb01c7faccc0cc3b3661c540d6 (attrs: {}), PubKeyAddress 5ffc037bf8571e67ea95939b2898d0b08555b1242d3829e25f062ffc (attrs: {}), PubKeyAddress 890980da66115032aeb739088cebfa99867ce144c7c64417da93a899 (attrs: {}), PubKeyAddress 13e52fbca2899bf649e98218204a95e15a9ead04264240afc8f99fb1 (attrs: {}), PubKeyAddress 38618f85f47271d9fc35ed9d3855f53c9d1124d0822e6962a2643a15 (attrs: {}), PubKeyAddress 917220d0a642676ac82b66f6d774b80471335c57e09715a56386586c (attrs: {}), PubKeyAddress 607ab52afda2698dca06f665c760ff4b839414d753a8279a8855ed97 (attrs: {})] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2400, sdPoorStake = Coin {getCoin = 476822961550}}
+[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKeyAddress 299b6968a64bfca468a96d3b7e84277ddc1d57bbbfaefd8f60a32e78 (attrs: {}), PubKeyAddress 1d2e7045f65ad7b5bf5ef711f044a6f29521c0590dcbc80d26ff1fbf (attrs: {}), PubKeyAddress af0b53a94808c357159f12b2e97bf73ba5bf1e7675607921269c47c2 (attrs: {}), PubKeyAddress 287b53ea5bfab140c3e9ce4136e6d7700230df1e497dd7af7907117a (attrs: {}), PubKeyAddress 5eee01ac4d3d75afa3d2f3b0c2b3097542bf098dd0af28fe5e5dc118 (attrs: {}), PubKeyAddress b48f3d98885b94ffe6eb380d172dbb9d4bbbbfa0a6d2ed6f0ebb343f (attrs: {}), PubKeyAddress 9d57b55474020094406c5b74032d08f2049f1d88c43a5e84bf1e28f9 (attrs: {}), PubKeyAddress e4f306e4257230300760b607d9e3479d26d85d6842edac1d78c263a8 (attrs: {}), PubKeyAddress 483d2c6b750e1d1f863f1e95906d5e94303c8d889ee3c51709bb962b (attrs: {}), PubKeyAddress c865eea2424fafe508e234cf10ab4bc04f659f2d3acbabe109e6d744 (attrs: {})] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2400, sdPoorStake = Coin {getCoin = 476822961550}}
 [94m[keygen:INFO:ThreadId 4] [0mgenesis-core.bin generated successfully
 [94m[keygen:INFO:ThreadId 4] [0mgenesis-godtossing.bin generated successfully

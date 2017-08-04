@@ -90,7 +90,6 @@ nix:
 
 extra-deps:
 - universum-0.4.3
-- time-units-1.0.0
 - serokell-util-0.3
 - pvss-0.1
 - active-0.2.0.13

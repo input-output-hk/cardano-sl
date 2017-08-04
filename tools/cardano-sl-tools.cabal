@@ -49,7 +49,7 @@ executable cardano-analyzer
                      , cardano-sl
                      , formatting
                      , log-warper
-                     , optparse-simple
+                     , optparse-applicative
                      , serokell-util >= 0.1.3.4
                      , string-qq
                      , text
@@ -102,7 +102,7 @@ executable cardano-wallet-hs2purs
   build-depends:       base
                      , cardano-sl-core
                      , cardano-sl
-                     , optparse-simple
+                     , optparse-applicative
                      , purescript-bridge
                      , universum >= 0.1.11
   default-language:    Haskell2010
@@ -166,7 +166,7 @@ executable cardano-dht-keygen
                      , lens
                      , lifted-async
                      , log-warper
-                     , optparse-simple
+                     , optparse-applicative
                      , parsec
                      , random
                      , random-shuffle
@@ -226,7 +226,7 @@ executable cardano-swagger
                      , bytestring
                      , cardano-sl
                      , lens
-                     , optparse-simple
+                     , optparse-applicative
                      , swagger2
                      , servant
                      , servant-server
@@ -266,10 +266,9 @@ executable cardano-genupdate
                      , bytestring
                      , cardano-sl
                      , cryptonite
+                     , optparse-applicative
                      , filepath
                      , formatting
-                     , optparse-simple
-                     , optparse-text
                      , string-qq
                      , system-filepath
                      , process
@@ -367,13 +366,13 @@ executable cardano-launcher
   build-depends:       ansi-wl-pprint
                      , async
                      , base
-                     , optparse-simple
-                     , cardano-report-server >= 0.2.0
+                     , cardano-report-server >= 0.2.1
                      , log-warper
                      , cardano-sl
                      , cardano-sl-infra
                      , directory
                      , filepath
+                     , optparse-applicative
                      , formatting
                      , process
                      , string-qq
@@ -411,7 +410,6 @@ executable cardano-addr-convert
                      , directory
                      , filepath
                      , optparse-applicative
-                     , optparse-text
                      , process
                      , serokell-util
                      , string-qq
@@ -515,7 +513,6 @@ executable cardano-block-gen
                      , mtl
                      , node-sketch
                      , optparse-applicative
-                     , optparse-simple
                      , random
                      , string-qq
                      , text-format
@@ -572,6 +569,7 @@ executable cardano-post-mortem
                        , aeson
                        , attoparsec
                        , cardano-sl
+                       , cardano-sl-core
                        , cardano-sl-txp
                        , Chart
                        , Chart-diagrams
@@ -587,10 +585,10 @@ executable cardano-post-mortem
                        , pipes-bytestring
                        , pipes-interleave
                        , pipes-safe
+                       , process
                        , random
                        , text
                        , time-units
-                       , turtle
                        , universum >= 0.1.11
   else
     buildable: False

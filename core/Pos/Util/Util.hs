@@ -75,6 +75,7 @@ module Pos.Util.Util
        , withTempDir
        , directory
        , sleep
+       , withTempFile
        , withSystemTempFile
 
        ) where

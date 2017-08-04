@@ -6,7 +6,7 @@ import qualified Data.ByteString.Char8       as BS
 import           Data.Version                (showVersion)
 import           Network.Kademlia.HashNodeId (HashId (..), Nonce (..), genNonce,
                                               hashAddress)
-import           Options.Applicative.Simple  (Parser, execParser, fullDesc, header, help,
+import           Options.Applicative         (Parser, execParser, fullDesc, header, help,
                                               helper, info, infoOption, long, metavar,
                                               progDesc, short, strOption)
 import           Paths_cardano_sl            (version)

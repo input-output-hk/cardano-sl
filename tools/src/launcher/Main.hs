@@ -15,7 +15,7 @@ import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
 import           Formatting                   (format, int, shown, stext, text, (%))
-import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
+import           Options.Applicative          (Mod, OptionFields, Parser, auto,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
                                                metavar, option, progDesc, short,

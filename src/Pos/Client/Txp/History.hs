@@ -36,7 +36,10 @@ import           Data.DList                   (DList)
 import qualified Data.DList                   as DL
 import qualified Data.Map.Strict              as M (lookup)
 import           Data.Tagged                  (Tagged (..))
+import qualified Data.Text.Buildable
 import qualified Ether
+import           Formatting                   (bprint, build, (%))
+import           Serokell.Util.Text           (listJson)
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
@@ -91,6 +94,17 @@ data TxHistoryEntry = THEntry
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxHistoryEntry
+
+instance Buildable TxHistoryEntry where
+    build THEntry {..} =
+        bprint
+            ("{ id="%build%" inputs="%listJson%" outputs="%listJson
+             %" diff="%build%" time="%build%" }")
+            _thTxId
+            _thInputs
+            _thOutputAddrs
+            _thDifficulty
+            _thTimestamp
 
 -- | Select transactions by predicate on related addresses
 getTxsByPredicate

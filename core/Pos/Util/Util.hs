@@ -95,11 +95,13 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
                                                  transResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
+import           Data.Char                      (isAlphaNum)
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
+import           Data.Time                      (getCurrentTime)
 import           Data.Time.Clock                (NominalDiffTime)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
                                                  Hour, Microsecond, Millisecond, Minute,
@@ -120,7 +122,7 @@ import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           System.Directory               (canonicalizePath, createDirectory,
                                                  doesDirectoryExist,
                                                  getTemporaryDirectory, listDirectory,
-                                                 removeDirectory, removeFile)
+                                                 removeDirectoryRecursive, removeFile)
 import           System.FilePath                (normalise, pathSeparator, takeDirectory,
                                                  (</>))
 import           System.IO                      (hClose, openTempFile)
@@ -432,7 +434,7 @@ minMaxOf :: Getting (MinMax a) s a -> s -> Maybe (a, a)
 minMaxOf l = view _MinMax . foldMapOf l mkMinMax
 
 ----------------------------------------------------------------------------
--- Filesystem utilities
+-- Filesystem & process utilities
 ----------------------------------------------------------------------------
 
 -- | Lists all immediate children of the given directory, excluding "." and ".."
@@ -466,13 +468,14 @@ withTempDir parentDir template = bracket acquire dispose
   where
     acquire :: IO FilePath
     acquire = do
-        tid <- myThreadId
-        pth <- canonicalizePath $ normalise $ parentDir </> (toString template <> show tid)
+        tid <- filter isAlphaNum . show <$> myThreadId
+        now <- filter isAlphaNum . show <$> getCurrentTime
+        pth <- canonicalizePath $ normalise $ parentDir </> (toString template <> tid <> now)
         createDirectory pth
         return pth
 
     dispose :: FilePath -> IO ()
-    dispose = removeDirectory
+    dispose = removeDirectoryRecursive
 
 -- | Simple shim to emulate the behaviour of `Filesystem.Path.directory`,
 -- which is a bit more lenient than `System.FilePath.takeDirectory`.

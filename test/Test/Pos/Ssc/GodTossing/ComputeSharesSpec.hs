@@ -252,7 +252,7 @@ twentyRichmen2 = isDistrReasonableMax richmen $ computeShares' richmen
 
 validateFairness :: ValidRichmenStakes TestMpcThd -> Bool
 validateFairness (getValid -> richmen) =
-    all (\x -> x >= minStake && x > (mkCoin 0)) richmen
+    all (\x -> x >= minStake && x > mkCoin 0) richmen
     && isDistrReasonableMax richmen outputDistr
   where
     totalCoins = sumCoins $ HM.elems richmen

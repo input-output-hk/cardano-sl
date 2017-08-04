@@ -25,8 +25,6 @@ in ((import ./pkgs { inherit pkgs; }).override {
         "-f-asserts"
         "-f-dev-mode"
         "-fwith-explorer"
-        # https://github.com/NixOS/nixpkgs/pull/24692#issuecomment-306509337
-        "--ghc-option=-optl-lm"
       ];
     });
     cardano-sl-static = justStaticExecutables self.cardano-sl;

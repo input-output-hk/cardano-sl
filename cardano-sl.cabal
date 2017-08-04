@@ -414,7 +414,6 @@ library
                       , stm-containers
                       , tagged
                       , template-haskell
-                      , temporary >= 1.2.0.4
                       , text
                       , text-format
                       , th-lift-instances
@@ -423,7 +422,6 @@ library
                       , transformers
                       , transformers-base
                       , transformers-lift
-                      , turtle
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
@@ -665,7 +663,6 @@ test-suite cardano-test
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
-                     , temporary
                      , text-format
                      , time-units
                      , transformers-base

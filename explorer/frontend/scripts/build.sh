@@ -19,7 +19,6 @@ fi
 popd
 nix-shell --run "rm -rf .psci_modules/ .pulp-cache/ node_modules/ bower_components/ output/"
 nix-shell --run "yarn install"
-nix-shell --run ./scripts/generate-backend-lenses.sh
-nix-shell --run ./scripts/generate-frontend-lenses.sh
+nix-shell --run ./scripts/generate-explorer-lenses.sh
 nix-shell --run "yarn ${1:-build:prod}"
 echo "Done."

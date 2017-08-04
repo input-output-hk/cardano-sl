@@ -74,6 +74,7 @@
     "postcss-nested": "^2.0.2",
     "postcss-svgo": "^2.1.6",
     "purescript-psa": "^0.5.1",
+    "caniuse-lite": "^1.0.30000697",
     "purs-loader": "^3.0.0",
     "replace-in-file": "^2.5.3",
     "rimraf": "^2.6.1",

@@ -163,7 +163,7 @@ data Node = Node {
 -- | Create a new node, and spawn dequeue worker and forwarding listener
 newNode :: NodeId_ -> NodeType -> CommsDelay -> IO Node
 newNode nodeId_ nodeType commsDelay = do
-    nodeOutQ     <- OutQ.new nodeId_
+    nodeOutQ     <- OutQ.new (show nodeId_)
                              (OutQ.defaultEnqueuePolicy nodeType)
                              (OutQ.defaultDequeuePolicy nodeType)
                              (OutQ.defaultFailurePolicy nodeType)

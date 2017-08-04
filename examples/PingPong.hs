@@ -37,10 +37,11 @@ deriving instance Data Ping
 deriving instance Show Ping
 instance Binary Ping
 instance Message Ping where
+    messageCode _ = 0
     formatMessage _ = "Ping"
 
 -- | Type for messages from the listeners to the workers.
-data Pong = Pong
+data Pong = Pong BS.ByteString
 deriving instance Generic Pong
 deriving instance Show Pong
 instance Binary Pong
@@ -71,7 +72,7 @@ worker anId generator peerIds = pingWorker generator
                     liftIO . putStrLn $ show anId ++ " sent PING to " ++ show peerId
                     received <- recv cactions maxBound
                     case received of
-                        Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show peerId
+                        Just (Pong _) -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show peerId
                         Nothing -> error "Unexpected end of input"
             _ <- forConcurrently peerIds $ \peerId ->
                 converseWith converse peerId (\_ -> Conversation (pong peerId))
@@ -86,7 +87,7 @@ listeners anId peerData = [pongListener]
     pongListener :: Listener Packing BS.ByteString Production
     pongListener = Listener $ \_ peerId (cactions :: ConversationActions Pong Ping Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
-        send cactions Pong
+        send cactions (Pong "")
         liftIO . putStrLn $ show anId ++ " sent PONG to " ++ show peerId
 
 main :: IO ()

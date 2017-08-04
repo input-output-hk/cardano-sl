@@ -33,7 +33,7 @@ import           Node                           (NodeAction (..), node, Node(Nod
                                                  defaultNodeEnvironment, simpleNodeEndPoint,
                                                  noReceiveDelay, converseWith)
 import           Node.Internal                  (NodeId (..))
-import           Node.Message.Binary            (BinaryP, binaryPacking)
+import           Node.Message.Binary            (binaryPacking)
 
 
 import           Bench.Network.Commons          (MeasureEvent (..), Payload (..),

@@ -19,49 +19,26 @@ module Node.Message.Class
     , unpack
 
     , Message (..)
-    , messageName'
+    , messageCode'
 
-    , MessageName (..)
+    , MessageCode
     ) where
 
-import qualified Data.Binary                   as Bin
-import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as LBS
-import           Data.Data                     (Data, dataTypeName, dataTypeOf)
-import           Data.Hashable                 (Hashable)
-import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
-import           Data.String                   (IsString, fromString)
+import           Data.Proxy                    (Proxy (..))
 import qualified Data.Text                     as T
-import           Data.Text.Buildable           (Buildable)
-import qualified Data.Text.Buildable           as B
+import           Data.Word                     (Word16)
 import qualified Formatting                    as F
-import           GHC.Generics                  (Generic)
-import           Serokell.Util.Base16          (base16F)
 import           Node.Message.Decoder          (Decoder, hoistDecoder)
 
 -- * Message name
 
-newtype MessageName = MessageName BS.ByteString
-deriving instance Eq MessageName
-deriving instance Ord MessageName
-deriving instance Show MessageName
-deriving instance Generic MessageName
-deriving instance IsString MessageName
-deriving instance Hashable MessageName
-deriving instance Monoid MessageName
-instance Bin.Binary MessageName
+type MessageCode = Word16
 
-instance Buildable MessageName where
-    build (MessageName mn) = F.bprint base16F mn
-
--- | Defines type with it's own `MessageName`.
+-- | Defines type with it's own `MessageCode`.
 class Message m where
     -- | Uniquely identifies this type
-    messageName :: Proxy m -> MessageName
-    default messageName :: Data m => Proxy m -> MessageName
-    messageName proxy =
-         MessageName . fromString . dataTypeName . dataTypeOf $
-            undefined `asProxyTypeOf` proxy
+    messageCode :: Proxy m -> MessageCode
 
     -- | Description of message, for debug purposes
     formatMessage :: m -> T.Text
@@ -69,8 +46,8 @@ class Message m where
     formatMessage = F.sformat F.build
 
 -- | As `messageName`, but accepts message itself, may be more convinient is most cases.
-messageName' :: Message m => m -> MessageName
-messageName' = messageName . proxyOf
+messageCode' :: Message m => m -> MessageCode
+messageCode' = messageCode . proxyOf
   where
     proxyOf :: a -> Proxy a
     proxyOf _ = Proxy

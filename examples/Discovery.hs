@@ -33,7 +33,7 @@ import           Node.Message.Binary                  (BinaryP, binaryPacking)
 import           System.Environment                   (getArgs)
 import           System.Random
 
-data Pong = Pong
+data Pong = Pong BS.ByteString
 deriving instance Generic Pong
 deriving instance Show Pong
 instance Binary Pong where
@@ -70,7 +70,7 @@ worker anId generator discovery = pingWorker generator
                 \_peerData -> Conversation $ \(cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions maxBound
                     case received of
-                        Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
+                        Just (Pong _) -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
@@ -83,7 +83,7 @@ listeners anId peerData = [pongListener]
     pongListener :: Listener Packing BS.ByteString Production
     pongListener = Listener $ \_ peerId (cactions :: ConversationActions Pong Void Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
-        send cactions Pong
+        send cactions (Pong "")
 
 makeNode :: Transport Production
          -> Int

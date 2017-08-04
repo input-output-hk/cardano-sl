@@ -52,7 +52,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 2bb5f638a4eca633d4834f0bde8a66a608ff0942 #feature/multiple-peers-buckets
+    commit: c901b25bdfcc121cf5157952f7cc3f80f46e902a #feature/multiple-peers-buckets
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:

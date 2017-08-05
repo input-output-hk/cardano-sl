@@ -14,6 +14,7 @@ module Pos.Ssc.GodTossing.GState
 import           Control.Lens                   ((.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph            (hoist)
+import qualified Crypto.Random                  as Rand
 import qualified Data.HashMap.Strict            as HM
 import           Data.Tagged                    (Tagged (..))
 import           Formatting                     (build, sformat, (%))
@@ -94,7 +95,8 @@ loadGlobalState = do
 dumpGlobalState :: GtGlobalState -> [SomeBatchOp]
 dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 
-type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
+-- randomness needed for crypto :(
+type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m, Rand.MonadRandom m) => m a
 
 rollbackBlocks :: NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
 rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads

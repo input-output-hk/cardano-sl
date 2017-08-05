@@ -26,6 +26,7 @@ module Pos.Block.Logic.Internal
 import           Universum
 
 import           Control.Lens            (each, _Wrapped)
+import qualified Crypto.Random           as Rand
 import           Ether.Internal          (HasLens (..))
 import           Formatting              (sformat, (%))
 import           Mockable                (CurrentTime, Mockable)
@@ -88,6 +89,8 @@ type MonadBlockBase ssc ctx m
        , SscGStateClass ssc
        , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        , MonadDelegation ctx m
+       -- 'MonadRandom' for crypto.
+       , Rand.MonadRandom m
        , MonadReader ctx m
        )
 
@@ -130,6 +133,8 @@ type MonadMempoolNormalization ssc ctx m
       , MonadMask m
       , MonadReader ctx m
       , MonadFormatPeers m
+      -- 'MonadRandom' for crypto.
+      , Rand.MonadRandom m
       )
 
 -- | Normalize mempool.

@@ -21,6 +21,7 @@ import           Universum
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Crypto.Random               as Rand
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -97,6 +98,8 @@ type MonadBlockGen ctx m
        , MonadReader ctx m
        , GS.HasGStateContext ctx
        , HasSlottingVar ctx
+       -- 'MonadRandom' for crypto.
+       , Rand.MonadRandom m
        )
 
 ----------------------------------------------------------------------------

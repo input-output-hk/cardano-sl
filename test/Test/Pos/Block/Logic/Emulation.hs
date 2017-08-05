@@ -17,6 +17,7 @@ import           Universum
 
 import           Control.Monad.Base          (MonadBase (..))
 import qualified Control.Monad.Trans.Control as MC
+import qualified Crypto.Random               as Rand
 import           Data.Coerce                 (coerce)
 import           Data.Time.Units             (Microsecond)
 import           Mockable                    (Async, Catch, Concurrently,
@@ -33,6 +34,9 @@ newtype ClockVar = ClockVar (IORef Microsecond)
 newtype Emulation a = Emulation { unEmulation :: ReaderT ClockVar IO a }
   deriving
     (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadMask)
+
+instance Rand.MonadRandom Emulation where
+    getRandomBytes = Emulation . lift . Rand.getRandomBytes
 
 runEmulation :: Microsecond -> Emulation a -> IO a
 runEmulation startTime m = do

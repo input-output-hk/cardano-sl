@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -67,6 +68,12 @@ module Pos.Util.Util
        -- ** NFData
        -- *** Millisecond, Microsecond
 
+       -- ** MonadRandom
+       -- *** monad transformers from @transformers@
+       -- *** Ether.TaggedTrans tag t m
+       -- *** NamedPureLogger m
+       -- *** Gen (from QuickCheck)
+
        -- ** Buildable
        -- *** "Data.Time.Units" types
        ) where
@@ -81,11 +88,18 @@ import           Control.Lens                   (ALens', Getter, Getting, Iso', 
 import           Control.Monad.Base             (MonadBase)
 import qualified Control.Monad.Catch            as MC
 import           Control.Monad.Morph            (MFunctor (..))
+import qualified Control.Monad.RWS.Lazy         as Lazy
+import qualified Control.Monad.RWS.Strict       as Strict
+import qualified Control.Monad.State.Lazy       as Lazy
+import qualified Control.Monad.State.Strict     as Strict
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
                                                  transResourceT)
+import qualified Control.Monad.Writer.Lazy      as Lazy
+import qualified Control.Monad.Writer.Strict    as Strict
+import qualified Crypto.Random                  as Rand
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.Char                      (isAlphaNum)
 import           Data.HashSet                   (fromMap)
@@ -119,7 +133,8 @@ import           System.FilePath                (normalise, pathSeparator, takeD
                                                  (</>))
 import           System.IO                      (hClose, openTempFile)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
-                                                 LoggerNameBox (..))
+                                                 LoggerNameBox (..), NamedPureLogger)
+import qualified Test.QuickCheck                as QC
 import           Test.QuickCheck.Monadic        (PropertyM (..))
 
 ----------------------------------------------------------------------------
@@ -180,6 +195,33 @@ instance ToJSON Byte where
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
+
+instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
+    getLoggerName = pure mempty
+    modifyLoggerName = flip const
+
+#define MONADRANDOM(CTX, MONAD) \
+    instance CTX => Rand.MonadRandom (MONAD) where \
+        getRandomBytes = lift . Rand.getRandomBytes \
+
+MONADRANDOM( Rand.MonadRandom m            , ReaderT r m)
+MONADRANDOM((Rand.MonadRandom m, Monoid w) , Lazy.WriterT w m)
+MONADRANDOM((Rand.MonadRandom m, Monoid w) , Strict.WriterT w m)
+MONADRANDOM( Rand.MonadRandom m            , Lazy.StateT s m)
+MONADRANDOM( Rand.MonadRandom m            , Strict.StateT s m)
+MONADRANDOM((Rand.MonadRandom m, Monoid w) , Lazy.RWST r w s m)
+MONADRANDOM((Rand.MonadRandom m, Monoid w) , Strict.RWST r w s m)
+MONADRANDOM( Rand.MonadRandom m            , ExceptT e m)
+MONADRANDOM( Rand.MonadRandom m            , NamedPureLogger m)
+
+instance (Monad m, Monad (t m), MonadTrans t, Rand.MonadRandom m)
+         => Rand.MonadRandom (Ether.TaggedTrans tag t m) where
+    getRandomBytes = lift . Rand.getRandomBytes
+
+instance Rand.MonadRandom QC.Gen where
+    getRandomBytes n = do
+        [a,b,c,d,e] <- replicateM 5 QC.arbitrary
+        pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 instance NFData Millisecond where
     rnf ms = rnf (toInteger ms)

@@ -11,6 +11,7 @@ module Pos.Ssc.Class.Storage
        ) where
 
 import           Control.Monad.Except (MonadError)
+import qualified Crypto.Random        as Rand
 import           Data.Tagged          (Tagged)
 import           System.Wlog          (WithLogger)
 import           Universum
@@ -29,12 +30,13 @@ type SscGlobalQuery ssc a =
     forall m . (MonadReader (SscGlobalState ssc) m, WithLogger m) => m a
 
 type SscGlobalUpdate ssc a =
-    forall m . (MonadState (SscGlobalState ssc) m, WithLogger m) => m a
+    forall m . (MonadState (SscGlobalState ssc) m, WithLogger m, Rand.MonadRandom m) => m a
 
 type SscVerifyMode ssc m =
     ( MonadState (SscGlobalState ssc) m
     , WithLogger m
     , MonadError (SscVerifyError ssc) m
+    , Rand.MonadRandom m
     )
 
 type SscVerifier ssc a = forall m . SscVerifyMode ssc m => m a

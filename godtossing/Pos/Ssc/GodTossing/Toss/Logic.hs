@@ -12,6 +12,7 @@ module Pos.Ssc.GodTossing.Toss.Logic
 
 import           Control.Lens                    (at)
 import           Control.Monad.Except            (MonadError, runExceptT)
+import           Crypto.Random                   (MonadRandom)
 import qualified Data.HashMap.Strict             as HM
 import           System.Wlog                     (logError)
 import           Universum
@@ -40,7 +41,8 @@ import           Pos.Util.Util                   (Some, inAssertMode, sortWithMD
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- TossVerFailure is thrown using 'MonadError' type class.
 verifyAndApplyGtPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,
+        MonadRandom m)
     => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call
@@ -111,7 +113,7 @@ rollbackGT oldestEOS (NewestFirst payloads)
 
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
-    :: forall m . (MonadToss m, MonadTossEnv m)
+    :: forall m . (MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifier -> m ()
 normalizeToss epoch TossModifier {..} =
     normalizeTossDo
@@ -124,7 +126,7 @@ normalizeToss epoch TossModifier {..} =
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
-    :: forall m . (MonadToss m, MonadTossEnv m)
+    :: forall m . (MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifier -> m ()
 refreshToss epoch TossModifier {..} = do
     comms <-
@@ -153,7 +155,7 @@ type TossModifierLists
        , [(StakeholderId, VssCertificate)])
 
 normalizeTossDo
-    :: forall m . (MonadToss m, MonadTossEnv m)
+    :: forall m . (MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifierLists -> m ()
 normalizeTossDo epoch (comms, opens, shares, certs) = do
     putsUseful $

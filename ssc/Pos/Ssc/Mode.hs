@@ -7,6 +7,7 @@ module Pos.Ssc.Mode
 import           Universum
 
 import           Control.Monad.Catch (MonadMask)
+import qualified Crypto.Random       as Rand
 import           Ether.Internal      (HasLens (..))
 import           Mockable            (MonadMockable)
 import           System.Wlog         (WithLogger)
@@ -29,6 +30,7 @@ type SscMode ssc ctx m
     = ( WithLogger m
       , CanJsonLog m
       , MonadIO m
+      , Rand.MonadRandom m
       , MonadMask m
       , MonadMockable m
       , MonadSlots m

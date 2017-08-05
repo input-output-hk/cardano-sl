@@ -7,6 +7,7 @@ module Test.Pos.Ssc.GodTossing.Toss.BaseSpec
 import           Universum
 
 import           Control.Lens          (ix)
+import qualified Crypto.Random         as Rand
 import qualified Data.HashMap.Strict   as HM
 import           System.Random         (mkStdGen, randomR)
 
@@ -570,13 +571,18 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =
 -- Utility functions for this module
 ----------------------------------------------------------------------------
 
+-- Going to use fake randomness here because threading MonadRandom through
+-- everything is annoying
 tossRunner :: MultiRichmenStakes
            -> GtGlobalState
            -> ExceptT e PureTossWithEnv a
            -> Either e a
 tossRunner mrs gtgs =
-    view _1 . runPureToss gtgs .
-    supplyPureTossEnv (mrs, genesisBlockVersionData) . runExceptT
+    view _1 .
+    fst . Rand.withDRG (Rand.drgNewTest (123,456,789,12345,67890)) .
+    runPureToss gtgs .
+    supplyPureTossEnv (mrs, genesisBlockVersionData) .
+    runExceptT
 
 customHashMapGen
     :: (Hashable k, Eq k)

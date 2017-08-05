@@ -14,21 +14,11 @@ scriptDir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 
 source "${scriptDir}/../scripts/set_nixpath.sh"
 
-export JQ=$(nix-build --no-out-link '<nixpkgs>' -A jq)
-export PATH="${JQ}/bin:$PATH"
-
-# Generate stack2nix Nix package
-runInShell cabal2nix \
-  --no-check \
-  --revision $(jq .rev <  "${scriptDir}/../stack2nix-src.json" -r) \
-  https://github.com/input-output-hk/stack2nix.git > "$scriptDir/stack2nix.nix"
-
 # Build stack2nix Nix package
 nix-build "${scriptDir}/.." -A stack2nix -o "$scriptDir/stack2nix" -Q
 
 pushd "${scriptDir}"
-# Generate cardano-sl package set
-runInShell ./stack2nix/bin/stack2nix --test ./.. > default.nix.new
-mv default.nix.new default.nix
-
+  # Generate cardano-sl package set
+  runInShell ./stack2nix/bin/stack2nix --test ./.. > default.nix.new
+  mv default.nix.new default.nix
 popd

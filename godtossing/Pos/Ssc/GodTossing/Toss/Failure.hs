@@ -29,7 +29,7 @@ data TossVerFailure
     | NoRichmen !EpochIndex
 
     | CommitmentInvalid !NEStIds
-    | CommitingNoParticipants !NEStIds
+    | CommittingNoParticipants !NEStIds
     | CommitmentAlreadySent !NEStIds
     | CommSharesOnWrongParticipants !NEStIds
     | OpeningAlreadySent !NEStIds
@@ -67,7 +67,7 @@ instance Buildable TossVerFailure where
 
     build (CommitmentInvalid ids) =
         bprint ("verifySignedCommitment has failed for some commitments: "%listJson) ids
-    build (CommitingNoParticipants ids) =
+    build (CommittingNoParticipants ids) =
         bprint ("some committing nodes can't be participants: "%listJson) ids
     build (CommitmentAlreadySent ids) =
         bprint ("some nodes have already sent their commitments: "%listJson) ids

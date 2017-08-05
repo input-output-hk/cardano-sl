@@ -14,11 +14,12 @@ module Pos.Ssc.GodTossing.Functions
        , getStableCertsPure
        ) where
 
+import           Universum
+
 import           Control.Lens                    (to)
 import           Control.Monad.Except            (MonadError (throwError))
 import qualified Data.HashMap.Strict             as HM
 import           Serokell.Util.Verify            (isVerSuccess)
-import           Universum
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
@@ -63,8 +64,8 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --
 -- For each DS datum we check:
 --
---   1. Whether it's stored in the correct block (e.g. commitments have to be in
---      first 2 * blkSecurityParam blocks, etc.)
+--   1. Whether it's stored in the correct block (e.g. commitments have to be
+--      in first 2 * blkSecurityParam blocks, etc.)
 --
 --   2. Whether the message itself is correct (e.g. commitment signature is
 --      valid, etc.)
@@ -113,9 +114,7 @@ sanityChecksGtPayload eoh payload = case payload of
     --
     -- #verifySignedCommitment
     commChecks commitments = do
-        let checkComm =
-                 isVerSuccess .
-                 (verifySignedCommitment epochId)
+        let checkComm = isVerSuccess . verifySignedCommitment epochId
         verifyEntriesGuardM fst snd CommitmentInvalid
                             (pure . checkComm)
                             (HM.toList . getCommitmentsMap $ commitments)

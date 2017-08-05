@@ -233,11 +233,11 @@ checksBadCommsPayload
         commMember k = HM.member k . getCommitmentsMap
 
         newCommsMap = wrapCMap (HM.insert sid comm) commsMap
-        commitingNoParticipants =
+        committingNoParticipants =
             tossRunner mrs gtgs $ checkCommitmentsPayload epoch newCommsMap
-        res2 = case commitingNoParticipants of
-            Left (CommitingNoParticipants (s :| [])) -> s == sid
-            _                                        -> False
+        res2 = case committingNoParticipants of
+            Left (CommittingNoParticipants (s :| [])) -> s == sid
+            _                                         -> False
 
         -- Inserting a random stakeholder would perturb the valid richmen stake we already
         -- have, so an existing one must be picked to avoid failing to calculate the

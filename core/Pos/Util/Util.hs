@@ -20,6 +20,7 @@ module Pos.Util.Util
        , getKeys
        , sortWithMDesc
        , leftToPanic
+       , dumpSplices
 
        -- * Lenses
        , _neHead
@@ -47,28 +48,6 @@ module Pos.Util.Util
        -- * Asserts
        , inAssertMode
 
-       -- * Instances
-       -- ** Lift Byte
-       -- ** FromJSON Byte
-       -- ** ToJSON Byte
-       -- ** MonadFail (Either s), assuming IsString s
-       -- ** NFData Millisecond
-       -- ** NFData Microsecond
-       -- ** Buildable Attosecond
-       -- ** Buildable Femtosecond
-       -- ** Buildable Picosecond
-       -- ** Buildable Nanosecond
-       -- ** Buildable Millisecond
-       -- ** Buildable Microsecond
-       -- ** Buildable Second
-       -- ** Buildable Minute
-       -- ** Buildable Hour
-       -- ** Buildable Day
-       -- ** Buildable Week
-       -- ** Buildable Fortnight
-
-       , dumpSplices
-
        -- * Filesystem & process utilities
        , ls
        , lstree
@@ -78,6 +57,18 @@ module Pos.Util.Util
        , withTempFile
        , withSystemTempFile
 
+       -- * Instances
+       -- ** Lift Byte
+       -- ** FromJSON Byte
+       -- ** ToJSON Byte
+       -- ** MonadFail (Either s), assuming IsString s
+       -- ** HasLoggerName (MonadPseudoRandom drg)
+
+       -- ** NFData
+       -- *** Millisecond, Microsecond
+
+       -- ** Buildable
+       -- *** "Data.Time.Units" types
        ) where
 
 import           Universum

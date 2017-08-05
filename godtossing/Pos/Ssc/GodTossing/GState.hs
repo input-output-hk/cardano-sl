@@ -60,7 +60,7 @@ getGlobalCerts sl =
     sscRunGlobalQuery $
         VCD.certs .
         VCD.setLastKnownSlot sl <$>
-        view (gsVssCertificates)
+        view gsVssCertificates
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts

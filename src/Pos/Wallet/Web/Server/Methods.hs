@@ -549,7 +549,7 @@ getMoneySourceWallet (WalletMoneySource wid)     = wid
 getMoneySourceUtxo :: WalletWebMode m => MoneySource -> m Utxo
 getMoneySourceUtxo =
     getMoneySourceAddresses >=>
-    mapM (decodeCIdOrFail . cwamWId) >=>
+    mapM (decodeCIdOrFail . cwamId) >=>
     getOwnUtxos
 
 -- [CSM-237] It should be moved to `Pos.Wallet.Web.Mode`, but

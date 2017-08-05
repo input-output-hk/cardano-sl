@@ -124,6 +124,7 @@ library
                      , cborg
                      , concurrent-extra
                      , ether >= 0.5
+                     , exceptions
                      , log-warper >= 1.0.3
                      , mmorph
                      , reflection
@@ -176,7 +177,6 @@ library
                      , universum
                      , unordered-containers
                      , vector
-                     , witherable
                      , yaml
 
   default-language:    Haskell2010

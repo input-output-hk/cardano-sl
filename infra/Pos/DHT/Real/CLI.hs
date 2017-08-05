@@ -7,12 +7,12 @@ module Pos.DHT.Real.CLI
        , readDhtPeersFile
        ) where
 
-import           Formatting                 (build, formatToString, shown, (%))
-import qualified Options.Applicative.Simple as Opt
-import           Pos.DHT.Model.Types        (DHTKey, DHTNode, dhtKeyParser, dhtNodeParser)
-import           Pos.Util.TimeWarp          (NetworkAddress, addrParser)
-import           Serokell.Util.OptParse     (fromParsec)
-import           Text.Parsec                (eof, parse)
+import           Formatting             (build, formatToString, shown, (%))
+import qualified Options.Applicative    as Opt
+import           Pos.DHT.Model.Types    (DHTKey, DHTNode, dhtKeyParser, dhtNodeParser)
+import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
+import           Serokell.Util.OptParse (fromParsec)
+import           Text.Parsec            (eof, parse)
 import           Universum
 
 dhtExplicitInitialOption :: Opt.Parser Bool

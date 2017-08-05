@@ -152,7 +152,7 @@ data SharedSecrets = SharedSecrets
     { ssSecShare  :: SecretSharingExtra
     , ssSecret    :: Secret
     , ssSecProof  :: SecretProof
-    , ssShares    :: [(EncShare, Share)]
+    , ssShares    :: [(EncShare, DecShare)]
     , ssThreshold :: Threshold
     , ssVSSPKs    :: [VssPublicKey]
     , ssPos       :: Int            -- This field is a valid, zero-based index in the
@@ -197,11 +197,11 @@ instance Arbitrary EncShare where
 instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary
 
-instance Arbitrary Share where
+instance Arbitrary DecShare where
     arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
 
-instance Arbitrary (AsBinary Share) where
-    arbitrary = asBinary @Share <$> arbitrary
+instance Arbitrary (AsBinary DecShare) where
+    arbitrary = asBinary @DecShare <$> arbitrary
 
 instance Arbitrary SharedSecrets where
     arbitrary = elements sharedSecrets

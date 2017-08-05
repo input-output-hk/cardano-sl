@@ -5,7 +5,7 @@
 module Pos.Crypto.AsBinary (
       vssPublicKeyBytes
     , secretBytes
-    , shareBytes
+    , decShareBytes
     , encShareBytes
     , secretProofBytes
     ) where
@@ -63,14 +63,14 @@ secretProofBytes  = 66   -- 64 data + 2 of CBOR overhead
 
 Ser(VssPublicKey, vssPublicKeyBytes, "VssPublicKey")
 Ser(Secret, secretBytes, "Secret")
-Ser(Share, shareBytes, "Share")
+Ser(DecShare, decShareBytes, "DecShare")
 Ser(EncShare, encShareBytes, "EncShare")
 Ser(SecretProof, secretProofBytes, "SecretProof")
 
 instance Buildable (AsBinary Secret) where
     build _ = "secret \\_(o.o)_/"
 
-instance Buildable (AsBinary Share) where
+instance Buildable (AsBinary DecShare) where
     build _ = "share \\_(*.*)_/"
 
 instance Buildable (AsBinary EncShare) where

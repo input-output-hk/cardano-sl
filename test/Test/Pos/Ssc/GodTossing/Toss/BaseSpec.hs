@@ -14,7 +14,7 @@ import           System.Random         (mkStdGen, randomR)
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
 import           Pos.Constants         (genesisBlockVersionData)
-import           Pos.Crypto            (PublicKey, SecretKey, Share,
+import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
@@ -425,7 +425,7 @@ checksGoodSharesPayload (GoodPayload epoch gtgs sharesMap mrs) =
 checksBadSharesPayload
     :: GoodSharesPayload
     -> StakeholderId
-    -> NonEmpty (AsBinary Share)
+    -> NonEmpty (AsBinary DecShare)
     -> VssCertificate
     -> Property
 checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) sid ne cert =

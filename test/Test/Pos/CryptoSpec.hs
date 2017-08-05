@@ -107,13 +107,13 @@ spec = describe "Crypto" $ do
                 binaryTest @Crypto.PassPhrase
                 binaryTest @Crypto.VssKeyPair
                 binaryTest @Crypto.Secret
-                binaryTest @Crypto.Share
+                binaryTest @Crypto.DecShare
                 binaryTest @Crypto.EncShare
                 binaryTest @Crypto.SecretProof
                 binaryTest @Crypto.SecretSharingExtra
                 binaryTest @(AsBinary Crypto.VssPublicKey)
                 binaryTest @(AsBinary Crypto.Secret)
-                binaryTest @(AsBinary Crypto.Share)
+                binaryTest @(AsBinary Crypto.DecShare)
                 binaryTest @(AsBinary Crypto.EncShare)
                 binaryTest @(AsBinary Crypto.SecretProof)
                 binaryTest @(AsBinary Crypto.SecretSharingExtra)
@@ -133,7 +133,7 @@ spec = describe "Crypto" $ do
                 safeCopyTest @Crypto.Threshold
                 safeCopyTest @(AsBinary Crypto.VssPublicKey)
                 safeCopyTest @(AsBinary Crypto.Secret)
-                safeCopyTest @(AsBinary Crypto.Share)
+                safeCopyTest @(AsBinary Crypto.DecShare)
                 safeCopyTest @(AsBinary Crypto.EncShare)
                 safeCopyTest @(AsBinary Crypto.SecretProof)
                 safeCopyTest @(AsBinary Crypto.SecretSharingExtra)
@@ -154,8 +154,8 @@ spec = describe "Crypto" $ do
                 (serDeserId @Crypto.VssPublicKey)
             prop "Secret <-> AsBinary Secret"
                 (serDeserId @Crypto.Secret)
-            prop "Share <-> AsBinary Share"
-                (serDeserId @Crypto.Share)
+            prop "DecShare <-> AsBinary DecShare"
+                (serDeserId @Crypto.DecShare)
             prop "EncShare <-> AsBinary EncShare"
                 (serDeserId @Crypto.EncShare)
             prop "SecretProof <-> AsBinary SecretProof"

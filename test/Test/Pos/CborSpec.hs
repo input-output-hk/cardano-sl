@@ -368,7 +368,7 @@ spec = describe "Cbor.Bi instances" $ do
                 prop "VssPublicKey" (soundInstanceProperty @VssPublicKey Proxy)
                 prop "VssKeyPair" (soundInstanceProperty @VssKeyPair Proxy)
                 prop "Secret" (soundInstanceProperty @Secret Proxy)
-                prop "Share" (soundInstanceProperty @Share Proxy)
+                prop "DecShare" (soundInstanceProperty @DecShare Proxy)
                 prop "EncShare" (soundInstanceProperty @EncShare Proxy)
                 prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra Proxy)
                 prop "SecretProof" (soundInstanceProperty @SecretProof Proxy)
@@ -378,7 +378,7 @@ spec = describe "Cbor.Bi instances" $ do
                 prop "AsBinary Secret" (    soundInstanceProperty @Secret Proxy
                                            .&&. asBinaryIdempotencyProperty @Secret Proxy
                                        )
-                prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share) Proxy)
+                prop "AsBinary DecShare" (soundInstanceProperty @(AsBinary DecShare) Proxy)
                 prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare) Proxy)
                 prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
                 prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra Proxy)

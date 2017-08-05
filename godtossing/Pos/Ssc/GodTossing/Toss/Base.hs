@@ -296,12 +296,12 @@ matchCommitmentPure (getCommitmentsMap -> globalCommitments) (id, op) =
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
 --
--- #verifyShare
+-- #verifyDecShare
 checkSharePure :: (SetContainer set, ContainerKey set ~ StakeholderId)
            => CommitmentsMap
            -> set --set of opening's identifiers
            -> VssCertificatesMap
-           -> (StakeholderId, StakeholderId, NonEmpty (AsBinary Share))
+           -> (StakeholderId, StakeholderId, NonEmpty (AsBinary DecShare))
            -> Bool
 checkSharePure globalCommitments globalOpeningsPK globalCertificates (idTo, idFrom, multiShare) =
     fromMaybe False checks
@@ -340,7 +340,7 @@ checkSharesPure
     -> InnerSharesMap
     -> Bool
 checkSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo shares =
-    let listShares :: [(StakeholderId, StakeholderId, NonEmpty (AsBinary Share))]
+    let listShares :: [(StakeholderId, StakeholderId, NonEmpty (AsBinary DecShare))]
         listShares = map convert $ HM.toList shares
         convert (addrFrom, share) = (addrTo, addrFrom, share)
     in all

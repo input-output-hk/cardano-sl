@@ -30,7 +30,7 @@ import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
-import           Pos.Crypto                         (AbstractHash, EncShare, Secret,
+import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
                                                      ProxyCert (..), ProxySecretKey (..),
                                                      ProxySignature (..), PublicKey,
                                                      SecretProof, SecretSharingExtra (..),
@@ -90,8 +90,8 @@ instance MessageLimitedPure Secret where
 instance MessageLimitedPure EncShare where
     msgLenLimit = 103
 
-instance MessageLimitedPure Share where
-    msgLenLimit = 103 --4+35+64
+instance MessageLimitedPure DecShare where
+    msgLenLimit = 103 --4+35+64       TODO: might be outdated
 
 instance MessageLimitedPure PVSS.Commitment where
     msgLenLimit = 33

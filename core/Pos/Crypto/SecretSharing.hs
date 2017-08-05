@@ -18,8 +18,8 @@ module Pos.Crypto.SecretSharing
        , Secret (..)
        , SecretProof (..)
        , SecretSharingExtra (..)
-       , Share (..)
        , Threshold
+       , DecShare (..)
 
        , shareId
        , encShareId
@@ -91,8 +91,8 @@ newtype Secret = Secret
     } deriving (Show, Eq)
 
 -- | Shares can be used to reconstruct 'Secret'.
-newtype Share = Share
     { getShare :: DecryptedShare
+newtype DecShare = DecShare
     } deriving (Show, Eq)
 
 -- | Encrypted share which needs to be decrypted using 'VssKeyPair' first.
@@ -139,7 +139,7 @@ secretToDhSecret = Pvss.secretToDhSecret . getSecret
 -- share is valid, for this you need to use verifyEncShare.
 decryptShare
     :: MonadRandom m
-    => VssKeyPair -> EncShare -> m Share
+    => VssKeyPair -> EncShare -> m DecShare
 decryptShare (VssKeyPair k) (EncShare encShare) =
     Share <$> Pvss.shareDecrypt k encShare
 

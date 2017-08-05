@@ -34,7 +34,6 @@ import qualified Data.DList                       as DL
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (findIndex, notElem)
 import qualified Data.List.NonEmpty               as NE
-import qualified Data.Map.Strict                  as M
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
@@ -85,8 +84,7 @@ import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp                          (TxFee (..), Utxo)
-import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxOut (..),
-                                                   TxOutAux (..))
+import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxOut (..))
 import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
@@ -581,17 +579,14 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         let hdwSigner = NE.zip ss srcAddrs
         relatedAccount <- getSomeMoneySourceAccount moneySource
         outputs <- coinDistrToOutputs dstDistr
-        TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
+        (TxAux {taTx = tx}, inpTxOuts') <- rewrapTxError "Cannot send transaction" $
             submitMTx enqueueMsg hdwSigner outputs (relatedAccount, passphrase)
 
-        ownUtxo <- getOwnUtxos $ toList srcAddrs
-        let txHash    = hash tx
-            inpTxOuts = map toaOut . catMaybes .
-                        map (flip M.lookup ownUtxo) .
-                        toList $ _txInputs tx
-            inpAddrs = map txOutAddress inpTxOuts
-            dstAddrs = map txOutAddress . toList $
-                       _txOutputs tx
+        let inpTxOuts = toList inpTxOuts'
+            txHash    = hash tx
+            inpAddrs  = map txOutAddress inpTxOuts
+            dstAddrs  = map txOutAddress . toList $
+                        _txOutputs tx
             srcWallet = getMoneySourceWallet moneySource
         logInfo $
             sformat ("Successfully spent money from "%
@@ -600,7 +595,6 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
             (toList srcAddrs)
             dstAddrs
 
-        -- TODO: this should be removed in production
         ts <- Just <$> getCurrentTimestamp
         ctxs <- addHistoryTx srcWallet $
             THEntry txHash tx inpTxOuts Nothing inpAddrs dstAddrs ts

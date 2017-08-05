@@ -161,8 +161,8 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
             (map (flip TxOutAux []) outputs)
             curAddr
     case etx of
-        Left err -> putText $ sformat ("Error: "%stext) err
-        Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+        Left err      -> putText $ sformat ("Error: "%stext) err
+        Right (tx, _) -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) CmdCtx{..} = do
     let nNeighbours = length na
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
@@ -218,11 +218,12 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just (key, txOut, neighbours) -> do
                           utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic (fakeSigner key)
-                          tx <- createTx utxo (fakeSigner key) (one (TxOutAux txOut [])) (makePubKeyAddress $ toPublic key)
-                          case tx of
-                              Left (TxError err) -> addTxFailed tpsMVar >>
+                          etx <- createTx utxo (fakeSigner key) (one (TxOutAux txOut [])) (makePubKeyAddress $ toPublic key)
+                          case etx of
+                              Left (TxError err) -> do
+                                  addTxFailed tpsMVar
                                   logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
-                              Right tx -> do
+                              Right (tx, _) -> do
                                   submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
                                   addTxSubmit tpsMVar >> logInfo (sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours)
                           delay $ ms delay_

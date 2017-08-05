@@ -25,7 +25,7 @@ module Pos.Client.Txp.Util
        , TxError (..)
        ) where
 
-import           Control.Lens             (traversed, (%=), (.=))
+import           Control.Lens             ((%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Control.Monad.State      (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict      as HM
@@ -66,10 +66,11 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
+type TxWithSpendings = (TxAux, NonEmpty TxOut)
 
 -- This datatype corresponds to raw transaction.
 data TxRaw = TxRaw
-    { trInputs    :: !(TxOwnedInputs Address)
+    { trInputs    :: !(TxOwnedInputs TxOut)
     -- ^ Selected inputs from Utxo
     , trOutputs   :: !TxOutputs
     -- ^ Output addresses of tx (without remaing output)
@@ -188,14 +189,14 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
     :: NonEmpty (SafeSigner, Address)
-    -> TxOwnedInputs Address
+    -> TxOwnedInputs TxOut
     -> TxOutputs
     -> TxAux
 makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
   where
     signers = HM.fromList . toList $
         map (swap . second AddressIA) hdwSigners
-    getSigner addr =
+    getSigner (TxOut addr _) =
         fromMaybe (error "Requested signer for unknown address") $
         HM.lookup (AddressIA addr) signers
 
@@ -266,7 +267,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
                         _1 .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         _2 %= tail
                         pickInputs (inp : inps)
-    formTxInputs (inp, TxOutAux TxOut{..} _) = (txOutAddress, inp)
+    formTxInputs (inp, TxOutAux txOut _) = (txOut, inp)
 
 -- | Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
@@ -285,22 +286,32 @@ prepareInpsOuts
     => Utxo
     -> TxOutputs
     -> AddrData m
-    -> ExceptT TxError m (TxOwnedInputs Address, TxOutputs)
+    -> ExceptT TxError m (TxOwnedInputs TxOut, TxOutputs)
 prepareInpsOuts utxo outputs addrData = do
     txRaw@TxRaw {..} <- prepareTxWithFee utxo outputs
     outputsWithRem <- lift $ mkOutputsWithRem addrData txRaw
     properOutputs <- overrideTxDistrBoot outputsWithRem
     pure (trInputs, properOutputs)
 
-prepareInpOuts
+createGenericTx
     :: TxCreateMode ctx m
-    => Utxo
+    => (TxOwnedInputs TxOut -> TxOutputs -> TxAux)
+    -> Utxo
     -> TxOutputs
     -> AddrData m
-    -> ExceptT TxError m (TxInputs, TxOutputs)
-prepareInpOuts utxo outputs addrData =
-    prepareInpsOuts utxo outputs addrData <&>
-    _1 . traversed %~ snd
+    -> ExceptT TxError m TxWithSpendings
+createGenericTx creator utxo outputs addrData = do
+    (inps, outs) <- prepareInpsOuts utxo outputs addrData
+    pure (creator inps outs, map fst inps)
+
+createGenericTxSingle
+    :: TxCreateMode ctx m
+    => (TxInputs -> TxOutputs -> TxAux)
+    -> Utxo
+    -> TxOutputs
+    -> AddrData m
+    -> ExceptT TxError m TxWithSpendings
+createGenericTxSingle creator = createGenericTx (creator . map snd)
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
@@ -310,10 +321,10 @@ createMTx
     -> NonEmpty (SafeSigner, Address)
     -> TxOutputs
     -> AddrData m
-    -> m (Either TxError TxAux)
+    -> m (Either TxError TxWithSpendings)
 createMTx utxo hdwSigners outputs addrData = runExceptT $
-    uncurry (makeMPubKeyTxAddrs hdwSigners) <$>
-    prepareInpsOuts utxo outputs addrData
+    createGenericTx (makeMPubKeyTxAddrs hdwSigners)
+    utxo outputs addrData
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
@@ -323,10 +334,10 @@ createTx
     -> SafeSigner
     -> TxOutputs
     -> AddrData m
-    -> m (Either TxError TxAux)
+    -> m (Either TxError TxWithSpendings)
 createTx utxo ss outputs addrData = runExceptT $
-    uncurry (makePubKeyTx ss) <$>
-    prepareInpOuts utxo outputs addrData
+    createGenericTxSingle (makePubKeyTx ss)
+    utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
@@ -335,10 +346,10 @@ createMOfNTx
     -> [(PublicKey, Maybe SafeSigner)]
     -> TxOutputs
     -> AddrData m
-    -> m (Either TxError TxAux)
+    -> m (Either TxError TxWithSpendings)
 createMOfNTx utxo keys outputs addrData = runExceptT $
-    uncurry (makeMOfNTx validator sks) <$>
-    prepareInpOuts utxo outputs addrData
+    createGenericTxSingle (makeMOfNTx validator sks)
+    utxo outputs addrData
   where
     pks = map fst keys
     sks = map snd keys
@@ -436,7 +447,7 @@ createFakeTxFromRawTx TxRaw{..} =
         -- but we don't want to reveal our passphrase to compute fee.
         -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
         -- so we can use arbitrary signer.
-        srcAddrs = NE.map fst trInputs
+        srcAddrs = NE.map (txOutAddress . fst) trInputs
         (_, fakeSK) = deterministicKeyGen "patakbardaqskovoroda228pva1488kk"
         hdwSigners = NE.zip (NE.repeat $ fakeSigner fakeSK) srcAddrs
     in makeMPubKeyTxAddrs hdwSigners trInputs txOutsWithRem

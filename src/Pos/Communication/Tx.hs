@@ -63,12 +63,12 @@ submitMTx
     -> NonEmpty (SafeSigner, Address)
     -> NonEmpty TxOutAux
     -> AddrData m
-    -> m TxAux
+    -> m (TxAux, NonEmpty TxOut)
 submitMTx enqueue hdwSigner outputs addrData = do
     let addrs = map snd $ toList hdwSigner
     utxo <- getOwnUtxos addrs
-    txw <- eitherToThrow =<< createMTx utxo hdwSigner outputs addrData
-    submitAndSave enqueue txw
+    txWSpendings <- eitherToThrow =<< createMTx utxo hdwSigner outputs addrData
+    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
@@ -77,11 +77,11 @@ submitTx
     -> SafeSigner
     -> NonEmpty TxOutAux
     -> AddrData m
-    -> m TxAux
+    -> m (TxAux, NonEmpty TxOut)
 submitTx enqueue ss outputs addrData = do
     utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
-    txw <- eitherToThrow =<< createTx utxo ss outputs addrData
-    submitAndSave enqueue txw
+    txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
+    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx

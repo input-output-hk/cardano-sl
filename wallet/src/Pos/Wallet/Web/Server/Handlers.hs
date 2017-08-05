@@ -87,8 +87,6 @@ servantHandlers sendActions =
 
      M.reportingInitialized
     :<|>
-     M.reportingElectroncrash
-    :<|>
 
      (blockchainSlotDuration <&> fromIntegral)
     :<|>

@@ -39,9 +39,6 @@ import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDe
 import           Pos.Client.Txp.History        (MonadTxHistory (..),
                                                 getBlockHistoryDefault,
                                                 getLocalHistoryDefault, saveTxDefault)
-import           Pos.Discovery                 (HasDiscoveryContextSum (..),
-                                                MonadDiscovery (..), findPeersSum,
-                                                getPeersSum)
 import           Pos.Reporting                 (HasReportingContext (..))
 import           Pos.Shutdown                  (HasShutdownContext (..))
 import           Pos.Slotting.Class            (MonadSlots (..))
@@ -55,10 +52,12 @@ import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsD
                                                 putSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
+import           Pos.KnownPeers                (MonadKnownPeers (..), MonadFormatPeers (..))
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName           (HasLoggerName' (..), getLoggerNameDefault,
                                                 modifyLoggerNameDefault)
+import qualified Pos.Util.OutboundQueue        as OQ.Reader
 import           Pos.Util.TimeWarp             (CanJsonLog (..))
 import           Pos.Util.UserSecret           (HasUserSecret (..))
 import           Pos.Util.Util                 (postfixLFields)
@@ -78,7 +77,7 @@ import           Pos.Wallet.Web.State.State    (WalletState)
 import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..),
                                                 syncWalletOnImportWebWallet,
                                                 txMempoolToModifierWebWallet)
-import           Pos.WorkMode                  (RealModeContext)
+import           Pos.WorkMode                  (RealModeContext (..))
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
@@ -93,9 +92,6 @@ instance HasSscContext WalletSscType WalletWebModeContext where
 
 instance HasPrimaryKey WalletWebModeContext where
     primaryKey = wwmcRealModeContext_L . primaryKey
-
-instance HasDiscoveryContextSum WalletWebModeContext where
-    discoveryContextSum = wwmcRealModeContext_L . discoveryContextSum
 
 instance HasReportingContext WalletWebModeContext  where
     reportingContext = wwmcRealModeContext_L . reportingContext
@@ -152,10 +148,6 @@ instance MonadSlots WalletWebMode where
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
     currentTimeSlotting = currentTimeSlottingSum
-
-instance MonadDiscovery WalletWebMode where
-    getPeers = getPeersSum
-    findPeers = findPeersSum
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
     getLoggerName = getLoggerNameDefault
@@ -217,3 +209,9 @@ instance MonadTxHistory WalletSscType WalletWebMode where
 instance MonadWalletTracking WalletWebMode where
     syncWalletOnImport = syncWalletOnImportWebWallet . one
     txMempoolToModifier = txMempoolToModifierWebWallet
+
+instance MonadKnownPeers WalletWebMode where
+    updatePeersBucket = OQ.Reader.updatePeersBucketReader (rmcOutboundQ . wwmcRealModeContext)
+
+instance MonadFormatPeers WalletWebMode where
+    formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . wwmcRealModeContext)

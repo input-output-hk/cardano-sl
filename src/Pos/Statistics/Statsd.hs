@@ -5,18 +5,18 @@ module Pos.Statistics.Statsd
        , statsdParamsOption
        ) where
 
+import qualified Options.Applicative    as Opt
+import           Pos.Util.TimeWarp      (NetworkAddress, addrParserNoWildcard)
+import           Serokell.Util.OptParse (fromParsec)
 import           Universum
-import qualified Options.Applicative.Simple as Opt
-import           Serokell.Util.OptParse     (fromParsec)
-import           Pos.Util.TimeWarp          (NetworkAddress, addrParserNoWildcard)
 
 data StatsdParams = StatsdParams
-    { statsdHost :: !Text
-    , statsdPort :: !Int
+    { statsdHost     :: !Text
+    , statsdPort     :: !Int
     , statsdInterval :: !Int
-    , statsdDebug :: !Bool
-    , statsdPrefix :: !Text
-    , statsdSuffix :: !Text
+    , statsdDebug    :: !Bool
+    , statsdPrefix   :: !Text
+    , statsdSuffix   :: !Text
     } deriving (Show)
 
 statsdParamsOption :: Opt.Parser StatsdParams

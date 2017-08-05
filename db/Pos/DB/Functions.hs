@@ -12,9 +12,7 @@ module Pos.DB.Functions
 
        -- * Decoding/encoding primitives and iteration related
        , dbDecode
-       , dbDecodeWP
        , dbDecodeMaybe
-       , dbDecodeMaybeWP
        , encodeWithKeyPrefix
        , processIterEntry
        ) where
@@ -22,7 +20,7 @@ module Pos.DB.Functions
 import           Universum
 
 import qualified Data.ByteString  as BS (drop, isPrefixOf)
-import           Formatting       (sformat, shown, stext, string, (%))
+import           Formatting       (bprint, builder, sformat, shown, stext, string, (%))
 
 import           Pos.Binary.Class (Bi, decodeFull, serialize')
 import           Pos.DB.Class     (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
@@ -44,34 +42,29 @@ dbGetBi tag key = do
 dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
 dbPutBi tag k v = dbPut tag k (serialize' v)
 
-
+-- This type describes what we want to decode and contains auxiliary
+-- data.
 data ToDecode
-    = ToDecodeKey !ByteString
-    | ToDecodeValue !ByteString
-                    !ByteString
+    = ToDecodeKey !ByteString   -- key
+    | ToDecodeValue !ByteString -- key
+                    !ByteString -- value
 
-dbDecode :: (Bi v, MonadThrow m) => ToDecode -> m v
-dbDecode (ToDecodeKey key) =
-    either (onParseError key) pure . decodeFull $ key
-dbDecode (ToDecodeValue key val) =
-    either (onParseError key) pure . decodeFull $ val
-
-onParseError :: (MonadThrow m) => ByteString -> Text -> m a
-onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
+dbDecode :: forall v m. (Bi v, MonadThrow m) => ToDecode -> m v
+dbDecode =
+    \case
+        ToDecodeKey key ->
+            either (onParseError key Nothing) pure . decodeFull $ key
+        ToDecodeValue key val ->
+            either (onParseError key (Just val)) pure . decodeFull $ val
   where
-    fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%stext
-
--- with prefix
-dbDecodeWP
-    :: forall i m . (MonadThrow m, DBIteratorClass i, Bi (IterKey i))
-    => ByteString -> m (IterKey i)
-dbDecodeWP key
-    | BS.isPrefixOf (iterKeyPrefix @i) key =
-        either (onParseError key) pure .
-        decodeFull .
-        BS.drop (length $ iterKeyPrefix @i) $
-        key
-    | otherwise = onParseError key "unexpected prefix"
+    onParseError :: ByteString -> Maybe ByteString -> Text -> m a
+    onParseError rawKey rawValMaybe errMsg =
+        let valueBuilder = maybe "" (bprint (", value = " %shown)) rawValMaybe
+        in throwM $ DBMalformed $ sformat fmt rawKey valueBuilder errMsg
+    fmt =
+        "A key or value stored in DB is malformed, key = "%shown%
+        builder%
+        ", err: "%stext
 
 dbDecodeMaybe :: (Bi v) => ByteString -> Maybe v
 dbDecodeMaybe = rightToMaybe . decodeFull
@@ -82,9 +75,7 @@ dbDecodeMaybeWP
     => ByteString -> Maybe (IterKey i)
 dbDecodeMaybeWP s
     | BS.isPrefixOf (iterKeyPrefix @i) s =
-          rightToMaybe .
-          decodeFull .
-          BS.drop (length $ iterKeyPrefix @i) $ s
+        dbDecodeMaybe . BS.drop (length $ iterKeyPrefix @i) $ s
     | otherwise = Nothing
 
 -- | Encode iterator key using iterator prefix defined in

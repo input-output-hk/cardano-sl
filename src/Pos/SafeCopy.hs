@@ -12,7 +12,9 @@ import qualified Crypto.ECC.Edwards25519         as ED25519
 import qualified Crypto.Sign.Ed25519             as EDS25519
 import           Data.SafeCopy                   (SafeCopy (..), base, contain,
                                                   deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Serialize                  as Cereal (getWord8, putWord8)
+import qualified Data.Serialize                  as Cereal (Serialize (..), getWord8,
+                                                            putWord8)
+import           Serokell.Data.Memory.Units      (Byte, fromBytes, toBytes)
 
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
@@ -332,3 +334,9 @@ instance (Bi (AbstractHash algo a), Typeable algo, Typeable a) =>
         SafeCopy (AbstractHash algo a) where
    putCopy = Bi.putCopyBi
    getCopy = Bi.getCopyBi
+
+instance Cereal.Serialize Byte where
+    get = fromBytes <$> Cereal.get
+    put = Cereal.put . toBytes
+
+instance SafeCopy Byte

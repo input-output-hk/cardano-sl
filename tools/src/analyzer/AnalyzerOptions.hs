@@ -11,7 +11,7 @@ import           Universum
 
 import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
-import           Options.Applicative.Simple   (Parser, auto, execParser, footerDoc,
+import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
                                                progDesc, short, strOption, value)

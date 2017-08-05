@@ -25,7 +25,7 @@ module Pos.Client.Txp.Util
        , TxError (..)
        ) where
 
-import           Control.Lens             ((%=), (.=))
+import           Control.Lens             (traversed, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Control.Monad.State      (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict      as HM
@@ -280,6 +280,28 @@ mkOutputsWithRem addrData TxRaw {..}
           changeAddr <- getNewAddress addrData
           pure $ (TxOutAux (TxOut changeAddr trRemaining) []) :| toList trOutputs
 
+prepareInpsOuts
+    :: TxCreateMode ctx m
+    => Utxo
+    -> TxOutputs
+    -> AddrData m
+    -> ExceptT TxError m (TxOwnedInputs Address, TxOutputs)
+prepareInpsOuts utxo outputs addrData = do
+    txRaw@TxRaw {..} <- prepareTxWithFee utxo outputs
+    outputsWithRem <- lift $ mkOutputsWithRem addrData txRaw
+    properOutputs <- overrideTxDistrBoot outputsWithRem
+    pure (trInputs, properOutputs)
+
+prepareInpOuts
+    :: TxCreateMode ctx m
+    => Utxo
+    -> TxOutputs
+    -> AddrData m
+    -> ExceptT TxError m (TxInputs, TxOutputs)
+prepareInpOuts utxo outputs addrData =
+    prepareInpsOuts utxo outputs addrData <&>
+    _1 . traversed %~ snd
+
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx
@@ -289,11 +311,9 @@ createMTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxAux)
-createMTx utxo hdwSigners outputs addrData = runExceptT $ do
-    txRaw@TxRaw {..} <- prepareTxWithFee utxo outputs
-    outputsWithRem <- lift $ mkOutputsWithRem addrData txRaw
-    properOutputs <- overrideTxDistrBoot outputsWithRem
-    pure $ makeMPubKeyTxAddrs hdwSigners trInputs properOutputs
+createMTx utxo hdwSigners outputs addrData = runExceptT $
+    uncurry (makeMPubKeyTxAddrs hdwSigners) <$>
+    prepareInpsOuts utxo outputs addrData
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
@@ -304,12 +324,9 @@ createTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxAux)
-createTx utxo ss outputs addrData = runExceptT $ do
-    txRaw@TxRaw {..} <- prepareTxWithFee utxo outputs
-    let bareInputs = snd <$> trInputs
-    outputsWithRem <- lift $ mkOutputsWithRem addrData txRaw
-    properOutputs <- overrideTxDistrBoot outputsWithRem
-    pure $ makePubKeyTx ss bareInputs properOutputs
+createTx utxo ss outputs addrData = runExceptT $
+    uncurry (makePubKeyTx ss) <$>
+    prepareInpOuts utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
@@ -319,12 +336,9 @@ createMOfNTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxAux)
-createMOfNTx utxo keys outputs addrData = runExceptT $ do
-    txRaw@TxRaw {..} <- prepareTxWithFee utxo outputs
-    let bareInputs = snd <$> trInputs
-    outputsWithRem <- lift $ mkOutputsWithRem addrData txRaw
-    properOutputs <- overrideTxDistrBoot outputsWithRem
-    pure $ makeMOfNTx validator sks bareInputs properOutputs
+createMOfNTx utxo keys outputs addrData = runExceptT $
+    uncurry (makeMOfNTx validator sks) <$>
+    prepareInpOuts utxo outputs addrData
   where
     pks = map fst keys
     sks = map snd keys

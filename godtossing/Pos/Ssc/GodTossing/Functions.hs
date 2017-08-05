@@ -26,12 +26,11 @@ import           Pos.Binary.GodTossing.Core      ()
 import           Pos.Core                        (EpochIndex (..), IsMainHeader,
                                                   SlotId (..), StakeholderId, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
-import           Pos.Crypto                      (Threshold)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), VssCertificatesMap,
                                                   checkCertTTL, isCommitmentId,
                                                   isOpeningId, isSharesId,
-                                                  verifySignedCommitment)
+                                                  verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -133,11 +132,6 @@ sanityChecksGtPayload eoh payload = case payload of
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
-
--- | Figure out the threshold (i.e. how many secret shares would be required
--- to recover each node's secret) using number of participants.
-vssThreshold :: Integral a => a -> Threshold
-vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 
 getStableCertsPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs

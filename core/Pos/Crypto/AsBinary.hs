@@ -7,7 +7,6 @@ module Pos.Crypto.AsBinary (
     , secretBytes
     , decShareBytes
     , encShareBytes
-    , secretProofBytes
     ) where
 
 import           Universum
@@ -20,8 +19,7 @@ import           Formatting               (bprint, int, sformat, stext, (%))
 import           Pos.Binary.Class         (AsBinary (..), AsBinaryClass (..), Bi,
                                            decodeFull, serialize')
 import           Pos.Crypto.Hashing       (hash, shortHashF)
-import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
-                                           SecretSharingExtra (..), Share (..),
+import           Pos.Crypto.SecretSharing (DecShare (..), EncShare (..), Secret (..),
                                            VssPublicKey (..))
 
 ----------------------------------------------------------------------------
@@ -54,18 +52,16 @@ checkLenImpl action name expectedLen len
     fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . getAsBinary }; \
 
 
-vssPublicKeyBytes, secretBytes, shareBytes, encShareBytes, secretProofBytes :: Int
+vssPublicKeyBytes, secretBytes, decShareBytes, encShareBytes :: Int
 vssPublicKeyBytes = 35   -- 33 data + 2 of CBOR overhead
 secretBytes       = 35   -- 33 data + 2 of CBOR overhead
-shareBytes        = 103  --4+33+64
-encShareBytes     = 103
-secretProofBytes  = 66   -- 64 data + 2 of CBOR overhead
+decShareBytes     = 99
+encShareBytes     = 35
 
 Ser(VssPublicKey, vssPublicKeyBytes, "VssPublicKey")
 Ser(Secret, secretBytes, "Secret")
 Ser(DecShare, decShareBytes, "DecShare")
 Ser(EncShare, encShareBytes, "EncShare")
-Ser(SecretProof, secretProofBytes, "SecretProof")
 
 instance Buildable (AsBinary Secret) where
     build _ = "secret \\_(o.o)_/"
@@ -78,7 +74,3 @@ instance Buildable (AsBinary EncShare) where
 
 instance Bi (AsBinary VssPublicKey) => Buildable (AsBinary VssPublicKey) where
     build = bprint ("vsspub:"%shortHashF) . hash
-
-instance Bi SecretSharingExtra => AsBinaryClass SecretSharingExtra where
-    asBinary = AsBinary . serialize'
-    fromBinary = decodeFull . getAsBinary

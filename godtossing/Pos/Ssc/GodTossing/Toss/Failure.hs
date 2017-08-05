@@ -32,6 +32,7 @@ data TossVerFailure
     | CommittingNoParticipants !NEStIds
     | CommitmentAlreadySent !NEStIds
     | CommSharesOnWrongParticipants !NEStIds
+    | CommInvalidShares !NEStIds
     | OpeningAlreadySent !NEStIds
     | OpeningWithoutCommitment !NEStIds
     | OpeningNotMatchCommitment !NEStIds
@@ -73,6 +74,8 @@ instance Buildable TossVerFailure where
         bprint ("some nodes have already sent their commitments: "%listJson) ids
     build (CommSharesOnWrongParticipants ids) =
         bprint ("some commShares has been generated on wrong participants: "%listJson) ids
+    build (CommInvalidShares ids) =
+        bprint ("some commShares don't pass crypto verification: "%listJson) ids
     build (OpeningAlreadySent ids) =
         bprint ("some nodes have already sent their openings: "%listJson) ids
     build (OpeningWithoutCommitment ids) =

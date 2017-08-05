@@ -37,17 +37,7 @@ import           Pos.Communication.Types.Relay     (DataMsg)
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
-import           Pos.Crypto                        (AbstractHash)
-import           Pos.Crypto.HD                     (HDAddressPayload)
-import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
-                                                    RedeemSignature)
-import           Pos.Crypto.SafeSigning            (PassPhrase)
-import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProof,
-                                                    SecretSharingExtra, Share, VssKeyPair,
-                                                    VssPublicKey)
-import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
-                                                    PublicKey, SecretKey, Signature,
-                                                    Signed)
+import           Pos.Crypto
 import           Pos.Delegation.Types
 import           Pos.DHT.Model.Types
 import           Pos.Explorer
@@ -370,19 +360,16 @@ spec = describe "Cbor.Bi instances" $ do
                 prop "Secret" (soundInstanceProperty @Secret Proxy)
                 prop "DecShare" (soundInstanceProperty @DecShare Proxy)
                 prop "EncShare" (soundInstanceProperty @EncShare Proxy)
-                prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra Proxy)
                 prop "SecretProof" (soundInstanceProperty @SecretProof Proxy)
-                prop "AsBinary VssPublicKey" (    soundInstanceProperty @(AsBinary VssPublicKey) Proxy
-                                                 .&&. asBinaryIdempotencyProperty @VssPublicKey Proxy
-                                             )
-                prop "AsBinary Secret" (    soundInstanceProperty @Secret Proxy
-                                           .&&. asBinaryIdempotencyProperty @Secret Proxy
-                                       )
+                prop "AsBinary VssPublicKey" $
+                    soundInstanceProperty @(AsBinary VssPublicKey) Proxy .&&.
+                    asBinaryIdempotencyProperty @VssPublicKey Proxy
+                prop "AsBinary Secret" $
+                    soundInstanceProperty @Secret Proxy .&&.
+                    asBinaryIdempotencyProperty @Secret Proxy
                 prop "AsBinary DecShare" (soundInstanceProperty @(AsBinary DecShare) Proxy)
                 prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare) Proxy)
-                prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
-                prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra Proxy)
-                prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
+                -- prop "CC.ChainCode" (soundInstanceProperty @(AsBinary CC.ChainCode) Proxy)
                 prop "PublicKey" (soundInstanceProperty @PublicKey Proxy)
                 prop "SecretKey" (soundInstanceProperty @SecretKey Proxy)
                 prop "PassPhrase" (soundInstanceProperty @PassPhrase Proxy)

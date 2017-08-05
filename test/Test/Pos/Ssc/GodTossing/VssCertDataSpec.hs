@@ -183,15 +183,14 @@ instance Arbitrary RollbackData where
                           certsToRollback
 
 verifyRollback
-    :: RollbackData -> Property
-verifyRollback (Rollback oldGtGlobalState rollbackEoS vssCerts) =
+    :: RollbackData -> Gen Property
+verifyRollback (Rollback oldGtGlobalState rollbackEoS vssCerts) = do
     let certAdder vcd = foldl' (flip insert) vcd vssCerts
         newGtGlobalState@(GtGlobalState _ _ _ newVssCertData) =
             oldGtGlobalState & gsVssCertificates %~ certAdder
-        (_, GtGlobalState _ _ _ rolledVssCertData, _) =
-            runPureToss newGtGlobalState $ rollbackGT rollbackEoS (NewestFirst [])
-    in conjoin $ fmap (\cert ->
-                          isJust (lookup (getCertId cert) newVssCertData) &&
-                          (/= Just cert)
-                              (lookup (getCertId cert) rolledVssCertData))
-                 vssCerts
+    (_, GtGlobalState _ _ _ rolledVssCertData, _) <-
+        runPureToss newGtGlobalState $
+        rollbackGT rollbackEoS (NewestFirst [])
+    pure $ conjoin $ vssCerts <&> \cert ->
+        isJust         (lookup (getCertId cert) newVssCertData) &&
+        (/= Just cert) (lookup (getCertId cert) rolledVssCertData)

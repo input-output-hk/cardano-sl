@@ -29,7 +29,8 @@ import           Pos.Lrc.Types                  (RichmenStakes)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Class.Types            (SscBlock, getSscBlock)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap,
+                                                 vcVssKey)
 import qualified Pos.Ssc.GodTossing.DB          as DB
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
@@ -82,6 +83,7 @@ instance SscGStateClass SscGodTossing where
     sscCalculateSeedQ _epoch richmen =
         calculateSeed
         <$> view gsCommitments
+        <*> (map vcVssKey . VCD.certs <$> view gsVssCertificates)
         <*> view gsOpenings
         <*> view gsShares
         <*> pure richmen

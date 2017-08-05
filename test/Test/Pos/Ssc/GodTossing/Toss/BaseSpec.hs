@@ -17,20 +17,19 @@ import           Pos.Constants         (genesisBlockVersionData)
 import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
-import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
-                                        BadSignedCommitment (..), Commitment,
-                                        CommitmentOpening (..), CommitmentSignature,
-                                        CommitmentsMap (..), GtGlobalState (..),
-                                        InnerSharesMap, MultiRichmenStakes, Opening,
-                                        OpeningsMap, PureTossWithEnv, SharesMap,
-                                        SignedCommitment, TossVerFailure (..),
-                                        VssCertData (..), VssCertificate (vcSigningKey),
-                                        VssCertificatesMap, checkCertificatesPayload,
-                                        checkCommitmentsPayload, checkOpeningsPayload,
-                                        checkSharesPayload, gsCommitments, gsOpenings,
-                                        gsShares, gsVssCertificates,
-                                        mkCommitmentsMapUnsafe, runPureToss,
-                                        supplyPureTossEnv, verifyCommitment,
+import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitment (..),
+                                        Commitment, CommitmentOpening (..),
+                                        CommitmentSignature, CommitmentsMap (..),
+                                        GtGlobalState (..), InnerSharesMap,
+                                        MultiRichmenStakes, Opening, OpeningsMap,
+                                        PureTossWithEnv, SharesMap, SignedCommitment,
+                                        TossVerFailure (..), VssCertData (..),
+                                        VssCertificate (vcSigningKey), VssCertificatesMap,
+                                        checkCertificatesPayload, checkCommitmentsPayload,
+                                        checkOpeningsPayload, checkSharesPayload,
+                                        gsCommitments, gsOpenings, gsShares,
+                                        gsVssCertificates, mkCommitmentsMapUnsafe,
+                                        runPureToss, supplyPureTossEnv, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
@@ -45,7 +44,6 @@ spec :: Spec
 spec = describe "Ssc.GodTossing.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
-        prop description_notVerifiesBadComm notVerifiesBadComm
     describe "verifyCommitmentSignature" $ do
         prop description_verifiesOkCommSig verifiesOkCommSig
         prop description_notVerifiesBadSig notVerifiesBadCommSig
@@ -73,8 +71,6 @@ spec = describe "Ssc.GodTossing.Base" $ do
   where
     description_verifiesOkComm =
         "successfully verifies a correct commitment commitment"
-    description_notVerifiesBadComm =
-        "unsuccessfully verifies an incorrect commitment"
     description_verifiesOkCommSig =
         "successfully verifies a signed commitment for a given epoch and secret key"
     description_notVerifiesBadSig =
@@ -110,10 +106,6 @@ spec = describe "Ssc.GodTossing.Base" $ do
 verifiesOkComm :: CommitmentOpening -> Bool
 verifiesOkComm CommitmentOpening{..} =
     verifyCommitment coCommitment
-
-notVerifiesBadComm :: BadCommitment -> Bool
-notVerifiesBadComm (getBadComm -> badComm) =
-    not . verifyCommitment $ badComm
 
 verifiesOkCommSig :: SecretKey -> Commitment -> EpochIndex -> Bool
 verifiesOkCommSig sk comm epoch =

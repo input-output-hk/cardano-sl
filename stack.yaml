@@ -93,7 +93,7 @@ nix:
 extra-deps:
 - universum-0.4.3
 - serokell-util-0.3
-- pvss-0.1
+- pvss-0.2.0
 - active-0.2.0.13
 - base58-bytestring-0.1.0
 - log-warper-1.1.2
@@ -116,6 +116,8 @@ extra-deps:
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
 - cborg-0.1.1.0
+- foundation-0.0.13               # pvss
+- memory-0.14.6                   # pvss
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

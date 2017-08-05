@@ -356,6 +356,7 @@ createMOfNTx utxo keys outputs addrData = runExceptT $
     m = length $ filter isJust sks
     validator = multisigValidator m pks
 
+-- | Make a transaction for retrieving money from redemption address
 createRedemptionTx
     :: TxDistrMode ctx m
     => Utxo
@@ -372,34 +373,37 @@ createRedemptionTx utxo rsk outputs = runExceptT $ do
 -- Fees logic
 -----------------------------------------------------------------------------
 
+-- | Helper function to reduce code duplication
+withLinearFeePolicy
+    :: (TxDistrMode ctx m, MonadError TxError m)
+    => (TxSizeLinear -> m a)
+    -> m a
+withLinearFeePolicy action = bvdTxFeePolicy <$> gsAdoptedBVData >>= \case
+    TxFeePolicyUnknown w _ -> throwTxError $
+        sformat ("Unknown fee policy, tag: "%build) w
+    TxFeePolicyTxSizeLinear linearPolicy ->
+        action linearPolicy
+
+-- | Prepare transaction considering fees
 prepareTxWithFee
     :: TxDistrMode ctx m
     => Utxo
     -> TxOutputs
     -> ExceptT TxError m TxRaw
-prepareTxWithFee utxo outputs = do
-    feePolicy <- bvdTxFeePolicy <$> lift gsAdoptedBVData
-    case feePolicy of
-        TxFeePolicyUnknown w _ -> throwTxError $
-            sformat ("Unknown fee policy, tag: "%build) w
-        TxFeePolicyTxSizeLinear linearPolicy ->
-            stabilizeTxFee linearPolicy utxo outputs
+prepareTxWithFee utxo outputs = withLinearFeePolicy $ \linearPolicy ->
+    stabilizeTxFee linearPolicy utxo outputs
 
--- Read-only function.
+-- | Compute, how much fees we should pay to send money to given
+-- outputs
 computeTxFee
     :: TxDistrMode ctx m
     => Utxo
     -> TxOutputs
     -> ExceptT TxError m TxFee
-computeTxFee utxo outputs = do
-    feePolicy <- bvdTxFeePolicy <$> gsAdoptedBVData
-    case feePolicy of
-        TxFeePolicyUnknown w _ -> throwTxError $
-            sformat ("Unknown fee policy, tag: "%build) w
-        TxFeePolicyTxSizeLinear linearPolicy -> do
-            txAux <- createFakeTxFromRawTx <$>
-                     stabilizeTxFee linearPolicy utxo outputs
-            txToLinearFee linearPolicy txAux
+computeTxFee utxo outputs = withLinearFeePolicy $ \linearPolicy -> do
+    txAux <- createFakeTxFromRawTx <$>
+             stabilizeTxFee linearPolicy utxo outputs
+    txToLinearFee linearPolicy txAux
 
 -- | Search such spendings that transaction's fee would be stable.
 stabilizeTxFee
@@ -421,6 +425,7 @@ stabilizeTxFee linearPolicy utxo outputs =
             then pure txRaw
             else stabilizeTxFeeDo (attempt - 1) txFee
 
+-- | Calcucate linear fee from transaction's size
 txToLinearFee
     :: MonadError TxError m
     => TxSizeLinear -> TxAux -> m TxFee
@@ -434,6 +439,8 @@ txToLinearFee linearPolicy =
   where
     invalidFee reason = TxError ("Invalid fee: " <> reason)
 
+-- | Function is used to calculate intermediate fee amounts
+-- when forming a transaction
 createFakeTxFromRawTx :: TxRaw -> TxAux
 createFakeTxFromRawTx TxRaw{..} =
     let fakeAddr = txOutAddress . toaOut . NE.head $ trOutputs

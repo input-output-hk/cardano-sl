@@ -46,7 +46,7 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
 import           Pos.Lrc.Mode               (LrcMode)
-import           Pos.Reporting              (reportMisbehaviourSilent)
+import           Pos.Reporting              (reportMisbehaviour)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
@@ -76,7 +76,7 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     onLrcError e = reportError e >> throwM e
     -- FIXME [CSL-1340]: it should be reported as 'RError'.
     reportError e =
-        reportMisbehaviourSilent False $
+        reportMisbehaviour False $
         "Lrc worker failed with error: " <> show e
 
 type LrcModeFullNoSemaphore ssc ctx m =

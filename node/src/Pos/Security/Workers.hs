@@ -26,7 +26,7 @@ import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
 import           Pos.DB.DB                  (getTipHeader)
-import           Pos.Reporting.Methods      (reportMisbehaviourSilent, reportingFatal)
+import           Pos.Reporting.Methods      (reportMisbehaviour, reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration)
 import           Pos.WorkMode.Class         (WorkMode)
@@ -116,4 +116,4 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
         -- TODO [CSL-1340]: should it be critical or not? Is it
         -- misbehavior or error?
         when nonTrivialUptime $ recoveryCommGuard $
-            reportMisbehaviourSilent True reason
+            reportMisbehaviour True reason

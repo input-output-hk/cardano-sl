@@ -1,8 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Functions for operating with transactions
-
-{-# LANGUAGE RankNTypes          #-}
 
 module Pos.Communication.Tx
        ( TxMode

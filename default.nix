@@ -76,7 +76,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
   stack2nix = import (pkgs.fetchFromGitHub {
     owner = "input-output-hk";
     repo = "stack2nix";
-    rev = "05420f3efb38834700a3da8a5245fecc50b01139";
-    sha256 = "1sdrsqc0xz7xn4knf47qaj3xxs9jns8izcqnx6cn84gpv76hhiqf";
+    rev = "69a6ba32ca008e822605649797116538392321ea";
+    sha256 = "1dilz0vkimz1yhim7d65id47i4imxlyb6mqxsrgv3z35w909dz5s";
   });
 }

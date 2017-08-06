@@ -66,8 +66,17 @@ in ((import ./pkgs { inherit pkgs; }).override {
     cardano-sl-lwallet = overrideCabal super.cardano-sl-lwallet (drv: { src = cleanSource2 drv.src; });
 
     cardano-sl-static = justStaticExecutables self.cardano-sl;
+
     # Gold linker fixes
     cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
+
+
+   # Darwin fixes upstreamed in nixpkgs commit 71bebd52547f4486816fd320bb3dc6314f139e67
+   hinotify = if pkgs.stdenv.isDarwin then self.hfsevents else super.hinotify;
+   fsnotify = if pkgs.stdenv.isDarwin
+     then addBuildDepend (dontCheck super.fsnotify) pkgs.darwin.apple_sdk.frameworks.Cocoa
+     else dontCheck super.fsnotify;
+
     mkDerivation = args: super.mkDerivation (args // {
       #enableLibraryProfiling = true;
     });

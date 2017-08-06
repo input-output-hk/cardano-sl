@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Pending transactions resubmition logic.
 
 module Pos.Wallet.Web.Pending
@@ -6,41 +8,26 @@ module Pos.Wallet.Web.Pending
 
 import           Universum
 
-import           Data.Time.Units         (Second, convertUnit)
-import           Formatting              (build, sformat)
-import           Mockable                (delay, fork)
+import           Data.Time.Units      (Second, convertUnit)
+import           Formatting           (build, sformat)
+import           Mockable             (delay, fork)
 
-import           Pos.Client.Txp.Balances (MonadBalances)
-import           Pos.Client.Txp.History  (MonadTxHistory)
-import           Pos.Communication       (SendActions)
-import           Pos.Communication.Tx    (submitAndSaveTx)
-import           Pos.Core                (SlotId, getSlotCount)
-import           Pos.Core.Slotting       (flattenSlotId)
-import           Pos.Crypto              (WithHash (..))
-import           Pos.Discovery.Class     (getPeers)
-import           Pos.Slotting            (getLastKnownSlotDuration, onNewSlot)
-import           Pos.Txp.Core            (TxAux (..), topsortTxs)
-import           Pos.Txp.MemState        (getMemPool)
-import           Pos.Txp.Pending         (PendingTx (..), PtxCondition (..),
-                                          ptxCreationSlot)
-import           Pos.Txp.Toil            (ToilVerFailure (..), runToilTLocal, processTx,
-                                          runDBToil)
-import           Pos.WorkMode.Class      (WorkMode)
+import           Pos.Communication    (SendActions)
+import           Pos.Communication.Tx (submitAndSaveTx)
+import           Pos.Core             (SlotId, getSlotCount)
+import           Pos.Core.Slotting    (flattenSlotId)
+import           Pos.Crypto           (WithHash (..))
+import           Pos.Discovery.Class  (getPeers)
+import           Pos.Slotting         (getLastKnownSlotDuration, onNewSlot)
+import           Pos.Txp.Core         (TxAux (..), topsortTxs)
+import           Pos.Txp.MemState     (getMemPool)
+import           Pos.Txp.Pending      (PendingTx (..), PtxCondition (..), ptxCreationSlot)
+import           Pos.Txp.Toil         (ToilVerFailure (..), processTx, runDBToil,
+                                       runToilTLocal)
+import qualified Pos.Wallet.Web.Mode
+import           Pos.Wallet.Web.State (getPendingTxs, setPtxCondition)
 
-type MonadPendings ssc ctx m =
-    ( WorkMode ssc ctx m
-    , MonadTxHistory ssc m
-    , MonadBalances m
-    )
-
-setPtxCondition :: PendingTx -> PtxCondition -> m ()
-setPtxCondition = undefined
-
-getPtxCondition :: PendingTx -> m PtxCondition
-getPtxCondition = undefined
-
-getPendingTxs :: PtxCondition -> m [PendingTx]
-getPendingTxs = undefined
+type MonadPendings m = m ~ Pos.Wallet.Web.Mode.WalletWebMode
 
 type ToResubmit x = x
 
@@ -48,7 +35,7 @@ type ToResubmit x = x
 -- Making it to work with all prepared pending transactions
 -- is crucial due to chain transactions. TODO: complete. Maybe this have to go to resubmitter
 canSubmitPtx
-    :: MonadPendings ssc ctx m
+    :: MonadPendings m
     => [PendingTx] -> m (ToResubmit [PendingTx])
 canSubmitPtx ptxs = do
     -- FIXME [CSM-256] do under blk semaphore!
@@ -57,7 +44,7 @@ canSubmitPtx ptxs = do
         concatForM ptxs $ \ptx@PendingTx{..} -> do
             res <- runExceptT $ processTx (ptxTxId, ptxTxAux)
             case res of
-                Left e  -> processFailure ptx e $> []
+                Left e  -> lift . lift $ processFailure ptx e $> []
                 Right _ -> return [ptx]
   where
     -- | What should happen with pending transaction if attempt
@@ -65,41 +52,40 @@ canSubmitPtx ptxs = do
     -- If number of 'ToilVerFailure' constructors will ever change, compiler
     -- will complain - for this purpose we consider all cases here.
     processFailure ptx e = do
-    let await   = return False
-        discard = False <$ setPtxCondition ptx (PtxWon'tApply $ sformat build e)
-    case e of
-        ToilKnown                -> await
-        ToilTipsMismatch{}       -> await
-        ToilSlotUnknown          -> await
-        ToilOverwhelmed{}        -> await
-        ToilNotUnspent{}         -> discard
-        ToilOutGTIn{}            -> discard
-        ToilInconsistentTxAux{}  -> discard
-        ToilInvalidOutputs{}     -> discard
-        ToilInvalidInputs{}      -> discard
-        ToilTooLargeTx{}         -> discard
-        ToilInvalidMinFee{}      -> discard
-        ToilInsufficientFee{}    -> discard
-        ToilUnknownAttributes{}  -> discard
-        ToilBootDifferentStake{} -> discard
+        let await   = return ()
+            discard = setPtxCondition ptx (PtxWon'tApply $ sformat build e)
+        case e of
+            ToilKnown                -> await
+            ToilTipsMismatch{}       -> await
+            ToilSlotUnknown          -> await
+            ToilOverwhelmed{}        -> await
+            ToilNotUnspent{}         -> discard
+            ToilOutGTIn{}            -> discard
+            ToilInconsistentTxAux{}  -> discard
+            ToilInvalidOutputs{}     -> discard
+            ToilInvalidInputs{}      -> discard
+            ToilTooLargeTx{}         -> discard
+            ToilInvalidMinFee{}      -> discard
+            ToilInsufficientFee{}    -> discard
+            ToilUnknownAttributes{}  -> discard
+            ToilBootDifferentStake{} -> discard
 
 processPtxs
-    :: MonadPendings ssc ctx m
-    => SlotId -> [PendingTx] -> m (ToResubmit [PendingTx])
+    :: MonadPendings m
+    => SlotId -> [(PendingTx, PtxCondition)] -> m (ToResubmit [PendingTx])
 processPtxs curSlot ptxs = do
-    ptxs' <- forM ptxs $ \ptx -> (ptx, ) <$> getPtxCondition ptx
-    mapM_ markPersistent ptxs'
-    canSubmitPtx $ map fst $ filter ((PtxApplying ==) . snd) ptxs'
+    mapM_ markPersistent ptxs
+    canSubmitPtx $ map fst $ filter ((PtxApplying ==) . snd) ptxs
    where
-     isPersistent ptx = 
+     isPersistent ptx =
          flattenSlotId (ptxCreationSlot ptx) + getSlotCount undefined
              < flattenSlotId curSlot
      markPersistent (ptx, PtxInUpperBlocks) =
          when (isPersistent ptx) $ setPtxCondition ptx PtxPersisted
      markPersistent _ = return ()
 
-whetherCheckPtxOnSlot :: SlotId -> PendingTx -> Bool
-whetherCheckPtxOnSlot curSlot ptx =
+whetherCheckPtxOnSlot :: SlotId -> (PendingTx, PtxCondition) -> Bool
+whetherCheckPtxOnSlot curSlot (ptx, _) =
     -- TODO [CSM-256]: move 3 in constants?
     flattenSlotId (ptxCreationSlot ptx) + 3 < flattenSlotId curSlot
 
@@ -108,7 +94,7 @@ whetherCheckPtxOnSlot curSlot ptx =
 -- It's not /worker/, because it requires some constraints, natural only for
 -- wallet environment.
 startPendingTxsResubmitter
-    :: MonadPendings ssc ctx m
+    :: MonadPendings m
     => SendActions m -> m ()
 startPendingTxsResubmitter sendActions =
     onNewSlot False $ \curSlot -> do
@@ -128,7 +114,7 @@ startPendingTxsResubmitter sendActions =
             -- FIXME [CSM-256] Doesn't it introduce a race condition?
             fork $ submitAndSaveTx sendActions na ptxTxAux
   where
-    wHash PendingTx{..} = WithHash (taTx ptxTxAux) ptxTxId
+    wHash (PendingTx{..}, _) = WithHash (taTx ptxTxAux) ptxTxId
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
         slotDuration <- getLastKnownSlotDuration

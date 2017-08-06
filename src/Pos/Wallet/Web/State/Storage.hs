@@ -26,6 +26,8 @@ module Pos.Wallet.Web.State.Storage
        , getHistoryCache
        , getCustomAddresses
        , getCustomAddress
+       , getPtxCondition
+       , getPendingTxs
        , addCustomAddress
        , removeCustomAddress
        , createAccount
@@ -52,6 +54,7 @@ module Pos.Wallet.Web.State.Storage
        , removeNextUpdate
        , testReset
        , updateHistoryCache
+       , setPtxCondition
        ) where
 
 import           Universum
@@ -67,7 +70,8 @@ import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Constants              (genesisHash)
 import           Pos.Core.Types             (Timestamp)
-import           Pos.Txp                    (Utxo)
+import           Pos.Txp                    (TxAux, Utxo)
+import           Pos.Txp.Pending            (PendingTx, PtxCondition)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash,
@@ -118,6 +122,7 @@ data WalletStorage = WalletStorage
     , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
+    , _wsPendingTxs      :: !(HashMap PendingTx PtxCondition)
     }
 
 makeClassy ''WalletStorage
@@ -134,6 +139,7 @@ instance Default WalletStorage where
         , _wsUsedAddresses   = mempty
         , _wsChangeAddresses = mempty
         , _wsUtxo            = mempty
+        , _wsPendingTxs      = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -353,12 +359,23 @@ updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId ?= cTxs
 
+getPtxCondition :: PendingTx -> Query (Maybe PtxCondition)
+getPtxCondition ptx = view $ wsPendingTxs . at ptx
+
+getPendingTxs :: PtxCondition -> Query [(PendingTx, PtxCondition)]
+getPendingTxs cond =
+    filter ((cond ==) . snd) . HM.toList <$> view wsPendingTxs
+
+setPtxCondition :: PendingTx -> PtxCondition -> Update ()
+setPtxCondition ptx cond = wsPendingTxs . at ptx ?= cond
+
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CId
 deriveSafeCopySimple 0 'base ''Wal
 deriveSafeCopySimple 0 'base ''Addr
+deriveSafeCopySimple 0 'base ''TxAux
 deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''AccountId
 deriveSafeCopySimple 0 'base ''CWAddressMeta
@@ -372,6 +389,8 @@ deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
+deriveSafeCopySimple 0 'base ''PendingTx
+deriveSafeCopySimple 0 'base ''PtxCondition
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletInfo

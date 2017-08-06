@@ -31,6 +31,9 @@ module Pos.Wallet.Web.State.Acidic
        , GetHistoryCache (..)
        , GetCustomAddresses (..)
        , GetCustomAddress (..)
+       , GetPtxCondition (..)
+       , GetPendingTxs (..)
+       , SetPtxCondition (..)
        , AddCustomAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
@@ -115,6 +118,8 @@ makeAcidic ''WalletStorage
     , 'WS.getHistoryCache
     , 'WS.getCustomAddresses
     , 'WS.getCustomAddress
+    , 'WS.getPtxCondition
+    , 'WS.getPendingTxs
     , 'WS.addCustomAddress
     , 'WS.removeCustomAddress
     , 'WS.createAccount
@@ -139,4 +144,5 @@ makeAcidic ''WalletStorage
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache
+    , 'WS.setPtxCondition
     ]

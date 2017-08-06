@@ -138,7 +138,7 @@ library
                      , cardano-crypto
                      , cereal
                      , concurrent-extra
-                     , containers >= 0.5.8.1
+                     , containers
                      , contravariant
                      , cryptonite
                      , cryptonite-openssl >= 0.5

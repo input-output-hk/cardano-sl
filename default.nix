@@ -28,7 +28,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
       doHaddock = false;
       patchPhase = ''
        # TODO
-       export CSL_SYSTEM_TAG=linux64
+       export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
       '';
       # production full nodes shouldn't use wallet as it means different constants
       configureFlags = [

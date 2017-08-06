@@ -113,8 +113,6 @@ recoverSecretsProp n n_openings n_shares n_overlap
 recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let threshold = vssThreshold n
     (keys, vssKeys, comms, opens) <- generateKeysAndMpc threshold n
-    print vssKeys
-    print (mapMaybe (fromBinaryM . getOpening) opens)
     let des = fromBinary
         seeds :: [SharedSeed]
         seeds = rights $ map (fmap secretToSharedSeed . des . getOpening) opens

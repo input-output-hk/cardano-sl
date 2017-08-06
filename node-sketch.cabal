@@ -270,9 +270,8 @@ test-suite node-sketch-test
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
-executable qdisc-simulation
-  -- TBD: make this a benchmark instead?
-  -- type:           exitcode-stdio-1.0
+benchmark qdisc-simulation
+  type:           exitcode-stdio-1.0
   hs-source-dirs: src
   main-is:        Network/QDisc/Simulation.hs
   other-modules:  Network.QDisc.Fair

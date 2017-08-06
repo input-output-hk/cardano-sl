@@ -15,9 +15,10 @@ import           Data.Map.Strict                   (Map)
 import qualified Data.Map.Strict                   as M
 import           Data.Set                          (Set)
 import qualified Data.Set                          as S
-import           System.IO                         (hPutStrLn)
-import           Turtle                            hiding (FilePath, f, g, stderr, toText)
-import qualified Turtle.Prelude                    as T
+import           Pos.Util.Util                     (withTempFile)
+import           System.Exit                       (ExitCode (ExitSuccess))
+import           System.IO                         (hGetContents, hPutStrLn)
+import           System.Process                    (readProcessWithExitCode)
 
 import           JSONLog                           (IndexedJLTimedEvent)
 import           Prelude                           (unlines)
@@ -60,14 +61,14 @@ graphF = f <$> blockHeadersF
                      ]
 
 writeGraph :: FilePath -> DotGraph Int -> IO Bool
-writeGraph f g = with (T.mktempfile "." "graph.dot") $ \tmp -> do
-    with (T.writeonly tmp) $ flip hPutDot g
-    with (T.readonly tmp) $ \h -> do
-        b <-G.isGraphvizInstalled
-        if b
-            then do
-                ex <- T.proc "dot" ["-Tpng", toText $ "-o" ++ f] (T.inhandle h)
-                case ex of
-                    ExitSuccess -> return True
-                    _           -> hPutStrLn Universum.stderr ("Creating the graph failed, " ++ show ex) >> return False
-            else hPutStrLn stderr "Cannot produce graph without dot. Please install graphviz." >> return False
+writeGraph f g = withTempFile "." "graph.dot" $ \_ h -> do
+    hPutDot h g
+    b <- G.isGraphvizInstalled
+    case b of
+        True -> do
+            input <- hGetContents h
+            ex <- view _1 <$> readProcessWithExitCode "dot" ["-Tpng", "-o" ++ f] input
+            case ex of
+                ExitSuccess -> return True
+                _           -> hPutStrLn Universum.stderr ("Creating the graph failed, " ++ show ex) >> return False
+        False -> hPutStrLn stderr "Cannot produce graph without dot. Please install graphviz." >> return False

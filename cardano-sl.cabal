@@ -334,7 +334,7 @@ library
                       , binary
                       , bytestring
                       , cardano-crypto
-                      , cardano-report-server >= 0.2.0
+                      , cardano-report-server >= 0.2.1
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-godtossing
@@ -391,7 +391,6 @@ library
                       , network-transport-tcp
                       , node-sketch >= 0.1.0.0
                       , optparse-applicative
-                      , optparse-simple
                       , parsec
                       , plutus-prototype
                       , pvss
@@ -504,7 +503,7 @@ executable cardano-node
                      , network-transport
                      , node-sketch
                      , network-transport-tcp
-                     , optparse-simple
+                     , optparse-applicative
                      , parsec
                      , serokell-util >= 0.1.3.4
                      , stm-containers

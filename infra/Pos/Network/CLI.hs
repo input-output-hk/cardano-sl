@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- following Pos.Util.UserSecret
@@ -19,18 +19,18 @@ module Pos.Network.CLI (
   ) where
 
 import           Control.Concurrent
-import           Control.Exception               (Exception(..), try)
+import           Control.Exception               (Exception (..), try)
 import qualified Data.ByteString.Char8           as BS.C8
 import           Data.IP                         (IPv4)
 import qualified Data.Map.Strict                 as M
 import           Data.Maybe                      (fromJust)
 import qualified Data.Yaml                       as Yaml
-import           Formatting                      (sformat, (%), shown)
+import           Formatting                      (sformat, shown, (%))
+import           Mockable                        (Mockable, fork)
 import           Mockable.Concurrent
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS                     as DNS
-import           Mockable                        (Mockable, fork)
-import qualified Options.Applicative.Simple      as Opt
+import qualified Options.Applicative             as Opt
 import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
                                                          fromYamlConfig)
@@ -45,7 +45,7 @@ import           System.Wlog.CanLog              (WithLogger, logError, logNotic
 import           Universum
 
 #ifdef POSIX
-import           Pos.Util.SigHandler             (Signal(..), installHandler)
+import           Pos.Util.SigHandler             (Signal (..), installHandler)
 #endif
 
 {-------------------------------------------------------------------------------

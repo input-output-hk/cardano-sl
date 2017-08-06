@@ -9,7 +9,7 @@ import           Language.PureScript.Bridge                (BridgePart, buildBri
                                                             (^==))
 import           Language.PureScript.Bridge.PSTypes        (psInt)
 import           Language.PureScript.Bridge.TypeParameters (A)
-import           Options.Applicative.Simple                (execParser, fullDesc, header,
+import           Options.Applicative                       (execParser, fullDesc, header,
                                                             help, helper, info,
                                                             infoOption, long, progDesc)
 import           Universum

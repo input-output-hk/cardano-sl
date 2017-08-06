@@ -1,0 +1,56 @@
+c1370f431 Generate genesis for tns
+diff --git a/core/constants.yaml b/core/constants.yaml
+index 2b91d47b9..b3044e170 100644
+--- a/core/constants.yaml
++++ b/core/constants.yaml
+@@ -151,8 +151,10 @@ testnet: &testnet
+ 
+   genesisBinSuffix: tn
+ 
++
+ testnet_staging: &testnet_staging
+   <<: *testnet
++  k: 108
+   protocolMagic: 60987900
+   genesisBinSuffix: tns
+ 
+diff --git a/core/genesis-core-tns.bin b/core/genesis-core-tns.bin
+new file mode 100644
+index 000000000..6a0245261
+Binary files /dev/null and b/core/genesis-core-tns.bin differ
+diff --git a/genesis-info/tns.log b/genesis-info/tns.log
+new file mode 100644
+index 000000000..eda66b3b4
+--- /dev/null
++++ b/genesis-info/tns.log
+@@ -0,0 +1,14 @@
++e743ac30a Merge pull request #1259 from input-output-hk/alfredo/csl-1453-remove-redundant-deps
++
++[94m[keygen:INFO:ThreadId 4] [0mProcessing command
++[94m[keygen:INFO:ThreadId 4] [0mGenerating requested raw data
++[94m[keygen:INFO:ThreadId 4] [0mGenerating avvm data
++[94m[keygen:INFO:ThreadId 4] [0mRemoving 101 entries from utxo (out of 188 total entries in the blacklist)
++[94m[keygen:INFO:ThreadId 4] [0mTotal avvm stake after applying blacklist: 25927070538000000
++[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-qanet-2017-08-04_19-28/keys-fakeavvm
++[94m[keygen:INFO:ThreadId 4] [0m100 fake avvm seeds are generated
++[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-qanet-2017-08-04_19-28/keys-testnet
++[94m[keygen:INFO:ThreadId 4] [0m1212 keyfiles are generated
++[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKeyAddress ed2b014d53889a1153a712fbb2630452f46cc92963597a3a7fe1c972 (attrs: {}), PubKeyAddress 0312b8b016cb6084316721aa71aaca9b3d38a319859fc5028e5147f9 (attrs: {}), PubKeyAddress 889620fec24039ae478a273814d07ff11dcb35d48ea1f7fb5b35b3ba (attrs: {}), PubKeyAddress 043e68f2058c5d30a85839ddf4532ba97e8721447fc66d6b5a60793d (attrs: {}), PubKeyAddress 391d2a755341c0527eb59ed07b03d6ab10130ca78005b5f014647c26 (attrs: {}), PubKeyAddress 5d4b9b58ec2bbc295578ee6ced5d53a435ef8f8f6796beaf6a0ebafd (attrs: {}), PubKeyAddress d8259372cfed45644ae97050c95d31bcfb399671b43656d0449d15c7 (attrs: {}), PubKeyAddress 4228c301c88e538548defcaff8abc6c5b9d4042557ad1929f9c1f997 (attrs: {}), PubKeyAddress 4cc255a9ee78981202718ed66be44e3aef885fc1f72bffe0f647b3d5 (attrs: {}), PubKeyAddress cf55457ee9f751d65980925f031763647323fe8cbec159f87a045e22 (attrs: {})] distr: RichPoorStakes {sdRichmen = 12, sdRichStake = Coin {getCoin = 1494045279523334}, sdPoor = 2400, sdPoorStake = Coin {getCoin = 476822961549}}
++[94m[keygen:INFO:ThreadId 4] [0mgenesis-core.bin generated successfully
++[94m[keygen:INFO:ThreadId 4] [0mgenesis-godtossing.bin generated successfully
+diff --git a/godtossing/genesis-godtossing-tns.bin b/godtossing/genesis-godtossing-tns.bin
+new file mode 100644
+index 000000000..94ab93de6
+Binary files /dev/null and b/godtossing/genesis-godtossing-tns.bin differ
+[94m[keygen:INFO:ThreadId 4] [0mProcessing command
+[94m[keygen:INFO:ThreadId 4] [0mGenerating requested raw data
+[94m[keygen:INFO:ThreadId 4] [0mGenerating avvm data
+[94m[keygen:INFO:ThreadId 4] [0mRemoving 101 entries from utxo (out of 188 total entries in the blacklist)
+[94m[keygen:INFO:ThreadId 4] [0mTotal avvm stake after applying blacklist: 25927070538000000
+[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-qanet-2017-08-04_21-21/keys-fakeavvm
+[94m[keygen:INFO:ThreadId 4] [0m100 fake avvm seeds are generated
+[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-qanet-2017-08-04_21-21/keys-testnet
+[94m[keygen:INFO:ThreadId 4] [0m1214 keyfiles are generated
+[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKeyAddress dd2b785decb0a3206f4431b7405e6505d8e2ed1666876192f7e942a4 (attrs: {}), PubKeyAddress 881b5b6d099147bdc49fa94929436e7accfd29f8a9111e61c6a1a910 (attrs: {}), PubKeyAddress f64cb528bb9817480aa44d022115d55079419bfb51eb7d65362b0d97 (attrs: {}), PubKeyAddress 5cc91fad756cdbaf9e381e2655da874598c664da0e8cccc05a002785 (attrs: {}), PubKeyAddress 4bf60c0f8b487c1e8dda7853e6bfdc1e426c7b37db2f414b7e7d6aff (attrs: {}), PubKeyAddress 45dd2271cc3f990ad2e8f258b1ccfc4de60f1faf0cf5ebf40d9b035b (attrs: {}), PubKeyAddress 5337ce984849d9c059affc6a28f220cd5046a3d31fb2c1fb0ef55ae9 (attrs: {}), PubKeyAddress c308e8070a6da95bf4850b86340e68c0ab1d4642f79b7553c2fdfbba (attrs: {}), PubKeyAddress f710212451d4d5035049771cbc504be385e8824891ef7f01f90aef5c (attrs: {}), PubKeyAddress e05563bb7f6f2c2673b8a49235bb9ed37109ad70ebffd96b757d5ccc (attrs: {})] distr: RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 2400, sdPoorStake = Coin {getCoin = 476822961549}}
+[94m[keygen:INFO:ThreadId 4] [0mgenesis-core.bin generated successfully
+[94m[keygen:INFO:ThreadId 4] [0mgenesis-godtossing.bin generated successfully

@@ -1,5 +1,8 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- Don't complain about deprecated ErrorT
+{-# OPTIONS -Wno-deprecations #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -12,8 +15,8 @@ import           Universum
 
 import           Control.Concurrent.STM                (readTVar)
 import           Control.Lens                          (at, to, views)
+import           Control.Monad.Error                   (runErrorT)
 import           Control.Monad.Except                  (runExceptT)
-import           Control.Monad.Trans.Maybe             (runMaybeT)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List.NonEmpty                    as NE
 import           Data.Tagged                           (Tagged)
@@ -29,10 +32,10 @@ import           System.Wlog                           (logDebug, logError, logI
 import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
-import           Pos.Communication.Protocol            (Message, OutSpecs, EnqueueMsg,
-                                                        Worker, WorkerSpec, SendActions (..),
-                                                        onNewSlotWorker, MsgType (..),
-                                                        Origin (..))
+import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
+                                                        Origin (..), OutSpecs,
+                                                        SendActions (..), Worker,
+                                                        WorkerSpec, onNewSlotWorker)
 import           Pos.Communication.Relay               (DataMsg, ReqOrRes,
                                                         invReqDataFlowTK)
 import           Pos.Communication.Specs               (createOutSpecs)
@@ -322,9 +325,8 @@ generateAndSetNewSecret sk SlotId {..} = do
                        computeParticipants (getKeys richmen) certs
     maybe (Nothing <$ warnNoPs) (generateAndSetNewSecretDo richmen) participants
   where
-    warnNoPs =
-        logWarning "generateAndSetNewSecret: can't generate, no participants"
-    reportDeserFail = logError "Wrong participants list: can't deserialize"
+    here s = "generateAndSetNewSecret: " <> s
+    warnNoPs = logWarning (here "can't generate, no participants")
     generateAndSetNewSecretDo :: RichmenStakes
                               -> NonEmpty (StakeholderId, AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
@@ -332,22 +334,28 @@ generateAndSetNewSecret sk SlotId {..} = do
         let onLeft er =
                 Nothing <$
                 logWarning
-                (sformat ("Couldn't compute shares distribution, reason: "%build) er)
+                (here $ sformat ("Couldn't compute shares distribution, reason: "%build) er)
         mpcThreshold <- bvdMpcThd <$> gsAdoptedBVData
         distrET <- runExceptT (computeSharesDistrPure richmen mpcThreshold)
         flip (either onLeft) distrET $ \distr -> do
-            logDebug $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
+            logDebug $ here $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
             let threshold = vssThreshold $ sum $ toList distr
             let multiPSmb = nonEmpty $
                             concatMap (\(c, x) -> replicate (fromIntegral c) x) $
                             NE.map (first $ flip (HM.lookupDefault 0) distr) ps
             case multiPSmb of
-                Nothing -> Nothing <$ logWarning "Couldn't compute participant's vss"
-                Just multiPS -> do
-                    mPair <- runMaybeT (genCommitmentAndOpening threshold multiPS)
-                    flip (maybe (reportDeserFail $> Nothing)) mPair $
-                        \(mkSignedCommitment sk siEpoch -> comm, open) ->
-                            Just comm <$ SS.putOurSecret comm open siEpoch
+                Nothing -> Nothing <$ logWarning (here "Couldn't compute participant's vss")
+                Just multiPS ->
+                    -- we use runErrorT and not runExceptT because we want
+                    -- to get errors produced by 'fail'. In the future we'll
+                    -- use MonadError everywhere and it won't be needed.
+                    runErrorT (genCommitmentAndOpening threshold multiPS) >>= \case
+                        Left (toText @String -> err) ->
+                            logError (here err) $> Nothing
+                        Right (comm, open) -> do
+                            let signedComm = mkSignedCommitment sk siEpoch comm
+                            SS.putOurSecret signedComm open siEpoch
+                            pure (Just signedComm)
 
 randomTimeInInterval
     :: SscMode SscGodTossing ctx m

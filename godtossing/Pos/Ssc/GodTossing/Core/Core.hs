@@ -44,7 +44,8 @@ import           Data.Ix                       (inRange)
 import qualified Data.List.NonEmpty            as NE
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder        (Builder)
-import           Formatting                    (Format, bprint, int, (%))
+import           Formatting                    (Format, bprint, build, formatToString,
+                                                int, (%))
 import           Serokell.Data.Memory.Units    (Byte)
 import           Serokell.Util                 (VerificationRes, listJson, verifyGeneric)
 
@@ -89,8 +90,11 @@ genCommitmentAndOpening
     :: (MonadFail m, MonadIO m)
     => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
 genCommitmentAndOpening t pks
-    | t <= 1     = fail "genCommitmentAndOpening: threshold must be > 1"
-    | t >= n - 1 = fail "genCommitmentAndOpening: threshold must be < n-1"
+    | t <= 1 = fail $ formatToString
+        ("genCommitmentAndOpening: threshold ("%build%") must be > 1") t
+    | t >= n - 1 = fail $ formatToString
+        ("genCommitmentAndOpening: threshold ("%build%") must be < n-1"%
+         " (n = "%build%")") t n
     | otherwise  = do
         pks' <- traverse fromBinaryM pks
         liftIO . runSecureRandom $

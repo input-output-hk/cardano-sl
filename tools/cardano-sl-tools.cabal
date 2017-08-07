@@ -394,6 +394,7 @@ executable cardano-launcher
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections
+                       TypeApplications
                        BangPatterns
 
   if os(windows)
@@ -536,6 +537,7 @@ executable cardano-block-gen
                         LambdaCase
                         OverloadedStrings
                         FlexibleContexts
+                        TypeApplications
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

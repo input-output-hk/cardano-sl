@@ -113,8 +113,7 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    MonadKeySearch (..), genSaveRootKey,
                                                    genUniqueAccountAddress,
                                                    genUniqueAccountId, getAddrIdx,
-                                                   getSKByAccAddr, getSKByAddr,
-                                                   myRootAddresses)
+                                                   getSKById, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.Backup            (AccountMetaBackup (..),
                                                    StateBackup (..), WalletBackup (..),
@@ -224,7 +223,7 @@ walletServer
     -> m (m :~> Handler)
     -> m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWalletsWithGState @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    syncWalletsWithGState @WalletSscType =<< mapM getSKById =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -476,7 +475,7 @@ getWallet cAddr = do
     let walletsNum = length wallets
     balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                      mapM (decodeCCoinOrFail . caAmount) wallets
-    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKByAddr cAddr
+    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- getWalletPassLU cAddr >>= maybeThrow noWSet
     pure $ CWallet cAddr meta walletsNum balance hasPass passLU
   where
@@ -625,7 +624,7 @@ sendMoney SendActions {..} passphrase moneySource dstDistr = do
     sendDo spendings outputs = do
         let inputMetas = NE.map fst spendings
         let inpTxOuts = toList $ NE.map snd spendings
-        sks <- forM inputMetas $ getSKByAccAddr passphrase
+        sks <- mapM findKey inputMetas
         srcAddrs <- forM inputMetas $ decodeCIdOrFail . cwamId
         let dstAddrs = txOutAddress . toaOut <$> toList outputs
         withSafeSigners passphrase sks $ \ss -> do
@@ -1076,7 +1075,7 @@ changeWalletPassphrase
     :: WalletWebMode m
     => CId Wal -> PassPhrase -> PassPhrase -> m ()
 changeWalletPassphrase wid oldPass newPass = do
-    oldSK <- getSKByAddr wid
+    oldSK <- getSKById wid
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK

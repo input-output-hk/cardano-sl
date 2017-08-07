@@ -1,6 +1,6 @@
 -- | VSS certificates and secrets related stuff.
 
-module Secrets
+module Pos.Client.CLI.Secrets
        ( updateUserSecretVSS
        , userSecretWithGenesisKey
        ) where
@@ -14,7 +14,7 @@ import           Pos.Genesis         (genesisDevSecretKeys)
 import           Pos.Ssc.GodTossing  (genesisDevVssKeyPairs)
 import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSecret)
 
-import           NodeOptions         (Args (..))
+import           Pos.Client.CLI.NodeOptions         (Args (..))
 
 userSecretWithGenesisKey
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
@@ -68,4 +68,3 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
 --         return (sk, us)
 --   where
 --     keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
-

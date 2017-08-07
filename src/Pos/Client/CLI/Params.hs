@@ -1,6 +1,6 @@
 -- | Getter params from Args
 
-module Params
+module Pos.Client.CLI.Params
        ( loggingParams
        , getNodeParams
        , gtSscParams
@@ -29,8 +29,8 @@ import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.UserSecret   (peekUserSecret)
 
-import           NodeOptions           (Args (..))
-import           Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
+import           Pos.Client.CLI.NodeOptions           (Args (..))
+import           Pos.Client.CLI.Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
 
 
 loggingParams :: LoggerName -> Args -> LoggingParams

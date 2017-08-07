@@ -4,7 +4,7 @@
 
 -- | Command line options of pos-node.
 
-module NodeOptions
+module Pos.Client.CLI.NodeOptions
        ( Args (..)
        , getNodeOptions
        ) where

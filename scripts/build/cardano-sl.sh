@@ -58,7 +58,7 @@ set -o pipefail
 # * Pass --for-installer to enable 'for-installer' flag (which means that most
 #   of executables won't be built).
 
-# We can't have lwallet here, because it depends on 'cardano-sl'.
+# We can't have lwallet and wallet here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
 
 args=''
@@ -72,7 +72,7 @@ spec_prj=''
 no_nix=false
 ram=false
 prodMode=
-wallet=true
+wallet=false
 explorer=false
 no_code=false
 werror=false
@@ -154,6 +154,8 @@ do
     spec_prj="godtossing"
   elif [[ $var == "lwallet" ]]; then
     spec_prj="lwallet"
+  elif [[ $var == "wallet" ]]; then
+    spec_prj="wallet"
   elif [[ $var == "tools" ]]; then
     spec_prj="tools"
   elif [[ " $projects " =~ " $var " ]]; then
@@ -226,6 +228,8 @@ if [[ $clean == true ]]; then
   stack clean cardano-sl-tools
   echo "Cleaning cardano-sl-lwallet"
   stack clean cardano-sl-lwallet
+  echo "Cleaning cardano-sl-wallet"
+  stack clean cardano-sl-wallet
   echo "Cleaning cardano-sl"
   stack clean cardano-sl
   for prj in $projects; do
@@ -240,13 +244,15 @@ if [[ $spec_prj == "" ]]; then
   for prj in $projects; do
     to_build="$to_build cardano-sl-$prj"
   done
-  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools"
+  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet"
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
 elif [[ $spec_prj == "lwallet" ]]; then
   to_build="cardano-sl-lwallet"
+elif [[ $spec_prj == "wallet" ]]; then
+  to_build="cardano-sl-wallet"
 elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools"
+  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet "
 else
   to_build="cardano-sl-$spec_prj"
 fi

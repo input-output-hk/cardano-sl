@@ -73,7 +73,6 @@ test_script:
       -j 2
       --no-terminal
       --local-bin-path %SYSTEMROOT%\system32
-      --fast
       --work-dir %STACK_WORK%
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
@@ -88,7 +87,6 @@ test_script:
       -j 2
       --no-terminal
       --local-bin-path daedalus
-      --fast
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%
@@ -106,7 +104,6 @@ test_script:
       -j 2
       --no-terminal
       --local-bin-path daedalus
-      --fast
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%

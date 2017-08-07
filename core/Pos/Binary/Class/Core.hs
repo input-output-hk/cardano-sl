@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
@@ -41,6 +40,7 @@ import qualified Data.Set                   as S
 import           Data.Tagged                (Tagged (..))
 import qualified Data.Text                  as Text
 import           Data.Time.Units            (Microsecond, Millisecond)
+import           Data.Typeable              (typeRep)
 import qualified Data.Vector                as Vector
 import qualified Data.Vector.Generic        as Vector.Generic
 import qualified GHC.Generics               as G
@@ -61,19 +61,22 @@ decodeBinary = do
 
 -- | Enforces that the input size is the same as the decoded one, failing in case it's not.
 enforceSize :: String -> Int -> D.Decoder s ()
-enforceSize label requestedSize = D.decodeListLen >>= matchSize requestedSize label
+enforceSize lbl requestedSize = D.decodeListLen >>= matchSize requestedSize lbl
 
 -- | Compare two sizes, failing if they are not equal.
 matchSize :: Int -> String -> Int -> D.Decoder s ()
-matchSize requestedSize label actualSize =
+matchSize requestedSize lbl actualSize =
   when (actualSize /= requestedSize) $
-    fail (label <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
+    fail (lbl <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
 
 ----------------------------------------
 
-class Bi a where
+class Typeable a => Bi a where
     encode :: a -> E.Encoding
     decode :: D.Decoder s a
+
+    label :: Proxy a -> String
+    label = show . typeRep
 
     encodeList :: [a] -> E.Encoding
     encodeList = defaultEncodeList
@@ -172,7 +175,7 @@ instance Bi Void where
 -- Tagged
 ----------------------------------------------------------------------------
 
-instance Bi a => Bi (Tagged s a) where
+instance (Typeable s, Bi a) => Bi (Tagged s a) where
     encode (Tagged a) = encode a
     decode = Tagged <$> decode
 
@@ -322,13 +325,13 @@ encodeMapSkel size foldrWithKey =
 -- See: https://tools.ietf.org/html/rfc7049#section-3.9
 -- "[..]The keys in every map must be sorted lowest value to highest.[...]"
 decodeMapSkel :: (Ord k, Bi k, Bi v) => ([(k,v)] -> m) -> D.Decoder s m
-decodeMapSkel fromDistinctDescList = do
+decodeMapSkel fromDistinctAscList = do
   n <- D.decodeMapLen
   case n of
-      0 -> return (fromDistinctDescList [])
+      0 -> return (fromDistinctAscList [])
       _ -> do
           (firstKey, firstValue) <- decodeEntry
-          fromDistinctDescList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
+          fromDistinctAscList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
   where
     -- Decode a single (k,v).
     decodeEntry :: (Bi k, Bi v) => D.Decoder s (k,v)
@@ -340,7 +343,7 @@ decodeMapSkel fromDistinctDescList = do
     -- Decode all the entries, enforcing canonicity by ensuring that the
     -- previous key is smaller than the next one.
     decodeEntries :: (Bi k, Bi v, Ord k) => Int -> k -> [(k,v)] -> D.Decoder s [(k,v)]
-    decodeEntries 0 _ acc = pure acc
+    decodeEntries 0 _ acc = pure $ reverse acc
     decodeEntries !remainingPairs previousKey !acc = do
         p@(newKey, _) <- decodeEntry
         -- Order of keys needs to be strictly increasing, because otherwise it's
@@ -361,7 +364,7 @@ instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
 
 instance (Ord k, Bi k, Bi v) => Bi (Map k v) where
   encode = encodeMapSkel M.size M.foldrWithKey
-  decode = decodeMapSkel M.fromDistinctDescList
+  decode = decodeMapSkel M.fromDistinctAscList
 
 encodeSetSkel :: Bi a
               => (s -> Int)
@@ -390,17 +393,17 @@ decodeSetTag = do
     when (t /= setTag) $ fail ("decodeSetTag: this doesn't appear to be a Set. Found tag: " <> show t)
 
 decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> D.Decoder s c
-decodeSetSkel fromDistinctDescList = do
+decodeSetSkel fromDistinctAscList = do
   decodeSetTag
   n <- D.decodeListLen
   case n of
-      0 -> return (fromDistinctDescList [])
+      0 -> return (fromDistinctAscList [])
       _ -> do
           firstValue <- decode
-          fromDistinctDescList <$> decodeEntries (n - 1) firstValue [firstValue]
+          fromDistinctAscList <$> decodeEntries (n - 1) firstValue [firstValue]
   where
     decodeEntries :: (Bi v, Ord v) => Int -> v -> [v] -> D.Decoder s [v]
-    decodeEntries 0 _ acc = pure acc
+    decodeEntries 0 _ acc = pure $ reverse acc
     decodeEntries !remainingEntries previousValue !acc = do
         newValue <- decode
         -- Order of values needs to be strictly increasing, because otherwise
@@ -420,7 +423,7 @@ instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
 
 instance (Ord a, Bi a) => Bi (Set a) where
   encode = encodeSetSkel S.size S.foldr
-  decode = decodeSetSkel S.fromDistinctDescList
+  decode = decodeSetSkel S.fromDistinctAscList
 
 -- | Generic encoder for vectors. Its intended use is to allow easy
 -- definition of 'Serialise' instances for custom vector

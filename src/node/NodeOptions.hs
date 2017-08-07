@@ -9,8 +9,10 @@ module NodeOptions
        , getNodeOptions
        ) where
 
-import           Data.String.QQ               (s)
+import           Universum                    hiding (show)
+
 import           Data.Version                 (showVersion)
+import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
@@ -20,7 +22,6 @@ import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import qualified Text.Parsec.Char             as P
-import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.CLI                      as CLI
@@ -267,7 +268,7 @@ getNodeOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = Just [s|
+usageExample = (Just . fromString . toString) [text|
 Command example:
 
   stack exec -- cardano-node                                             \

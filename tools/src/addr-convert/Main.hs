@@ -5,9 +5,9 @@ module Main (main) where
 import           Universum
 
 import qualified Data.ByteString              as BS
-import           Data.String.QQ               (s)
 import qualified Data.Text                    as T
 import           Data.Version                 (showVersion)
+import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
                                                header, help, helper, info, infoOption,
                                                long, metavar, option, optional, progDesc,
@@ -48,7 +48,7 @@ getAddrConvertOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = Just [s|
+usageExample = (Just . fromString . toString) [text|
 Command example:
 
   stack exec -- cardano-addr-convert -a 2HF83bvYCTzoCbVta6t64W8rFEnvnkJbIUFoT5tOyoU=

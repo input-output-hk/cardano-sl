@@ -60,6 +60,7 @@ executable cardano-wallet
                      , monad-control
                      , monad-loops
                      , mtl
+                     , neat-interpolation
                      , network-transport-tcp
                      , node-sketch
                      , optparse-applicative
@@ -70,7 +71,6 @@ executable cardano-wallet
                      , serokell-util >= 0.1.3.4
                      , stm
                      , stm-containers
-                     , string-qq
                      , tagged
                      , text
                      , time

@@ -9,8 +9,8 @@ module AnalyzerOptions
 
 import           Universum
 
-import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
+import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
@@ -57,7 +57,7 @@ getAnalyzerOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = Just [s|
+usageExample = (Just . fromString . toString) [text|
 Command example:
 
   stack exec -- cardano-analyzer --file node2.json|]

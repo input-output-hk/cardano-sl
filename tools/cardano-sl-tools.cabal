@@ -49,9 +49,9 @@ executable cardano-analyzer
                      , cardano-sl
                      , formatting
                      , log-warper
+                     , neat-interpolation
                      , optparse-applicative
                      , serokell-util >= 0.1.3.4
-                     , string-qq
                      , text
                      , time
                      , time-units
@@ -266,10 +266,10 @@ executable cardano-genupdate
                      , bytestring
                      , cardano-sl
                      , cryptonite
+                     , neat-interpolation
                      , optparse-applicative
                      , filepath
                      , formatting
-                     , string-qq
                      , system-filepath
                      , process
                      , tar
@@ -313,9 +313,9 @@ executable cardano-keygen
                      , serokell-util >= 0.1
                      , text
                      , lens
+                     , neat-interpolation
                      , optparse-applicative >= 0.12
                      , parsec
-                     , string-qq
                      , unordered-containers
                      , bytestring >= 0.10
                      , random >= 1.1
@@ -372,10 +372,10 @@ executable cardano-launcher
                      , cardano-sl-infra
                      , directory
                      , filepath
+                     , neat-interpolation
                      , optparse-applicative
                      , formatting
                      , process
-                     , string-qq
                      , system-filepath
                      , text
                      , universum
@@ -409,10 +409,10 @@ executable cardano-addr-convert
                      , cardano-sl-core
                      , directory
                      , filepath
+                     , neat-interpolation
                      , optparse-applicative
                      , process
                      , serokell-util
-                     , string-qq
                      , system-filepath
                      , text
                      , universum
@@ -457,9 +457,9 @@ executable cardano-cli-docs
                      , cardano-sl
                      , directory
                      , filepath
+                     , neat-interpolation
                      , optparse-applicative
                      , process
-                     , string-qq
                      , text
                      , universum >= 0.1.11
   default-language:    Haskell2010
@@ -511,10 +511,10 @@ executable cardano-block-gen
                      , log-warper
                      , MonadRandom
                      , mtl
+                     , neat-interpolation
                      , node-sketch
                      , optparse-applicative
                      , random
-                     , string-qq
                      , text-format
                      , universum >= 0.1.11
                      , unordered-containers

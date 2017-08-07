@@ -510,6 +510,7 @@ executable cardano-node
                      , lens
                      , log-warper
                      , mtl
+                     , neat-interpolation
                      , network-transport
                      , node-sketch
                      , network-transport-tcp
@@ -517,7 +518,6 @@ executable cardano-node
                      , parsec
                      , serokell-util >= 0.1.3.4
                      , stm-containers
-                     , string-qq
                      , time
                      , time-units
                      , universum >= 0.1.11

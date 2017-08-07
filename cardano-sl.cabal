@@ -30,12 +30,6 @@ Flag with-explorer
 
   description: Build with explorer
 
-flag bench
-  default:     False
-  manual:      True
-
-  description: Build benchmarks
-
 library
   exposed-modules:      Paths_cardano_sl
 
@@ -717,23 +711,22 @@ benchmark cardano-bench-criterion
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
                        Bench.Pos.Criterion.TxSigningBench
   type:                exitcode-stdio-1.0
-  if flag(bench)
-   build-depends:       QuickCheck
-                      , base
-                      , binary
-                      , bytestring
-                      , cardano-sl-core
-                      , cardano-sl-txp
-                      , cardano-sl
-                      , containers
-                      , criterion
-                      , formatting
-                      , lens
-                      , log-warper
-                      , serokell-util >= 0.1.3.4
-                      , text-format
-                      , universum >= 0.1.11
-                      , vector
+  build-depends:       QuickCheck
+                     , base
+                     , binary
+                     , bytestring
+                     , cardano-sl-core
+                     , cardano-sl-txp
+                     , cardano-sl
+                     , containers
+                     , criterion
+                     , formatting
+                     , lens
+                     , log-warper
+                     , serokell-util >= 0.1.3.4
+                     , text-format
+                     , universum >= 0.1.11
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

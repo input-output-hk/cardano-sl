@@ -1,5 +1,12 @@
+-- | Core runtime context.
+
 module Pos.Core.Context
-       ( HasPrimaryKey(..)
+       ( CoreConstants (..)
+       , HasCoreConstants
+       , ccBlkSecuriryParam
+       , blkSecuriryParamM
+
+       , HasPrimaryKey(..)
        , getOurSecretKey
        , getOurPublicKey
        , getOurKeys
@@ -9,9 +16,26 @@ module Pos.Core.Context
 
 import           Universum
 
+import           Control.Lens     (Getter, makeLenses)
+
 import           Pos.Core.Address (addressHash, makePubKeyAddress)
-import           Pos.Core.Types   (Address, StakeholderId)
+import           Pos.Core.Types   (Address, BlockCount, StakeholderId)
 import           Pos.Crypto       (PublicKey, SecretKey, toPublic)
+
+-- | Core constants. They should be really constant and never change.
+data CoreConstants = CoreConstants
+    { _ccBlkSecuriryParam :: !BlockCount
+    }
+
+makeLenses ''CoreConstants
+
+-- | Access to core constants. The access is read-only to ensure that
+-- the constants are really constants (i. e. can't be changed).
+class HasCoreConstants ctx where
+    coreConstantsG :: Getter ctx CoreConstants
+
+blkSecuriryParamM :: (HasCoreConstants ctx, MonadReader ctx m) => m BlockCount
+blkSecuriryParamM = view (coreConstantsG . ccBlkSecuriryParam)
 
 -- | Access to primary key of the node.
 class HasPrimaryKey ctx where

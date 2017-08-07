@@ -45,9 +45,9 @@ import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
 import           Pos.Delegation.Class    (MonadDelegation)
 import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback,
                                           dlgRollbackBlocks)
-import           Pos.Discovery.Class     (MonadDiscovery)
 import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
+import           Pos.KnownPeers          (MonadFormatPeers)
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Reporting           (HasReportingContext, reportingFatal)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
@@ -107,8 +107,8 @@ type MonadBlockApply ssc ctx m
        , MonadBListener m
        -- Needed for error reporting.
        , HasReportingContext ctx
-       , MonadDiscovery m
        , MonadReader ctx m
+       , MonadFormatPeers m
        -- Needed for rollback
        , Mockable CurrentTime m
        )
@@ -127,14 +127,14 @@ type MonadMempoolNormalization ssc ctx m
       , MonadGState m
       -- Needed for error reporting.
       , HasReportingContext ctx
-      , MonadDiscovery m
       , MonadMask m
       , MonadReader ctx m
+      , MonadFormatPeers m
       )
 
 -- | Normalize mempool.
 normalizeMempool
-    :: forall ssc ctx m . MonadMempoolNormalization ssc ctx m
+    :: forall ssc ctx m . (MonadMempoolNormalization ssc ctx m)
     => m ()
 normalizeMempool = reportingFatal $ do
     -- We normalize all mempools except the delegation one.

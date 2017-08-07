@@ -11,6 +11,8 @@ import qualified Node                           as N
 import           System.Wlog                    (WithLogger)
 import           Universum
 
+import           Mockable.Class                 (Mockable)
+import           Mockable.Exception             (Throw)
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Infra               ()
 import           Pos.Communication.Limits.Types (MessageLimited)
@@ -31,6 +33,7 @@ listenerConv
        , MonadGState m
        , MessageLimited rcv
        , WithLogger m
+       , Mockable Throw m
        )
     => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
     -> (ListenerSpec m, OutSpecs)
@@ -39,7 +42,7 @@ listenerConv h = (lspec, mempty)
     spec = (rcvMsgName, ConvHandler sndMsgName)
     lspec =
       flip ListenerSpec spec $ \ourVerInfo ->
-          N.ListenerActionConversation $ \peerVerInfo' nNodeId conv -> do
+          N.Listener $ \peerVerInfo' nNodeId conv -> do
               checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
                   h ourVerInfo nNodeId conv
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -29,9 +30,10 @@ import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.MessagePart         (MessagePart)
-import           Pos.Communication.Protocol            (Message, OutSpecs, SendActions,
-                                                        Worker', WorkerSpec,
-                                                        onNewSlotWorker)
+import           Pos.Communication.Protocol            (Message, OutSpecs, EnqueueMsg,
+                                                        Worker, WorkerSpec, SendActions (..),
+                                                        onNewSlotWorker, MsgType (..),
+                                                        Origin (..))
 import           Pos.Communication.Relay               (DataMsg, ReqMsg,
                                                         invReqDataFlowNeighborsTK)
 import           Pos.Communication.Specs               (createOutSpecs)
@@ -129,7 +131,7 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
 checkNSendOurCert
     :: forall ctx m.
        (GtMessageConstraints, SscMode SscGodTossing ctx m)
-    => Worker' m
+    => Worker m
 checkNSendOurCert sendActions = do
     ourId <- getOurStakeholderId
     let sendCert resend slot = do
@@ -142,7 +144,7 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage (sscProcessCertificate ourVssCertificate)
-            invReqDataFlowNeighborsTK "ssc" sendActions ourId contents
+            invReqDataFlowNeighborsTK "ssc" (enqueueMsg sendActions) (MsgMPC OriginSender) ourId contents
             logDebug "Announced our VssCertificate."
 
     slMaybe <- getCurrentSlot
@@ -184,7 +186,7 @@ getOurVssKeyPair = views sscContext gtcVssKeyPair
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
-    => SlotId -> Worker' m
+    => SlotId -> Worker m
 onNewSlotCommitment slotId@SlotId {..} sendActions
     | not (isCommitmentIdx siSlot) = pass
     | otherwise = do
@@ -213,12 +215,12 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
     sendOurCommitment comm ourId = do
         let msg = MCCommitment comm
         sscProcessOurMessage (sscProcessCommitment comm)
-        sendOurData sendActions CommitmentMsg ourId msg siEpoch 0
+        sendOurData (enqueueMsg sendActions) CommitmentMsg ourId msg siEpoch 0
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
-    => SlotId -> Worker' m
+    => SlotId -> Worker m
 onNewSlotOpening SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
@@ -237,13 +239,13 @@ onNewSlotOpening SlotId {..} sendActions
             Just open -> do
                 let msg = MCOpening ourId open
                 sscProcessOurMessage (sscProcessOpening ourId open)
-                sendOurData sendActions OpeningMsg ourId msg siEpoch 2
+                sendOurData (enqueueMsg sendActions) OpeningMsg ourId msg siEpoch 2
             Nothing -> logWarning "We don't know our opening, maybe we started recently"
 
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
-    => SlotId -> Worker' m
+    => SlotId -> Worker m
 onNewSlotShares SlotId {..} sendActions = do
     ourId <- getOurStakeholderId
     -- Send decrypted shares that others have sent us
@@ -257,7 +259,7 @@ onNewSlotShares SlotId {..} sendActions = do
         unless (HM.null shares) $ do
             let msg = MCShares ourId lShares
             sscProcessOurMessage (sscProcessShares ourId lShares)
-            sendOurData sendActions SharesMsg ourId msg siEpoch 4
+            sendOurData (enqueueMsg sendActions) SharesMsg ourId msg siEpoch 4
 
 sscProcessOurMessage
     :: (Buildable err, SscMode SscGodTossing ctx m)
@@ -278,20 +280,20 @@ sendOurData ::
     , Message (InvOrData (Tagged contents StakeholderId) contents)
     , Message (ReqMsg (Tagged contents StakeholderId))
     )
-    => SendActions m
+    => EnqueueMsg m
     -> GtTag
     -> StakeholderId
     -> contents
     -> EpochIndex
     -> Word16
     -> m ()
-sendOurData sendActions msgTag ourId dt epoch slMultiplier = do
+sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    invReqDataFlowNeighborsTK "ssc" sendActions ourId dt
+    invReqDataFlowNeighborsTK "ssc" enqueue (MsgMPC OriginSender) ourId dt
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current

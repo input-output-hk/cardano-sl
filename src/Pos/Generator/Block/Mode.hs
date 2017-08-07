@@ -42,14 +42,11 @@ import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as BDB
 import           Pos.DB.DB                   (getTipHeader, gsAdoptedBVDataDefault)
 import           Pos.Delegation              (DelegationVar, mkDelegationVar)
-import           Pos.Discovery               (DiscoveryContextSum (..),
-                                              HasDiscoveryContextSum (..),
-                                              MonadDiscovery (..), findPeersSum,
-                                              getPeersSum)
 import           Pos.Exception               (reportFatalError)
 import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..),
                                               HasTxGenParams (..), asSecretKeys)
 import qualified Pos.GState                  as GS
+import           Pos.KnownPeers              (MonadFormatPeers)
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
@@ -84,6 +81,7 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadBaseControl IO m
+       , MonadFormatPeers m
        , Mockables m
            [ CurrentTime
            , Async
@@ -133,7 +131,6 @@ data BlockGenContext = BlockGenContext
     -- rather want to set current slot (fake one) by ourselves.
     , bgcTxpGlobalSettings :: !TxpGlobalSettings
     , bgcReportingContext  :: !ReportingContext
-    , bgcDiscoveryContext  :: !DiscoveryContextSum
     }
 
 makeLensesWith postfixLFields ''BlockGenContext
@@ -165,7 +162,6 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     let bgcSlotId = Nothing
     let bgcTxpGlobalSettings = txpGlobalSettings
     let bgcReportingContext = emptyReportingContext
-    let bgcDiscoveryContext = DCStatic mempty
     let initCtx =
             InitBlockGenContext
                 (bgcGState ^. GS.gscDB)
@@ -301,9 +297,6 @@ instance HasLens TxpGlobalSettings BlockGenContext TxpGlobalSettings where
 instance HasReportingContext BlockGenContext where
     reportingContext = bgcReportingContext_L
 
-instance HasDiscoveryContextSum BlockGenContext where
-    discoveryContextSum = bgcDiscoveryContext_L
-
 instance MonadBlockGenBase m => MonadDBRead (BlockGenMode m) where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
@@ -356,10 +349,6 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode m) where
 instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance MonadBlockGenBase m => MonadDiscovery (BlockGenMode m) where
-    getPeers = getPeersSum
-    findPeers = findPeersSum
 
 ----------------------------------------------------------------------------
 -- Utilities

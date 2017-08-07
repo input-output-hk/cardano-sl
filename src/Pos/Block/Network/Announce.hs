@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes          #-}
 -- | Announcements related to blocks.
 
 module Pos.Block.Network.Announce
@@ -15,7 +16,6 @@ import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
 
-import           Pos.Binary.Communication   ()
 import           Pos.Block.Core             (Block, BlockHeader, MainBlockHeader,
                                              blockHeader)
 import           Pos.Block.Logic            (getHeadersFromManyTo)
@@ -23,14 +23,13 @@ import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..)
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             OutSpecs, SendActions (..), convH,
-                                             toOutSpecs)
+                                             OutSpecs, EnqueueMsg, convH, NodeId,
+                                             toOutSpecs, MsgType (..), Origin (..))
 import           Pos.Context                (recoveryInProgress)
 import           Pos.Core                   (headerHash, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
-import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              SecurityParams (..), shouldIgnoreAddress)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
@@ -43,26 +42,18 @@ announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
 
 announceBlock
     :: WorkMode ssc ctx m
-    => SendActions m -> MainBlockHeader ssc -> m ()
-announceBlock sendActions header = do
+    => EnqueueMsg m -> MainBlockHeader ssc -> m (Map NodeId (m ()))
+announceBlock enqueue header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    SecurityParams{..} <- view (lensOf @SecurityParams)
-    let throwOnIgnored nId =
-            whenJust (nodeIdToAddress nId) $ \addr ->
-                whenM (shouldIgnoreAddress addr) $
-                    throw AttackNoBlocksTriggered
-        sendActions' =
-            if AttackNoBlocks `elem` spAttackTypes
-                then sendActions
-                     { withConnectionTo =
-                           \nId handler -> do
-                               throwOnIgnored nId
-                               withConnectionTo sendActions nId handler
-                     }
-                else sendActions
-    converseToNeighbors sendActions' announceBlockDo
+    enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
     announceBlockDo nodeId = pure $ Conversation $ \cA -> do
+        SecurityParams{..} <- view (lensOf @SecurityParams)
+        let throwOnIgnored nId =
+                whenJust (nodeIdToAddress nId) $ \addr ->
+                    whenM (shouldIgnoreAddress addr) $
+                        throw AttackNoBlocksTriggered
+        when (AttackNoBlocks `elem` spAttackTypes) (throwOnIgnored nodeId)
         logDebug $
             sformat
                 ("Announcing block "%shortHashF%" to "%build)

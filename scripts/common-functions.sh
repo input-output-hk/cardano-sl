@@ -89,7 +89,6 @@ function dht_config {
         peer_config $j
         j=$((j+1))
     done
-    echo -n " --explicit-initial --disable-propagation"
   else
     while [[ $# -gt 0 ]]; do
       peer_config $1
@@ -104,12 +103,11 @@ function dht_config {
 
 function node_cmd {
   local i=$1
-  local dht_cmd=$2
-  local is_stat=$3
-  local stake_distr=$4
-  local wallet_args=$5
-  local kademlia_dump_path=$6
-  local system_start=$7
+  local is_stat=$2
+  local stake_distr=$3
+  local wallet_args=$4
+  local system_start=$5
+  local config_dir=$6
   local st=''
   local reb=''
   local no_ntp=''
@@ -149,8 +147,6 @@ function node_cmd {
 
   echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
-  $dht_cmd
-
   ekg_server="127.0.0.1:"$((8000+$i))
   statsd_server="127.0.0.1:"$((8125+$i))
 
@@ -167,8 +163,37 @@ function node_cmd {
   echo -n " --metrics +RTS -T -RTS"
   echo -n " --ekg-server $ekg_server"
   #echo -n " --statsd-server $statsd_server"
+  echo -n " --node-id node$i"
+  echo -n " --topology $config_dir/topology$i.yaml"
+  echo -n " --kademlia $config_dir/kademlia$i.yaml"
+  echo ''
+  sleep 0.8
+}
+
+function bench_cmd {
+  local i=$1
+  local stake_distr=$2
+  local system_start=$3
+  local time=$4
+  local conc=$5
+  local delay=$6
+  local sendmode=$7
+  ensure_run
+
+  echo -n "$(find_binary cardano-wallet)"
+  for j in $(seq 0 $((i-1)))
+  do
+      echo -n " --peer 127.0.0.1:"`get_port $j`
+  done
+  echo -n " $(logs node_lightwallet.log)"
+  echo -n " --system-start $system_start"
+  echo -n " $stake_distr"
+  echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode tps-sent.csv\""
+
   echo ''
 }
+
+
 
 function has_nix {
     which nix-shell 2> /dev/null

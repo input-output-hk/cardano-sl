@@ -28,7 +28,8 @@ import           Pos.Crypto.Hashing       (AbstractHash (..), HashAlgorithm,
 import           Pos.Crypto.HD            (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
                                            RedeemSignature (..))
-import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase)
+import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase,
+                                           passphraseLength)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
                                            VssKeyPair (..), VssPublicKey (..))
@@ -125,9 +126,6 @@ deriving instance Bi (AsBinary SecretSharingExtra)
 -- Signing
 ----------------------------------------------------------------------------
 
-passphraseLength :: Int
-passphraseLength = 32
-
 instance Bi Ed25519.PointCompressed where
   encode (Ed25519.unPointCompressed -> k) = encode k
   decode = Ed25519.pointCompressed <$> decode
@@ -206,7 +204,7 @@ instance Bi PassPhrase where
     decode = do
         bs <- decode @ByteString
         let bl = BS.length bs
-        -- Currently passphrase may be 32-byte long, or empty (for
+        -- Currently passphrase may be either 32-byte long or empty (for
         -- unencrypted keys).
         if bl == 0 || bl == passphraseLength
             then pure $ ByteArray.convert bs

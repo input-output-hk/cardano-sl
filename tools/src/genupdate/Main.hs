@@ -1,27 +1,30 @@
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE QuasiQuotes      #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main
   ( main
   ) where
 
 import qualified Codec.Archive.Tar            as Tar
-import qualified Control.Foldl                as Fold
 import           Crypto.Hash                  (Digest, SHA512, hashlazy)
 import qualified Data.ByteString.Lazy         as BSL
 import           Data.List                    ((\\))
 import           Data.String.QQ               (s)
+import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
-import           Filesystem.Path              (filename)
-import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fullDesc,
-                                               help, helper, info, infoOption, long,
-                                               metavar, progDesc, short)
-import qualified Options.Applicative.Simple   as S
-import           Options.Applicative.Text     (textOption)
+import           Formatting                   (Format, format, mapf, text, (%))
+import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
+                                               header, help, helper, info, infoOption,
+                                               long, metavar, option, progDesc, short)
+import           Options.Applicative.Types    (readerAsk)
 import           Paths_cardano_sl             (version)
+import           Pos.Util                     (directory, ls, withTempDir)
+import           System.Exit                  (ExitCode (ExitFailure))
+import           System.FilePath              (normalise, takeFileName, (<.>), (</>))
+import qualified System.PosixCompat           as PosixCompat
+import           System.Process               (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Turtle                       hiding (f, s, toText)
-import           Turtle.Prelude               (stat)
-import           Universum                    hiding (FilePath, fold)
+import           Universum
 
 data UpdateGenOptions = UpdateGenOptions
     { oldDir    :: !Text
@@ -45,13 +48,15 @@ optionsParser = do
         <> metavar "PATH"
         <> help    "Path to output .tar-file with diff."
     pure UpdateGenOptions{..}
+    where
+      textOption = option (toText <$> readerAsk)
 
 getUpdateGenOptions :: IO UpdateGenOptions
 getUpdateGenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc ("")
-                 <> S.header "Cardano SL updates generator."
+                 <> header "Cardano SL updates generator."
                  <> footerDoc usageExample
 
     versionOption = infoOption
@@ -72,65 +77,65 @@ Please note that 'cardano-genupdate' uses 'bsdiff' program, so make sure 'bsdiff
 main :: IO ()
 main = do
     UpdateGenOptions{..} <- getUpdateGenOptions
-    createUpdate (fromText oldDir)
-                 (fromText newDir)
-                 (fromText outputTar)
+    createUpdate (toString oldDir)
+                 (toString newDir)
+                 (toString outputTar)
+
+-- | Outputs a `FilePath` as a `LText`.
+fp :: Format LText (String -> LText)
+fp = mapf toLText text
 
 createUpdate :: FilePath -> FilePath -> FilePath -> IO ()
-createUpdate oldDir newDir updPath = sh $ do
-    oldFiles <- fold (ls oldDir) Fold.list
-    newFiles <- fold (ls newDir) Fold.list
+createUpdate oldDir newDir updPath = do
+    oldFiles <- ls oldDir
+    newFiles <- ls newDir
     -- find directories and fail if there are any (we can't handle
     -- directories)
-    do oldNotFiles <- filterM (fmap (not . isRegularFile) . stat) oldFiles
-       newNotFiles <- filterM (fmap (not . isRegularFile) . stat) newFiles
+    do oldNotFiles <- filterM (fmap (not . PosixCompat.isRegularFile) . PosixCompat.getFileStatus . normalise) oldFiles
+       newNotFiles <- filterM (fmap (not . PosixCompat.isRegularFile) . PosixCompat.getFileStatus . normalise) newFiles
        unless (null oldNotFiles && null newNotFiles) $ do
            unless (null oldNotFiles) $ do
-               printf (fp%" contains not-files:\n") oldDir
-               for_ oldNotFiles $ printf ("  * "%fp%"\n")
+               TL.putStrLn $ format (fp%" contains not-files:") oldDir
+               for_ oldNotFiles $ TL.putStrLn . format ("  * "%fp)
            unless (null newNotFiles) $ do
-               printf (fp%" contains not-files:\n") newDir
-               for_ newNotFiles $ printf ("  * "%fp%"\n")
-           echo "Generation aborted."
-           exit (ExitFailure 2)
+               TL.putStrLn $ format (fp%" contains not-files:") newDir
+               for_ newNotFiles $ TL.putStrLn . format ("  * "%fp)
+           putText "Generation aborted."
+           exitWith (ExitFailure 2)
     -- fail if lists of files are unequal
-    do let notInOld = map filename newFiles \\ map filename oldFiles
-       let notInNew = map filename oldFiles \\ map filename newFiles
+    do let notInOld = map takeFileName newFiles \\ map takeFileName oldFiles
+       let notInNew = map takeFileName oldFiles \\ map takeFileName newFiles
        unless (null notInOld && null notInNew) $ do
            unless (null notInOld) $ do
-               echo "these files are in the NEW dir but not in the OLD dir:"
-               for_ notInOld $ printf ("  * "%fp%"\n")
+               putText "these files are in the NEW dir but not in the OLD dir:"
+               for_ notInOld $ TL.putStrLn . format ("  * "%fp)
            unless (null notInNew) $ do
-               echo "these files are in the OLD dir but not in the NEW dir:"
-               for_ notInNew $ printf ("  * "%fp%"\n")
-           echo "Generation aborted."
-           exit (ExitFailure 3)
+               TL.putStr "these files are in the OLD dir but not in the NEW dir:"
+               for_ notInNew $ TL.putStrLn . format ("  * "%fp)
+           putText "Generation aborted."
+           exitWith (ExitFailure 3)
     -- otherwise, for all files, generate hashes and a diff
-    tempDir <- mktempdir (directory updPath) "temp"
-    (manifest, bsdiffs) <-
-        fmap (unzip . catMaybes) $
-        forM oldFiles $ \f -> do
-            let fname = filename f
-                oldFile = oldDir </> fname
-                newFile = newDir </> fname
-                diffFile = tempDir </> (fname <.> "bsdiff")
-            oldHash <- hashFile oldFile
-            newHash <- hashFile newFile
-            if oldHash == newHash
-                then return Nothing
-                else do
-                    _ <- proc "bsdiff"
-                             (map fpToText [oldFile, newFile, diffFile])
-                             mempty
-                    diffHash <- hashFile diffFile
-                    return (Just (unwords [oldHash, newHash, diffHash],
-                                  filename diffFile))
-    -- write the MANIFEST file
-    liftIO $ writeTextFile (tempDir </> "MANIFEST") (unlines manifest)
-    -- put diffs and a manifesto into a tar file
-    liftIO $ Tar.create (fpToString updPath)
-                        (fpToString tempDir)
-                        ("MANIFEST" : map fpToString bsdiffs)
+    withTempDir (directory updPath) "temp" $ \tempDir -> do
+      (manifest, bsdiffs) <-
+          fmap (unzip . catMaybes) $
+          forM oldFiles $ \f -> do
+              let fname = takeFileName f
+                  oldFile = oldDir </> fname
+                  newFile = newDir </> fname
+                  diffFile = tempDir </> (fname <.> "bsdiff")
+              oldHash <- hashFile oldFile
+              newHash <- hashFile newFile
+              if oldHash == newHash
+                  then return Nothing
+                  else do
+                      _ <- readProcess "bsdiff" [oldFile, newFile, diffFile] mempty
+                      diffHash <- hashFile diffFile
+                      return (Just (unwords [oldHash, newHash, diffHash],
+                                    takeFileName diffFile))
+      -- write the MANIFEST file
+      writeFile (tempDir </> "MANIFEST") (unlines manifest)
+      -- put diffs and a manifesto into a tar file
+      Tar.create updPath tempDir ("MANIFEST" : bsdiffs)
 
 hashLBS :: LByteString -> Text
 hashLBS lbs = show $ hashSHA512 lbs
@@ -138,11 +143,5 @@ hashLBS lbs = show $ hashSHA512 lbs
     hashSHA512 :: LByteString -> Digest SHA512
     hashSHA512 = hashlazy
 
-hashFile :: MonadIO m => FilePath -> m Text
-hashFile f = liftIO $ hashLBS <$> BSL.readFile (fpToString f)
-
-fpToString :: FilePath -> String
-fpToString = toString . format fp
-
-fpToText :: FilePath -> Text
-fpToText = toText . format fp
+hashFile :: FilePath -> IO Text
+hashFile f = hashLBS <$> BSL.readFile f

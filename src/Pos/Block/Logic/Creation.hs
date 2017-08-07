@@ -38,9 +38,10 @@ import           Pos.Constants              (chainQualityThreshold, epochSlots)
 import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
-                                             EpochOrSlot (..), HeaderHash, SlotId (..),
-                                             SlotLeaders, epochIndexL, flattenSlotId,
-                                             getEpochOrSlot, headerHash)
+                                             EpochOrSlot (..), HasCoreConstants,
+                                             HeaderHash, SlotId (..), SlotLeaders,
+                                             epochIndexL, flattenSlotId, getEpochOrSlot,
+                                             headerHash)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
@@ -72,6 +73,7 @@ import           Pos.WorkMode.Class         (TxpExtra_TMP)
 type MonadCreateBlock ssc ctx m
      = ( MonadReader ctx m
        , HasPrimaryKey ctx
+       , HasCoreConstants ctx
        , HasSlogContext ctx -- to check chain quality
        , WithLogger m
        , DB.MonadBlockDB ssc m

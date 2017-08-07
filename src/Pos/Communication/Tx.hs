@@ -24,17 +24,18 @@ import           Pos.Client.Txp.Util        (TxCreateMode, TxError (..), createM
                                              createRedemptionTx, createTx,
                                              overrideTxDistrBoot)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (OutSpecs, EnqueueMsg)
+import           Pos.Communication.Protocol (EnqueueMsg, OutSpecs)
 import           Pos.Communication.Specs    (createOutSpecs)
 import           Pos.Communication.Types    (InvOrDataTK)
+import           Pos.Core                   (Address, Coin, HasCoreConstants,
+                                             makePubKeyAddress, makeRedeemAddress, mkCoin,
+                                             unsafeAddCoin)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Class               (MonadGState)
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOut (..), TxOutAux (..),
                                              txaF)
 import           Pos.Txp.Network.Types      (TxMsgContents (..))
-import           Pos.Types                  (Address, Coin, makePubKeyAddress,
-                                             makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Util.Util              (eitherToThrow)
 import           Pos.WorkMode.Class         (MinWorkMode)
 
@@ -46,6 +47,7 @@ type TxMode ssc ctx m
       , MonadMask m
       , MonadThrow m
       , TxCreateMode ctx m
+      , HasCoreConstants ctx
       )
 
 submitAndSave
@@ -106,7 +108,7 @@ submitRedemptionTx enqueue rsk output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m, MonadGState m, MonadThrow m)
+    :: (MinWorkMode m, MonadGState m, MonadThrow m, MonadReader ctx m, HasCoreConstants ctx)
     => EnqueueMsg m -> TxAux -> m ()
 submitTxRaw enqueue txAux@TxAux {..} = do
     let txId = hash taTx

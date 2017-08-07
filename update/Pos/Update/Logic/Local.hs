@@ -35,8 +35,9 @@ import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 
 import           Pos.Binary.Class       (biSize)
-import           Pos.Core               (BlockVersionData (bvdMaxBlockSize), HeaderHash,
-                                         SlotId (..), slotIdF)
+import           Pos.Core               (BlockVersionData (bvdMaxBlockSize),
+                                         HasCoreConstants, HeaderHash, SlotId (..),
+                                         slotIdF)
 import           Pos.Core.Constants     (memPoolLimitRatio)
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDBRead)
@@ -57,7 +58,7 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          runPollT, verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode ctx m =
+type MonadUSLocal ctx m =
     ( MonadIO m
     , MonadDBRead m
     , MonadMask m
@@ -65,6 +66,7 @@ type USLocalLogicMode ctx m =
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     , HasLens LrcContext ctx LrcContext
+    , HasCoreConstants ctx
     )
 
 getMemPool
@@ -114,7 +116,7 @@ withCurrentTip action = do
 ----------------------------------------------------------------------------
 
 processSkeleton
-    :: (USLocalLogicMode ctx m)
+    :: (MonadUSLocal ctx m)
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload =
     withUSLock $
@@ -143,6 +145,7 @@ refreshMemPool
        , HasLens UpdateContext ctx UpdateContext
        , HasLens LrcContext ctx LrcContext
        , WithLogger m
+       , HasCoreConstants ctx
        )
     => MemState -> m MemState
 refreshMemPool ms@MemState {..} = do
@@ -187,7 +190,7 @@ getLocalProposalNVotes id = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processProposal
-    :: (USLocalLogicMode ctx m)
+    :: (MonadUSLocal ctx m)
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
@@ -202,7 +205,7 @@ lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: USLocalLogicMode ctx m
+    :: MonadUSLocal ctx m
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision = do
     modifier <- getPollModifier
@@ -236,7 +239,7 @@ getLocalVote propId pk decision = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processVote
-    :: (USLocalLogicMode ctx m)
+    :: (MonadUSLocal ctx m)
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
@@ -248,7 +251,7 @@ processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'blkSemaphore' is taken.
-usNormalize :: (USLocalLogicMode ctx m) => m ()
+usNormalize :: (MonadUSLocal ctx m) => m ()
 usNormalize =
     withUSLock $ do
         tip <- DB.getTip
@@ -257,7 +260,7 @@ usNormalize =
 
 -- Normalization under lock.
 usNormalizeDo
-    :: (USLocalLogicMode ctx m)
+    :: (MonadUSLocal ctx m)
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
@@ -283,7 +286,7 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: (USLocalLogicMode ctx m) => SlotId -> m ()
+processNewSlot :: (MonadUSLocal ctx m) => SlotId -> m ()
 processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
@@ -295,7 +298,7 @@ processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
 -- nobody can apply/rollback blocks in parallel.
 -- Sometimes payload can't be created. It can happen if we are trying to
 -- create block for slot which has already passed, for example.
-usPreparePayload :: (USLocalLogicMode ctx m) => SlotId -> m (Maybe UpdatePayload)
+usPreparePayload :: (MonadUSLocal ctx m) => SlotId -> m (Maybe UpdatePayload)
 usPreparePayload slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't

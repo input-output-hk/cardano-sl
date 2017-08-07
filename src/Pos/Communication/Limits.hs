@@ -25,16 +25,18 @@ import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
                                                      MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types.Relay      (DataMsg (..))
 import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
+import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
-import           Pos.Core                           (BlockVersionData (..),
+import           Pos.Core                           (BlockVersionData (..), EpochIndex,
+                                                     blkSecurityParamM,
                                                      coinPortionToDouble)
-import           Pos.Crypto                         (AbstractHash, EncShare, Secret,
+import           Pos.Crypto                         (AbstractHash, EncShare,
                                                      ProxyCert (..), ProxySecretKey (..),
                                                      ProxySignature (..), PublicKey,
-                                                     SecretProof, SecretSharingExtra (..),
-                                                     Share, Signature (..), VssPublicKey)
+                                                     Secret, SecretProof,
+                                                     SecretSharingExtra (..), Share,
+                                                     Signature (..), VssPublicKey)
 import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
@@ -44,7 +46,6 @@ import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpenin
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
-import           Pos.Types                          (EpochIndex)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports
@@ -270,13 +271,13 @@ instance MessageLimited (MsgBlock ssc) where
         blkLimit <- getMsgLenLimit (Proxy @(Block ssc))
         return $ MsgBlock <$> blkLimit
 
-instance MessageLimitedPure MsgGetHeaders where
-    msgLenLimit = MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
-      where
-        maxGetHeadersNum = ceiling $
-            log (fromIntegral Const.blkSecurityParam) + (5 :: Double)
-
-instance MessageLimited MsgGetHeaders
+instance MessageLimited MsgGetHeaders where
+    getMsgLenLimit _ = do
+        blkSecurityParam <- blkSecurityParamM
+        let maxGetHeadersNum =
+                ceiling $
+                log (fromIntegral blkSecurityParam) + (5 :: Double)
+        return $ MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
 
 instance MessageLimited (MsgHeaders ssc) where
     getMsgLenLimit _ = do

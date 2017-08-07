@@ -22,11 +22,11 @@ import           Test.QuickCheck.Monadic   (pick)
 
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
-import qualified Pos.Constants             as Const
 import           Pos.Core                  (Address, Coin, EpochIndex, StakeholderId,
-                                            addressHash, applyCoinPortionUp, coinF,
-                                            divCoin, makePubKeyAddress, mkCoin,
-                                            unsafeAddCoin, unsafeMulCoin, unsafeSubCoin)
+                                            addressHash, applyCoinPortionUp,
+                                            blkSecurityParamM, coinF, divCoin,
+                                            makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                            unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic)
 import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
                                             mkInvSecretsMap)
@@ -128,7 +128,7 @@ genTestParams = do
 
 lrcCorrectnessProp :: BlockProperty ()
 lrcCorrectnessProp = do
-    let k = Const.blkSecurityParam
+    k <- blkSecurityParamM
     -- This value is how many blocks we need to generate first. We
     -- want to generate blocks for all slots which will be considered
     -- in LRC except the last one, because we want to include some

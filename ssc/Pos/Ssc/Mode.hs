@@ -11,7 +11,7 @@ import           Ether.Internal      (HasLens (..))
 import           Mockable            (MonadMockable)
 import           System.Wlog         (WithLogger)
 
-import           Pos.Core            (HasPrimaryKey)
+import           Pos.Core            (HasCoreConstants, HasPrimaryKey)
 import           Pos.DB.Class        (MonadDB, MonadGState)
 import           Pos.KnownPeers      (MonadFormatPeers)
 import           Pos.Lrc.Context     (LrcContext)
@@ -42,6 +42,7 @@ type SscMode ssc ctx m
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx
+      , HasCoreConstants ctx
       , HasLens SecurityParams ctx SecurityParams
       , HasLens LrcContext ctx LrcContext
       )

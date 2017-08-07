@@ -24,6 +24,7 @@ module Pos.Communication.Limits.Types
 import           Universum
 
 import           Pos.Communication.Protocol (ConversationActions (..))
+import           Pos.Core                   (HasCoreConstants)
 import qualified Pos.DB.Class               as DB
 
 -- | A limit on the length of something (in bytes).
@@ -43,10 +44,16 @@ Limit x <+> Limit y = Limit $ x + y
 -- | Defines how to determine the limit of some type's serialized representation
 --   using some particular state. See 'recvLimited'.
 class MessageLimited a where
-    getMsgLenLimit :: DB.MonadGState m => Proxy a -> m (Limit a)
+    getMsgLenLimit ::
+           (DB.MonadGState m, MonadReader ctx m, HasCoreConstants ctx)
+        => Proxy a
+        -> m (Limit a)
     default getMsgLenLimit :: ( MessageLimitedPure a
                               , DB.MonadGState m
-                              ) => Proxy a -> m (Limit a)
+                              , MonadReader ctx m
+                              , HasCoreConstants ctx
+                              ) =>
+        Proxy a -> m (Limit a)
     getMsgLenLimit _ = pure msgLenLimit
 
 -- | Pure analogy to `MessageLimited`. Allows to easily get message length
@@ -98,8 +105,8 @@ instance MessageLimitedPure Bool where
 --   many bytes. If more than that many bytes come in before a parse then
 --   an exception is raised.
 recvLimited
-    :: forall rcv snd m .
-       ( Monad m, DB.MonadGState m, MessageLimited rcv )
+    :: forall rcv snd ctx m .
+       ( DB.MonadGState m, MonadReader ctx m, HasCoreConstants ctx, MessageLimited rcv )
     => ConversationActions snd rcv m -> m (Maybe rcv)
 recvLimited conv = getMsgLenLimit (Proxy @rcv) >>= recv conv . getLimit
 

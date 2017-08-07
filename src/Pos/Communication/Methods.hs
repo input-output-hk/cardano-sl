@@ -8,9 +8,10 @@ module Pos.Communication.Methods
        , sendUpdateProposal
        ) where
 
+import           Universum
+
 import           Formatting                 (sformat, (%))
 import           System.Wlog                (logInfo)
-import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Core            ()
@@ -18,6 +19,7 @@ import           Pos.Binary.Relay           ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
 import           Pos.Communication.Relay    (invReqDataFlowTK)
+import           Pos.Core                   (HasCoreConstants)
 import           Pos.Crypto                 (hash, hashHexF)
 import           Pos.DB.Class               (MonadGState)
 import           Pos.Txp.Core.Types         (TxAux (..))
@@ -28,7 +30,7 @@ import           Pos.WorkMode.Class         (MinWorkMode)
 
 -- | Send Tx to given addresses.
 sendTx
-    :: (MinWorkMode m, MonadGState m)
+    :: (MinWorkMode m, MonadGState m, MonadReader ctx m, HasCoreConstants ctx)
     => EnqueueMsg m -> TxAux -> m ()
 sendTx enqueue txAux =
     invReqDataFlowTK
@@ -40,7 +42,7 @@ sendTx enqueue txAux =
 
 -- Send UpdateVote to given addresses.
 sendVote
-    :: (MinWorkMode m, MonadGState m)
+    :: (MinWorkMode m, MonadGState m, MonadReader ctx m, HasCoreConstants ctx)
     => EnqueueMsg m -> UpdateVote -> m ()
 sendVote enqueue vote =
     invReqDataFlowTK
@@ -52,7 +54,7 @@ sendVote enqueue vote =
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal
-    :: (MinWorkMode m, MonadGState m)
+    :: (MinWorkMode m, MonadGState m, MonadReader ctx m, HasCoreConstants ctx)
     => EnqueueMsg m
     -> UpId
     -> UpdateProposal

@@ -4,7 +4,7 @@
 module Pos.Core.Constants.Typed
        (
          staticSysStart
-       , blkSecurityParam
+       , staticBlkSecurityParam
        , slotSecurityParam
        , chainQualityThreshold
        , epochSlots
@@ -50,9 +50,11 @@ staticSysStart :: Timestamp
 staticSysStart = Timestamp staticSysStartRaw
 
 -- | Security parameter which is maximum number of blocks which can be
--- rolled back.
-blkSecurityParam :: BlockCount
-blkSecurityParam = fromIntegral $ ccK coreConfig
+-- rolled back. This value is embedded into library and can be used
+-- only for initialization. The actual value should be fetched from
+-- runtime context (it can differ from this one).
+staticBlkSecurityParam :: BlockCount
+staticBlkSecurityParam = fromIntegral $ ccK coreConfig
 
 -- | Security parameter expressed in number of slots. It uses chain
 -- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.
@@ -70,7 +72,7 @@ slotSecurityParam = fromIntegral $ 2 * ccK coreConfig
 -- slots) necessary for security of the system.
 chainQualityThreshold :: Fractional fractional => fractional
 chainQualityThreshold =
-    realToFrac blkSecurityParam / realToFrac slotSecurityParam
+    realToFrac staticBlkSecurityParam / realToFrac slotSecurityParam
 
 -- | Number of slots inside one epoch.
 epochSlots :: SlotCount

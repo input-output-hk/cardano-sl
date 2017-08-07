@@ -21,6 +21,7 @@ import           Pos.Core             (ApplicationName, BlockVersion, NumSoftwar
                                        SoftwareVersion (..), StakeholderId, addressHash,
                                        blockVersionL, epochIndexL, headerHashG,
                                        headerLeaderKeyL, headerSlotL)
+import           Pos.Core.Context     (HasCoreConstants)
 import qualified Pos.DB.BatchOp       as DB
 import qualified Pos.DB.Class         as DB
 import           Pos.Lrc.Context      (LrcContext)
@@ -39,20 +40,23 @@ import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier    as MM
 import           Pos.Util.Util        (inAssertMode)
 
-type USGlobalApplyMode ctx m =
+type MonadUSApply ctx m =
     ( WithLogger m
     , MonadIO m
     , DB.MonadDBRead m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
+    , HasCoreConstants ctx
     )
-type USGlobalVerifyMode ctx m =
+
+type MonadUSVerify ctx m =
     ( WithLogger m
     , MonadIO m
     , DB.MonadDBRead m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
     , MonadError PollVerFailure m
+    , HasCoreConstants ctx
     )
 
 withUSLogger :: WithLogger m => m a -> m a
@@ -65,7 +69,7 @@ withUSLogger = modifyLoggerName (<> "us")
 -- application, one can pass 'PollModifier' obtained from verification
 -- to this function.
 usApplyBlocks
-    :: (MonadThrow m, USGlobalApplyMode ctx m)
+    :: (MonadThrow m, MonadUSApply ctx m)
     => OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
@@ -92,7 +96,7 @@ usApplyBlocks blocks modifierMaybe = withUSLogger $
 -- head.
 usRollbackBlocks
     :: forall ctx m.
-       USGlobalApplyMode ctx m
+       MonadUSApply ctx m
     => NewestFirst NE (UpdateBlock, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds = withUSLogger $
     modifierToBatch <$>
@@ -108,7 +112,7 @@ usRollbackBlocks blunds = withUSLogger $
 -- only known attributes, but I can't guarantee this comment will
 -- always be up-to-date.
 usVerifyBlocks
-    :: (USGlobalVerifyMode ctx m)
+    :: (MonadUSVerify ctx m)
     => Bool
     -> OldestFirst NE UpdateBlock
     -> m (PollModifier, OldestFirst NE USUndo)
@@ -118,7 +122,7 @@ usVerifyBlocks verifyAllIsKnown blocks =
     run = runDBPoll . runPollT def
 
 verifyBlock
-    :: (USGlobalVerifyMode ctx m, MonadPoll m)
+    :: (MonadUSVerify ctx m, MonadPoll m)
     => Bool -> UpdateBlock -> m USUndo
 verifyBlock _ (Left genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)

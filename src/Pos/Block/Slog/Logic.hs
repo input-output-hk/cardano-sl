@@ -37,9 +37,10 @@ import           Pos.Block.Pure         (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogContext, LastBlkSlots, SlogUndo (..))
 import           Pos.Block.Types        (Blund, Undo (..))
-import           Pos.Constants          (blkSecurityParam, lastKnownBlockVersion)
+import           Pos.Constants          (lastKnownBlockVersion)
 import           Pos.Context            (lrcActionOnEpochReason)
-import           Pos.Core               (BlockVersion (..), FlatSlotId, difficultyL,
+import           Pos.Core               (BlockCount, BlockVersion (..), FlatSlotId,
+                                         HasCoreConstants, blkSecurityParamM, difficultyL,
                                          epochIndexL, flattenSlotId, headerHash,
                                          headerHashG, prevBlockL)
 import           Pos.DB                 (SomeBatchOp (..))
@@ -97,17 +98,19 @@ mustDataBeKnown adoptedBV =
 ----------------------------------------------------------------------------
 
 -- | Set of basic constraints needed by Slog.
-type MonadSlogBase ssc m =
+type MonadSlogBase ssc ctx m =
     ( MonadSlots m
     , MonadIO m
     , SscHelpersClass ssc
     , MonadDBRead m
     , WithLogger m
+    , MonadReader ctx m
+    , HasCoreConstants ctx
     )
 
 -- | Set of constraints needed for Slog verification.
 type MonadSlogVerify ssc ctx m =
-    ( MonadSlogBase ssc m
+    ( MonadSlogBase ssc ctx m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
     )
@@ -145,6 +148,7 @@ slogVerifyBlocks blocks = do
     -- we can remove one of the last slots stored in
     -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
     lastSlots <- GS.getLastSlots
+    blkSecurityParam <- blkSecurityParamM
     let toFlatSlot = fmap (flattenSlotId . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
     let newSlots = mapMaybe toFlatSlot (toList blocks)
@@ -173,7 +177,7 @@ slogVerifyBlocks blocks = do
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type MonadSlogApply ssc ctx m =
-    ( MonadSlogBase ssc m
+    ( MonadSlogBase ssc ctx m
     , MonadBlockDBWrite ssc m
     , MonadBListener m
     , MonadMask m
@@ -211,7 +215,8 @@ slogApplyBlocks blunds = do
         newestDifficulty = newestBlock ^. difficultyL
     let putTip = SomeBatchOp $ GS.PutTip $ headerHash newestBlock
     lastSlots <- slogGetLastSlots
-    slogCommon @ssc (newLastSlots lastSlots)
+    blkSecurityParam <- blkSecurityParamM
+    slogCommon @ssc (newLastSlots blkSecurityParam lastSlots)
     putDifficulty <- GS.getMaxSeenDifficulty <&> \x ->
         SomeBatchOp [GS.PutMaxSeenDifficulty newestDifficulty
                         | newestDifficulty > x]
@@ -219,7 +224,7 @@ slogApplyBlocks blunds = do
         [ putTip
         , putDifficulty
         , bListenerBatch
-        , SomeBatchOp (blockExtraBatch lastSlots) ]
+        , SomeBatchOp (blockExtraBatch blkSecurityParam lastSlots) ]
   where
     blocks = fmap fst blunds
     forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
@@ -229,18 +234,25 @@ slogApplyBlocks blunds = do
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
     mainBlocks = rights $ toList blocks
     newSlots = flattenSlotId . view mainBlockSlot <$> mainBlocks
-    newLastSlots lastSlots = lastSlots & _Wrapped %~ updateLastSlots
-    knownSlotsBatch lastSlots
+    newLastSlots ::
+           BlockCount -> OldestFirst [] FlatSlotId -> OldestFirst [] FlatSlotId
+    newLastSlots blkSecurityParam lastSlots =
+        lastSlots & _Wrapped %~ updateLastSlots blkSecurityParam
+    knownSlotsBatch blkSecurityParam lastSlots
         | null newSlots = []
-        | otherwise = [GS.SetLastSlots $ newLastSlots lastSlots]
+        | otherwise = [GS.SetLastSlots $ newLastSlots blkSecurityParam lastSlots]
     -- Slots are in 'OldestFirst' order. So we put new slots to the
     -- end and drop old slots from the beginning.
-    updateLastSlots lastSlots =
+    updateLastSlots blkSecurityParam lastSlots =
         leaveAtMostN (fromIntegral blkSecurityParam) (lastSlots ++ newSlots)
     leaveAtMostN :: Int -> [a] -> [a]
     leaveAtMostN n lst = drop (length lst - n) lst
-    blockExtraBatch lastSlots =
-        mconcat [knownSlotsBatch lastSlots, forwardLinksBatch, inMainBatch]
+    blockExtraBatch blkSecurityParam lastSlots =
+        mconcat
+            [ knownSlotsBatch blkSecurityParam lastSlots
+            , forwardLinksBatch
+            , inMainBatch
+            ]
 
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
@@ -255,6 +267,7 @@ slogRollbackBlocks blunds = do
     -- We should never allow a situation when we summarily roll back by more
     -- than 'k' blocks
     maxSeenDifficulty <- GS.getMaxSeenDifficulty
+    blkSecurityParam <- blkSecurityParamM
     resultingDifficulty <-
         maybe 0 (view difficultyL) <$>
         blkGetHeader @ssc (NE.head (getNewestFirst blunds) ^. prevBlockL)

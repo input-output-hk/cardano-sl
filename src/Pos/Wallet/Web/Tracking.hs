@@ -59,11 +59,12 @@ import           Pos.Block.Core             (BlockHeader, getBlockHeader,
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Constants              (blkSecurityParam, genesisHash)
+import           Pos.Constants              (genesisHash)
 import           Pos.Context                (BlkSemaphore, GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                   (AddrPkAttrs (..), Address (..),
                                              BlockHeaderStub, ChainDifficulty,
-                                             HasDifficulty (..), HeaderHash, Timestamp,
+                                             HasCoreConstants, HasDifficulty (..),
+                                             HeaderHash, Timestamp, blkSecurityParamM,
                                              headerHash, headerSlotL, makePubKeyAddress)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              WithHash (..), deriveHDPassphrase,
@@ -179,6 +180,7 @@ type WalletTrackingEnv ext ctx m =
      , WS.MonadWalletWebDB ctx m
      , MonadSlotsData m
      , WithLogger m
+     , HasCoreConstants ctx
      )
 
 syncWalletOnImportWebWallet :: WalletTrackingEnv ext ctx m => [EncryptedSecretKey] -> m ()
@@ -217,6 +219,7 @@ syncWalletsWithGState
       WebWalletModeDB ctx m
     , BlockLockMode ssc ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasCoreConstants ctx
     , MonadSlotsData m)
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
@@ -236,6 +239,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
     syncDo :: EncryptedSecretKey -> Maybe (BlockHeader ssc) -> m ()
     syncDo encSK wTipH = do
         let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
+        blkSecurityParam <- blkSecurityParamM
         gstateTipH <- DB.getTipHeader @ssc
         -- If account's syncTip is before the current gstate's tip,
         -- then it loads accounts and addresses starting with @wHeader@.

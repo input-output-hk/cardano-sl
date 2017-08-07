@@ -24,7 +24,8 @@ import           Pos.Block.BListener              (MonadBListener (..), onApplyB
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core                         (SlotId (..))
+import           Pos.Core                         (HasCoreConstants (..), SlotId (..),
+                                                   staticCoreConstantsG)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Slotting                     (MonadSlots (..),
@@ -69,6 +70,9 @@ type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 
 instance HasUserSecret LightWalletContext where
     userSecret = lwcKeyData_L
+
+instance HasCoreConstants LightWalletContext where
+    coreConstantsG = staticCoreConstantsG
 
 instance HasLens GenesisStakeholders LightWalletContext GenesisStakeholders where
     lensOf = lwcGenStakeholders_L

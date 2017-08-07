@@ -14,7 +14,7 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
 import           Universum
 
-import           Pos.Constants         (blkSecurityParam, epochSlots)
+import           Pos.Constants         (epochSlots, staticBlkSecurityParam)
 import           Pos.Core              (Address (..), Coin, SharedSeed, StakeholderId,
                                         mkCoin, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin)
@@ -119,9 +119,10 @@ ftsAllStake fts key ah v =
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
 numberOfRuns :: Int
+-- FIXME [CSL-1436] Do not use static value.
 -- The higher is 'blkSecurityParam', the longer epochs will be and the more
 -- time FTS will take
-numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
+numberOfRuns = 300000 `div` fromIntegral staticBlkSecurityParam
 
 newtype FtsStream = Stream
     { getStream :: [SharedSeed]

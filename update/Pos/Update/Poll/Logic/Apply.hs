@@ -25,7 +25,7 @@ import           Pos.Core                      (ChainDifficulty (..), Coin, Epoc
                                                 epochIndexL, flattenSlotId, headerHashG,
                                                 headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Core.Constants            (blkSecurityParam)
+import           Pos.Core.Context              (HasCoreConstants, blkSecurityParamM)
 import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Data.Attributes           (areAttributesKnown)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
@@ -46,7 +46,11 @@ import           Pos.Update.Poll.Types         (ConfirmedProposalState (..),
                                                 UpsExtra (..), psProposal)
 import           Pos.Util.Util                 (Some (..))
 
-type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
+type ApplyMode ctx m
+     = ( MonadError PollVerFailure m
+       , MonadPoll m
+       , HasCoreConstants ctx
+       , MonadReader ctx m)
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
@@ -63,7 +67,7 @@ type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 -- given header is applied and in this case threshold for update proposal is
 -- checked.
 verifyAndApplyUSPayload
-    :: ApplyMode m
+    :: ApplyMode ctx m
     => Bool -> Either SlotId (Some IsMainHeader) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader UpdatePayload {..} = do
     -- First of all, we verify data from header.
@@ -227,7 +231,7 @@ verifyProposalStake totalStake votesAndStakes upId = do
 -- undecided state.
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
-    :: ApplyMode m
+    :: ApplyMode ctx m
     => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
 verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
   where
@@ -244,7 +248,7 @@ verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
 
 -- Here we actually apply vote to stored undecided proposal.
 verifyAndApplyVoteDo
-    :: ApplyMode m
+    :: ApplyMode ctx m
     => Maybe (ChainDifficulty, HeaderHash)
     -> UndecidedProposalState
     -> UpdateVote
@@ -306,11 +310,11 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: ApplyMode m
+    :: ApplyMode ctx m
     => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
-applyDepthCheck epoch hh (ChainDifficulty cd)
-    | cd <= blkSecurityParam = pass
-    | otherwise = do
+applyDepthCheck epoch hh (ChainDifficulty cd) = do
+    blkSecurityParam <- blkSecurityParamM
+    when (cd > blkSecurityParam) $ do
         deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
         let winners =
                 concatMap (toList . resetAllDecisions . NE.sortBy proposalCmp) $

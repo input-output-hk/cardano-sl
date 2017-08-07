@@ -12,6 +12,7 @@ import           Universum
 import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
 import           Pos.Communication.Protocol (EnqueueMsg)
+import           Pos.Core                   (HasCoreConstants)
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
 import           Pos.DB.Class               (MonadGState)
@@ -20,7 +21,7 @@ import           Pos.WorkMode.Class         (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
 submitVote
-    :: (MinWorkMode m, MonadGState m)
+    :: (MinWorkMode m, MonadGState m, MonadReader ctx m, HasCoreConstants ctx)
     => EnqueueMsg m
     -> UpdateVote
     -> m ()
@@ -29,7 +30,7 @@ submitVote enqueue voteUpd = do
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
-    :: (MinWorkMode m, MonadGState m)
+    :: (MinWorkMode m, MonadGState m, MonadReader ctx m, HasCoreConstants ctx)
     => EnqueueMsg m
     -> SafeSigner
     -> UpdateProposal

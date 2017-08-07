@@ -18,7 +18,7 @@ import           Network.Broadcast.OutboundQueue.Types (peersFromList)
 
 import           Pos.Communication.Protocol            (Worker)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (DnsDomains (..), Bucket(..),
+import           Pos.Network.Types                     (Bucket (..), DnsDomains (..),
                                                         NetworkConfig (..), NodeId (..),
                                                         NodeType (..), resolveDnsDomains)
 import           Pos.Slotting                          (MonadSlotsData,
@@ -45,7 +45,7 @@ activeRelays :: KnownRelays -> [NodeId]
 activeRelays = map fst . filter (relayActive . snd) . M.toList
 
 dnsSubscriptionWorker
-    :: forall kademlia m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
+    :: forall kademlia ctx m. (SubscriptionMode ctx m, Mockable Delay m, MonadSlotsData m)
     => NetworkConfig kademlia -> DnsDomains -> Worker m
 dnsSubscriptionWorker networkCfg dnsDomains sendActions =
     loop M.empty

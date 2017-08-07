@@ -28,11 +28,11 @@ import           System.Wlog            (WithLogger)
 import           Pos.Block.Core         (BlockHeader)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogContext)
-import           Pos.Constants          (blkSecurityParam, slotSecurityParam)
+import           Pos.Constants          (slotSecurityParam)
 import           Pos.Context            (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Core               (BlockCount, FlatSlotId, HeaderHash,
-                                         diffEpochOrSlot, getEpochOrSlot, headerHash,
-                                         prevBlockL)
+import           Pos.Core               (BlockCount, FlatSlotId, HasCoreConstants,
+                                         HeaderHash, blkSecurityParamM, diffEpochOrSlot,
+                                         getEpochOrSlot, headerHash, prevBlockL)
 import           Pos.DB                 (MonadDBRead)
 import           Pos.DB.Block           (MonadBlockDB)
 import qualified Pos.DB.DB              as DB
@@ -127,6 +127,7 @@ calcChainQuality blockCount deepSlot newSlot =
 calcChainQualityM ::
        ( MonadReader ctx m
        , HasSlogContext ctx
+       , HasCoreConstants ctx
        , MonadIO m
        , MonadThrow m
        , WithLogger m
@@ -136,6 +137,7 @@ calcChainQualityM ::
     -> m res
 calcChainQualityM newSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
+    blkSecurityParam <- blkSecurityParamM
     let len = length lastSlots
     case nonEmpty lastSlots of
         Nothing -> return 0

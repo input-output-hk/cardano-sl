@@ -183,9 +183,8 @@ handleDataDo provenance mkMsg enqueue contentsToKey handleData dmContents = do
         -- IMPORTANT that we propagate it asynchronously.
         -- enqueueMsg can do that: simply don't force the values in
         -- the resulting map.
-        (void $ propagateData enqueue $ InvReqDataPM (mkMsg (OriginForward provenance)) dmKey dmContents) $
-            logDebug $ sformat
-                ("Ignoring data "%build%" for key "%build) dmContents dmKey
+        (void $ propagateData enqueue $ InvReqDataPM (mkMsg (OriginForward provenance)) dmKey dmContents)
+        (logDebug $ sformat ("Ignoring data "%build%" for key "%build) dmContents dmKey)
 
 -- | Synchronously propagate data.
 relayMsg

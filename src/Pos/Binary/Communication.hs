@@ -58,17 +58,6 @@ instance Bi MsgSubscribe where
 -- Protocol version info and related
 ----------------------------------------------------------------------------
 
-{- Encoding of HandlerSpec is as follows:
-
-| Type                                 | Size     | Value    | Following data |
-|--------------------------------------|----------|----------|----------------|
-| <reserved for future usage>          | Fixed    | 00000000 | <none>         |
-| ConvHandler m, m:UnsignedVarInt < 64 | Fixed    | 01xxxxxx | <none>         |
-| ConvHandler m, m:Unknown             | Fixed    | w16      | MessageCode    |
-| UnknownHandler w8 bytes              | Variable | w8       | len, bytes     |
-
--}
-
 instance Bi HandlerSpec where
   encode input = case input of
     ConvHandler mname        -> encodeListLen 2 <> encode (0 :: Word8) <> encode (serialize' mname)

@@ -7,8 +7,6 @@ module Pos.Binary.Communication () where
 
 import           Universum
 
-import           Node.Message.Class               (MessageName (..))
-
 import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
                                                    deriveSimpleBi, deserialize',
@@ -19,12 +17,6 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpec
                                                    MsgSubscribe (..), VerInfo (..))
 import           Pos.Core                         (BlockVersion, HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
-
-----------------------------------------------------------------------------
--- MessageName
-----------------------------------------------------------------------------
-
-deriving instance Bi MessageName
 
 -- TODO: move into each component
 
@@ -72,7 +64,7 @@ instance Bi MsgSubscribe where
 |--------------------------------------|----------|----------|----------------|
 | <reserved for future usage>          | Fixed    | 00000000 | <none>         |
 | ConvHandler m, m:UnsignedVarInt < 64 | Fixed    | 01xxxxxx | <none>         |
-| ConvHandler m, m:Unknown             | Variable | 00000001 | MessageName    |
+| ConvHandler m, m:Unknown             | Fixed    | w16      | MessageCode    |
 | UnknownHandler w8 bytes              | Variable | w8       | len, bytes     |
 
 -}

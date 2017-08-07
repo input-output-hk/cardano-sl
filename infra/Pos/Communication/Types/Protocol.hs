@@ -15,7 +15,7 @@ module Pos.Communication.Types.Protocol
        , HandlerSpecs
        , InSpecs (..)
        , Listener
-       , listenerMessageName
+       , listenerMessageCode
        , ListenerSpec (..)
        , MkListeners (..)
        , notInSpecs
@@ -58,7 +58,7 @@ import           Mockable.Class             (Mockable)
 import           Mockable.Concurrent        (Async, async, wait)
 import           Network.Transport          (EndPointAddress (..))
 import qualified Node                       as N
-import           Node.Message.Class         (Message (..), MessageName (..))
+import           Node.Message.Class         (Message (..), MessageCode)
 import           Serokell.Util.Text         (listJson, mapJson)
 import           Serokell.Util.Base16       (base16F)
 import           Universum
@@ -183,23 +183,23 @@ buildBS :: ByteString -> B.Builder
 buildBS = bprint base16F
 
 data HandlerSpec
-    = ConvHandler { hsReplyType :: MessageName }
+    = ConvHandler { hsReplyType :: MessageCode }
     | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
-convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageName, HandlerSpec)
-convH pSnd pReply = (messageName pSnd, ConvHandler $ messageName pReply)
+convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageCode, HandlerSpec)
+convH pSnd pReply = (messageCode pSnd, ConvHandler $ messageCode pReply)
 
 instance Buildable HandlerSpec where
-    build (ConvHandler (MessageName replyType)) =
-        bprint ("Conv "%base16F) replyType
+    build (ConvHandler replyType) =
+        bprint ("Conv "%hex) replyType
     build (UnknownHandler htype hcontent) =
         bprint ("UnknownHandler "%hex%" "%base16F) htype hcontent
 
-instance Buildable (MessageName, HandlerSpec) where
-    build (MessageName rcvType, h) = bprint (base16F % " -> " % build) rcvType h
+instance Buildable (MessageCode, HandlerSpec) where
+    build (rcvType, h) = bprint (hex % " -> " % build) rcvType h
 
-type HandlerSpecs = HashMap MessageName HandlerSpec
+type HandlerSpecs = HashMap MessageCode HandlerSpec
 
 instance Buildable HandlerSpecs where
     build x = bprint ("HandlerSpecs: "%listJson) (HM.toList x)
@@ -224,25 +224,25 @@ instance Buildable VerInfo where
                                 (HM.toList vIInHandlers)
                                 (HM.toList vIOutHandlers)
 
-checkInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
+checkInSpecs :: (MessageCode, HandlerSpec) -> HandlerSpecs -> Bool
 checkInSpecs (name, sp) specs = case name `HM.lookup` specs of
                               Just sp' -> sp == sp'
                               _        -> False
 
-notInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
+notInSpecs :: (MessageCode, HandlerSpec) -> HandlerSpecs -> Bool
 notInSpecs sp' = not . checkInSpecs sp'
 
 -- ListenerSpec makes no sense like this. Surely the HandlerSpec must also
 -- depend upon the VerInfo.
 data ListenerSpec m = ListenerSpec
     { lsHandler :: VerInfo -> Listener m -- ^ Handler accepts out verInfo and returns listener
-    , lsInSpec  :: (MessageName, HandlerSpec)
+    , lsInSpec  :: (MessageCode, HandlerSpec)
     }
 
--- | The MessageName that the listener responds to.
-listenerMessageName :: forall m . Listener m -> MessageName
-listenerMessageName (N.Listener (_ :: PeerData -> NodeId -> N.ConversationActions snd rcv m -> m ())) =
-    messageName (Proxy @rcv)
+-- | The MessageCode that the listener responds to.
+listenerMessageCode :: forall m . Listener m -> MessageCode
+listenerMessageCode (N.Listener (_ :: PeerData -> NodeId -> N.ConversationActions snd rcv m -> m ())) =
+    messageCode (Proxy @rcv)
 
 newtype InSpecs = InSpecs HandlerSpecs
   deriving (Eq, Show, Generic)
@@ -272,7 +272,7 @@ instance Monoid OutSpecs where
                     ("Conflicting key output spec: "%build%" "%build)
                     (name, h1) (name, h2)
 
-toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
+toOutSpecs :: [(MessageCode, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList
 
 -- | Data type to represent listeners, provided upon our version info and peerData

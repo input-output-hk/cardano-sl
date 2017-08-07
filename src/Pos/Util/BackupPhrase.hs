@@ -23,7 +23,7 @@ import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhra
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
                                       unsafeAbstractHash)
 import           Pos.Util.Mnemonics  (fromMnemonic, toMnemonic)
-import           Test.QuickCheck     (Arbitrary(..), genericShrink)
+import           Test.QuickCheck     (Arbitrary (..), genericShrink)
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase
@@ -68,7 +68,7 @@ toSeed = first toText . fromMnemonic . unwords . bpToList
 
 toHashSeed :: BackupPhrase -> Either Text ByteString
 toHashSeed bp = serialize' . blake2b <$> toSeed bp
-  where blake2b :: Bi a => a -> AbstractHash Blake2b_256 b
+  where blake2b :: Bi a => a -> AbstractHash Blake2b_256 ()
         blake2b = unsafeAbstractHash
 
 keysFromPhrase :: BackupPhrase -> Either Text (SecretKey, VssKeyPair)

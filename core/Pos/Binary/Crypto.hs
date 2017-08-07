@@ -49,7 +49,7 @@ instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
 -- Hashing
 ----------------------------------------------------------------------------
 
-instance HashAlgorithm algo => Bi (AbstractHash algo a) where
+instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash algo a) where
     encode (AbstractHash digest) = encode (ByteArray.convert digest :: ByteString)
     decode = do
         bs <- decode @ByteString
@@ -154,7 +154,7 @@ instance Bi CC.XSignature where
     encode (CC.unXSignature -> bs) = encode bs
     decode = either fail pure . CC.xsignature =<< decode
 
-deriving instance Bi (Signature a)
+deriving instance Typeable a => Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey
 
@@ -176,7 +176,7 @@ instance Bi a => Bi (Signed a) where
          <*> decode
          <*> decode
 
-deriving instance Bi (ProxyCert w)
+deriving instance Typeable w => Bi (ProxyCert w)
 
 instance Bi w => Bi (ProxySecretKey w) where
     encode ProxySecretKey{..} = encodeListLen 4
@@ -190,7 +190,7 @@ instance Bi w => Bi (ProxySecretKey w) where
                             <*> decode
                             <*> decode
 
-instance Bi w => Bi (ProxySignature w a) where
+instance (Typeable a, Bi w) => Bi (ProxySignature w a) where
     encode ProxySignature{..} = encodeListLen 2
                              <> encode psigPsk
                              <> encode psigSig
@@ -238,4 +238,4 @@ instance Bi EdStandard.Signature where
 
 deriving instance Bi RedeemPublicKey
 deriving instance Bi RedeemSecretKey
-deriving instance Bi (RedeemSignature a)
+deriving instance Typeable a => Bi (RedeemSignature a)

@@ -31,7 +31,6 @@ import           Data.Default         (Default (..))
 import           Formatting           (formatToString, sformat, shown, stext, string, (%))
 import           Servant.API          ((:>), Capture, QueryParam, ReqBody, Verb)
 import           Servant.Server       (Handler (..), HasServer (..), ServantErr, Server)
-import           Servant.Swagger      (HasSwagger (toSwagger))
 import           Universum
 
 
@@ -190,25 +189,6 @@ instance ( HasServer (apiType a :> res) ctx
     route _ ctx del =
         route (Proxy @(apiType a :> res)) ctx $
         del <&> \f a -> f $ fromMaybe def a
-
--------------------------------------------------------------------------
--- Swagger instances
--------------------------------------------------------------------------
-
-instance {-# OVERLAPPABLE #-}
-         HasSwagger v =>
-         HasSwagger (VerbMod mod v) where
-    toSwagger _ = toSwagger (Proxy @v)
-
-instance {-# OVERLAPPABLE #-}
-         HasSwagger (apiType a :> res) =>
-         HasSwagger (CDecodeApiArg apiType a :> res) where
-    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
-
-instance {-# OVERLAPPABLE #-}
-         HasSwagger (apiType a :> res) =>
-         HasSwagger (WithDefaultApiArg apiType a :> res) where
-    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
 
 -------------------------------------------------------------------------
 -- API construction Helpers

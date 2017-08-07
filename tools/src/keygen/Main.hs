@@ -20,10 +20,10 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
                                         usingLoggerName)
 import           Universum
 
-import           Pos.Binary            (decodeFull, serialize')
+import           Pos.Binary            (asBinary, decodeFull, serialize')
 import           Pos.Core              (StakeholderId, mkCoin)
-import           Pos.Crypto            (EncryptedSecretKey (..), getVssPublicKey,
-                                        redeemPkB64F, toVssPublicKey)
+import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, redeemPkB64F,
+                                        toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
                                         GenesisGtData (..), StakeDistribution (..),
@@ -168,7 +168,7 @@ readKey path = do
                            map (showKeyWithAddressHash . decryptESK) $
                            view usKeys us)
     logInfo $ maybe "No vss"
-                    (("Vss PK: " <>) . show . getVssPublicKey . toVssPublicKey) $
+                    (("Vss PK: " <>) . showPvssKey) $
                     view usVss us
 
 showKeyWithAddressHash :: SecretKey -> Text
@@ -176,6 +176,9 @@ showKeyWithAddressHash sk = sformat (build%"; address hash: "%build) pk ah
   where
     pk = toPublic sk
     ah = addressHash pk
+
+showPvssKey :: VssKeyPair -> Text
+showPvssKey = sformat build . asBinary . toVssPublicKey
 
 decryptESK :: EncryptedSecretKey -> SecretKey
 decryptESK (EncryptedSecretKey sk _) = SecretKey sk

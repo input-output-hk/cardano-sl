@@ -72,20 +72,20 @@ canSubmitPtx ptxs = do
 
 processPtxs
     :: MonadPendings m
-    => SlotId -> [(PendingTx, PtxCondition)] -> m (ToResubmit [PendingTx])
+    => SlotId -> [PendingTx] -> m (ToResubmit [PendingTx])
 processPtxs curSlot ptxs = do
     mapM_ markPersistent ptxs
-    canSubmitPtx $ map fst $ filter ((PtxApplying ==) . snd) ptxs
+    canSubmitPtx $ filter ((PtxApplying ==) . ptxCond) ptxs
    where
      isPersistent ptx =
          flattenSlotId (ptxCreationSlot ptx) + getSlotCount undefined
              < flattenSlotId curSlot
-     markPersistent (ptx, PtxInUpperBlocks) =
-         when (isPersistent ptx) $ setPtxCondition ptx PtxPersisted
-     markPersistent _ = return ()
+     markPersistent ptx =
+         when (ptxCond ptx == PtxInUpperBlocks && isPersistent ptx) $
+             setPtxCondition ptx PtxPersisted
 
-whetherCheckPtxOnSlot :: SlotId -> (PendingTx, PtxCondition) -> Bool
-whetherCheckPtxOnSlot curSlot (ptx, _) =
+whetherCheckPtxOnSlot :: SlotId -> PendingTx -> Bool
+whetherCheckPtxOnSlot curSlot ptx =
     -- TODO [CSM-256]: move 3 in constants?
     flattenSlotId (ptxCreationSlot ptx) + 3 < flattenSlotId curSlot
 
@@ -98,7 +98,7 @@ startPendingTxsResubmitter
     => SendActions m -> m ()
 startPendingTxsResubmitter sendActions =
     onNewSlot False $ \curSlot -> do
-        ptxs <- getPendingTxs PtxApplying
+        ptxs <- getPendingTxs
         let ptxsToCheck =
                 flip fromMaybe =<< topsortTxs wHash $
                 filter (whetherCheckPtxOnSlot curSlot) $
@@ -114,7 +114,7 @@ startPendingTxsResubmitter sendActions =
             -- FIXME [CSM-256] Doesn't it introduce a race condition?
             fork $ submitAndSaveTx sendActions na ptxTxAux
   where
-    wHash (PendingTx{..}, _) = WithHash (taTx ptxTxAux) ptxTxId
+    wHash PendingTx{..} = WithHash (taTx ptxTxAux) ptxTxId
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
         slotDuration <- getLastKnownSlotDuration

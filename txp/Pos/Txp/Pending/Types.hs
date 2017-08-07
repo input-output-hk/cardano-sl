@@ -5,21 +5,9 @@ module Pos.Txp.Pending.Types
     , PtxCondition (..)
     ) where
 
-import           Data.Hashable      (Hashable (..))
 import           Universum
 
 import           Pos.Txp.Core.Types (TxAux, TxId)
-
-data PendingTx = PendingTx
-    { ptxTxAux :: TxAux
-    , ptxTxId  :: TxId
-    }
-
-instance Eq PendingTx where
-    ptx1 == ptx2 = ptxTxId ptx1 == ptxTxId ptx2
-
-instance Hashable PendingTx where
-    hashWithSalt s ptx = hashWithSalt s (ptxTxId ptx)
 
 -- | Persistance assessment for given pending transaction.
 data PtxCondition
@@ -30,3 +18,10 @@ data PtxCondition
     | PtxWon'tApply Text -- ^ Can't be applyed and requires user's input to
                          --   reform tx
     deriving (Eq, Show)
+
+data PendingTx = PendingTx
+    { ptxTxAux :: TxAux
+    , ptxTxId  :: TxId
+    , ptxCond  :: PtxCondition
+    } deriving (Eq)
+

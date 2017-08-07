@@ -31,9 +31,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetHistoryCache (..)
        , GetCustomAddresses (..)
        , GetCustomAddress (..)
-       , GetPtxCondition (..)
        , GetPendingTxs (..)
-       , SetPtxCondition (..)
        , AddCustomAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
@@ -58,6 +56,8 @@ module Pos.Wallet.Web.State.Acidic
        , AddUpdate (..)
        , RemoveNextUpdate (..)
        , UpdateHistoryCache (..)
+       , UpdatePendingTx (..)
+       , AddOnlyNewPendingTx (..)
        ) where
 
 import           Universum
@@ -118,7 +118,6 @@ makeAcidic ''WalletStorage
     , 'WS.getHistoryCache
     , 'WS.getCustomAddresses
     , 'WS.getCustomAddress
-    , 'WS.getPtxCondition
     , 'WS.getPendingTxs
     , 'WS.addCustomAddress
     , 'WS.removeCustomAddress
@@ -144,5 +143,6 @@ makeAcidic ''WalletStorage
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache
-    , 'WS.setPtxCondition
+    , 'WS.updatePendingTx
+    , 'WS.addOnlyNewPendingTx
     ]

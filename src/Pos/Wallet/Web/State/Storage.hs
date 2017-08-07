@@ -26,7 +26,6 @@ module Pos.Wallet.Web.State.Storage
        , getHistoryCache
        , getCustomAddresses
        , getCustomAddress
-       , getPtxCondition
        , getPendingTxs
        , addCustomAddress
        , removeCustomAddress
@@ -54,7 +53,8 @@ module Pos.Wallet.Web.State.Storage
        , removeNextUpdate
        , testReset
        , updateHistoryCache
-       , setPtxCondition
+       , updatePendingTx
+       , addOnlyNewPendingTx
        ) where
 
 import           Universum
@@ -70,8 +70,8 @@ import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Constants              (genesisHash)
 import           Pos.Core.Types             (Timestamp)
-import           Pos.Txp                    (TxAux, Utxo)
-import           Pos.Txp.Pending            (PendingTx, PtxCondition)
+import           Pos.Txp                    (TxAux, TxId, Utxo)
+import           Pos.Txp.Pending            (PendingTx (..), PtxCondition)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash,
@@ -122,7 +122,7 @@ data WalletStorage = WalletStorage
     , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
-    , _wsPendingTxs      :: !(HashMap PendingTx PtxCondition)
+    , _wsPendingTxs      :: !(HashMap TxId PendingTx)
     }
 
 makeClassy ''WalletStorage
@@ -249,6 +249,9 @@ getCustomAddresses t = HM.keys <$> view (customAddressL t)
 getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
 getCustomAddress t addr = view $ customAddressL t . at addr
 
+getPendingTxs :: Query [PendingTx]
+getPendingTxs = toList <$> view wsPendingTxs
+
 addCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
 addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
@@ -359,15 +362,11 @@ updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId ?= cTxs
 
-getPtxCondition :: PendingTx -> Query (Maybe PtxCondition)
-getPtxCondition ptx = view $ wsPendingTxs . at ptx
+updatePendingTx :: PendingTx -> Update ()
+updatePendingTx ptx = wsPendingTxs . at (ptxTxId ptx) ?= ptx
 
-getPendingTxs :: PtxCondition -> Query [(PendingTx, PtxCondition)]
-getPendingTxs cond =
-    filter ((cond ==) . snd) . HM.toList <$> view wsPendingTxs
-
-setPtxCondition :: PendingTx -> PtxCondition -> Update ()
-setPtxCondition ptx cond = wsPendingTxs . at ptx ?= cond
+addOnlyNewPendingTx :: PendingTx -> Update ()
+addOnlyNewPendingTx ptx = wsPendingTxs . at (ptxTxId ptx) %= (<|> Just ptx)
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
@@ -375,7 +374,6 @@ deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CId
 deriveSafeCopySimple 0 'base ''Wal
 deriveSafeCopySimple 0 'base ''Addr
-deriveSafeCopySimple 0 'base ''TxAux
 deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''AccountId
 deriveSafeCopySimple 0 'base ''CWAddressMeta
@@ -389,8 +387,9 @@ deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
-deriveSafeCopySimple 0 'base ''PendingTx
+deriveSafeCopySimple 0 'base ''TxAux
 deriveSafeCopySimple 0 'base ''PtxCondition
+deriveSafeCopySimple 0 'base ''PendingTx
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletInfo

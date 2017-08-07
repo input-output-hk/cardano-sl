@@ -33,7 +33,6 @@ module Pos.Wallet.Web.State.State
        , getCustomAddress
        , isCustomAddress
        , getWalletUtxo
-       , getPtxCondition
        , getPendingTxs
 
        -- * Setters
@@ -62,7 +61,9 @@ module Pos.Wallet.Web.State.State
        , removeNextUpdate
        , updateHistoryCache
        , setWalletUtxo
+       , updatePendingTx
        , setPtxCondition
+       , addOnlyNewPendingTx
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -73,7 +74,7 @@ import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Txp                      (Utxo)
-import           Pos.Txp.Pending              (PendingTx, PtxCondition)
+import           Pos.Txp.Pending              (PendingTx (..), PtxCondition)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
@@ -165,10 +166,7 @@ getCustomAddress = queryDisk ... A.GetCustomAddress
 isCustomAddress :: WebWalletModeDB ctx m => CustomAddressType -> CId Addr -> m Bool
 isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
 
-getPtxCondition :: WebWalletModeDB ctx m => PendingTx -> m (Maybe PtxCondition)
-getPtxCondition = queryDisk ... A.GetPtxCondition
-
-getPendingTxs :: WebWalletModeDB ctx m => PtxCondition -> m [(PendingTx, PtxCondition)]
+getPendingTxs :: WebWalletModeDB ctx m => m [PendingTx]
 getPendingTxs = queryDisk ... A.GetPendingTxs
 
 
@@ -252,5 +250,11 @@ testReset = updateDisk A.TestReset
 updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> [TxHistoryEntry] -> m ()
 updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache cWalId
 
+updatePendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
+updatePendingTx = updateDisk ... A.UpdatePendingTx
+
 setPtxCondition :: WebWalletModeDB ctx m => PendingTx -> PtxCondition -> m ()
-setPtxCondition = updateDisk ... A.SetPtxCondition
+setPtxCondition ptx cond = updatePendingTx ptx{ ptxCond = cond }
+
+addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
+addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx

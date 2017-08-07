@@ -3,13 +3,15 @@ module Pos.Binary.Core.Address () where
 
 import           Universum
 
-import           Data.Digest.CRC32   (CRC32 (..))
-import           Pos.Binary.Crypto   ()
 import           Data.Default        (def)
+import           Data.Digest.CRC32   (CRC32 (..))
 import           Data.Word           (Word8)
-import           Pos.Binary.Class    (Bi (..), serialize', deserialize', encodeListLen, enforceSize)
+import           Formatting          (format, shown, (%))
+import           Pos.Binary.Class    (Bi (..), deserialize', encodeListLen, enforceSize,
+                                      serialize')
+import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
-import           Pos.Data.Attributes (Attributes, encodeAttributes, decodeAttributes)
+import           Pos.Data.Attributes (Attributes, decodeAttributes, encodeAttributes)
 
 {- NOTE: Address serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -54,7 +56,7 @@ instance Bi (Attributes AddrPkAttrs) where
 
 instance Bi Address where
     encode addr =
-        encodeListLen 2 <> encodeAddr
+        encodeListLen 3 <> encode (crc32 addr) <> encodeAddr
       where
         encodeAddr = case addr of
             PubKeyAddress keyHash attrs ->
@@ -71,11 +73,16 @@ instance Bi Address where
                 <> encode bs
 
     decode = do
-        enforceSize "Address" 2
-        t  <- decode @Word8
-        bs <- decode @ByteString
-        pure $ case t of
-            0 -> uncurry PubKeyAddress $ deserialize' bs
-            1 -> ScriptAddress         $ deserialize' bs
-            2 -> RedeemAddress         $ deserialize' bs
-            _ -> UnknownAddressType t bs
+        enforceSize "Address" 3
+        t           <- decode @Word8
+        expectedCRC <- decode @Word32
+        bs          <- decode @ByteString
+        let address = case t of
+                          0 -> uncurry PubKeyAddress $ deserialize' bs
+                          1 -> ScriptAddress         $ deserialize' bs
+                          2 -> RedeemAddress         $ deserialize' bs
+                          _ -> UnknownAddressType t bs
+        let actualCRC = crc32 address
+        if expectedCRC /= actualCRC
+           then fail $ toString $ format ("Address " % shown % "has invalid checksum: " % shown) address actualCRC
+           else pure address

@@ -69,17 +69,18 @@ action args@Args {..} = do
     putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
-    let gtParams = gtSscParams args vssSK
+    let sscParams = gtSscParams args vssSK
 
     let plugins = mconcatPair
             [ explorerPlugin webPort
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
             , updateTriggerWorker
             ]
-    bracketNodeResources nodeParams gtParams $ \nr@NodeResources {..} ->
+
+    bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
         runExplorerRealMode
-            (hoistNodeResources (lift . lift) nr)
-            (runNode @SscGodTossing nrContext plugins)
+            (hoistNodeResources (lift . runExplorerBListener) nr)
+            (runNode @SscGodTossing nr plugins)
   where
     runExplorerRealMode
         :: NodeResources SscGodTossing ExplorerProd

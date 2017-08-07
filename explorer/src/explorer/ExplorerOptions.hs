@@ -20,6 +20,7 @@ import           Serokell.Util.OptParse     (fromParsec)
 
 import           Paths_cardano_sl_explorer  (version)
 import qualified Pos.CLI                    as CLI
+import           Pos.Network.CLI            (NetworkConfigOpts, networkConfigOption)
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,
                                              dhtNetworkAddressOption, dhtPeersFileOption)
@@ -45,6 +46,9 @@ data Args = Args
     , dhtExplicitInitial :: !Bool
     , dhtPeersFile       :: !(Maybe FilePath)
       -- ^ A file containing a list of Kademlia peers to use.
+    , networkConfigOpts         :: !NetworkConfigOpts
+      -- ^ Network configuration
+      -- TODO: Does this obsolete 'peers' and 'peersFile'?
     , timeLord           :: !Bool
     , jlPath             :: !(Maybe FilePath)
     , kademliaDumpPath   :: !FilePath
@@ -92,6 +96,7 @@ argsParser = do
     dhtExplicitInitial <- dhtExplicitInitialOption
     dhtPeersList <- many addrNodeOption
     dhtPeersFile <- optional dhtPeersFileOption
+    networkConfigOpts <- networkConfigOption
     dhtKey <- optional dhtKeyOption
 
     timeLord <- CLI.timeLordOption

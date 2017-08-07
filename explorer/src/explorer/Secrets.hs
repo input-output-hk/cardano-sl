@@ -39,17 +39,3 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         let us = userSecret & usVss .~ Just vss
         writeUserSecret us
         return us
-
--- processUserSecret
---     :: (MonadIO m, MonadFail m)
---     => Args -> UserSecret -> m (SecretKey, UserSecret)
--- processUserSecret args@Args {..} userSecret = case backupPhrase of
---     Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
---     Just ph -> do
---         (sk, vss) <- either keyFromPhraseFailed pure $ keysFromPhrase ph
---         let us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
---         writeUserSecret us
---         return (sk, us)
---   where
---     keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
-

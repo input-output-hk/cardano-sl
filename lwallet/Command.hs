@@ -101,7 +101,7 @@ coin = mkCoin <$> num
 txout :: Parser TxOut
 txout = TxOut <$> address <*> coin
 
-hash :: Parser (Hash a)
+hash :: Typeable a => Parser (Hash a)
 hash = decodeHash <$> anyText
 
 switch :: Parser Bool

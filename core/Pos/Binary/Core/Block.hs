@@ -18,7 +18,8 @@ instance Bi T.BlockHeaderStub where
   encode = error "somebody tried to binary encode BlockHeaderStub"
   decode = fail  "somebody tried to binary decode BlockHeaderStub"
 
-instance ( Bi (T.BHeaderHash b)
+instance ( Typeable b
+         , Bi (T.BHeaderHash b)
          , Bi (T.BodyProof b)
          , Bi (T.ConsensusData b)
          , Bi (T.ExtraHeaderData b)
@@ -42,7 +43,8 @@ instance ( Bi (T.BHeaderHash b)
     extra     <- decode
     eitherToFail $ T.recreateGenericHeader prevBlock bodyProof consensus extra
 
-instance ( Bi (T.BHeaderHash b)
+instance ( Typeable b
+         , Bi (T.BHeaderHash b)
          , Bi (T.BodyProof b)
          , Bi (T.ConsensusData b)
          , Bi (T.ExtraHeaderData b)

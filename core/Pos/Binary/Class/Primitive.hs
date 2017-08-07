@@ -33,7 +33,6 @@ import qualified Data.ByteString.Lazy.Internal as BSL
 import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
                                                 safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
-import           Data.Typeable                 (typeRep)
 
 import           Pos.Binary.Class.Core         (Bi (..))
 import           Serokell.Data.Memory.Units    (Byte)
@@ -69,14 +68,14 @@ deserialize' = deserialize . BSL.fromStrict
 -- failing if there are leftovers. In a nutshell, the `full` here implies
 -- the contract of this function is that what you feed as input needs to
 -- be consumed entirely.
-decodeFull :: Bi a => BS.ByteString -> Either Text a
+decodeFull :: forall a. Bi a => BS.ByteString -> Either Text a
 decodeFull bs0 = case deserializeOrFail' bs0 of
   Right (x, leftover) -> case BS.null leftover of
       True  -> pure x
       False ->
-          let msg = "decodeFull failed! Leftover found: " <> show leftover
+          let msg = "decodeFull failed for " <> label (Proxy @a) <> "! Leftover found: " <> show leftover
           in Left $ fromString msg
-  Left  (e, _) -> Left $ fromString (show e)
+  Left  (e, _) -> Left $ fromString $ "decodeFull failed for " <> label (Proxy @a) <> ": " <> show e
 
 -- | Deserialize a Haskell value from the external binary representation,
 -- returning either (leftover, value) or a (leftover, @'DeserialiseFailure'@).
@@ -110,11 +109,11 @@ deserializeOrFail' = deserializeOrFail . BSL.fromStrict
 putCopyBi :: Bi a => a -> Contained Cereal.Put
 putCopyBi = contain . safePut . serialize
 
-getCopyBi :: forall a. (Bi a, Typeable a) => Contained (Cereal.Get a)
+getCopyBi :: forall a. Bi a => Contained (Cereal.Get a)
 getCopyBi = contain $ do
     bs <- safeGet
     case deserializeOrFail bs of
-        Left (err, _) -> fail $ "getCopy@" ++ show (typeRep $ Proxy @a) <> ": " <> show err
+        Left (err, _) -> fail $ "getCopy@" ++ (label (Proxy @a)) <> ": " <> show err
         Right (x, _)  -> return x
 
 ----------------------------------------

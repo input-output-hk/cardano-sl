@@ -6,25 +6,25 @@ module Pos.Binary.Block.Core
 
 import           Universum
 
-import           Pos.Binary.Class             (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
-                                               enforceSize)
+import           Pos.Binary.Class             (Bi (..), Cons (..), Field (..),
+                                               deriveSimpleBi, encodeListLen, enforceSize)
 import           Pos.Binary.Core              ()
 import           Pos.Binary.Txp               ()
 import           Pos.Binary.Update            ()
-import           Pos.Crypto                   (Hash)
 import qualified Pos.Block.Core.Genesis.Chain as BC
 import qualified Pos.Block.Core.Genesis.Types as BC
 import qualified Pos.Block.Core.Main.Chain    as BC
 import qualified Pos.Block.Core.Main.Types    as BC
 import           Pos.Core                     (BlockVersion, SoftwareVersion)
 import qualified Pos.Core.Block               as Core
+import           Pos.Crypto                   (Hash)
 import           Pos.Ssc.Class.Types          (Ssc (..))
 
 ----------------------------------------------------------------------------
 -- MainBlock
 ----------------------------------------------------------------------------
 
-instance Ssc ssc => Bi (Core.BodyProof (BC.MainBlockchain ssc)) where
+instance (Typeable ssc, Ssc ssc) => Bi (Core.BodyProof (BC.MainBlockchain ssc)) where
   encode bc =  encodeListLen 4
             <> encode (BC.mpTxProof bc)
             <> encode (BC.mpMpcProof bc)
@@ -37,7 +37,7 @@ instance Ssc ssc => Bi (Core.BodyProof (BC.MainBlockchain ssc)) where
                      decode <*>
                      decode
 
-instance Bi (BC.BlockSignature ssc) where
+instance Typeable ssc => Bi (BC.BlockSignature ssc) where
   encode input = case input of
     BC.BlockSignature sig       -> encodeListLen 2 <> encode (0 :: Word8) <> encode sig
     BC.BlockPSignatureLight pxy -> encodeListLen 2 <> encode (1 :: Word8) <> encode pxy
@@ -51,7 +51,7 @@ instance Bi (BC.BlockSignature ssc) where
       2 -> BC.BlockPSignatureHeavy <$> decode
       _ -> fail $ "decode@BlockSignature: unknown tag: " <> show tag
 
-instance Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
+instance Typeable ssc => Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
   encode cd =  encodeListLen 4
             <> encode (BC._mcdSlot cd)
             <> encode (BC._mcdLeaderKey cd)
@@ -64,7 +64,7 @@ instance Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
                              decode <*>
                              decode
 
-instance (Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
+instance (Typeable ssc, Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
   encode bc =  encodeListLen 4
             <> encode (BC._mbTxPayload  bc)
             <> encode (BC._mbSscPayload bc)
@@ -119,11 +119,11 @@ deriveSimpleBi ''BC.GenesisExtraBodyData [
         Field [| BC._gebAttributes :: BC.GenesisBodyAttributes |]
     ]]
 
-instance Bi (BC.BodyProof (BC.GenesisBlockchain ssc)) where
+instance Typeable ssc => Bi (BC.BodyProof (BC.GenesisBlockchain ssc)) where
   encode (BC.GenesisProof h) = encode h
   decode = BC.GenesisProof <$> decode
 
-instance Bi (BC.ConsensusData (BC.GenesisBlockchain ssc)) where
+instance Typeable ssc => Bi (BC.ConsensusData (BC.GenesisBlockchain ssc)) where
   encode bc =  encodeListLen 2
             <> encode (BC._gcdEpoch bc)
             <> encode (BC._gcdDifficulty bc)
@@ -131,6 +131,6 @@ instance Bi (BC.ConsensusData (BC.GenesisBlockchain ssc)) where
     enforceSize "BC.ConsensusData (BC.GenesisBlockchain ssc)" 2
     BC.GenesisConsensusData <$> decode <*> decode
 
-instance Bi (BC.Body (BC.GenesisBlockchain ssc)) where
+instance Typeable ssc => Bi (BC.Body (BC.GenesisBlockchain ssc)) where
   encode = encode . BC._gbLeaders
   decode = BC.GenesisBody <$> decode

@@ -12,9 +12,10 @@ import qualified Utils.Names        as Names
 import qualified Utils.Vars         as Vars
 
 import           Data.Hashable      (Hashable, hashWithSalt)
-import           Data.SafeCopy      (SafeCopy(..))
-import           Pos.Binary.Class   (Bi (..), deriveSimpleBi, Cons(..), Field(..),
-                                     serialize', getCopyBi, putCopyBi, genericEncode, genericDecode)
+import           Data.SafeCopy      (SafeCopy (..))
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), deriveSimpleBi,
+                                     genericDecode, genericEncode, getCopyBi, putCopyBi,
+                                     serialize')
 import           Pos.Core.Script    ()
 import           Pos.Core.Types     (Script (..), ScriptVersion)
 
@@ -59,15 +60,15 @@ instance Bi ABT.Variable where
   encode = genericEncode
   decode = genericDecode
 
-instance Bi (f (ABT.Scope f)) => Bi (ABT.ABT f) where
+instance (Typeable f, Bi (f (ABT.Scope f))) => Bi (ABT.ABT f) where
   encode = genericEncode
   decode = genericDecode
 
-instance Bi (f (ABT.Scope f)) => Bi (ABT.Scope f) where
+instance (Typeable f, Bi (f (ABT.Scope f))) => Bi (ABT.Scope f) where
   encode = genericEncode
   decode = genericDecode
 
-instance Bi r => Bi (PLCore.ClauseF r) where
+instance (Typeable r, Bi r) => Bi (PLCore.ClauseF r) where
   encode = genericEncode
   decode = genericDecode
 

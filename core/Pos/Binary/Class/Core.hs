@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
@@ -41,6 +40,7 @@ import qualified Data.Set                   as S
 import           Data.Tagged                (Tagged (..))
 import qualified Data.Text                  as Text
 import           Data.Time.Units            (Microsecond, Millisecond)
+import           Data.Typeable              (typeRep)
 import qualified Data.Vector                as Vector
 import qualified Data.Vector.Generic        as Vector.Generic
 import qualified GHC.Generics               as G
@@ -61,19 +61,22 @@ decodeBinary = do
 
 -- | Enforces that the input size is the same as the decoded one, failing in case it's not.
 enforceSize :: String -> Int -> D.Decoder s ()
-enforceSize label requestedSize = D.decodeListLen >>= matchSize requestedSize label
+enforceSize lbl requestedSize = D.decodeListLen >>= matchSize requestedSize lbl
 
 -- | Compare two sizes, failing if they are not equal.
 matchSize :: Int -> String -> Int -> D.Decoder s ()
-matchSize requestedSize label actualSize =
+matchSize requestedSize lbl actualSize =
   when (actualSize /= requestedSize) $
-    fail (label <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
+    fail (lbl <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
 
 ----------------------------------------
 
-class Bi a where
+class Typeable a => Bi a where
     encode :: a -> E.Encoding
     decode :: D.Decoder s a
+
+    label :: Proxy a -> String
+    label = show . typeRep
 
     encodeList :: [a] -> E.Encoding
     encodeList = defaultEncodeList
@@ -172,7 +175,7 @@ instance Bi Void where
 -- Tagged
 ----------------------------------------------------------------------------
 
-instance Bi a => Bi (Tagged s a) where
+instance (Typeable s, Bi a) => Bi (Tagged s a) where
     encode (Tagged a) = encode a
     decode = Tagged <$> decode
 

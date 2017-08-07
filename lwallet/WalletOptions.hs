@@ -23,7 +23,6 @@ import           Universum
 import           Paths_cardano_sl             (version)
 import qualified Pos.CLI                      as CLI
 import           Pos.Communication            (NodeId)
-import           Pos.Web                      (TlsParams)
 
 data WalletOptions = WalletOptions
     { woDbPath      :: !FilePath
@@ -34,7 +33,6 @@ data WalletOptions = WalletOptions
     , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
     , woAction      :: !WalletAction
     , woPeers       :: ![NodeId]
-    , woTLSParams   :: !TlsParams
     }
 
 data WalletAction = Repl
@@ -93,8 +91,6 @@ argsParser = do
         CLI.commonArgsParser
     woAction <-
         actionParser
-    woTLSParams <-
-        CLI.tlsParamsOption
 
     woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
 

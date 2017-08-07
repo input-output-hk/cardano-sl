@@ -79,6 +79,7 @@ checkEclipsed ourPk slotId x = notEclipsed x
                      Just h  -> notEclipsed h
                      Nothing -> onBlockLoadFailure header $> True
 
+-- FIX: CSL-1470 Do we need this logic? It's duplicated in practice by chain quality check
 checkForReceivedBlocksWorkerImpl
     :: forall ssc ctx m.
        (WorkMode ssc ctx m)
@@ -113,7 +114,6 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
-        -- TODO [CSL-1340]: should it be critical or not? Is it
-        -- misbehavior or error?
+        -- REPORT:MISBEHAVIOUR(F) Possible eclipse attack was detected: new blocks are not propagated to us from other nodes
         when nonTrivialUptime $ recoveryCommGuard $
             reportMisbehaviour True reason

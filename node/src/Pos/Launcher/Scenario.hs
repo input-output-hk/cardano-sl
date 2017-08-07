@@ -37,7 +37,7 @@ import           Pos.Infra.Semaphore   (BlkSemaphore (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
 import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
-import           Pos.Reporting         (reportMisbehaviour)
+import           Pos.Reporting         (reportError)
 import           Pos.Shutdown          (waitForWorkers)
 import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
@@ -119,10 +119,10 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
   where
     -- FIXME shouldn't this kill the whole program?
     -- FIXME: looks like something bad.
-    -- FIXME [CSL-1340]: it should be reported as 'RError'.
+    -- REPORT:ERROR Node's worker/plugin failed with exception (which wasn't caught)
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviour False $
+        reportError $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

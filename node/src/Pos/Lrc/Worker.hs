@@ -46,7 +46,7 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
 import           Pos.Lrc.Mode               (LrcMode)
-import           Pos.Reporting              (reportMisbehaviour)
+import           Pos.Reporting              (reportError)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
@@ -69,14 +69,11 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     -- can happen there we don't know recent blocks. That's because if
     -- we don't know them, we should be in recovery mode and this
     -- worker should be turned off.
-    onLrcError e@UnknownBlocksForLrc = do
-        reportError e
-        logWarning
-            "LRC worker can't do anything, because recent blocks aren't known"
-    onLrcError e = reportError e >> throwM e
-    -- FIXME [CSL-1340]: it should be reported as 'RError'.
-    reportError e =
-        reportMisbehaviour False $
+    onLrcError e@UnknownBlocksForLrc = reportE e -- FIX why we don't throw here?
+    onLrcError e                     = reportE e >> throwM e
+
+    -- REPORT:ERROR LRC worker failed with some LRC-related error
+    reportE e = reportError $
         "Lrc worker failed with error: " <> show e
 
 type LrcModeFullNoSemaphore ssc ctx m =

@@ -524,7 +524,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
     -- TODO [CSL-1340]: set isCritical flag based on rollback depth.
     reportRollback =
         recoveryCommGuard $ do
-            logDebug "Reporting rollback happened"
+            -- REPORT:MISBEHAVIOUR(F) Blockchain fork occurred
             reportMisbehaviour False $
                 sformat reportF nodeId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"

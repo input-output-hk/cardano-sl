@@ -22,7 +22,7 @@ import           Data.Default               (Default (def))
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
+import           System.Wlog                (WithLogger, logDebug, logInfo)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
@@ -52,7 +52,7 @@ import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Infra.Semaphore        (BlkSemaphore, modifyBlkSemaphore)
 import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Reporting              (reportMisbehaviour, reportingFatal)
+import           Pos.Reporting              (reportError, reportingFatal)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
@@ -333,9 +333,8 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
     fallback :: Text -> m (MainBlock ssc)
     fallback reason = do
         let message = sformat ("We've created bad main block: "%stext) reason
-        logError message
-        -- FIXME [CSL-1340]: it should be reported as 'RError'.
-        reportMisbehaviour False message
+        -- REPORT:ERROR Created bad main block
+        reportError message
         logDebug $ "Clearing mempools"
         clearMempools
         logDebug $ "Creating empty block"

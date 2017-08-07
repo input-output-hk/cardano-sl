@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 -- | Logic for local processing of transactions.
 -- Local transaction is transaction which hasn't been added in the blockchain yet.
 
@@ -7,35 +9,30 @@ module Pos.Txp.Logic.Local
        ) where
 
 import           Universum
-import           Unsafe                      (unsafeHead)
 
-import           Control.Lens                (views)
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
-import qualified Data.HashSet                as HS
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
 import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 
-import           Pos.Core                    (Coin, HeaderHash, StakeholderId, siEpoch)
-import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
+import           Pos.Core                    (BlockVersionData, EpochIndex, HeaderHash,
+                                              siEpoch)
+import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
-                                              getTxDistribution)
+import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..), GenesisUtxo (..),
-                                              MonadUtxoRead (..), ToilEnv,
+import           Pos.Txp.Toil                (GenericToilModifier (..),
+                                              GenesisStakeholders, MonadUtxoRead (..),
                                               ToilVerFailure (..), Utxo, evalUtxoStateT,
-                                              execToilTLocal, getToilEnv, normalizeToil,
-                                              processTx, runDBToil, runToilTLocal,
-                                              utxoGet, utxoToStakes)
-import           Pos.Util.Util               (getKeys)
+                                              execToilTLocal, normalizeToil, processTx,
+                                              runDBToil, runToilTLocal, utxoGet)
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -45,7 +42,8 @@ type TxpLocalWorkMode ctx m =
     , MonadSlots m
     , MonadTxpMem () ctx m
     , WithLogger m
-    , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasLens GenesisStakeholders ctx GenesisStakeholders
+    , MonadReader ctx m
     )
 
 -- | Process transaction. 'TxId' is expected to be the hash of
@@ -57,9 +55,9 @@ txProcessTransaction
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
-    epoch <- maybe (throwError ToilSlotUnknown) (pure . siEpoch) =<< getCurrentSlot
-    bootEra <- gsIsBootstrapEra epoch
-    bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . utxoToStakes . unGenesisUtxo
+    bvd <- gsAdoptedBVData
+    genStks <- view (lensOf @GenesisStakeholders)
+    epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     localUM <- lift $ getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
@@ -68,7 +66,6 @@ txProcessTransaction itw@(txId, txAux) = do
     -- normalization before releasing lock on block application.
     let runUM um = runToilTLocal um def mempty
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
-    toilEnv <- runDBToil getToilEnv
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.
     let resolved = M.fromList $
@@ -77,7 +74,7 @@ txProcessTransaction itw@(txId, txAux) = do
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- lift $
             modifyTxpLocalData "txProcessTransaction" $
-            processTxDo resolved bootHolders toilEnv tipDB itw bootEra
+            processTxDo epoch bvd genStks resolved tipDB itw
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -85,60 +82,44 @@ txProcessTransaction itw@(txId, txAux) = do
         Right _   ->
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
-    notBootRelated bootHolders =
-        let txDistr = getTxDistribution $ taDistribution txAux
-            inBoot s = s `HS.member` bootHolders
-            mentioned pool addr = addr `elem` pool
-            bad :: [(StakeholderId, Coin)] -> Bool
-            bad (map fst -> txOutDistr) =
-                -- Has unrelated address
-                any (not . inBoot) txOutDistr ||
-                -- Not all genesis boot addrs are mentioned
-                any (not . mentioned txOutDistr) (HS.toList bootHolders)
-        in NE.filter bad txDistr
-
     processTxDo
-        :: Utxo
-        -> HashSet StakeholderId
-        -> ToilEnv
+        :: EpochIndex
+        -> BlockVersionData
+        -> GenesisStakeholders
+        -> Utxo
         -> HeaderHash
         -> (TxId, TxAux)
-        -> Bool
         -> TxpLocalDataPure
         -> (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo resolved bootHolders toilEnv tipDB tx bootEra txld@(uv, mp, undo, tip, ()) = do
-        let tipMismatch = tipDB /= tip
-            bootRel = notBootRelated bootHolders
-        if | tipMismatch ->
-             (Left $ ToilTipsMismatch tipDB tip, txld)
-           | bootEra && not (null bootRel) ->
-            -- We do not allow txs with non-boot-addr stake distr in boot era.
-             (Left $ ToilBootDifferentStake $ unsafeHead bootRel, txld)
-           | otherwise ->
-             let res = (runExceptT $
-                        flip evalUtxoStateT resolved $
-                        execToilTLocal uv mp undo $
-                        processTx tx) toilEnv
-             in case res of
-                 Left er  -> (Left er, txld)
-                 Right ToilModifier{..} ->
-                     (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))
+    processTxDo curEpoch bvd genStks resolved tipDB tx txld@(uv, mp, undo, tip, ())
+        | tipDB /= tip =
+            (Left $ ToilTipsMismatch tipDB tip, txld)
+        | otherwise =
+            let res = (runExceptT $
+                    flip runReaderT genStks $
+                    flip evalUtxoStateT resolved $
+                    execToilTLocal uv mp undo $
+                    processTx curEpoch tx) bvd
+            in case res of
+                Left er  -> (Left er, txld)
+                Right ToilModifier{..} ->
+                    (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
-txNormalize ::
-       ( MonadIO m
-       , MonadBaseControl IO m
-       , MonadDBRead m
-       , MonadGState m
-       , MonadTxpMem () ctx m
-       , WithLogger m
-       )
+txNormalize
+    :: ( TxpLocalWorkMode ctx m
+       , MonadSlots m)
     => m ()
-txNormalize = do
-    utxoTip <- GS.getTip
-    localTxs <- getLocalTxs
-    ToilModifier {..} <-
-        runDBToil $ execToilTLocal mempty def mempty $ normalizeToil localTxs
-    setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+txNormalize = getCurrentSlot >>= \case
+    Nothing -> do
+        tip <- GS.getTip
+        -- Clear and update tip
+        setTxpLocalData "txNormalize" (mempty, def, mempty, tip, def)
+    Just (siEpoch -> epoch) -> do
+        utxoTip <- GS.getTip
+        localTxs <- getLocalTxs
+        ToilModifier {..} <-
+            runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
+        setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

@@ -15,6 +15,7 @@ module Pos.Txp.DB.Balances
          -- * Iteration
        , BalanceIter
        , balanceSource
+       , getAllPotentiallyHugeStakesMap
 
          -- * Sanity checks
        , sanityCheckBalances
@@ -22,19 +23,20 @@ module Pos.Txp.DB.Balances
 
 import           Universum
 
+import           Control.Lens                 (at)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
-import           Formatting                   (bprint, bprint, sformat, (%))
+import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Binary.Class             (encode)
-import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoin,
-                                               sumCoins, unsafeAddCoin,
+import           Pos.Binary.Class             (serialize')
+import           Pos.Core                     (Coin, StakeholderId, StakesMap, coinF,
+                                               mkCoin, sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
@@ -44,7 +46,7 @@ import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumK
                                                getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.Txp.Core                 (txOutStake)
-import           Pos.Txp.Toil.Types           (Utxo)
+import           Pos.Txp.Toil.Types           (GenesisUtxo (..))
 import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 
 ----------------------------------------------------------------------------
@@ -62,10 +64,10 @@ instance Buildable BalancesOp where
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
 instance RocksBatchOp BalancesOp where
-    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (encode c)]
+    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (serialize' c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
-        else [Rocks.Put (ftsStakeKey ad) (encode c)]
+        else [Rocks.Put (ftsStakeKey ad) (serialize' c)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -74,8 +76,8 @@ instance RocksBatchOp BalancesOp where
 initGStateBalances
     :: forall m.
        MonadDB m
-    => Utxo -> m ()
-initGStateBalances genesisUtxo = do
+    => GenesisUtxo -> m ()
+initGStateBalances (GenesisUtxo genesisUtxo) = do
     putFtsStakes
     putGenesisTotalStake
   where
@@ -87,7 +89,7 @@ initGStateBalances genesisUtxo = do
     putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
 
 ----------------------------------------------------------------------------
--- Balance
+-- Iteration
 ----------------------------------------------------------------------------
 
 -- | Run iterator over effective balances.
@@ -95,6 +97,14 @@ balanceSource ::
        forall m. (MonadDBRead m)
     => Source (ResourceT m) (IterType BalanceIter)
 balanceSource = dbIterSource GStateDB (Proxy @BalanceIter)
+
+-- | Get stakes of all stakeholders. Use with care – the resulting map
+-- can be very big.
+getAllPotentiallyHugeStakesMap :: MonadDBRead m => m StakesMap
+getAllPotentiallyHugeStakesMap =
+    runConduitRes $
+    dbIterSource GStateDB (Proxy @BalanceIter) .|
+    CL.fold (\stakes (k, v) -> stakes & at k .~ Just v) mempty
 
 ----------------------------------------------------------------------------
 -- Sanity checks

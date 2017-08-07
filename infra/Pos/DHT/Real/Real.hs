@@ -1,22 +1,32 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.DHT.Real.Real
-       ( foreverRejoinNetwork
+       ( kademliaJoinNetwork
        , K.lookupNode
        , kademliaGetKnownPeers
        , startDHTInstance
        , stopDHTInstance
+         -- * Exported to avoid compiler warnings
+         -- TODO: If we really don't need these functions, remove
+       , waitAnyUnexceptional
+       , foreverRejoinNetwork
+       , rejoinNetwork
+       , withKademliaLogger
+       , kademliaJoinNetworkNoThrow
        ) where
 
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import           Data.List                 (intersect, (\\))
-import qualified Data.Store                as Store
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
-                                            Promise, Throw, catch, catchAll, throw,
+                                            Promise, Throw, catch, catchAll, throw, try,
                                             waitAnyUnexceptional, withAsync)
 import qualified Network.Kademlia          as K
+import qualified Network.Kademlia.Instance as K (KademliaInstance (state),
+                                                 KademliaState (sTree))
+import qualified Network.Kademlia.Tree     as K (toView)
 import           Serokell.Util             (listJson, ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (HasLoggerName (modifyLoggerName), WithLogger,
@@ -24,7 +34,7 @@ import           System.Wlog               (HasLoggerName (modifyLoggerName), Wi
                                             usingLoggerName)
 import           Universum                 hiding (bracket, catch, catchAll)
 
-import           Pos.Binary.Class          (Bi (..))
+import           Pos.Binary.Class          (Bi (..), decodeFull)
 import           Pos.Binary.Infra.DHTModel ()
 import           Pos.DHT.Constants         (enhancedMessageBroadcast,
                                             enhancedMessageTimeout,
@@ -70,28 +80,33 @@ startDHTInstance
        , Bi DHTData
        , Bi DHTKey
        )
-    => KademliaParams -> m KademliaDHTInstance
+    => KademliaParams
+    -> m KademliaDHTInstance
 startDHTInstance kconf@KademliaParams {..} = do
     let bindAddr = first B8.unpack kpNetworkAddress
-        extAddr  = first B8.unpack kpExternalAddress
+        extAddr  = maybe bindAddr (first B8.unpack) kpExternalAddress
     logInfo "Generating dht key.."
     kdiKey <- maybe randomDHTKey pure kpKey
     logInfo $ sformat ("Generated dht key "%build) kdiKey
-    shouldRestore <- liftIO $ doesFileExist kpDump
-    kdiHandle <-
-        if shouldRestore
-        then do logInfo "Restoring DHT Instance from snapshot"
-                catchErrors $
-                    createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
-                    (Store.decodeEx . BS.toStrict) <$> BS.readFile kpDump
-        else do logInfo "Creating new DHT instance"
-                catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
+    kdiDumpPath <- case kpDumpFile of
+        Nothing -> pure Nothing
+        Just fp -> do
+            exists <- liftIO (doesFileExist fp)
+            pure $ if exists then Just fp else Nothing
+    kdiHandle <- case kdiDumpPath of
+        Just dumpFile -> do
+            logInfo "Restoring DHT Instance from snapshot"
+            catchErrors $
+                createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
+                (either error identity . decodeFull . BS.toStrict) <$> BS.readFile dumpFile
+        Nothing -> do
+            logInfo "Creating new DHT instance"
+            catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
 
     logInfo "Created DHT instance"
     let kdiInitialPeers = kpPeers
     let kdiExplicitInitial = kpExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
-    let kdiDumpPath = kpDump
     pure $ KademliaDHTInstance {..}
   where
     catchErrorsHandler e = do
@@ -120,7 +135,7 @@ rejoinNetwork
     -> m ()
 rejoinNetwork inst = withKademliaLogger $ do
     let init = kdiInitialPeers inst
-    peers <- kademliaGetKnownPeers inst
+    peers <- atomically $ kademliaGetKnownPeers inst
     logDebug $ sformat ("rejoinNetwork: peers "%listJson) peers
     when (length peers < neighborsSendThreshold) $ do
         logWarning $ sformat ("Not enough peers: "%int%", threshold is "%int)
@@ -133,33 +148,26 @@ withKademliaLogger
     -> m a
 withKademliaLogger action = modifyLoggerName (<> "kademlia") action
 
+-- | Return a list of known peers.
+--
 -- You can get DHTNode using @toDHTNode@ and Kademlia function @peersToNodeIds@.
 kademliaGetKnownPeers
-    :: ( MonadIO m
-       , Mockable Async m
-       , Mockable Catch m
-       , Mockable Throw m
-       , Eq (Promise m (Maybe ()))
-       , WithLogger m
-       , Bi DHTData
-       , Bi DHTKey
-       )
-    => KademliaDHTInstance
-    -> m [NetworkAddress]
+    :: KademliaDHTInstance
+    -> STM [NetworkAddress]
 kademliaGetKnownPeers inst = do
     let kInst = kdiHandle inst
+        treeVar = K.sTree (K.state kInst)
     let initNetAddrs = bool [] (kdiInitialPeers inst) (kdiExplicitInitial inst)
-    buckets <- liftIO (K.viewBuckets $ kInst)
+    buckets <- fmap K.toView (readTVar treeVar)
     extendPeers (kdiKey inst) initNetAddrs buckets
   where
     extendPeers
-        :: MonadIO m1
-        => DHTKey
+        :: DHTKey
         -> [NetworkAddress]
         -> [[(K.Node DHTKey, Int64)]]
-        -> m1 [NetworkAddress]
+        -> STM [NetworkAddress]
     extendPeers myKey initial buckets = do
-        cache <- atomically $ readTVar $ kdiKnownPeersCache inst
+        cache <- readTVar $ kdiKnownPeersCache inst
         fromBuckets <- updateCache $ concatMap (getPeersFromBucket cache myKey) buckets
          -- Concat with initial peers and select unique.
         pure $ ordNub $ fromBuckets ++ initial
@@ -183,9 +191,9 @@ kademliaGetKnownPeers inst = do
         | length a <= p = a
         | otherwise = take p a
 
-    updateCache :: MonadIO m1 => [NetworkAddress] -> m1 [NetworkAddress]
+    updateCache :: [NetworkAddress] -> STM [NetworkAddress]
     updateCache peers =
-        peers <$ (atomically $ writeTVar (kdiKnownPeersCache inst) peers)
+        peers <$ (writeTVar (kdiKnownPeersCache inst) peers)
 
 toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n
@@ -200,8 +208,6 @@ kademliaJoinNetwork
     :: ( MonadIO m
        , Mockable Catch m
        , Mockable Throw m
-       , Mockable Async m
-       , Eq (Promise m (Maybe ()))
        , WithLogger m
        , Bi DHTKey
        , Bi DHTData
@@ -210,11 +216,11 @@ kademliaJoinNetwork
     -> [NetworkAddress]
     -> m ()
 kademliaJoinNetwork _ [] = throw AllPeersUnavailable
-kademliaJoinNetwork inst nodes =
-    waitAnyUnexceptional (map (kademliaJoinNetwork' inst) nodes) >>= handleRes
-  where
-    handleRes (Just _) = pure ()
-    handleRes _        = throw AllPeersUnavailable
+kademliaJoinNetwork inst (node : nodes) = do
+    outcome <- try (kademliaJoinNetwork' inst node)
+    case outcome of
+        Left (_e :: DHTException) -> kademliaJoinNetwork inst nodes
+        Right _                   -> return ()
 
 kademliaJoinNetwork'
     :: ( MonadIO m

@@ -68,7 +68,7 @@ type AddrDistribution = ([Address], StakeDistribution)
 
 -- | Hardcoded genesis data to generate utxo from.
 data GenesisCoreData = UnsafeGenesisCoreData
-    { gcdAddrDistribution      :: !([AddrDistribution])
+    { gcdAddrDistribution      :: ![AddrDistribution]
       -- ^ Address distribution. Determines utxo without boot
       -- stakeholders distribution (addresses and coins).
     , gcdBootstrapStakeholders :: !(HashMap StakeholderId Word16)

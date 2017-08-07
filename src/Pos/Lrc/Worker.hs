@@ -64,7 +64,7 @@ lrcOnNewSlotWorker
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     recoveryCommGuard $
         when (getSlotIndex siSlot < fromIntegral slotSecurityParam) $
-            lrcSingleShot @ssc siEpoch `catch` onLrcError
+            lrcSingleShot @ssc @ctx siEpoch `catch` onLrcError
   where
     -- Here we log it as a warning and report an error, even though it
     -- can happen there we don't know recent blocks. That's because if

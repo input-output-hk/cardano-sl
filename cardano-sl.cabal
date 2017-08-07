@@ -86,7 +86,6 @@ library
                         Pos.Security.Workers
 
                         -- SSC
-
                         Pos.Ssc.GodTossing
                         Pos.Ssc.SscAlgo
 
@@ -112,6 +111,7 @@ library
                         Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
+                        Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
 
                         -- Wallets
@@ -123,9 +123,23 @@ library
                         Pos.WorkMode
                         Pos.WorkMode.Class
 
+                        -- Binary serialization
+                        Pos.Binary.Communication
+                        Pos.Binary.Relay
+
+                        -- Heavy delegation
+                        Pos.Delegation.Types
+
+                        -- Exposed for tests
+                        Pos.Block.Logic.VAR
+                        Pos.Generator.Block.Param
+
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
+
+                        -- Needed for testing
+                        Pos.Arbitrary.Explorer
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
@@ -141,9 +155,7 @@ library
                         Pos.Binary.Block.Block
                         Pos.Binary.Block.Core
                         Pos.Binary.Block.Slog
-                        Pos.Binary.Communication
                         Pos.Binary.Delegation
-                        Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Txp.Network
@@ -168,7 +180,6 @@ library
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
                         Pos.Block.Logic.Util
-                        Pos.Block.Logic.VAR
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
@@ -208,7 +219,6 @@ library
                         Pos.Delegation.Logic.Mempool
                         Pos.Delegation.Logic.VAR
                         Pos.Delegation.Lrc
-                        Pos.Delegation.Types
                         Pos.Delegation.Worker
 
                         -- Arbitrary data generation
@@ -216,7 +226,6 @@ library
                         Pos.Generator.Block.Logic
                         Pos.Generator.Block.Payload
                         Pos.Generator.Block.Mode
-                        Pos.Generator.Block.Param
 
                         -- GState
                         Pos.GState.BlockExtra
@@ -275,8 +284,7 @@ library
                         Pos.Wallet.Web.Util
 
   -- Explorer (TODO: move into cardano-explorer)
-  other-modules:        Pos.Arbitrary.Explorer
-                        Pos.Binary.Explorer
+  other-modules:        Pos.Binary.Explorer
                         Pos.Explorer.Core
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp
@@ -335,7 +343,7 @@ library
                       , binary
                       , bytestring
                       , cardano-crypto
-                      , cardano-report-server >= 0.2.0
+                      , cardano-report-server >= 0.2.1
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-godtossing
@@ -355,6 +363,7 @@ library
                       , digest
                       , directory
                       , dlist
+                      , dns
                       , ed25519
                       , ekg
                       , ekg-core
@@ -372,6 +381,7 @@ library
                       , http-client
                       , http-client-tls
                       , http-conduit
+                      , iproute
                       , kademlia
                       , lens
                       , list-t
@@ -386,10 +396,10 @@ library
                       , mtl
                       , neat-interpolation
                       , network-info >= 0.2.0.8
+                      , network-transport
                       , network-transport-tcp
                       , node-sketch >= 0.1.0.0
                       , optparse-applicative
-                      , optparse-simple
                       , parsec
                       , plutus-prototype
                       , pvss
@@ -402,10 +412,8 @@ library
                       , serokell-util >= 0.1.3.4
                       , stm
                       , stm-containers
-                      , store
                       , tagged
                       , template-haskell
-                      , temporary >= 1.2.0.4
                       , text
                       , text-format
                       , th-lift-instances
@@ -414,7 +422,6 @@ library
                       , transformers
                       , transformers-base
                       , transformers-lift
-                      , turtle
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
@@ -507,7 +514,7 @@ executable cardano-node
                      , network-transport
                      , node-sketch
                      , network-transport-tcp
-                     , optparse-simple
+                     , optparse-applicative
                      , parsec
                      , serokell-util >= 0.1.3.4
                      , stm-containers
@@ -575,7 +582,12 @@ test-suite cardano-test
                        Test.Pos.Block.Logic.Event
                        Test.Pos.Block.Logic.VarSpec
 
+                       -- LRC
+                       Test.Pos.Lrc.FollowTheSatoshiSpec
+                       Test.Pos.Lrc.WorkerSpec
+
                        -- Everything else
+                       Test.Pos.CborSpec
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
@@ -583,7 +595,6 @@ test-suite cardano-test
                        Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.Explorer.Identity.BinarySpec
-                       Test.Pos.FollowTheSatoshiSpec
                        Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Ssc.GodTossing.ComputeSharesSpec
@@ -611,22 +622,26 @@ test-suite cardano-test
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
-  build-depends:       QuickCheck
+  build-depends:       MonadRandom
+                     , QuickCheck
                      , base
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
+                     , cardano-sl-godtossing
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-ssc
                      , cardano-sl
+                     , cborg
                      , cereal
                      , containers
                      , cryptonite
                      , data-default
                      , ether
+                     , exceptions
                      , formatting
                      , generic-arbitrary
                      , hspec
@@ -647,9 +662,7 @@ test-suite cardano-test
                      , regex-tdfa-text
                      , safecopy
                      , serokell-util >= 0.1.3.4
-                     , store
                      , tagged
-                     , temporary
                      , text-format
                      , time-units
                      , transformers-base

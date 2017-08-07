@@ -7,6 +7,7 @@ module Pos.Arbitrary.Core
        , CoinPairOverflowSub (..)
        , CoinPairOverflowMul (..)
        , DoubleInZeroToOneRange (..)
+       , EoSToIntOverflow (..)
        , IntegerToCoinNoOverflow (..)
        , IntegerToCoinOverflow (..)
        , LessThanZeroOrMoreThanOne (..)
@@ -15,35 +16,38 @@ module Pos.Arbitrary.Core
        , SafeCoinPairSub (..)
        , SafeWord (..)
        , SmallHashMap (..)
+       , UnreasonableEoS (..)
        ) where
 
 import           Universum
 
 import qualified Data.ByteString                   as BS (pack)
+import qualified Data.Map                          as M
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     TimeUnit (..))
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
                                                     choose, oneof, scale, shrinkIntegral,
-                                                    suchThat, vector, vectorOf)
+                                                    suchThat, vector, vectorOf, sized)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
 import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
                                                     SignedVarInt (..),
-                                                    UnsignedVarInt (..))
+                                                    UnsignedVarInt (..),
+                                                    TinyVarInt(..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
                                                     makeScriptAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Constants                (sharedSeedLength)
+import           Pos.Core.Constants                (epochSlots, sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
-import           Pos.Data.Attributes               (Attributes (..))
+import           Pos.Data.Attributes               (Attributes (..), UnparsedFields(..))
 import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -94,7 +98,7 @@ Using, as an example,
     import Data.Derive.TH (derive, makeArbitrary)
 
     data A = A
-        { getA  :: [(String, Int)]
+        { getA1 :: [(String, Int)]
         , getA2 :: Float
         } deriving (Show, Eq, Generic)
     -- `A`'s inner types can be anything for which the constraints make sense
@@ -117,6 +121,65 @@ instance Arbitrary Types.EpochOrSlot where
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
         ]
+    shrink = genericShrink
+
+-- | A wrapper over 'EpochOrSlot'. When converted to 'EpochOrSlot' via 'fromEnum', using
+-- this type ensures there's an exception.
+newtype EoSToIntOverflow = EoSToIntOverflow
+    { getEoS :: Types.EpochOrSlot
+    } deriving (Show, Eq, Generic)
+
+instance Arbitrary EoSToIntOverflow where
+    arbitrary = EoSToIntOverflow <$> do
+        let maxIntAsInteger = toInteger (maxBound :: Int)
+            maxW64 = toInteger (maxBound :: Word64)
+            (minDiv, minMod) = maxIntAsInteger `divMod` (fromIntegral $ succ epochSlots)
+            maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
+        leftEpoch <- Types.EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
+        localSlot <-
+            leftToPanic "arbitrary@EoSToIntOverflow" .
+            Types.mkLocalSlotIndex .
+            fromIntegral <$> choose (minMod, toInteger epochSlots)
+        let rightEpoch = Types.EpochIndex . fromIntegral $ minDiv
+        Types.EpochOrSlot <$>
+            oneof [ pure $ Left leftEpoch
+                  , pure $ Right Types.SlotId { siEpoch = rightEpoch
+                                              , siSlot = localSlot}
+                  ]
+    shrink = genericShrink
+
+-- | Wrapper over 'EpochOrSlot'. Its 'Arbitrary' instance is made to guarantee its
+-- 'EpochIndex' is in the interval (maxReasonableEpoch, maxBound :: Word64 ].
+-- This is to ensure the property 'toEnum . fromEnum = id' holds for all 'EpochOrSlot',
+-- not just the ones whose 'EpochIndex' uses the "reasonable" 'Arbitrary' instance.
+newtype UnreasonableEoS = Unreasonable
+    { getUnreasonable :: Types.EpochOrSlot
+    } deriving (Show, Eq, Generic)
+
+instance Arbitrary UnreasonableEoS where
+    arbitrary = Unreasonable . Types.EpochOrSlot <$> do
+        let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
+        localSlot <- arbitrary
+        let lsIntegral = fromIntegral . Types.getSlotIndex $ localSlot
+        let epoch n = Types.EpochIndex <$>
+                choose (succ maxReasonableEpoch
+                       , fromIntegral maxI - (n * fromIntegral (succ epochSlots)))
+        leftEpoch <- Left <$> epoch 0
+        rightSlot <- Right . (flip Types.SlotId localSlot) <$> epoch lsIntegral
+        oneof [ pure leftEpoch
+              , pure rightSlot
+              ]
+    shrink = genericShrink
+
+instance Arbitrary UnparsedFields where
+    arbitrary = sized $ go M.empty
+        where
+            go !acc 0 = pure $ UnparsedFields acc
+            go !acc n = do
+                -- Assume that data type doesn't have more than 100 constructors.
+                k <- choose (100, maxBound)
+                v <- arbitrary
+                go (M.insert k v acc) (n - 1)
     shrink = genericShrink
 
 instance Arbitrary h => Arbitrary (Attributes h) where
@@ -432,3 +495,4 @@ instance Arbitrary SmallHashMap where
 deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
+deriving instance Arbitrary TinyVarInt

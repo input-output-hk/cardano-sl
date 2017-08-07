@@ -33,7 +33,7 @@ import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint, int, sformat, stext, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi, encode)
+import           Pos.Binary.Class    (Bi, serialize')
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (ChainDifficulty, HeaderHash)
 import           Pos.Crypto          (shortHashF)
@@ -121,9 +121,9 @@ instance Buildable CommonOp where
 
 instance RocksBatchOp CommonOp where
     toBatchOp (PutTip h) =
-        [Rocks.Put tipKey (encode h)]
+        [Rocks.Put tipKey (serialize' h)]
     toBatchOp (PutMaxSeenDifficulty h) =
-        [Rocks.Put maxSeenDifficultyKey (encode h)]
+        [Rocks.Put maxSeenDifficultyKey (serialize' h)]
 
 ----------------------------------------------------------------------------
 -- Initialization

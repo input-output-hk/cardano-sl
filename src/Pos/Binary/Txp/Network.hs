@@ -6,7 +6,7 @@ module Pos.Binary.Txp.Network
 
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), label, labelS, putField)
+import           Pos.Binary.Class              (Bi (..))
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Txp.Network.Types         (TxMsgContents (..))
 
@@ -15,7 +15,5 @@ import           Pos.Txp.Network.Types         (TxMsgContents (..))
 ----------------------------------------------------------------------------
 
 instance Bi (DataMsg TxMsgContents) where
-    sizeNPut = labelS "DataMsg TxMsgContents" $
-        putField (\(DataMsg (TxMsgContents txAux)) -> txAux)
-    get = label "DataMsg TxMsgContents" $
-        DataMsg <$> (TxMsgContents <$> get)
+  encode (DataMsg (TxMsgContents txAux)) = encode txAux
+  decode = DataMsg <$> (TxMsgContents <$> decode)

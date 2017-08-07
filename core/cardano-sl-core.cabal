@@ -23,6 +23,12 @@ flag dev-mode
 
   description: Switch between Development and Production mode
 
+flag dev-custom-config
+  default:     False
+  manual:      True
+
+  description: Enable this to allow setting CONFIG manually, as in --ghc-options=-DCONFIG=benchmark
+
 flag embed-config
   default:     False
   manual:      True
@@ -75,10 +81,8 @@ library
 
                        Pos.Binary.Class
                        Pos.Binary.Class.Core
-                       Pos.Binary.Class.Instances
                        Pos.Binary.Class.Numbers
                        Pos.Binary.Class.Primitive
-                       Pos.Binary.Class.Store
                        Pos.Binary.Class.TH
                        Pos.Binary.Crypto
                        Pos.Binary.Merkle
@@ -117,8 +121,10 @@ library
                      , autoexporter
                      , base
                      , base58-bytestring
+                     , cborg
                      , concurrent-extra
                      , ether >= 0.5
+                     , exceptions
                      , log-warper >= 1.0.3
                      , mmorph
                      , reflection
@@ -161,8 +167,6 @@ library
                      , semigroups
                      , serokell-util
                      , stm
-                     , store
-                     , store-core
                      , tagged
                      , template-haskell
                      , text
@@ -173,7 +177,6 @@ library
                      , universum
                      , unordered-containers
                      , vector
-                     , witherable
                      , yaml
 
   default-language:    Haskell2010
@@ -209,6 +212,8 @@ library
   if flag(asserts)
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
-    cpp-options: -DDEV_MODE -DCONFIG=dev
+    cpp-options: -DDEV_MODE
+    if !flag(dev-custom-config)
+      cpp-options: -DCONFIG=dev
   if flag(embed-config) || !flag(dev-mode)
     cpp-options: -DEMBED_CONFIG

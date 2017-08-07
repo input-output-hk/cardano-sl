@@ -35,21 +35,20 @@ import qualified Data.Text.Buildable
 import           Formatting            (bprint, build, formatToString, (%))
 import qualified Prelude
 import           Serokell.Util.Text    (listJson)
+import           System.Directory      (doesFileExist)
 import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
                                         unlockFile, withFileLock)
-import qualified Turtle                as T
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..), decodeFull, encode, label, labelS,
-                                        putField)
+import           Pos.Binary.Class      (Bi (..), decodeFull, encodeListLen, enforceSize,
+                                        serialize')
 import           Pos.Binary.Crypto     ()
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
 import           Pos.Types             (Address)
 import           System.Directory      (renameFile)
 import           System.FilePath       (takeDirectory, takeFileName)
-import           System.IO             (hClose)
-import           System.IO.Temp        (openBinaryTempFile)
+import           System.IO             (hClose, openBinaryTempFile)
 import           System.Wlog           (WithLogger)
 
 import           Pos.Wallet.Web.Secret (WalletUserSecret)
@@ -125,21 +124,21 @@ instance Default UserSecret where
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
-    sizeNPut = labelS "UserSecret" $
-        putField _usVss <>
-        putField _usPrimKey <>
-        putField _usKeys <>
-        putField _usWalletSet
-    get = label "UserSecret" $ do
-        vss <- get
-        pkey <- get
-        keys <- get
-        wset <- get
-        return $ def
-            & usVss .~ vss
-            & usPrimKey .~ pkey
-            & usKeys .~ keys
-            & usWalletSet .~ wset
+  encode us = encodeListLen 4 <> encode (_usVss us) <>
+                                      encode (_usPrimKey us) <>
+                                      encode (_usKeys us) <>
+                                      encode (_usWalletSet us)
+  decode = do
+    enforceSize "UserSecret" 4
+    vss  <- decode
+    pkey <- decode
+    keys <- decode
+    wset <- decode
+    return $ def
+        & usVss .~ vss
+        & usPrimKey .~ pkey
+        & usKeys .~ keys
+        & usWalletSet .~ wset
 
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).
@@ -175,7 +174,7 @@ ensureModeIs600 _ = do
 -- already exist.
 initializeUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m ()
 initializeUserSecret secretPath = do
-    exists <- T.testfile (fromString secretPath)
+    exists <- liftIO $ doesFileExist secretPath
 #ifdef POSIX
     if exists
     then ensureModeIs600 secretPath
@@ -187,7 +186,7 @@ initializeUserSecret secretPath = do
 #endif
   where
     createEmptyFile :: (MonadIO m) => FilePath -> m ()
-    createEmptyFile filePath = T.output (fromString filePath) empty
+    createEmptyFile = liftIO . flip writeFile mempty
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
@@ -251,7 +250,7 @@ writeRaw u = do
         openBinaryTempFile (takeDirectory path) (takeFileName path)
 
     -- onException rethrows the exception after calling the handler.
-    BS.hPut tempHandle (encode u) `onException` do
+    BS.hPut tempHandle (serialize' u) `onException` do
         hClose tempHandle
 
     hClose tempHandle

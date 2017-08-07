@@ -6,7 +6,7 @@
 module Pos.Launcher.Param
        ( LoggingParams (..)
        , BaseParams (..)
-       , NetworkParams (..)
+       , TransportParams (..)
        , NodeParams (..)
        ) where
 
@@ -17,15 +17,15 @@ import           Ether.Internal          (HasLens (..))
 import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
 
-import           Pos.Communication.Relay (HasPropagationFlag (..))
-import           Pos.Communication.Types (NodeId)
 import           Pos.Core                (HasPrimaryKey (..), Timestamp)
 import           Pos.Crypto              (SecretKey)
-import           Pos.DHT.Real            (KademliaParams)
+import           Pos.DHT.Real.Param      (KademliaParams)
+import           Pos.Network.Types       (NetworkConfig)
 import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
 import           Pos.Statistics          (EkgParams, StatsdParams)
-import           Pos.Txp.Toil.Types      (GenesisUtxo (..))
+import           Pos.Txp.Toil.Types      (GenesisStakeholders, GenesisTxpContext,
+                                          GenesisUtxo, gtcStakeholders, gtcUtxo)
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.UserSecret     (UserSecret)
 import           Pos.Util.Util           (postfixLFields)
@@ -43,11 +43,8 @@ data BaseParams = BaseParams
     } deriving (Show)
 
 -- | Network parameters.
-data NetworkParams = NetworkParams
-    { npDiscovery :: !(Either (Set NodeId) KademliaParams)
-    -- ^ If this value is 'Left', then given peers will be used in static mode.
-    -- Otherwise kademlia with given params will be used.
-    , npTcpAddr   :: !TCP.TCPAddr
+data TransportParams = TransportParams
+    { tpTcpAddr   :: !TCP.TCPAddr
     -- ^ External TCP address of the node.
     -- It encapsulates bind address and address visible to other nodes.
     }
@@ -61,17 +58,18 @@ data NodeParams = NodeParams
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
-    , npGenesisUtxo    :: !GenesisUtxo          -- ^ Predefined genesis utxo
+    , npGenesisTxpCtx  :: !GenesisTxpContext    -- ^ Predefined genesis context related to txp data.
     , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
     , npPropagation    :: !Bool                 -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
     , npSecurityParams :: !SecurityParams       -- ^ Params for "Pos.Security"
-    , npUseNTP         :: !Bool                 -- TODO COMMENT
-    , npNetwork        :: !NetworkParams        -- ^ Network parameters
+    , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
+    , npTransport      :: !TransportParams      -- ^ (TCP) transport parameters.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
+    , npNetworkConfig  :: !(NetworkConfig KademliaParams)
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams
@@ -82,14 +80,20 @@ instance HasLens UpdateParams NodeParams UpdateParams where
 instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npSecurityParams_L
 
+instance HasLens GenesisTxpContext NodeParams GenesisTxpContext where
+    lensOf = npGenesisTxpCtx_L
+
 instance HasLens GenesisUtxo NodeParams GenesisUtxo where
-    lensOf = npGenesisUtxo_L
+    lensOf = npGenesisTxpCtx_L . gtcUtxo
+
+instance HasLens GenesisStakeholders NodeParams GenesisStakeholders where
+    lensOf = npGenesisTxpCtx_L . gtcStakeholders
+
+instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
+    lensOf = npNetworkConfig_L
 
 instance HasReportServers NodeParams where
     reportServers = npReportServers_L
-
-instance HasPropagationFlag NodeParams where
-    propagationFlag = npPropagation_L
 
 instance HasPrimaryKey NodeParams where
     primaryKey = npSecretKey_L

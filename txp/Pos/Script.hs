@@ -55,7 +55,7 @@ parseValidator :: Bi Script_v0 => Text -> Either String Script
 parseValidator t = do
     scr <- PL.runElabInContexts [stdlib] $ PL.loadValidator (toString t)
     return Script {
-        scrScript = Bi.encodeLazy scr,
+        scrScript = Bi.serialize' scr,
         scrVersion = 0 }
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
@@ -67,13 +67,13 @@ parseRedeemer :: Bi Script_v0 => Maybe Script -> Text -> Either String Script
 parseRedeemer mbV t = do
     mbValScr <- case (\x -> (scrVersion x, x)) <$> mbV of
         Nothing       -> return Nothing
-        Just (0, val) -> Just <$> first toString (Bi.decodeFull $ BSL.toStrict $ scrScript val)
+        Just (0, val) -> Just <$> first toString (Bi.decodeFull $ scrScript val)
         Just (v, _)   -> Left ("unknown script version of validator: " ++
                                show v)
     scr <- PL.runElabInContexts (stdlib : maybeToList mbValScr) $
                PL.loadRedeemer (toString t)
     return Script {
-        scrScript = Bi.encodeLazy scr,
+        scrScript = Bi.serialize' scr,
         scrVersion = 0 }
 
 {-
@@ -116,13 +116,13 @@ txScriptCheck sigData validator redeemer = case spoon result of
         -- TODO: when we support more than one version, complain if versions
         -- don't match
         valScr <- case scrVersion validator of
-            0 -> first toString $ Bi.decodeFull $ BSL.toStrict $ scrScript validator
+            0 -> first toString $ Bi.decodeFull $ scrScript validator
             v -> Left ("unknown script version of validator: " ++ show v)
         redScr <- case scrVersion redeemer of
-            0 -> first toString $ Bi.decodeFull $ BSL.toStrict (scrScript redeemer)
+            0 -> first toString $ Bi.decodeFull $ scrScript redeemer
             v -> Left ("unknown script version of redeemer: " ++ show v)
         (script, env) <- PL.buildValidationScript stdlib valScr redScr
-        let taggedSigData = BSL.fromStrict $ (signTag SignTxIn) <> Bi.encode sigData
+        let taggedSigData = BSL.fromStrict $ (signTag SignTxIn) <> Bi.serialize' sigData
         PL.checkValidationResult taggedSigData (script, env)
 
 stdlib :: PLCore.Program

@@ -6,40 +6,33 @@ module Pos.Binary.Core.Fee () where
 
 import           Universum
 
-import           Data.Fixed       (Fixed (..))
+import           Data.Fixed       (Nano)
 
-import           Pos.Binary.Class (Bi (..), FixedSizeInt (..), PokeWithSize,
-                                   convertToSizeNPut, getBytes, getWithLength, getWord8,
-                                   label, labelS, putBytesS, putField, putS,
-                                   putWithLengthS, putWord8S)
+import           Pos.Binary.Class (Bi (..), encode, decode, encodeListLen, deserialize', serialize'
+                                  , enforceSize)
 import           Pos.Core.Fee     (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance Bi Coeff where
-    get = label "Coeff" $ do
-        FixedSizeInt (a :: Int64) <- get
-        pure (Coeff . MkFixed . fromIntegral $ a)
-    sizeNPut = labelS "Coeff" $
-        putField $ \(Coeff (MkFixed a)) -> FixedSizeInt (fromIntegral a :: Int64)
+  encode (Coeff n) = encode n
+  decode = Coeff <$> decode @Nano
 
 instance Bi TxSizeLinear where
-    get = label "TxSizeLinear" $
-        TxSizeLinear <$> get <*> get
-    sizeNPut = labelS "TxSizeLinear" $
-        putField (\(TxSizeLinear a _) -> a) <>
-        putField (\(TxSizeLinear _ b) -> b)
+  encode (TxSizeLinear a b) = encodeListLen 2 <> encode a <> encode b
+  decode = do
+    enforceSize "TxSizeLinear" 2
+    !a <- decode @Coeff
+    !b <- decode @Coeff
+    return $ TxSizeLinear a b
 
 instance Bi TxFeePolicy where
-    get = label "TxFeePolicy" $ do
-        tag <- getWord8
-        getWithLength $ \len -> case tag of
-            0 -> TxFeePolicyTxSizeLinear <$> get
-            _ -> TxFeePolicyUnknown tag <$> getBytes (fromIntegral len)
-    sizeNPut = labelS "TxFeePolicy" $ convertToSizeNPut $ \case
-        TxFeePolicyTxSizeLinear tsp ->
-            putWithTag 0 $ putS tsp
-        TxFeePolicyUnknown t bs ->
-            putWithTag t $ putBytesS bs
-      where
-        -- | Put tag, then length of X, then X itself
-        putWithTag :: Word8 -> PokeWithSize () -> PokeWithSize ()
-        putWithTag t x = putWord8S t <> putWithLengthS x
+  encode policy = case policy of
+    TxFeePolicyTxSizeLinear txSizeLinear -> encodeListLen 2 <> encode (0 :: Word8)
+                                                            <> encode (serialize' txSizeLinear)
+    TxFeePolicyUnknown word8 bs          -> encodeListLen 2 <> encode word8
+                                                            <> encode bs
+  decode = do
+    enforceSize "TxFeePolicy" 2
+    tag <- decode @Word8
+    case tag of
+      0 -> TxFeePolicyTxSizeLinear . deserialize' <$> decode
+      _ -> TxFeePolicyUnknown tag                 <$> decode

@@ -19,7 +19,7 @@ import           Text.Parsec.Combinator     (eof, manyTill)
 import           Text.Parsec.Text           (Parser)
 import           Universum                  hiding (show)
 
-import           Pos.Binary                 (decodeOrFail)
+import           Pos.Binary                 (deserialize')
 import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (Hash, PublicKey, decodeHash)
@@ -38,7 +38,9 @@ data SendMode =
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
-    | SendToAllGenesis !Int !Int !Int !Int !SendMode !FilePath
+    | SendToAllGenesis !Int !Int !Int !SendMode !FilePath
+      -- ^ In-order: number of txs to send per-thread, number of threads, and
+      -- delay (milliseconds) between sends.
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -117,7 +119,7 @@ base58PkParser = do
     token <- some $ noneOf " "
     bs <- maybe (fail "Incorrect base58") pure $
         decodeBase58 bitcoinAlphabet (encodeUtf8 $ toText token)
-    pure (decodeOrFail bs)
+    pure (deserialize' bs)
 
 delegateL, delegateH :: Parser Command
 delegateL = DelegateLight <$> num <*> base58PkParser <*> num <*> optional num
@@ -136,7 +138,7 @@ sendMode = lexeme $ text "neighbours" $> SendNeighbours
                 <|> text "send-random" $> SendRandom
 
 sendToAllGenesis :: Parser Command
-sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
+sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash

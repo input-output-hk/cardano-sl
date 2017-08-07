@@ -7,15 +7,13 @@ module Test.Pos.DHT.Identity.BinarySpec
 import           Test.Hspec          (Spec, describe)
 import           Universum
 
-import           Pos.Arbitrary.Infra ()
 import qualified Pos.DHT.Model       as DHT
+import           Pos.Arbitrary.Infra ()
 
-import           Test.Pos.Util       (binaryTest, storeTest)
+import           Test.Pos.Util            (binaryTest)
 
 spec :: Spec
 spec = describe "DHT.Model" $ do
     describe "Bi instances" $ do
         binaryTest @DHT.DHTKey
         binaryTest @DHT.DHTData
-    describe "Store instances" $ do
-        storeTest @DHT.DHTKey

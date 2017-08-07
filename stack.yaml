@@ -20,6 +20,12 @@ packages:
 - txp
 
 - location:
+    git: https://github.com/arybczak/binary-serialise-cbor
+    commit: a1770a6ab0a6f457fe56269fb684a9f8dad0da17
+  subdirs:
+  - cborg
+  extra-dep: true
+- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
@@ -29,7 +35,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: bbdca50c263c6dae251e67eb36a7d4e1ba7c1cb6
+    commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -42,20 +48,20 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: b4fbd07c077b41c0e948bd377f1662b599f0bc4c
+    commit: c2af07ab7d627556ed3f6185b062e4cd1fb5ad26 #master
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 8bfba580e628791a03b0bec4d913890dde16811d # master
+    commit: e1bc23f12c388301ceae4de53fe2d513057b62ec # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/serokell/network-transport-tcp
-    commit: a6c04c35f3a1d786bc5e57fd04cf3e2a043179f3
+    commit: 24dd213cef81d383083feb7f5d9ce4b8a6be8168
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport
-    commit: 0b8f5a7bec389a4ffa653792cfd203c742a0857b
+    commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
@@ -72,6 +78,12 @@ packages:
 #    git: https://github.com/haskell-crypto/cryptonite.git
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
+# We need to use the version on GH and not on Hackage as the
+# latter seems to be broken due to some space-parsing issues.
+- location:
+    git: https://github.com/kazu-yamamoto/dns.git
+    commit: c9b06eb77225c8bb2092f1169c093d7a04129e53 # 2.0.11
+  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -79,8 +91,9 @@ nix:
 extra-deps:
 - universum-0.4.3
 - time-units-1.0.0
-- serokell-util-0.1.5.0
+- serokell-util-0.3
 - pvss-0.1
+- active-0.2.0.13
 - base58-bytestring-0.1.0
 - log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
@@ -94,8 +107,8 @@ extra-deps:
 - servant-multipart-0.10
 - ether-0.5.1.0
 - transformers-lift-0.2.0.1
-- store-0.4.3.1
 - lens-4.15.3                     # not yet in lts-8
+- pipes-interleave-1.1.1
 - th-abstraction-0.2.2.0          # needed for lens
 - rocksdb-haskell-1.0.0
 - generic-arbitrary-0.1.0

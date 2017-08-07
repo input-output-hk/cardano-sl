@@ -16,7 +16,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, (%))
 
 import           Pos.Core.Block      (GenericBlock (..), GenericBlockHeader (..))
-import           Pos.Data.Attributes (Attributes (attrRemain))
+import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 
 -- | Represents genesis block header attributes.
 type GenesisHeaderAttributes = Attributes ()
@@ -31,7 +31,7 @@ instance NFData GenesisExtraHeaderData
 
 instance Buildable GenesisExtraHeaderData where
     build (GenesisExtraHeaderData attrs)
-        | null (attrRemain attrs) = "no extra data"
+        | areAttributesKnown attrs = "no extra data"
         | otherwise = bprint ("extra data has attributes: "%build) attrs
 
 -- | Represents genesis block header attributes.
@@ -47,7 +47,7 @@ instance NFData GenesisExtraBodyData
 
 instance Buildable GenesisExtraBodyData where
     build (GenesisExtraBodyData attrs)
-        | null (attrRemain attrs) = "no extra data"
+        | areAttributesKnown attrs = "no extra data"
         | otherwise = bprint ("extra data has attributes: "%build) attrs
 
 -- | Represents blockchain consisting of genesis blocks.  Genesis

@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Pending transactions resubmition logic.
@@ -8,23 +9,22 @@ module Pos.Wallet.Web.Pending
 
 import           Universum
 
-import           Data.Time.Units      (Second, convertUnit)
-import           Formatting           (build, sformat)
-import           Mockable             (delay, fork)
+import           Data.Time.Units            (Second, convertUnit)
+import           Formatting                 (build, sformat)
+import           Mockable                   (delay, fork)
 
-import           Pos.Communication    (SendActions)
-import           Pos.Communication.Tx (submitAndSaveTx)
-import           Pos.Core             (SlotId, getSlotCount)
-import           Pos.Core.Slotting    (flattenSlotId)
-import           Pos.Crypto           (WithHash (..))
-import           Pos.Discovery.Class  (getPeers)
-import           Pos.Slotting         (getLastKnownSlotDuration, onNewSlot)
-import           Pos.Txp              (PendingTx (..), PtxCondition (..),
-                                       ToilVerFailure (..), TxAux (..), getMemPool,
-                                       processTx, ptxCreationSlot, runDBToil,
-                                       runToilTLocal, topsortTxs)
+import           Pos.Communication.Protocol (SendActions (..))
+import           Pos.Communication.Tx       (submitAndSaveTx)
+import           Pos.Core                   (SlotId (..), getSlotCount)
+import           Pos.Core.Slotting          (flattenSlotId)
+import           Pos.Crypto                 (WithHash (..))
+import           Pos.Slotting               (getLastKnownSlotDuration, onNewSlot)
+import           Pos.Txp                    (PendingTx (..), PtxCondition (..),
+                                             ToilVerFailure (..), TxAux (..), getMemPool,
+                                             processTx, ptxCreationSlot, runDBToil,
+                                             runToilTLocal, topsortTxs)
 import qualified Pos.Wallet.Web.Mode
-import           Pos.Wallet.Web.State (getPendingTxs, setPtxCondition)
+import           Pos.Wallet.Web.State       (getPendingTxs, setPtxCondition)
 
 type MonadPendings m = m ~ Pos.Wallet.Web.Mode.WalletWebMode
 
@@ -35,13 +35,13 @@ type ToResubmit x = x
 -- is crucial due to chain transactions. TODO: complete. Maybe this have to go to resubmitter
 canSubmitPtx
     :: MonadPendings m
-    => [PendingTx] -> m (ToResubmit [PendingTx])
-canSubmitPtx ptxs = do
+    => SlotId -> [PendingTx] -> m (ToResubmit [PendingTx])
+canSubmitPtx curSlot ptxs = do
     -- FIXME [CSM-256] do under blk semaphore!
     mp <- getMemPool
     runDBToil . fmap fst . runToilTLocal mempty mp mempty $
         concatForM ptxs $ \ptx@PendingTx{..} -> do
-            res <- runExceptT $ processTx (ptxTxId, ptxTxAux)
+            res <- runExceptT $ processTx (siEpoch curSlot) (ptxTxId, ptxTxAux)
             case res of
                 Left e  -> lift . lift $ processFailure ptx e $> []
                 Right _ -> return [ptx]
@@ -74,7 +74,7 @@ processPtxs
     => SlotId -> [PendingTx] -> m (ToResubmit [PendingTx])
 processPtxs curSlot ptxs = do
     mapM_ markPersistent ptxs
-    canSubmitPtx $ filter ((PtxApplying ==) . ptxCond) ptxs
+    canSubmitPtx curSlot $ filter ((PtxApplying ==) . ptxCond) ptxs
    where
      isPersistent ptx =
          flattenSlotId (ptxCreationSlot ptx) + getSlotCount undefined
@@ -95,8 +95,8 @@ whetherCheckPtxOnSlot curSlot ptx =
 startPendingTxsResubmitter
     :: MonadPendings m
     => SendActions m -> m ()
-startPendingTxsResubmitter sendActions =
-    fork . onNewSlot False $ \curSlot -> do
+startPendingTxsResubmitter SendActions{..} =
+    void . fork . onNewSlot False $ \curSlot -> do
         ptxs <- getPendingTxs
         let ptxsToCheck =
                 flip fromMaybe =<< topsortTxs wHash $
@@ -107,11 +107,10 @@ startPendingTxsResubmitter sendActions =
 
         -- distribute txs submition over current slot ~evenly
         interval <- evalSubmitDelay (length toResubmit)
-        na <- toList <$> getPeers
         forM_ toResubmit $ \PendingTx{..} -> do
             delay interval
             -- FIXME [CSM-256] Doesn't it introduce a race condition?
-            fork $ submitAndSaveTx sendActions na ptxTxAux
+            fork $ submitAndSaveTx enqueueMsg ptxTxAux
   where
     wHash PendingTx{..} = WithHash (taTx ptxTxAux) ptxTxId
     submitionEta = 5 :: Second

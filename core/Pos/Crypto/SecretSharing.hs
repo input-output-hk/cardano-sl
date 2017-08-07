@@ -47,7 +47,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi, encode)
+import           Pos.Binary.Class    (Bi, serialize')
 import           Pos.Crypto.Hashing  (hash, shortHashF)
 import           Pos.Crypto.Random   (deterministic, runSecureRandom)
 
@@ -113,7 +113,7 @@ newtype SecretProof =
 
 instance Bi SecretProof =>
          Hashable SecretProof where
-    hashWithSalt s = hashWithSalt s . encode
+    hashWithSalt s = hashWithSalt s . serialize'
 
 ----------------------------------------------------------------------------
 -- Functions

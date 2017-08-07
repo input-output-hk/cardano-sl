@@ -18,53 +18,44 @@ module Test.Pos.Util
        , shouldThrowException
        , showRead
        , showReadTest
-       , storeEncodeDecode
-       , storeTest
        , (.=.)
        , (>=.)
-
        -- * Monadic properties
        , stopProperty
        , maybeStopProperty
        , splitIntoChunks
        ) where
 
-import           Universum
+import Universum
 
-import qualified Data.ByteString          as BS
-import           Data.SafeCopy            (SafeCopy, safeGet, safePut)
-import qualified Data.Semigroup           as Semigroup
-import           Data.Serialize           (runGet, runPut)
-import qualified Data.Store               as Store
-import           Data.Tagged              (Tagged (..))
-import           Data.Typeable            (typeRep)
-import           Formatting               (formatToString, int, (%))
-import           Prelude                  (read)
-import           Test.Hspec               (Expectation, Selector, Spec, describe,
-                                           shouldThrow)
-import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
+import qualified Data.ByteString       as BS
+import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
+import qualified Data.Semigroup        as Semigroup
+import           Data.Serialize        (runGet, runPut)
+import           Data.Tagged           (Tagged (..))
+import           Data.Typeable         (typeRep)
+import           Formatting            (formatToString, int, (%))
+import           Prelude               (read)
+
+import           Pos.Binary            (AsBinaryClass (..), Bi (..), serialize', serialize, deserialize)
+import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
+
+import           Test.Hspec            (Expectation, Selector, Spec, describe,
+                                        shouldThrow)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck          (Arbitrary (arbitrary), Property, conjoin,
                                            counterexample, forAll, property, resize,
                                            suchThat, vectorOf, (.&&.), (===))
 import           Test.QuickCheck.Gen      (choose)
 import           Test.QuickCheck.Monadic  (PropertyM, pick, stop)
-import           Test.QuickCheck.Property (Result (..), failed)
 
-import           Pos.Binary               (AsBinaryClass (..), Bi (..), decodeOrFail,
-                                           encode, isEmptyPeek)
-import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
+import           Test.QuickCheck.Property (Result (..), failed)
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-binaryEncodeDecode a = Store.decodeExWith parser (encode a) === a
-  where
-    -- CSL-1122: is 'isEmptyPeek' needed here?
-    parser = get <* unlessM isEmptyPeek (fail "Unconsumed input")
-
-storeEncodeDecode :: (Show a, Eq a, Store.Store a) => a -> Property
-storeEncodeDecode a = Store.decodeEx (Store.encode a) === a
+binaryEncodeDecode a = (deserialize . serialize $ a) === a
 
 -- | This check is intended to be used for all messages sent via
 -- networking.
@@ -72,12 +63,12 @@ storeEncodeDecode a = Store.decodeEx (Store.encode a) === a
 -- TODO [CSL-1122] this test used to test that the message doesn't encode
 --      into an empty string, but after pva's changes it doesn't
 networkBinaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-networkBinaryEncodeDecode a = decodeOrFail (encode a) === a
+networkBinaryEncodeDecode a = (deserialize . serialize $ a) === a
 
 msgLenLimitedCheck
     :: (Show a, Bi a) => Limit a -> a -> Property
 msgLenLimitedCheck limit msg =
-    let sz = BS.length . encode $ msg
+    let sz = BS.length . serialize' $ msg
     in if sz <= fromIntegral limit
         then property True
         else flip counterexample False $
@@ -108,9 +99,6 @@ identityTest fun = prop (typeName @a) fun
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 binaryTest = identityTest @Bi @a binaryEncodeDecode
 
-storeTest :: forall a. IdTestingRequiredClasses Store.Store a => Spec
-storeTest = identityTest @Store.Store @a storeEncodeDecode
-
 networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
 
@@ -132,7 +120,7 @@ msgLenLimitedTest' limit desc whetherTest =
     findLargestCheck =
         forAll (resize 1 $ vectorOf 50 genNice) $
             \samples -> counterexample desc $ msgLenLimitedCheck limit $
-                maximumBy (comparing $ BS.length . encode) samples
+                maximumBy (comparing $ BS.length . serialize') samples
 
     -- In this test we increase length of lists, maps, etc. generated
     -- by `arbitrary` (by default lists sizes are bounded by 100).

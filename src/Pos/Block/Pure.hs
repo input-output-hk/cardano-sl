@@ -38,7 +38,7 @@ import           Pos.Core                   (BlockVersionData (..), ChainDifficu
                                              HasHeaderHash (..), HeaderHash, SlotId (..),
                                              SlotLeaders, addressHash, gbExtra, gbhExtra,
                                              getSlotIndex, headerSlotL, prevBlockL)
-import           Pos.Data.Attributes        (Attributes (attrRemain))
+import           Pos.Data.Attributes        (areAttributesKnown)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
@@ -161,12 +161,12 @@ verifyHeader VerifyHeaderParams {..} h =
 
     verifyNoUnknown (Left genH) =
         let attrs = genH ^. gbhExtra . gehAttributes
-        in  [ ( null (attrRemain attrs)
+        in  [ ( areAttributesKnown attrs
               , sformat ("genesis header has unknown attributes: "%build) attrs)
             ]
     verifyNoUnknown (Right mainH) =
         let attrs = mainH ^. gbhExtra . mehAttributes
-        in [ ( null (attrRemain attrs)
+        in [ ( areAttributesKnown attrs
              , sformat ("main header has unknown attributes: "%build) attrs)
            ]
 
@@ -233,13 +233,13 @@ verifyBlock VerifyBlockParams {..} blk =
     verifyNoUnknown (Left genBlk) =
         let attrs = genBlk ^. gbExtra . gebAttributes
         in verifyGeneric
-               [ ( null (attrRemain attrs)
+               [ ( areAttributesKnown attrs
                  , sformat ("genesis block has unknown attributes: "%build) attrs)
                ]
     verifyNoUnknown (Right mainBlk) =
         let attrs = mainBlk ^. gbExtra . mebAttributes
         in verifyGeneric
-               [ ( null (attrRemain attrs)
+               [ ( areAttributesKnown attrs
                  , sformat ("main block has unknown attributes: "%build) attrs)
                ]
 

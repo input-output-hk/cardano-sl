@@ -24,9 +24,9 @@ import           Data.Default                         (def)
 import           Data.SafeCopy                        (base, deriveSafeCopySimple)
 import           Universum
 
+import           Pos.Core                             (Address, EpochIndex)
 import           Pos.Crypto                           (ProxyCert)
-import           Pos.Txp                              (Utxo)
-import           Pos.Types                            (Address, EpochIndex)
+import           Pos.Txp                              (GenesisUtxo (..))
 
 import           Pos.Wallet.Light.State.Storage.Block (Block', BlockStorage,
                                                        HasBlockStorage (..), blkSetHead,
@@ -49,8 +49,8 @@ data Storage = Storage
 makeClassy ''Storage
 deriveSafeCopySimple 0 'base ''Storage
 
-mkStorage :: Utxo -> Storage
-mkStorage u =
+mkStorage :: GenesisUtxo -> Storage
+mkStorage (GenesisUtxo u) =
     Storage
         def
         (mkTxStorage u)

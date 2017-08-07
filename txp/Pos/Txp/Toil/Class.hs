@@ -10,7 +10,6 @@ module Pos.Txp.Toil.Class
        , MonadUtxo (..)
        , MonadBalancesRead (..)
        , MonadBalances (..)
-       , MonadToilEnv (..)
        , MonadTxPool (..)
        ) where
 
@@ -23,7 +22,7 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core                   (Coin, StakeholderId)
 import           Pos.Txp.Core.Types         (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import           Pos.Txp.Toil.Types         (ToilEnv, Utxo)
+import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Util.Util              (ether)
 
 ----------------------------------------------------------------------------
@@ -95,26 +94,6 @@ class MonadBalancesRead m => MonadBalances m where
 instance {-# OVERLAPPABLE #-}
     (MonadBalances m, MonadTrans t, Monad (t m)) =>
         MonadBalances (t m)
-
-----------------------------------------------------------------------------
--- MonadToilEnv
-----------------------------------------------------------------------------
-
--- | Type class which lets get some environmental data needed for
--- transactions processing.
-class Monad m => MonadToilEnv m where
-    getToilEnv :: m ToilEnv
-
-    default getToilEnv
-        :: (MonadTrans t, MonadToilEnv m', t m' ~ m) => m ToilEnv
-    getToilEnv = lift getToilEnv
-
-instance {-# OVERLAPPABLE #-}
-    (MonadToilEnv m, MonadTrans t, Monad (t m)) =>
-        MonadToilEnv (t m)
-
-instance MonadToilEnv ((->) ToilEnv) where
-    getToilEnv = identity
 
 ----------------------------------------------------------------------------
 -- MonadTxPool

@@ -29,7 +29,7 @@ spanHashMap m = (HM.fromList esl, HM.fromList esr)
 -- fail if limit is less than size of empty hashmap (1 byte).
 stripHashMap
     :: forall k v.
-       (Hashable k, Eq k, Bi k, Bi v)
+       (Hashable k, Ord k, Bi k, Bi v)
     => Byte -> HashMap k v -> Maybe (HashMap k v)
 stripHashMap lim m'
     | lim < biSize (HM.empty :: HashMap k v) = Nothing

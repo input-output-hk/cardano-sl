@@ -13,11 +13,11 @@ import qualified Data.Map.Strict     as M
 import           Universum
 
 import           Pos.Binary.Core     ()
-import           Pos.Core            (Address, Coin, StakesMap, unsafeAddCoin)
+import           Pos.Core            (Address, Coin, unsafeAddCoin)
 import           Pos.Core.Address    (AddressIgnoringAttributes (..))
 import           Pos.Txp.Core        (TxOutAux (toaOut), addrBelongsTo, addrBelongsToSet,
-                                      txOutStake, _TxOut)
-import           Pos.Txp.Toil.Types  (Utxo)
+                                      _TxOut)
+import           Pos.Txp.Toil.Types  (Utxo, utxoToStakes)
 
 -- | Select only TxOuts for given address
 filterUtxoByAddr :: Address -> Utxo -> Utxo
@@ -28,13 +28,6 @@ filterUtxoByAddrs :: [Address] -> Utxo -> Utxo
 filterUtxoByAddrs addrs =
     let addrSet = HS.fromList $ map AddressIA addrs
     in  M.filter (`addrBelongsToSet` addrSet)
-
--- | Convert 'Utxo' to 'StakesMap'.
-utxoToStakes :: Utxo -> StakesMap
-utxoToStakes = foldl' putDistr mempty . M.toList
-  where
-    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    putDistr hm (_, toaux) = foldl' plusAt hm (txOutStake toaux)
 
 utxoToAddressCoinPairs :: Utxo -> [(Address, Coin)]
 utxoToAddressCoinPairs utxo = combineWith unsafeAddCoin txOuts

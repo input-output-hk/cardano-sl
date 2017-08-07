@@ -4,6 +4,7 @@ module Pos.Crypto.SafeSigning
        ( EncryptedSecretKey (..)
        , PassPhrase
        , SafeSigner
+       , passphraseLength
        , emptyPassphrase
        , noPassEncrypt
        , checkPassMatches
@@ -53,6 +54,9 @@ instance B.Buildable EncryptedSecretKey where
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
     deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)
+
+passphraseLength :: Int
+passphraseLength = 32
 
 instance Show PassPhrase where
     show _ = "<passphrase>"
@@ -108,7 +112,7 @@ signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk _) x =
 sign'
     :: Bi a
     => SignTag -> PassPhrase -> EncryptedSecretKey -> a -> Signature a
-sign' t pp sk = coerce . signRaw' (Just t) pp sk . Bi.encode
+sign' t pp sk = coerce . signRaw' (Just t) pp sk . Bi.serialize'
 
 safeCreateKeypairFromSeed
     :: BS.ByteString
@@ -172,7 +176,7 @@ safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
   where
     Signature sig = safeSign SignProxySK ss $
                       mconcat
-                          ["00", CC.unXPub delegatePk, Bi.encode o]
+                          ["00", CC.unXPub delegatePk, Bi.serialize' o]
 
 -- | Creates proxy secret key
 safeCreatePsk :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w

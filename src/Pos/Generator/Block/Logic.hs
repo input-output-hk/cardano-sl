@@ -15,7 +15,7 @@ import           System.Random               (RandomGen (..))
 
 import           Pos.Block.Core              (mkGenesisBlock)
 import           Pos.Block.Logic             (applyBlocksUnsafe, createMainBlockInternal,
-                                              verifyBlocksPrefix)
+                                              normalizeMempool, verifyBlocksPrefix)
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (EpochOrSlot (..), SlotId (..), epochIndexL,
                                               getEpochOrSlot, getSlotIndex)
@@ -25,7 +25,7 @@ import           Pos.Generator.Block.Mode    (BlockGenRandMode, MonadBlockGen,
                                               mkBlockGenContext, usingPrimaryKey,
                                               withCurrentSlot)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasAllSecrets (..),
-                                              HasBlockGenParams (..))
+                                              HasBlockGenParams (..), unInvSecretsMap)
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc                     (lrcSingleShotNoLock)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)
@@ -83,7 +83,8 @@ genBlock eos = do
                 lift $ maybeThrow
                     (BGInternal "no leader")
                     (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
-            secrets <- view asSecretKeys <$> view blockGenParams
+            secrets <-
+                unInvSecretsMap . view asSecretKeys <$> view blockGenParams
             leaderSK <-
                 lift $ maybeThrow (BGUnknownSecret leader) (secrets ^. at leader)
                     -- When we know the secret key we can proceed to the actual creation.
@@ -96,7 +97,9 @@ genBlock eos = do
     verifyAndApply block =
         verifyBlocksPrefix (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)
-            Right (undos, pollModifier) ->
+            Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                     blund = (block, undo)
-                in blund <$ applyBlocksUnsafe (one blund) (Just pollModifier)
+                applyBlocksUnsafe (one blund) (Just pollModifier)
+                normalizeMempool
+                pure blund

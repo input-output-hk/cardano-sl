@@ -21,17 +21,22 @@ utxo_file=$scriptsDir/avvm-files/utxo-dump-last-new.json
 blacklisted=$scriptsDir/avvm-files/full_blacklist.js
 
 if [[ "$M" == "" ]]; then 
-  M=5 # rich keys amount
+    echo "You didn't set M (rich keys amount)";
+    exit 1
 fi
 if [[ "$N" == "" ]]; then 
-  N=12000 # poor keys amount
+    echo "You didn't set N (poor keys amount)";
+    exit 1
 fi
 
 F=100 # fake avvm keys
 
-keygenCmd="stack exec cardano-keygen -- --genesis-dir $outputDir -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries $F"
+# print commit
+git show HEAD --oneline | tee $outputDir/genesisCreation.log
+
+keygenCmd="stack exec cardano-keygen -- generate-genesis --genesis-dir $outputDir -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries $F"
 echo "Running command: $keygenCmd"
-$keygenCmd |& tee $outputDir/genesisCreation.log
+$keygenCmd |& tee -a $outputDir/genesisCreation.log
 
 echo "Cleaning up"
 find $outputDir -name "*.lock" | xargs rm 

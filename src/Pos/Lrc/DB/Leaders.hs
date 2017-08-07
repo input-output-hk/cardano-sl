@@ -18,7 +18,7 @@ import           Universum
 
 import           Ether.Internal        (HasLens (..))
 
-import           Pos.Binary.Class      (encode)
+import           Pos.Binary.Class      (serialize')
 import           Pos.Binary.Core       ()
 import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Context.Functions (genesisLeadersM)
@@ -56,4 +56,4 @@ prepareLrcLeaders =
 ----------------------------------------------------------------------------
 
 leadersKey :: EpochIndex -> ByteString
-leadersKey = mappend "l/" . encode
+leadersKey = mappend "l/" . serialize'

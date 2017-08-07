@@ -334,7 +334,7 @@ mkTxPayload txws = do
             lenDist = length (getTxDistribution ds)
         when (lenOut /= lenDist) $ fail $
             formatToString
-                ("mkTxPayload: "%"amount of outputs ("%int%") of tx "%
+                ("mkTxPayload: amount of outputs ("%int%") of tx "%
                  "#"%int%" /= amount of distributions " %
                  "for this tx ("%int%")")
                 lenOut i lenDist

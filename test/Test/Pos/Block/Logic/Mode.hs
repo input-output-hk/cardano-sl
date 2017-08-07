@@ -17,13 +17,12 @@ module Test.Pos.Block.Logic.Mode
        , runBlockTestMode
 
        , BlockProperty
+       , blockPropertyToProperty
        ) where
 
 import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
-import qualified Data.HashMap.Strict            as HM
-import qualified Data.Map.Strict                as M
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (Microsecond, TimeUnit (..))
 import           Ether.Internal                 (HasLens (..))
@@ -32,8 +31,9 @@ import           Formatting                     (bprint, build, formatToString, 
 import           Mockable                       (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.Wlog                    (HasLoggerName (..), LoggerName)
-import           Test.QuickCheck                (Arbitrary (..), Gen, Testable (..),
-                                                 choose, ioProperty, oneof)
+import           Test.QuickCheck                (Arbitrary (..), Gen, Property,
+                                                 Testable (..), choose, forAll,
+                                                 ioProperty, oneof)
 import           Test.QuickCheck.Monadic        (PropertyM, monadic)
 
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
@@ -41,11 +41,10 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Context                    (GenesisUtxo (..))
 import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
-                                                 Timestamp (..), addressHash,
-                                                 makePubKeyAddress, mkCoin, unsafeGetCoin)
-import           Pos.Crypto                     (SecretKey, toPublic, unsafeHash)
+                                                 Timestamp (..), makePubKeyAddress,
+                                                 mkCoin, unsafeGetCoin)
+import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
                                                  MonadDB (..), MonadDBRead (..),
@@ -55,13 +54,11 @@ import qualified Pos.DB.Block                   as DB
 import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
-import           Pos.Discovery                  (DiscoveryContextSum (..),
-                                                 HasDiscoveryContextSum (..),
-                                                 MonadDiscovery (..), findPeersSum,
-                                                 getPeersSum)
-import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..))
-import           Pos.Genesis                    (stakeDistribution)
+import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..),
+                                                 mkInvSecretsMap)
+import           Pos.Genesis                    (genesisUtxo)
 import qualified Pos.GState                     as GS
+import           Pos.KnownPeers                 (MonadFormatPeers (..))
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),
@@ -82,11 +79,13 @@ import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (GenericTxpLocalData, TxIn (..),
-                                                 TxOut (..), TxOutAux (..),
+import           Pos.Txp                        (GenericTxpLocalData, GenesisStakeholders,
+                                                 GenesisTxpContext, GenesisUtxo (..),
                                                  TxpGlobalSettings, TxpHolderTag,
-                                                 TxpMetrics, ignoreTxpMetrics,
-                                                 mkTxpLocalData, txpGlobalSettings, utxoF)
+                                                 TxpMetrics, gtcStakeholders, gtcUtxo,
+                                                 ignoreTxpMetrics, mkGenesisTxpContext,
+                                                 mkGenesisTxpContext, mkTxpLocalData,
+                                                 txpGlobalSettings, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -103,19 +102,19 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpGenUtxo           :: !GenesisUtxo
-    -- ^ Genesis 'Utxo'.
-    , _tpAllSecrets        :: !AllSecrets
+    { _tpGenTxpContext      :: !GenesisTxpContext
+    -- ^ Genesis txp-related data.
+    , _tpAllSecrets         :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
     -- They are stored in map (with 'StakeholderId' as key) to make it easy
     -- to find 'SecretKey' corresponding to given 'StakeholderId'.
     -- In tests we often want to have inverse of 'hash' and 'toPublic'.
-    , _tpStakeDistribution :: !StakeDistribution
-    -- ^ Stake distribution which was used to generate genesis utxo.
-    -- It's primarily needed to see which distribution was used (e. g.
+    , _tpStakeDistributions :: ![StakeDistribution]
+    -- ^ Stake distributions which were used to generate genesis txp data.
+    -- It's primarily needed to see (in logs) which distribution was used (e. g.
     -- when test fails).
-    , _tpStartTime         :: !Microsecond
+    , _tpStartTime          :: !Microsecond
     }
 
 makeClassy ''TestParams
@@ -128,15 +127,15 @@ instance Buildable TestParams where
         bprint ("TestParams {\n"%
                 "  utxo = "%utxoF%"\n"%
                 "  secrets: "%build%"\n"%
-                "  stake distribution: "%shown%"\n"%
+                "  stake distributions: "%shown%"\n"%
                 "  start time: "%shown%"\n"%
                 "}\n")
             utxo
             _tpAllSecrets
-            _tpStakeDistribution
+            _tpStakeDistributions
             _tpStartTime
       where
-        utxo = _tpGenUtxo & \(GenesisUtxo u) -> u
+        utxo =  unGenesisUtxo (_tpGenTxpContext ^. gtcUtxo)
 
 instance Show TestParams where
     show = formatToString build
@@ -157,22 +156,15 @@ instance Arbitrary TestParams where
     arbitrary = do
         secretKeysList <- toList @(NonEmpty SecretKey) <$> arbitrary -- might have repetitions
         let _tpStartTime = fromMicroseconds 0
-        let toSecretPair sk = (addressHash (toPublic sk), sk)
-        let secretKeysMap = HM.fromList $ map toSecretPair secretKeysList
-        let _tpAllSecrets = AllSecrets secretKeysMap
-        _tpStakeDistribution <-
-            genSuitableStakeDistribution (fromIntegral $ length secretKeysMap)
-        let zipF secretKey (coin, toaDistr) =
-                let addr = makePubKeyAddress (toPublic secretKey)
-                    toaOut = TxOut addr coin
-                in (TxIn (unsafeHash addr) 0, TxOutAux {..})
-        let _tpGenUtxo =
-                GenesisUtxo . M.fromList $
-                zipWith
-                    zipF
-                    (toList secretKeysMap)
-                    (stakeDistribution _tpStakeDistribution)
-        return TestParams {..}
+        let invSecretsMap = mkInvSecretsMap secretKeysList
+        let _tpAllSecrets = AllSecrets invSecretsMap
+        stakeDistribution <-
+            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
+        let addresses =
+                map (makePubKeyAddress . toPublic) (toList invSecretsMap)
+        let utxo = genesisUtxo Nothing [(addresses, stakeDistribution)]
+        let _tpGenTxpContext = mkGenesisTxpContext utxo
+        return TestParams {_tpStakeDistributions = one stakeDistribution, ..}
 
 ----------------------------------------------------------------------------
 -- Init mode with instances
@@ -213,7 +205,6 @@ data BlockTestContext = BlockTestContext
     -- slot. Otherwise simple slotting is used.
     , btcParams            :: !TestParams
     , btcReportingContext  :: !ReportingContext
-    , btcDiscoveryContext  :: !DiscoveryContextSum
     , btcDelegation        :: !DelegationVar
     }
 
@@ -240,7 +231,7 @@ initBlockTestContext tp@TestParams {..} callback = do
     let initCtx =
             TestInitModeContext
                 dbPureVar
-                _tpGenUtxo
+                (_tpGenTxpContext ^. gtcUtxo)
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -259,7 +250,6 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcTxpMem <- (, ignoreTxpMetrics) <$> mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings
             let btcReportingContext = emptyReportingContext
-            let btcDiscoveryContext = DCStatic mempty
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
@@ -290,10 +280,19 @@ runBlockTestMode tp action =
 
 type BlockProperty = PropertyM BlockTestMode
 
+-- | Convert 'BlockProperty' to 'Property' using given generator of
+-- 'TestParams'.
+blockPropertyToProperty :: Gen TestParams -> BlockProperty a -> Property
+blockPropertyToProperty tpGen blockProperty =
+    forAll tpGen $ \tp ->
+        monadic (ioProperty . runBlockTestMode tp) blockProperty
+
+-- | 'Testable' instance allows one to write monadic properties in
+-- do-notation and pass them directly to QuickCheck engine. It uses
+-- arbitrary 'TestParams'. For more fine-grained control over
+-- parameters use 'blockPropertyToProperty'.
 instance Testable (BlockProperty a) where
-    property blockProperty =
-        property $ \testParams' ->
-            (monadic (ioProperty . runBlockTestMode testParams') blockProperty)
+    property = blockPropertyToProperty arbitrary
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances
@@ -395,9 +394,6 @@ instance HasLens SimpleSlottingVar BlockTestContext SimpleSlottingVar where
 instance HasReportingContext BlockTestContext where
     reportingContext = btcReportingContext_L
 
-instance HasDiscoveryContextSum BlockTestContext where
-    discoveryContextSum = btcDiscoveryContext_L
-
 instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
@@ -410,6 +406,12 @@ instance HasLens DelegationVar BlockTestContext DelegationVar where
 
 instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
     lensOf = btcTxpMem_L
+
+instance HasLens GenesisUtxo BlockTestContext GenesisUtxo where
+    lensOf = btcParams_L . tpGenTxpContext . gtcUtxo
+
+instance HasLens GenesisStakeholders BlockTestContext GenesisStakeholders where
+    lensOf = btcParams_L . tpGenTxpContext . gtcStakeholders
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName
@@ -470,6 +472,5 @@ instance MonadBListener BlockTestMode where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
 
-instance MonadDiscovery BlockTestMode where
-    getPeers = getPeersSum
-    findPeers = findPeersSum
+instance MonadFormatPeers BlockTestMode where
+    formatKnownPeers _ = pure Nothing

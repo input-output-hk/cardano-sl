@@ -32,7 +32,7 @@ import           Mockable                    (CurrentTime, Mockable, currentTime
 import           System.IO.Unsafe            (unsafePerformIO)
 import           System.Wlog                 (WithLogger, getLoggerName, usingLoggerName)
 
-import           Pos.Txp.Core.Types          (TxAux, TxId, TxOutAux)
+import           Pos.Txp.Core.Types          (TxAux, TxId, TxUndo)
 import           Pos.Txp.MemState.Types      (GenericTxpLocalData (..),
                                               GenericTxpLocalDataPure, TxpMetrics (..))
 import           Pos.Txp.Toil.Types          (MemPool (..), UtxoModifier)
@@ -74,10 +74,11 @@ getLocalTxs = HM.toList <$> getLocalTxsMap
 
 getLocalTxsNUndo
     :: (MonadIO m, MonadTxpMem e ctx m)
-    => m ([(TxId, TxAux)], HashMap TxId (NonEmpty TxOutAux))
+    => m ([(TxId, TxAux)], HashMap TxId TxUndo)
 getLocalTxsNUndo =
     getTxpLocalData $ \TxpLocalData {..} ->
-        (,) <$> (HM.toList . _mpLocalTxs <$> STM.readTVar txpMemPool) <*>
+        (,) <$>
+        (HM.toList . _mpLocalTxs <$> STM.readTVar txpMemPool) <*>
         STM.readTVar txpUndos
 
 getMemPool :: (MonadIO m, MonadTxpMem e ctx m) => m MemPool

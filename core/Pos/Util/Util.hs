@@ -68,15 +68,27 @@ module Pos.Util.Util
        -- ** Buildable Fortnight
 
        , dumpSplices
+
+       -- * Filesystem & process utilities
+       , ls
+       , lstree
+       , withTempDir
+       , directory
+       , sleep
+       , withTempFile
+       , withSystemTempFile
+
        ) where
 
 import           Universum
 import           Unsafe                         (unsafeInit, unsafeLast)
 
+import           Control.Concurrent             (myThreadId, threadDelay)
 import           Control.Lens                   (ALens', Getter, Getting, Iso', LensRules,
                                                  cloneLens, coerced, foldMapOf, lensField,
                                                  lensRules, mappingNamer, to, ( # ))
 import           Control.Monad.Base             (MonadBase)
+import qualified Control.Monad.Catch            as MC
 import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
@@ -84,10 +96,14 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
                                                  transResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
+import           Data.Char                      (isAlphaNum)
 import           Data.HashSet                   (fromMap)
+import           Data.List                      (last)
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
+import           Data.Time                      (getCurrentTime)
+import           Data.Time.Clock                (NominalDiffTime)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
                                                  Hour, Microsecond, Millisecond, Minute,
                                                  Nanosecond, Picosecond, Second, Week,
@@ -104,6 +120,13 @@ import           Mockable                       (ChannelT, Counter, Distribution
                                                  ThreadId)
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
+import           System.Directory               (canonicalizePath, createDirectory,
+                                                 doesDirectoryExist,
+                                                 getTemporaryDirectory, listDirectory,
+                                                 removeDirectoryRecursive, removeFile)
+import           System.FilePath                (normalise, pathSeparator, takeDirectory,
+                                                 (</>))
+import           System.IO                      (hClose, openTempFile)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
 import           Test.QuickCheck.Monadic        (PropertyM (..))
@@ -325,7 +348,7 @@ type HasLens' s a = HasLens a s a
 
 -- | Version of 'lensOf' which is used when lens is to the same type
 -- as the tag.
-lensOf' :: forall s a. HasLens' s a => Lens' s a
+lensOf' :: forall a s. HasLens' s a => Lens' s a
 lensOf' = lensOf @a
 
 -- | Version of 'lensOf' which uses proxy.
@@ -410,3 +433,104 @@ mkMinMax a = _MinMax # Just (a, a)
 
 minMaxOf :: Getting (MinMax a) s a -> s -> Maybe (a, a)
 minMaxOf l = view _MinMax . foldMapOf l mkMinMax
+
+----------------------------------------------------------------------------
+-- Filesystem & process utilities
+----------------------------------------------------------------------------
+
+-- | Lists all immediate children of the given directory, excluding "." and ".."
+-- Returns all the files inclusive of the initial `FilePath`.
+ls :: MonadIO m => FilePath -> m [FilePath]
+ls initialFp = map ((</>) initialFp) <$> liftIO (listDirectory (normalise initialFp))
+
+-- | Lists all recursive descendants of the given directory.
+lstree :: MonadIO m => FilePath -> m [FilePath]
+lstree fp = go mempty fp
+  where
+    consUniq :: FilePath -> [FilePath] -> [FilePath]
+    consUniq x xs = if x /= fp then (x : xs) else xs
+
+    go :: MonadIO m => [FilePath] -> FilePath -> m [FilePath]
+    go !acc currentFp = do
+        isDirectory <- liftIO (doesDirectoryExist currentFp)
+        case isDirectory of
+            True  -> ls currentFp >>= foldM go (consUniq currentFp acc)
+            False -> return (consUniq currentFp acc)
+
+-- | Creates a temporary directory, nuking it after the inner action completes,
+-- even if an exception is raised.
+withTempDir :: FilePath
+            -- ^ Parent directory
+            -> Text
+            -- ^ Directory name template
+            -> (FilePath -> IO a)
+            -> IO a
+withTempDir parentDir template = bracket acquire dispose
+  where
+    acquire :: IO FilePath
+    acquire = do
+        tid <- filter isAlphaNum . show <$> myThreadId
+        now <- filter isAlphaNum . show <$> getCurrentTime
+        pth <- canonicalizePath $ normalise $ parentDir </> (toString template <> tid <> now)
+        createDirectory pth
+        return pth
+
+    dispose :: FilePath -> IO ()
+    dispose = removeDirectoryRecursive
+
+-- | Simple shim to emulate the behaviour of `Filesystem.Path.directory`,
+-- which is a bit more lenient than `System.FilePath.takeDirectory`.
+directory :: FilePath -> FilePath
+directory "" = ""
+directory f = case last f of
+    x | x == pathSeparator -> f
+    _ -> takeDirectory (normalise f)
+
+{-| Sleep for the given duration
+
+    A numeric literal argument is interpreted as seconds.  In other words,
+    @(sleep 2.0)@ will sleep for two seconds.
+    Taken from http://hackage.haskell.org/package/turtle, BSD3 licence.
+-}
+sleep :: MonadIO m => NominalDiffTime -> m ()
+sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
+
+-- | Return the absolute and canonical path to the system temporary
+-- directory.
+-- Taken from http://hackage.haskell.org/package/temporary, BSD3 licence.
+getCanonicalTemporaryDirectory :: IO FilePath
+getCanonicalTemporaryDirectory = getTemporaryDirectory >>= canonicalizePath
+
+-- | Create, open, and use a temporary file in the system standard temporary directory.
+--
+-- The temp file is deleted after use.
+--
+-- Behaves exactly the same as 'withTempFile', except that the parent temporary directory
+-- will be that returned by 'getCanonicalTemporaryDirectory'.
+-- Taken from http://hackage.haskell.org/package/temporary, BSD3 licence.
+withSystemTempFile :: (MonadIO m, MC.MonadMask m) =>
+                      String   -- ^ File name template
+                   -> (FilePath -> Handle -> m a) -- ^ Callback that can use the file
+                   -> m a
+withSystemTempFile template action = liftIO getCanonicalTemporaryDirectory >>= \tmpDir -> withTempFile tmpDir template action
+
+-- | Create, open, and use a temporary file in the given directory.
+--
+-- The temp file is deleted after use.
+-- Taken from http://hackage.haskell.org/package/temporary, BSD3 licence.
+withTempFile :: (MonadIO m, MonadMask m)
+             => FilePath
+             -- ^ Parent directory to create the file in
+             -> String
+             -- ^ File name template
+             -> (FilePath -> Handle -> m a)
+             -- ^ Callback that can use the file
+             -> m a
+withTempFile tmpDir template action =
+  MC.bracket
+    (liftIO (openTempFile tmpDir template))
+    (\(name, handle) -> liftIO (hClose handle >> ignoringIOErrors (removeFile name)))
+    (uncurry action)
+  where
+     ignoringIOErrors :: MC.MonadCatch m => m () -> m ()
+     ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: Prelude.IOError))

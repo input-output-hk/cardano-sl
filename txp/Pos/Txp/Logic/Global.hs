@@ -13,12 +13,15 @@ module Pos.Txp.Logic.Global
        , runToilAction
        ) where
 
+import           Control.Lens            (choosing)
 import           Control.Monad.Except    (runExceptT)
 import           Data.Default            (Default)
 import qualified Data.HashMap.Strict     as HM
+import qualified Data.List.NonEmpty      as NE
 import           Formatting              (build, sformat, (%))
 import           Universum
 
+import           Pos.Core.Class          (epochIndexL)
 import           Pos.DB                  (MonadDBRead, SomeBatchOp (..))
 import           Pos.Exception           (assertionFailed)
 import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)
@@ -27,7 +30,7 @@ import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
 import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), DBToil,
-                                          GenericToilModifier (..), GlobalToilMode,
+                                          GenericToilModifier (..), GlobalApplyToilMode,
                                           ToilModifier, ToilT, applyToil, rollbackToil,
                                           runDBToil, runToilTGlobal, verifyToil)
 import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
@@ -45,13 +48,14 @@ txpGlobalSettings =
     }
 
 verifyBlocks
-    :: forall m.
-       TxpGlobalVerifyMode m
+    :: forall ctx m.
+       TxpGlobalVerifyMode ctx m
     => Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
-verifyBlocks verifyAllIsKnown newChain =
-    fst <$> runToilAction @_ @() (mapM verifyDo newChain)
+verifyBlocks verifyAllIsKnown newChain = do
+    let epoch = NE.last (getOldestFirst newChain) ^. choosing epochIndexL (_1 . epochIndexL)
+    fst <$> runToilAction @_ @() (mapM (verifyDo epoch) newChain)
   where
-    verifyDo = verifyToil verifyAllIsKnown . convertPayload
+    verifyDo epoch = verifyToil epoch verifyAllIsKnown . convertPayload
     convertPayload :: TxpBlock -> [TxAux]
     convertPayload (Left _)             = []
     convertPayload (Right (_, payload)) = flattenTxPayload payload
@@ -62,8 +66,7 @@ data ApplyBlocksSettings extra m = ApplyBlocksSettings
     }
 
 applyBlocksSettings
-    :: forall m.
-       GlobalToilMode m
+    :: GlobalApplyToilMode m
     => ApplyBlocksSettings () m
 applyBlocksSettings =
     ApplyBlocksSettings
@@ -72,7 +75,7 @@ applyBlocksSettings =
     }
 
 applyBlocksWith
-    :: (TxpGlobalApplyMode m, Default extra)
+    :: (TxpGlobalApplyMode ctx m, Default extra)
     => ApplyBlocksSettings extra (ToilT extra (DBToil m))
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
@@ -87,7 +90,7 @@ applyBlocksWith ApplyBlocksSettings {..} blunds = do
         runToilAction (mapM absApplySingle blunds)
 
 rollbackBlocks
-    :: TxpGlobalRollbackMode m
+    :: TxpGlobalRollbackMode ctx m
     => NewestFirst NE TxpBlund -> m SomeBatchOp
 rollbackBlocks blunds =
     toilModifierToBatch . snd <$>

@@ -46,7 +46,7 @@ import           Data.Time.Units              (convertUnit)
 import qualified Database.RocksDB             as Rocks
 import           Serokell.Data.Memory.Units   (Byte)
 
-import           Pos.Binary.Class             (encode)
+import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
@@ -143,30 +143,30 @@ data UpdateOp
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
-        [ Rocks.Put (proposalKey upId) (encode ps)]
+        [ Rocks.Put (proposalKey upId) (serialize' ps)]
       where
         up = psProposal ps
         upId = hash up
     toBatchOp (DeleteProposal upId) =
         [Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =
-        [Rocks.Put (confirmedVersionKey $ svAppName sv) (encode $ svNumber sv)]
+        [Rocks.Put (confirmedVersionKey $ svAppName sv) (serialize' $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
         [Rocks.Del (confirmedVersionKey app)]
     toBatchOp (AddConfirmedProposal cps) =
-        [Rocks.Put (confirmedProposalKey cps) (encode cps)]
+        [Rocks.Put (confirmedProposalKey cps) (serialize' cps)]
     toBatchOp (DelConfirmedProposal sv) =
         [Rocks.Del (confirmedProposalKeySV sv)]
     toBatchOp (SetAdopted bv bvd) =
-        [Rocks.Put adoptedBVKey (encode (bv, bvd))]
+        [Rocks.Put adoptedBVKey (serialize' (bv, bvd))]
     toBatchOp (SetBVState bv st) =
-        [Rocks.Put (bvStateKey bv) (encode st)]
+        [Rocks.Put (bvStateKey bv) (serialize' st)]
     toBatchOp (DelBV bv) =
         [Rocks.Del (bvStateKey bv)]
     toBatchOp (PutSlottingData sd) =
-        [Rocks.Put slottingDataKey (encode sd)]
+        [Rocks.Put slottingDataKey (serialize' sd)]
     toBatchOp (PutEpochProposers proposers) =
-        [Rocks.Put epochProposersKey (encode proposers)]
+        [Rocks.Put epochProposersKey (serialize' proposers)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -311,7 +311,7 @@ proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
 
 confirmedVersionKey :: ApplicationName -> ByteString
-confirmedVersionKey = mappend "us/cv/" . encode
+confirmedVersionKey = mappend "us/cv/" . serialize'
 
 iterationPrefix :: ByteString
 iterationPrefix = "us/p/"

@@ -19,7 +19,6 @@ import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History  (MonadTxHistory (..))
 import           Pos.Communication       (TxMode)
 import           Pos.Core                (ChainDifficulty)
-import           Pos.Discovery           (MonadDiscovery)
 import           Pos.Update              (ConfirmedProposalState (..))
 import           Pos.Util.TimeWarp       (CanJsonLog)
 import           Pos.Wallet.KeyStorage   (MonadKeys)
@@ -56,10 +55,9 @@ instance {-# OVERLAPPABLE #-}
 ---------------------------------------------------------------
 
 type MonadWallet ssc ctx m
-    = ( TxMode ssc m
+    = ( TxMode ssc ctx m
       , MonadKeys ctx m
       , MonadBlockchainInfo m
       , MonadUpdates m
-      , MonadDiscovery m
       , CanJsonLog m
       )

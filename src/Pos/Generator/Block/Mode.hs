@@ -42,14 +42,11 @@ import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as BDB
 import           Pos.DB.DB                   (getTipHeader, gsAdoptedBVDataDefault)
 import           Pos.Delegation              (DelegationVar, mkDelegationVar)
-import           Pos.Discovery               (DiscoveryContextSum (..),
-                                              HasDiscoveryContextSum (..),
-                                              MonadDiscovery (..), findPeersSum,
-                                              getPeersSum)
 import           Pos.Exception               (reportFatalError)
 import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..),
                                               HasTxGenParams (..), asSecretKeys)
 import qualified Pos.GState                  as GS
+import           Pos.KnownPeers              (MonadFormatPeers)
 import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
@@ -67,7 +64,8 @@ import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), Tx
                                               TxOutAux (..), TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
-import           Pos.Txp.Toil.Types          (GenesisUtxo (..))
+import           Pos.Txp.Toil.Types          (GenesisStakeholders (..), GenesisUtxo (..),
+                                              mkGenesisTxpContext, gtcStakeholders)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -83,6 +81,7 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadBaseControl IO m
+       , MonadFormatPeers m
        , Mockables m
            [ CurrentTime
            , Async
@@ -123,7 +122,7 @@ data BlockGenContext = BlockGenContext
     , bgcSystemStart       :: !Timestamp
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
-    , bgcGenesisUtxo       :: !GenesisUtxo
+    , bgcGenStakeholders   :: !GenesisStakeholders
     , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
@@ -132,7 +131,6 @@ data BlockGenContext = BlockGenContext
     -- rather want to set current slot (fake one) by ourselves.
     , bgcTxpGlobalSettings :: !TxpGlobalSettings
     , bgcReportingContext  :: !ReportingContext
-    , bgcDiscoveryContext  :: !DiscoveryContextSum
     }
 
 makeLensesWith postfixLFields ''BlockGenContext
@@ -164,7 +162,6 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     let bgcSlotId = Nothing
     let bgcTxpGlobalSettings = txpGlobalSettings
     let bgcReportingContext = emptyReportingContext
-    let bgcDiscoveryContext = DCStatic mempty
     let initCtx =
             InitBlockGenContext
                 (bgcGState ^. GS.gscDB)
@@ -182,7 +179,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         return BlockGenContext {..}
   where
     -- Genesis utxo is needed only for boot era stakeholders
-    bgcGenesisUtxo =
+    bgcGenStakeholders =
         let addrs =
                 -- So we take three stakeholders in boot era.
                 take 3 $
@@ -191,7 +188,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
             utxoTxHash = unsafeHash ("randomutxotx" :: Text)
             txIns = map (TxIn utxoTxHash) [0..fromIntegral (length addrs) - 1]
             txOuts = map (\addr -> TxOutAux (TxOut addr (mkCoin 10000)) []) addrs
-        in GenesisUtxo $ M.fromList $ txIns `zip` txOuts
+        in (mkGenesisTxpContext $ GenesisUtxo $ M.fromList $ txIns `zip` txOuts) ^. gtcStakeholders
 
 data InitBlockGenContext = InitBlockGenContext
     { ibgcDB          :: !DBSum
@@ -267,6 +264,9 @@ instance HasSlottingVar BlockGenContext where
     slottingTimestamp = bgcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
+instance HasLens GenesisStakeholders BlockGenContext GenesisStakeholders where
+    lensOf = bgcGenStakeholders_L
+
 instance HasLens DBSum BlockGenContext DBSum where
     lensOf = GS.gStateContext . GS.gscDB
 
@@ -294,14 +294,8 @@ instance HasLens SscMemTag BlockGenContext (SscState SscGodTossing) where
 instance HasLens TxpGlobalSettings BlockGenContext TxpGlobalSettings where
     lensOf = bgcTxpGlobalSettings_L
 
-instance HasLens GenesisUtxo BlockGenContext GenesisUtxo where
-    lensOf = bgcGenesisUtxo_L
-
 instance HasReportingContext BlockGenContext where
     reportingContext = bgcReportingContext_L
-
-instance HasDiscoveryContextSum BlockGenContext where
-    discoveryContextSum = bgcDiscoveryContext_L
 
 instance MonadBlockGenBase m => MonadDBRead (BlockGenMode m) where
     dbGet = DB.dbGetSumDefault
@@ -355,10 +349,6 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode m) where
 instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance MonadBlockGenBase m => MonadDiscovery (BlockGenMode m) where
-    getPeers = getPeersSum
-    findPeers = findPeersSum
 
 ----------------------------------------------------------------------------
 -- Utilities

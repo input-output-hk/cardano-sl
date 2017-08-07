@@ -16,8 +16,8 @@ import           Pos.Update.Poll.Types (USUndo)
 
 deriveSimpleBi ''Undo [
     Cons 'Undo [
-        Field [| undoTx    :: TxpUndo   |],
-        Field [| undoDlg   :: DlgUndo   |],
-        Field [| undoUS    :: USUndo    |],
-        Field [| undoSlog  :: SlogUndo  |]
+        Field [| undoTx    :: TxpUndo  |],
+        Field [| undoDlg   :: DlgUndo  |],
+        Field [| undoUS    :: USUndo   |],
+        Field [| undoSlog  :: SlogUndo |]
     ]]

@@ -24,10 +24,14 @@ import           Pos.Block.BListener              (MonadBListener (..), onApplyB
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Core                         (SlotId (..))
 import           Pos.DB                           (MonadGState (..))
-import           Pos.Discovery                    (MonadDiscovery (..))
 import           Pos.Reporting.MemState           (ReportingContext)
+import           Pos.Slotting                     (MonadSlots (..),
+                                                   currentTimeSlottingSimple)
+import           Pos.Slotting.MemState            (MonadSlotsData (..))
 import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Txp                          (GenesisStakeholders)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), JsonLogConfig,
                                                    jsonLogDefault)
 import           Pos.Util.LoggerName              (HasLoggerName' (..),
@@ -56,6 +60,7 @@ data LightWalletContext = LightWalletContext
     , lwcDiscoveryPeers   :: !(Set NodeId)
     , lwcJsonLogConfig    :: !JsonLogConfig
     , lwcLoggerName       :: !LoggerName
+    , lwcGenStakeholders  :: !GenesisStakeholders
     }
 
 makeLensesWith postfixLFields ''LightWalletContext
@@ -64,6 +69,9 @@ type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 
 instance HasUserSecret LightWalletContext where
     userSecret = lwcKeyData_L
+
+instance HasLens GenesisStakeholders LightWalletContext GenesisStakeholders where
+    lensOf = lwcGenStakeholders_L
 
 instance HasLens WalletState LightWalletContext WalletState where
     lensOf = lwcWalletState_L
@@ -81,10 +89,6 @@ instance {-# OVERLAPPING #-} HasLoggerName LightWalletMode where
 instance {-# OVERLAPPING #-} CanJsonLog LightWalletMode where
     jsonLog = jsonLogDefault
 
-instance MonadDiscovery LightWalletMode where
-    getPeers = view lwcDiscoveryPeers_L
-    findPeers = view lwcDiscoveryPeers_L
-
 instance MonadBListener LightWalletMode where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
@@ -100,6 +104,20 @@ instance MonadBlockchainInfo LightWalletMode where
 instance MonadUpdates LightWalletMode where
     waitForUpdate = error "notImplemented"
     applyLastUpdate = pure ()
+
+-- FIXME: Dummy instance for lite-wallet.
+instance MonadSlotsData LightWalletMode where
+    getSystemStart = error "notImplemented"
+    getSlottingData = error "notImplemented"
+    waitPenultEpochEquals = error "notImplemented"
+    putSlottingData = error "notImplemented"
+
+-- FIXME: Dummy instance for lite-wallet.
+instance MonadSlots LightWalletMode where
+    getCurrentSlot = Just <$> getCurrentSlotInaccurate
+    getCurrentSlotBlocking = getCurrentSlotInaccurate
+    getCurrentSlotInaccurate = pure (SlotId 0 minBound)
+    currentTimeSlotting = currentTimeSlottingSimple
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = gsAdoptedBVDataWallet

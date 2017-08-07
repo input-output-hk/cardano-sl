@@ -50,7 +50,7 @@ import qualified Data.Conduit.List            as CL
 import qualified Data.HashSet                 as HS
 import qualified Database.RocksDB             as Rocks
 
-import           Pos.Binary.Class             (encode)
+import           Pos.Binary.Class             (serialize')
 import           Pos.Crypto                   (PublicKey, pskIssuerPk, verifyPsk)
 import           Pos.DB                       (RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..),
@@ -119,18 +119,18 @@ instance RocksBatchOp DelegationOp where
         | not (verifyPsk psk) =
           error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
-          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encode psk)]
+          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (serialize' psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
         [Rocks.Del $ pskKey issuerPk]
     toBatchOp (AddTransitiveDlg iSId dSId) =
-        [Rocks.Put (transDlgKey iSId) (encode dSId)]
+        [Rocks.Put (transDlgKey iSId) (serialize' dSId)]
     toBatchOp (DelTransitiveDlg sId) =
         [Rocks.Del $ transDlgKey sId]
     toBatchOp (SetTransitiveDlgRev dSId iSIds)
         | HS.null iSIds = [Rocks.Del $ transRevDlgKey dSId]
-        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (encode iSIds)]
+        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (serialize' iSIds)]
     toBatchOp (AddPostedThisEpoch sId) =
-        [Rocks.Put (postedThisEpochKey sId) (encode ())]
+        [Rocks.Put (postedThisEpochKey sId) (serialize' ())]
     toBatchOp (DelPostedThisEpoch sId) =
         [Rocks.Del (postedThisEpochKey sId)]
 
@@ -176,10 +176,10 @@ getThisEpochPostedKeys =
 
 -- Storing Hash IssuerPk -> ProxySKHeavy
 pskKey :: StakeholderId -> ByteString
-pskKey s = "d/p/" <> encode s
+pskKey s = "d/p/" <> serialize' s
 
 transDlgKey :: StakeholderId -> ByteString
-transDlgKey s = "d/t/" <> encode s
+transDlgKey s = "d/t/" <> serialize' s
 
 iterTransRevPrefix :: ByteString
 iterTransRevPrefix = "d/tr/"

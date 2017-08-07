@@ -1,9 +1,13 @@
 let
-  pkgs' = import <nixpkgs> { config = {}; };
+  localLib = import ./lib.nix;
 in
-{ pkgs ? pkgs' }:
+{ system ? builtins.currentSystem
+, config ? {}
+, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
+
 with pkgs.lib;
-with (import <nixpkgs/pkgs/development/haskell-modules/lib.nix> { inherit pkgs;});
+with (import <nixpkgs/pkgs/development/haskell-modules/lib.nix> { inherit pkgs; });
+
 let
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
     configureFlags = flags;

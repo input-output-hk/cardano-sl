@@ -8,7 +8,6 @@ module Pos.Block.Logic.Util
        (
          -- * Common/Utils
          lcaWithMainChain
-       , tipMismatchMsg
        , withBlkSemaphore
        , withBlkSemaphore_
        , needRecovery
@@ -23,7 +22,7 @@ import           Control.Monad.Catch    (bracketOnError)
 import           Data.List.NonEmpty     ((<|))
 import qualified Data.List.NonEmpty     as NE
 import           Ether.Internal         (HasLens (..))
-import           Formatting             (int, sformat, stext, (%))
+import           Formatting             (int, sformat, (%))
 import           System.Wlog            (WithLogger)
 
 import           Pos.Block.Core         (BlockHeader)
@@ -34,7 +33,6 @@ import           Pos.Context            (BlkSemaphore, putBlkSemaphore, takeBlkS
 import           Pos.Core               (BlockCount, FlatSlotId, HeaderHash,
                                          diffEpochOrSlot, getEpochOrSlot, headerHash,
                                          prevBlockL)
-import           Pos.Crypto             (shortHashF)
 import           Pos.DB                 (MonadDBRead)
 import           Pos.DB.Block           (MonadBlockDB)
 import qualified Pos.DB.DB              as DB
@@ -44,16 +42,6 @@ import           Pos.Slotting.Class     (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Util               (_neHead)
 import           Pos.Util.Chrono        (NE, OldestFirst (..))
-
--- | This function can be used to create a message when tip mismatch
--- is detected (usually between tip stored in DB and some other tip
--- received from somewhere).
-tipMismatchMsg :: Text -> HeaderHash -> HeaderHash -> Text
-tipMismatchMsg action storedTip attemptedTip =
-    sformat
-        ("Can't "%stext%" block because of tip mismatch (stored is "
-         %shortHashF%", attempted is "%shortHashF%")")
-        action storedTip attemptedTip
 
 --- Usually in this method oldest header is LCA, so it can be optimized
 -- by traversing from older to newer.

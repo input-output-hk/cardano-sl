@@ -8,11 +8,8 @@ import           Universum
 import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
-                                             convertSize, convertToSizeNPut,
-                                             deriveSimpleBi, getAsciiString1b, getWord8,
-                                             label, labelP, labelS, putAsciiString1b,
-                                             putField, putS, putWord8S, sizeAsciiString1b)
+import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi, enforceSize,
+                                             encodeListLen, decodeListLen)
 import           Pos.Binary.Infra           ()
 import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, CoinPortion,
@@ -26,30 +23,26 @@ import qualified Pos.Update.Core.Types      as U
 import qualified Pos.Update.Poll.Types      as U
 
 instance Bi U.SystemTag where
-    size = convertSize (toString . U.getSystemTag) sizeAsciiString1b
-    put (toString . U.getSystemTag -> tag) = labelP "SystemTag" $
-        putAsciiString1b tag
-    get = label "SystemTag" $
-        U.mkSystemTag . toText =<< getAsciiString1b "SystemTag" U.systemTagMaxLength
+  encode = encode . U.getSystemTag
+  decode = decode >>= \decoded -> case U.mkSystemTag decoded of
+    Left e   -> fail e
+    Right st -> pure st
 
 instance Bi U.UpdateVote where
-    sizeNPut = labelS "UpdateVote" $
-        putField U.uvKey <>
-        putField U.uvProposalId <>
-        putField U.uvDecision <>
-        putField U.uvSignature
-    get = label "UpdateVote" $ do
-        uvKey <- get
-        uvProposalId <- get
-        uvDecision <- get
-        uvSignature <- get
-        let sigValid = checkSig SignUSVote
-                           uvKey
-                           (uvProposalId, uvDecision)
-                           uvSignature
-        unless sigValid $
-            fail "Pos.Binary.Update: UpdateVote: invalid signature"
-        return U.UpdateVote {..}
+  encode uv =  encodeListLen 4
+            <> encode (U.uvKey uv)
+            <> encode (U.uvProposalId uv)
+            <> encode (U.uvDecision uv)
+            <> encode (U.uvSignature uv)
+  decode = do
+    enforceSize "UpdateVote" 4
+    k <- decode
+    p <- decode
+    d <- decode
+    s <- decode
+    let sigValid = checkSig SignUSVote k (p, d) s
+    unless sigValid $ fail "Pos.Binary.Update: UpdateVote: invalid signature"
+    return $ U.UpdateVote k p d s
 
 deriveSimpleBi ''U.UpdateData [
     Cons 'U.UpdateData [
@@ -78,23 +71,26 @@ deriveSimpleBi ''U.BlockVersionModifier [
     ]]
 
 instance Bi U.UpdateProposal where
-    sizeNPut = labelS "UpdateProposal" $
-        putField U.upBlockVersion <>
-        putField U.upBlockVersionMod <>
-        putField U.upSoftwareVersion <>
-        putField U.upData <>
-        putField U.upAttributes <>
-        putField U.upFrom <>
-        putField U.upSignature
-    get = label "UpdateProposal" $ do
-        d <- get
-        r <- get
-        a <- get
-        t <- get
-        u <- get
-        t' <- get
-        i <- get
-        U.mkUpdateProposal d r a t u t' i
+  encode up =  encodeListLen 7
+            <> encode (U.upBlockVersion up)
+            <> encode (U.upBlockVersionMod up)
+            <> encode (U.upSoftwareVersion up)
+            <> encode (U.upData up)
+            <> encode (U.upAttributes up)
+            <> encode (U.upFrom up)
+            <> encode (U.upSignature up)
+  decode = do
+    enforceSize "UpdateProposal" 7
+    up <- U.mkUpdateProposal <$> decode
+                             <*> decode
+                             <*> decode
+                             <*> decode
+                             <*> decode
+                             <*> decode
+                             <*> decode
+    case up of
+      Left e  -> fail e
+      Right p -> pure p
 
 deriveSimpleBi ''U.UpdateProposalToSign [
     Cons 'U.UpdateProposalToSign [
@@ -118,35 +114,24 @@ deriveSimpleBi ''U.VoteState [
     Cons 'U.NegativeRevote []]
 
 instance Bi a => Bi (U.PrevValue a) where
-    sizeNPut = labelS "PrevValue" $
-        convertToSizeNPut $ \case
-            U.PrevValue v -> putWord8S 2 <> putS v
-            U.NoExist     -> putWord8S 3
-    get = label "PrevValue" $ getWord8 >>= \case
-        2 -> U.PrevValue <$> get
-        3 -> pure U.NoExist
-        x -> fail $ "get@PrevValue: invalid tag: " <> show x
+  encode (U.PrevValue a) = encodeListLen 1 <> encode a
+  encode U.NoExist       = encodeListLen 0
+  decode = do
+    len <- decodeListLen
+    case len of
+      1 -> U.PrevValue <$> decode
+      0 -> pure U.NoExist
+      _ -> fail $ "decode@PrevValue: invalid len: " <> show len
 
 deriveSimpleBi ''U.USUndo [
     Cons 'U.USUndo [
-        Field [| U.unChangedBV
-                     :: HashMap BlockVersion
-                          (U.PrevValue U.BlockVersionState)      |],
-        Field [| U.unLastAdoptedBV
-                     :: Maybe BlockVersion                       |],
-        Field [| U.unChangedProps
-                     :: HashMap U.UpId
-                          (U.PrevValue U.ProposalState)          |],
-        Field [| U.unChangedSV
-                     :: HashMap ApplicationName
-                          (U.PrevValue NumSoftwareVersion)       |],
-        Field [| U.unChangedConfProps
-                     :: HashMap SoftwareVersion
-                          (U.PrevValue U.ConfirmedProposalState) |],
-        Field [| U.unPrevProposers
-                     :: Maybe (HashSet StakeholderId)            |],
-        Field [| U.unSlottingData
-                     :: Maybe SlottingData                       |]
+        Field [| U.unChangedBV :: HashMap BlockVersion (U.PrevValue U.BlockVersionState)                |],
+        Field [| U.unLastAdoptedBV :: Maybe BlockVersion                                                |],
+        Field [| U.unChangedProps :: HashMap U.UpId (U.PrevValue U.ProposalState)                       |],
+        Field [| U.unChangedSV :: HashMap ApplicationName (U.PrevValue NumSoftwareVersion)              |],
+        Field [| U.unChangedConfProps :: HashMap SoftwareVersion (U.PrevValue U.ConfirmedProposalState) |],
+        Field [| U.unPrevProposers :: Maybe (HashSet StakeholderId)                                     |],
+        Field [| U.unSlottingData :: Maybe SlottingData                                                 |]
     ]]
 
 deriveSimpleBi ''U.UpsExtra [

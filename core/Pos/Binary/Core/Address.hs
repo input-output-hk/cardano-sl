@@ -3,16 +3,13 @@ module Pos.Binary.Core.Address () where
 
 import           Universum
 
-import           Data.Default        (def)
-import           Data.Digest.CRC32   (CRC32 (..), crc32)
-import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
-                                      convertToSizeNPut, encodeWithS, getBytes,
-                                      getSmallWithLength, getWord8, label, labelS,
-                                      putBytesS, putField, putS, putSmallWithLengthS,
-                                      putWord8S)
+import           Data.Digest.CRC32   (CRC32 (..))
 import           Pos.Binary.Crypto   ()
+import           Data.Default        (def)
+import           Data.Word           (Word8)
+import           Pos.Binary.Class    (Bi (..), serialize', deserialize', encodeListLen, enforceSize)
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
-import           Pos.Data.Attributes (getAttributes, putAttributesS)
+import           Pos.Data.Attributes (Attributes, encodeAttributes, decodeAttributes)
 
 {- NOTE: Address serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,59 +41,41 @@ backwards-compatible with and so we could special-case those types of
 addresses and save a byte).
 -}
 
--- | Encode everything in an address except for CRC32
-sizeNPutAddressIncomplete :: (Size Address, Address -> Poke ())
-sizeNPutAddressIncomplete = convertToSizeNPut toBi
-  where
-    toBi :: Address -> PokeWithSize ()
-    toBi = \case
-        -- It's important that we use 'putWithTag' for all branches.
-        -- See the note above.
-        PubKeyAddress keyHash attrs ->
-            putWithTag 0 $
-                putS keyHash <>
-                putAttributesS addrToList attrs
-        ScriptAddress scrHash ->
-            putWithTag 1 $ putS scrHash
-        RedeemAddress keyHash ->
-            putWithTag 2 $ putS keyHash
-        UnknownAddressType t bs ->
-            -- It's important that it's 'putBytesS' and not just 'putS'.
-            -- See the note above.
-            putWithTag t $ putBytesS bs
-
-    -- | Put tag, then length of X, then X itself
-    putWithTag :: Word8 -> PokeWithSize () -> PokeWithSize ()
-    putWithTag t x = putWord8S t <> putSmallWithLengthS x
-
-    addrToList :: AddrPkAttrs -> [(Word8, PokeWithSize ())]
-    addrToList = \case
-        AddrPkAttrs Nothing -> []
-        AddrPkAttrs (Just path) -> [(0, putS path)]
-
--- | Decode everything except for CRC32
-getAddressIncomplete :: Peek Address
-getAddressIncomplete = do
-    tag <- getWord8
-    getSmallWithLength $ \len -> case tag of
-        0 -> do
-            let mapper 0 x = Just $ get <&> \a -> x {addrPkDerivationPath = Just a}
-                mapper _ _ = Nothing
-            PubKeyAddress <$> get <*> getAttributes mapper Nothing def
-        1 -> ScriptAddress <$> get
-        2 -> RedeemAddress <$> get
-        t -> UnknownAddressType t <$> getBytes (fromIntegral len)
-
 instance CRC32 Address where
-    crc32Update seed = crc32Update seed . encodeWithS sizeNPutAddressIncomplete
+    crc32Update seed = crc32Update seed . serialize'
+
+----------------------------------------
+
+instance Bi (Attributes AddrPkAttrs) where
+    encode = encodeAttributes [(0, serialize' . addrPkDerivationPath)]
+    decode = decodeAttributes def $ \n v acc -> case n of
+        0 -> Just $ acc { addrPkDerivationPath = deserialize' v }
+        _ -> Nothing
 
 instance Bi Address where
-    sizeNPut = labelS "Address" $
-        sizeNPutAddressIncomplete <>
-        putField crc32
-    get = label "Address" $ do
-       addr <- getAddressIncomplete
-       checksum <- get
-       if checksum /= crc32 addr
-           then fail "Address has invalid checksum!"
-           else return addr
+    encode addr =
+        encodeListLen 2 <> encodeAddr
+      where
+        encodeAddr = case addr of
+            PubKeyAddress keyHash attrs ->
+                   encode (0 :: Word8)
+                <> encode (serialize' (keyHash, attrs))
+            ScriptAddress scrHash ->
+                   encode (1 :: Word8)
+                <> encode (serialize' scrHash)
+            RedeemAddress keyHash ->
+                   encode (2 :: Word8)
+                <> encode (serialize' keyHash)
+            UnknownAddressType t bs ->
+                   encode t
+                <> encode bs
+
+    decode = do
+        enforceSize "Address" 2
+        t  <- decode @Word8
+        bs <- decode @ByteString
+        pure $ case t of
+            0 -> uncurry PubKeyAddress $ deserialize' bs
+            1 -> ScriptAddress         $ deserialize' bs
+            2 -> RedeemAddress         $ deserialize' bs
+            _ -> UnknownAddressType t bs

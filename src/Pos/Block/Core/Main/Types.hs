@@ -25,7 +25,7 @@ import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
                                       ProxySigHeavy, ProxySigLight, SlotId (..),
                                       SoftwareVersion)
 import           Pos.Crypto          (Signature, Hash)
-import           Pos.Data.Attributes (Attributes (attrRemain))
+import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 
 -- | Represents blockchain consisting of main blocks, i. e. blocks
 -- with actual payload (transactions, SSC, update system, etc.).
@@ -94,7 +94,7 @@ instance Buildable MainExtraHeaderData where
             formattedExtra
       where
         formattedExtra
-            | null (attrRemain _mehAttributes) = mempty
+            | areAttributesKnown _mehAttributes = mempty
             | otherwise = bprint ("    attributes: "%build%"\n") _mehAttributes
 
 -- | Represents main block extra data
@@ -104,7 +104,7 @@ newtype MainExtraBodyData = MainExtraBodyData
 
 instance Buildable MainExtraBodyData where
     build (MainExtraBodyData attrs)
-        | null (attrRemain attrs) = "no extra data"
+        | areAttributesKnown attrs = "no extra data"
         | otherwise = bprint ("extra data has attributes: "%build) attrs
 
 -- | Header of generic main block.

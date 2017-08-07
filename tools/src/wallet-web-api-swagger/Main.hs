@@ -27,10 +27,10 @@ import           Data.Swagger                       (NamedSchema (..), Operation
                                                      required, title, type_, version)
 import           Data.Typeable                      (Typeable, typeRep)
 import           Data.Version                       (showVersion)
-import           Options.Applicative.Simple         (execParser, footer, fullDesc, header,
+import           Options.Applicative                (execParser, footer, fullDesc, header,
                                                      help, helper, infoOption, long,
                                                      progDesc)
-import qualified Options.Applicative.Simple         as S
+import qualified Options.Applicative                as Opt
 import           Servant                            ((:>))
 import           Servant.Multipart                  (FileData (..), MultipartForm)
 import           Servant.Swagger                    (HasSwagger (toSwagger),
@@ -52,7 +52,7 @@ import qualified Description                        as D
 showProgramInfoIfRequired :: FilePath -> IO ()
 showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
   where
-    programInfo = S.info (helper <*> versionOption) $
+    programInfo = Opt.info (helper <*> versionOption) $
         fullDesc <> progDesc "Generate Swagger specification for Wallet web API."
                  <> header   "Cardano SL Wallet web API docs generator."
                  <> footer   ("This program runs during 'cardano-sl' building on Travis CI. " <>

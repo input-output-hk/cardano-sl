@@ -56,6 +56,8 @@ import           Universum
 
 import           Control.Arrow             ((&&&))
 import           Control.Monad.Error.Class (throwError)
+import qualified Data.ByteArray            as ByteArray
+import qualified Data.ByteString           as BS
 import           Data.Default              (Default, def)
 import           Data.Hashable             (Hashable (..))
 import qualified Data.Set                  as S
@@ -63,7 +65,7 @@ import           Data.Text                 (Text, splitOn)
 import           Data.Text.Buildable       (build)
 import           Data.Time.Clock.POSIX     (POSIXTime)
 import           Data.Typeable             (Typeable)
-import           Formatting                (bprint, sformat, (%))
+import           Formatting                (bprint, int, sformat, (%))
 import qualified Formatting                as F
 import qualified Prelude
 import qualified Serokell.Util.Base16      as Base16
@@ -71,12 +73,11 @@ import           Servant.Multipart         (FileData, FromMultipart (..), lookup
                                             lookupInput)
 
 import           Pos.Aeson.Types           ()
-import           Pos.Binary.Class          (decodeFull, encode)
 import           Pos.Client.Txp.History    (TxHistoryEntry (..))
 import           Pos.Core.Coin             (mkCoin)
 import           Pos.Core.Types            (ScriptVersion)
 import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
-                                            hashHexF)
+                                            hashHexF, passphraseLength)
 import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
                                             txOutValue)
 import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
@@ -205,46 +206,34 @@ mkCTxs
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> [CWAddressMeta]    -- ^ Addresses of wallet
-    -> Bool               -- ^ Workaround for redemption txs (introduced in CSM-330)
     -> Either Text CTxs
-mkCTxs diff THEntry {..} meta wAddrMetas isRedemptionTx = do
-    ctInputAddrsNe <-
-        nonEmpty ctInputAddrs
-        `whenNothing` throwError "No input addresses in tx!"
-    let isLocalAddr = isTxLocalAddress wAddrMetas ctInputAddrsNe
-        isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
-        -- We check against `wAddrsSet` instead of using `isLocalAddr` here
-        -- because of the redeem transactions. `isLocalAddr` checks whether
-        -- the address belongs to the same _wallet_ as the _inputs_ of the
-        -- current transaction, which is never the case for redeem txs.
-        -- TODO(thatguy): since there is only one special case, perhaps we
-        -- want to consider it separately and use `isLocalAddr` in other cases.
-        -- [CSM-309] Bad for multiple-destinations transactions
-        allOutputsBelongToUs = all (`S.member` wAddrsSet) ctOutputAddrs
-        outputsForAmountCalc =
-            outputs &
-            if isRedemptionTx then identity else filter (not . isLocalTxOutput)
-        ctAmount =
-            mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
-            outputsForAmountCalc
-        mkCTx isOutgoing mbSignificantAddrs = do  -- Maybe monad starts here
-            -- Return `Nothing` if none of the significantAddrs belong to us.
-            guard $
-                maybe True
-                (\significantAddrs ->
-                    not . null $ wAddrsSet `S.intersection` S.fromList significantAddrs)
-                mbSignificantAddrs
-            return CTx {ctIsOutgoing = isOutgoing, ..}
-        -- Output addresses whose presence makes us display the transaction
-        -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
-        ctSignificantOutputAddrs =
-            ctOutputAddrs &
-            if allOutputsBelongToUs then identity else filter (not . isLocalAddr)
-        ctsOutgoing = mkCTx True $ Just ctInputAddrs
-        ctsIncoming = mkCTx False $ if isRedemptionTx then Nothing else Just ctSignificantOutputAddrs
+mkCTxs diff THEntry {..} meta wAddrMetas = do
+    let isOurTxOutput = flip S.member wAddrsSet . addressToCId . txOutAddress
+
+        ownInputs = filter isOurTxOutput inputs
+        ownOutputs = filter isOurTxOutput outputs
+
+    when (null ownInputs && null ownOutputs) $
+        throwError "Transaction is irrelevant to given wallet!"
+
+    let sumMoney = sumCoins . map txOutValue
+        outgoingMoney = sumMoney ownInputs
+        incomingMoney = sumMoney ownOutputs
+        isOutgoing = outgoingMoney >= incomingMoney
+        isIncoming = incomingMoney >= outgoingMoney
+
+        ctAmount = mkCCoin . unsafeIntegerToCoin $
+            if | isOutgoing && isIncoming -> outgoingMoney
+               | isOutgoing -> outgoingMoney - incomingMoney
+               | isIncoming -> incomingMoney - outgoingMoney
+
+        mkCTx ctIsOutgoing cond = guard cond $> CTx {..}
+        ctsOutgoing = mkCTx True isOutgoing
+        ctsIncoming = mkCTx False isIncoming
     return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
+    inputs = _thInputs
     outputs = toList $ _txOutputs _thTx
     ctInputAddrs = map addressToCId _thInputAddrs
     ctOutputAddrs = map addressToCId _thOutputAddrs
@@ -260,12 +249,22 @@ instance Show CPassPhrase where
 
 type instance OriginType CPassPhrase = PassPhrase
 
+-- These two instances nearly duplicate `instance Bi PassPhrase`
+-- in `Pos.Binary.Crypto`.
 instance FromCType CPassPhrase where
-    decodeCType (CPassPhrase text) =
-        first toText . decodeFull  =<< Base16.decode text
+    decodeCType (CPassPhrase text) = do
+        bs <- Base16.decode text
+        let bl = BS.length bs
+        -- Currently passphrase may be either 32-byte long or empty (for
+        -- unencrypted keys).
+        if bl == 0 || bl == passphraseLength
+            then pure $ ByteArray.convert bs
+            else fail . toString $ sformat
+                 ("Expected password length 0 or "%int%", not "%int)
+                 passphraseLength bl
 
 instance ToCType CPassPhrase where
-    encodeCType = CPassPhrase . Base16.encode . encode
+    encodeCType = CPassPhrase . Base16.encode . ByteArray.convert
 
 ----------------------------------------------------------------------------
 -- Wallet

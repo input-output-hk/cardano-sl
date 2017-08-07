@@ -14,7 +14,6 @@ module Pos.Ssc.GodTossing.GState
 import           Control.Lens                   ((.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph            (hoist)
-import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Tagged                    (Tagged (..))
 import           Formatting                     (build, sformat, (%))
@@ -32,7 +31,6 @@ import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.DB          as DB
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
-import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStakes, PureToss,
                                                  TossVerFailure (..), applyGenesisBlock,
@@ -90,12 +88,8 @@ instance SscGStateClass SscGodTossing where
 loadGlobalState :: (MonadDBRead m, WithLogger m) => m GtGlobalState
 loadGlobalState = do
     logDebug "Loading SSC global state"
-    DB.getGtGlobalStateMaybe >>= \case
-        Just gs -> gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
-        Nothing -> do
-          let vcd = VCD.fromList . toList $ genesisCertificates
-          logInfo $ "GodTossing state not found in database, use genesis certificates"
-          pure $ def {_gsVssCertificates = vcd}
+    gs <- DB.getGtGlobalState
+    gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
 
 dumpGlobalState :: GtGlobalState -> [SomeBatchOp]
 dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch

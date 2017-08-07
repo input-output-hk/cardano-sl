@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Pos.DHT.Workers
        ( DhtWorkMode
@@ -8,19 +9,19 @@ module Pos.DHT.Workers
 import           Universum
 
 import qualified Data.ByteString.Lazy       as BSL
-import qualified Data.Store                 as Store
 import           Formatting                 (sformat, (%))
-import           Mockable                   (Delay, Fork, Mockable)
+import           Mockable                   (Async, Catch, Delay, Fork, Mockable)
 import           Network.Kademlia           (takeSnapshot)
 import           System.Wlog                (WithLogger, logNotice)
 
+import           Pos.Binary.Class           (serialize)
 import           Pos.Binary.Infra.DHTModel  ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
-import           Pos.Discovery.Class        (MonadDiscovery)
+import           Pos.KnownPeers             (MonadFormatPeers, MonadKnownPeers)
 import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Shutdown               (HasShutdownContext)
@@ -31,20 +32,24 @@ type DhtWorkMode ctx m =
     , MonadSlots m
     , MonadIO m
     , MonadMask m
+    , Mockable Async m
     , Mockable Fork m
     , Mockable Delay m
+    , Mockable Catch m
     , MonadRecoveryInfo m
     , MonadReader ctx m
+    , MonadKnownPeers m
+    , MonadFormatPeers m
     , HasReportingContext ctx
     , HasShutdownContext ctx
-    , MonadDiscovery m
     )
 
 dhtWorkers
     :: ( DhtWorkMode ctx m
        )
     => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-dhtWorkers kademliaInst = first pure (dumpKademliaStateWorker kademliaInst)
+dhtWorkers kademliaInst@KademliaDHTInstance {..} = mconcat
+    [ first pure (dumpKademliaStateWorker kademliaInst) ]
 
 dumpKademliaStateWorker
     :: ( DhtWorkMode ctx m
@@ -57,6 +62,8 @@ dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
-        liftIO . BSL.writeFile dumpFile . BSL.fromStrict $ Store.encode snapshot
+        case dumpFile of
+            Just fp -> liftIO . BSL.writeFile fp . serialize $ snapshot
+            Nothing -> return ()
   where
     isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0

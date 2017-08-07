@@ -42,17 +42,14 @@ import           Pos.Block.Core                (BlockHeader)
 import           Pos.Block.RetrievalQueue      (BlockRetrievalQueue,
                                                 BlockRetrievalQueueTag)
 import           Pos.Block.Slog.Types          (HasSlogContext (..), SlogContext (..))
-import           Pos.Communication.Relay       (HasPropagationFlag (..),
-                                                HasPropagationQueue (..),
-                                                RelayPropagationQueue)
-import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (GenesisStakeholders (..),
                                                 HasPrimaryKey (..), HeaderHash, Timestamp)
-import           Pos.Discovery                 (DiscoveryContextSum,
-                                                HasDiscoveryContextSum (..))
+import           Pos.DHT.Real.Types            (KademliaDHTInstance)
+import           Pos.DHT.Real.Param            (KademliaParams)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
+import           Pos.Network.Types             (NetworkConfig (..))
 import           Pos.Reporting.MemState        (HasLoggerConfig (..),
                                                 HasReportServers (..),
                                                 HasReportingContext (..),
@@ -103,8 +100,6 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for the update system
     , ncLrcContext          :: !LrcContext
     -- ^ Context needed for LRC
-    , ncDiscoveryContext    :: !DiscoveryContextSum
-    -- ^ Context needed for Discovery.
     , ncSlottingVar         :: !(Timestamp, TVar SlottingData)
     -- ^ Data necessary for 'MonadSlotsData'.
     , ncSlottingContext     :: !SlottingContextSum
@@ -136,9 +131,6 @@ data NodeContext ssc = NodeContext
     , ncProgressHeader      :: !(ProgressHeader ssc)
     -- ^ Header of the last block that was downloaded in retrieving
     -- queue. Is needed to show smooth prorgess on the frontend.
-    , ncInvPropagationQueue :: !RelayPropagationQueue
-    -- ^ Queue is used in Relay framework,
-    -- it stores inv messages for earlier received data.
     , ncLoggerConfig        :: !LoggerConfig
     -- ^ Logger config, as taken/read from CLI.
     , ncNodeParams          :: !NodeParams
@@ -149,6 +141,7 @@ data NodeContext ssc = NodeContext
     -- ^ Settings for global Txp.
     , ncConnectedPeers      :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
+    , ncNetworkConfig       :: !(NetworkConfig KademliaDHTInstance)
     }
 
 makeLensesWith postfixLFields ''NodeContext
@@ -161,9 +154,6 @@ instance HasNodeContext ssc (NodeContext ssc) where
 
 instance HasSscContext ssc (NodeContext ssc) where
     sscContext = ncSscContext_L
-
-instance HasDiscoveryContextSum (NodeContext ssc) where
-    discoveryContextSum = ncDiscoveryContext_L
 
 instance HasSlottingVar (NodeContext ssc) where
     slottingTimestamp = ncSlottingVar_L . _1
@@ -220,17 +210,14 @@ instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = ncNodeParams_L . lensOf @GenesisUtxo
 
+instance HasLens GenesisStakeholders (NodeContext ssc) GenesisStakeholders where
+    lensOf = ncNodeParams_L . lensOf @GenesisStakeholders
+
 instance HasReportServers (NodeContext ssc) where
     reportServers = ncNodeParams_L . reportServers
 
 instance HasLoggerConfig (NodeContext ssc) where
     loggerConfig = ncLoggerConfig_L
-
-instance HasPropagationFlag (NodeContext ssc) where
-    propagationFlag = ncNodeParams_L . propagationFlag
-
-instance HasPropagationQueue (NodeContext ssc) where
-    propagationQueue = ncInvPropagationQueue_L
 
 instance HasPrimaryKey (NodeContext ssc) where
     primaryKey = ncNodeParams_L . primaryKey
@@ -246,13 +233,8 @@ instance HasReportingContext (NodeContext ssc) where
             set reportServers (rc ^. reportServers) .
             set loggerConfig  (rc ^. loggerConfig)
 
-instance HasLens RelayContext (NodeContext ssc) RelayContext where
-    lensOf = lens getter (flip setter)
-      where
-        getter nc =
-            RelayContext
-                (nc ^. propagationFlag)
-                (nc ^. propagationQueue)
-        setter rc =
-            set propagationFlag (rc ^. propagationFlag) .
-            set propagationQueue (rc ^. propagationQueue)
+instance HasLens (NetworkConfig KademliaParams) (NodeContext scc) (NetworkConfig KademliaParams) where
+    lensOf = ncNodeParams_L . lensOf @(NetworkConfig KademliaParams)
+
+instance HasLens (NetworkConfig KademliaDHTInstance) (NodeContext scc) (NetworkConfig KademliaDHTInstance) where
+    lensOf = ncNetworkConfig_L

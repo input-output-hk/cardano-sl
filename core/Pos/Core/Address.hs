@@ -53,7 +53,7 @@ import           Pos.Crypto.SafeSigning (PassPhrase)
 import           Pos.Data.Attributes    (mkAttributes)
 
 instance Bi Address => Hashable Address where
-    hashWithSalt s = hashWithSalt s . Bi.encode
+    hashWithSalt s = hashWithSalt s . Bi.serialize'
 
 -- | Currently we gonna use Bitcoin alphabet for representing addresses in
 -- base58
@@ -61,7 +61,7 @@ addrAlphabet :: Alphabet
 addrAlphabet = bitcoinAlphabet
 
 addrToBase58 :: Bi Address => Address -> ByteString
-addrToBase58 = encodeBase58 addrAlphabet . Bi.encode
+addrToBase58 = encodeBase58 addrAlphabet . Bi.serialize'
 
 instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
@@ -189,7 +189,7 @@ unsafeAddressHash :: Bi a => a -> AddressHash b
 unsafeAddressHash = AbstractHash . secondHash . firstHash
   where
     firstHash :: Bi a => a -> Digest SHA3_256
-    firstHash = CryptoHash.hash . Bi.encode
+    firstHash = CryptoHash.hash . Bi.serialize'
     secondHash :: Digest SHA3_256 -> Digest Blake2b_224
     secondHash = CryptoHash.hash
 

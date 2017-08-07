@@ -96,7 +96,7 @@ startPendingTxsResubmitter
     :: MonadPendings m
     => SendActions m -> m ()
 startPendingTxsResubmitter sendActions =
-    onNewSlot False $ \curSlot -> do
+    fork . onNewSlot False $ \curSlot -> do
         ptxs <- getPendingTxs
         let ptxsToCheck =
                 flip fromMaybe =<< topsortTxs wHash $

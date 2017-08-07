@@ -46,39 +46,6 @@ instance Message MsgSubscribe where
     messageCode _ = 13
     formatMessage _ = "Subscribe"
 
-{-
-instance MessagePart TxMsgContents where
-    pMessageName _ = varIntMName 0
-
--- | Instance for `UpdateProposal`
-instance MessagePart (UpdateProposal, [UpdateVote]) where
-    pMessageName _ = varIntMName 1
-
--- | Instance for `UpdateVote`
-instance MessagePart UpdateVote where
-    pMessageName _ = varIntMName 2
-
-instance MessagePart MCCommitment where
-    pMessageName _ = varIntMName 3
-
-instance MessagePart MCOpening where
-    pMessageName _ = varIntMName 4
-
-instance MessagePart MCShares where
-    pMessageName _ = varIntMName 5
-
-instance MessagePart MCVssCertificate where
-    pMessageName _ = varIntMName 6
-
-instance MessagePart ProxySKLight where
-    pMessageName _ = varIntMName 7
-
-instance MessagePart ProxySKHeavy where
-    pMessageName _ = varIntMName 8
-
-instance MessagePart ProxySKLightConfirmation where
-    pMessageName _ = varIntMName 9
--}
 
 instance Message k => Message (ReqMsg (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)
@@ -119,7 +86,6 @@ instance Message (InvMsg TxMsgContents) where
 
 instance Message (InvOrData key TxMsgContents) where
     messageCode _ = 36
-    formatMessage _ = "Inventory/Data"
 
 
 

@@ -20,8 +20,8 @@ data PtxCondition
     deriving (Eq, Show)
 
 data PendingTx = PendingTx
-    { ptxTxAux :: TxAux
-    , ptxTxId  :: TxId
+    { ptxTxId  :: TxId  -- for the sake of optimization
+    , ptxTxAux :: TxAux
     , ptxCond  :: PtxCondition
     } deriving (Eq)
 

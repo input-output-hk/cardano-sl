@@ -91,7 +91,8 @@ import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
-import           Pos.Txp                          (TxFee (..))
+import           Pos.Txp                          (PendingTx (..),
+                                                   PtxCondition (PtxApplying), TxFee (..))
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..),
                                                    TxOutDistribution)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
@@ -145,12 +146,12 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnec
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
-                                                   addOnlyNewTxMeta, addUpdate,
-                                                   addWAddress, closeState, createAccount,
-                                                   createWallet, getAccountIds,
-                                                   getAccountMeta, getAccountWAddresses,
-                                                   getHistoryCache, getNextUpdate,
-                                                   getProfile, getTxMeta,
+                                                   addOnlyNewPendingTx, addOnlyNewTxMeta,
+                                                   addUpdate, addWAddress, closeState,
+                                                   createAccount, createWallet,
+                                                   getAccountIds, getAccountMeta,
+                                                   getAccountWAddresses, getHistoryCache,
+                                                   getNextUpdate, getProfile, getTxMeta,
                                                    getWalletAddresses, getWalletMeta,
                                                    getWalletPassLU, isCustomAddress,
                                                    openState, removeAccount,
@@ -634,7 +635,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
         let dstAddrs = txOutAddress . toaOut <$> toList outputs
         withSafeSigners passphrase sks $ \ss -> do
             let hdwSigner = NE.zip ss srcAddrs
-            TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
+            txAux@TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
                 submitMTx sendActions hdwSigner (toList na) outputs
             logInfo $
                 sformat ("Successfully spent money from "%
@@ -645,6 +646,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
             -- TODO: this should be removed in production
             let txHash    = hash tx
                 srcWallet = getMoneySourceWallet moneySource
+            addOnlyNewPendingTx $ PendingTx txHash txAux PtxApplying
             ts <- Just <$> getCurrentTimestamp
             ctxs <- addHistoryTx srcWallet False $
                 THEntry txHash tx inpTxOuts Nothing (toList srcAddrs) dstAddrs ts
@@ -1146,7 +1148,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCAccountIdOrFail cAccId
-    -- new redemption wallet
+    -- redemption account
     _ <- fixingCachedAccModifier getAccount accId
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
@@ -1155,11 +1157,13 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     -- Need to talk to @martoon about this. Discovered in CSM-330.
     dstAddr <- decodeCIdOrFail $ cwamId dstCWAddrMeta
     na <- getPeers
-    (TxAux {..}, redeemAddress, redeemBalance) <-
+    (txAux@TxAux {..}, redeemAddress, redeemBalance) <-
         rewrapTxError "Cannot send redemption transaction" $
         submitRedemptionTx sendActions redeemSK (toList na) dstAddr
-    -- add redemption transaction to the history of new wallet
+    let txHash = hash taTx
     let txInputs = [TxOut redeemAddress redeemBalance]
+    addOnlyNewPendingTx $ PendingTx txHash txAux PtxApplying
+    -- add redemption transaction to the history of wallet
     ts <- Just <$> getCurrentTimestamp
     ctxs <- addHistoryTx (aiWId accId) True $
         THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts

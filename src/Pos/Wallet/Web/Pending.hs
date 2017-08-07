@@ -19,11 +19,10 @@ import           Pos.Core.Slotting    (flattenSlotId)
 import           Pos.Crypto           (WithHash (..))
 import           Pos.Discovery.Class  (getPeers)
 import           Pos.Slotting         (getLastKnownSlotDuration, onNewSlot)
-import           Pos.Txp.Core         (TxAux (..), topsortTxs)
-import           Pos.Txp.MemState     (getMemPool)
-import           Pos.Txp.Pending      (PendingTx (..), PtxCondition (..), ptxCreationSlot)
-import           Pos.Txp.Toil         (ToilVerFailure (..), processTx, runDBToil,
-                                       runToilTLocal)
+import           Pos.Txp              (PendingTx (..), PtxCondition (..),
+                                       ToilVerFailure (..), TxAux (..), getMemPool,
+                                       processTx, ptxCreationSlot, runDBToil,
+                                       runToilTLocal, topsortTxs)
 import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.State (getPendingTxs, setPtxCondition)
 

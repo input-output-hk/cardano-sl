@@ -86,7 +86,7 @@ instance Message (InvMsg TxMsgContents) where
 
 instance Message (InvOrData key TxMsgContents) where
     messageCode _ = 36
-
+    formatMessage _ = "TxMsgContents"
 
 
 instance Message (ReqMsg (UpdateProposal, [UpdateVote])) where

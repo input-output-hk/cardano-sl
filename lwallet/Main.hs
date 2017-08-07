@@ -24,8 +24,8 @@ import           Data.Time.Units                  (convertUnit, toMicroseconds)
 import           Formatting                       (build, int, sformat, shown, stext,
                                                    string, (%))
 import           Mockable                         (Mockable, Production, SharedAtomic,
-                                                   SharedAtomicT, bracket, currentTime,
-                                                   delay, forConcurrently, concurrently,
+                                                   SharedAtomicT, bracket, concurrently,
+                                                   currentTime, delay, forConcurrently,
                                                    modifySharedAtomic, newSharedAtomic,
                                                    runProduction)
 import           Network.Transport.Abstract       (Transport, hoistTransport)
@@ -51,6 +51,7 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    submitVote, txRelays, usRelays, worker)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
+import           Pos.Core.Coin                    (subCoin)
 import           Pos.Core.Types                   (Timestamp (..), mkCoin)
 import           Pos.Crypto                       (Hash, SecretKey, SignTag (SignUSVote),
                                                    emptyPassphrase, encToPublic,
@@ -59,9 +60,10 @@ import           Pos.Crypto                       (Hash, SecretKey, SignTag (Sig
                                                    safeToPublic, toPublic, unsafeHash,
                                                    withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
-import           Pos.Genesis                      (devAddrDistr, devStakesDistr,
-                                                   genesisDevSecretKeys, genesisUtxo,
-                                                   genesisUtxoProduction)
+import           Pos.Genesis                      (StakeDistribution (..), devAddrDistr,
+                                                   devStakesDistr, genesisDevSecretKeys,
+                                                   genesisUtxo, genesisUtxoProduction,
+                                                   stakeDistribution)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    bracketTransport, loggerBracket)
 import           Pos.Network.Types                (MsgType (..), Origin (..))
@@ -98,8 +100,9 @@ import           System.Wlog.CanLog
 
 data CmdCtx =
   CmdCtx
-    { skeys :: [SecretKey]
-    , na    :: [NodeId]
+    { skeys             :: [SecretKey]
+    , na                :: [NodeId]
+    , genesisStakeDistr :: StakeDistribution
     }
 
 helpMsg :: Text
@@ -165,6 +168,7 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
 runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) CmdCtx{..} = do
     let nNeighbours = length na
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
+        keysToSend = zip skeys (stakeDistribution genesisStakeDistr)
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
@@ -177,20 +181,26 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
         liftIO $ T.hPutStrLn h "time,txCount,txType"
         txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
-        logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length skeys)
-        forM_ (zip skeys [0..]) $ \(key, n) -> do
-            let txOut = TxOut {
+        logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
+        forM_ (zip keysToSend [0..]) $ \((key, balance), n) -> do
+            let txOut1 = TxOut {
                     txOutAddress = makePubKeyAddress (toPublic key),
                     txOutValue = mkCoin 1
                     }
+                txOut2 = TxOut {
+                    txOutAddress = makePubKeyAddress (toPublic key),
+                    txOutValue =
+                        fromMaybe (error $ "zero balance for key #" <> show n) $
+                          balance `subCoin` mkCoin 1
+                    }
+                txOuts = TxOutAux txOut1 [] :| [TxOutAux txOut2 []]
             neighbours <- case sendMode of
                     SendNeighbours -> return na
                     SendRoundRobin -> return [na !! (n `mod` nNeighbours)]
                     SendRandom -> do
                         i <- liftIO $ randomRIO (0, nNeighbours - 1)
                         return [na !! i]
-            atomically $ writeTQueue txQueue (key, txOut, neighbours)
-
+            atomically $ writeTQueue txQueue (key, txOuts, neighbours)
 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
@@ -215,9 +225,9 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                       modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) ->
                           return (TxCount submitted failed (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
-                      Just (key, txOut, neighbours) -> do
+                      Just (key, txOuts, neighbours) -> do
                           utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic (fakeSigner key)
-                          tx <- createTx utxo (fakeSigner key) (one (TxOutAux txOut []))
+                          tx <- createTx utxo (fakeSigner key) txOuts
                           case tx of
                               Left err -> addTxFailed tpsMVar >> logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
                               Right tx -> do
@@ -366,19 +376,14 @@ evalCommands sa cmdCtx = do
         Left err   -> putStrLn err >> evalCommands sa cmdCtx
         Right cmd_ -> evalCmd sa cmd_ cmdCtx
 
-runWalletRepl :: MonadWallet ssc ctx m => WalletOptions -> Worker m
-runWalletRepl wo sa = do
-    let na = woPeers wo
+runWalletRepl :: MonadWallet ssc ctx m => CmdCtx -> Worker m
+runWalletRepl cmdCtx sa = do
     putText "Welcome to Wallet CLI Node"
-    let keysPool = if isDevelopment then genesisDevSecretKeys else []
-    evalCmd sa Help (CmdCtx keysPool na)
+    evalCmd sa Help cmdCtx
 
-runWalletCmd :: MonadWallet ssc ctx m => WalletOptions -> Text -> Worker m
-runWalletCmd wo str sa = do
-    let na = woPeers wo
+runWalletCmd :: MonadWallet ssc ctx m => CmdCtx -> Text -> Worker m
+runWalletCmd cmdCtx str sa = do
     let strs = T.splitOn "," str
-    let keysPool = if isDevelopment then genesisDevSecretKeys else []
-    let cmdCtx = CmdCtx keysPool na
     for_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
@@ -394,7 +399,7 @@ runWalletCmd wo str sa = do
 
 main :: IO ()
 main = do
-    opts@WalletOptions {..} <- getWalletOptions
+    WalletOptions {..} <- getWalletOptions
     --filePeers <- maybe (return []) CLI.readPeersFile
     --                   (CLI.dhtPeersFile woCommonArgs)
     let allPeers = woPeers -- ++ filePeers
@@ -444,10 +449,16 @@ main = do
 
             worker' specs w = worker specs $ \sa -> w (addLogging sa)
 
+            cmdCtx = CmdCtx
+                      { skeys = if isDevelopment then genesisDevSecretKeys else []
+                      , na = woPeers
+                      , genesisStakeDistr = devStakeDistr
+                      }
+
             plugins :: ([ WorkerSpec LightWalletMode ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl    -> worker' runCmdOuts $ runWalletRepl opts
-                Cmd cmd -> worker' runCmdOuts $ runWalletCmd opts cmd
+                Repl    -> worker' runCmdOuts $ runWalletRepl cmdCtx
+                Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmdCtx cmd
                 Serve __webPort __webDaedalusDbPath -> error "light wallet server is disabled"
                 -- Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                 --     walletServeWebLite sendActions webDaedalusDbPath False webPort

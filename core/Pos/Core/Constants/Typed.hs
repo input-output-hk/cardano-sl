@@ -56,10 +56,12 @@ staticSysStart = Timestamp staticSysStartRaw
 staticBlkSecurityParam :: BlockCount
 staticBlkSecurityParam = fromIntegral $ ccK coreConfig
 
--- | Security parameter expressed in number of slots. It uses chain
--- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.
-slotSecurityParam :: SlotCount
-slotSecurityParam = fromIntegral $ 2 * ccK coreConfig
+-- | This function computes security parameter expressed in number of
+-- slots. It uses chain quality property. It takes security parameter
+-- expressed in number of blocks as an argument. It's basically
+-- @blkSecurityParam / chainQualityThreshold@.
+slotSecurityParam :: BlockCount -> SlotCount
+slotSecurityParam = fromIntegral . (2 *)
 
 -- We don't have a special newtype for it, so it can be any
 -- 'Fractional'. I think adding newtype here would be overkill
@@ -71,12 +73,14 @@ slotSecurityParam = fromIntegral $ 2 * ccK coreConfig
 -- | Minimal chain quality (number of blocks divided by number of
 -- slots) necessary for security of the system.
 chainQualityThreshold :: Fractional fractional => fractional
-chainQualityThreshold =
-    realToFrac staticBlkSecurityParam / realToFrac slotSecurityParam
+chainQualityThreshold = realToFrac k / realToFrac (slotSecurityParam k)
+  where
+    -- Doesn't really matter, it's just ½.
+    k = staticBlkSecurityParam
 
--- | Number of slots inside one epoch.
-epochSlots :: SlotCount
-epochSlots = fromIntegral $ 10 * ccK coreConfig
+-- | Number of slots inside one epoch (depends on security parameter).
+epochSlots :: BlockCount -> SlotCount
+epochSlots blkSecurityParam = fromIntegral $ 10 * blkSecurityParam
 
 ----------------------------------------------------------------------------
 -- Genesis

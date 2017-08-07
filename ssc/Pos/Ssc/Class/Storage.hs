@@ -10,12 +10,14 @@ module Pos.Ssc.Class.Storage
        , SscVerifier
        ) where
 
+import           Universum
+
 import           Control.Monad.Except (MonadError)
 import           Data.Tagged          (Tagged)
 import           System.Wlog          (WithLogger)
-import           Universum
 
-import           Pos.Core             (BlockVersionData, EpochIndex, SharedSeed)
+import           Pos.Core             (BlockVersionData, EpochIndex, HasCoreConstants,
+                                       SharedSeed)
 import           Pos.DB               (MonadDBRead, SomeBatchOp)
 import           Pos.Lrc.Types        (RichmenStakes)
 import           Pos.Ssc.Class.Types  (Ssc (..), SscBlock)
@@ -28,16 +30,22 @@ import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 type SscGlobalQuery ssc a =
     forall m . (MonadReader (SscGlobalState ssc) m, WithLogger m) => m a
 
-type SscGlobalUpdate ssc a =
-    forall m . (MonadState (SscGlobalState ssc) m, WithLogger m) => m a
+type SscGlobalUpdate ssc a
+     = forall ctx m. ( MonadState (SscGlobalState ssc) m
+                     , WithLogger m
+                     , MonadReader ctx m
+                     , HasCoreConstants ctx
+                     ) => m a
 
-type SscVerifyMode ssc m =
+type SscVerifyMode ssc ctx m =
     ( MonadState (SscGlobalState ssc) m
     , WithLogger m
     , MonadError (SscVerifyError ssc) m
+    , MonadReader ctx m
+    , HasCoreConstants ctx
     )
 
-type SscVerifier ssc a = forall m . SscVerifyMode ssc m => m a
+type SscVerifier ssc a = forall ctx m . SscVerifyMode ssc ctx m => m a
 
 class Ssc ssc => SscGStateClass ssc where
     -- | Load global state from DB by recreating it from recent blocks.

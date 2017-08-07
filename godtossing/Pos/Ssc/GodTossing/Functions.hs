@@ -7,36 +7,33 @@ module Pos.Ssc.GodTossing.Functions
        , hasVssCertificate
 
        -- * GtPayload
-       , sanityChecksGtPayload
+       , verifyGTPayloadEpoch
 
        -- * VSS
        , vssThreshold
        , getStableCertsPure
        ) where
 
-import           Control.Lens                    (to)
-import           Control.Monad.Except            (MonadError (throwError))
+import           Universum
+
+import           Control.Monad.Except            (MonadError)
 import qualified Data.HashMap.Strict             as HM
 import           Serokell.Util.Verify            (isVerSuccess)
-import           Universum
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
-import           Pos.Core                        (EpochIndex (..), IsMainHeader,
-                                                  SlotId (..), StakeholderId, headerSlotL)
+import           Pos.Core                        (BlockCount, EpochIndex (..),
+                                                  StakeholderId)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Crypto                      (Threshold)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), VssCertificatesMap,
-                                                  checkCertTTL, isCommitmentId,
-                                                  isOpeningId, isSharesId,
-                                                  verifySignedCommitment)
+                                                  checkCertTTL, verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
-import           Pos.Util.Util                   (Some)
 
 ----------------------------------------------------------------------------
 -- Simple predicates for GodTossing.Types.Base
@@ -58,52 +55,36 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 -- GtPayload Part
 ----------------------------------------------------------------------------
 
--- CHECK: @sanityChecksGtPayload
--- Verify payload using header containing this payload.
---
--- For each DS datum we check:
---
---   1. Whether it's stored in the correct block (e.g. commitments have to be in
---      first 2 * blkSecurityParam blocks, etc.)
---
---   2. Whether the message itself is correct (e.g. commitment signature is
---      valid, etc.)
---
--- We also do some general sanity checks.
-sanityChecksGtPayload
+-- | Verify GodTossing payload for the given epoch.
+verifyGTPayloadEpoch
     :: MonadError TossVerFailure m
-    => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
-sanityChecksGtPayload eoh payload = case payload of
+    => EpochIndex -> GtPayload -> m ()
+verifyGTPayloadEpoch epoch payload = case payload of
     CommitmentsPayload comms certs -> do
-        whenHeader eoh isComm
+        -- whenHeader eoh isComm
         commChecks comms
         certsChecks certs
     OpeningsPayload        _ certs -> do
-        whenHeader eoh isOpen
+        -- whenHeader eoh isOpen
         certsChecks certs
     SharesPayload          _ certs -> do
-        whenHeader eoh isShare
+        -- whenHeader eoh isShare
         certsChecks certs
     CertificatesPayload      certs -> do
-        whenHeader eoh isOther
+        -- whenHeader eoh isOther
         certsChecks certs
   where
-    whenHeader (Left _) _       = pass
-    whenHeader (Right header) f = f $ header ^. headerSlotL
+    -- FIXME [CSL-1436] Restore this checks (they should be in Toss now)
+    -- whenHeader (Left _) _       = pass
+    -- whenHeader (Right header) f = f $ header ^. headerSlotL
 
-    epochId = either identity (view $ headerSlotL . to siEpoch) eoh
-    isComm  slotId = unless (isCommitmentId slotId) $ throwError $ NotCommitmentPhase slotId
-    isOpen  slotId = unless (isOpeningId slotId) $ throwError $ NotOpeningPhase slotId
-    isShare slotId = unless (isSharesId slotId) $ throwError $ NotSharesPhase slotId
-    isOther slotId = unless (all not $
-                      map ($ slotId) [isCommitmentId, isOpeningId, isSharesId]) $
-                      throwError $ NotIntermediatePhase slotId
+    -- isComm  slotId = unless (isCommitmentId slotId) $ throwError $ NotCommitmentPhase slotId
+    -- isOpen  slotId = unless (isOpeningId slotId) $ throwError $ NotOpeningPhase slotId
+    -- isShare slotId = unless (isSharesId slotId) $ throwError $ NotSharesPhase slotId
+    -- isOther slotId = unless (all not $
+    --                   map ($ slotId) [isCommitmentId, isOpeningId, isSharesId]) $
+    --                   throwError $ NotIntermediatePhase slotId
 
-    -- We *forbid* blocks from having commitments/openings/shares in blocks
-    -- with wrong slotId (instead of merely discarding such commitments/etc)
-    -- because it's the miner's responsibility not to include them into the
-    -- block if they're late.
-    --
     -- CHECK: For commitments specifically, we also
     --
     --   * check there are only commitments in the block
@@ -115,24 +96,23 @@ sanityChecksGtPayload eoh payload = case payload of
     commChecks commitments = do
         let checkComm =
                  isVerSuccess .
-                 (verifySignedCommitment epochId)
+                 (verifySignedCommitment epoch)
         verifyEntriesGuardM fst snd CommitmentInvalid
                             (pure . checkComm)
                             (HM.toList . getCommitmentsMap $ commitments)
 
     -- CHECK: Vss certificates checker
     --
-    --   * VSS certificates are signed properly
     --   * VSS certificates have valid TTLs
     --
     -- #checkCert
     certsChecks certs =
         verifyEntriesGuardM identity identity CertificateInvalidTTL
-                            (pure . checkCertTTL epochId)
+                            (pure . checkCertTTL epoch)
                             (toList certs)
 
 ----------------------------------------------------------------------------
--- Modern
+-- Other helpers
 ----------------------------------------------------------------------------
 
 -- | Figure out the threshold (i.e. how many secret shares would be required
@@ -140,8 +120,9 @@ sanityChecksGtPayload eoh payload = case payload of
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 
-getStableCertsPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
-getStableCertsPure epoch certs
+getStableCertsPure :: BlockCount -> EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStableCertsPure blkSecurityParam epoch certs
     | epoch == 0 = genesisCertificates
     | otherwise =
-          VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs
+        VCD.certs $
+        VCD.setLastKnownSlot (crucialSlot blkSecurityParam epoch) certs

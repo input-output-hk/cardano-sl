@@ -1,5 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.DHT.Workers
        ( DhtWorkMode
@@ -17,8 +16,8 @@ import           System.Wlog                (WithLogger, logNotice)
 import           Pos.Binary.Class           (serialize)
 import           Pos.Binary.Infra.DHTModel  ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
-import           Pos.Core.Slotting          (flattenSlotId)
-import           Pos.Core.Types             (slotIdF)
+import           Pos.Core                   (HasCoreConstants, blkSecurityParamM,
+                                             flattenSlotId, slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.KnownPeers             (MonadFormatPeers, MonadKnownPeers)
@@ -37,11 +36,12 @@ type DhtWorkMode ctx m =
     , Mockable Delay m
     , Mockable Catch m
     , MonadRecoveryInfo m
-    , MonadReader ctx m
     , MonadKnownPeers m
     , MonadFormatPeers m
+    , MonadReader ctx m
     , HasReportingContext ctx
     , HasShutdownContext ctx
+    , HasCoreConstants ctx
     )
 
 dhtWorkers
@@ -56,8 +56,9 @@ dumpKademliaStateWorker
        )
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
-dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
-    when (isTimeToDump slotId) $ recoveryCommGuard $ do
+dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId -> do
+    blkSecurityParam <- blkSecurityParamM
+    when (isTimeToDump blkSecurityParam slotId) $ recoveryCommGuard $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
@@ -66,4 +67,5 @@ dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
             Just fp -> liftIO . BSL.writeFile fp . serialize $ snapshot
             Nothing -> return ()
   where
-    isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0
+    isTimeToDump k slotId =
+        flattenSlotId k slotId `mod` kademliaDumpInterval == 0

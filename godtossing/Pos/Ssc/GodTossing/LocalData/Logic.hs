@@ -30,14 +30,16 @@ import           System.Wlog                        (WithLogger, logWarning)
 import           Pos.Binary.Class                   (biSize)
 import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
-                                                     SlotId (..), StakeholderId)
+                                                     HasCoreConstants, SlotId (..),
+                                                     StakeholderId, blkSecurityParamM)
 import           Pos.Core.Constants                 (memPoolLimitRatio)
 import           Pos.DB                             (MonadDBRead,
                                                      MonadGState (gsAdoptedBVData))
 import           Pos.Lrc.Types                      (RichmenStakes)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
-                                                     SscLocalDataClass (..))
+                                                     SscLocalDataClass (..),
+                                                     SscLocalDataTag)
 import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQuery,
                                                      sscRunLocalQuery, sscRunLocalSTM)
 import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerSharesMap,
@@ -61,6 +63,7 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
 import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
+import           Pos.Util.Util                      (HasLens (..))
 
 ----------------------------------------------------------------------------
 -- Methods from type class
@@ -77,20 +80,21 @@ instance SscLocalDataClass SscGodTossing where
 
 getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
 getLocalPayload SlotId {..} = do
-    expectedEpoch <- view ldEpoch
+    expectedEpoch <- view (lensOf @SscLocalDataTag . ldEpoch)
+    blkSecurityParam <- blkSecurityParamM
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
     isExpected <-
         if expectedEpoch == siEpoch then pure True
         else False <$ logWarning warningMsg
-    magnify' ldModifier $
-        getPayload isExpected <*> getCertificates isExpected
+    magnify' (lensOf @SscLocalDataTag . ldModifier) $
+        getPayload blkSecurityParam isExpected <*> getCertificates isExpected
   where
     warningFmt = "getLocalPayload: unexpected epoch ("%int%", stored one is "%int%")"
-    getPayload True
-        | isCommitmentIdx siSlot = CommitmentsPayload <$> view tmCommitments
-        | isOpeningIdx siSlot = OpeningsPayload <$> view tmOpenings
-        | isSharesIdx siSlot = SharesPayload <$> view tmShares
-    getPayload _ = pure CertificatesPayload
+    getPayload k True
+        | isCommitmentIdx k siSlot = CommitmentsPayload <$> view tmCommitments
+        | isOpeningIdx k siSlot = OpeningsPayload <$> view tmOpenings
+        | isSharesIdx k siSlot = SharesPayload <$> view tmShares
+    getPayload _ _ = pure CertificatesPayload
     getCertificates isExpected
         | isExpected = view tmCertificates
         | otherwise = pure mempty
@@ -124,28 +128,31 @@ sscIsDataUseful
        , MonadIO m
        , MonadSlots m
        , MonadSscMem SscGodTossing ctx m
+       , HasCoreConstants ctx
        )
     => GtTag -> StakeholderId -> m Bool
-sscIsDataUseful tag id =
-    ifM
-        (maybe False (isGoodSlotForTag tag . siSlot) <$> getCurrentSlot)
-        (evalTossInMem $ sscIsDataUsefulDo tag)
-        (pure False)
+sscIsDataUseful tag id = do
+    k <- blkSecurityParamM
+    (maybe False (isGoodSlotForTag k tag . siSlot) <$> getCurrentSlot) >>= \case
+        True -> (evalTossInMem $ sscIsDataUsefulDo tag)
+        False -> (pure False)
   where
     sscIsDataUsefulDo CommitmentMsg     = not <$> hasCommitmentToss id
     sscIsDataUsefulDo OpeningMsg        = not <$> hasOpeningToss id
     sscIsDataUsefulDo SharesMsg         = not <$> hasSharesToss id
     sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificateToss id
-    evalTossInMem
-        :: ( WithLogger m
+    evalTossInMem ::
+           ( WithLogger m
            , MonadIO m
            , MonadSscMem SscGodTossing ctx m
+           , HasCoreConstants ctx
            )
-        => TossT PureToss a -> m a
+        => TossT PureToss a
+        -> m a
     evalTossInMem action = do
         gs <- sscRunGlobalQuery ask
-        ld <- sscRunLocalQuery ask
-        let modifier = ld ^. ldModifier
+        modifier <-
+            sscRunLocalQuery $ view (lensOf @SscLocalDataTag . ldModifier)
         evalPureTossWithLogger gs $ evalTossT modifier action
 
 ----------------------------------------------------------------------------
@@ -160,6 +167,7 @@ type GtDataProcessingMode ctx m =
     , MonadSlots m
     , MonadSscMem SscGodTossing ctx m
     , MonadError TossVerFailure m
+    , HasCoreConstants ctx
     )
 
 -- | Process 'SignedCommitment' received from network, checking it against
@@ -204,10 +212,10 @@ sscProcessData
     => GtTag -> GtPayload -> m ()
 sscProcessData tag payload =
     generalizeExceptT $ do
-        getCurrentSlot >>= checkSlot
-        ld <- sscRunLocalQuery ask
+        k <- blkSecurityParamM
+        getCurrentSlot >>= checkSlot k
+        epoch <- sscRunLocalQuery $ view (lensOf @SscLocalDataTag . ldEpoch)
         bvd <- gsAdoptedBVData
-        let epoch = ld ^. ldEpoch
         getRichmenSsc epoch >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
             Just richmen -> do
@@ -217,16 +225,20 @@ sscProcessData tag payload =
                     sscProcessDataDo (epoch, richmen) bvd gs payload
   where
     generalizeExceptT action = either throwError pure =<< runExceptT action
-    checkSlot Nothing = throwError CurrentSlotUnknown
-    checkSlot (Just si@SlotId {..})
-        | isGoodSlotForTag tag siSlot = pass
+    checkSlot _ Nothing = throwError CurrentSlotUnknown
+    checkSlot k (Just si@SlotId {..})
+        | isGoodSlotForTag k tag siSlot = pass
         | CommitmentMsg <- tag = throwError $ NotCommitmentPhase si
         | OpeningMsg <- tag = throwError $ NotOpeningPhase si
         | SharesMsg <- tag = throwError $ NotSharesPhase si
         | otherwise = pass
 
-sscProcessDataDo
-    :: (MonadState GtLocalData m, WithLogger m)
+sscProcessDataDo ::
+       ( MonadState GtLocalData m
+       , WithLogger m
+       , MonadReader ctx m
+       , HasCoreConstants ctx
+       )
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> GtGlobalState

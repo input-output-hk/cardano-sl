@@ -19,16 +19,17 @@ import           Pos.Binary.Class                      (Bi)
 import           Pos.Binary.Crypto                     ()
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
-import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Communication.Limits.Types        (MessageLimited)
 import           Pos.Communication.MessagePart         (MessagePart)
 import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         InvReqDataParams (..),
                                                         MempoolParams (NoMempool),
                                                         Relay (..), ReqMsg)
+import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Core                              (StakeholderId, addressHash)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
+import           Pos.Ssc.Class.LocalData               (SscLocalDataTag)
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Core               (getCertId, getCommitmentsMap)
 import           Pos.Ssc.GodTossing.LocalData          (ldModifier, sscIsDataUseful,
@@ -45,6 +46,7 @@ import           Pos.Ssc.GodTossing.Types.Message      (MCCommitment (..), MCOpe
                                                         MCShares (..),
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)
+import           Pos.Util.Util                         (lensOf)
 
 instance GtMessageConstraints => SscListenersClass SscGodTossing where
     sscRelays = Tagged
@@ -108,24 +110,27 @@ sscRelay
     -> Relay m
 sscRelay gtTag contentsToKey toContents processData =
     InvReqData NoMempool $
-        InvReqDataParams
-          { invReqMsgType = MsgMPC
-          , contentsToKey = pure . tagWith contentsProxy . contentsToKey
-          , handleInv = \_ -> sscIsDataUseful gtTag . unTagged
-          , handleReq =
-              \_ (Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
-          , handleData = \_ dat -> do
-                let addr = contentsToKey dat
+    InvReqDataParams
+    { invReqMsgType = MsgMPC
+    , contentsToKey = pure . tagWith contentsProxy . contentsToKey
+    , handleInv = \_ -> sscIsDataUseful gtTag . unTagged
+    , handleReq =
+          \_ (Tagged addr) ->
+              toContents addr <$>
+              sscRunLocalQuery (view $ lensOf @SscLocalDataTag . ldModifier)
+    , handleData =
+          \_ dat -> do
+              let addr = contentsToKey dat
                 -- [CSL-685] TODO: Add here malicious emulation for network
                 -- addresses when TW will support getting peer address
                 -- properly
-                handleDataDo dat addr =<< shouldIgnorePkAddress addr
-          }
+              handleDataDo dat addr =<< shouldIgnorePkAddress addr
+    }
   where
-    contentsProxy = (const Proxy :: (contents -> k) -> Proxy contents) contentsToKey
+    contentsProxy =
+        (const Proxy :: (contents -> k) -> Proxy contents) contentsToKey
     ignoreFmt =
-        "Malicious emulation: data " %build % " for id " %build %
-        " is ignored"
+        "Malicious emulation: data " %build % " for id " %build % " is ignored"
     handleDataDo dat id shouldIgnore
         | shouldIgnore = False <$ logDebug (sformat ignoreFmt id dat)
         | otherwise = sscProcessMessage processData dat

@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Higher-level logic of SSC independent of concrete SSC.
 
@@ -26,19 +27,20 @@ module Pos.Ssc.Extra.Logic
 
 import           Universum
 
-import           Control.Lens             (_Wrapped)
+import           Control.Lens             (makeLenses, _Wrapped)
 import           Control.Monad.Except     (MonadError, runExceptT)
 import           Control.Monad.Morph      (generalize, hoist)
+import           Control.Monad.RWS        (RWST, runRWST)
 import           Control.Monad.State      (get, put)
 import           Data.Tagged              (untag)
-import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           System.Wlog              (NamedPureLogger, WithLogger,
                                            launchNamedPureLog, logDebug)
 
-import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
-                                           SlotId, epochIndexL, headerHash)
+import           Pos.Core                 (CoreConstants, EpochIndex,
+                                           HasCoreConstants (..), HeaderHash, IsHeader,
+                                           SharedSeed, SlotId, epochIndexL, headerHash)
 import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, MonadGState,
                                            SomeBatchOp, gsAdoptedBVData)
 import           Pos.DB.GState.Common     (getTipHeaderGeneric)
@@ -47,49 +49,69 @@ import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.Types            (RichmenStakes)
 import           Pos.Slotting.Class       (MonadSlots)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
-import           Pos.Ssc.Class.LocalData  (SscLocalDataClass (..))
+import           Pos.Ssc.Class.LocalData  (SscLocalDataClass (..), SscLocalDataTag)
 import           Pos.Ssc.Class.Storage    (SscGStateClass (..))
 import           Pos.Ssc.Class.Types      (Ssc (..), SscBlock)
 import           Pos.Ssc.Extra.Class      (MonadSscMem, askSscMem)
 import           Pos.Ssc.Extra.Types      (SscState (sscGlobal, sscLocal))
 import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import           Pos.Util.Chrono          (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util            (Some, inAssertMode, _neHead, _neLast)
+import           Pos.Util.Util            (HasLens (..), HasLens', Some, inAssertMode,
+                                           _neHead, _neLast)
 
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------
 
--- | Applies state changes to given var.
-syncingStateWith
-    :: TVar s
-    -> StateT s (NamedPureLogger STM) a
+-- Applies state changes to given var.
+syncingRwsWith
+    :: r
+    -> TVar s
+    -> RWST r () s (NamedPureLogger STM) a
     -> NamedPureLogger STM a
-syncingStateWith var action = do
+syncingRwsWith r var action = do
     oldV <- lift $ readTVar var
-    (res, newV) <- runStateT action oldV
+    (res, newV, ()) <- runRWST action r oldV
     lift $ writeTVar var newV
     return res
+
+data LocalQueryContext ssc = LocalQueryContext
+    { _lqcLocalData     :: !(SscLocalData ssc)
+    , _lqcCoreConstants :: !CoreConstants
+    }
+
+makeLenses ''LocalQueryContext
+
+instance (SscLocalData ssc ~ ld) => HasLens SscLocalDataTag (LocalQueryContext ssc) ld where
+    lensOf = lqcLocalData
+
+instance HasCoreConstants (LocalQueryContext ssc) where
+    coreConstantsG = lqcCoreConstants
 
 -- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
 sscRunLocalQuery
     :: forall ssc ctx m a.
-       (MonadSscMem ssc ctx m, MonadIO m)
-    => ReaderT (SscLocalData ssc) m a -> m a
+       (MonadSscMem ssc ctx m, MonadIO m, HasCoreConstants ctx)
+    => ReaderT (LocalQueryContext ssc) m a -> m a
 sscRunLocalQuery action = do
+    coreConstants <- view coreConstantsG
     localVar <- sscLocal <$> askSscMem
     ld <- atomically $ readTVar localVar
-    runReaderT action ld
+    let ctx =
+            LocalQueryContext
+            {_lqcLocalData = ld, _lqcCoreConstants = coreConstants}
+    runReaderT action ctx
 
 -- | Run STM transaction which modifies 'SscLocalData' and also can log.
 sscRunLocalSTM
     :: forall ssc ctx m a.
-       (MonadSscMem ssc ctx m, MonadIO m, WithLogger m)
-    => StateT (SscLocalData ssc) (NamedPureLogger STM) a -> m a
+       (MonadSscMem ssc ctx m, MonadIO m, WithLogger m, HasCoreConstants ctx)
+    => RWST CoreConstants () (SscLocalData ssc) (NamedPureLogger STM) a -> m a
 sscRunLocalSTM action = do
+    coreConstants <- view coreConstantsG
     localVar <- sscLocal <$> askSscMem
-    launchNamedPureLog atomically $ syncingStateWith localVar action
+    launchNamedPureLog atomically $ syncingRwsWith coreConstants localVar action
 
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -131,10 +153,16 @@ sscCalculateSeed epoch = do
 ----------------------------------------------------------------------------
 
 -- | Get 'SscPayload' for inclusion into main block with given 'SlotId'.
-sscGetLocalPayload
-    :: forall ssc ctx m.
-       (MonadIO m, MonadSscMem ssc ctx m, SscLocalDataClass ssc, WithLogger m)
-    => SlotId -> m (SscPayload ssc)
+sscGetLocalPayload ::
+       forall ssc ctx m.
+       ( MonadIO m
+       , MonadSscMem ssc ctx m
+       , SscLocalDataClass ssc
+       , WithLogger m
+       , HasCoreConstants ctx
+       )
+    => SlotId
+    -> m (SscPayload ssc)
 sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 
 -- | Update local data to be valid for current global state.  This
@@ -149,6 +177,7 @@ sscNormalize
        , SscLocalDataClass ssc
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
+       , HasCoreConstants ctx
        , SscHelpersClass ssc
        , WithLogger m
        , MonadIO m
@@ -161,9 +190,10 @@ sscNormalize = do
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
+    coreConstants <- view coreConstantsG
 
     launchNamedPureLog atomically $
-        syncingStateWith localVar $
+        syncingRwsWith coreConstants localVar $
         sscNormalizeU @ssc (tipEpoch, richmenData) bvd gs
 
 -- | Reset local data to empty state.  This function can be used when
@@ -190,23 +220,24 @@ sscResetLocal = do
 -- 'MonadIO' is needed only for 'TVar' (I hope).
 type SscGlobalApplyMode ssc ctx m =
     (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc,
-     MonadReader ctx m, HasLens LrcContext ctx LrcContext,
+     MonadReader ctx m, HasLens' ctx LrcContext, HasCoreConstants ctx,
      MonadDBRead m, MonadGState m, MonadIO m, WithLogger m)
 
 type SscGlobalVerifyMode ssc ctx m =
     (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc,
-     MonadReader ctx m, HasLens LrcContext ctx LrcContext,
+     MonadReader ctx m, HasLens' ctx LrcContext, HasCoreConstants ctx,
      MonadDBRead m, MonadGState m, MonadIO m, WithLogger m,
      MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
     :: forall ssc ctx m a.
        SscGlobalApplyMode ssc ctx m
-    => StateT (SscGlobalState ssc) (NamedPureLogger Identity) a -> m a
+    => RWST CoreConstants () (SscGlobalState ssc) (NamedPureLogger Identity) a -> m a
 sscRunGlobalUpdate action = do
+    coreConstants <- view coreConstantsG
     globalVar <- sscGlobal <$> askSscMem
     launchNamedPureLog atomically $
-        syncingStateWith globalVar $
+        syncingRwsWith coreConstants globalVar $
         switchMonadBaseIdentityToSTM action
   where
     switchMonadBaseIdentityToSTM = hoist $ hoist generalize

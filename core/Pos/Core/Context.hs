@@ -8,6 +8,8 @@ module Pos.Core.Context
        , HasCoreConstants (..)
        , staticCoreConstantsG
        , blkSecurityParamM
+       , slotSecurityParamM
+       , epochSlotsM
 
        , HasPrimaryKey(..)
        , getOurSecretKey
@@ -22,8 +24,9 @@ import           Universum
 import           Control.Lens       (Getter, makeLenses, to)
 
 import           Pos.Core.Address   (addressHash, makePubKeyAddress)
-import           Pos.Core.Constants (staticBlkSecurityParam)
-import           Pos.Core.Types     (Address, BlockCount, StakeholderId)
+import           Pos.Core.Constants (epochSlots, slotSecurityParam,
+                                     staticBlkSecurityParam)
+import           Pos.Core.Types     (Address, BlockCount, SlotCount, StakeholderId)
 import           Pos.Crypto         (PublicKey, SecretKey, toPublic)
 
 -- | Core constants. They should be really constant and never change.
@@ -43,14 +46,25 @@ staticCoreConstants =
 class HasCoreConstants ctx where
     coreConstantsG :: Getter ctx CoreConstants
 
+instance HasCoreConstants CoreConstants where
+    coreConstantsG = identity
+
 -- | Convenient 'Getter' which can be used to implement
 -- 'HasCoreConstants' using static constants.
 staticCoreConstantsG :: Getter __ CoreConstants
 staticCoreConstantsG = to (const staticCoreConstants)
 
--- | Get block security param in monadic context.
+-- | Get block security parameter in monadic context.
 blkSecurityParamM :: (HasCoreConstants ctx, MonadReader ctx m) => m BlockCount
 blkSecurityParamM = view (coreConstantsG . ccBlkSecuriryParam)
+
+-- | Get slot security parameter in monadic context.
+slotSecurityParamM :: (HasCoreConstants ctx, MonadReader ctx m) => m SlotCount
+slotSecurityParamM = slotSecurityParam <$> blkSecurityParamM
+
+-- | Get number of slots in an epoch in monadic context.
+epochSlotsM :: (HasCoreConstants ctx, MonadReader ctx m) => m SlotCount
+epochSlotsM = epochSlots <$> blkSecurityParamM
 
 -- | Access to primary key of the node.
 class HasPrimaryKey ctx where

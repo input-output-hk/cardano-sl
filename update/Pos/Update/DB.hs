@@ -50,10 +50,11 @@ import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
-                                               ChainDifficulty, NumSoftwareVersion,
-                                               SlotId, SoftwareVersion (..),
-                                               StakeholderId, TimeDiff (..))
-import           Pos.Core.Constants           (epochSlots, genesisBlockVersionData,
+                                               ChainDifficulty, HasCoreConstants,
+                                               NumSoftwareVersion, SlotId,
+                                               SoftwareVersion (..), StakeholderId,
+                                               TimeDiff (..), epochSlotsM)
+import           Pos.Core.Constants           (genesisBlockVersionData,
                                                genesisSlotDuration)
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
@@ -172,8 +173,9 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: MonadDB m => m ()
+initGStateUS :: (MonadDB m, MonadReader ctx m, HasCoreConstants ctx) => m ()
 initGStateUS = do
+    epochSlots <- epochSlotsM
     let genesisEpochDuration =
             fromIntegral epochSlots * convertUnit genesisSlotDuration
         genesisSlottingData = SlottingData

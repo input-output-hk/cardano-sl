@@ -17,8 +17,8 @@ import           System.Wlog                   (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Class              (biSize)
-import           Pos.Core                      (ChainDifficulty (..), Coin, EpochIndex,
-                                                HeaderHash, IsMainHeader (..),
+import           Pos.Core                      (BlockCount, ChainDifficulty (..), Coin,
+                                                EpochIndex, HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
                                                 addressHash, applyCoinPortionUp,
                                                 blockVersionL, coinToInteger, difficultyL,
@@ -95,7 +95,9 @@ verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader UpdatePayload {..} = do
     case slotOrHeader of
         Left _ -> pass
         Right mainHeader -> do
+            blkSecurityParam <- blkSecurityParamM
             applyImplicitAgreement
+                blkSecurityParam
                 (mainHeader ^. headerSlotL)
                 (mainHeader ^. difficultyL)
                 (mainHeader ^. headerHashG)
@@ -282,10 +284,10 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
     :: MonadPoll m
-    => SlotId -> ChainDifficulty -> HeaderHash -> m ()
-applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
+    => BlockCount -> SlotId -> ChainDifficulty -> HeaderHash -> m ()
+applyImplicitAgreement k (flattenSlotId k -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData
-    let oldSlot = unflattenSlotId $ slotId - bvdUpdateImplicit
+    let oldSlot = unflattenSlotId k $ slotId - bvdUpdateImplicit
     unless (slotId < bvdUpdateImplicit) $
         mapM_ applyImplicitAgreementDo =<< getOldProposals oldSlot
   where

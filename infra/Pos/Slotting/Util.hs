@@ -5,13 +5,13 @@
 module Pos.Slotting.Util
        (
          -- * Helpers using 'MonadSlots[Data]'
-         getCurrentSlotFlat
-       , getSlotStart
+         getSlotStart
        , getSlotStartPure
        , getSlotStartEmpatically
        , getLastKnownSlotDuration
 
          -- * Worker which ticks when slot starts
+       , MonadOnNewSlot
        , onNewSlot
        , onNewSlotImpl
 
@@ -30,9 +30,10 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
                                          logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
-                                         addTimeDiffToTimestamp, flattenSlotId,
-                                         getSlotIndex, slotIdF, subTimeDiffSafe)
+import           Pos.Core               (HasCoreConstants, SlotId (..), Timestamp (..),
+                                         addTimeDiffToTimestamp, blkSecurityParamM,
+                                         flatSlotIso, getSlotIndex, slotIdF,
+                                         subTimeDiffSafe)
 import           Pos.Exception          (CardanoException)
 import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
@@ -44,10 +45,6 @@ import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
 import           Pos.Util.Util          (maybeThrow)
-
--- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
-getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
@@ -95,36 +92,37 @@ getLastKnownSlotDuration :: MonadSlotsData m => m Millisecond
 getLastKnownSlotDuration = esdSlotDuration . sdLast <$> getSlottingData
 
 -- | Type constraint for `onNewSlot*` workers
-type OnNewSlot ctx m =
+type MonadOnNewSlot ctx m =
     ( MonadIO m
-    , MonadReader ctx m
     , MonadSlots m
     , MonadMask m
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m
-    , HasReportingContext ctx
-    , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
+    , MonadReader ctx m
+    , HasReportingContext ctx
+    , HasShutdownContext ctx
+    , HasCoreConstants ctx
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses Mockable and assumes consistency between
 -- MonadSlots and Mockable implementations.
 onNewSlot
-    :: OnNewSlot ctx m
+    :: MonadOnNewSlot ctx m
     => Bool -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
 
 onNewSlotWithLogging
-    :: OnNewSlot ctx m
+    :: MonadOnNewSlot ctx m
     => Bool -> (SlotId -> m ()) -> m ()
 onNewSlotWithLogging = onNewSlotImpl True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
-    :: forall ctx m. OnNewSlot ctx m
+    :: forall ctx m. MonadOnNewSlot ctx m
     => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
     reportingFatal impl `catch` workerHandler
@@ -146,7 +144,7 @@ onNewSlotImpl withLogging startImmediately action =
         onNewSlotImpl withLogging startImmediately action
 
 onNewSlotDo
-    :: OnNewSlot ctx m
+    :: MonadOnNewSlot ctx m
     => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdown $ do
     curSlot <- waitUntilExpectedSlot
@@ -156,7 +154,8 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdow
 
     -- check for shutdown flag again to not wait a whole slot
     runIfNotShutdown $ do
-        let nextSlot = succ curSlot
+        blkSecurityParam <- blkSecurityParamM
+        let nextSlot = curSlot & flatSlotIso blkSecurityParam %~ succ
         Timestamp curTime <- currentTimeSlotting
         Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
         let timeToWait = nextSlotStart - curTime
@@ -185,7 +184,7 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdow
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker :: OnNewSlot ctx m => m ()
+logNewSlotWorker :: MonadOnNewSlot ctx m => m ()
 logNewSlotWorker =
     onNewSlotWithLogging True $ \slotId -> do
         modifyLoggerName (<> "slotting") $

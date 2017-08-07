@@ -20,8 +20,6 @@ module Pos.Slotting.Impl.Sum
 
 import           Universum
 
-import           Ether.Internal           (HasLens (..))
-
 import           Pos.Core.Types           (SlotId (..), Timestamp)
 import           Pos.Slotting.Impl.Ntp    (NtpMode, NtpSlottingVar, NtpWorkerMode,
                                            ntpCurrentTime, ntpGetCurrentSlot,
@@ -32,6 +30,7 @@ import           Pos.Slotting.Impl.Simple (SimpleSlottingMode, SimpleSlottingVar
                                            getCurrentSlotBlockingSimple,
                                            getCurrentSlotInaccurateSimple,
                                            getCurrentSlotSimple)
+import           Pos.Util.Util            (HasLens', lensOf)
 
 -- | Sum of all contexts used by slotting implementations.
 data SlottingContextSum
@@ -40,12 +39,12 @@ data SlottingContextSum
 
 -- | Monad which combines all 'MonadSlots' implementations (and
 -- uses only one of them).
-type MonadSlottingSum ctx m = (MonadReader ctx m, HasLens SlottingContextSum ctx SlottingContextSum)
+type MonadSlottingSum ctx m = (MonadReader ctx m, HasLens' ctx SlottingContextSum)
 
 askSlottingContextSum :: MonadSlottingSum ctx m => m SlottingContextSum
 askSlottingContextSum = view (lensOf @SlottingContextSum)
 
-type SlotsSumEnv ctx m = (MonadSlottingSum ctx m, NtpMode m, SimpleSlottingMode m)
+type SlotsSumEnv ctx m = (MonadSlottingSum ctx m, NtpMode ctx m, SimpleSlottingMode ctx m)
 
 getCurrentSlotSum :: SlotsSumEnv ctx m => m (Maybe SlotId)
 getCurrentSlotSum =

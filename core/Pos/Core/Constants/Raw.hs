@@ -17,7 +17,6 @@ module Pos.Core.Constants.Raw
        , coreConfig
 
        -- * Constants
-       , epochSlotsRaw
        , isDevelopment
        , protocolMagic
        , staticSysStartRaw
@@ -176,10 +175,6 @@ checkConstants cs@CoreConfig{..} = do
 ----------------------------------------------------------------------------
 -- Constants taken from the config
 ----------------------------------------------------------------------------
-
--- | Number of slots inside one epoch.
-epochSlotsRaw :: Integral a => a
-epochSlotsRaw = 10 * fromIntegral (ccK coreConfig)
 
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool

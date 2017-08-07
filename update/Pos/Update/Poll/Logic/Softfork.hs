@@ -18,9 +18,10 @@ import           Formatting                 (build, sformat, (%))
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logInfo)
 
-import           Pos.Core                   (BlockVersion, Coin, EpochIndex, HeaderHash,
-                                             SlotId (..), SoftforkRule (..),
-                                             StakeholderId, crucialSlot, sumCoins,
+import           Pos.Core                   (BlockVersion, Coin, EpochIndex,
+                                             HasCoreConstants, HeaderHash, SlotId (..),
+                                             SoftforkRule (..), StakeholderId,
+                                             blkSecurityParamM, crucialSlot, sumCoins,
                                              unsafeIntegerToCoin)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
@@ -33,14 +34,23 @@ import           Pos.Util.Util              (inAssertMode)
 
 -- | Record the fact that main block with given version and leader has
 -- been issued by for the given slot.
-recordBlockIssuance
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => StakeholderId -> BlockVersion -> SlotId -> HeaderHash -> m ()
+recordBlockIssuance ::
+       ( MonadError PollVerFailure m
+       , MonadPoll m
+       , MonadReader ctx m
+       , HasCoreConstants ctx
+       )
+    => StakeholderId
+    -> BlockVersion
+    -> SlotId
+    -> HeaderHash
+    -> m ()
 recordBlockIssuance id bv slot h = do
+    blkSecurityParam <- blkSecurityParamM
     -- Issuance is stable if it happens before crucial slot for next epoch.
     -- In other words, processing genesis block for next epoch will
     -- inevitably encounter this issuer.
-    let unstable = slot > crucialSlot (siEpoch slot + 1)
+    let unstable = slot > crucialSlot blkSecurityParam (siEpoch slot + 1)
     getBVState bv >>= \case
         Nothing -> unlessM ((bv ==) <$> getAdoptedBV) $ throwError noBVError
         Just bvs@BlockVersionState {..}
@@ -72,9 +82,15 @@ recordBlockIssuance id bv slot h = do
             }
 
 -- | Process creation of genesis block for given epoch.
-processGenesisBlock
-    :: forall m. (MonadError PollVerFailure m, MonadPoll m)
-    => EpochIndex -> m ()
+processGenesisBlock ::
+       forall ctx m.
+       ( MonadError PollVerFailure m
+       , MonadPoll m
+       , MonadReader ctx m
+       , HasCoreConstants ctx
+       )
+    => EpochIndex
+    -> m ()
 processGenesisBlock epoch = do
     -- First thing to do is to obtain values threshold for softfork
     -- resolution rule check.

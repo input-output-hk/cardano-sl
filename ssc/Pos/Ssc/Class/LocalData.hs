@@ -4,26 +4,43 @@
 -- | This module defines type class for local data storage.
 
 module Pos.Ssc.Class.LocalData
-       ( LocalQuery
+       ( SscLocalDataTag
+       , LocalQuery
        , LocalUpdate
        , SscLocalDataClass (..)
        ) where
 
-import           System.Wlog         (WithLogger)
 import           Universum
 
-import           Pos.Core            (BlockVersionData, EpochIndex, SlotId)
+import           System.Wlog         (WithLogger)
+
+import           Pos.Core            (BlockVersionData, EpochIndex, HasCoreConstants,
+                                      SlotId)
 import           Pos.DB.Class        (MonadDBRead)
 import           Pos.Lrc.Types       (RichmenStakes)
 import           Pos.Slotting.Class  (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
+import           Pos.Util.Util       (HasLens)
 
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
 
-type LocalQuery ssc a = forall m . (MonadReader (SscLocalData ssc) m, WithLogger m) => m a
-type LocalUpdate ssc a = forall m . (MonadState (SscLocalData ssc) m, WithLogger m) => m a
+data SscLocalDataTag
+
+type LocalQuery ssc a
+     = forall ctx m. ( WithLogger m
+                     , MonadReader ctx m
+                     , HasLens SscLocalDataTag ctx (SscLocalData ssc)
+                     , HasCoreConstants ctx
+                     ) => m a
+
+type LocalUpdate ssc a
+     = forall ctx m. ( MonadState (SscLocalData ssc) m
+                     , WithLogger m
+                     , MonadReader ctx m
+                     , HasCoreConstants ctx
+                     ) => m a
 
 -- | This type class abstracts local data used for SSC. Local means
 -- that it is not stored in blocks.

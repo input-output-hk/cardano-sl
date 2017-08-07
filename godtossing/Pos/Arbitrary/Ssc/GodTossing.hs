@@ -14,6 +14,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict               as HM
 import qualified Data.List.NonEmpty                as NE
+import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
                                                     listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
@@ -26,7 +27,7 @@ import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, SlotId (..), addressHash,
                                                     addressHash)
 import           Pos.Crypto                        (SecretKey, deterministicVssKeyGen,
-                                                    toVssPublicKey)
+                                                    secureRandomBS, toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
@@ -91,10 +92,13 @@ instance Arbitrary BadCommAndOpening where
 commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
-    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-       genCommitmentAndOpening 3 (NE.fromList (replicate 5 (asBinary vssPk)))
-  where
-    vssPk = toVssPublicKey $ deterministicVssKeyGen "ababahalamaha"
+    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $ do
+      t <- R.randomRIO (3, 10)
+      n <- R.randomRIO (t*2-1, t*2)
+      vssKeys <- replicateM n $
+          toVssPublicKey . deterministicVssKeyGen <$> secureRandomBS 2
+      genCommitmentAndOpening (fromIntegral t)
+          (NE.fromList (map asBinary vssKeys))
 {-# NOINLINE commitmentsAndOpenings #-}
 
 instance Arbitrary CommitmentOpening where

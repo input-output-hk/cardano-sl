@@ -129,7 +129,7 @@ getWalletOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = (Just . fromString . toString) [text|
+usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
   stack exec -- cardano-wallet                                   \

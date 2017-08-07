@@ -137,7 +137,7 @@ getLauncherOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = (Just . fromString . toString) [Q.text|
+usageExample = (Just . fromString @Doc . toString @Text) [Q.text|
 Command example:
 
   stack exec -- cardano-launcher                                   \

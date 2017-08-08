@@ -143,10 +143,3 @@ ghc-options:
   cardano-sl-tools:      -Werror
   cardano-sl-lwallet:    -Werror
   cardano-sl-explorer:   -Werror
-
-# Added for explorer
-flags:
-  cardano-sl:
-    with-explorer: True
-  ether:
-    disable-tup-instances: True

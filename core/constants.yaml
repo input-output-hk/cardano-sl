@@ -29,8 +29,8 @@ dev: &dev
   genesisSoftforkDec: 0.05 # 5% of total stake
   genesisTxFeePolicy:
     txSizeLinear:
-      a: 0
-      b: 0
+      a: 0.155381 # absolute minimal fees per transaction
+      b: 4.3946e-5 # additional minimal fees per byte of transaction size
   genesisUnlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
 
 

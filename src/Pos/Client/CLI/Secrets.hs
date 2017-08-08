@@ -14,11 +14,13 @@ import           Pos.Genesis         (genesisDevSecretKeys)
 import           Pos.Ssc.GodTossing  (genesisDevVssKeyPairs)
 import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSecret)
 
-import           Pos.Client.CLI.NodeOptions         (Args (..))
+import           Pos.Client.CLI.NodeOptions         (SimpleNodeArgs (..))
 
+-- TODO (jk): Don't use Args, we do need just `devSpendingGenesisI`
+-- So we can use `userSecretWithGenesisKey` for simple + wallet node
 userSecretWithGenesisKey
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey Args{..} userSecret
+    :: (MonadIO m, MonadFail m) => SimpleNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
+userSecretWithGenesisKey SimpleNodeArgs{..} userSecret
     | isDevelopment = case devSpendingGenesisI of
           Nothing -> fetchPrimaryKey userSecret
           Just i -> do
@@ -29,8 +31,8 @@ userSecretWithGenesisKey Args{..} userSecret
     | otherwise = fetchPrimaryKey userSecret
 
 updateUserSecretVSS
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS Args{..} us
+    :: (MonadIO m, MonadFail m) => SimpleNodeArgs -> UserSecret -> m UserSecret
+updateUserSecretVSS SimpleNodeArgs{..} us
     | isDevelopment = case devVssGenesisI of
           Nothing -> fillUserSecretVSS us
           Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)

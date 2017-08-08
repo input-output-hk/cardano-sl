@@ -33,13 +33,9 @@ import           Pos.Update.Context  (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode)
 
-import           Pos.Client.CLI.NodeOptions (Args (..), getNodeOptions)
-import           Pos.Client.CLI.Params (getNodeParams, gtSscParams)
+import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..), getSimpleNodeOptions)
+import           Pos.Client.CLI.Params (getSimpleNodeParams, gtSscParams)
 import           Pos.Client.CLI.Util (printFlags)
-
-----------------------------------------------------------------------------
--- Without wallet
-----------------------------------------------------------------------------
 
 actionWithoutWallet ::
        forall ssc. (SscConstraint ssc, SecurityWorkersClass ssc)
@@ -60,23 +56,13 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     void $ takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore
     triggerShutdown
 
-----------------------------------------------------------------------------
--- Main action
-----------------------------------------------------------------------------
-
-main :: IO ()
-main = do
-    args <- getNodeOptions
-    printFlags
-    runProduction (action args)
-
-action :: Args -> Production ()
-action args@Args {..} = do
+action :: SimpleNodeArgs -> Production ()
+action args@SimpleNodeArgs {..} = do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getNodeParams args systemStart
+    currentParams <- getSimpleNodeParams args systemStart
     putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
     putText "Wallet is disabled, because software is built w/o it"
 
@@ -88,3 +74,9 @@ action args@Args {..} = do
     case (sscParams) of
         (Left par)  -> actionWithoutWallet @SscNistBeacon par currentParams
         (Right par) -> actionWithoutWallet @SscGodTossing par currentParams
+
+main :: IO ()
+main = do
+    args <- getSimpleNodeOptions
+    printFlags
+    runProduction (action args)

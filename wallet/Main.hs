@@ -33,16 +33,14 @@ import           Pos.Web             (serveWebGT)
 import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                       runWRealMode, walletServeWebFull, walletServerOuts)
 
-import           Pos.Client.CLI.NodeOptions (Args (..), getNodeOptions)
-import           Pos.Client.CLI.Params (getNodeParams, gtSscParams)
+import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..))
+import           Pos.Client.CLI.Params (getSimpleNodeParams, gtSscParams)
 import           Pos.Client.CLI.Util (printFlags)
 
-----------------------------------------------------------------------------
--- With wallet
-----------------------------------------------------------------------------
+import           NodeOptions (WalletNodeArgs(..), WalletArgs(..), getWalletNodeOptions)
 
-actionWithWallet :: SscParams SscGodTossing -> NodeParams -> Args -> Production ()
-actionWithWallet sscParams nodeParams args@Args {..} =
+actionWithWallet :: SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
+actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn -> do
             bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
@@ -54,10 +52,10 @@ actionWithWallet sscParams nodeParams args@Args {..} =
   where
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     plugins :: ([WorkerSpec WalletWebMode], OutSpecs)
-    plugins = convPlugins (pluginsGT args) <> walletProd args
+    plugins = convPlugins (pluginsGT wArgs) <> walletProd wArgs
 
-walletProd :: Args -> ([WorkerSpec WalletWebMode], OutSpecs)
-walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
+walletProd :: WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
+walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions
         walletDebug
@@ -69,37 +67,33 @@ walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
 pluginsGT ::
     ( WorkMode SscGodTossing ctx m
     , HasNodeContext SscGodTossing ctx
-    ) => Args -> [m ()]
-pluginsGT Args {..}
+    ) => WalletArgs -> [m ()]
+pluginsGT WalletArgs {..}
     | enableWeb = [serveWebGT webPort walletTLSCertPath walletTLSKeyPath walletTLSCAPath]
     | otherwise = []
 
-----------------------------------------------------------------------------
--- Main action
-----------------------------------------------------------------------------
-
-main :: IO ()
-main = do
-    args <- getNodeOptions
-    printFlags
-    putText "[Attention] Software is built with wallet part"
-    runProduction (action args)
-
-action :: Args -> Production ()
-action args@Args {..} = do
+action :: WalletNodeArgs -> Production ()
+action (WalletNodeArgs (snArgs@SimpleNodeArgs {..}) (wArgs@WalletArgs {..})) = do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getNodeParams args systemStart
+    currentParams <- getSimpleNodeParams snArgs systemStart
     putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
-    putText $ "Is wallet enabled: true "
+    putText $ "Wallet is enabled!"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams args vssSK
+    let gtParams = gtSscParams snArgs vssSK
 
     let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
         sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
     case sscParams of
         (Left _)     -> logError "Wallet does not support NIST beacon!"
-        (Right par)  -> actionWithWallet par currentParams args
+        (Right par)  -> actionWithWallet par currentParams wArgs
+
+main :: IO ()
+main = do
+    args <- getWalletNodeOptions
+    printFlags
+    putText "[Attention] Software is built with wallet part"
+    runProduction (action args)

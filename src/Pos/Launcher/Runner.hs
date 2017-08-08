@@ -63,6 +63,7 @@ import           Pos.WorkMode                    (EnqueuedConversation (..), OQ,
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon           as Systemd
+import qualified System.Wlog                     as Logger
 #endif
 
 ----------------------------------------------------------------------------
@@ -247,7 +248,7 @@ notifyReady = do
     res <- liftIO Systemd.notifyReady
     case res of
         Just () -> return ()
-        Nothing -> logWarning "notifyReady failed to notify systemd."
+        Nothing -> Logger.logWarning "notifyReady failed to notify systemd."
 #else
 notifyReady = return ()
 #endif

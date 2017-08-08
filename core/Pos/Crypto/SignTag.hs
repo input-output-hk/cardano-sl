@@ -22,7 +22,7 @@ import           Pos.Core.Constants.Raw (protocolMagic)
 -- mainnet.
 data SignTag
     = SignForTestingOnly  -- ^ Anything (to be used for testing only)
-    | SignTxIn            -- ^ Tx input:         @TxSigData@
+    | SignTx              -- ^ Tx:               @TxSigData@
     | SignVssCert         -- ^ Vss certificate:  @(VssPublicKey, EpochIndex)@
     | SignUSProposal      -- ^ Update proposal:  @UpdateProposalToSign@
     | SignCommitment      -- ^ Commitment:       @(EpochIndex, Commitment)@
@@ -44,7 +44,7 @@ instance Buildable SignTag where
 signTag :: SignTag -> ByteString
 signTag = \case
     SignForTestingOnly -> "\x00"
-    SignTxIn           -> "\x01" <> network
+    SignTx             -> "\x01" <> network
     SignVssCert        -> "\x02" <> network
     SignUSProposal     -> "\x03" <> network
     SignCommitment     -> "\x04" <> network

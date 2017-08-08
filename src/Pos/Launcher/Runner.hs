@@ -242,7 +242,7 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
 -- | Notify process manager tools like systemd the node is ready.
 -- Available only on Linux for systems where `libsystemd-dev` is installed.
 -- It defaults to a noop for all the other platforms.
-notifyReady :: MonadIO m => m ()
+notifyReady :: (MonadIO m, WithLogger m) => m ()
 #ifdef linux_HOST_OS
 notifyReady = do
     res <- liftIO Systemd.notifyReady

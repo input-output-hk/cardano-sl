@@ -208,7 +208,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
         RedeemWitness{..}      -> checkRedeemAddress twRedeemKey addr
         UnknownWitnessType t _ -> checkUnknownAddressType t addr
 
-    -- the second argument here includes local context, can be used for scripts
+    -- the first argument here includes local context, can be used for scripts
     validateTxIn :: TxOutAux -> TxInWitness -> Either String ()
     validateTxIn _txOutAux wit =
         let txSigData = TxSigData

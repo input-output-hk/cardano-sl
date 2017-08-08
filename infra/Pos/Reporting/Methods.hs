@@ -238,7 +238,7 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
     withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
         for_ rawLogs $ TIO.hPutStrLn tempHandle
         hClose tempHandle
-        rq0 <- liftIO (parseUrlThrow $ reportServerUri <//> "report")
+        rq0 <- parseUrlThrow $ reportServerUri <//> "report"
         let memlogFiles = bool [tempFp] [] (null rawLogs)
         let memlogPart = map partFile' memlogFiles
         let pathsPart = map partFile' existingFiles
@@ -247,13 +247,13 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
                 (encode $ reportInfo curTime $ existingFiles ++ memlogFiles)
         -- If performance will ever be a concern, moving to a global manager
         -- should help a lot.
-        reportManager <- liftIO (newManager tlsManagerSettings)
+        reportManager <- newManager tlsManagerSettings
 
         -- Assemble the `Request` out of the Form data.
         rq <- Form.formDataBody (payloadPart : (memlogPart ++ pathsPart)) rq0
 
         -- Actually perform the HTTP `Request`.
-        e  <- try $ liftIO $ httpLbs rq reportManager
+        e  <- try $ httpLbs rq reportManager
         whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
     partFile' fp = Form.partFile (toFileName fp) fp

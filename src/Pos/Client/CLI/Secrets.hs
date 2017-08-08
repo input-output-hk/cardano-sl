@@ -17,7 +17,7 @@ import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSec
 import           Pos.Client.CLI.NodeOptions         (SimpleNodeArgs (..))
 
 userSecretWithGenesisKey
-    :: (MonadIO m, MonadFail m) => SimpleNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
+    :: (MonadIO m) => SimpleNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey SimpleNodeArgs{..} userSecret
     | isDevelopment = case devSpendingGenesisI of
           Nothing -> fetchPrimaryKey userSecret
@@ -29,14 +29,14 @@ userSecretWithGenesisKey SimpleNodeArgs{..} userSecret
     | otherwise = fetchPrimaryKey userSecret
 
 updateUserSecretVSS
-    :: (MonadIO m, MonadFail m) => SimpleNodeArgs -> UserSecret -> m UserSecret
+    :: (MonadIO m) => SimpleNodeArgs -> UserSecret -> m UserSecret
 updateUserSecretVSS SimpleNodeArgs{..} us
     | isDevelopment = case devVssGenesisI of
           Nothing -> fillUserSecretVSS us
           Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
     | otherwise = fillUserSecretVSS us
 
-fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
+fetchPrimaryKey :: (MonadIO m) => UserSecret -> m (SecretKey, UserSecret)
 fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
     Just sk -> return (sk, userSecret)
     Nothing -> do
@@ -46,7 +46,7 @@ fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
         writeUserSecret us
         return (sk, us)
 
-fillUserSecretVSS :: (MonadIO m, MonadFail m) => UserSecret -> m UserSecret
+fillUserSecretVSS :: (MonadIO m) => UserSecret -> m UserSecret
 fillUserSecretVSS userSecret = case userSecret ^. usVss of
     Just _  -> return userSecret
     Nothing -> do

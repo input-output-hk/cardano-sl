@@ -97,8 +97,7 @@ hoistSendActions nat rnat SendActions {..} = SendActions withConnectionTo' enque
             in  map convert convs
 
 hoistMkListeners
-    :: ( Monad n, Functor m )
-    => (forall a. m a -> n a)
+    :: (forall a. m a -> n a)
     -> (forall a. n a -> m a)
     -> MkListeners m
     -> MkListeners n
@@ -110,7 +109,6 @@ makeEnqueueMsg
     :: forall m .
        ( WithLogger m
        , Mockable Throw m
-       , Mockable SharedAtomic m
        )
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
@@ -177,7 +175,6 @@ makeSendActions
     :: forall m .
        ( WithLogger m
        , Mockable Throw m
-       , Mockable SharedAtomic m
        )
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
@@ -206,29 +203,17 @@ instance Buildable SpecError where
           ("Attempting to send to "%build%": endpoint unsupported by peer "%build%". In specs: "%build)
           spec nodeId inSpecs
 
-type WorkerConstr m =
-    ( WithLogger m
-    , Mockable Throw m
-    )
-
 toAction
-    :: WorkerConstr m
-    => (SendActions m -> m a) -> ActionSpec m a
+    :: (SendActions m -> m a) -> ActionSpec m a
 toAction h = ActionSpec $ const h
 
-worker
-    :: WorkerConstr m
-    => OutSpecs -> Worker m -> (WorkerSpec m, OutSpecs)
+worker :: OutSpecs -> Worker m -> (WorkerSpec m, OutSpecs)
 worker outSpecs = (,outSpecs) . toAction
 
-workerHelper
-    :: WorkerConstr m
-    => OutSpecs -> (arg -> Worker m) -> (arg -> WorkerSpec m, OutSpecs)
+workerHelper :: OutSpecs -> (arg -> Worker m) -> (arg -> WorkerSpec m, OutSpecs)
 workerHelper outSpecs h = (,outSpecs) $ toAction . h
 
-worker'
-    :: WorkerConstr m
-    => OutSpecs -> (VerInfo -> Worker m) -> (WorkerSpec m, OutSpecs)
+worker' :: OutSpecs -> (VerInfo -> Worker m) -> (WorkerSpec m, OutSpecs)
 worker' outSpecs h =
     (,outSpecs) $ ActionSpec $ h
 
@@ -306,17 +291,17 @@ sndProxy :: Proxy (ConversationActions snd rcv m) -> Proxy snd
 sndProxy _ = Proxy
 
 -- Provides set of listeners which doesn't depend on PeerData
-constantListeners :: Monad m => [(ListenerSpec m, OutSpecs)] -> MkListeners m
+constantListeners :: [(ListenerSpec m, OutSpecs)] -> MkListeners m
 constantListeners = toMkL . unpackLSpecs . second mconcat . unzip
   where
     toMkL (lGet, ins, outs) = MkListeners (\vI _ -> lGet vI) ins outs
 
-unpackLSpecs :: Monad m => ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
+unpackLSpecs :: ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
 unpackLSpecs =
     over _1 (\ls verInfo -> fmap ($ verInfo) ls) .
     over _2 (InSpecs . HM.fromList) .
     convert . first (map lsToPair)
   where
     lsToPair (ListenerSpec h spec) = (h, spec)
-    convert :: Monoid out => ([(l, i)], out) -> ([l], [i], out)
+    convert :: ([(l, i)], out) -> ([l], [i], out)
     convert (xs, out) = (map fst xs, map snd xs, out)

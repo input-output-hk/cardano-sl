@@ -42,7 +42,6 @@ import           Pos.Wallet.Web.Util        (getWalletAddrMetas)
 
 walletGuard ::
     ( AccountMode ctx m
-    , WithLogger m
     )
     => HeaderHash
     -> CId Wal
@@ -110,9 +109,7 @@ onApplyTracking blunds = setLogger $ do
 -- Perform this action under block lock.
 onRollbackTracking
     :: forall ssc ctx m .
-    ( SscHelpersClass ssc
-    , AccountMode ctx m
-    , WithLogger m
+    ( AccountMode ctx m
     , MonadDBRead m
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp

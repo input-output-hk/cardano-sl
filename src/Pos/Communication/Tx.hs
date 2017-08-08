@@ -104,7 +104,7 @@ submitRedemptionTx enqueue rsk output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m, MonadGState m, MonadThrow m)
+    :: (MinWorkMode m, MonadGState m)
     => EnqueueMsg m -> TxAux -> m ()
 submitTxRaw enqueue txAux@TxAux {..} = do
     let txId = hash taTx

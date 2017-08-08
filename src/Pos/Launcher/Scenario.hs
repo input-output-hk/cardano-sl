@@ -25,9 +25,8 @@ import           System.Wlog           (WithLogger, getLoggerName, logError, log
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
 import qualified Pos.Constants         as Const
-import           Pos.Context           (BlkSemaphore (..), HasNodeContext (..),
-                                        NodeContext (..), getOurPubKeyAddress,
-                                        getOurPublicKey)
+import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
+                                        getOurPublicKey, ncNetworkConfig)
 import           Pos.DHT.Real          (KademliaDHTInstance (..), kademliaJoinNetwork)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
@@ -42,7 +41,6 @@ import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Types             (addressHash)
 import           Pos.Util              (inAssertMode)
 import           Pos.Util.LogSafe      (logInfoS)
-import           Pos.Util.UserSecret   (HasUserSecret (..))
 import           Pos.Worker            (allWorkers)
 import           Pos.WorkMode.Class    (WorkMode)
 
@@ -50,11 +48,7 @@ import           Pos.WorkMode.Class    (WorkMode)
 -- Initialization, running of workers, running of plugins.
 runNode'
     :: forall ssc ctx m.
-       ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , WorkMode ssc ctx m
-       , HasNodeContext ssc ctx
-       , HasUserSecret ctx
+       ( WorkMode ssc ctx m
        )
     => NodeResources ssc m
     -> [WorkerSpec m]
@@ -121,8 +115,6 @@ runNode ::
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
-       , HasNodeContext ssc ctx
-       , HasUserSecret ctx
        )
     => NodeResources ssc m
     -> ([WorkerSpec m], OutSpecs)
@@ -156,7 +148,6 @@ nodeStartMsg = logInfo msg
 --        ( MonadDB m
 --        , MonadReader ctx m
 --        , MonadIO m
---        , HasUserSecret ctx
 --        , HasPrimaryKey ctx )
 --     => m ()
 -- putProxySecretKeys = do

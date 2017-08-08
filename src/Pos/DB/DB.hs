@@ -74,14 +74,14 @@ initNodeDBs = do
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadBlockDB ssc m, MonadDBRead m)
+    :: (MonadBlockDB ssc m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadBlockDB ssc m, MonadDBRead m)
+    :: (MonadBlockDB ssc m)
     => BlockCount -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 

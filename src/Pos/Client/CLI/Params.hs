@@ -59,7 +59,7 @@ getKeyfilePath SimpleNodeArgs {..}
     | otherwise = keyfilePath
 
 getSimpleNodeParams ::
-       (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
+       (MonadIO m, WithLogger m, Mockable Fork m)
     => SimpleNodeArgs
     -> Timestamp
     -> m NodeParams

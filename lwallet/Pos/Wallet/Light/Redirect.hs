@@ -31,7 +31,7 @@ import qualified Pos.Wallet.Light.State    as LWS
 getOwnUtxosWallet :: (MonadIO m, MonadReader ctx m, HasLens LWS.WalletState ctx LWS.WalletState) => [Address] -> m Utxo
 getOwnUtxosWallet addrs = filterUtxoByAddrs addrs <$> LWS.getUtxo
 
-getBalanceWallet :: (MonadIO m, MonadBalances m) => Address -> m Coin
+getBalanceWallet :: (MonadBalances m) => Address -> m Coin
 getBalanceWallet = getBalanceFromUtxo
 
 ----------------------------------------------------------------------------
@@ -50,8 +50,7 @@ getBlockHistoryWallet addrs = do
     pure $ error "getBlockHistory is not implemented for light wallet"
 
 getLocalHistoryWallet
-    :: (MonadReader ctx m, HasLens LWS.WalletState ctx LWS.WalletState, MonadIO m)
-    => [Address] -> m (DList TxHistoryEntry)
+    :: [Address] -> m (DList TxHistoryEntry)
 getLocalHistoryWallet = pure $
     error "getLocalHistory is not implemented for light wallet"
 

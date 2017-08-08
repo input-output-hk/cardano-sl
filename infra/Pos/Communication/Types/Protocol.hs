@@ -104,7 +104,7 @@ data SendActions m = SendActions {
 --
 -- You probably do not want to use this. Use 'enqueueMsg' instead.
 immediateConcurrentConversations
-    :: ( Applicative m, Mockable Async m )
+    :: ( Mockable Async m )
     => SendActions m
     -> [NodeId]
     -> EnqueueMsg m

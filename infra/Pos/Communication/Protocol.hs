@@ -155,7 +155,7 @@ alternativeConversations nid ourVerInfo theirVerInfo convs =
     fstArg :: (a -> b) -> Proxy a
     fstArg _ = Proxy
 
-    logOSNR (Right e@(OutSpecNotReported _)) = logWarning $ sformat build e
+    logOSNR (Right e@(OutSpecNotReported _ _)) = logWarning $ sformat build e
     logOSNR _                                = pure ()
 
     checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
@@ -168,9 +168,9 @@ alternativeConversations nid ourVerInfo theirVerInfo convs =
     --    to be supported by external peer on higher level
     checkingOutSpecs spec nodeId peerInSpecs action =
         if | spec `notInSpecs` ourOutSpecs ->
-                  Right $ OutSpecNotReported spec
+                  Right $ OutSpecNotReported ourOutSpecs spec
            | spec `notInSpecs` peerInSpecs ->
-                  Right $ PeerInSpecNotReported nodeId spec
+                  Right $ PeerInSpecNotReported peerInSpecs nodeId spec
            | otherwise -> Left action
 
 makeSendActions
@@ -190,21 +190,21 @@ makeSendActions ourVerInfo enqueue converse = SendActions
     }
 
 data SpecError
-    = OutSpecNotReported (MessageCode, HandlerSpec)
-    | PeerInSpecNotReported NodeId (MessageCode, HandlerSpec)
+    = OutSpecNotReported HandlerSpecs (MessageCode, HandlerSpec)
+    | PeerInSpecNotReported HandlerSpecs NodeId (MessageCode, HandlerSpec)
     deriving (Generic, Show)
 
 instance Exception SpecError
 
 instance Buildable SpecError where
-    build (OutSpecNotReported spec) =
+    build (OutSpecNotReported outSpecs spec) =
         bprint
-          ("Sending "%build%": endpoint not reported to be used for sending")
-          spec
-    build (PeerInSpecNotReported nodeId spec) =
+          ("Sending "%build%": endpoint not reported to be used for sending. Our out specs: "%build)
+          spec outSpecs
+    build (PeerInSpecNotReported inSpecs nodeId spec) =
         bprint
-          ("Attempting to send to "%build%": endpoint unsupported by peer "%build)
-          spec nodeId
+          ("Attempting to send to "%build%": endpoint unsupported by peer "%build%". In specs: "%build)
+          spec nodeId inSpecs
 
 type WorkerConstr m =
     ( WithLogger m

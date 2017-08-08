@@ -7,7 +7,6 @@ module Pos.Web.Server
        ( MyWorkMode
        , WebMode
        , serveImpl
-       , serveImplNoTLS
        , nat
        , serveWebBase
        , applicationBase
@@ -21,10 +20,11 @@ import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import qualified Control.Monad.Reader                 as Mtl
 import           Mockable                             (Production (runProduction))
-import           Network.Wai                          (Application)
+import           Network.Wai                          (Application, Middleware)
 import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
                                                        setHost, setPort)
-import           Network.Wai.Handler.WarpTLS          (runTLS, tlsSettingsChain)
+import           Network.Wai.Handler.WarpTLS          (TLSSettings, runTLS,
+                                                       tlsSettingsChain)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
@@ -32,6 +32,7 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
+import           Pos.Constants                        (webLoggingEnabled)
 import           Pos.Context                          (HasNodeContext (..),
                                                        HasSscContext (..), NodeContext,
                                                        getOurPublicKey)
@@ -49,7 +50,7 @@ import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
--- import           Pos.Web.Types                        (GodTossingStage (..))
+import           Pos.Web.Types                        (TlsParams (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -62,7 +63,7 @@ type MyWorkMode ssc ctx m =
     , HasNodeContext ssc ctx -- for ConvertHandler
     )
 
-serveWebBase :: MyWorkMode ssc ctx m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
+serveWebBase :: MyWorkMode ssc ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
 
 applicationBase :: MyWorkMode ssc ctx m => m Application
@@ -70,7 +71,7 @@ applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
+serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
 
 applicationGT :: MyWorkMode SscGodTossing ctx m => m Application
@@ -78,23 +79,24 @@ applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
 
--- [CSL-217]: do not hardcode logStdoutDev.
-serveImpl :: MonadIO m => m Application -> String -> Word16 -> FilePath -> FilePath -> FilePath -> m ()
-serveImpl application host port walletTLSCert walletTLSKey walletTLSca =
-    liftIO . runTLS tlsConfig mySettings . logStdoutDev =<< application
+serveImpl
+    :: MonadIO m
+    => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
+serveImpl application host port walletTLSParams =
+    liftIO . maybe runSettings runTLS mTlsConfig mySettings . webLogger
+        =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
-    tlsConfig = tlsSettingsChain walletTLSCert [walletTLSca] walletTLSKey
+    mTlsConfig = tlsParamsToWai <$> walletTLSParams
 
--- [CSL-217]: do not hardcode logStdoutDev.
-serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
-serveImplNoTLS application host port =
-    liftIO . runSettings mySettings . logStdoutDev =<< application
-  where
-    mySettings = setHost (fromString host) $
-                 setPort (fromIntegral port) defaultSettings
+webLogger :: Middleware
+webLogger
+    | webLoggingEnabled = logStdoutDev
+    | otherwise         = identity
 
+tlsParamsToWai :: TlsParams -> TLSSettings
+tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

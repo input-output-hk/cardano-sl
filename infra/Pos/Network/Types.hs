@@ -16,7 +16,6 @@ module Pos.Network.Types
       -- * Re-exports
       -- ** from .DnsDomains
     , DnsDomains(..)
-    , DNSError
       -- ** from time-warp
     , NodeType (..)
     , MsgType (..)
@@ -25,13 +24,13 @@ module Pos.Network.Types
     , NodeId (..)
     ) where
 
-import qualified Data.ByteString.Char8                 as BS.C8
-import           Data.IP                               (IPv4)
 import           Network.Broadcast.OutboundQueue       (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
+import           Network.DNS                           (DNSError)
+import qualified Network.DNS                           as DNS
 import           Node.Internal                         (NodeId (..))
-import           Pos.Network.DnsDomains                (DNSError, DnsDomains (..))
+import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import           Pos.Network.Yaml                      (NodeName (..))
 import           Pos.Util.TimeWarp                     (addressToNodeId)
@@ -87,7 +86,7 @@ data Topology kademlia =
     -- | We discover our peers through DNS
     --
     -- This is used for behind-NAT nodes.
-  | TopologyBehindNAT !DnsDomains
+  | TopologyBehindNAT !(DnsDomains DNS.Domain)
 
     -- | We discover our peers through Kademlia
   | TopologyP2P !Valency !Fallbacks !kademlia
@@ -119,7 +118,7 @@ topologySubscriberNodeType TopologyP2P{}         = Just NodeRelay
 topologySubscriberNodeType _                     = Nothing
 
 data SubscriptionWorker kademlia =
-    SubscriptionWorkerBehindNAT DnsDomains
+    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
   | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
@@ -142,14 +141,15 @@ topologyRunKademlia = go
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia
-                  -> DnsDomains
+                  -> DnsDomains DNS.Domain
                   -> IO (Either [DNSError] [NodeId])
-resolveDnsDomains NetworkConfig{..} dnsDomains =
-    fmap (map ipv4ToNodeId) <$> DnsDomains.resolveDnsDomains dnsDomains
-  where
-    -- | Turn IPv4 address returned by DNS into a NodeId
-    ipv4ToNodeId :: IPv4 -> NodeId
-    ipv4ToNodeId addr = addressToNodeId (BS.C8.pack (show addr), ncDefaultPort)
+resolveDnsDomains NetworkConfig{..} dnsDomains = do
+    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
+    DNS.withResolver resolvSeed $ \resolver ->
+      fmap (fmap addressToNodeId) <$> DnsDomains.resolveDnsDomains
+                                        (DNS.lookupA resolver)
+                                        ncDefaultPort
+                                        dnsDomains
 
 -- | The various buckets we use for the outbound queue
 data Bucket =

@@ -34,11 +34,10 @@ import qualified Options.Applicative             as Opt
 import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
                                                          fromYamlConfig)
-import           Pos.Network.DnsDomains          (DnsDomains (..))
+import           Pos.Network.DnsDomains          (DnsDomains (..), NodeAddr (..))
 import           Pos.Network.Types               (NodeId)
 import qualified Pos.Network.Types               as T
-import           Pos.Network.Yaml                (NodeAddr (..), NodeMetadata (..),
-                                                  NodeName (..))
+import           Pos.Network.Yaml                (NodeMetadata (..), NodeName (..))
 import qualified Pos.Network.Yaml                as Y
 import           Pos.Util.TimeWarp               (addressToNodeId)
 import           System.Wlog.CanLog              (WithLogger, logError, logNotice)
@@ -104,9 +103,11 @@ defaultTopology = Y.TopologyBehindNAT defaultDnsDomains
 
 -- | The default DNS domains used for relay discovery
 --
-defaultDnsDomains :: DnsDomains
 -- TODO: Give this a proper value
-defaultDnsDomains = DnsDomains [["todo.defaultDnsDomain.com"]]
+defaultDnsDomains :: DnsDomains DNS.Domain
+defaultDnsDomains = DnsDomains [
+      [NodeAddrDNS "todo.defaultDnsDomain.com" Nothing]
+    ]
 
 {-------------------------------------------------------------------------------
   Monitor for static peers
@@ -269,7 +270,7 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers =
 -- TODO: Support re-reading this file after SIGHUP.
 resolveNodeAddr :: NetworkConfigOpts
                 -> DNS.Resolver
-                -> (NodeName, NodeAddr)
+                -> (NodeName, NodeAddr (Maybe DNS.Domain))
                 -> IO NodeId
 resolveNodeAddr cfg _ (_, NodeAddrExact addr mPort) = do
     let port = fromMaybe (networkConfigOptsPort cfg) mPort

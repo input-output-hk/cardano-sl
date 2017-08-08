@@ -1,0 +1,18 @@
+nodes:
+  "node0":
+    type: core
+    region: undefined
+    static-routes: [["node1"], ["node2"]]
+    host: node0.local 
+    # default port
+  "node1":
+    type: core
+    region: undefined
+    static-routes: [["node0"], ["node2"]]
+    host: node1.local 
+    # default port
+  "node2":
+    type: core
+    region: undefined
+    static-routes: [["node0"], ["node1"]]
+    # default port, uses 'node2' as the hostname

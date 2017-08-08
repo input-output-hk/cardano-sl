@@ -11,7 +11,6 @@ matrix:
 
 before_install:
 - echo $TRAVIS_OS_NAME
-- echo os $OSTYPE
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 - export DCONFIG=travis
 - mkdir -p ~/.local/bin s3
@@ -26,7 +25,8 @@ before_install:
 - sudo touch /etc/nix/nix.conf
 - echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" | sudo tee -a /etc/nix/nix.conf
 - echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" | sudo tee -a /etc/nix/nix.conf
-- if [ "x$OSTYPE" == xdarwin16 ]; then sudo launchctl stop org.nixos.nix-daemon ; sudo launchctl start org.nixos.nix-daemon ; fi
+- echo os $OSTYPE
+- if [ "x$OSTYPE" == xdarwin16 ]; then sudo launchctl stop org.nixos.nix-daemon ; sudo launchctl start org.nixos.nix-daemon ; sleep 5; fi
   # workaround https://github.com/NixOS/nixpkgs/issues/27493
 - nix-env -i bash
 

@@ -88,5 +88,5 @@ in ((import ./pkgs { inherit pkgs; }).override {
     repo = "stack2nix";
     rev = "28b944928579675bf45281b6c579e6c8a201478f";
     sha256 = "136slc04dxvbnkksgw9pj6yziy3bb005w77mx094cdszjhh9dkix";
-  });
+  }) { inherit pkgs; };
 }

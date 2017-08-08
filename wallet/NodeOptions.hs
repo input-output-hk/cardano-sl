@@ -13,23 +13,22 @@ module NodeOptions
 import           Data.Version                 (showVersion)
 import           Options.Applicative          (Parser, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
-                                               infoOption, long, metavar,
-                                               progDesc, strOption, switch,
-                                               value)
+                                               infoOption, long, progDesc, strOption,
+                                               switch, value)
 import           Universum                    hiding (show)
+import qualified Options.Applicative          as Opt
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.CLI                      as CLI
 import           Pos.Client.CLI.NodeOptions   (SimpleNodeArgs (..), simpleNodeArgsParser, usageExample)
+import           Pos.Web.Types                (TlsParams (..))
 
 data WalletNodeArgs = WalletNodeArgs SimpleNodeArgs WalletArgs
 
 data WalletArgs = WalletArgs
     { enableWeb                 :: !Bool
     , webPort                   :: !Word16
-    , walletTLSCertPath         :: !FilePath
-    , walletTLSKeyPath          :: !FilePath
-    , walletTLSCAPath           :: !FilePath
+    , walletTLSParams           :: !TlsParams
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
     , walletDbPath              :: !FilePath
@@ -45,21 +44,7 @@ walletArgsParser = do
         help "Activate web API (it’s not linked with a wallet web API)."
     webPort <-
         CLI.webPortOption 8080 "Port for web API."
-    walletTLSCertPath <- strOption $
-        long    "tlscert" <>
-        metavar "FILEPATH" <>
-        value   "server.crt" <>
-        help    "Path to file with TLS certificate"
-    walletTLSKeyPath <- strOption $
-        long    "tlskey" <>
-        metavar "FILEPATH" <>
-        value   "server.key" <>
-        help    "Path to file with TLS key"
-    walletTLSCAPath <- strOption $
-        long    "tlsca" <>
-        metavar "FILEPATH" <>
-        value   "ca.crt" <>
-        help    "Path to file with TLS certificate authority"
+    walletTLSParams <- tlsParamsOption
     enableWallet <- switch $
         long "wallet" <>
         help "Activate Wallet web API."
@@ -91,3 +76,29 @@ getWalletNodeOptions = execParser programInfo
     versionOption = infoOption
         ("cardano-node-" <> showVersion version)
         (long "version" <> help "Show version.")
+
+
+tlsParamsOption :: Opt.Parser TlsParams
+tlsParamsOption = do
+    tpCertPath <-
+        Opt.strOption $
+            CLI.templateParser
+                "tlscert"
+                "FILEPATH"
+                "Path to file with TLS certificate"
+                <> Opt.value "server.crt"
+    tpKeyPath <-
+        Opt.strOption $
+            CLI.templateParser
+                "tlskey"
+                "FILEPATH"
+                "Path to file with TLS key"
+                <> Opt.value "server.key"
+    tpCaPath <-
+        Opt.strOption $
+            CLI.templateParser
+                "tlsca"
+                "FILEPATH"
+                "Path to file with TLS certificate authority"
+                <> Opt.value "ca.crt"
+    return TlsParams{..}

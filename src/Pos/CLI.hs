@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
 
 -- | Module for command-line utilites, parsers and convenient handlers.
 

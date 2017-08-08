@@ -20,8 +20,8 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                value)
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import qualified Text.Parsec.Char             as P
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
@@ -31,13 +31,14 @@ import           Pos.DHT.Model                (DHTKey)
 import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyOption,
                                                dhtNetworkAddressOption,
                                                dhtPeersFileOption)
-import           Pos.Network.Types            (NodeType (..), NodeId)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
+import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Security                 (AttackTarget, AttackType)
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
-import           Pos.Util.TimeWarp            (addressToNodeId, NetworkAddress, addrParser)
+import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
+                                               addressToNodeId)
 
 data SimpleNodeArgs = SimpleNodeArgs
     { dbPath                    :: !FilePath

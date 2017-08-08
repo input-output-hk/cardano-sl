@@ -146,7 +146,6 @@ executable cardano-dht-keygen
                      , formatting
                      , kademlia
                      , lens
-                     , lifted-async
                      , log-warper
                      , optparse-applicative
                      , parsec
@@ -201,7 +200,11 @@ executable cardano-dht-keygen
 executable cardano-swagger
   hs-source-dirs:      src/wallet-web-api-swagger
   main-is:             Main.hs
-  other-modules:       Description
+  other-modules:       CustomSwagger
+                       Description
+                       Instances
+                       Instances.Schema
+                       Instances.Swagger
   if !flag(for-installer)
    build-depends:      aeson
                      , base
@@ -228,8 +231,12 @@ executable cardano-swagger
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
-  default-extensions:   NoImplicitPrelude
-                        BangPatterns
+  default-extensions:   BangPatterns
+                        FlexibleContexts
+                        FlexibleInstances
+                        NoImplicitPrelude
+                        TypeApplications
+                        TypeOperators
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

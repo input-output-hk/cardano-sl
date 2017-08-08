@@ -416,8 +416,6 @@ library
                       , wai-extra
                       , warp
                       , warp-tls
-                      , websockets
-                      , wai-websockets
 
   hs-source-dirs:       src
   default-language:     Haskell2010

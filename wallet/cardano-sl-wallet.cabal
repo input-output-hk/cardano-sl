@@ -70,6 +70,9 @@ executable cardano-node
                       , parsec
                       , random
                       , serokell-util >= 0.1.3.4
+                      , servant >= 0.8.1
+                      , servant-multipart >= 0.10
+                      , servant-server >= 0.8.1
                       , string-qq
                       , stm
                       , stm-containers
@@ -79,17 +82,9 @@ executable cardano-node
                       , transformers
                       , universum >= 0.1.11
                       , unordered-containers
-
-                      , http-types
-                      , servant >= 0.8.1
-                      , servant-multipart >= 0.10
-                      , servant-server >= 0.8.1
                       , wai
-                      , wai-extra
-                      , warp
-                      , warp-tls
-                      , websockets
                       , wai-websockets
+                      , websockets
 
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

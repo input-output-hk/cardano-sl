@@ -33,6 +33,7 @@ import           Pos.Wallet.Web.Server.Methods (addInitialRichAccount, walletApp
                                                 walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State          (WalletState)
+import           Pos.Web                       (TlsParams)
 
 -- | WalletWebMode runner.
 runWRealMode
@@ -50,9 +51,7 @@ walletServeWebFull
     :: SendActions WalletWebMode
     -> Bool      -- whether to include genesis keys
     -> Word16    -- ^ Port to listen
-    -> FilePath  -- ^ TLS Certificate path
-    -> FilePath  -- ^ TLS Key file
-    -> FilePath  -- ^ TLS ca file
+    -> Maybe TlsParams
     -> WalletWebMode ()
 walletServeWebFull sendActions debug = walletServeImpl action
   where

@@ -99,6 +99,9 @@ dev: &dev
 
   genesisBinSuffix: qa # qa is set here arbitrarily, it won't be actually used
 
+  # Mode-sensitive logging options
+  webLoggingEnabled: true
+
 
 ##############################################################################
 ##                                                                          ##

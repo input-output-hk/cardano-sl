@@ -103,8 +103,7 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    MonadKeySearch (..), genSaveRootKey,
                                                    genUniqueAccountAddress,
                                                    genUniqueAccountId, getAddrIdx,
-                                                   getSKByAccAddr, getSKByAddr,
-                                                   myRootAddresses)
+                                                   getSKById, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.Backup            (AccountMetaBackup (..),
                                                    StateBackup (..), WalletBackup (..),
@@ -159,7 +158,7 @@ import           Pos.Wallet.Web.Util              (coinDistrToOutputs,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds,
                                                    getWalletAddrMetas, rewrapTxError)
-import           Pos.Web.Server                   (serveImpl)
+import           Pos.Web                          (TlsParams, serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -196,9 +195,7 @@ walletServeImpl
     :: WalletWebMode m
     => m Application     -- ^ Application getter
     -> Word16            -- ^ Port to listen
-    -> FilePath          -- ^ TLS Certificate path
-    -> FilePath          -- ^ TLS Key file
-    -> FilePath          -- ^ TLS ca file
+    -> Maybe TlsParams
     -> m ()
 walletServeImpl app =
     serveImpl app "127.0.0.1"
@@ -219,7 +216,7 @@ walletServer
     -> m (m :~> Handler)
     -> m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWalletsWithGState @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    syncWalletsWithGState @WalletSscType =<< mapM getSKById =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -461,7 +458,7 @@ getWallet cAddr = do
     let walletsNum = length wallets
     balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                      mapM (decodeCCoinOrFail . caAmount) wallets
-    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKByAddr cAddr
+    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- getWalletPassLU cAddr >>= maybeThrow noWSet
     pure $ CWallet cAddr meta walletsNum balance hasPass passLU
   where
@@ -572,7 +569,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     addrMetas' <- getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
-    sks <- forM addrMetas $ getSKByAccAddr passphrase
+    sks <- mapM findKey addrMetas
     srcAddrs <- forM addrMetas $ decodeCIdOrFail . cwamId
 
     withSafeSigners passphrase sks $ \ss -> do
@@ -839,7 +836,7 @@ changeWalletPassphrase
     :: WalletWebMode m
     => CId Wal -> PassPhrase -> PassPhrase -> m ()
 changeWalletPassphrase wid oldPass newPass = do
-    oldSK <- getSKByAddr wid
+    oldSK <- getSKById wid
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK

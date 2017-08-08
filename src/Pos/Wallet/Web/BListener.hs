@@ -31,7 +31,7 @@ import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 
-import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
+import           Pos.Wallet.Web.Account     (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import qualified Pos.Wallet.Web.State       as WS
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToWallet,
@@ -92,7 +92,7 @@ onApplyTracking blunds = do
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         allAddresses <- getWalletAddrMetas WS.Ever wAddr
-        encSK <- getSKByAddr wAddr
+        encSK <- getSKById wAddr
         let mapModifier =
                 trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs blkTxsWUndo
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
@@ -130,7 +130,7 @@ onRollbackTracking blunds = do
     syncWallet :: HeaderHash -> HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
     syncWallet curTip newTip txs wid = walletGuard curTip wid $ do
         allAddresses <- getWalletAddrMetas WS.Ever wid
-        encSK <- getSKByAddr wid
+        encSK <- getSKById wid
         let mapModifier = trackingRollbackTxs encSK allAddresses $
                           map (\(aux, undo) -> (aux, undo, newTip)) txs
         rollbackModifierFromWallet wid newTip mapModifier

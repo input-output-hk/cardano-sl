@@ -9,6 +9,8 @@ module Main
        ( main
        ) where
 
+import           Universum
+
 import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
 import           Control.Monad.Error.Class        (throwError)
 import           Control.Monad.Trans.Either       (EitherT (..))
@@ -17,7 +19,6 @@ import           Data.ByteString.Base58           (bitcoinAlphabet, encodeBase58
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        ((!!))
 import qualified Data.Set                         as S (fromList)
-import           Data.String.QQ                   (s)
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as T
 import           Data.Time.Units                  (convertUnit, toMicroseconds)
@@ -28,6 +29,7 @@ import           Mockable                         (Mockable, Production, SharedA
                                                    currentTime, delay, forConcurrently,
                                                    modifySharedAtomic, newSharedAtomic,
                                                    runProduction)
+import           NeatInterpolation                (text)
 import           Network.Transport.Abstract       (Transport, hoistTransport)
 import           System.IO                        (BufferMode (LineBuffering), hClose,
                                                    hFlush, hSetBuffering, stdout)
@@ -37,7 +39,6 @@ import           System.Exit                      (ExitCode (ExitSuccess))
 import           System.Posix.Process             (exitImmediately)
 #endif
 import           Serokell.Util                    (ms, sec)
-import           Universum
 
 import           Pos.Binary                       (Raw, serialize')
 import qualified Pos.CLI                          as CLI
@@ -106,7 +107,7 @@ data CmdCtx =
     }
 
 helpMsg :: Text
-helpMsg = [s|
+helpMsg = [text|
 Avaliable commands:
    balance <address>              -- check balance on given address (may be any address)
    send <N> [<address> <coins>]+  -- create and send transaction with given outputs

@@ -23,8 +23,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
       find core/ -name '*.hs' -exec sed -i 's/defined(CONFIG)/1/g' {} +
       find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
     fi
-
-    export EXTRA_STACK="--test $EXTRA_STACK";
+    export EXTRA_STACK="--test --bench --no-run-benchmarks $EXTRA_STACK";
 fi
 
 if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then

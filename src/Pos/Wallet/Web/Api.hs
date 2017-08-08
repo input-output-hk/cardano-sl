@@ -19,6 +19,7 @@ module Pos.Wallet.Web.Api
        , GetWallet
        , GetWallets
        , NewWallet
+       , UpdateWallet
        , RestoreWallet
        , RenameWallet
        , DeleteWallet
@@ -39,6 +40,7 @@ module Pos.Wallet.Web.Api
        , UpdateProfile
 
        , NewPayment
+       , TxFee
        , UpdateTx
        , GetHistory
 
@@ -54,6 +56,9 @@ module Pos.Wallet.Web.Api
        , GetSlotsDuration
        , GetVersion
        , GetSyncProgress
+
+       , ImportBackupJSON
+       , ExportBackupJSON
        ) where
 
 
@@ -68,13 +73,13 @@ import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
                                              DCQueryParam, ModifiesApiRes (..),
                                              ReportDecodeError (..), VerbMod)
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CCoin,
-                                             CAccountMeta, CAddress, CElectronCrashReport,
-                                             CId, CInitialized, CPaperVendWalletRedeem,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress,
-                                             Wal)
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
+                                             CAccountMeta, CAddress, CCoin,
+                                             CElectronCrashReport, CId, CInitialized,
+                                             CPaperVendWalletRedeem, CPassPhrase,
+                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                             CWallet, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, SyncProgress, Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
                                              catchEndpointErrors)
 

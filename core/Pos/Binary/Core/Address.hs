@@ -3,13 +3,17 @@ module Pos.Binary.Core.Address () where
 
 import           Universum
 
-import           Data.Digest.CRC32   (CRC32 (..))
-import           Pos.Binary.Crypto   ()
+import           Codec.CBOR.Encoding (Encoding)
+import qualified Codec.CBOR.Write    as CBOR.Write
 import           Data.Default        (def)
+import           Data.Digest.CRC32   (CRC32 (..))
 import           Data.Word           (Word8)
-import           Pos.Binary.Class    (Bi (..), serialize', deserialize', encodeListLen, enforceSize)
+import           Formatting          (format, shown, (%))
+import           Pos.Binary.Class    (Bi (..), deserialize', encodeListLen, enforceSize,
+                                      serialize')
+import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
-import           Pos.Data.Attributes (Attributes, encodeAttributes, decodeAttributes)
+import           Pos.Data.Attributes (Attributes, decodeAttributes, encodeAttributes)
 
 {- NOTE: Address serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -42,7 +46,7 @@ addresses and save a byte).
 -}
 
 instance CRC32 Address where
-    crc32Update seed = crc32Update seed . serialize'
+    crc32Update seed = crc32Update seed . CBOR.Write.toLazyByteString . encodeAddr
 
 ----------------------------------------
 
@@ -52,30 +56,40 @@ instance Bi (Attributes AddrPkAttrs) where
         0 -> Just $ acc { addrPkDerivationPath = deserialize' v }
         _ -> Nothing
 
-instance Bi Address where
-    encode addr =
-        encodeListLen 2 <> encodeAddr
-      where
-        encodeAddr = case addr of
-            PubKeyAddress keyHash attrs ->
-                   encode (0 :: Word8)
-                <> encode (serialize' (keyHash, attrs))
-            ScriptAddress scrHash ->
-                   encode (1 :: Word8)
-                <> encode (serialize' scrHash)
-            RedeemAddress keyHash ->
-                   encode (2 :: Word8)
-                <> encode (serialize' keyHash)
-            UnknownAddressType t bs ->
-                   encode t
-                <> encode bs
 
+-- | Encodes the `Address` _without_ the CRC32.
+-- It's important to keep this function separated from the `encode`
+-- definition to avoid that `encode` would call `crc32` and
+-- the latter invoke `crc32Update`, which would then try to call `encode`
+-- indirectly once again, in an infinite loop.
+encodeAddr :: Address -> Encoding
+encodeAddr addr = case addr of
+    PubKeyAddress keyHash attrs ->
+           encode (0 :: Word8)
+        <> encode (serialize' (keyHash, attrs))
+    ScriptAddress scrHash ->
+           encode (1 :: Word8)
+        <> encode (serialize' scrHash)
+    RedeemAddress keyHash ->
+           encode (2 :: Word8)
+        <> encode (serialize' keyHash)
+    UnknownAddressType t bs ->
+           encode t
+        <> encode bs
+
+instance Bi Address where
+    encode addr = encodeListLen 3 <> encodeAddr addr <> encode (crc32 addr)
     decode = do
-        enforceSize "Address" 2
-        t  <- decode @Word8
-        bs <- decode @ByteString
-        pure $ case t of
-            0 -> uncurry PubKeyAddress $ deserialize' bs
-            1 -> ScriptAddress         $ deserialize' bs
-            2 -> RedeemAddress         $ deserialize' bs
-            _ -> UnknownAddressType t bs
+        enforceSize "Address" 3
+        t           <- decode @Word8
+        bs          <- decode @ByteString
+        expectedCRC <- decode @Word32
+        let address = case t of
+                          0 -> uncurry PubKeyAddress $ deserialize' bs
+                          1 -> ScriptAddress         $ deserialize' bs
+                          2 -> RedeemAddress         $ deserialize' bs
+                          _ -> UnknownAddressType t bs
+        let actualCRC = crc32 address
+        if expectedCRC /= actualCRC
+           then fail $ toString $ format ("Address " % shown % "has invalid checksum: " % shown) address actualCRC
+           else pure address

@@ -62,7 +62,7 @@ import           Pos.WorkMode                    (EnqueuedConversation (..), OQ,
                                                   RealModeContext (..), WorkMode)
 
 #ifdef linux_HOST_OS
-import           Daemons
+import qualified System.Systemd.Daemon           as Systemd
 #endif
 
 ----------------------------------------------------------------------------
@@ -244,7 +244,7 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
 notifyReady :: MonadIO m => m ()
 #ifdef linux_HOST_OS
 notifyReady = do
-    res <- liftIO Daemons.notifyReady
+    res <- liftIO Systemd.notifyReady
     case res of
         Just () -> return ()
         Nothing -> logWarning "notifyReady failed to notify systemd."

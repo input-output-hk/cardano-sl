@@ -234,24 +234,21 @@ fromPovOf :: NetworkConfigOpts
 fromPovOf cfg@NetworkConfigOpts{..} allPeers =
     case networkConfigOptsSelf of
       Nothing   -> throwM NetworkConfigSelfUnknown
-      Just self -> do
-        -- TODO: Do we want to allow to override the DNS config?
-        resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
-        DNS.withResolver resolvSeed $ \resolver -> do
-          selfMetadata <- metadataFor allPeers self
-          selfPeers    <- mkPeers resolver (Y.nmRoutes selfMetadata)
-          let selfType = Y.nmType selfMetadata
-          return (selfType, peersFromList selfPeers)
+      Just self -> T.initDnsOnDemand $ \resolve -> do
+        selfMetadata <- metadataFor allPeers self
+        selfPeers    <- mkPeers resolve (Y.nmRoutes selfMetadata)
+        let selfType = Y.nmType selfMetadata
+        return (selfType, peersFromList selfPeers)
   where
-    mkPeers :: DNS.Resolver -> Y.NodeRoutes -> IO [(T.NodeType, Alts NodeId)]
-    mkPeers resolver (Y.NodeRoutes routes) = mapM (mkAlts resolver) routes
+    mkPeers :: T.Resolver -> Y.NodeRoutes -> IO [(T.NodeType, Alts NodeId)]
+    mkPeers resolve (Y.NodeRoutes routes) = mapM (mkAlts resolve) routes
 
-    mkAlts :: DNS.Resolver -> Alts NodeName -> IO (T.NodeType, Alts NodeId)
-    mkAlts _        []    = throwM $ EmptyListOfAltsFor (fromJust networkConfigOptsSelf)
-    mkAlts resolver names = do
+    mkAlts :: T.Resolver -> Alts NodeName -> IO (T.NodeType, Alts NodeId)
+    mkAlts _       []    = throwM $ EmptyListOfAltsFor (fromJust networkConfigOptsSelf)
+    mkAlts resolve names = do
       alts@(firstAlt:_) <- mapM (metadataFor allPeers) names
       let altsType = nmType firstAlt -- assume all alts have same type
-      (altsType,) <$> mapM (resolveNodeAddr cfg resolver)
+      (altsType,) <$> mapM (resolveNodeAddr cfg resolve)
                            (zip names $ map nmAddress alts)
 
 -- | Resolve node name to IP address
@@ -269,17 +266,17 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers =
 --
 -- TODO: Support re-reading this file after SIGHUP.
 resolveNodeAddr :: NetworkConfigOpts
-                -> DNS.Resolver
+                -> T.Resolver
                 -> (NodeName, NodeAddr (Maybe DNS.Domain))
                 -> IO NodeId
 resolveNodeAddr cfg _ (_, NodeAddrExact addr mPort) = do
     let port = fromMaybe (networkConfigOptsPort cfg) mPort
     return $ addressToNodeId (addr, port)
-resolveNodeAddr cfg resolver (name, NodeAddrDNS mHost mPort) = do
+resolveNodeAddr cfg resolve (name, NodeAddrDNS mHost mPort) = do
     let host = fromMaybe (nameToDomain name)         mHost
         port = fromMaybe (networkConfigOptsPort cfg) mPort
 
-    mAddrs <- DNS.lookupA resolver host
+    mAddrs <- resolve host
     case mAddrs of
       Left err            -> throwM $ NetworkConfigDnsError host err
       Right []            -> throwM $ CannotResolve name

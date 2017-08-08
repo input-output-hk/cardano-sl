@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Network.Types
     ( NetworkConfig (..)
     , Topology(..)
@@ -13,6 +15,9 @@ module Pos.Network.Types
     , resolveDnsDomains
     , defaultNetworkConfig
     , initQueue
+      -- * Auxiliary
+    , Resolver
+    , initDnsOnDemand
       -- * Re-exports
       -- ** from .DnsDomains
     , DnsDomains(..)
@@ -24,6 +29,9 @@ module Pos.Network.Types
     , NodeId (..)
     ) where
 
+import           Control.Concurrent                    (ThreadId, forkIO,
+                                                        modifyMVar_, killThread)
+import           Data.IP                               (IPv4)
 import           Network.Broadcast.OutboundQueue       (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -143,11 +151,10 @@ topologyRunKademlia = go
 resolveDnsDomains :: NetworkConfig kademlia
                   -> DnsDomains DNS.Domain
                   -> IO (Either [DNSError] [NodeId])
-resolveDnsDomains NetworkConfig{..} dnsDomains = do
-    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
-    DNS.withResolver resolvSeed $ \resolver ->
+resolveDnsDomains NetworkConfig{..} dnsDomains =
+    initDnsOnDemand $ \resolve ->
       fmap (fmap addressToNodeId) <$> DnsDomains.resolveDnsDomains
-                                        (DNS.lookupA resolver)
+                                        resolve
                                         ncDefaultPort
                                         dnsDomains
 
@@ -211,3 +218,52 @@ initQueue NetworkConfig{..} = do
     enqueuePolicy = OQ.defaultEnqueuePolicy ourNodeType
     dequeuePolicy = OQ.defaultDequeuePolicy ourNodeType
     failurePolicy = OQ.defaultFailurePolicy ourNodeType
+
+{-------------------------------------------------------------------------------
+  Auxiliary
+-------------------------------------------------------------------------------}
+
+type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
+
+-- | Initialize the DNS library only when we need to
+--
+-- This is a bit awkward due to the lexical scoping enforced by the DNS
+-- library. We therefore spawn a thread to run the DNS resolver, but only when
+-- we need it.
+--
+-- TODO: Make it possible to change DNS config (esp for use on Windows).
+initDnsOnDemand :: (Resolver -> IO a) -> IO a
+initDnsOnDemand k = do
+    request   :: MVar DNS.Domain               <- newEmptyMVar
+    response  :: MVar (Either DNSError [IPv4]) <- newEmptyMVar
+
+    let dnsHandler :: IO ()
+        dnsHandler = do
+          resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
+          DNS.withResolver resolvSeed $ \resolver -> forever $ do
+            dom <- takeMVar request
+            putMVar response =<< DNS.lookupA resolver dom
+
+    dnsThread :: MVar (Maybe ThreadId) <- newMVar Nothing
+
+    let startDnsHandler :: IO ()
+        startDnsHandler =
+          modifyMVar_ dnsThread $ \mThread ->
+            case mThread of
+              Just tid -> return $ Just tid
+              Nothing  -> Just <$> forkIO dnsHandler
+
+        killDnsHandler :: IO ()
+        killDnsHandler =
+          modifyMVar_ dnsThread $ \mThread ->
+            case mThread of
+              Just tid -> killThread tid >> return Nothing
+              Nothing  -> return Nothing
+
+    let resolve :: DNS.Domain -> IO (Either DNSError [IPv4])
+        resolve dom = do
+          startDnsHandler
+          putMVar request dom
+          takeMVar response
+
+    k resolve `finally` killDnsHandler

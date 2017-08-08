@@ -8,24 +8,16 @@ matrix:
     - env: MODE=stack2nix
     - os: osx
       osx_image: xcode8.3
-      # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
-
-cache:
-  directories:
-  - "$HOME/.stack"
-  - /nix/store
-  # we need to cache nix store as well to have system libraries for stack files
 
 before_install:
 - echo $TRAVIS_OS_NAME
+- echo os $OSTYPE
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 - export DCONFIG=travis
 - mkdir -p ~/.local/bin s3
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
-- travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
-  xz --strip-components=1 -C ~/.local/bin
 - sudo service --status-all || true
 - sudo /etc/init.d/memcached stop || true
 - sudo /etc/init.d/mysql stop || true
@@ -34,7 +26,6 @@ before_install:
 - sudo touch /etc/nix/nix.conf
 - echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" | sudo tee -a /etc/nix/nix.conf
 - echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" | sudo tee -a /etc/nix/nix.conf
-- echo os $OSTYPE
 - if [ "x$OSTYPE" == xdarwin16 ]; then sudo launchctl stop org.nixos.nix-daemon ; sudo launchctl start org.nixos.nix-daemon ; fi
   # workaround https://github.com/NixOS/nixpkgs/issues/27493
 - nix-env -i bash

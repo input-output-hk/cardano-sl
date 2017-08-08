@@ -42,9 +42,9 @@ import           Pos.Binary               (biSize)
 import           Pos.Context              (GenesisStakeholders, genesisStakeholdersM)
 import           Pos.Core                 (AddressIgnoringAttributes (AddressIA),
                                            TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
-                                           calculateTxSizeLinear, integerToCoin, siEpoch,
-                                           unsafeAddCoin, unsafeGetCoin,
-                                           unsafeIntegerToCoin, unsafeSubCoin)
+                                           calculateTxSizeLinear, integerToCoin,
+                                           integerToCoin, siEpoch, unsafeAddCoin,
+                                           unsafeGetCoin, unsafeSubCoin)
 import           Pos.Crypto               (PublicKey, RedeemSecretKey, SafeSigner,
                                            SignTag (SignTxIn), deterministicKeyGen,
                                            fakeSigner, hash, redeemSign, redeemToPublic,
@@ -241,22 +241,24 @@ prepareTxRaw
     -> TxFee
     -> m TxRaw
 prepareTxRaw utxo outputs (TxFee fee) = do
+    totalMoney <- sumTxOuts outputs
     when (totalMoney == mkCoin 0) $
         throwTxError "Attempted to send 0 money"
+
+    let totalMoneyWithFee = totalMoney `unsafeAddCoin` fee
     futxo <- either throwError pure $
         evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedUnspent)
     case nonEmpty futxo of
         Nothing       -> throwTxError "Failed to prepare inputs!"
         Just inputsNE -> do
-            let totalTxAmount = unsafeSumTxOuts $ map snd inputsNE
-                trInputs = map formTxInputs inputsNE
+            totalTxAmount <- sumTxOuts $ map snd inputsNE
+            let trInputs = map formTxInputs inputsNE
                 trOutputs = outputs
                 trRemaining = totalTxAmount `unsafeSubCoin` totalMoneyWithFee
             pure TxRaw {..}
   where
-    unsafeSumTxOuts = unsafeIntegerToCoin . sumCoins . map (txOutValue . toaOut)
-    totalMoney = unsafeSumTxOuts outputs
-    totalMoneyWithFee = totalMoney `unsafeAddCoin` fee
+    sumTxOuts = either throwTxError pure .
+        integerToCoin . sumCoins . map (txOutValue . toaOut)
     allUnspent = M.toList utxo
     sortedUnspent =
         sortOn (Down . txOutValue . toaOut . snd) allUnspent
@@ -275,6 +277,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
                         ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         ipsAvailableOutputs %= tail
                         pickInputs (inp : inps)
+
     formTxInputs (inp, TxOutAux txOut _) = (txOut, inp)
 
 -- | Returns set of tx outputs including change output (if it's necessary)

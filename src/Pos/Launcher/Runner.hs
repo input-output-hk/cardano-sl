@@ -23,16 +23,16 @@ import           Universum                       hiding (bracket)
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
 import           Formatting                      (build, sformat, (%))
-import           Mockable                        (MonadMockable, Production (..), bracket,
-                                                  killThread, Throw, throw, Mockable,
-                                                  async, cancel)
+import           Mockable                        (Mockable, MonadMockable,
+                                                  Production (..), Throw, async, bracket,
+                                                  cancel, killThread, throw)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node                            (Node, NodeAction (..), NodeEndPoint,
                                                   ReceiveDelay, Statistics,
-                                                  defaultNodeEnvironment,
-                                                  noReceiveDelay, node,
-                                                  simpleNodeEndPoint)
-import qualified Node.Conversation               as N (Converse, Conversation, converseWith)
+                                                  defaultNodeEnvironment, noReceiveDelay,
+                                                  node, simpleNodeEndPoint)
+import qualified Node.Conversation               as N (Conversation, Converse,
+                                                       converseWith)
 import           Node.Util.Monitor               (setupMonitor, stopMonitor)
 import qualified System.Metrics                  as Metrics
 import           System.Random                   (newStdGen)
@@ -41,13 +41,12 @@ import qualified System.Remote.Monitoring.Statsd as Monitoring
 import           System.Wlog                     (WithLogger, logInfo)
 
 import           Pos.Binary                      ()
-import           Pos.Communication               (ActionSpec (..), bipPacking, InSpecs (..),
-                                                  MkListeners (..), OutSpecs (..),
-                                                  VerInfo (..), allListeners, Msg,
-                                                  PeerData, PackingType,
-                                                  hoistSendActions, makeSendActions,
-                                                  SendActions,
-                                                  makeEnqueueMsg, EnqueueMsg)
+import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
+                                                  InSpecs (..), MkListeners (..), Msg,
+                                                  OutSpecs (..), PackingType, PeerData,
+                                                  SendActions, VerInfo (..), allListeners,
+                                                  bipPacking, hoistSendActions,
+                                                  makeEnqueueMsg, makeSendActions)
 import qualified Pos.Constants                   as Const
 import           Pos.Context                     (NodeContext (..))
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
@@ -59,9 +58,12 @@ import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
-import           Pos.WorkMode                    (RealMode, RealModeContext (..),
-                                                  WorkMode, EnqueuedConversation (..),
-                                                  OQ)
+import           Pos.WorkMode                    (EnqueuedConversation (..), OQ, RealMode,
+                                                  RealModeContext (..), WorkMode)
+
+#ifdef linux_HOST_OS
+import           Daemons
+#endif
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -220,6 +222,7 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
             mkListeners mkL' ourVerInfo theirVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
+    notifyReady
     node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo defaultNodeEnvironment $ \__node ->
         NodeAction mkListeners' $ \converse ->
             let sendActions :: SendActions m
@@ -234,3 +237,17 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
         stopDequeue
         afterNode other
     mkConnectDelay = const (pure Nothing)
+
+-- | Notify process manager tools like systemd the node is ready.
+-- Available only on Linux for systems where `libsystemd-dev` is installed.
+-- It defaults to a noop for all the other platforms.
+notifyReady :: MonadIO m => m ()
+#ifdef linux_HOST_OS
+notifyReady = do
+    res <- liftIO Daemons.notifyReady
+    case res of
+        Just () -> return ()
+        Nothing -> logWarning "notifyReady failed to notify systemd."
+#else
+notifyReady = return ()
+#endif

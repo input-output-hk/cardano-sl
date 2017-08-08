@@ -531,6 +531,8 @@ executable cardano-node
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+    -- Enable systemd event reporting
+    build-depends:      systemd
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

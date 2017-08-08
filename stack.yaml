@@ -114,6 +114,7 @@ extra-deps:
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
+- systemd-1.1.2
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

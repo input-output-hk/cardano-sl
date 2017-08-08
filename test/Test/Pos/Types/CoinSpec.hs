@@ -10,9 +10,10 @@ import           Universum
 import           Test.Hspec            (Expectation, Spec, anyErrorCall, describe, it,
                                         shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, (===))
+import           Test.QuickCheck       (Property, (.||.), (===))
 
 import qualified Pos.Arbitrary.Core    as C
+import qualified Pos.Core.Types        as C
 import qualified Pos.Types             as C
 
 import           Test.Pos.Util         (shouldThrowException, (.=.), (>=.))
@@ -136,7 +137,7 @@ coinToIntegralToCoin :: C.Coin -> Property
 coinToIntegralToCoin = C.mkCoin . C.unsafeGetCoin .=. identity
 
 wordToCoinToWord :: Word64 -> Property
-wordToCoinToWord = C.unsafeGetCoin . C.mkCoin .=. identity
+wordToCoinToWord c = c > C.maxCoinVal .||. C.unsafeGetCoin (C.mkCoin c) === c
 
 coinToIntegerToCoin :: C.Coin -> Property
 coinToIntegerToCoin = C.unsafeIntegerToCoin . C.coinToInteger .=. identity

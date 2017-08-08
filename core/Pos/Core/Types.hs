@@ -56,6 +56,7 @@ module Pos.Core.Types
        , coinPortionDenominator
        , mkCoinPortion
        , unsafeCoinPortionFromDouble
+       , maxCoinVal
 
        -- * Slotting
        , EpochIndex (..)

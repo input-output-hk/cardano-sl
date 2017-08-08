@@ -35,11 +35,11 @@ module Network.Broadcast.OutboundQueue (
   , MaxAhead(..)
   , Enqueue(..)
   , EnqueuePolicy
+  , UnknownNodeType(..)
   , defaultEnqueuePolicy
   , defaultEnqueuePolicyCore
   , defaultEnqueuePolicyRelay
   , defaultEnqueuePolicyEdgeBehindNat
-  , defaultEnqueuePolicyEdgeExchange
   , defaultEnqueuePolicyEdgeP2P
     -- ** Dequeueing policy
   , RateLimit(..)
@@ -50,12 +50,13 @@ module Network.Broadcast.OutboundQueue (
   , defaultDequeuePolicyCore
   , defaultDequeuePolicyRelay
   , defaultDequeuePolicyEdgeBehindNat
-  , defaultDequeuePolicyEdgeExchange
   , defaultDequeuePolicyEdgeP2P
     -- ** Failure policy
   , FailurePolicy
   , ReconsiderAfter(..)
   , defaultFailurePolicy
+    -- ** Subscription
+  , MaxBucketSize(..)
     -- * Enqueueing
   , Origin(..)
   , EnqueueTo (..)
@@ -91,7 +92,8 @@ import Data.Either (rights)
 import Data.Foldable (fold)
 import Data.List (sortBy, intercalate)
 import Data.Map.Strict (Map)
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, fromMaybe)
+import Data.Monoid ((<>))
 import Data.Ord (comparing)
 import Data.Text (Text)
 import Data.Time
@@ -194,6 +196,7 @@ defaultEnqueuePolicy :: NodeType -> EnqueuePolicy nid
 defaultEnqueuePolicy NodeCore  = defaultEnqueuePolicyCore
 defaultEnqueuePolicy NodeRelay = defaultEnqueuePolicyRelay
 defaultEnqueuePolicy NodeEdge  = defaultEnqueuePolicyEdgeBehindNat
+                                   Nothing -- default number of transactions
 
 -- | Default enqueue policy for core nodes
 defaultEnqueuePolicyCore :: EnqueuePolicy nid
@@ -250,39 +253,15 @@ defaultEnqueuePolicyRelay = go
       ]
 
 -- | Default enqueue policy for standard behind-NAT edge nodes
-defaultEnqueuePolicyEdgeBehindNat :: EnqueuePolicy nid
-defaultEnqueuePolicyEdgeBehindNat = go
+defaultEnqueuePolicyEdgeBehindNat
+    :: Maybe MaxAhead -- ^ Maximum number of transactions ahead (default: 1)
+    -> EnqueuePolicy nid
+defaultEnqueuePolicyEdgeBehindNat mMaxTrans = go
   where
     -- Enqueue policy for edge nodes
     go :: EnqueuePolicy nid
     go (MsgTransaction OriginSender) = [
-        EnqueueAll NodeRelay (MaxAhead 1) PLow
-      ]
-    go (MsgTransaction (OriginForward _)) = [
-        -- don't forward transactions that weren't created at this node
-      ]
-    go (MsgAnnounceBlockHeader _) = [
-        -- not forwarded
-      ]
-    go MsgRequestBlockHeaders = [
-        EnqueueAll NodeRelay (MaxAhead 0) PHigh
-      ]
-    go (MsgRequestBlocks _) = [
-        -- Edge nodes can only talk to relay nodes
-        EnqueueOne [NodeRelay] (MaxAhead 0) PHigh
-      ]
-    go (MsgMPC _) = [
-        -- not relevant
-      ]
-
--- | Default enqueue policy for exchange nodes
-defaultEnqueuePolicyEdgeExchange :: EnqueuePolicy nid
-defaultEnqueuePolicyEdgeExchange = go
-  where
-    -- Enqueue policy for edge nodes
-    go :: EnqueuePolicy nid
-    go (MsgTransaction OriginSender) = [
-        EnqueueAll NodeRelay (MaxAhead 6) PLow
+        EnqueueAll NodeRelay (fromMaybe (MaxAhead 1) mMaxTrans) PLow
       ]
     go (MsgTransaction (OriginForward _)) = [
         -- don't forward transactions that weren't created at this node
@@ -338,9 +317,11 @@ data Dequeue = Dequeue {
 
 -- | Rate limiting
 data RateLimit = NoRateLimiting | MaxMsgPerSec Int
+  deriving Show
 
 -- | Maximum number of in-flight messages (for latency hiding)
 newtype MaxInFlight = MaxInFlight Int
+  deriving Show
 
 -- | Dequeue policy
 --
@@ -355,6 +336,8 @@ defaultDequeuePolicy :: NodeType -> DequeuePolicy
 defaultDequeuePolicy NodeCore  = defaultDequeuePolicyCore
 defaultDequeuePolicy NodeRelay = defaultDequeuePolicyRelay
 defaultDequeuePolicy NodeEdge  = defaultDequeuePolicyEdgeBehindNat
+                                   Nothing -- use default MaxMsgPerSec
+                                   Nothing -- use default RateLimit
 
 -- | Default dequeue policy for core nodes
 defaultDequeuePolicyCore :: DequeuePolicy
@@ -375,21 +358,16 @@ defaultDequeuePolicyRelay = go
     go NodeEdge  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
 
 -- | Dequeueing policy for standard behind-NAT edge nodes
-defaultDequeuePolicyEdgeBehindNat :: DequeuePolicy
-defaultDequeuePolicyEdgeBehindNat = go
+defaultDequeuePolicyEdgeBehindNat
+    :: Maybe RateLimit    -- ^ Max messages per second (per thread); default: 1
+    -> Maybe MaxInFlight  -- ^ Max number of convs to the relay; default: 2
+    -> DequeuePolicy
+defaultDequeuePolicyEdgeBehindNat mMaxMsgPerSec mMaxInFlight = go
   where
     go :: DequeuePolicy
     go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
-    go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
-    go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
-
--- | Dequeueing policy for exchange edge nodes
-defaultDequeuePolicyEdgeExchange :: DequeuePolicy
-defaultDequeuePolicyEdgeExchange = go
-  where
-    go :: DequeuePolicy
-    go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
-    go NodeRelay = Dequeue (MaxMsgPerSec 5) (MaxInFlight 3)
+    go NodeRelay = Dequeue (fromMaybe (MaxMsgPerSec 1) mMaxMsgPerSec)
+                           (fromMaybe (MaxInFlight 2)  mMaxInFlight)
     go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
 
 -- | Dequeueing policy for P2P edge nodes
@@ -526,6 +504,7 @@ data OutboundQ msg nid buck = ( FormatMsg msg
                               , Ord nid
                               , Show nid
                               , Ord buck
+                              , Show buck
                               ) => OutQ {
       -- | Node ID of the current node (primarily for debugging purposes)
       qSelf :: String
@@ -538,6 +517,12 @@ data OutboundQ msg nid buck = ( FormatMsg msg
 
       -- | Failure policy
     , qFailurePolicy :: FailurePolicy nid
+
+      -- | Maximum size of the buckets
+    , qMaxBucketSize :: buck -> MaxBucketSize
+
+      -- | Assumed type of unknown nodes
+    , qUnknownNodeType :: nid -> NodeType
 
       -- | Messages sent but not yet acknowledged
     , qInFlight :: MVar (InFlight nid)
@@ -561,7 +546,7 @@ data OutboundQ msg nid buck = ( FormatMsg msg
     , qSignal :: Signal CtrlMsg
 
       -- | Some metrics about the queue's health
-    , qHealth :: QHealth
+    , qHealth :: QHealth buck
     }
 
 -- | Use a formatter to get a dump of the state.
@@ -578,6 +563,16 @@ dumpState outQ@OutQ{} formatter = do
   where
     format = "OutboundQ internal state '{"%shown%"}'"
 
+-- | Type assumed for unknown nodes
+--
+-- Occassionally the queue will receive requests to send messages to nodes it
+-- does not know about. This may happen for instance when the network contains
+-- P2P nodes and those nodes announce new blocks to us, but we have not
+-- registered those nodes as our peers (P2P networks often are not
+-- bidirectional). In order to be able to apply the various policies, the queue
+-- needs to assume a node type for these nodes.
+newtype UnknownNodeType nid = UnknownNodeType (nid -> NodeType)
+
 -- | Initialize the outbound queue
 --
 -- NOTE: The dequeuing thread must be started separately. See 'dequeueThread'.
@@ -586,14 +581,25 @@ new :: forall m msg nid buck.
        , FormatMsg msg
        , Ord nid
        , Show nid
+       , Enum buck
+       , Bounded buck
        , Ord buck
+       , Show buck
        )
-    => String -- ^ Identifier of this node, for logging purposes.
+    => String                  -- ^ Identifier of this node (for logging)
     -> EnqueuePolicy nid
     -> DequeuePolicy
     -> FailurePolicy nid
+    -> (buck -> MaxBucketSize)
+    -> UnknownNodeType nid
     -> m (OutboundQ msg nid buck)
-new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
+new qSelf
+    qEnqueuePolicy
+    qDequeuePolicy
+    qFailurePolicy
+    qMaxBucketSize
+    (UnknownNodeType qUnknownNodeType)
+  = liftIO $ do
     qInFlight  <- newMVar Map.empty
     qScheduled <- MQ.new
     qBuckets   <- newMVar Map.empty
@@ -618,7 +624,7 @@ new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
 -------------------------------------------------------------------------------}
 
 -- | Queue health metrics
-data QHealth = QHealth {
+data QHealth buck = QHealth {
       -- | Total number of failed "enqueue all" instructions
       qFailedEnqueueAll :: Counter
 
@@ -637,9 +643,14 @@ data QHealth = QHealth {
 
       -- | Total number of failed sends
     , qFailedSend :: Counter
+
+      -- | Total number of times we refused to update a bucket because doing
+      -- so would exceed the bucket's maximum size
+    , qFailedBucketFull :: buck -> Counter
     }
 
-newQHealth :: IO QHealth
+newQHealth :: forall buck. (Enum buck, Bounded buck, Ord buck)
+           => IO (QHealth buck)
 newQHealth = QHealth
     <$> Counter.new
     <*> Counter.new
@@ -647,49 +658,71 @@ newQHealth = QHealth
     <*> Counter.new
     <*> Counter.new
     <*> Counter.new
+    <*> indexedCounter
+  where
+    indexedCounter :: IO (buck -> Counter)
+    indexedCounter = do
+      bs <- forM [minBound .. maxBound] $ \b -> (b, ) <$> Counter.new
+      return (Map.fromList bs Map.!)
 
 -- | An enumeration of the various kinds of failures
 --
 -- The third type argument indicates the additional information we need to
 -- format a human-readable error or warning message for the failure.
-data Failure :: (* -> *) -> * -> * -> * where
-    FailedEnqueueAll  :: Failure msg nid (Enqueue, Some msg, [Alts nid])
-    FailedEnqueueOne  :: Failure msg nid (Enqueue, Some msg, [(NodeType, Alts nid)])
-    FailedAllSends    :: Failure msg nid (Some msg, [nid])
-    FailedCherishLoop :: Failure msg nid ()
-    FailedChooseAlt   :: Failure msg nid [nid]
-    FailedSend        :: Failure msg nid (Some (Packet msg nid), SomeException)
+data Failure msg nid buck fmt where
+    FailedEnqueueAll   :: Failure msg nid buck (Enqueue, Some msg, [Alts nid])
+    FailedEnqueueOne   :: Failure msg nid buck (Enqueue, Some msg, [(NodeType, Alts nid)])
+    FailedAllSends     :: Failure msg nid buck (Some msg, [nid])
+    FailedCherishLoop  :: Failure msg nid buck ()
+    FailedChooseAlt    :: Failure msg nid buck [nid]
+    FailedSend         :: Failure msg nid buck (Some (Packet msg nid), SomeException)
+    FailedBucketFull   :: buck -> Failure msg nid buck ()
 
-deriving instance Show (Failure msg nid fmt)
+deriving instance Show buck => Show (Failure msg nid buck fmt)
 
-enumFailures :: [Some (Failure msg nid)]
-enumFailures = [
-      Some FailedEnqueueAll
-    , Some FailedEnqueueOne
-    , Some FailedAllSends
-    , Some FailedCherishLoop
-    , Some FailedChooseAlt
-    , Some FailedSend
+enumFailures :: (Enum buck, Bounded buck) => [Some (Failure msg nid buck)]
+enumFailures = mconcat [
+      [Some FailedEnqueueAll]
+    , [Some FailedEnqueueOne]
+    , [Some FailedAllSends]
+    , [Some FailedCherishLoop]
+    , [Some FailedChooseAlt]
+    , [Some FailedSend]
+    , [Some (FailedBucketFull b) | b <- [minBound .. maxBound]]
     ]
 
-failureSeverity :: Failure msg nid fmt -> Severity
-failureSeverity FailedEnqueueAll  = Error
-failureSeverity FailedEnqueueOne  = Error
-failureSeverity FailedAllSends    = Error
-failureSeverity FailedCherishLoop = Error
-failureSeverity FailedChooseAlt   = Warning
-failureSeverity FailedSend        = Warning
+failureSeverity :: Failure msg nid buck fmt -> Severity
+failureSeverity FailedEnqueueAll     = Error
+failureSeverity FailedEnqueueOne     = Error
+failureSeverity FailedAllSends       = Error
+failureSeverity FailedCherishLoop    = Error
+failureSeverity FailedChooseAlt      = Warning
+failureSeverity FailedSend           = Warning
+failureSeverity (FailedBucketFull _) = Warning
 
-failureCounter :: Failure msg nid fmt -> QHealth -> Counter
-failureCounter FailedEnqueueAll  = qFailedEnqueueAll
-failureCounter FailedEnqueueOne  = qFailedEnqueueOne
-failureCounter FailedAllSends    = qFailedAllSends
-failureCounter FailedCherishLoop = qFailedCherishLoop
-failureCounter FailedChooseAlt   = qFailedChooseAlt
-failureCounter FailedSend        = qFailedSend
+failureCounter :: Failure msg nid buck fmt -> QHealth buck -> Counter
+failureCounter failure QHealth{..} =
+    case failure of
+      FailedEnqueueAll   -> qFailedEnqueueAll
+      FailedEnqueueOne   -> qFailedEnqueueOne
+      FailedAllSends     -> qFailedAllSends
+      FailedCherishLoop  -> qFailedCherishLoop
+      FailedChooseAlt    -> qFailedChooseAlt
+      FailedSend         -> qFailedSend
+      FailedBucketFull b -> qFailedBucketFull b
 
-failureFormat :: (FormatMsg msg, Show nid)
-              => Failure msg nid fmt -> String -> fmt -> Text
+-- | Qualified name for the EKG counter for a failure
+failureCounterName :: Show buck => Failure msg nid buck fmt -> [String]
+failureCounterName FailedEnqueueAll     = ["FailedEnqueueAll"]
+failureCounterName FailedEnqueueOne     = ["FailedEnqueueOne"]
+failureCounterName FailedAllSends       = ["FailedAllSends"]
+failureCounterName FailedCherishLoop    = ["FailedCherishLoop"]
+failureCounterName FailedChooseAlt      = ["FailedChooseAlt"]
+failureCounterName FailedSend           = ["FailedSend"]
+failureCounterName (FailedBucketFull b) = ["FailedBucketFull", show b]
+
+failureFormat :: (FormatMsg msg, Show nid, Show buck)
+              => Failure msg nid buck fmt -> String -> fmt -> Text
 failureFormat FailedEnqueueAll self (enq, Some msg, fwdSets) =
     sformat ( string
             % ": enqueue instruction " % shown
@@ -724,10 +757,13 @@ failureFormat FailedSend self (Some Packet{..}, err) =
             packetDestId
             (displayException err)
             (typeOf err)
+failureFormat (FailedBucketFull b) self () =
+    sformat ( string % ": maximum bucket size of bucket " % shown % " exceeded" )
+            self b
 
 logFailure :: (WithLogger m, MonadIO m)
            => OutboundQ msg nid buck
-           -> Failure msg nid fmt
+           -> Failure msg nid buck fmt
            -> fmt
            -> m ()
 logFailure OutQ{..} failure fmt = do
@@ -756,12 +792,13 @@ registerQueueMetrics OutQ{..} store = do
     -- of subscribers ('BucketSubscriptionListener') from, say, statically known
     -- peers ('BucketStatic').
     forM_ [minBound .. maxBound] $ \buck ->
-      regGauge [show buck] $
+      regGauge ["bucket", show buck] $
         countPeers . Map.findWithDefault mempty buck <$> readMVar qBuckets
 
     -- Counters for all failures
-    forM_ enumFailures $ \(Some failure) ->
-      regCounter [show failure] (failureCounter failure)
+    forM_ (enumFailures :: [Some (Failure msg nid buck)]) $ \(Some failure) ->
+      regCounter (failureCounterName failure)
+                 (failureCounter     failure)
   where
     regGauge :: Integral a => [String] -> IO a -> IO ()
     regGauge qualName f = Monitoring.registerGauge
@@ -769,7 +806,7 @@ registerQueueMetrics OutQ{..} store = do
                             (fromIntegral <$> f)
                             store
 
-    regCounter :: [String] -> (QHealth -> Counter) -> IO ()
+    regCounter :: [String] -> (QHealth buck -> Counter) -> IO ()
     regCounter qualName ctr = Monitoring.registerCounter
                                 (metric qualName)
                                 (fromIntegral <$> Counter.read (ctr qHealth))
@@ -794,6 +831,9 @@ countRecentFailures fs = liftIO $ aux <$> getCurrentTime
   Interpreter for the enqueing policy
 -------------------------------------------------------------------------------}
 
+-- | Enqueue a message to the specified set of peers
+--
+-- If no suitable peers can be found, choose one from the fallback set (if any).
 intEnqueue :: forall m msg nid buck a. (MonadIO m, WithLogger m)
            => OutboundQ msg nid buck
            -> MsgType nid
@@ -1178,19 +1218,32 @@ enqueueCherished outQ msgType msg =
 -------------------------------------------------------------------------------}
 
 -- | Enqueue message to the specified set of peers
-intEnqueueTo :: (MonadIO m, WithLogger m)
+intEnqueueTo :: forall m msg nid buck a. (MonadIO m, WithLogger m)
              => OutboundQ msg nid buck
              -> MsgType nid
              -> msg a
              -> EnqueueTo nid
              -> m [Packet msg nid a]
-intEnqueueTo outQ@OutQ{} msgType msg enqTo = do
-    peers <- getAllPeers outQ
-    intEnqueue outQ msgType msg (restriction peers)
+intEnqueueTo outQ@OutQ{..} msgType msg enqTo = do
+    peers <- restrict =<< getAllPeers outQ
+    intEnqueue outQ msgType msg peers
   where
-    restriction = case enqTo of
-      EnqueueToAll -> id
-      EnqueueToSubset peers' -> restrictPeers peers'
+    -- Restrict the set of all peers to the requested subset (if one).
+    --
+    -- Any unknown peers will be used as a fallback in case no other peers
+    -- can be found.
+    restrict :: Peers nid -> m (Peers nid)
+    restrict allPeers =
+      case enqTo of
+        EnqueueToAll           -> return allPeers
+        EnqueueToSubset subset -> do
+          let restricted = restrictPeers subset allPeers
+              unknown    = peersFromList
+                         . map (\nid -> (qUnknownNodeType nid, [nid]))
+                         . Set.toList
+                         $ subset Set.\\ peersToSet allPeers
+
+          return $ restricted <> unknown
 
 waitAsync :: MonadIO m
           => [Packet msg nid a] -> [(nid, m (Either SomeException a))]
@@ -1332,6 +1385,13 @@ flush OutQ{..} = liftIO $ do
   queue again.
 -------------------------------------------------------------------------------}
 
+-- | Maximum size for a bucket (if limited)
+data MaxBucketSize = BucketSizeUnlimited | BucketSizeMax Int
+
+exceedsBucketSize :: Int -> MaxBucketSize -> Bool
+exceedsBucketSize _ BucketSizeUnlimited = False
+exceedsBucketSize n (BucketSizeMax m)   = m > n
+
 -- | Internal method: read all buckets of peers
 getAllPeers :: MonadIO m => OutboundQ msg nid buck -> m (Peers nid)
 getAllPeers OutQ{..} = liftIO $ fold <$> readMVar qBuckets
@@ -1346,26 +1406,45 @@ getAllPeers OutQ{..} = liftIO $ fold <$> readMVar qBuckets
 -- thread @T@ adds node @n@ to its (private) bucket and then enqueues a message,
 -- that message will not be deleted because another thread happened to remove
 -- node @n@ from _their_ bucket.
-updatePeersBucket :: forall m msg nid buck. MonadIO m
+--
+-- Returns 'False' if the update could not complete
+-- (maximum bucket size exceeded).
+updatePeersBucket :: forall m msg nid buck. (MonadIO m, WithLogger m)
                   => OutboundQ msg nid buck
                   -> buck
                   -> (Peers nid -> Peers nid)
-                  -> m ()
-updatePeersBucket OutQ{..} buck f = liftIO $
-    modifyMVar_ qBuckets $ \buckets -> do
+                  -> m Bool
+updatePeersBucket outQ@OutQ{..} buck f = do
+    success <- liftIO $ modifyMVar qBuckets $ \buckets -> do
+
       let before   = fold buckets
           buckets' = Map.alter f' buck buckets
           after    = fold buckets'
           removed  = peersToSet before Set.\\ peersToSet after
-      forM_ removed $ \nid -> do
-        applyMVar_ qInFlight $ at nid .~ Nothing
-        applyMVar_ qFailures $ Map.delete nid
-        MQ.removeAllIn (KeyByDest nid) qScheduled
-      return buckets'
+
+      if    Set.size (peersToSet (buckets' Map.! buck))
+         `exceedsBucketSize`
+            qMaxBucketSize buck
+        then return (buckets, False)
+        else do
+          forM_ removed $ \nid -> do
+            applyMVar_ qInFlight $ at nid .~ Nothing
+            applyMVar_ qFailures $ Map.delete nid
+            MQ.removeAllIn (KeyByDest nid) qScheduled
+          return (buckets', True)
+
+    unless success $
+      logFailure outQ (FailedBucketFull buck) ()
+    return success
   where
     f' :: Maybe (Peers nid) -> Maybe (Peers nid)
     f' Nothing      = Just $ f mempty
     f' (Just peers) = Just $ f peers
+
+data PeersBucketSizeExceeded = PeersBucketSizeExceeded
+  deriving Show
+
+instance Exception PeersBucketSizeExceeded
 
 {-------------------------------------------------------------------------------
   Auxiliary: starting and registering threads

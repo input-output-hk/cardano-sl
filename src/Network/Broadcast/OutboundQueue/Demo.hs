@@ -81,23 +81,24 @@ relayDemo = do
           liftIO $ threadDelay 500000
 
     -- Set up some test nodes
+    (nodeC1, nodeC2, nodeR, nodeEs, nodeC3) <- M.runProduction $ do
+      nodeC1 <- newNode (C 1) NodeCore  (CommsDelay 0)
+      nodeC2 <- newNode (C 2) NodeCore  (CommsDelay 0)
+      nodeR  <- newNode (R 1) NodeRelay (CommsDelay 0)
+      nodeEs <- forM [1 .. 9] $ \n -> newNode (E n) NodeEdge (CommsDelay 0)
 
-    nodeC1 <- newNode (C 1) NodeCore  (CommsDelay 0)
-    nodeC2 <- newNode (C 2) NodeCore  (CommsDelay 0)
-    nodeR  <- newNode (R 1) NodeRelay (CommsDelay 0)
-    nodeEs <- forM [1 .. 9] $ \n -> newNode (E n) NodeEdge (CommsDelay 0)
+      setPeers nodeR  (nodeC1 : nodeC2 : nodeEs)
+      setPeers nodeC1 [nodeR]
+      forM_ nodeEs $ \nodeE -> setPeers nodeE [nodeR]
 
-    setPeers nodeR  (nodeC1 : nodeC2 : nodeEs)
-    setPeers nodeC1 [nodeR]
-    forM_ nodeEs $ \nodeE -> setPeers nodeE [nodeR]
+      -- Two core nodes that communicate directly with each other
+      -- (disjoint from the nodes we set up above)
 
-    -- Two core nodes that communicate directly with each other
-    -- (disjoint from the nodes we set up above)
+      nodeC3 <- newNode (C 3) NodeCore (CommsDelay 0)
+      nodeC4 <- newNode (C 4) NodeCore (CommsDelay 1000000)
 
-    nodeC3 <- newNode (C 3) NodeCore (CommsDelay 0)
-    nodeC4 <- newNode (C 4) NodeCore (CommsDelay 1000000)
-
-    setPeers nodeC3 [nodeC4]
+      setPeers nodeC3 [nodeC4]
+      return (nodeC1, nodeC2, nodeR, nodeEs, nodeC3)
 
     runEnqueue $ do
 
@@ -161,12 +162,14 @@ data Node = Node {
     }
 
 -- | Create a new node, and spawn dequeue worker and forwarding listener
-newNode :: NodeId_ -> NodeType -> CommsDelay -> IO Node
-newNode nodeId_ nodeType commsDelay = do
+newNode :: MonadIO m => NodeId_ -> NodeType -> CommsDelay -> m Node
+newNode nodeId_ nodeType commsDelay = liftIO $ do
     nodeOutQ     <- OutQ.new (show nodeId_)
                              (OutQ.defaultEnqueuePolicy nodeType)
                              (OutQ.defaultDequeuePolicy nodeType)
                              (OutQ.defaultFailurePolicy nodeType)
+                             (const OutQ.BucketSizeUnlimited)
+                             (OutQ.UnknownNodeType $ const NodeEdge)
     nodeId       <- NodeId nodeId_ commsDelay <$> newSyncVar
     nodeMsgPool  <- newMsgPool
     let node = Node{..}
@@ -211,9 +214,9 @@ nodeForwardListener node = forever $ do
     discarded = sformat (shown % ": discarded " % formatMsg) (nodeId node)
 
 -- | Set the peers of a node
-setPeers :: Node -> [Node] -> IO ()
+setPeers :: (MonadIO m, WithLogger m) => Node -> [Node] -> m ()
 setPeers peersOf peers =
-    OutQ.updatePeersBucket (nodeOutQ peersOf) () (\_ -> simplePeers peers)
+    void $ OutQ.updatePeersBucket (nodeOutQ peersOf) () (\_ -> simplePeers peers)
 
 simplePeers :: [Node] -> OutQ.Peers NodeId
 simplePeers = OutQ.simplePeers . map (\n -> (nodeType n, nodeId n))

@@ -6,22 +6,24 @@ and a number of counters that keep track of error conditions.
 
 ## Guages
 
-### InFlight (e.g. `queue.node0.InFlight`)
+### Ongoing conversations (e.g. `queue.node0.InFlight`)
 
 Records the total number of conversations that are currently on-going with
-peers.
+peers (aka numbers of messages in-flight).
 
 ### Failures (e.g., `queue.node0.Failures`)
 
 Records the total number nodes that had a recent failure (the conversion
 threw an exception). We will not attempt to enqueue messages to such nodes.
+What exactly constitutes a "recent" failure depends on the failure policy;
+currently it defaults to 10 slots (200 seconds).
 
 ### Scheduled (e.g., `queue.node0.Scheduled`)
 
 Records the total number of conversations that have been scheduled (and
 enqueued to specific peers), but not yet started.
 
-### Known peers (e.g., `queue.node0.BucketStatic`)
+### Known peers (e.g., `queue.node0.bucket.BucketStatic`)
 
 The outbound queue keeps a number of buckets of peers it knows about.
 
@@ -60,7 +62,7 @@ only. Thus, the situation looks like this for behind-NAT nodes:
 ```
 
 The behind-NAT node discovers the relay node through a DNS request and adds the
-relay node to its `BucketBehindNatWorker`, so that it can send messages -to_ the
+relay node to its `BucketBehindNatWorker`, so that it can send messages _to_ the
 relay node. It then sends `MsgSubscribe` to the relay node, so that the relay
 node can add the edge node to _its_ `BucketSubscriptionListener`, ensuring that
 the behind-NAT node will receive messages _from_ the relay node.
@@ -157,3 +159,10 @@ one will now be recorded as having a recent failure, reflected in the
 `Failures`) guage. Under very rare circumstances this could loop indefinitely;
 when we detect such a loop the `FailedCherishLoop` counter. Any value above zero
 for this counter indicates queue misconfiguration.
+
+## Problems during subscription
+## (e.g., `queue.node0.FailedBucketFull.BucketSubscriptionListener`)
+
+The various buckets maintained by the queue can have a maximum size imposed
+on them. When an attempt is based to grow a bucket past its maximum size,
+the change is rejected and the corresponding counter is incremented.

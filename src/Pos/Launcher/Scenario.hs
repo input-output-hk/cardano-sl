@@ -27,12 +27,13 @@ import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
 import qualified Pos.Constants         as Const
 import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
                                         getOurPublicKey, ncNetworkConfig)
-import           Pos.DHT.Real          (KademliaDHTInstance (..), kademliaJoinNetwork)
+import           Pos.DHT.Real          (KademliaDHTInstance (..), kademliaJoinNetwork,
+                                        kademliaJoinNetworkNoThrow)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
-import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
+import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
 import           Pos.Reporting         (reportMisbehaviourSilent)
 import           Pos.Security          (SecurityWorkersClass)
 import           Pos.Shutdown          (waitForWorkers)
@@ -67,11 +68,18 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
                         ", pk hash: "%build) pk addr pkHash
 
     -- Synchronously join the Kademlia network before doing any more.
-    -- If we can't join the network, an exception is raised and the program
-    -- stops.
-    case topologyRunKademlia (ncTopology (ncNetworkConfig nrContext)) of
-        Nothing    -> return ()
-        Just kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+    --
+    -- In case of end-user p2p modes, if we can't join the network, an exception
+    -- is raised and the program stops.
+    -- But for relay nodes, not finding any peers in the network is not fatal.
+    -- It could be that this is the first relay coming up. The relay can still
+    -- do its work using its static topology.
+    case ncTopology (ncNetworkConfig nrContext) of
+        TopologyCore _ (Just kInst) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
+        TopologyRelay _ (Just kInst) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
+        TopologyP2P _ _ kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+        TopologyTraditional _ _ kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+        _ -> return ()
 
     genesisStakeholders <- view (lensOf @GenesisWStakeholders)
     logInfo $ sformat ("Dust threshold: "%build)

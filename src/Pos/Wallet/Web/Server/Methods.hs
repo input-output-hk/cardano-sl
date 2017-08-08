@@ -103,7 +103,8 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    MonadKeySearch (..), genSaveRootKey,
                                                    genUniqueAccountAddress,
                                                    genUniqueAccountId, getAddrIdx,
-                                                   getSKById, myRootAddresses)
+                                                   getSKByAccAddr, getSKById,
+                                                   myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.Backup            (AccountMetaBackup (..),
                                                    StateBackup (..), WalletBackup (..),
@@ -569,7 +570,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     addrMetas' <- getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
-    sks <- mapM findKey addrMetas
+    sks <- forM addrMetas $ getSKByAccAddr passphrase
     srcAddrs <- forM addrMetas $ decodeCIdOrFail . cwamId
 
     withSafeSigners passphrase sks $ \ss -> do

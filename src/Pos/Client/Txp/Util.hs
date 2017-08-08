@@ -25,7 +25,7 @@ module Pos.Client.Txp.Util
        , TxError (..)
        ) where
 
-import           Control.Lens             ((%=), (.=))
+import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Control.Monad.State      (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict      as HM
@@ -221,7 +221,15 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
             }
 
 type FlatUtxo = [(TxIn, TxOutAux)]
-type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
+
+data InputPickerState = InputPickerState
+    { _ipsMoneyLeft        :: !Coin
+    , _ipsAvailableOutputs :: !FlatUtxo
+    }
+
+makeLenses ''InputPickerState
+
+type InputPicker = StateT InputPickerState (Either TxError)
 
 -- | Given filtered Utxo, desired outputs and fee size,
 -- prepare correct inputs and outputs for transaction
@@ -236,7 +244,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
     when (totalMoney == mkCoin 0) $
         throwTxError "Attempted to send 0 money"
     futxo <- either throwError pure $
-        evalStateT (pickInputs []) (totalMoneyWithFee, sortedUnspent)
+        evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedUnspent)
     case nonEmpty futxo of
         Nothing       -> throwTxError "Failed to prepare inputs!"
         Just inputsNE -> do
@@ -255,17 +263,17 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
-        moneyLeft <- use _1
+        moneyLeft <- use ipsMoneyLeft
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOut <- head <$> use _2
+                mNextOut <- head <$> use ipsAvailableOutputs
                 case mNextOut of
                     Nothing -> throwTxError $
                         sformat ("Not enough money to send (need "%build%" coins more)") moneyLeft
                     Just inp@(_, (TxOutAux (TxOut {..}) _)) -> do
-                        _1 .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
-                        _2 %= tail
+                        ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
+                        ipsAvailableOutputs %= tail
                         pickInputs (inp : inps)
     formTxInputs (inp, TxOutAux txOut _) = (txOut, inp)
 

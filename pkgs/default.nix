@@ -1572,7 +1572,7 @@ self: {
           description = "Cardano SL - Leaders and Richmen computation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-lwallet = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-update, containers, cpphs, data-default, dlist, either, ether, formatting, lens, lifted-async, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-applicative, parsec, random, resourcet, safecopy, serokell-util, stdenv, stm, stm-containers, string-qq, tagged, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
+      cardano-sl-lwallet = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-update, containers, cpphs, data-default, dlist, either, ether, formatting, lens, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-applicative, parsec, random, resourcet, safecopy, serokell-util, stdenv, stm, stm-containers, string-qq, tagged, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-lwallet";
           version = "0.5.1";
@@ -1598,7 +1598,6 @@ self: {
             ether
             formatting
             lens
-            lifted-async
             log-warper
             mmorph
             monad-control
@@ -1669,7 +1668,7 @@ self: {
           description = "Cardano SL - the SSC class";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, bytestring, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, lifted-async, log-warper, mkDerivation, mtl, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, purescript-bridge, random, random-shuffle, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, string-qq, swagger2, system-filepath, tar, text, text-format, time, time-units, universum, unix-compat, unordered-containers, vector, wreq }:
+      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, bytestring, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, log-warper, mkDerivation, mtl, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, purescript-bridge, random, random-shuffle, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, string-qq, swagger2, system-filepath, tar, text, text-format, time, time-units, universum, unix-compat, unordered-containers, vector, wreq }:
       mkDerivation {
           pname = "cardano-sl-tools";
           version = "0.5.1";
@@ -1708,7 +1707,6 @@ self: {
             graphviz
             kademlia
             lens
-            lifted-async
             log-warper
             MonadRandom
             mtl
@@ -2141,27 +2139,6 @@ self: {
           homepage = "http://github.com/vincenthz/hs-connection";
           description = "Simple and easy network connections API";
           license = stdenv.lib.licenses.bsd3;
-        }) {};
-      constraints = callPackage ({ base, binary, deepseq, ghc-prim, hashable, mkDerivation, mtl, stdenv, transformers, transformers-compat }:
-      mkDerivation {
-          pname = "constraints";
-          version = "0.9.1";
-          sha256 = "11d76051i2a335bvack04dqvsz4zhgcms1jxlvy4a4c670l02vi7";
-          libraryHaskellDepends = [
-            base
-            binary
-            deepseq
-            ghc-prim
-            hashable
-            mtl
-            transformers
-            transformers-compat
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "http://github.com/ekmett/constraints/";
-          description = "Constraint manipulation";
-          license = stdenv.lib.licenses.bsd2;
         }) {};
       containers = callPackage ({ array, base, deepseq, ghc-prim, mkDerivation, stdenv }:
       mkDerivation {
@@ -4297,25 +4274,6 @@ self: {
           description = "Law-abiding lenses for aeson";
           license = stdenv.lib.licenses.mit;
         }) {};
-      lifted-async = callPackage ({ async, base, constraints, lifted-base, mkDerivation, monad-control, stdenv, transformers-base }:
-      mkDerivation {
-          pname = "lifted-async";
-          version = "0.9.1.1";
-          sha256 = "0h4fskcgr053s21z43bh1mlz40i8f5d166d382frng3j6jw49b1i";
-          libraryHaskellDepends = [
-            async
-            base
-            constraints
-            lifted-base
-            monad-control
-            transformers-base
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "https://github.com/maoe/lifted-async";
-          description = "Run lifted IO operations asynchronously and wait for their results";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
       lifted-base = callPackage ({ base, mkDerivation, monad-control, stdenv, transformers-base }:
       mkDerivation {
           pname = "lifted-base";
@@ -6144,6 +6102,8 @@ self: {
           pname = "statestack";
           version = "0.2.0.5";
           sha256 = "0rjzx9iy5mx5igir6gvslznnx3gpxlb1xy1n8h4cn54cn3wxrspl";
+          revision = "1";
+          editedCabalFile = "0kf1jdhdv9fiwlbn2915sg39x23lfxlyp2qb7jkrvx8p8v2sam7i";
           libraryHaskellDepends = [
             base
             mtl

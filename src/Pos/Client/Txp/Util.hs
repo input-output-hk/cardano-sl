@@ -37,9 +37,9 @@ import           Pos.Context          (GenesisStakeholders, genesisStakeholdersM
 import           Pos.Core             (AddressIgnoringAttributes (AddressIA),
                                        StakeholderId, siEpoch, unsafeGetCoin,
                                        unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto           (PublicKey, RedeemSecretKey, SafeSigner,
-                                       SignTag (SignTx), hash, redeemSign, redeemToPublic,
-                                       safeSign, safeToPublic)
+import           Pos.Crypto           (RedeemSecretKey, SafeSigner, SignTag (SignTx),
+                                       hash, redeemSign, redeemToPublic, safeSign,
+                                       safeToPublic)
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.DB               (MonadGState, gsIsBootstrapEra)
 import           Pos.Genesis          (genesisSplitBoot)

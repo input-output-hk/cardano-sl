@@ -123,12 +123,18 @@ goodStdlibRedeemer = fromE $ parseRedeemer [text|
 --   -> List (Maybe (Pair BS BS))   -- pubkeys + sigs
 --   -> Comp Unit
 
+
+-- #82 is prefix for encoded constructor
+-- #5820 is prefix for encoded bytestrings
 multisigValidator :: Int -> [StakeholderId] -> Script
 multisigValidator n ids = fromE $ parseValidator [text|
     validator : List (Maybe (Pair ByteString ByteString)) -> Comp Unit {
         validator sigs = verifyMultiSig
             ${shownN} ${shownIds}
-            (!concatenate ${shownTag} (!concatenate (txhash) (txdistrhash)))
+            (!concatenate ${shownTag}
+                (!concatenate
+                    (!concatenate #825820 (txhash))
+                    (!concatenate #5820 (txdistrhash))))
             sigs }
     |]
   where

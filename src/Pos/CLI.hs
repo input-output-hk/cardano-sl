@@ -34,8 +34,8 @@ import           Universum
 import           Control.Lens                         (zoom, (?=))
 import           Data.Time.Clock.POSIX                (getPOSIXTime)
 import           Data.Time.Units                      (toMicroseconds)
+import qualified Options.Applicative                  as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import qualified Options.Applicative.Simple           as Opt
 import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
 import           System.Wlog                          (LoggerConfig (..),

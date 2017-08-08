@@ -54,7 +54,6 @@ executable cardano-wallet
                      , containers
                      , formatting
                      , lens
-                     , lifted-async
                      , log-warper
                      , mmorph
                      , monad-control

@@ -151,8 +151,10 @@ testnet: &testnet
 
   genesisBinSuffix: tn
 
+
 testnet_staging: &testnet_staging
   <<: *testnet
+  k: 108
   protocolMagic: 60987900
   genesisBinSuffix: tns
 

@@ -5,10 +5,10 @@ module Pos.Statistics.Ekg
        , ekgParamsOption
        ) where
 
+import qualified Options.Applicative    as Opt
+import           Pos.Util.TimeWarp      (NetworkAddress, addrParserNoWildcard)
+import           Serokell.Util.OptParse (fromParsec)
 import           Universum
-import qualified Options.Applicative.Simple as Opt
-import           Serokell.Util.OptParse     (fromParsec)
-import           Pos.Util.TimeWarp          (NetworkAddress, addrParserNoWildcard)
 
 data EkgParams = EkgParams
     { ekgHost :: !ByteString

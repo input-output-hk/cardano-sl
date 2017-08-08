@@ -48,11 +48,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: b4fbd07c077b41c0e948bd377f1662b599f0bc4c
+    commit: c2af07ab7d627556ed3f6185b062e4cd1fb5ad26 #master
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: c901b25bdfcc121cf5157952f7cc3f80f46e902a #feature/multiple-peers-buckets
+    commit: e1bc23f12c388301ceae4de53fe2d513057b62ec # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -89,7 +89,6 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- containers-0.5.10.2
 - universum-0.4.3
 - time-units-1.0.0
 - serokell-util-0.3

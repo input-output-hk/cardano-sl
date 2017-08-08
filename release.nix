@@ -3,7 +3,7 @@ let
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
-  , dconfigs ? [ "testnet_staging" "travis" "testnet" ]
+  , dconfigs ? [ "testnet_staging" "travis" ]
 }:
 with import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; packageSet = import ./.; };
 with builtins;

@@ -22,9 +22,7 @@ executable cardano-node
 
                       Pos.Wallet
                       Pos.Wallet.Redirect
-                      Pos.Wallet.WalletMode
                       Pos.Wallet.Web
-                      Pos.Wallet.SscType
                       Pos.Wallet.Web.Account
                       Pos.Wallet.Web.Api
                       Pos.Wallet.Web.Backup

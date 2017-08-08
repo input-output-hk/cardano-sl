@@ -12,12 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-Flag with-wallet
-  default:     True
-  manual:      True
-
-  description: Build with wallet.
-
 Flag with-explorer
   default:     False
   manual:      True
@@ -119,7 +113,10 @@ library
                         Pos.Util.UserSecret
 
                         -- Wallets
+                        Pos.Wallet
                         Pos.Wallet.KeyStorage
+                        Pos.Wallet.SscType
+                        Pos.Wallet.WalletMode
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Error.Types
@@ -160,8 +157,7 @@ library
                         -- Needed for testing
                         Pos.Arbitrary.Explorer
 
-  if flag(with-wallet) || flag(with-explorer)
-    exposed-modules:    Pos.Util.Servant
+                        Pos.Util.Servant
 
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Aeson.Types
@@ -403,12 +399,7 @@ library
                       , vector
                       , wreq
                       , yaml
-
-  if !os(windows)
-    build-depends:      unix
-
-  if flag(with-wallet)
-    build-depends:      http-types
+                      , http-types
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
@@ -416,6 +407,10 @@ library
                       , wai-extra
                       , warp
                       , warp-tls
+
+  if !os(windows)
+    build-depends:      unix
+
 
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -454,8 +449,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
   if flag(with-explorer)
     cpp-options: -DWITH_EXPLORER
 
@@ -525,9 +518,6 @@ executable cardano-node-simple
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
 
 test-suite cardano-test
   main-is:             Test.hs

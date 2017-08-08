@@ -30,6 +30,8 @@ set -o pipefail
 
 # MODES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# TODO: Update MODES for using with or without wallets
+#
 # NOTE
 # You can try building any of these modes, but in some branches some of
 # these modes may be unavailable (no genesis).
@@ -132,9 +134,6 @@ do
   elif [[ $var == "--prod" ]]; then
     echo "--prod flag is outdated, use one of --qa, --tn, --tns, --qa-upd, --travis" >&2
     exit 12
-  # --no-wallet = don't build in wallet mode
-  elif [[ $var == "--no-wallet" ]]; then
-    wallet=false
   # --explorer = build with Explorer support
   elif [[ $var == "--explorer" ]]; then
     explorer=true
@@ -191,15 +190,13 @@ if [[ $for_installer == true ]]; then
   commonargs="$commonargs --flag cardano-sl-tools:for-installer"
 fi
 
-if [[ $wallet == true ]]; then
-  commonargs="$commonargs --flag cardano-sl:with-wallet"
-fi
-
 # CONFIG = dev, prod, or wallet
 dconfig=dev
 if [[ "$prodMode" != "" ]]; then
   dconfig=$prodMode
   if [[ $wallet == true ]]; then
+  # TODO: ^ What's the rule now? We can't use $wallet here
+  # because we have had removed `--no-wallet` option
     dconfig="${dconfig}_wallet"
   fi
 fi

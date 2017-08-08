@@ -126,6 +126,8 @@ library
                       , formatting
                       , generic-arbitrary
                       , hashable
+                      , http-client
+                      , http-client-tls
                       , iproute
                       , kademlia
                       , lens
@@ -156,7 +158,6 @@ library
                       , network-transport
                       , universum
                       , unordered-containers
-                      , wreq
                       , yaml
 
   if !os(windows)

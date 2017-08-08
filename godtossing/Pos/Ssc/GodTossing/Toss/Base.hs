@@ -33,15 +33,15 @@ module Pos.Ssc.GodTossing.Toss.Base
 import           Universum
 
 import           Control.Monad.Except            (MonadError (throwError))
+import           Control.Monad.ST                (ST, runST)
+import           Data.Array.MArray               (newArray, readArray, writeArray)
+import           Data.Array.ST                   (STUArray)
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
 import qualified Data.List.NonEmpty              as NE
 import           Formatting                      (ords, sformat, (%))
 import           System.Wlog                     (logWarning)
-import           Data.Array.MArray               (newArray, readArray, writeArray)
-import           Data.Array.ST                   (STUArray)
-import           Control.Monad.ST                (ST, runST)
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Core                        (CoinPortion, EpochIndex, StakeholderId,
@@ -136,28 +136,57 @@ checkShares epoch (id, sh) = do
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 
+-- | We accept inaccuracy in computation not greater than 0.05,
+-- so stakeholders must have at least 55% of stake to reveal secret
+-- in the worst case
 sharesDistrInaccuracy :: Fractional a => a
 sharesDistrInaccuracy = 0.05
 
 -- | Internal type for work with Coin.
-type CoinUnsafe = Int
+type CoinUnsafe = Int64
 
 -- | Types represents one dimensional array
 -- used for knapsack algorithm in the @computeDistrInaccuracy@
 type Knapsack s = STUArray s Word16 CoinUnsafe
 
 -- ATTENTION: IMPERATIVE CODE! PROTECT YOUR EYES! --
--- | Compute inaccuracy betwee real distribution and generared.
+-- | Compute inaccuracy between real distribution and generared.
 -- It take O(totalDistr * length consNDistr) time.
+
+-- Max inaccuracy is more or less heuristic value
+-- which means difference between generated and
+-- real distribution we can get in the worst case.
+-- This inaccuracy can lead to two bad situation:
+-- 1. when nodes mustn't reveal commitment, but they can
+-- 2. when nodes must reveal commitment, but they can't
+-- We can get these situations when sum of stakes of nodes
+-- which sent shares is close to 0.5.
 computeDistrInaccuracy :: (CoinUnsafe, Word16) -> [(CoinUnsafe, Word16)] -> Double
 computeDistrInaccuracy (totalCoins, totalDistr) coinsNDistr = runST $ do
     let halfDistr = totalDistr `div` 2 + 1
-    let invalid = totalCoins + 1 :: Int
+    let invalid = totalCoins + 1
+
+    -- A sum of generated portions can be computed as
+    -- sum of corresponding shares distribution divided by @totalDistr@.
+    -- A sum of real portions can be computed as
+    -- sum of corresponding coins divided by @totalCoins@.
+
+    -- For the bad case of type 2,
+    -- for each sum of shares distribution which is less than @totalDistr@ / 2
+    -- we would know the maximum sum of real distribution corresponding to
+    -- nodes which form this sum of shares distribution
+    -- to evaluate max inaccuracy of the bad case type 2.
+    -- So for every sum of generated shares
+    -- we store this sum of coins and try to maximize it.
     dpMax <- newArray (0, totalDistr) (-invalid) :: ST s (Knapsack s)
+    -- Similar reasoning is true for the bad case of type 1:
+    -- for every sum of shares distribution which is greater than @totalDistr@ / 2
+    -- we would know the minimum sum of real distribution.
     dpMin <- newArray (0, totalDistr) invalid    :: ST s (Knapsack s)
     writeArray dpMax 0 0
     writeArray dpMin 0 0
 
+    -- Relaxation function.
     let relax dp coins w nw cmp = do
             dpW <- readArray dp w
             dpNw <- readArray dp nw
@@ -165,31 +194,34 @@ computeDistrInaccuracy (totalCoins, totalDistr) coinsNDistr = runST $ do
                 writeArray dp nw (dpW + coins)
 
     let weights = [totalDistr-1, totalDistr-2..0]
+    -- Iterate over distribution
     forM_ coinsNDistr $ \(coins, distr) -> do
+        -- Try to relax coins for whole weights
         forM_ weights $ \w -> when (w + distr <= totalDistr) $ do
             relax dpMax coins w (w + distr) (>)
             relax dpMin coins w (w + distr) (<)
 
-    let computeError :: Word16 -> Int -> Double
+    let computeError :: Word16 -> CoinUnsafe -> Double
         computeError i sCoins = abs $
             fromIntegral i / fromIntegral totalDistr -
             fromIntegral sCoins / fromIntegral totalCoins
-    let selectMax = flip execStateT 0.0 $ forM_ [0..totalDistr] $ \i -> do
-            if | i < halfDistr -> do
-                -- Bad case of the second type is
-                -- nodes can't reveal commitment using shares of honest nodes
-                -- but real coin distribution says that nodes can do it.
-                    sCoins <- lift (readArray dpMax i)
-                    when (2 * sCoins > totalCoins) $
-                        modify $ max $ computeError i sCoins
-                | otherwise                -> do
-                -- Bad case of the first type is
-                -- nodes can reveal commitment using shares
-                -- but real coin distribution says that nodes can't do it.
-                    sCoins <- lift (readArray dpMin i)
-                    when (2 * sCoins <= totalCoins) $
-                        modify $ max $ computeError i sCoins
-    selectMax
+
+    -- Select max inaccuracy
+    flip execStateT 0.0 $ forM_ [0..totalDistr] $ \i ->
+        if | i < halfDistr -> do
+            -- Bad case of the second type is
+            -- nodes can't reveal commitment using shares of honest nodes
+            -- but real coin distribution says that nodes can do it.
+                sCoins <- lift (readArray dpMax i)
+                when (2 * sCoins > totalCoins) $
+                    modify $ max $ computeError i sCoins
+           | otherwise    -> do
+            -- Bad case of the first type is
+            -- nodes can reveal commitment using shares
+            -- but real coin distribution says that nodes can't do it.
+               sCoins <- lift (readArray dpMin i)
+               when (2 * sCoins <= totalCoins) $
+                   modify $ max $ computeError i sCoins
 
 computeSharesDistrPure
     :: MonadError TossVerFailure m
@@ -201,24 +233,22 @@ computeSharesDistrPure richmen threshold
     | otherwise = do
         when (totalCoins == 0) $
             throwError $ TossInternallError "Richmen total stake equals zero"
-        -- We accept error in computation = 0.05,
-        -- so stakeholders must have at least 55% of stake (for reveal secret) in the worst case
         let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
-        let fromX = ceiling $ 1.0 / minimum portions
-        let toX = truncate $ toRational (3::Int) / mpcThreshold
+        let fromX = ceiling $ 1 / minimum portions
+        let toX = truncate $ 3 / mpcThreshold
 
-        let keys = map fst $ HM.toList richmen
         unless (all ((>= mpcThreshold) . toRational) portions) $
             throwError $ TossInternallError "Richmen stakes less than threshsold"
 
-        case compute fromX toX 0 of
-            Nothing -> throwError $ TossInternallError "There is no appropriate distribution"
-            Just res -> pure $ HM.fromList $ zip keys res
+        -- If we didn't find an appropriate distribution
+        -- we use distribution [1, 1, ... 1] as fallback.
+        pure $ HM.fromList $ zip keys $ fromMaybe (repeat 1) (compute fromX toX 0)
   where
-    sharesDistrInaccuracyR = sharesDistrInaccuracy :: Double
+    keys :: [StakeholderId]
+    keys = map fst $ HM.toList richmen
 
     coins :: [CoinUnsafe]
-    coins = map (fromIntegral . unsafeGetCoin) (toList richmen)
+    coins = map (fromIntegral . unsafeGetCoin . snd) (HM.toList richmen)
 
     portions :: [Double]
     portions = map ((/ fromIntegral totalCoins) . fromIntegral) coins
@@ -242,7 +272,7 @@ computeSharesDistrPure richmen threshold
             if s == prevSum then compute (x + 1) toX prevSum
             else do
                 let curInaccuracy = computeDistrInaccuracy (totalCoins, s) (zip coins curDistr)
-                if curInaccuracy <= sharesDistrInaccuracyR then Just curDistr
+                if curInaccuracy <= sharesDistrInaccuracy then Just curDistr
                 else compute (x + 1) toX s
 
     multPortions :: Word16 -> [Word16]

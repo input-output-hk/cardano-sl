@@ -90,17 +90,7 @@ testMpcThdPortition = unsafeCoinPortionFromDouble testMpcThd
 isLimitedBy :: Word16 -> SharesDistribution -> Bool
 isLimitedBy mx sd = sum (toList sd) <= mx
 
--- We will call distribution fair, if the max inaccuracy is less than 0.05
--- and number of bad cases is less than 5% of all 2^n cases.
--- Max inaccuracy is more or less heuristic value
--- which means which inaccuracy we can get in the bad case.
--- This inaccuracy can lead to two bad situation:
--- 1. when nodes mustn't reveal commitment, but they can
--- 2. when nodes must reveal commitment, but they can't.
--- We can get these situations when sum of stakes of nodes which sent shares is close to 0.5.
--- Max inaccuracy is computed as difference between generated stake and 0.5.
--- We estimate inaccuracy as difference between real distribution and
--- generated.
+-- Distribution is fair if a max inaccuracy is less than @sharesDistrInaccuracy@.
 isDistrFair :: RichmenStakes -> SharesDistribution -> Bool
 isDistrFair (HM.map unsafeGetCoin -> rs) sd = do
     let !totalDistr = sum sd

@@ -30,6 +30,8 @@ module Pos.Core.Constants.Raw
        , criticalCQBootstrap
        , nonCriticalCQ
        , criticalCQ
+
+       , webLoggingEnabled
        ) where
 
 import           Universum
@@ -133,6 +135,12 @@ data CoreConstants = CoreConstants
       -- | If chain quality after bootstrap era is less than this
       -- value, critical misbehavior will be reported.
     , ccCriticalCQ                   :: !Double
+
+       -- Web settings
+
+      -- | Whether incoming requests logging should be performed by web
+      -- part
+    , ccWebLoggingEnabled            :: !Bool
     }
     deriving (Show, Generic)
 
@@ -231,3 +239,8 @@ nonCriticalCQ = ccNonCriticalCQ coreConstants
 -- value, critical misbehavior will be reported.
 criticalCQ :: Double
 criticalCQ = ccCriticalCQ coreConstants
+
+-- | Web logging might be disabled for security concerns.
+webLoggingEnabled :: Bool
+webLoggingEnabled = ccWebLoggingEnabled coreConstants
+

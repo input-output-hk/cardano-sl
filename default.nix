@@ -27,7 +27,6 @@ in ((import ./pkgs { inherit pkgs; }).override {
       src = cleanSource2 drv.src;
       doHaddock = false;
       patchPhase = ''
-       # TODO
        export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
       '';
       # production full nodes shouldn't use wallet as it means different constants

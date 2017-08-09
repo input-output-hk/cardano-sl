@@ -59,7 +59,6 @@ library
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
                         Pos.Communication.Listener
-                        Pos.Communication.MessagePart
                         Pos.Communication.Protocol
                         Pos.Communication.Specs
                         Pos.Communication.Relay

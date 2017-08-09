@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP       #-}
 {-# LANGUAGE DataKinds #-}
 
 -- | Execution mode used by blockchain generator.
@@ -63,12 +64,17 @@ import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), TxOut (..),
                                               TxOutAux (..), TxpGlobalSettings,
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
-                                              mkTxpLocalData, txpGlobalSettings)
+                                              mkTxpLocalData)
 import           Pos.Txp.Toil.Types          (GenesisStakeholders (..), GenesisUtxo (..),
-                                              mkGenesisTxpContext, gtcStakeholders)
+                                              gtcStakeholders, mkGenesisTxpContext)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                (explorerTxpGlobalSettings)
+#else
+import           Pos.Txp                     (txpGlobalSettings)
+#endif
 
 ----------------------------------------------------------------------------
 -- Constraint
@@ -160,7 +166,11 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     bgcSystemStart <- view slottingTimestamp
     (initSlot, putInitSlot) <- newInitFuture
     let bgcSlotId = Nothing
+#ifdef WITH_EXPLORER
+    let bgcTxpGlobalSettings = explorerTxpGlobalSettings
+#else
     let bgcTxpGlobalSettings = txpGlobalSettings
+#endif
     let bgcReportingContext = emptyReportingContext
     let initCtx =
             InitBlockGenContext

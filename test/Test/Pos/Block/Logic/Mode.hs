@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -85,13 +86,18 @@ import           Pos.Txp                        (GenericTxpLocalData, GenesisSta
                                                  TxpMetrics, gtcStakeholders, gtcUtxo,
                                                  ignoreTxpMetrics, mkGenesisTxpContext,
                                                  mkGenesisTxpContext, mkTxpLocalData,
-                                                 txpGlobalSettings, utxoF)
+                                                 utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
                                                  modifyLoggerNameDefault)
 import           Pos.Util.Util                  (Some, postfixLFields)
 import           Pos.WorkMode.Class             (TxpExtra_TMP)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                   (explorerTxpGlobalSettings)
+#else
+import           Pos.Txp                        (txpGlobalSettings)
+#endif
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
 
@@ -248,7 +254,11 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState @SscGodTossing
             _gscSlogContext <- mkSlogContext
             btcTxpMem <- (, ignoreTxpMetrics) <$> mkTxpLocalData
+#ifdef WITH_EXPLORER
+            let btcTxpGlobalSettings = explorerTxpGlobalSettings
+#else
             let btcTxpGlobalSettings = txpGlobalSettings
+#endif
             let btcReportingContext = emptyReportingContext
             let btcSlotId = Nothing
             let btcParams = tp

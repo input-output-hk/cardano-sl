@@ -48,6 +48,7 @@ module Network.Broadcast.OutboundQueue (
   , enqueueSync'
   , enqueueSync
   , enqueueCherished
+  , clearRecentFailures
     -- * Dequeuing
   , SendMsg
   , dequeueThread
@@ -814,6 +815,13 @@ intFailure OutQ{..} threadRegistry@TR{} p sendExecTime err = do
 
 hasRecentFailure :: MonadIO m => OutboundQ msg nid buck -> nid -> m Bool
 hasRecentFailure OutQ{..} nid = liftIO $ Set.member nid <$> readMVar qFailures
+
+-- | Reset internal statistics about failed nodes
+--
+-- This is useful when we know for external reasons that nodes may be reachable
+-- again, allowing the outbound queue to enqueue messages to those nodes.
+clearRecentFailures :: MonadIO m => OutboundQ msg nid buck -> m ()
+clearRecentFailures OutQ{..} = applyMVar_ qFailures $ const Set.empty
 
 {-------------------------------------------------------------------------------
   Public interface to enqueing

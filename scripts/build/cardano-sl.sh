@@ -58,7 +58,7 @@ set -o pipefail
 # * Pass --for-installer to enable 'for-installer' flag (which means that most
 #   of executables won't be built).
 
-# We can't have lwallet here, because it depends on 'cardano-sl'.
+# We can't have lwallet or explorer here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
 
 args=''
@@ -73,7 +73,7 @@ no_nix=false
 ram=false
 prodMode=
 wallet=true
-explorer=false
+explorer=true
 no_code=false
 werror=false
 for_installer=false
@@ -135,9 +135,9 @@ do
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then
     wallet=false
-  # --explorer = build with Explorer support
-  elif [[ $var == "--explorer" ]]; then
-    explorer=true
+  # --no-explorer = build without Explorer (support)
+  elif [[ $var == "--no-explorer" ]]; then
+    explorer=false
   # --for-installer = build with for-installer flag
   elif [[ $var == "--for-installer" ]]; then
     for_installer=true
@@ -154,6 +154,8 @@ do
     spec_prj="godtossing"
   elif [[ $var == "lwallet" ]]; then
     spec_prj="lwallet"
+  elif [[ $var == "explorer" ]]; then
+    spec_prj="explorer"
   elif [[ $var == "tools" ]]; then
     spec_prj="tools"
   elif [[ " $projects " =~ " $var " ]]; then
@@ -181,8 +183,8 @@ if [[ "$prodMode" != "" ]]; then
   export CSL_SYSTEM_TAG=linux64
 fi
 
-if [[ $explorer == true ]]; then
-  commonargs="$commonargs --flag cardano-sl:with-explorer"
+if [[ $explorer == false ]]; then
+  commonargs="$commonargs --flag cardano-sl:-with-explorer"
 fi
 
 if [[ $for_installer == true ]]; then
@@ -222,12 +224,19 @@ xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
 
 if [[ $clean == true ]]; then
+
   echo "Cleaning cardano-sl-tools"
   stack clean cardano-sl-tools
+
   echo "Cleaning cardano-sl-lwallet"
   stack clean cardano-sl-lwallet
+
+  echo "Cleaning cardano-sl-explorer"
+  stack clean cardano-sl-explorer
+
   echo "Cleaning cardano-sl"
   stack clean cardano-sl
+
   for prj in $projects; do
     echo "Cleaning cardano-sl-$prj"
     stack clean "cardano-sl-$prj"
@@ -245,27 +254,40 @@ elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
 elif [[ $spec_prj == "lwallet" ]]; then
   to_build="cardano-sl-lwallet"
+elif [[ $spec_prj == "explorer" ]]; then
+  to_build="cardano-sl-explorer"
 elif [[ $spec_prj == "sl+" ]]; then
   to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools"
 else
   to_build="cardano-sl-$spec_prj"
 fi
 
+# If the use didn't specify that he doesn't want explicitly to exclude Explorer, build it
+if [[ $explorer == true ]]; then
+  to_build="$to_build cardano-sl-explorer"
+fi
+
+# A warning for invalid flag usage when building explorer. This should not happen.
+if [[ $spec_prj == *explorer* && $explorer == false ]]; then
+  echo "You can't build output with explorer and not use explorer! Invalid flag '--no-explorer'."
+  exit
+fi
+
 echo "Going to build: $to_build"
 
 for prj in $to_build; do
-  echo "Building $prj"
-  stack build                               \
-      --ghc-options="$ghc_opts"             \
-      $commonargs $norun                    \
-      --dependencies-only                   \
-      $args                                 \
-      $prj
+
+  echo -e "Building $prj\n"
+  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
+  echo -e "$sbuild\n"
+  eval $sbuild
+
   if [[ $no_code == true ]]; then
     ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
   else
     ghc_opts_2="$ghc_opts"
   fi
+
   stack build                               \
       --ghc-options="$ghc_opts_2"           \
       $commonargs $norun                    \

@@ -60,6 +60,7 @@ done
 
 #if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
   #./update-wallet-web-api-docs.sh
+  #./update-explorer-web-api-docs.sh
   #./update-cli-docs.sh
   #./update-haddock.sh
 #fi

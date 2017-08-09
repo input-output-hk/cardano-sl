@@ -217,7 +217,6 @@ syncWalletWithGStateUnsafe
     => EncryptedSecretKey
     -> m ()
 syncWalletWithGStateUnsafe encSK = modifyLoggerName (<> "wallet" <> "sync") $ do
-    logWarning "Mega ololo!"
     tipHeader <- DB.getTipHeader @(Block ssc)
     slottingData <- GS.getSlottingData
 

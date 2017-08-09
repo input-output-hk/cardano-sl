@@ -43,12 +43,8 @@ instance Bi T.CoinPortion where
       Right coinPortion -> return coinPortion
 
 instance Bi T.LocalSlotIndex where
-  encode = encode . T.getSlotIndex
-  decode = do
-    word16 <- decode @Word16
-    case T.mkLocalSlotIndex word16 of
-      Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)
-      Right slotIndex -> return slotIndex
+    encode = encode . T.getSlotIndex
+    decode = T.LocalSlotIndex <$> decode
 
 deriveSimpleBi ''T.SlotId [
     Cons 'T.SlotId [

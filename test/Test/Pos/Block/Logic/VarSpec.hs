@@ -17,7 +17,7 @@ import           Test.QuickCheck.Monadic     (assert, pick, pre)
 
 import           Pos.Block.Logic             (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (blkSecurityParam)
+import           Pos.Core                    (blkSecurityParamM)
 import           Pos.DB.Pure                 (dbPureDump)
 import           Pos.Generator.BlockEvent    (BlockEventCount (..),
                                               BlockEventGenParams (..), genBlockEvents)
@@ -171,6 +171,7 @@ blockEventSuccessSpec = do
 blockEventSuccessProp :: BlockProperty ()
 blockEventSuccessProp = do
     allSecrets <- getAllSecrets
+    blkSecurityParam <- blkSecurityParamM
     let
         eventCount = min (BlockEventCount 10) (fromIntegral blkSecurityParam)
         blockEventGenParams = BlockEventGenParams

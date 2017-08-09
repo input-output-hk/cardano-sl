@@ -28,26 +28,26 @@ import           Data.Time.Units                   (Microsecond, Millisecond,
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
                                                     choose, oneof, scale, shrinkIntegral,
-                                                    suchThat, vector, vectorOf, sized)
+                                                    sized, suchThat, vector, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
 import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
-                                                    SignedVarInt (..),
-                                                    UnsignedVarInt (..),
-                                                    TinyVarInt(..))
+                                                    SignedVarInt (..), TinyVarInt (..),
+                                                    UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
                                                     makeScriptAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Constants                (epochSlots, sharedSeedLength)
+import qualified Pos.Core.Constants                as Const
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
-import           Pos.Data.Attributes               (Attributes (..), UnparsedFields(..))
+import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -82,7 +82,7 @@ instance Arbitrary Types.EpochIndex where
 
 instance Arbitrary Types.LocalSlotIndex where
     arbitrary =
-        leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
+        Types.LocalSlotIndex <$>
         choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
     shrink = genericShrink
 
@@ -124,29 +124,34 @@ instance Arbitrary Types.EpochOrSlot where
     shrink = genericShrink
 
 -- | A wrapper over 'EpochOrSlot'. When converted to 'EpochOrSlot' via 'fromEnum', using
--- this type ensures there's an exception.
+-- this type ensures there's an exception. It assumes static constants.
 newtype EoSToIntOverflow = EoSToIntOverflow
     { getEoS :: Types.EpochOrSlot
     } deriving (Show, Eq, Generic)
 
 instance Arbitrary EoSToIntOverflow where
-    arbitrary = EoSToIntOverflow <$> do
+    arbitrary = do
         let maxIntAsInteger = toInteger (maxBound :: Int)
             maxW64 = toInteger (maxBound :: Word64)
-            (minDiv, minMod) = maxIntAsInteger `divMod` (fromIntegral $ succ epochSlots)
-            maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
-        leftEpoch <- Types.EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
+            k = Const.staticBlkSecurityParam
+            (minDiv, minMod) =
+                maxIntAsInteger `divMod`
+                (fromIntegral $ succ $ epochSlots k)
+            maxDiv = maxW64 `div` (1 + fromIntegral (epochSlots k))
+        leftEpoch <-
+            Types.EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
         localSlot <-
-            leftToPanic "arbitrary@EoSToIntOverflow" .
-            Types.mkLocalSlotIndex .
-            fromIntegral <$> choose (minMod, toInteger epochSlots)
+            Types.LocalSlotIndex . fromIntegral <$>
+            choose (minMod, toInteger $ epochSlots k)
         let rightEpoch = Types.EpochIndex . fromIntegral $ minDiv
-        Types.EpochOrSlot <$>
-            oneof [ pure $ Left leftEpoch
-                  , pure $ Right Types.SlotId { siEpoch = rightEpoch
-                                              , siSlot = localSlot}
-                  ]
-    shrink = genericShrink
+        EoSToIntOverflow . Types.EpochOrSlot <$>
+            oneof
+                [ pure $ Left leftEpoch
+                , pure $
+                  Right Types.SlotId {siEpoch = rightEpoch, siSlot = localSlot}
+                ]
+    -- Shrinking can break the property of this type, so it's empty.
+    shrink _ = []
 
 -- | Wrapper over 'EpochOrSlot'. Its 'Arbitrary' instance is made to guarantee its
 -- 'EpochIndex' is in the interval (maxReasonableEpoch, maxBound :: Word64 ].
@@ -158,18 +163,20 @@ newtype UnreasonableEoS = Unreasonable
 
 instance Arbitrary UnreasonableEoS where
     arbitrary = Unreasonable . Types.EpochOrSlot <$> do
-        let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
+        let k = Const.staticBlkSecurityParam
+        let maxI = (maxBound :: Int) `div` (1 + fromIntegral (epochSlots k))
         localSlot <- arbitrary
         let lsIntegral = fromIntegral . Types.getSlotIndex $ localSlot
         let epoch n = Types.EpochIndex <$>
-                choose (succ maxReasonableEpoch
-                       , fromIntegral maxI - (n * fromIntegral (succ epochSlots)))
+                choose ( succ maxReasonableEpoch
+                       , fromIntegral maxI - (n * fromIntegral (succ (epochSlots k))))
         leftEpoch <- Left <$> epoch 0
         rightSlot <- Right . (flip Types.SlotId localSlot) <$> epoch lsIntegral
         oneof [ pure leftEpoch
               , pure rightSlot
               ]
-    shrink = genericShrink
+    -- Shrinking can break the property of this type, so it's empty.
+    shrink _ = []
 
 instance Arbitrary UnparsedFields where
     arbitrary = sized $ go M.empty

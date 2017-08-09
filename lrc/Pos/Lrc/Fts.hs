@@ -6,15 +6,16 @@ module Pos.Lrc.Fts
        ( followTheSatoshiM
        ) where
 
-import           Control.Lens       (makeLenses, makePrisms, uses)
-import           Data.Conduit       (Sink, await)
-import           Data.List.NonEmpty (fromList)
 import           Universum
 
+import           Control.Lens       (makeLenses, makePrisms, uses)
+import           Data.Conduit       (Sink, await)
+import qualified Data.List.NonEmpty as NE (fromList)
+
+import           Pos.Core           (Coin, HasCoreConstants, LocalSlotIndex (..),
+                                     SharedSeed (..), SlotCount, SlotLeaders,
+                                     StakeholderId, epochSlotsM, mkCoin)
 import           Pos.Core.Coin      (coinToInteger, unsafeGetCoin)
-import           Pos.Core.Constants (epochSlots)
-import           Pos.Core.Types     (Coin, LocalSlotIndex (..), SharedSeed (..),
-                                     SlotLeaders, StakeholderId, mkCoin)
 import           Pos.Crypto         (deterministic, randomNumber)
 
 -- | Whereas 'Coin' stores an amount of coins, 'CoinIndex' is an identifier
@@ -195,7 +196,7 @@ previous upper bound (and thus it's more or equal to the current lower bound).
 
 -}
 followTheSatoshiM
-    :: forall m . (Monad m)
+    :: forall ctx m . (MonadReader ctx m, HasCoreConstants ctx)
     => SharedSeed
     -> Coin
     -> Sink (StakeholderId, Coin) m SlotLeaders
@@ -203,12 +204,14 @@ followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
     ftsState <- ftsStateInit <$> nextStakeholder
-    let sortedCoinIndices = sortWith snd (assignToSlots coinIndices)
+    epochSlots <- epochSlotsM
+    let unsortedCoinIndices = assignToSlots (coinIndices epochSlots)
+    let sortedCoinIndices = sortWith snd unsortedCoinIndices
     res <- evaluatingStateT ftsState $ findLeaders sortedCoinIndices
-    pure . fromList . arrangeBySlots $ res
+    pure . NE.fromList . arrangeBySlots $ res
   where
-    coinIndices :: [CoinIndex]
-    coinIndices = map (CoinIndex . fromInteger) . deterministic seed $
+    coinIndices :: SlotCount -> [CoinIndex]
+    coinIndices epochSlots = map (CoinIndex . fromInteger) . deterministic seed $
         replicateM (fromIntegral epochSlots)
             (randomNumber (coinToInteger totalCoins))
 

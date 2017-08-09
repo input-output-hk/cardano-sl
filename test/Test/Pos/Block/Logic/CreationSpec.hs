@@ -23,8 +23,9 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication          ()
-import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
-import           Pos.Core                   (SlotId (..), unsafeMkLocalSlotIndex)
+import           Pos.Constants              (genesisMaxBlockSize, staticBlkSecurityParam)
+import           Pos.Core                   (BlockCount, SlotId (..),
+                                             unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
@@ -34,6 +35,9 @@ import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
 import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
+
+blkSecurityParam :: BlockCount
+blkSecurityParam = staticBlkSecurityParam
 
 spec :: Spec
 spec = describe "Block.Logic.Creation" $ do

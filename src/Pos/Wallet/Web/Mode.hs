@@ -20,7 +20,8 @@ import           Pos.Block.Core                (Block, BlockHeader)
 import           Pos.Block.Slog.Types          (HasSlogContext (..))
 import           Pos.Block.Types               (Undo)
 import           Pos.Context                   (HasNodeContext (..))
-import           Pos.Core                      (HasPrimaryKey (..), IsHeader)
+import           Pos.Core                      (HasCoreConstants (..), HasPrimaryKey (..),
+                                                IsHeader)
 import           Pos.DB                        (MonadGState (..))
 import           Pos.DB.Block                  (dbGetBlockDefault, dbGetBlockSscDefault,
                                                 dbGetHeaderDefault, dbGetHeaderSscDefault,
@@ -39,6 +40,8 @@ import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDe
 import           Pos.Client.Txp.History        (MonadTxHistory (..),
                                                 getBlockHistoryDefault,
                                                 getLocalHistoryDefault, saveTxDefault)
+import           Pos.KnownPeers                (MonadFormatPeers (..),
+                                                MonadKnownPeers (..))
 import           Pos.Reporting                 (HasReportingContext (..))
 import           Pos.Shutdown                  (HasShutdownContext (..))
 import           Pos.Slotting.Class            (MonadSlots (..))
@@ -52,7 +55,6 @@ import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsD
                                                 putSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
-import           Pos.KnownPeers                (MonadKnownPeers (..), MonadFormatPeers (..))
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName           (HasLoggerName' (..), getLoggerNameDefault,
@@ -92,6 +94,9 @@ instance HasSscContext WalletSscType WalletWebModeContext where
 
 instance HasPrimaryKey WalletWebModeContext where
     primaryKey = wwmcRealModeContext_L . primaryKey
+
+instance HasCoreConstants WalletWebModeContext where
+    coreConstantsG = wwmcRealModeContext_L . coreConstantsG
 
 instance HasReportingContext WalletWebModeContext  where
     reportingContext = wwmcRealModeContext_L . reportingContext

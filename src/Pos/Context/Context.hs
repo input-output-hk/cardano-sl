@@ -32,40 +32,38 @@ module Pos.Context.Context
 
 import           Universum
 
-import qualified Control.Concurrent.STM        as STM
-import           Control.Lens                  (lens, makeLensesWith)
-import           Data.Time.Clock               (UTCTime)
-import           Ether.Internal                (HasLens (..))
-import           System.Wlog                   (LoggerConfig)
+import qualified Control.Concurrent.STM   as STM
+import           Control.Lens             (lens, makeLensesWith)
+import           Data.Time.Clock          (UTCTime)
+import           Ether.Internal           (HasLens (..))
+import           System.Wlog              (LoggerConfig)
 
-import           Pos.Block.Core                (BlockHeader)
-import           Pos.Block.RetrievalQueue      (BlockRetrievalQueue,
-                                                BlockRetrievalQueueTag)
-import           Pos.Block.Slog.Types          (HasSlogContext (..), SlogContext (..))
-import           Pos.Communication.Types       (NodeId)
-import           Pos.Core                      (GenesisStakeholders (..),
-                                                HasPrimaryKey (..), HeaderHash, Timestamp)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance)
-import           Pos.DHT.Real.Param            (KademliaParams)
-import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
-import           Pos.Lrc.Context               (LrcContext)
-import           Pos.Network.Types             (NetworkConfig (..))
-import           Pos.Reporting.MemState        (HasLoggerConfig (..),
-                                                HasReportServers (..),
-                                                HasReportingContext (..),
-                                                ReportingContext (..))
-import           Pos.Security.Params           (SecurityParams)
-import           Pos.Shutdown                  (HasShutdownContext (..),
-                                                ShutdownContext (..))
-import           Pos.Slotting                  (HasSlottingVar (..), SlottingContextSum,
-                                                SlottingData)
-import           Pos.Ssc.Class.Types           (HasSscContext (..), Ssc (SscNodeContext))
-import           Pos.Txp.Settings              (TxpGlobalSettings)
-import           Pos.Txp.Toil.Types            (GenesisUtxo (..))
-import           Pos.Update.Context            (UpdateContext)
-import           Pos.Update.Params             (UpdateParams)
-import           Pos.Util.UserSecret           (HasUserSecret (..), UserSecret)
-import           Pos.Util.Util                 (postfixLFields)
+import           Pos.Block.Core           (BlockHeader)
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
+import           Pos.Block.Slog.Types     (HasSlogContext (..), SlogContext (..))
+import           Pos.Communication.Types  (NodeId)
+import           Pos.Core                 (CoreConstants, GenesisStakeholders (..),
+                                           HasCoreConstants (..), HasPrimaryKey (..),
+                                           HeaderHash, Timestamp)
+import           Pos.DHT.Real.Param       (KademliaParams)
+import           Pos.DHT.Real.Types       (KademliaDHTInstance)
+import           Pos.Launcher.Param       (BaseParams (..), NodeParams (..))
+import           Pos.Lrc.Context          (LrcContext)
+import           Pos.Network.Types        (NetworkConfig (..))
+import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
+                                           HasReportingContext (..),
+                                           ReportingContext (..))
+import           Pos.Security.Params      (SecurityParams)
+import           Pos.Shutdown             (HasShutdownContext (..), ShutdownContext (..))
+import           Pos.Slotting             (HasSlottingVar (..), SlottingContextSum,
+                                           SlottingData)
+import           Pos.Ssc.Class.Types      (HasSscContext (..), Ssc (SscNodeContext))
+import           Pos.Txp.Settings         (TxpGlobalSettings)
+import           Pos.Txp.Toil.Types       (GenesisUtxo (..))
+import           Pos.Update.Context       (UpdateContext)
+import           Pos.Update.Params        (UpdateParams)
+import           Pos.Util.UserSecret      (HasUserSecret (..), UserSecret)
+import           Pos.Util.Util            (postfixLFields)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -94,7 +92,9 @@ data SscContextTag
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncSscContext          :: !(SscNodeContext ssc)
+    { ncCoreConstants       :: !CoreConstants
+    -- ^ Core constants.
+    , ncSscContext          :: !(SscNodeContext ssc)
     -- @georgeee please add documentation when you see this comment
     , ncUpdateContext       :: !UpdateContext
     -- ^ Context needed for the update system
@@ -218,6 +218,9 @@ instance HasReportServers (NodeContext ssc) where
 
 instance HasLoggerConfig (NodeContext ssc) where
     loggerConfig = ncLoggerConfig_L
+
+instance HasCoreConstants (NodeContext ssc) where
+    coreConstantsG = ncCoreConstants_L
 
 instance HasPrimaryKey (NodeContext ssc) where
     primaryKey = ncNodeParams_L . primaryKey

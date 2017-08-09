@@ -28,6 +28,7 @@ import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
                                               MonadLastKnownHeader, MonadProgressHeader,
                                               MonadRecoveryHeader, StartTime,
                                               TxpGlobalSettings)
+import           Pos.Core                    (HasCoreConstants, HasPrimaryKey)
 import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
@@ -37,8 +38,7 @@ import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
-import           Pos.Core                    (HasPrimaryKey)
-import           Pos.KnownPeers              (MonadKnownPeers, MonadFormatPeers)
+import           Pos.KnownPeers              (MonadFormatPeers, MonadKnownPeers)
 import           Pos.Network.Types           (NetworkConfig)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
@@ -101,6 +101,7 @@ type WorkMode ssc ctx m
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx
+      , HasCoreConstants ctx
       , HasShutdownContext ctx
       , HasSlogContext ctx
       )

@@ -27,13 +27,13 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
-import           Pos.Constants               (blkSecurityParam, criticalCQ,
-                                              criticalCQBootstrap, networkDiameter,
-                                              nonCriticalCQ, nonCriticalCQBootstrap)
+import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
+                                              networkDiameter, nonCriticalCQ,
+                                              nonCriticalCQBootstrap)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
-                                              flattenSlotId, gbHeader, getSlotIndex,
-                                              slotIdF)
+                                              blkSecurityParamM, flattenSlotId, gbHeader,
+                                              getSlotIndex, slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
@@ -222,6 +222,7 @@ chainQualityChecker
     => SlotId -> m ()
 chainQualityChecker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
+    blkSecurityParam <- blkSecurityParamM
     -- If total number of blocks is less than `blkSecurityParam' we do
     -- nothing for two reasons:
     -- 1. Usually after we deploy cluster we monitor it manually for a while.

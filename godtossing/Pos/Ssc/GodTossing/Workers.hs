@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -30,21 +30,21 @@ import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.MessagePart         (MessagePart)
-import           Pos.Communication.Protocol            (Message, OutSpecs, EnqueueMsg,
-                                                        Worker, WorkerSpec, SendActions (..),
-                                                        onNewSlotWorker, MsgType (..),
-                                                        Origin (..))
+import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
+                                                        Origin (..), OutSpecs,
+                                                        SendActions (..), Worker,
+                                                        WorkerSpec, onNewSlotWorker)
 import           Pos.Communication.Relay               (DataMsg, ReqMsg,
                                                         invReqDataFlowNeighborsTK)
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
-import           Pos.Core                              (EpochIndex, SlotId (..),
+import           Pos.Core                              (BlockCount, EpochIndex,
+                                                        LocalSlotIndex (..), SlotId (..),
                                                         StakeholderId, Timestamp (..),
-                                                        addressHash, bvdMpcThd,
-                                                        getOurSecretKey,
+                                                        addressHash, blkSecurityParamM,
+                                                        bvdMpcThd, getOurSecretKey,
                                                         getOurStakeholderId,
-                                                        mkLocalSlotIndex)
-import           Pos.Core.Constants                    (slotSecurityParam)
+                                                        slotSecurityParamM)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
                                                         runSecureRandom)
@@ -89,8 +89,7 @@ import           Pos.Ssc.GodTossing.Types.Message      (GtTag (..), MCCommitment
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)
 import           Pos.Ssc.RichmenComponent              (getRichmenSsc)
-import           Pos.Util.Util                         (getKeys, inAssertMode,
-                                                        leftToPanic)
+import           Pos.Util.Util                         (getKeys, inAssertMode)
 
 instance GtMessageConstraints => SscWorkersClass SscGodTossing where
     sscWorkers = first pure onNewSlotSsc
@@ -114,10 +113,11 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
         when (participationEnabled && not enoughStake) $
             logDebug "Not enough stake to participate in MPC"
         when (participationEnabled && enoughStake) $ do
+            k <- blkSecurityParamM
             checkNSendOurCert sendActions
-            onNewSlotCommitment slotId sendActions
-            onNewSlotOpening slotId sendActions
-            onNewSlotShares slotId sendActions
+            onNewSlotCommitment k slotId sendActions
+            onNewSlotOpening k slotId sendActions
+            onNewSlotShares k slotId sendActions
   where
     outs = mconcat
         [ createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCCommitment))
@@ -186,9 +186,9 @@ getOurVssKeyPair = views sscContext gtcVssKeyPair
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
-    => SlotId -> Worker m
-onNewSlotCommitment slotId@SlotId {..} sendActions
-    | not (isCommitmentIdx siSlot) = pass
+    => BlockCount -> SlotId -> Worker m
+onNewSlotCommitment k slotId@SlotId {..} sendActions
+    | not (isCommitmentIdx k siSlot) = pass
     | otherwise = do
         ourId <- getOurStakeholderId
         shouldSendCommitment <- andM
@@ -220,9 +220,9 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
-    => SlotId -> Worker m
-onNewSlotOpening SlotId {..} sendActions
-    | not $ isOpeningIdx siSlot = pass
+    => BlockCount -> SlotId -> Worker m
+onNewSlotOpening k SlotId {..} sendActions
+    | not $ isOpeningIdx k siSlot = pass
     | otherwise = do
         ourId <- getOurStakeholderId
         globalData <- gtGetGlobalState
@@ -245,13 +245,13 @@ onNewSlotOpening SlotId {..} sendActions
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
-    => SlotId -> Worker m
-onNewSlotShares SlotId {..} sendActions = do
+    => BlockCount -> SlotId -> Worker m
+onNewSlotShares k SlotId {..} sendActions = do
     ourId <- getOurStakeholderId
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
         sharesInBlockchain <- hasShares ourId <$> gtGetGlobalState
-        return $ isSharesIdx siSlot && not sharesInBlockchain
+        return $ isSharesIdx k siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- views sscContext gtcVssKeyPair
         shares <- getOurShares ourVss
@@ -365,9 +365,9 @@ waitUntilSend
     :: SscMode SscGodTossing ctx m
     => GtTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
+    slotSecurityParam <- slotSecurityParamM
     let slot =
-            leftToPanic "waitUntilSend: " $
-            mkLocalSlotIndex $ slMultiplier * fromIntegral slotSecurityParam
+            LocalSlotIndex $ slMultiplier * fromIntegral slotSecurityParam
     Timestamp beginning <-
         getSlotStartEmpatically $
         SlotId {siEpoch = epoch, siSlot = slot}

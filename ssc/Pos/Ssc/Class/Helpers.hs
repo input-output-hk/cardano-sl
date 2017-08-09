@@ -8,13 +8,14 @@ import           Universum
 
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core                   (EpochIndex, IsMainHeader, LocalSlotIndex)
+import           Pos.Core                   (BlockCount, EpochIndex, LocalSlotIndex)
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Util.Util              (Some)
 
 class Ssc ssc => SscHelpersClass ssc where
-    sscVerifyPayload
-        :: Either EpochIndex (Some IsMainHeader)
+    -- | Verify that payload can be included into a block for the
+    -- given epoch.
+    sscVerifyPayloadEpoch
+        :: EpochIndex
         -> SscPayload ssc
         -> Either (SscVerifyError ssc) ()
     -- | Removes parts of payload so its binary representation length
@@ -22,4 +23,4 @@ class Ssc ssc => SscHelpersClass ssc where
     -- 'Nothing'.
     sscStripPayload :: Byte -> SscPayload ssc -> Maybe (SscPayload ssc)
     -- | Returns default payload for the given local slot index.
-    sscDefaultPayload :: LocalSlotIndex -> (SscPayload ssc)
+    sscDefaultPayload :: BlockCount -> LocalSlotIndex -> (SscPayload ssc)

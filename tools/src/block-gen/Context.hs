@@ -19,7 +19,8 @@ import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Slog       (SlogContext, mkSlogContext)
 import           Pos.Block.Types      (Undo)
 import           Pos.Context          (GenesisUtxo (..))
-import           Pos.Core             (Timestamp (..))
+import           Pos.Core             (HasCoreConstants (..), Timestamp (..),
+                                       staticCoreConstantsG)
 import           Pos.DB               (MonadBlockDBGeneric (..),
                                        MonadBlockDBGenericWrite (..), MonadDB (..),
                                        MonadDBRead (..))
@@ -99,6 +100,8 @@ instance HasSlottingVar TBlockGenContext where
     slottingTimestamp = tbgcSystemStart_L
     slottingVar = tbgcGState_L . GS.gscSlottingVar
 
+instance HasCoreConstants TBlockGenContext where
+    coreConstantsG = staticCoreConstantsG
 
 instance MonadDBRead TBlockGenMode where
     dbGet = DB.dbGetSumDefault

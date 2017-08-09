@@ -11,6 +11,8 @@ module Pos.Ssc.GodTossing.GState
        , getStableCerts
        ) where
 
+import           Universum
+
 import           Control.Lens                   ((.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph            (hoist)
@@ -18,11 +20,12 @@ import qualified Data.HashMap.Strict            as HM
 import           Data.Tagged                    (Tagged (..))
 import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (WithLogger, logDebug, logInfo)
-import           Universum
 
 import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (BlockVersionData, EpochIndex (..),
-                                                 SlotId (..), epochIndexL, epochOrSlotG)
+                                                 HasCoreConstants, SlotId (..),
+                                                 blkSecurityParamM, epochIndexL,
+                                                 epochOrSlotG)
 import           Pos.DB                         (MonadDBRead, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStakes)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
@@ -64,10 +67,12 @@ getGlobalCerts sl =
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
-    :: (MonadSscMem SscGodTossing ctx m, MonadIO m)
+    :: (MonadSscMem SscGodTossing ctx m, MonadIO m, HasCoreConstants ctx)
     => EpochIndex -> m VssCertificatesMap
-getStableCerts epoch =
-    getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
+getStableCerts epoch = do
+    blkSecurityParam <- blkSecurityParamM
+    getStableCertsPure blkSecurityParam epoch <$>
+        sscRunGlobalQuery (view gsVssCertificates)
 
 ----------------------------------------------------------------------------
 -- Methods from class
@@ -94,7 +99,12 @@ loadGlobalState = do
 dumpGlobalState :: GtGlobalState -> [SomeBatchOp]
 dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 
-type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
+type GSUpdate a
+     = forall ctx m. ( MonadState GtGlobalState m
+                     , WithLogger m
+                     , MonadReader ctx m
+                     , HasCoreConstants ctx
+                     ) => m a
 
 rollbackBlocks :: NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
 rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads

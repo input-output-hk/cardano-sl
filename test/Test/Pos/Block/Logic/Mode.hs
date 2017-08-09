@@ -41,9 +41,10 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
-                                                 Timestamp (..), makePubKeyAddress,
-                                                 mkCoin, unsafeGetCoin)
+import           Pos.Core                       (HasCoreConstants (..), IsHeader, SlotId,
+                                                 StakeDistribution (..), Timestamp (..),
+                                                 makePubKeyAddress, mkCoin,
+                                                 staticCoreConstantsG, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
@@ -400,6 +401,10 @@ instance HasSlottingVar BlockTestContext where
 
 instance HasSlogContext BlockTestContext where
     slogContextL = GS.gStateContext . GS.gscSlogContext
+
+-- FIXME [CSL-1436] Do not use static value!
+instance HasCoreConstants BlockTestContext where
+    coreConstantsG = staticCoreConstantsG
 
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L

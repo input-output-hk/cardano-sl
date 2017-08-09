@@ -17,17 +17,19 @@ import           System.Wlog                     (logError)
 import           Universum
 
 import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
-                                                  IsMainHeader, LocalSlotIndex, SlotCount,
+                                                  HasCoreConstants, IsMainHeader,
+                                                  LocalSlotIndex, SlotCount,
                                                   SlotId (siSlot), StakeholderId,
-                                                  epochIndexL, epochOrSlot,
-                                                  getEpochOrSlot, headerSlotL, mkCoin)
-import           Pos.Core.Constants              (slotSecurityParam)
+                                                  blkSecurityParamM, epochIndexL,
+                                                  epochOrSlot, getEpochOrSlot,
+                                                  headerSlotL, minEOS, mkCoin, predEOS,
+                                                  slotSecurityParamM)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
                                                   InnerSharesMap, Opening,
                                                   SignedCommitment, VssCertificate,
                                                   getCommitmentsMap,
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
-import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
+import           Pos.Ssc.GodTossing.Functions    (verifyGTPayloadEpoch)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -39,21 +41,29 @@ import           Pos.Util.Util                   (Some, inAssertMode, sortWithMD
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- TossVerFailure is thrown using 'MonadError' type class.
-verifyAndApplyGtPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
-    => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
+verifyAndApplyGtPayload ::
+       ( MonadToss m
+       , MonadTossEnv m
+       , MonadError TossVerFailure m
+       , MonadReader ctx m
+       , HasCoreConstants ctx
+       )
+    => Either EpochIndex (Some IsMainHeader)
+    -> GtPayload
+    -> m ()
 verifyAndApplyGtPayload eoh payload = do
+    let curEpoch = either identity (^. epochIndexL) eoh
     -- We can't trust payload from mempool, so we must call
-    -- @sanityChecksGtPayload@.
-    whenLeft eoh $ const $ sanityChecksGtPayload eoh payload
-    -- We perform @sanityChecksGtPayload@ for block when we construct it
+    -- @verifyGTPayloadEpoch@.
+    whenLeft eoh $ flip verifyGTPayloadEpoch payload
+    -- We perform @verifyGTPayloadEpoch@ for block when we construct it
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
-        whenRight eoh $ const $ sanityChecksGtPayload eoh payload
+        whenRight eoh $ const $ verifyGTPayloadEpoch curEpoch payload
     let blockCerts = _gpCertificates payload
-    let curEpoch = either identity (^. epochIndexL) eoh
     checkPayload curEpoch payload
 
+    slotSecurityParam <- slotSecurityParamM
     -- Apply
     case eoh of
         Left _       -> pass
@@ -92,15 +102,20 @@ applyGenesisBlock epoch = do
 
 -- | Rollback application of 'GtPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackGT :: MonadToss m => EpochOrSlot -> NewestFirst [] GtPayload -> m ()
+rollbackGT ::
+       (MonadToss m, MonadReader ctx m, HasCoreConstants ctx)
+    => EpochOrSlot
+    -> NewestFirst [] GtPayload
+    -> m ()
 rollbackGT oldestEOS (NewestFirst payloads)
-    | oldestEOS == toEnum 0 = do
+    | oldestEOS == minEOS = do
         logError "rollbackGT: most genesis block is passed to rollback"
         setEpochOrSlot oldestEOS
         resetCO
         resetShares
     | otherwise = do
-        setEpochOrSlot (pred oldestEOS)
+        blkSecurityParam <- blkSecurityParamM
+        setEpochOrSlot (predEOS blkSecurityParam oldestEOS)
         mapM_ rollbackGTDo payloads
   where
     rollbackGTDo (CommitmentsPayload comms _) =
@@ -110,9 +125,12 @@ rollbackGT oldestEOS (NewestFirst payloads)
     rollbackGTDo (CertificatesPayload _) = pass
 
 -- | Apply as much data from given 'TossModifier' as possible.
-normalizeToss
-    :: forall m . (MonadToss m, MonadTossEnv m)
-    => EpochIndex -> TossModifier -> m ()
+normalizeToss ::
+       forall ctx m.
+       (MonadToss m, MonadTossEnv m, MonadReader ctx m, HasCoreConstants ctx)
+    => EpochIndex
+    -> TossModifier
+    -> m ()
 normalizeToss epoch TossModifier {..} =
     normalizeTossDo
         epoch
@@ -123,9 +141,12 @@ normalizeToss epoch TossModifier {..} =
 
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
-refreshToss
-    :: forall m . (MonadToss m, MonadTossEnv m)
-    => EpochIndex -> TossModifier -> m ()
+refreshToss ::
+       forall ctx m.
+       (MonadToss m, MonadTossEnv m, MonadReader ctx m, HasCoreConstants ctx)
+    => EpochIndex
+    -> TossModifier
+    -> m ()
 refreshToss epoch TossModifier {..} = do
     comms <-
         takeMostValuable epoch (HM.toList (getCommitmentsMap _tmCommitments))
@@ -152,9 +173,12 @@ type TossModifierLists
        , [(StakeholderId, InnerSharesMap)]
        , [(StakeholderId, VssCertificate)])
 
-normalizeTossDo
-    :: forall m . (MonadToss m, MonadTossEnv m)
-    => EpochIndex -> TossModifierLists -> m ()
+normalizeTossDo ::
+       forall ctx m.
+       (MonadToss m, MonadTossEnv m, MonadReader ctx m, HasCoreConstants ctx)
+    => EpochIndex
+    -> TossModifierLists
+    -> m ()
 normalizeTossDo epoch (comms, opens, shares, certs) = do
     putsUseful $
         map (flip CommitmentsPayload mempty . mkCommitmentsMapUnsafe . one) $

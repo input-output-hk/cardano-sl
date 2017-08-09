@@ -12,14 +12,18 @@ module Pos.Ssc.GodTossing.Toss.Pure
        , supplyPureTossEnv
        ) where
 
+import           Universum
+
 import           Control.Lens                   (at, sequenceAOf, (%=), (.=))
+import           Control.Monad.Reader           (mapReaderT)
+import           Control.Monad.RWS.Strict       (RWS, runRWS)
 import           System.Wlog                    (CanLog, HasLoggerName (..), LogEvent,
                                                  NamedPureLogger (..), WithLogger,
                                                  launchNamedPureLog, runNamedPureLog)
-import           Universum
 
-import           Pos.Core                       (BlockVersionData, EpochIndex,
-                                                 crucialSlot)
+import           Pos.Core                       (BlockVersionData, CoreConstants,
+                                                 EpochIndex, HasCoreConstants (..),
+                                                 ccBlkSecuriryParam, crucialSlot)
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStakes)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
@@ -35,14 +39,18 @@ type MultiRichmenSet   = HashMap EpochIndex RichmenSet
 
 newtype PureToss a = PureToss
     { getPureToss ::
-          NamedPureLogger (State GtGlobalState) a
-    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
+          NamedPureLogger (RWS CoreConstants () GtGlobalState) a
+    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName, MonadReader CoreConstants)
 
 newtype PureTossWithEnv a = PureTossWithEnv
     { getPureTossWithEnv ::
           ReaderT (MultiRichmenStakes, BlockVersionData) PureToss a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName,
                 MonadTossRead, MonadToss)
+
+instance MonadReader CoreConstants PureTossWithEnv where
+    ask = PureTossWithEnv $ lift ask
+    local f = PureTossWithEnv . mapReaderT (local f) . getPureTossWithEnv
 
 instance MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
@@ -52,9 +60,10 @@ instance MonadTossRead PureToss where
     getStableCertificates epoch
         | epoch == 0 = pure genesisCertificates
         | otherwise =
-            PureToss $
-            VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch) <$>
-            use gsVssCertificates
+            PureToss $ do
+                k <- view ccBlkSecuriryParam
+                VCD.certs . VCD.setLastKnownSlot (crucialSlot k epoch) <$>
+                    use gsVssCertificates
 
 instance MonadTossEnv PureTossWithEnv where
     getRichmen epoch = PureTossWithEnv $ view (_1 . at epoch)
@@ -77,36 +86,40 @@ instance MonadToss PureToss where
     resetShares = PureToss $ gsShares .= mempty
     setEpochOrSlot eos = PureToss $ gsVssCertificates %= VCD.setLastKnownEoS eos
 
-runPureToss
-    :: GtGlobalState
+runPureToss ::
+       CoreConstants
+    -> GtGlobalState
     -> PureToss a
     -> (a, GtGlobalState, [LogEvent])
-runPureToss gs =
-    reorder . (`runState` gs) . runNamedPureLog . getPureToss
+runPureToss constants gs =
+    reorder . (\rws -> runRWS rws constants gs) . runNamedPureLog . getPureToss
   where
-    reorder :: ((a, [LogEvent]), GtGlobalState)
+    reorder :: ((a, [LogEvent]), GtGlobalState, ())
             -> (a, GtGlobalState, [LogEvent])
-    reorder ((res, logEvents), newGs) = (res, newGs, logEvents)
+    reorder ((res, logEvents), newGS, ()) = (res, newGS, logEvents)
 
 runPureTossWithLogger
-    :: WithLogger m
+    :: (WithLogger m, MonadReader ctx m, HasCoreConstants ctx)
     => GtGlobalState
     -> PureToss a
     -> m (a, GtGlobalState)
 runPureTossWithLogger gs action = do
-    let unwrapLower a = return $ sequenceAOf _1 $ runState a gs
+    constants <- view coreConstantsG
+    let discardOutput (a, s, ()) = (a, s)
+    let unwrapLower a =
+            return $ sequenceAOf _1 $ discardOutput $ runRWS a constants gs
     (res, newGS) <- launchNamedPureLog unwrapLower $ getPureToss action
     return (res, newGS)
 
 evalPureTossWithLogger
-    :: WithLogger m
+    :: (WithLogger m, MonadReader ctx m, HasCoreConstants ctx)
     => GtGlobalState
     -> PureToss a
     -> m a
 evalPureTossWithLogger g = fmap fst . runPureTossWithLogger g
 
 execPureTossWithLogger
-    :: WithLogger m
+    :: (WithLogger m, MonadReader ctx m, HasCoreConstants ctx)
     => GtGlobalState
     -> PureToss a
     -> m GtGlobalState

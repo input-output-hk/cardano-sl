@@ -22,14 +22,14 @@ import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), WorkerSpec,
                                              localWorker, worker)
-import           Pos.Constants              (blkSecurityParam, genesisHash,
-                                             mdNoBlocksSlotThreshold,
+import           Pos.Constants              (genesisHash, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getOurPublicKey, getOurStakeholderId,
                                              getUptime, recoveryCommGuard)
-import           Pos.Core                   (EpochIndex, SlotId (..), epochIndexL,
-                                             flattenEpochOrSlot, flattenSlotId,
-                                             headerHash, headerLeaderKeyL, prevBlockL)
+import           Pos.Core                   (EpochIndex, SlotId (..), blkSecurityParamM,
+                                             epochIndexL, flattenEpochOrSlot,
+                                             flattenSlotId, headerHash, headerLeaderKeyL,
+                                             prevBlockL)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
@@ -149,10 +149,12 @@ checkForIgnoredCommitmentsWorker = localWorker $ do
     epochIdx <- atomically (newTVar 0)
     void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl epochIdx)
 
+-- [CSL-823] FIXME This code does nonsense!
 checkForIgnoredCommitmentsWorkerImpl
     :: forall ctx m. (WorkMode SscGodTossing ctx m)
     => TVar EpochIndex -> SlotId -> m ()
 checkForIgnoredCommitmentsWorkerImpl tvar slotId = recoveryCommGuard $ do
+    blkSecurityParam <- blkSecurityParamM
     -- Check prev blocks
     (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
         map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam

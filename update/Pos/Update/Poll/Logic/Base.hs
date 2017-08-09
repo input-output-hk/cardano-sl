@@ -48,7 +48,7 @@ import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, H
                                           headerHashG, isBootstrapEra, mkCoinPortion,
                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                                           unsafeSubCoin)
-import           Pos.Core.Constants      (epochSlots)
+import           Pos.Core.Context        (HasCoreConstants, epochSlotsM)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
 import           Pos.Update.Core         (BlockVersionData (..),
@@ -206,9 +206,14 @@ adoptBlockVersion winningBlk bv = do
 
 -- | Update slotting data stored in poll. First argument is epoch for
 -- which currently adopted 'BlockVersion' can be applied.
-updateSlottingData
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => EpochIndex -> m ()
+updateSlottingData ::
+       ( MonadError PollVerFailure m
+       , MonadPoll m
+       , MonadReader ctx m
+       , HasCoreConstants ctx
+       )
+    => EpochIndex
+    -> m ()
 updateSlottingData epoch = do
     sd@SlottingData {..} <- getSlottingData
     let errFmt =
@@ -223,6 +228,7 @@ updateSlottingData epoch = do
   where
     updateSlottingDataDo sd@SlottingData {..} = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
+        epochSlots <- epochSlotsM
         let epochDuration = fromIntegral epochSlots *
                             convertUnit (esdSlotDuration sdLast)
         let newLastStartDiff =

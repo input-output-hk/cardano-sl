@@ -29,27 +29,23 @@ module Pos.Communication.Protocol
        , constantListeners
        ) where
 
+import           Universum
+
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Text.Buildable              as B
 import           Formatting                       (bprint, build, sformat, (%))
-import           Mockable                         (Delay, Fork, Mockable, Mockables,
-                                                   SharedAtomic, Throw, throw)
+import           Mockable                         (Mockable, SharedAtomic, Throw, throw)
 import qualified Node                             as N
 import           Node.Message.Class               (Message (..), MessageName (..),
                                                    messageName')
 import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (WithLogger, logWarning)
-import           Universum
 
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
-import           Pos.KnownPeers                   (MonadFormatPeers)
-import           Pos.Recovery.Info                (MonadRecoveryInfo)
-import           Pos.Reporting                    (HasReportingContext)
-import           Pos.Shutdown                     (HasShutdownContext)
-import           Pos.Slotting                     (MonadSlots)
-import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
+import           Pos.Slotting.Util                (MonadOnNewSlot, onNewSlot,
+                                                   onNewSlotImpl)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -235,21 +231,8 @@ worker' outSpecs h =
     (,outSpecs) $ ActionSpec $ h
 
 
-type LocalOnNewSlotComm ctx m =
-    ( MonadIO m
-    , MonadReader ctx m
-    , MonadSlots m
-    , MonadMask m
-    , WithLogger m
-    , Mockables m [Fork, Delay]
-    , HasReportingContext ctx
-    , HasShutdownContext ctx
-    , MonadRecoveryInfo m
-    , MonadFormatPeers m
-    )
-
 type OnNewSlotComm ctx m =
-    ( LocalOnNewSlotComm ctx m
+    ( MonadOnNewSlot ctx m
     , Mockable Throw m
     , Mockable SharedAtomic m
     )
@@ -273,7 +256,7 @@ onNewSlotWithLoggingWorker
 onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
 
 localOnNewSlotWorker
-    :: LocalOnNewSlotComm ctx m
+    :: MonadOnNewSlot ctx m
     => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 

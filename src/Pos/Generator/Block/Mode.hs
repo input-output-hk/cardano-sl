@@ -31,7 +31,8 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
+import           Pos.Core                    (CoreConstants, HasCoreConstants (..),
+                                              HasPrimaryKey (..), IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot, makePubKeyAddress, mkCoin)
 import           Pos.Crypto                  (SecretKey, toPublic, unsafeHash)
@@ -65,7 +66,7 @@ import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), Tx
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
 import           Pos.Txp.Toil.Types          (GenesisStakeholders (..), GenesisUtxo (..),
-                                              mkGenesisTxpContext, gtcStakeholders)
+                                              gtcStakeholders, mkGenesisTxpContext)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -100,6 +101,7 @@ type MonadBlockGen ctx m
        , MonadReader ctx m
        , GS.HasGStateContext ctx
        , HasSlottingVar ctx
+       , HasCoreConstants ctx
        )
 
 ----------------------------------------------------------------------------
@@ -131,6 +133,7 @@ data BlockGenContext = BlockGenContext
     -- rather want to set current slot (fake one) by ourselves.
     , bgcTxpGlobalSettings :: !TxpGlobalSettings
     , bgcReportingContext  :: !ReportingContext
+    , bgcCoreConstants     :: !CoreConstants
     }
 
 makeLensesWith postfixLFields ''BlockGenContext
@@ -158,6 +161,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
                  then view GS.gStateContext
                  else GS.cloneGStateContext =<< view GS.gStateContext
     bgcSystemStart <- view slottingTimestamp
+    bgcCoreConstants <- view coreConstantsG
     (initSlot, putInitSlot) <- newInitFuture
     let bgcSlotId = Nothing
     let bgcTxpGlobalSettings = txpGlobalSettings
@@ -281,6 +285,9 @@ instance HasLens LrcContext BlockGenContext LrcContext where
 
 instance HasPrimaryKey BlockGenContext where
     primaryKey = bgcPrimaryKey_L
+
+instance HasCoreConstants BlockGenContext where
+    coreConstantsG = bgcCoreConstants_L
 
 instance HasSlogContext BlockGenContext where
     slogContextL = GS.gStateContext . GS.gscSlogContext

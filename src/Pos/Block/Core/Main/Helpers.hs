@@ -41,7 +41,7 @@ instance ( BiHeader ssc
     verifyBBlockHeader = verifyMainBlockHeader
     verifyBBlock block@UnsafeGenericBlock {..} = do
         either (throwError . pretty) pure $
-            sscVerifyPayload @ssc
+            sscVerifyPayloadEpoch @ssc
                 (Right (Some _gbHeader))
                 (_mbSscPayload _gbBody)
         dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)

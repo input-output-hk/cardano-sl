@@ -52,9 +52,9 @@ import           Pos.Binary.Class              (AsBinary, Bi, asBinary, biSize,
                                                 fromBinaryM)
 import           Pos.Binary.Crypto             ()
 import           Pos.Binary.GodTossing.Core    ()
-import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
-                                                SharedSeed (..), SlotCount, SlotId (..),
-                                                StakeholderId, unsafeMkLocalSlotIndex)
+import           Pos.Core                      (BlockCount, EpochIndex (..),
+                                                LocalSlotIndex (..), SharedSeed (..),
+                                                SlotCount, SlotId (..), StakeholderId)
 import           Pos.Core.Address              (addressHash)
 import           Pos.Core.Constants            (slotSecurityParam)
 import           Pos.Crypto                    (EncShare, Secret, SecretKey,
@@ -105,31 +105,31 @@ mkSignedCommitment
 mkSignedCommitment sk i c = (toPublic sk, c, sign SignCommitment sk (i, c))
 
 toLocalSlotIndex :: SlotCount -> LocalSlotIndex
-toLocalSlotIndex = unsafeMkLocalSlotIndex . fromIntegral
+toLocalSlotIndex = LocalSlotIndex . fromIntegral
 
-isCommitmentIdx :: LocalSlotIndex -> Bool
-isCommitmentIdx =
+isCommitmentIdx :: BlockCount -> LocalSlotIndex -> Bool
+isCommitmentIdx k =
     inRange (toLocalSlotIndex 0,
-             toLocalSlotIndex (slotSecurityParam - 1))
+             toLocalSlotIndex (slotSecurityParam k - 1))
 
-isOpeningIdx :: LocalSlotIndex -> Bool
-isOpeningIdx =
-    inRange (toLocalSlotIndex (2 * slotSecurityParam),
-             toLocalSlotIndex (3 * slotSecurityParam - 1))
+isOpeningIdx :: BlockCount -> LocalSlotIndex -> Bool
+isOpeningIdx k =
+    inRange (toLocalSlotIndex (2 * slotSecurityParam k),
+             toLocalSlotIndex (3 * slotSecurityParam k - 1))
 
-isSharesIdx :: LocalSlotIndex -> Bool
-isSharesIdx =
-    inRange (toLocalSlotIndex (4 * slotSecurityParam),
-             toLocalSlotIndex (5 * slotSecurityParam - 1))
+isSharesIdx :: BlockCount -> LocalSlotIndex -> Bool
+isSharesIdx k =
+    inRange (toLocalSlotIndex (4 * slotSecurityParam k),
+             toLocalSlotIndex (5 * slotSecurityParam k - 1))
 
-isCommitmentId :: SlotId -> Bool
-isCommitmentId = isCommitmentIdx . siSlot
+isCommitmentId :: BlockCount -> SlotId -> Bool
+isCommitmentId k = isCommitmentIdx k . siSlot
 
-isOpeningId :: SlotId -> Bool
-isOpeningId = isOpeningIdx . siSlot
+isOpeningId :: BlockCount -> SlotId -> Bool
+isOpeningId k = isOpeningIdx k . siSlot
 
-isSharesId :: SlotId -> Bool
-isSharesId = isSharesIdx . siSlot
+isSharesId :: BlockCount -> SlotId -> Bool
+isSharesId k = isSharesIdx k . siSlot
 
 ----------------------------------------------------------------------------
 -- CommitmentsMap
@@ -328,9 +328,9 @@ stripGtPayload lim payload = case payload of
                            -- this is a random choice in fact
 
 -- | Default godtossing payload depending on local slot index.
-defaultGtPayload :: LocalSlotIndex -> GtPayload
-defaultGtPayload lsi
-    | isCommitmentIdx lsi = CommitmentsPayload mempty mempty
-    | isOpeningIdx lsi = OpeningsPayload mempty mempty
-    | isSharesIdx lsi = SharesPayload mempty mempty
+defaultGtPayload :: BlockCount -> LocalSlotIndex -> GtPayload
+defaultGtPayload k lsi
+    | isCommitmentIdx k lsi = CommitmentsPayload mempty mempty
+    | isOpeningIdx k lsi = OpeningsPayload mempty mempty
+    | isSharesIdx k lsi = SharesPayload mempty mempty
     | otherwise = CertificatesPayload mempty

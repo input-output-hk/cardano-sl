@@ -23,9 +23,10 @@ import           Pos.Binary                 (deserialize')
 import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (Hash, PublicKey, decodeHash)
-import           Pos.Txp                    (TxOut (..))
+import           Pos.Txp                    (TxOut (..), TxOutDistribution)
 import           Pos.Types                  (Address (..), BlockVersion, Coin, EpochIndex,
-                                             SoftwareVersion, decodeTextAddress, mkCoin)
+                                             SoftwareVersion, StakeholderId,
+                                             decodeTextAddress, mkCoin)
 import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
 
 -- | Specify how transactions are sent to the network during benchmarks using 'SendToAllGenesis'.
@@ -38,6 +39,7 @@ data SendMode =
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
+    | SendDistr Int TxOut TxOutDistribution
     | SendToAllGenesis !Int !Int !Int !SendMode !FilePath
       -- ^ In-order: number of txs to send per-thread, number of threads, and
       -- delay (milliseconds) between sends.
@@ -111,6 +113,20 @@ switch = lexeme $ positive $> True <|>
     positive = text "+" <|> text "y" <|> text "yes"
     negative = text "-" <|> text "n" <|> text "no"
 
+stakeholderId :: Parser StakeholderId
+stakeholderId = lexeme $ do
+    str <- many1 alphaNum
+    case decodeTextAddress (toText str) of
+        Left err                            -> fail (toString err)
+        Right (PubKeyAddress addrKeyHash _) -> pure addrKeyHash
+        Right _                             -> fail "Wrong address type"
+
+txoutDistrSingle :: Parser (StakeholderId, Coin)
+txoutDistrSingle = (,) <$> stakeholderId <*> coin
+
+txoutDistribution :: Parser TxOutDistribution
+txoutDistribution = (many txoutDistrSingle)
+
 balance :: Parser Command
 balance = Balance <$> address
 
@@ -131,6 +147,9 @@ addKeyFromFile = AddKeyFromFile <$> lexeme (many1 anyChar)
 
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
+
+sendDistr :: Parser Command
+sendDistr = SendDistr <$> num <*> txout <*> txoutDistribution
 
 sendMode :: Parser SendMode
 sendMode = lexeme $ text "neighbours" $> SendNeighbours
@@ -173,6 +192,7 @@ parseSystemTag =
 command :: Parser Command
 command = try (text "balance") *> balance <|>
           try (text "send-to-all-genesis") *> sendToAllGenesis <|>
+          try (text "send-distr") *> sendDistr <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>

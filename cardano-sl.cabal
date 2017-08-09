@@ -425,6 +425,8 @@ library
                       , unordered-containers
                       , vector
                       , yaml
+                      -- https://issues.serokell.io/issue/DEVOPS-230
+                      , cpphs
 
   if !os(windows)
     build-depends:      unix

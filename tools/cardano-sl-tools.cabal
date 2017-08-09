@@ -386,7 +386,6 @@ executable cardano-launcher
                      , system-filepath
                      , text
                      , universum
-                     , wreq
                      , lens
   default-language:    Haskell2010
   ghc-options:         -threaded

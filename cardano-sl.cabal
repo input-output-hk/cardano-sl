@@ -424,7 +424,6 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
-                      , wreq
                       , yaml
 
   if !os(windows)

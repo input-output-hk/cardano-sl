@@ -149,8 +149,11 @@ instance RocksBatchOp ExplorerOp where
     toBatchOp (PutLastTxs lastTxs) =
         [Rocks.Put lastTxsPrefix (serialize' lastTxs)]
 
-    toBatchOp (UpdateAddrHistory addr txs) =
-        [Rocks.Put (addrHistoryKey addr) (serialize' txs)]
+    toBatchOp (UpdateAddrHistory addr txs)
+        | null txs = [Rocks.Del key]
+        | otherwise = [Rocks.Put key (serialize' txs)]
+      where
+        key = addrHistoryKey addr
 
     toBatchOp (PutAddrBalance addr coin) =
         [Rocks.Put (addrBalanceKey addr) (serialize' coin)]

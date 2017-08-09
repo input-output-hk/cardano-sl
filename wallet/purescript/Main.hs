@@ -17,7 +17,8 @@ import           Universum
 import           Paths_cardano_sl                          (version)
 import qualified Pos.Types                                 as PT
 import qualified Pos.Util.BackupPhrase                     as BP
-import qualified Pos.Wallet.Web                            as CT
+import qualified Pos.Wallet.Web.ClientTypes                as CT
+import qualified Pos.Wallet.Web.Error.Types                as ET
 
 import           PSTypes                                   (psInt53, psPosixTime)
 
@@ -40,7 +41,7 @@ main = do
     writePSTypes
       "daedalus/src/Generated"
       (buildBridge customBridge)
-      [ mkSumType (Proxy @CT.WalletError)
+      [ mkSumType (Proxy @ET.WalletError)
       , mkSumType (Proxy @CT.CAccountMeta)
       , mkSumType (Proxy @CT.CAccountInit)
       , mkSumType (Proxy @CT.CAccount)

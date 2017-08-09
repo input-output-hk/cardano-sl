@@ -51,9 +51,9 @@ in ((import ./pkgs { inherit pkgs; }).override {
     });
     cardano-sl-tools = overrideCabal super.cardano-sl-tools (drv: {
       src = cleanSource2 drv.src;
-      configureFlags = [
-        "-fwith-post-mortem"
-      ];
+      # We want to build the `cardano-post-mortem` tool when we are on Linux only,
+      # to make sure it won't bitrot.
+      configureFlags = optionals pkgs.stdenv.isLinux [ "-fwith-post-mortem" ];
       # waiting on load-command size fix in dyld
       doCheck = ! pkgs.stdenv.isDarwin;
     });

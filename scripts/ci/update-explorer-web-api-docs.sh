@@ -6,8 +6,6 @@ export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/cb90e6a0361554d
 
 set -euo pipefail
 
-# We need to switch to the `explorer` folder first.
-cd explorer/
 echo "Cardano SL Explorer Web API updating"
 
 readonly CARDANO_DOCS_REPO="${HOME}"/cardanodocs

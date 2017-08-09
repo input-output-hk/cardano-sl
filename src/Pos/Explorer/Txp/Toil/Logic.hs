@@ -23,7 +23,8 @@ import           System.Wlog                 (WithLogger, logError, runNamedPure
                                               usingLoggerName)
 
 import           Pos.Core                    (Address, Coin, EpochIndex, HeaderHash,
-                                              Timestamp, mkCoin, unsafeAddCoin,
+                                              Timestamp, coinToInteger, mkCoin,
+                                              unsafeAddCoin, unsafeIntegerToCoin,
                                               unsafeSubCoin)
 import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
@@ -170,11 +171,14 @@ getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} undo =
 
 combineBalanceUpdates :: BalanceUpdate -> [(Address, (Sign, Coin))]
 combineBalanceUpdates BalanceUpdate {..} =
-    let plusCombined  = HM.fromListWith unsafeAddCoin plusBalance
-        minusCombined = HM.fromListWith unsafeAddCoin minusBalance
+    let plusCombined :: HashMap Address Integer
+        plusCombined  = HM.fromListWith (+) $ map (second coinToInteger) plusBalance
+        minusCombined :: HashMap Address Integer
+        minusCombined = HM.fromListWith (+) $ map (second coinToInteger) minusBalance
+        bothCombined :: HashMap Address (Maybe Integer, Maybe Integer)
         bothCombined = outerJoin plusCombined minusCombined
         result = HM.mapMaybe reducer bothCombined
-    in HM.toList result
+    in HM.toList (map integerToSignedCoin result)
   where
     outerJoin
         :: (Eq k, Hashable k)
@@ -188,13 +192,22 @@ combineBalanceUpdates BalanceUpdate {..} =
         in HM.unionWith joiner hm1' hm2'
     joiner (Just plus, Nothing) (Nothing, Just minus) = (Just plus, Just minus)
     joiner _ _ = error "combineBalanceUpdates: HashMap map() is broken"
-    reducer (Just plus, Just minus)
-        | plus > minus = Just (Plus,  unsafeSubCoin plus minus)
-        | plus < minus = Just (Minus, unsafeSubCoin minus plus)
+
+    reducer :: (Maybe Integer, Maybe Integer) -> Maybe Integer
+    reducer (Just plus, Just minus) = Just (plus - minus)
     reducer (Nothing, Nothing) = error "combineBalanceUpdates: HashMap unionWith() is broken"
-    reducer (Just plus, Nothing)  | plus /= mkCoin 0  = Just (Plus, plus)
-    reducer (Nothing, Just minus) | minus /= mkCoin 0 = Just (Minus, minus)
+    reducer (Just plus, Nothing)  | plus /= 0  = Just plus
+    reducer (Nothing, Just minus) | minus /= 0 = Just (-minus)
     reducer _ = Nothing
+
+    integerToSignedCoin :: Integer -> (Sign, Coin)
+    integerToSignedCoin i =
+        -- This is safe, because total change of balance must fit into 'Coin'.
+        let coin = unsafeIntegerToCoin (abs i)
+            sign | i < 0 = Minus
+                 | otherwise = Plus
+        in (sign, coin)
+
 
 updateAddrBalances :: (MonadTxExtra m, WithLogger m) => BalanceUpdate -> m ()
 updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates

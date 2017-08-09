@@ -51,6 +51,9 @@ in ((import ./pkgs { inherit pkgs; }).override {
     });
     cardano-sl-tools = overrideCabal super.cardano-sl-tools (drv: {
       src = cleanSource2 drv.src;
+      configureFlags = [
+        "-fwith-post-mortem"
+      ];
       # waiting on load-command size fix in dyld
       doCheck = ! pkgs.stdenv.isDarwin;
     });

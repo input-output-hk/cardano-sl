@@ -11,6 +11,12 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
+Flag with-post-mortem
+  default:     False
+  manual:      True
+
+  description: Build the post-mortem tool.
+
 Flag with-web
   default:     True
   manual:      True
@@ -571,7 +577,7 @@ executable cardano-post-mortem
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe
-  if !flag(for-installer)
+  if flag(with-post-mortem)
     buildable: True
     build-depends:       base
                        , aeson

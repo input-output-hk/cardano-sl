@@ -14,18 +14,16 @@ scriptDir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 
 source "${scriptDir}/../scripts/set_nixpath.sh"
 
-# Generate stack2nix Nix package
-runInShell cabal2nix \
-  --no-check \
-  --revision $(jq .rev <  "${scriptDir}/../stack2nix-src.json" -r) \
-  https://github.com/input-output-hk/stack2nix.git > "$scriptDir/stack2nix.nix"
-
-# Build stack2nix Nix package
-nix-build "${scriptDir}/.." -A stack2nix -o "$scriptDir/stack2nix" -Q
 
 pushd "${scriptDir}"
-# Generate cardano-sl package set
-runInShell ./stack2nix/bin/stack2nix ./.. > default.nix.new
-mv default.nix.new default.nix
+  # Build stack2nix Nix package
+  nix-build -A stack2nix -o stack2nix -Q ../
 
+  # https://github.com/NixOS/cabal2nix/issues/146
+  runInShell cabal2nix --revision 25a53d417d7c7a8fc3116b63e3ba14ca7c8f188f \
+     https://github.com/luite/hfsevents.git > hfsevents.nix
+
+  # Generate cardano-sl package set
+  runInShell ./stack2nix/bin/stack2nix --test ./.. > default.nix.new
+  mv default.nix.new default.nix
 popd

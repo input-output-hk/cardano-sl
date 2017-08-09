@@ -15,38 +15,44 @@ module Pos.Reporting.Methods
 
 import           Universum
 
-import           Control.Exception        (ErrorCall (..), SomeException)
-import           Control.Lens             (each, to)
-import           Control.Monad.Catch      (try)
-import           Data.Aeson               (encode)
-import           Data.Bits                (Bits (..))
-import qualified Data.HashMap.Strict      as HM
-import           Data.List                (isSuffixOf)
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Text.IO             as TIO
-import           Data.Time.Clock          (getCurrentTime)
-import           Formatting               (sformat, shown, stext, (%))
-import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
-import           Network.Wreq             (partFile, partLBS, post)
-import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
-import           Serokell.Util.Exceptions (TextException (..))
-import           Serokell.Util.Text       (listBuilderJSON)
-import           System.Directory         (doesFileExist)
-import           System.FilePath          (takeFileName)
-import           System.Info              (arch, os)
-import           System.IO                (hClose)
-import           System.Wlog              (LoggerConfig (..), WithLogger, hwFilePath,
-                                           lcTree, logDebug, logError, logInfo, ltFiles,
-                                           ltSubloggers, retrieveLogContent)
+import           Control.Exception                     (ErrorCall (..), SomeException)
+import           Control.Lens                          (each, to)
+import           Control.Monad.Catch                   (try)
+import           Data.Aeson                            (encode)
+import           Data.Bits                             (Bits (..))
+import qualified Data.HashMap.Strict                   as HM
+import           Data.List                             (isSuffixOf)
+import qualified Data.List.NonEmpty                    as NE
+import qualified Data.Text.IO                          as TIO
+import           Data.Time.Clock                       (getCurrentTime)
+import           Formatting                            (sformat, shown, stext, (%))
+import           Network.HTTP.Client                   (httpLbs, newManager,
+                                                        parseUrlThrow)
+import qualified Network.HTTP.Client.MultipartFormData as Form
+import           Network.HTTP.Client.TLS               (tlsManagerSettings)
+import           Network.Info                          (IPv4 (..), getNetworkInterfaces,
+                                                        ipv4)
+import           Pos.ReportServer.Report               (ReportInfo (..), ReportType (..))
+import           Serokell.Util.Exceptions              (TextException (..))
+import           Serokell.Util.Text                    (listBuilderJSON)
+import           System.Directory                      (doesFileExist)
+import           System.FilePath                       (takeFileName)
+import           System.Info                           (arch, os)
+import           System.IO                             (hClose)
+import           System.Wlog                           (LoggerConfig (..), WithLogger,
+                                                        hwFilePath, lcTree, logDebug,
+                                                        logError, logInfo, ltFiles,
+                                                        ltSubloggers, retrieveLogContent)
 
-import           Paths_cardano_sl_infra   (version)
-import           Pos.Core.Constants       (protocolMagic)
-import           Pos.Exception            (CardanoFatalError)
-import           Pos.KnownPeers           (MonadFormatPeers (..))
-import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
-                                           HasReportingContext (..))
-import           Pos.Util.Util            (maybeThrow, withSystemTempFile)
+import           Paths_cardano_sl_infra                (version)
+import           Pos.Core.Constants                    (protocolMagic)
+import           Pos.Exception                         (CardanoFatalError)
+import           Pos.KnownPeers                        (MonadFormatPeers (..))
+import           Pos.Reporting.Exceptions              (ReportingError (..))
+import           Pos.Reporting.MemState                (HasLoggerConfig (..),
+                                                        HasReportServers (..),
+                                                        HasReportingContext (..))
+import           Pos.Util.Util                         (maybeThrow, withSystemTempFile)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -232,17 +238,25 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
     withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
         for_ rawLogs $ TIO.hPutStrLn tempHandle
         hClose tempHandle
+        rq0 <- parseUrlThrow $ reportServerUri <//> "report"
         let memlogFiles = bool [tempFp] [] (null rawLogs)
         let memlogPart = map partFile' memlogFiles
         let pathsPart = map partFile' existingFiles
         let payloadPart =
-                partLBS "payload"
+                Form.partLBS "payload"
                 (encode $ reportInfo curTime $ existingFiles ++ memlogFiles)
-        e <- try $ liftIO $ post (reportServerUri <//> "report") $
-             payloadPart : (memlogPart ++ pathsPart)
+        -- If performance will ever be a concern, moving to a global manager
+        -- should help a lot.
+        reportManager <- newManager tlsManagerSettings
+
+        -- Assemble the `Request` out of the Form data.
+        rq <- Form.formDataBody (payloadPart : (memlogPart ++ pathsPart)) rq0
+
+        -- Actually perform the HTTP `Request`.
+        e  <- try $ httpLbs rq reportManager
         whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
-    partFile' fp = partFile (toFileName fp) fp
+    partFile' fp = Form.partFile (toFileName fp) fp
     toFileName = toText . takeFileName
     reportInfo curTime files =
         ReportInfo

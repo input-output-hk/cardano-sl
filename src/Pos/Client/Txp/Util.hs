@@ -46,7 +46,7 @@ import           Pos.Core                 (AddressIgnoringAttributes (AddressIA)
                                            integerToCoin, siEpoch, unsafeAddCoin,
                                            unsafeGetCoin, unsafeSubCoin)
 import           Pos.Crypto               (PublicKey, RedeemSecretKey, SafeSigner,
-                                           SignTag (SignTxIn), deterministicKeyGen,
+                                           SignTag (SignTx), deterministicKeyGen,
                                            fakeSigner, hash, redeemSign, redeemToPublic,
                                            safeSign, safeToPublic)
 import           Pos.Data.Attributes      (mkAttributes)
@@ -59,7 +59,7 @@ import           Pos.Txp                  (Tx (..), TxAux (..), TxDistribution (
                                            TxFee (..), TxIn (..), TxInWitness (..),
                                            TxOut (..), TxOutAux (..), TxOutDistribution,
                                            TxSigData (..), Utxo)
-import           Pos.Types                (Address, Coin, mkCoin, sumCoins)
+import           Pos.Types                (Address, Coin, StakeholderId, mkCoin, sumCoins)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 
@@ -117,26 +117,17 @@ makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
                -> TxOwnedInputs owner
                -> TxOutputs
                -> TxAux
-makeAbstractTx mkWit txInputs outputs =
-    TxAux
-    { taTx = UnsafeTx (map snd txInputs) txOutputs txAttributes
-    , taWitness = txWitness
-    , taDistribution = txDist
-    }
+makeAbstractTx mkWit txInputs outputs = TxAux tx txWitness txDistr
   where
+    tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
-    txOutHash = hash txOutputs
-    txDist = TxDistribution (map toaDistr outputs)
-    txDistHash = hash txDist
+    txDistr = TxDistribution (map toaDistr outputs)
     txWitness = V.fromList $ toList $ txInputs <&>
-        \(addr, txIn) -> mkWit addr $ makeTxSigData txIn
-    makeTxSigData txIn =
-        TxSigData
-        { txSigInput = txIn
-        , txSigOutsHash = txOutHash
-        , txSigDistrHash = txDistHash
-        }
+        \(addr, _) -> mkWit addr txSigData
+    txSigData = TxSigData
+        { txSigTxHash = hash tx
+        , txSigTxDistrHash = hash txDistr }
 
 -- | Overrides 'txDistr' with correct ones (according to the boot era
 -- stake distribution) or leaves it as it is if in post-boot era.
@@ -183,7 +174,7 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
           let ss = getSs addr
           in PkWitness
               { twKey = safeToPublic ss
-              , twSig = safeSign SignTxIn ss sigData
+              , twSig = safeSign SignTx ss sigData
               }
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
@@ -354,7 +345,7 @@ createTx utxo ss outputs addrData = runExceptT $
 createMOfNTx
     :: TxCreateMode ctx m
     => Utxo
-    -> [(PublicKey, Maybe SafeSigner)]
+    -> [(StakeholderId, Maybe SafeSigner)]
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
@@ -362,10 +353,10 @@ createMOfNTx utxo keys outputs addrData = runExceptT $
     createGenericTxSingle (makeMOfNTx validator sks)
     utxo outputs addrData
   where
-    pks = map fst keys
+    ids = map fst keys
     sks = map snd keys
     m = length $ filter isJust sks
-    validator = multisigValidator m pks
+    validator = multisigValidator m ids
 
 -- | Make a transaction for retrieving money from redemption address
 createRedemptionTx
@@ -483,4 +474,3 @@ createFakeTxFromRawTx TxRaw{..} =
     --            remains
     -- listF separator formatter =
     --     F.later $ fold . intersperse separator . fmap (F.bprint formatter)
-

@@ -42,6 +42,7 @@ import           Pos.Core                (GenesisStakeholders, IsGenesisHeader,
                                           headerHash)
 import           Pos.DB                  (MonadDB, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
+import           Pos.DB.DB               (sanityCheckDB)
 import           Pos.Delegation.Class    (MonadDelegation)
 import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback,
                                           dlgRollbackBlocks)
@@ -203,6 +204,7 @@ applyBlocksDbUnsafeDo blunds pModifier = do
         , sscBatch
         , slogBatch
         ]
+    sanityCheckDB
 
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.

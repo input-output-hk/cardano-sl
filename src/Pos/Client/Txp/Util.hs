@@ -45,10 +45,10 @@ import           Pos.Core                 (AddressIgnoringAttributes (AddressIA)
                                            calculateTxSizeLinear, integerToCoin,
                                            integerToCoin, siEpoch, unsafeAddCoin,
                                            unsafeGetCoin, unsafeSubCoin)
-import           Pos.Crypto               (PublicKey, RedeemSecretKey, SafeSigner,
-                                           SignTag (SignTx), deterministicKeyGen,
-                                           fakeSigner, hash, redeemSign, redeemToPublic,
-                                           safeSign, safeToPublic)
+import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SignTag (SignTx),
+                                           deterministicKeyGen, fakeSigner, hash,
+                                           redeemSign, redeemToPublic, safeSign,
+                                           safeToPublic)
 import           Pos.Data.Attributes      (mkAttributes)
 import           Pos.DB                   (MonadGState, gsAdoptedBVData, gsIsBootstrapEra)
 import           Pos.Genesis              (genesisSplitBoot)

@@ -30,7 +30,6 @@ set -o pipefail
 
 # MODES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# TODO: Update MODES for using with or without wallets
 #
 # NOTE
 # You can try building any of these modes, but in some branches some of
@@ -74,7 +73,7 @@ spec_prj=''
 no_nix=false
 ram=false
 prodMode=
-wallet=false
+wallet=true
 explorer=false
 no_code=false
 werror=false
@@ -134,6 +133,9 @@ do
   elif [[ $var == "--prod" ]]; then
     echo "--prod flag is outdated, use one of --qa, --tn, --tns, --qa-upd, --travis" >&2
     exit 12
+  # --no-wallet = don't build in wallet mode
+  elif [[ $var == "--no-wallet" ]]; then
+    wallet=false
   # --explorer = build with Explorer support
   elif [[ $var == "--explorer" ]]; then
     explorer=true
@@ -195,8 +197,6 @@ dconfig=dev
 if [[ "$prodMode" != "" ]]; then
   dconfig=$prodMode
   if [[ $wallet == true ]]; then
-  # TODO: ^ What's the rule now? We can't use $wallet here
-  # because we have had removed `--no-wallet` option
     dconfig="${dconfig}_wallet"
   fi
 fi

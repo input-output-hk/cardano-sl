@@ -105,7 +105,6 @@ getNodeParams args@Args {..} systemStart = do
         , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" args
         , npJLFile = jlPath
-        , npPropagation = not (CLI.disablePropagation commonArgs)
         , npUpdateParams = UpdateParams
             { upUpdatePath = "explorer-update"
             , upUpdateWithPkg = True

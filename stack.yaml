@@ -21,12 +21,6 @@ packages:
 - explorer
 
 - location:
-    git: https://github.com/arybczak/binary-serialise-cbor
-    commit: a1770a6ab0a6f457fe56269fb684a9f8dad0da17
-  subdirs:
-  - cborg
-  extra-dep: true
-- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
@@ -40,7 +34,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: e2e2711e6978002279b4d7c49cab1aff47a2fd43
+    commit: eedf6b1f6f6b931fa578cf886e36b8a3a9fcda0d
   extra-dep: true
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519
@@ -101,7 +95,6 @@ nix:
 
 extra-deps:
 - universum-0.4.3
-- time-units-1.0.0
 - serokell-util-0.3
 - pvss-0.1
 - active-0.2.0.13
@@ -125,6 +118,7 @@ extra-deps:
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
+- cborg-0.1.1.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

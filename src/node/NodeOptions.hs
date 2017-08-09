@@ -9,8 +9,10 @@ module NodeOptions
        , getNodeOptions
        ) where
 
-import           Data.String.QQ               (s)
+import           Universum                    hiding (show)
+
 import           Data.Version                 (showVersion)
+import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
@@ -20,15 +22,10 @@ import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
 import qualified Text.Parsec.Char             as P
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.CLI                      as CLI
 import           Pos.Constants                (isDevelopment)
-import           Pos.DHT.Model                (DHTKey)
-import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyOption,
-                                               dhtNetworkAddressOption,
-                                               dhtPeersFileOption)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Security                 (AttackTarget, AttackType)
@@ -53,21 +50,11 @@ data Args = Args
       -- ^ A node may have a bind address which differs from its external
       -- address.
     , supporterNode             :: !Bool
-    , dhtNetworkAddress         :: !NetworkAddress
-    , dhtKey                    :: !(Maybe DHTKey)
-      -- ^ The Kademlia key to use. Randomly generated if Nothing is given.
-    , dhtExplicitInitial        :: !Bool
-    , dhtPeers                  :: ![NetworkAddress]
-      -- ^ Addresses of known Kademlia peers.
     , nodeType                  :: !NodeType
     , peers                     :: ![(NodeId, NodeType)]
       -- ^ Known peers (addresses with classification).
-    , peersFile                 :: !(Maybe FilePath)
-      -- ^ A file containing a list of peers to use to supplement the ones
-      -- given directly on command line.
     , networkConfigOpts         :: !NetworkConfigOpts
       -- ^ Network configuration
-      -- TODO: Does this obsolete 'peers' and 'peersFile'?
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
@@ -134,13 +121,8 @@ argsParser = do
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"
-    dhtNetworkAddress <- dhtNetworkAddressOption (Just ("0.0.0.0", 0))
-    dhtKey <- optional dhtKeyOption
-    dhtPeers <- many dhtPeerOption
-    dhtExplicitInitial <- dhtExplicitInitialOption
     nodeType <- nodeTypeOption
     peers <- (++) <$> corePeersList <*> relayPeersList
-    peersFile <- optional dhtPeersFileOption
     networkConfigOpts <- networkConfigOption
     jlPath <-
         CLI.optionalJSONPath
@@ -233,13 +215,6 @@ peerOption longName mk =
         metavar "HOST:PORT" <>
         help "Address of a peer"
 
-dhtPeerOption :: Parser NetworkAddress
-dhtPeerOption =
-    option (fromParsec addrParser) $
-        long "kademlia-peer" <>
-        metavar "HOST:PORT" <>
-        help "Identifier of a node in a Kademlia network"
-
 getNodeOptions :: IO Args
 getNodeOptions = execParser programInfo
   where
@@ -253,7 +228,7 @@ getNodeOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = Just [s|
+usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
   stack exec -- cardano-node                                             \

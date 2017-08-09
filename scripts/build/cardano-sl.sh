@@ -47,7 +47,7 @@ set -o pipefail
 #   Qanet mode with wallet              --qa
 #   US testing mode without wallet      --qa-upd --no-wallet
 #   US testing mode without wallet      --qa-upd --no-wallet
-#   Mode used by Travis CI              --travis
+#   Mode used by CI                     --ci
 
 # CUSTOMIZATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,11 +126,11 @@ do
   elif [[ $var == "--qa-upd" ]]; then
     prodMode="qanet_upd"
     prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--travis" ]]; then
-    prodMode="travis"
+  elif [[ $var == "--ci" ]]; then
+    prodMode="ci"
     prodModesCounter=$((prodModesCounter+1))
   elif [[ $var == "--prod" ]]; then
-    echo "--prod flag is outdated, use one of --qa, --tn, --tns, --qa-upd, --travis" >&2
+    echo "--prod flag is outdated, use one of --qa, --tn, --tns, --qa-upd, --ci" >&2
     exit 12
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then

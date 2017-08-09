@@ -10,6 +10,7 @@ module Pos.Txp.Logic.Local
 
 import           Universum
 
+import           Control.Lens                (makeLenses)
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
@@ -24,15 +25,16 @@ import           Pos.Core                    (BlockVersionData, EpochIndex, Head
 import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
+import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, TxUndo)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
                                               GenesisStakeholders, MonadUtxoRead (..),
-                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
-                                              execToilTLocal, normalizeToil, processTx,
-                                              runDBToil, runToilTLocal, utxoGet)
+                                              ToilModifier, ToilT, ToilVerFailure (..),
+                                              Utxo, execToilTLocal, normalizeToil,
+                                              processTx, runDBToil, runToilTLocal,
+                                              utxoGet, utxoGetReader)
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -45,6 +47,30 @@ type TxpLocalWorkMode ctx m =
     , HasLens GenesisStakeholders ctx GenesisStakeholders
     , MonadReader ctx m
     )
+
+-- Base context for tx processing in.
+data ProcessTxContext = ProcessTxContext
+    { _ptcGenStakeholders :: !GenesisStakeholders
+    , _ptcAdoptedBVData   :: !BlockVersionData
+    , _ptcUtxoBase        :: !Utxo
+    }
+
+makeLenses ''ProcessTxContext
+
+instance HasLens GenesisStakeholders ProcessTxContext GenesisStakeholders where
+    lensOf = ptcGenStakeholders
+
+instance HasLens Utxo ProcessTxContext Utxo where
+    lensOf = ptcUtxoBase
+
+-- Base monad for tx processing in.
+type ProcessTxMode = Reader ProcessTxContext
+
+instance MonadUtxoRead ProcessTxMode where
+    utxoGet = utxoGetReader
+
+instance MonadGState ProcessTxMode where
+    gsAdoptedBVData = view ptcAdoptedBVData
 
 -- | Process transaction. 'TxId' is expected to be the hash of
 -- transaction in 'TxAux'. Separation is supported for optimization
@@ -68,42 +94,49 @@ txProcessTransaction itw@(txId, txAux) = do
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.
-    let resolved = M.fromList $
-                   catMaybes $
-                   toList $
-                   NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- lift $
-            modifyTxpLocalData "txProcessTransaction" $
-            processTxDo epoch bvd genStks resolved tipDB itw
+    let resolved =
+            M.fromList $
+            catMaybes $
+            toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
+    let ctx =
+            ProcessTxContext
+            { _ptcAdoptedBVData = bvd
+            , _ptcUtxoBase = resolved
+            , _ptcGenStakeholders = genStks
+            }
+    pRes <-
+        lift $
+        modifyTxpLocalData "txProcessTransaction" $
+        processTxDo epoch ctx tipDB itw
     case pRes of
         Left er -> do
-            logDebug $ sformat ("Transaction processing failed: "%build) txId
+            logDebug $ sformat ("Transaction processing failed: " %build) txId
             throwError er
-        Right _   ->
-            logDebug (sformat ("Transaction is processed successfully: "%build) txId)
+        Right _ ->
+            logDebug
+                (sformat ("Transaction is processed successfully: " %build) txId)
   where
-    processTxDo
-        :: EpochIndex
-        -> BlockVersionData
-        -> GenesisStakeholders
-        -> Utxo
+    processTxDo ::
+           EpochIndex
+        -> ProcessTxContext
         -> HeaderHash
         -> (TxId, TxAux)
         -> TxpLocalDataPure
         -> (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo curEpoch bvd genStks resolved tipDB tx txld@(uv, mp, undo, tip, ())
-        | tipDB /= tip =
-            (Left $ ToilTipsMismatch tipDB tip, txld)
+    processTxDo curEpoch ctx tipDB tx txld@(uv, mp, undo, tip, ())
+        | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
         | otherwise =
-            let res = (runExceptT $
-                    flip runReaderT genStks $
-                    flip evalUtxoStateT resolved $
-                    execToilTLocal uv mp undo $
-                    processTx curEpoch tx) bvd
+            let action :: ExceptT ToilVerFailure (ToilT () ProcessTxMode) TxUndo
+                action = processTx curEpoch tx
+                res :: (Either ToilVerFailure TxUndo, ToilModifier)
+                res =
+                    usingReader ctx $
+                    runToilTLocal uv mp undo $ runExceptT action
             in case res of
-                Left er  -> (Left er, txld)
-                Right ToilModifier{..} ->
-                    (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))
+                   (Left er, _) -> (Left er, txld)
+                   (Right _, ToilModifier {..}) ->
+                       ( Right ()
+                       , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool

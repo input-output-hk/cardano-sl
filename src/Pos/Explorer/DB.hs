@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Module containing explorer-specific logic and data
 
 module Pos.Explorer.DB
@@ -12,23 +14,37 @@ module Pos.Explorer.DB
        , getEpochBlocks
        , getLastTransactions
        , prepareExplorerDB
+       , sanityCheckBalances
        ) where
 
 import           Universum
 
-import qualified Database.RocksDB      as Rocks
-import           Ether.Internal        (HasLens (..))
+import           Control.Lens                 (at, non)
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Conduit                 (Sink, Source, mapOutput, runConduitRes,
+                                               (.|))
+import qualified Data.Conduit.List            as CL
+import qualified Database.RocksDB             as Rocks
+import           Ether.Internal               (HasLens (..))
+import           Formatting                   (sformat, (%))
+import           Serokell.Util                (Color (Red), colorize, mapJson)
+import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Binary.Class      (UnsignedVarInt (..), serialize')
-import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
-import           Pos.Core.Types        (Address, Coin, EpochIndex, HeaderHash)
-import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
-                                        RocksBatchOp (..))
-import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
-import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
-import           Pos.Txp.Core          (Tx, TxId)
-import           Pos.Txp.Toil          (GenesisUtxo (..), utxoToAddressCoinPairs)
-import           Pos.Util.Chrono       (NewestFirst (..))
+import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
+import           Pos.Context.Functions        (GenesisUtxo, genesisUtxoM)
+import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
+                                               unsafeAddCoin)
+import           Pos.DB                       (DBError (..), DBIteratorClass (..),
+                                               DBTag (GStateDB), MonadDB,
+                                               MonadDBRead (dbGet), RocksBatchOp (..),
+                                               dbIterSource, encodeWithKeyPrefix)
+import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGState)
+import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
+import           Pos.Txp.Core                 (Tx, TxId, TxOut (..), TxOutAux (..))
+import           Pos.Txp.DB                   (getAllPotentiallyHugeUtxo, utxoSource)
+import           Pos.Txp.Toil                 (GenesisUtxo (..), utxoF,
+                                               utxoToAddressCoinPairs)
+import           Pos.Util.Chrono              (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Types
@@ -55,10 +71,10 @@ getTxExtra = gsGetBi . txExtraPrefix
 
 getAddrHistory :: MonadDBRead m => Address -> m AddrHistory
 getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
-                 gsGetBi . addrHistoryPrefix
+                 gsGetBi . addrHistoryKey
 
 getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
-getAddrBalance = gsGetBi . addrBalancePrefix
+getAddrBalance = gsGetBi . addrBalanceKey
 
 getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix
@@ -134,12 +150,61 @@ instance RocksBatchOp ExplorerOp where
         [Rocks.Put lastTxsPrefix (serialize' lastTxs)]
 
     toBatchOp (UpdateAddrHistory addr txs) =
-        [Rocks.Put (addrHistoryPrefix addr) (serialize' txs)]
+        [Rocks.Put (addrHistoryKey addr) (serialize' txs)]
 
     toBatchOp (PutAddrBalance addr coin) =
-        [Rocks.Put (addrBalancePrefix addr) (serialize' coin)]
+        [Rocks.Put (addrBalanceKey addr) (serialize' coin)]
     toBatchOp (DelAddrBalance addr) =
-        [Rocks.Del $ addrBalancePrefix addr]
+        [Rocks.Del $ addrBalanceKey addr]
+
+----------------------------------------------------------------------------
+-- Iteration
+----------------------------------------------------------------------------
+
+data BalancesIter
+
+instance DBIteratorClass BalancesIter where
+    type IterKey BalancesIter = Address
+    type IterValue BalancesIter = Coin
+    iterKeyPrefix = addrBalancePrefix
+
+-- 'Source' corresponding to the whole balances mapping (for all addresses).
+balancesSource :: (MonadDBRead m) => Source (ResourceT m) (Address, Coin)
+balancesSource = dbIterSource GStateDB (Proxy @BalancesIter)
+
+-- 'Sink' to turn balances source to a map.
+balancesSink :: (MonadDBRead m) => Sink (Address, Coin) m (HashMap Address Coin)
+balancesSink =
+    CL.fold
+        (\res (addr, coin) -> res & at addr . non minBound %~ unsafeAddCoin coin)
+        mempty
+
+----------------------------------------------------------------------------
+-- Sanity check
+----------------------------------------------------------------------------
+
+-- | Check that balances stored in the Explorer DB are the same as the
+-- balances computed from Utxo DB.
+--
+-- WARNING: this is potentially expensive operation, it shouldn't be
+-- used in production.
+sanityCheckBalances
+    :: (MonadDBRead m, WithLogger m)
+    => m ()
+sanityCheckBalances = do
+    let utxoBalancesSource =
+            mapOutput ((txOutAddress &&& txOutValue) . toaOut . snd) utxoSource
+    storedMap <- runConduitRes $ balancesSource .| balancesSink
+    computedFromUtxoMap <- runConduitRes $ utxoBalancesSource .| balancesSink
+    let fmt =
+            ("Explorer's balances are inconsistent with UTXO.\nExplorer stores: "
+             %mapJson%".\nUtxo version is: "%mapJson%"\n")
+    let msg = sformat fmt storedMap computedFromUtxoMap
+    unless (storedMap == computedFromUtxoMap) $ do
+        logError $ colorize Red msg
+        logError . colorize Red . sformat ("Actual utxo is: " %utxoF) =<<
+            getAllPotentiallyHugeUtxo
+        throwM $ DBMalformed msg
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -148,11 +213,14 @@ instance RocksBatchOp ExplorerOp where
 txExtraPrefix :: TxId -> ByteString
 txExtraPrefix h = "e/tx/" <> serialize' h
 
-addrHistoryPrefix :: Address -> ByteString
-addrHistoryPrefix addr = "e/ah/" <> serialize' addr
+addrHistoryKey :: Address -> ByteString
+addrHistoryKey addr = "e/ah/" <> serialize' addr
 
-addrBalancePrefix :: Address -> ByteString
-addrBalancePrefix addr = "e/ab/" <> serialize' addr
+addrBalancePrefix :: ByteString
+addrBalancePrefix = "e/ab/"
+
+addrBalanceKey :: Address -> ByteString
+addrBalanceKey = encodeWithKeyPrefix @BalancesIter
 
 blockPagePrefix :: Page -> ByteString
 blockPagePrefix page = "e/page/" <> encodedPage

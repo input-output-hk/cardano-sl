@@ -335,7 +335,6 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
         resolvedInputs <- catMaybes <$> mapM (\tin -> fmap (tin, ) <$> utxoGet tin) inps
         let txOutgoings = map txOutAddress outs
             txInputs = map (toaOut . snd) resolvedInputs
-            txIncomings = map txOutAddress txInputs
 
             ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
             ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
@@ -347,7 +346,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
 
             addedHistory =
                 if (not $ null ownOutputs) || (not $ null ownInputs)
-                then DL.cons (THEntry txId tx txInputs mDiff txIncomings txOutgoings mTs)
+                then DL.cons (THEntry txId tx mDiff txInputs txOutgoings mTs)
                      camAddedHistory
                 else camAddedHistory
 

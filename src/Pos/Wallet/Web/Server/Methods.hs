@@ -69,16 +69,15 @@ import           Pos.Constants                    (curSoftwareVersion, isDevelop
 import           Pos.Context                      (GenesisUtxo)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, getCurrentTimestamp,
-                                                   getTimestamp, makeRedeemAddress,
-                                                   mkCoin, sumCoins, unsafeAddCoin,
-                                                   unsafeIntegerToCoin, unsafeSubCoin)
+                                                   getTimestamp, mkCoin, sumCoins,
+                                                   unsafeAddCoin, unsafeIntegerToCoin,
+                                                   unsafeSubCoin)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    aesDecrypt, changeEncPassphrase,
                                                    checkPassMatches, deriveAesKeyBS,
                                                    emptyPassphrase, hash,
                                                    redeemDeterministicKeyGen,
-                                                   redeemToPublic, withSafeSigner,
-                                                   withSafeSigner)
+                                                   withSafeSigner, withSafeSigner)
 import           Pos.DB.Class                     (MonadGState)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
@@ -646,7 +645,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
                         srcWallet = getMoneySourceWallet moneySource
                     ts <- Just <$> liftIO getCurrentTimestamp
                     ctxs <- addHistoryTx srcWallet $
-                        THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs ts
+                        THEntry txHash tx Nothing srcTxOuts dstAddrs ts
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
@@ -959,7 +958,6 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     -- new redemption wallet
     _ <- getAccount accId
 
-    let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstAddr <- decodeCIdOrFail . cadId =<<
                newAddress RandomSeed passphrase accId
     na <- getPeers
@@ -972,7 +970,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
             let txInputs = [TxOut redeemAddress redeemBalance]
             ts <- Just <$> liftIO getCurrentTimestamp
             ctxs <- addHistoryTx (aiWId accId) $
-                THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts
+                THEntry (hash taTx) taTx Nothing txInputs [dstAddr] ts
             ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
     noIncomingTx = InternalError "Can't report incoming transaction"

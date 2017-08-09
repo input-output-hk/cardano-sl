@@ -149,12 +149,12 @@ topologySubscriptionWorker = go
 topologyRunKademlia :: Topology kademlia -> Maybe kademlia
 topologyRunKademlia = go
   where
-    go TopologyCore  _        mKademlia = mKademlia
-    go TopologyRelay _        mKademlia = mKademlia
-    go TopologyBehindNAT{}              = Nothing
-    go TopologyP2P _ _         kademlia = Just kademlia
-    go TopologyTraditional _ _ kademlia = Just kademlia
-    go TopologyLightWallet{}            = Nothing
+    go (TopologyCore  _        mKademlia) = mKademlia
+    go (TopologyRelay _        mKademlia) = mKademlia
+    go TopologyBehindNAT{}                = Nothing
+    go (TopologyP2P _ _         kademlia) = Just kademlia
+    go (TopologyTraditional _ _ kademlia) = Just kademlia
+    go TopologyLightWallet{}              = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia

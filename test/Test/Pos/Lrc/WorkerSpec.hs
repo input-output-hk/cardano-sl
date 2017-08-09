@@ -13,12 +13,12 @@ import           Unsafe                    (unsafeHead, unsafeTail)
 
 import           Control.Lens              (At (at), Index, _Right)
 import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (last)
+import qualified Data.Map.Strict           as M
 import           Formatting                (sformat, (%))
-import           Serokell.Util             (enumerate, subList)
+import           Serokell.Util             (enumerate, listJson, pairF, subList)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
-import           Test.QuickCheck           (Gen, arbitrary, choose)
+import           Test.QuickCheck           (Gen, choose)
 import           Test.QuickCheck.Monadic   (pick)
 
 import           Pos.Block.Core            (mainBlockTxPayload)
@@ -26,10 +26,9 @@ import           Pos.Block.Logic           (applyBlocksUnsafe)
 import qualified Pos.Constants             as Const
 import           Pos.Core                  (Address, Coin, EpochIndex, StakeholderId,
                                             addressHash, applyCoinPortionUp, coinF,
-                                            divCoin, makePubKeyAddress, mkCoin,
-                                            unsafeAddCoin, unsafeGetCoin,
-                                            unsafeIntegerToCoin, unsafeMulCoin,
-                                            unsafeSubCoin)
+                                            makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                            unsafeGetCoin, unsafeIntegerToCoin,
+                                            unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic)
 import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
                                             mkInvSecretsMap)
@@ -85,16 +84,15 @@ genTestParams = do
     secretKeys <- nonrepeating stakeholdersNum
     let invSecretsMap = mkInvSecretsMap secretKeys
     let _tpAllSecrets = AllSecrets invSecretsMap
-    -- Total stake inside one group. Maximum 10^10, minimum 10^8, but
-    -- is always divisible by 10^7.
-    r1 <- choose (1000::Word64, 10000)
-    let totalStakeGroup = (`unsafeMulCoin` baseN) $ mkCoin r1
+    r <- choose (1000::Word64, 10000)
+    -- Total stake inside one group.
+    let totalStakeGroup = (`unsafeMulCoin` baseN) $ mkCoin r
 
     -- It's essential to use 'toList invSecretsMap' instead of
     -- 'secretKeys' here, because we rely on the order further. Later
     -- we can add ability to extend 'TestParams' or context.
     addressesAndDistrs <-
-        mapM (genAddressesAndDistrs r1 totalStakeGroup (toList invSecretsMap))
+        mapM (genAddressesAndDistrs r totalStakeGroup (toList invSecretsMap))
              (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
     let _tpGenesisContext = genesisContextImplicit addressesAndDistrs
@@ -109,7 +107,7 @@ genTestParams = do
         -> [SecretKey]
         -> (GroupId, Lrc.SomeRichmenComponent)
         -> Gen ([Address], StakeDistribution)
-    genAddressesAndDistrs r1 totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
+    genAddressesAndDistrs r totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
         let secretKeysRange = subList (4 * i, 4 * (i + 1)) allSecretKeys
         let skToAddr = makePubKeyAddress . toPublic
         let addresses = map skToAddr secretKeysRange
@@ -121,21 +119,15 @@ genTestParams = do
         let poorStakeN = thresholdN `div` baseN
             -- P1
         let poorStake = mkCoin baseN `unsafeMulCoin` poorStakeN
-        let richStake1 =
-                unsafeHead $ dropWhile (<= thresholdCoin) $
-                iterate (`unsafeAddCoin` poorStake) poorStake
-        let k1 = (r1 - poorStakeN) `div` 3
+        let k1 = (r - poorStakeN) `div` 3
         [richStake1,richStake2] <-
             replicateM 2 $
             (`unsafeMulCoin` (baseN :: Int)) . mkCoin <$>
             choose (poorStakeN, k1)
         let richStake3 =
-                totalStake `unsafeSubCoin`
+                totalStakeGroup `unsafeSubCoin`
                 (foldr1 unsafeAddCoin [poorStake,richStake1,richStake2])
         let stakes = [poorStake, richStake1, richStake2, richStake3]
-        !() <- traceShowM totalStake
-        !() <- traceShowM thresholdCoin
-        !() <- traceShowM stakes
         case richStake3 >= thresholdCoin of
             True  -> return (addresses, CustomStakes stakes)
             False -> error "threshold is too big, tests are not ready for it"
@@ -187,11 +179,8 @@ checkRichmen :: BlockProperty ()
 -- in 'allRichmenComponents'. Unfortunately, I don't know how to
 -- do it better without spending too much time on it (@gromak).
 checkRichmen = do
-    !() <- traceM ("Checking SSC" :: Text)
     checkRichmenStakes 0 =<< getRichmen (lift . Lrc.getRichmenSsc)
-    !() <- traceM ("Checking US" :: Text)
     checkRichmenFull 1 =<< getRichmen (lift . Lrc.getRichmenUS)
-    !() <- traceM ("Checking DLG" :: Text)
     checkRichmenSet 2 =<< getRichmen (lift . Lrc.getRichmenDlg)
   where
     relevantStakeholders :: GroupId -> BlockProperty [StakeholderId]

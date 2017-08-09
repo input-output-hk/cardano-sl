@@ -48,8 +48,9 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    WorkerSpec, dataFlow, delegationRelays,
                                                    immediateConcurrentConversations,
                                                    relayPropagateOut, submitTx,
-                                                   submitTxRaw, submitUpdateProposal,
-                                                   submitVote, txRelays, usRelays, worker)
+                                                   submitTxNoOverride, submitTxRaw,
+                                                   submitUpdateProposal, submitVote,
+                                                   txRelays, usRelays, worker)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
 import           Pos.Core.Coin                    (subCoin)
@@ -163,6 +164,19 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
                 (immediateConcurrentConversations sendActions na)
                 ss
                 (map (flip TxOutAux []) outputs)
+    case etx of
+        Left err -> putText $ sformat ("Error: "%stext) err
+        Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+runCmd sendActions (SendDistr idx output distr) CmdCtx{na} = do
+    skeys <- getSecretKeys
+    etx <-
+        withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
+        runEitherT $ do
+            ss <- mss `whenNothing` throwError "Invalid passphrase"
+            lift $ submitTxNoOverride
+                (immediateConcurrentConversations sendActions na)
+                ss
+                (one $ TxOutAux output distr)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx

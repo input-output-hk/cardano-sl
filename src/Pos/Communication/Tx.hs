@@ -5,6 +5,7 @@
 module Pos.Communication.Tx
        ( TxMode
        , submitTx
+       , submitTxNoOverride
        , submitMTx
        , submitRedemptionTx
        , submitTxRaw
@@ -22,9 +23,9 @@ import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxCreateMode, TxError (..), createMTx,
                                              createRedemptionTx, createTx,
-                                             overrideTxDistrBoot)
+                                             createTxNoOverride, overrideTxDistrBoot)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (OutSpecs, EnqueueMsg)
+import           Pos.Communication.Protocol (EnqueueMsg, OutSpecs)
 import           Pos.Communication.Specs    (createOutSpecs)
 import           Pos.Communication.Types    (InvOrDataTK)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
@@ -70,6 +71,19 @@ submitMTx enqueue hdwSigner outputs = do
     txw <- eitherToThrow TxError $
            createMTx utxo hdwSigner outputs
     submitAndSave enqueue txw
+
+-- | Construct Tx using secret key and given list of desired outputs without overriding TxDistr
+submitTxNoOverride
+    :: TxMode ssc ctx m
+    => EnqueueMsg m
+    -> SafeSigner
+    -> NonEmpty TxOutAux
+    -> m TxAux
+submitTxNoOverride enqueue ss outputs = do
+    utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
+    createTxNoOverride utxo ss outputs >>= \case
+        Left e -> throwM (TxError e)
+        Right txw -> submitAndSave enqueue txw
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx

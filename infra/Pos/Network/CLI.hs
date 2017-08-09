@@ -243,7 +243,7 @@ fromPovOf :: NetworkConfigOpts
 fromPovOf cfg@NetworkConfigOpts{..} allPeers =
     case networkConfigOptsSelf of
       Nothing   -> throwM NetworkConfigSelfUnknown
-      Just self -> T.initDnsOnDemand $ \resolve -> do
+      Just self -> T.initDnsOnUse $ \resolve -> do
         selfMetadata <- metadataFor allPeers self
         selfPeers    <- mkPeers resolve (Y.nmRoutes selfMetadata)
         return (

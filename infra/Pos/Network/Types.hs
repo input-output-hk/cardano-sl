@@ -17,7 +17,7 @@ module Pos.Network.Types
     , initQueue
       -- * Auxiliary
     , Resolver
-    , initDnsOnDemand
+    , initDnsOnUse
       -- * Re-exports
       -- ** from .DnsDomains
     , DnsDomains(..)
@@ -29,8 +29,6 @@ module Pos.Network.Types
     , NodeId (..)
     ) where
 
-import           Control.Concurrent                    (ThreadId, forkIO,
-                                                        modifyMVar_, killThread)
 import           Data.IP                               (IPv4)
 import           Network.Broadcast.OutboundQueue       (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue       as OQ
@@ -161,7 +159,7 @@ resolveDnsDomains :: NetworkConfig kademlia
                   -> DnsDomains DNS.Domain
                   -> IO (Either [DNSError] [NodeId])
 resolveDnsDomains NetworkConfig{..} dnsDomains =
-    initDnsOnDemand $ \resolve ->
+    initDnsOnUse $ \resolve ->
       fmap (fmap addressToNodeId) <$> DnsDomains.resolveDnsDomains
                                         resolve
                                         ncDefaultPort
@@ -234,45 +232,15 @@ initQueue NetworkConfig{..} = do
 
 type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
 
--- | Initialize the DNS library only when we need to
+-- | Initialize the DNS library whenever it's used
 --
--- This is a bit awkward due to the lexical scoping enforced by the DNS
--- library. We therefore spawn a thread to run the DNS resolver, but only when
--- we need it.
+-- This isn't great for performance but it means that we do not initialize it
+-- when we need it; initializing it once only on demand is possible but requires
+-- jumping through too many hoops.
 --
 -- TODO: Make it possible to change DNS config (esp for use on Windows).
-initDnsOnDemand :: (Resolver -> IO a) -> IO a
-initDnsOnDemand k = do
-    request   :: MVar DNS.Domain               <- newEmptyMVar
-    response  :: MVar (Either DNSError [IPv4]) <- newEmptyMVar
-
-    let dnsHandler :: IO ()
-        dnsHandler = do
-          resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
-          DNS.withResolver resolvSeed $ \resolver -> forever $ do
-            dom <- takeMVar request
-            putMVar response =<< DNS.lookupA resolver dom
-
-    dnsThread :: MVar (Maybe ThreadId) <- newMVar Nothing
-
-    let startDnsHandler :: IO ()
-        startDnsHandler =
-          modifyMVar_ dnsThread $ \mThread ->
-            case mThread of
-              Just tid -> return $ Just tid
-              Nothing  -> Just <$> forkIO dnsHandler
-
-        killDnsHandler :: IO ()
-        killDnsHandler =
-          modifyMVar_ dnsThread $ \mThread ->
-            case mThread of
-              Just tid -> killThread tid >> return Nothing
-              Nothing  -> return Nothing
-
-    let resolve :: DNS.Domain -> IO (Either DNSError [IPv4])
-        resolve dom = do
-          startDnsHandler
-          putMVar request dom
-          takeMVar response
-
-    k resolve `finally` killDnsHandler
+initDnsOnUse :: (Resolver -> IO a) -> IO a
+initDnsOnUse k = k $ \dom -> do
+    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
+    DNS.withResolver resolvSeed $ \resolver ->
+      DNS.lookupA resolver dom

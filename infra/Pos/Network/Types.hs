@@ -119,11 +119,16 @@ topologyNodeType TopologyLightWallet{} = NodeEdge
 
 -- | The NodeType to assign to subscribers. Give Nothing if subscribtion
 -- is not allowed for a node with this topology.
+--
+-- TODO: We allow corf nodes to run Kademlia, but we do not run the subscription
+-- listener on them currently. We may wish to make that configurable.
 topologySubscriberNodeType :: Topology kademlia -> Maybe NodeType
+topologySubscriberNodeType TopologyCore{}        = Nothing
 topologySubscriberNodeType TopologyRelay{}       = Just NodeEdge
-topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
+topologySubscriberNodeType TopologyBehindNAT{}   = Nothing
 topologySubscriberNodeType TopologyP2P{}         = Just NodeRelay
-topologySubscriberNodeType _                     = Nothing
+topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
+topologySubscriberNodeType TopologyLightWallet{} = Nothing
 
 data SubscriptionWorker kademlia =
     SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
@@ -133,19 +138,23 @@ data SubscriptionWorker kademlia =
 topologySubscriptionWorker :: Topology kademlia -> Maybe (SubscriptionWorker kademlia)
 topologySubscriptionWorker = go
   where
+    go TopologyCore{}                     = Nothing
+    go TopologyRelay{}                    = Nothing
     go (TopologyBehindNAT doms)           = Just $ SubscriptionWorkerBehindNAT doms
     go (TopologyP2P v f kademlia)         = Just $ SubscriptionWorkerKademlia kademlia NodeRelay v f
     go (TopologyTraditional v f kademlia) = Just $ SubscriptionWorkerKademlia kademlia NodeCore v f
-    go _otherwise                         = Nothing
+    go TopologyLightWallet{}              = Nothing
 
 -- | Should we register to the Kademlia network?
 topologyRunKademlia :: Topology kademlia -> Maybe kademlia
 topologyRunKademlia = go
   where
-    go (TopologyRelay _ mKademlia)        = mKademlia
-    go (TopologyP2P _ _  kademlia)        = Just kademlia
-    go (TopologyTraditional _ _ kademlia) = Just kademlia
-    go _                                  = Nothing
+    go TopologyCore  _        mKademlia = mKademlia
+    go TopologyRelay _        mKademlia = mKademlia
+    go TopologyBehindNAT{}              = Nothing
+    go TopologyP2P _ _         kademlia = Just kademlia
+    go TopologyTraditional _ _ kademlia = Just kademlia
+    go TopologyLightWallet{}            = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia

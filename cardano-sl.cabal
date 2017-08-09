@@ -31,12 +31,10 @@ library
                         Pos.Block.BListener
                         Pos.Block.Core
                         Pos.Block.Logic
-                        Pos.Block.Logic.Util
                         Pos.Block.Network
                         Pos.Block.Pure
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
-                        Pos.Block.Slog.Types
                         Pos.Block.Types
                         Pos.CLI
                         Pos.Context
@@ -189,6 +187,7 @@ library
                         Pos.Block.Core.Union.Misc
                         Pos.Block.Core.Union.Types
                         Pos.Block.Error
+                        Pos.Block.Logic.Util
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
@@ -199,6 +198,7 @@ library
                         Pos.Block.Network.Retrieval
                         Pos.Block.Slog.Context
                         Pos.Block.Slog.Logic
+                        Pos.Block.Slog.Types
                         Pos.Block.Worker
 
                         -- Compile config

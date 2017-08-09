@@ -128,7 +128,7 @@ executable cardano-wallet-hs2purs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  buildable:         False
+  buildable:         True
 
 executable cardano-dht-keygen
   hs-source-dirs:      src/dht-keygen
@@ -345,7 +345,7 @@ executable cardano-keygen
   if flag(for-installer)
     buildable: False
   else
-    buildable: False
+    buildable: True
 
 executable cardano-launcher
   hs-source-dirs:      src/launcher

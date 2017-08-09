@@ -8,10 +8,8 @@ import           Universum
 
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core                   (BlockCount, EpochIndex, IsMainHeader,
-                                             LocalSlotIndex)
+import           Pos.Core                   (BlockCount, EpochIndex, LocalSlotIndex)
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Util.Util              (Some)
 
 class Ssc ssc => SscHelpersClass ssc where
     -- | Verify that payload can be included into a block for the

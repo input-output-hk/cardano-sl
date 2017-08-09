@@ -56,6 +56,7 @@ module Pos.Core.Types
        , coinPortionDenominator
        , mkCoinPortion
        , unsafeCoinPortionFromDouble
+       , maxCoinVal
 
        -- * Slotting
        , EpochIndex (..)
@@ -321,10 +322,11 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
--- FIXME: This operation is unsafe because it doesn't check 'maxCoinVal'.
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin
-mkCoin = Coin
+mkCoin c
+    | c <= maxCoinVal = Coin c
+    | otherwise       = error $ "mkCoin: " <> show c <> " is too large"
 {-# INLINE mkCoin #-}
 
 -- | Coin formatter which restricts type.

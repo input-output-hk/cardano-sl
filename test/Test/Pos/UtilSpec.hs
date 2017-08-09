@@ -14,8 +14,9 @@ import qualified Data.HashMap.Strict   as HM (difference, filter, intersection,
 import qualified Data.List.NonEmpty    as NE
 import qualified GHC.Exts              as IL (IsList (..))
 
-import           Pos.Arbitrary.Core    (SmallHashMap (..))
-import           Pos.Util              (diffDoubleMap)
+import           Pos.Binary            (AsBinary)
+import           Pos.Crypto            (PublicKey, Share)
+import           Pos.Util              (Small (..), diffDoubleMap)
 import           Pos.Util.Chrono       (Chrono (..), NewestFirst (..), OldestFirst (..))
 
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
@@ -87,11 +88,12 @@ spec = describe "Util" $ do
         "Converting 'OldestFirst " ++ functor ++ " a' to 'NewestFirst " ++ functor ++
         " a' and back again changes nothing"
 
+type HashMapDDM = HashMap PublicKey (HashMap PublicKey (AsBinary Share))
 
 ddmEmptyHashMap
-    :: SmallHashMap
+    :: Small HashMapDDM
     -> Bool
-ddmEmptyHashMap (SmallHashMap hm1) =
+ddmEmptyHashMap (Small hm1) =
     let ddm = diffDoubleMap
         hasIdentity =
             let id1 = mempty `ddm` hm1
@@ -102,20 +104,17 @@ ddmEmptyHashMap (SmallHashMap hm1) =
             in inv1 == mempty
     in hasIdentity && hasInverse
 
-doubleDiffDoesNothing
-    :: SmallHashMap
-    -> SmallHashMap
-    -> Bool
-doubleDiffDoesNothing (SmallHashMap hm1) (SmallHashMap hm2) =
+doubleDiffDoesNothing :: Small HashMapDDM -> Small HashMapDDM -> Bool
+doubleDiffDoesNothing (Small hm1) (Small hm2) =
     let diff1 = hm1 `diffDoubleMap` hm2
         diff2 = diff1 `diffDoubleMap` hm2
     in diff1 == diff2
 
 verifyMapsAreSubtracted
-    :: SmallHashMap
-    -> SmallHashMap
+    :: Small HashMapDDM
+    -> Small HashMapDDM
     -> Bool
-verifyMapsAreSubtracted (SmallHashMap hm1) (SmallHashMap hm2) =
+verifyMapsAreSubtracted (Small hm1) (Small hm2) =
     let diffMap = hm1 `diffDoubleMap` hm2
         checkIsDiff pk innerMap
             | HM.member pk hm1 && HM.member pk hm2 =
@@ -124,10 +123,10 @@ verifyMapsAreSubtracted (SmallHashMap hm1) (SmallHashMap hm2) =
     in and $ HM.mapWithKey checkIsDiff diffMap
 
 verifyKeyIsPresent
-    :: SmallHashMap
-    -> SmallHashMap
+    :: Small HashMapDDM
+    -> Small HashMapDDM
     -> Bool
-verifyKeyIsPresent (SmallHashMap hm1) (SmallHashMap hm2) =
+verifyKeyIsPresent (Small hm1) (Small hm2) =
     let diffMap = hm1 `diffDoubleMap` hm2
         diffKeys = HM.keys diffMap
         checkKeyIsPresent pk =
@@ -148,10 +147,10 @@ verifyKeyIsPresent (SmallHashMap hm1) (SmallHashMap hm2) =
 -- ∃  k : k ∈ hm1 ⋀ k ∈ hm2 ⋀ (hm1 ! k ⋂ hm2 ! k ≠ ∅) ⇒
 -- Σ (| v1 |, v1 ∈ elems(hm1)) > Σ (| v |, v ∈ elems(diffMap))
 verifyDiffMapIsSmaller
-    :: SmallHashMap
-    -> SmallHashMap
+    :: Small HashMapDDM
+    -> Small HashMapDDM
     -> Bool
-verifyDiffMapIsSmaller (SmallHashMap hm1) (SmallHashMap hm2) =
+verifyDiffMapIsSmaller (Small hm1) (Small hm2) =
     let diffMap = hm1 `diffDoubleMap` hm2
         innerFun inner1 inner2 = not $ null $ HM.intersection inner1 inner2
         commonKey = HM.filter identity $ HM.intersectionWith innerFun hm1 hm2

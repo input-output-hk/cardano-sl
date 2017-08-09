@@ -18,7 +18,7 @@ import           Test.QuickCheck            (Gen, Property, Testable, arbitrary,
 
 import           Pos.Arbitrary.Block        ()
 import           Pos.Arbitrary.Delegation   (genDlgPayload)
-import           Pos.Arbitrary.Txp          (SmallGoodTx (..), goodTxToTxAux)
+import           Pos.Arbitrary.Txp          (GoodTx, goodTxToTxAux)
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
@@ -33,7 +33,7 @@ import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
-import           Pos.Util.Arbitrary         (makeSmall)
+import           Pos.Util                   (Small (..), makeSmall)
 
 spec :: Spec
 spec = describe "Block.Logic.Creation" $ do
@@ -112,7 +112,7 @@ spec = describe "Block.Logic.Creation" $ do
         foo $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
 
     genTxAux :: Gen TxAux
-    genTxAux = goodTxToTxAux . getSmallGoodTx <$> arbitrary
+    genTxAux = goodTxToTxAux . getSmall <$> (arbitrary :: Gen (Small GoodTx))
 
     noSscBlock
         :: Byte

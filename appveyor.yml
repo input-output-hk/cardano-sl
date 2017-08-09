@@ -89,8 +89,6 @@ test_script:
       --local-bin-path daedalus
       --test
       --no-haddock-deps
-      --bench
-      --no-run-benchmarks
       --work-dir %STACK_WORK%
       --ghc-options="-DCONFIG=%DCONFIG%"
       --flag cardano-sl:with-web
@@ -108,8 +106,6 @@ test_script:
       --local-bin-path daedalus
       --test
       --no-haddock-deps
-      --bench
-      --no-run-benchmarks
       --work-dir %STACK_WORK%
       --ghc-options="-DCONFIG=%DCONFIG%"
       --flag cardano-sl:with-web

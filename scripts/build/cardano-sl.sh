@@ -188,6 +188,10 @@ if [[ $explorer == true ]]; then
   commonargs="$commonargs --flag cardano-sl:with-explorer"
 fi
 
+if [[ $wallet == true ]]; then
+  commonargs="$commonargs --flag cardano-sl:with-wallet"
+fi
+
 if [[ $for_installer == true ]]; then
   commonargs="$commonargs --flag cardano-sl-tools:for-installer"
 fi

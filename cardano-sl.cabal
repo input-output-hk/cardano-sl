@@ -12,6 +12,12 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
+Flag with-wallet
+  default:     False
+  manual:      True
+
+  description: Build with wallet
+
 Flag with-explorer
   default:     False
   manual:      True
@@ -419,8 +425,8 @@ library
                        -O2
 
   -- linker speed up for linux
-  -- for explorer linking see https://ghc.haskell.org/trac/ghc/ticket/13810
-  if os(linux) && !flag(with-explorer)
+  -- for explorer / wallet linking see https://ghc.haskell.org/trac/ghc/ticket/13810
+  if os(linux) && !flag(with-explorer) && !flag(with-wallet)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 

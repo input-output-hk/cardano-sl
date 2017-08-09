@@ -153,7 +153,9 @@ rearrange :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
 genPrimaryKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
-genPrimaryKey path = generateKeyfile True Nothing path >> pure ()
+genPrimaryKey path = do
+    _ <- generateKeyfile True Nothing path
+    logInfo $ "Successfully generated primary key " <> (toText path)
 
 readKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 readKey path = do

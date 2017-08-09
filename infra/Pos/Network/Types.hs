@@ -87,9 +87,9 @@ data Topology kademlia =
     -- | All peers of the node have been statically configured
     --
     -- This is used for core and relay nodes
-    TopologyCore !StaticPeers
+    TopologyCore !StaticPeers !(Maybe kademlia)
 
-  | TopologyRelay !StaticPeers !kademlia
+  | TopologyRelay !StaticPeers !(Maybe kademlia)
 
     -- | We discover our peers through DNS
     --
@@ -142,8 +142,8 @@ topologySubscriptionWorker = go
 topologyRunKademlia :: Topology kademlia -> Maybe kademlia
 topologyRunKademlia = go
   where
-    go (TopologyRelay _ kademlia)         = Just kademlia
-    go (TopologyP2P _ _ kademlia)         = Just kademlia
+    go (TopologyRelay _ mKademlia)        = mKademlia
+    go (TopologyP2P _ _  kademlia)        = Just kademlia
     go (TopologyTraditional _ _ kademlia) = Just kademlia
     go _                                  = Nothing
 
@@ -204,7 +204,7 @@ initQueue NetworkConfig{..} = do
       TopologyTraditional{} ->
         -- Kademlia worker is responsible for adding peers
         return ()
-      TopologyCore StaticPeers{..} ->
+      TopologyCore StaticPeers{..} _ ->
         staticPeersOnChange $ \peers ->
           OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
       TopologyRelay StaticPeers{..} _ ->

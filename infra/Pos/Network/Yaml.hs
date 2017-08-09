@@ -10,6 +10,7 @@ module Pos.Network.Yaml (
   , NodeRegion(..)
   , NodeRoutes(..)
   , NodeMetadata(..)
+  , RunKademlia
   ) where
 
 import           Data.Aeson             (FromJSON (..), ToJSON (..), (.!=),
@@ -65,8 +66,13 @@ data NodeMetadata = NodeMetadata
 
       -- | Address for this node
     , nmAddress :: !(NodeAddr (Maybe DNS.Domain))
+
+      -- | Should the node register itself with the Kademlia network?
+    , nmKademlia :: !RunKademlia
     }
     deriving (Show)
+
+type RunKademlia = Bool
 
 -- | Parameters for Kademlia, in case P2P or traditional topology are used.
 data KademliaParams = KademliaParams
@@ -185,11 +191,17 @@ extractNodeAddr mkA obj = do
 
 instance FromJSON NodeMetadata where
   parseJSON = A.withObject "NodeMetadata" $ \obj -> do
-      nmType    <- obj .: "type"
-      nmRegion  <- obj .: "region"
-      nmRoutes  <- obj .: "static-routes"
-      nmAddress <- extractNodeAddr return obj
+      nmType     <- obj .: "type"
+      nmRegion   <- obj .: "region"
+      nmRoutes   <- obj .: "static-routes"
+      nmAddress  <- extractNodeAddr return obj
+      nmKademlia <- obj .:? "kademlia" .!= defaultRunKademlia nmType
       return NodeMetadata{..}
+   where
+     defaultRunKademlia :: NodeType -> RunKademlia
+     defaultRunKademlia NodeCore  = False
+     defaultRunKademlia NodeRelay = True
+     defaultRunKademlia NodeEdge  = False
 
 instance FromJSON AllStaticallyKnownPeers where
   parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->

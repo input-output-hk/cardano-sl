@@ -120,10 +120,15 @@ data MonitorEvent =
 -- | Monitor for changes to the static config
 monitorStaticConfig :: forall m. (WithLogger m, MonadIO m, Mockable Fork m)
                     => NetworkConfigOpts
-                    -> T.NodeType   -- ^ Our node type
-                    -> Peers NodeId -- ^ Initial value
+                    -> T.NodeType     -- ^ Our node type
+                    -> Y.RunKademlia  -- ^ Are we currently running kademlia?
+                    -> Peers NodeId   -- ^ Initial value
                     -> m T.StaticPeers
-monitorStaticConfig cfg@NetworkConfigOpts{..} ourNodeType initPeers = do
+monitorStaticConfig cfg@NetworkConfigOpts{..}
+                    ourNodeType
+                    runningKademlia
+                    initPeers
+                  = do
     events :: Chan MonitorEvent <- liftIO $ newChan
 
     let loop :: Peers NodeId -> [Peers NodeId -> IO ()] -> m ()
@@ -138,8 +143,14 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} ourNodeType initPeers = do
               mParsedTopology <- liftIO $ try $ readTopology fp
               case mParsedTopology of
                 Right (Y.TopologyStatic allPeers) -> do
-                  (nodeType, newPeers) <- liftIO $ fromPovOf cfg allPeers
-                  unless (nodeType == ourNodeType) $ logError $ changedType fp
+                  (nodeType, runKademlia, newPeers) <-
+                    liftIO $ fromPovOf cfg allPeers
+
+                  unless (nodeType == ourNodeType) $
+                    logError $ changedType fp
+                  unless (runKademlia == runningKademlia) $
+                    logError $ changedKademlia fp
+
                   mapM_ (runHandler newPeers) handlers
                   logNotice $ sformat "SIGHUP: Re-read topology"
                   loop newPeers handlers
@@ -166,9 +177,10 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} ourNodeType initPeers = do
           Left  ex -> logError $ handlerError ex
           Right () -> return ()
 
-    changedFormat, changedType :: FilePath -> Text
-    changedFormat = sformat $ "SIGHUP: The topology type defined in " % shown % " changed. Ignored."
-    changedType   = sformat $ "SIGHUP: Our node type defined in "     % shown % " changed. Ignored."
+    changedFormat, changedType, changedKademlia :: FilePath -> Text
+    changedFormat   = sformat $ "SIGHUP (" % shown % "): Cannot dynamically change topology."
+    changedType     = sformat $ "SIGHUP (" % shown % "): Cannot dynamically change own node type."
+    changedKademlia = sformat $ "SIGHUP (" % shown % "): Cannot dynamically start/stop Kademlia."
 
     readFailed :: FilePath -> SomeException -> Text
     readFailed = sformat $ "SIGHUP: Failed to read " % shown % ": " % shown % ". Ignored."
@@ -190,18 +202,15 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                         Just fp -> liftIO $ readTopology fp
     ourTopology <- case parsedTopology of
       Y.TopologyStatic allPeers -> do
-        (nodeType, initPeers) <- liftIO $ fromPovOf cfg allPeers
-        staticPeers <- monitorStaticConfig cfg nodeType initPeers
+        (nodeType, runKademlia, initPeers) <- liftIO $ fromPovOf cfg allPeers
+        staticPeers <- monitorStaticConfig cfg nodeType runKademlia initPeers
+        kparams     <- if runKademlia
+                         then liftIO $ Just <$> getKademliaParams cfg
+                         else return Nothing
         case nodeType of
-          T.NodeCore ->
-            return $ T.TopologyCore staticPeers
-          T.NodeRelay -> do
-            kparams <- liftIO $ getKademliaParams cfg
-            return $ T.TopologyRelay staticPeers kparams
-          T.NodeEdge ->
-            -- This will never happen. Either our node name is not found in
-            -- the table, or it's a core or relay.
-            liftIO $ throwM NetworkConfigSelfEdge
+          T.NodeCore  -> return $ T.TopologyCore staticPeers kparams
+          T.NodeRelay -> return $ T.TopologyRelay staticPeers kparams
+          T.NodeEdge  -> liftIO $ throwM NetworkConfigSelfEdge
       Y.TopologyBehindNAT dnsDomains ->
         return $ T.TopologyBehindNAT dnsDomains
       Y.TopologyP2P v f -> do
@@ -230,15 +239,18 @@ getKademliaParams cfg = case networkConfigOptsKademlia cfg of
 -- a single node
 fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
-          -> IO (T.NodeType, Peers NodeId)
+          -> IO (T.NodeType, Y.RunKademlia, Peers NodeId)
 fromPovOf cfg@NetworkConfigOpts{..} allPeers =
     case networkConfigOptsSelf of
       Nothing   -> throwM NetworkConfigSelfUnknown
       Just self -> T.initDnsOnDemand $ \resolve -> do
         selfMetadata <- metadataFor allPeers self
         selfPeers    <- mkPeers resolve (Y.nmRoutes selfMetadata)
-        let selfType = Y.nmType selfMetadata
-        return (selfType, peersFromList selfPeers)
+        return (
+            Y.nmType      selfMetadata
+          , Y.nmKademlia  selfMetadata
+          , peersFromList selfPeers
+          )
   where
     mkPeers :: T.Resolver -> Y.NodeRoutes -> IO [(T.NodeType, Alts NodeId)]
     mkPeers resolve (Y.NodeRoutes routes) = mapM (mkAlts resolve) routes

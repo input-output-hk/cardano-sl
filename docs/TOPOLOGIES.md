@@ -12,24 +12,25 @@ their types. It looks something like this:
 
 ``` yaml
 nodes:
-  "node0":
+  node0:
     type: core
     region: eu-central-1
     static-routes: [["node1"], ["node2"]]
     host: node0.local
     # default port
-  "node1":
+  node1:
     type: core
     region: eu-west-1
     static-routes: [["node0"], ["node2"]]
     addr: 12.34.56.78
     # default port
-  "node2":
+  node2:
     type: relay
     region: eu-west-2
     static-routes: [["node0"], ["node1"]]
     # uses 'node2' as the hostname
     port: 3000
+    kademlia: false
 ```
 
 The idea is that all statically configured nodes in the cluster share this file,
@@ -43,6 +44,8 @@ line flag). The yaml file  contains the following information for each node:
 * Its port number. This is optional; if not used, the default port number will
   be used (currently set at 3000, can be changed using `--default-port`).
 * It's peers (explained in more detail below).
+* Whether or not to run Kademlia. This defaults to `true` for relay nodes and
+  to `false` for core nodes.
 
 The interpretation of the list of lists in the `static-routes` is as follows:
 when a message gets enqueued to a set of peers
@@ -95,7 +98,7 @@ Kademlia. Their configuration looks something like
 
 ``` yaml
 p2p:
-  variant: normal 
+  variant: normal
   valency: 3
   fallbacks: 1
 ```
@@ -124,7 +127,7 @@ workarounds using SSH tunnelling or similar are of course possible).
 
 The light wallet uses a specialized topology, in which it is given a specific
 set of nodes to connect to. This is hardcoded in the light wallet itself, there
-is no yaml format for this mode. 
+is no yaml format for this mode.
 
 # Kademlia configuration
 

@@ -35,7 +35,7 @@ if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
 fi
 
-targets="cardano-sl cardano-sl-lwallet cardano-sl-tools"
+targets="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer"
 
 # TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times
 # become smaller and allow coverage report to be built.
@@ -82,19 +82,22 @@ echo "Done"
 pushd explorer
   # Build the frontend
   if [ -n "$EXPLORER_NIX_FILE" ]; then
-    $(nix-build -A cardano-sl-explorer-static $EXPLORER_NIX_FILE)/bin/cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
+    $(nix-build -A cardano-sl-explorer $EXPLORER_NIX_FILE)/bin/cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
   else
-    stack --nix install happy --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
-    stack --nix build --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
-    stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
+    # stack --nix install happy --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
+    # stack --nix build --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
+    # stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
+    # I presume it's available after the Nix build
+     $(nix-build -A cardano-sl-explorer)/bin/cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
+    # cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
   fi
   echo "Done generating explorer purescript frontend bindings."
 
   pushd frontend
     nix-shell --run "rm -rf .psci_modules/ .pulp-cache/ node_modules/ bower_components/ output/"
-    nix-shell --run "yarn install"
+    nix-shell --run "npm install"
     nix-shell --run "./scripts/generate-explorer-lenses.sh"
-    nix-shell --run "yarn build:prod"
+    nix-shell --run "npm build:prod"
     echo $TRAVIS_BUILD_NUMBER > build-id
   popd
 popd

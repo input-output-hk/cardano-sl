@@ -249,7 +249,7 @@ if [[ $spec_prj == "" ]]; then
   for prj in $projects; do
     to_build="$to_build cardano-sl-$prj"
   done
-  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools"
+  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer"
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
 elif [[ $spec_prj == "lwallet" ]]; then
@@ -257,23 +257,19 @@ elif [[ $spec_prj == "lwallet" ]]; then
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-explorer"
 elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools"
+  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer"
 else
   to_build="cardano-sl-$spec_prj"
 fi
 
-# If the use didn't specify that he doesn't want explicitly to exclude Explorer, build it
-if [[ $explorer == true ]]; then
-  to_build="$to_build cardano-sl-explorer"
-fi
-
 # A warning for invalid flag usage when building explorer. This should not happen.
-if [[ $spec_prj == *explorer* && $explorer == false ]]; then
+if [[ $to_build == *"explorer"* && $explorer == false ]]; then
   echo "You can't build output with explorer and not use explorer! Invalid flag '--no-explorer'."
   exit
 fi
 
 echo "Going to build: $to_build"
+echo "'explorer' flag: $explorer"
 
 for prj in $to_build; do
 

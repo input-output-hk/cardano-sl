@@ -32,16 +32,15 @@ import           Control.Lens                (at, makeLenses, (%=), (.=))
 import           Control.Monad.Random.Strict (RandT, RandomGen, mapRandT)
 import qualified Data.Map                    as Map
 
-import           Pos.Generator.Block         (AllSecrets)
+import           Pos.Generator.Block         (AllSecrets, MonadBlockGen)
 import           Pos.Generator.BlockEvent    (BlockApplyResult (..), BlockDesc (..),
                                               BlockEvent' (..), BlockEventApply' (..),
                                               BlockEventRollback' (..),
                                               BlockRollbackResult (..), BlockScenario,
                                               BlockScenario' (..), Chance (..),
-                                              CheckCount (..), MonadGenBlockchain, Path,
-                                              PathSegment, SnapshotId,
-                                              SnapshotOperation (..), byChance,
-                                              enrichWithSnapshotChecking,
+                                              CheckCount (..), Path, PathSegment,
+                                              SnapshotId, SnapshotOperation (..),
+                                              byChance, enrichWithSnapshotChecking,
                                               genBlocksInStructure, pathSequence)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
                                               toOldestFirst, _NewestFirst)
@@ -113,7 +112,7 @@ snapshotEq snapshotId = emitEvent $
     BlkEvSnap (SnapshotEq snapshotId)
 
 runBlockEventGenT ::
-    (RandomGen g, MonadGenBlockchain ctx m) =>
+    (RandomGen g, MonadBlockGen ctx m) =>
     AllSecrets ->
     BlockEventGenT g m () ->
     RandT g m BlockScenario
@@ -122,7 +121,7 @@ runBlockEventGenT secrets m = do
     genBlocksInStructure secrets annotations preBlockScenario
 
 runBlockEventGenT' ::
-    (RandomGen g, MonadGenBlockchain ctx m) =>
+    (RandomGen g, MonadBlockGen ctx m) =>
     BlockEventGenT g m () ->
     RandT g m (Map Path BlockDesc, BlockScenario' Path)
 runBlockEventGenT' m = do

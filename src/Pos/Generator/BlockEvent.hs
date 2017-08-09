@@ -41,7 +41,7 @@ module Pos.Generator.BlockEvent
        -- * Block description
        , BlockDesc(..)
        -- * Generation
-       , MonadGenBlockchain
+       , MonadBlockGen
        , BlockEventCount(..)
        , genBlocksInStructure
        ) where
@@ -78,7 +78,7 @@ type BlundDefault = Blund SscGodTossing
 
 -- NB. not a monoid, so the user can be sure that `(<>)` acts as expected
 -- on string literals for paths (not path segments).
-newtype PathSegment = PathSegment Text
+newtype PathSegment = PathSegment { pathSegmentText :: Text }
     deriving (Eq, Ord, IsString)
 
 instance Show PathSegment where
@@ -95,7 +95,8 @@ instance IsString Path where
     fromString = Path . Seq.singleton . fromString
 
 instance Buildable Path where
-    build (Path segs) = bprint build (fold . intersperse "/" . toList $ segs <&> \(PathSegment t) -> t)
+    build (Path segs) = bprint build
+        (fold . intersperse "/" . toList $ pathSegmentText <$> segs)
 
 -- | Convert a sequence of relative paths into a sequence of absolute paths:
 --   @pathSequence "base" ["a", "b", "c"] = ["base" <> "a", "base" <> "a" <> "b", "base" <> "a" <> "b" <> "c"]
@@ -104,7 +105,10 @@ pathSequence ::
     -> OldestFirst NE Path -- ^ relative paths
     -> OldestFirst NE Path -- ^ absolute paths
 pathSequence basePath = over _OldestFirst $
-    NE.fromList . fmap (mappend basePath . mconcat) . NE.tail . NE.inits
+    -- 'NE.fromList' here is safe because `NE.inits` applied to `NonEmpty` has
+    -- at least two elements (first is [], second is a singleton list), so even
+    -- after `NE.tail` we've still got a non-empty sequence.
+    fmap (mappend basePath . mconcat) . NE.fromList . NE.tail . NE.inits
 
 type BlockchainForest a = Map PathSegment (BlockchainTree a)
 
@@ -153,12 +157,8 @@ flattenBlockchainTree prePath tree = do
     let BlockchainTree a forest = tree
     (prePath, a) : flattenBlockchainForest prePath forest
 
-type MonadGenBlockchain ctx m =
-    ( MonadBlockGen ctx m
-    , MonadThrow m )
-
 genBlocksInForest ::
-       (MonadGenBlockchain ctx m, RandomGen g)
+       (MonadBlockGen ctx m, RandomGen g)
     => AllSecrets
     -> BlockchainForest BlockDesc
     -> RandT g m (BlockchainForest BlundDefault)
@@ -166,7 +166,7 @@ genBlocksInForest secrets =
     traverse $ mapRandT withClonedGState . genBlocksInTree secrets
 
 genBlocksInTree ::
-       (MonadGenBlockchain ctx m, RandomGen g)
+       (MonadBlockGen ctx m, RandomGen g)
     => AllSecrets
     -> BlockchainTree BlockDesc
     -> RandT g m (BlockchainTree BlundDefault)
@@ -190,7 +190,7 @@ genBlocksInTree secrets blockchainTree = do
 
 -- Precondition: paths in the structure are non-empty.
 genBlocksInStructure ::
-       ( MonadGenBlockchain ctx m
+       ( MonadBlockGen ctx m
        , Functor t, Foldable t
        , RandomGen g )
     => AllSecrets
@@ -199,14 +199,19 @@ genBlocksInStructure ::
     -> RandT g m (t BlundDefault)
 genBlocksInStructure secrets annotations s = do
     let
+        getAnnotation :: Path -> BlockDesc
         getAnnotation path =
             Map.findWithDefault BlockDescDefault path annotations
+        paths :: Map Path BlockDesc
         paths = foldMapOf folded
             (\path -> Map.singleton path (getAnnotation path))
             s
+        descForest :: BlockchainForest BlockDesc
         descForest = buildBlockchainForest BlockDescDefault paths
-    blockForest <- genBlocksInForest secrets descForest
+    blockForest :: BlockchainForest BlundDefault <-
+        genBlocksInForest secrets descForest
     let
+        getBlock :: Path -> BlundDefault
         getBlock path = Map.findWithDefault
             (error "genBlocksInStructure: impossible happened")
             path
@@ -342,6 +347,7 @@ byChance (Chance c) = weighted [(False, 1 - c), (True, c)]
 newtype CheckCount = CheckCount Word
     deriving (Eq, Ord, Show, Num)
 
+-- The tip after the block event. 'Nothing' when the event doesn't affect the tip.
 blkEvTip :: BlockEvent -> Maybe HeaderHash
 blkEvTip = \case
     BlkEvApply bea -> Just $
@@ -376,7 +382,7 @@ enrichWithSnapshotChecking (BlockScenario bs) = (BlockScenario bs', checkCount)
                     let
                         snapSave = BlkEvSnap (SnapshotSave (hhSnapshotId tipHh))
                         needSnapSave =
-                            -- We tie the know here to determine whether to actually emit
+                            -- We tie the knot here to determine whether to actually emit
                             -- the command to save the snapshot.
                             Map.findWithDefault 0 tipHh hhStatusEnd > 0
                         appendSnapSave = if needSnapSave then (snapSave:) else identity

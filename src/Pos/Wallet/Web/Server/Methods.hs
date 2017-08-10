@@ -75,18 +75,17 @@ import           Pos.Core                         (Address (..), Coin, TxFeePoli
                                                    TxSizeLinear (..), addressF,
                                                    bvdTxFeePolicy, calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
-                                                   getTimestamp, integerToCoin,
-                                                   makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin, _RedeemAddress)
+                                                   getTimestamp, integerToCoin, mkCoin,
+                                                   sumCoins, unsafeAddCoin,
+                                                   unsafeIntegerToCoin, unsafeSubCoin,
+                                                   _RedeemAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SafeSigner, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
                                                    deriveAesKeyBS, emptyPassphrase,
                                                    fakeSigner, hash, keyGen,
                                                    redeemDeterministicKeyGen,
-                                                   redeemToPublic, withSafeSigner,
-                                                   withSafeSigner)
+                                                   withSafeSigner, withSafeSigner)
 import           Pos.DB.Class                     (gsAdoptedBVData)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
@@ -642,7 +641,7 @@ sendMoney SendActions {..} passphrase moneySource dstDistr = do
                 srcWallet = getMoneySourceWallet moneySource
             ts <- Just <$> getCurrentTimestamp
             ctxs <- addHistoryTx srcWallet $
-                THEntry txHash tx inpTxOuts Nothing (toList srcAddrs) dstAddrs ts
+                THEntry txHash tx Nothing inpTxOuts dstAddrs ts
             ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
@@ -1153,7 +1152,6 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     -- new redemption wallet
     _ <- fixingCachedAccModifier getAccount accId
 
-    let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstAddr <- decodeCIdOrFail . cadId =<<
                newAddress RandomSeed passphrase accId
     (TxAux {..}, redeemAddress, redeemBalance) <-
@@ -1163,7 +1161,7 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     let txInputs = [TxOut redeemAddress redeemBalance]
     ts <- Just <$> getCurrentTimestamp
     ctxs <- addHistoryTx (aiWId accId) $
-        THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts
+        THEntry (hash taTx) taTx Nothing txInputs [dstAddr] ts
     ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
     noIncomingTx = InternalError "Can't report incoming transaction"

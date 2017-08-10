@@ -1,0 +1,1 @@
+relays: [[{"host": "domain1"},{"host": "domain2", "port": 1234}]] 

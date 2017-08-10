@@ -150,55 +150,6 @@ executable cardano-dht-keygen
   if flag(for-installer)
     buildable: False
 
-executable cardano-swagger
-  hs-source-dirs:      src/wallet-web-api-swagger
-  main-is:             Main.hs
-  other-modules:       CustomSwagger
-                       Description
-                       Instances
-                       Instances.Schema
-                       Instances.Swagger
-  if !flag(for-installer)
-   build-depends:      aeson
-                     , base
-                     , bytestring
-                     , cardano-sl
-                     , lens
-                     , optparse-applicative
-                     , swagger2
-                     , servant
-                     , servant-server
-                     , servant-multipart
-                     , servant-swagger
-                     , servant-swagger-ui
-                     , text
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   BangPatterns
-                        FlexibleContexts
-                        FlexibleInstances
-                        NoImplicitPrelude
-                        TypeApplications
-                        TypeOperators
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(for-installer)
-    buildable: False
-  else
-    buildable: False
-
 executable cardano-genupdate
   hs-source-dirs:      src/genupdate
   main-is:             Main.hs

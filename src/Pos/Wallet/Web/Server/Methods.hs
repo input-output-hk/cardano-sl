@@ -47,8 +47,7 @@ import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Serokell.Util                    (threadDelay)
 import qualified Serokell.Util.Base64             as B64
 import           Serokell.Util.Text               (listJson)
-import           Servant.API                      ((:<|>) ((:<|>)),
-                                                   FromHttpApiData (parseUrlPiece))
+import           Servant.API                      ((:<|>) ((:<|>)))
 import           Servant.Multipart                (fdFilePath)
 import           Servant.Server                   (Handler, Server, ServerT, runHandler,
                                                    serve)
@@ -122,19 +121,17 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    CAccountMeta (..), CAddress (..),
                                                    CCoin, CElectronCrashReport (..), CId,
                                                    CInitialized,
-                                                   CPaperVendWalletRedeem (..),
-                                                   CPassPhrase (..), CProfile,
+                                                   CPaperVendWalletRedeem (..), CProfile,
                                                    CProfile (..), CTx (..), CTxId,
                                                    CTxMeta (..), CTxs (..),
                                                    CUpdateInfo (..), CWAddressMeta (..),
                                                    CWallet (..), CWalletInit (..),
                                                    CWalletMeta (..), CWalletRedeem (..),
                                                    NotifyEvent (..), SyncProgress (..),
-                                                   Wal, addrMetaToAccount, addressToCId,
-                                                   cIdToAddress, coinFromCCoin, encToCId,
-                                                   mkCCoin, mkCTxId, mkCTxs, spLocalCD,
-                                                   spNetworkCD, spPeers, toCUpdateInfo,
-                                                   txIdToCTxId)
+                                                   Wal, addrMetaToAccount, cIdToAddress,
+                                                   coinFromCCoin, encToCId, mkCCoin,
+                                                   mkCTxs, spLocalCD, spNetworkCD,
+                                                   spPeers, toCUpdateInfo, txIdToCTxId)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),

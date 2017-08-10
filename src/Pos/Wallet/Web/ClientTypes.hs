@@ -1,6 +1,12 @@
 -- | Wallet-specific types
 
--- TODO [CSM-407] Name was preserved for compatibility with other PR,
+-- TODO [CSM-407] Name was preserved for compatibility with other PRs,
 -- better to rename to just 'Types' or smth like that.
 
-{-# OPTIONS_GHC -F -pgmF autoexporter #-}
+module Pos.Wallet.Web.ClientTypes
+       (
+         module Pos.Wallet.Web.ClientTypes.Types
+       ) where
+
+import           Pos.Wallet.Web.ClientTypes.Instances ()
+import           Pos.Wallet.Web.ClientTypes.Types

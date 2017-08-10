@@ -6,59 +6,62 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..),
-                                             deriveSimpleBi)
+                                             deriveSimpleBi, encodeListLen)
 import           Pos.Binary.Core.Coin       ()
 import           Pos.Binary.Core.Fee        ()
 import           Pos.Binary.Core.Script     ()
 import           Pos.Binary.Core.Version    ()
+import           Pos.Core.Context           (HasCoreConstants)
 import qualified Pos.Core.Fee               as T
 import qualified Pos.Core.Types             as T
+import qualified Pos.Core.Slotting          as T
 import qualified Pos.Data.Attributes        as A
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
 
 instance Bi T.Timestamp where
-  encode (T.Timestamp ms) = encode . toInteger $ ms
-  decode = T.Timestamp . fromIntegral <$> decode @Integer
+    encode (T.Timestamp ms) = encode . toInteger $ ms
+    decode = T.Timestamp . fromIntegral <$> decode @Integer
 
 instance Bi T.TimeDiff where
     encode = encode . toInteger
     decode = fromInteger <$> decode
 
 instance Bi T.EpochIndex where
-  encode (T.EpochIndex epoch) = encode epoch
-  decode = T.EpochIndex <$> decode
+    encode (T.EpochIndex epoch) = encode epoch
+    decode = T.EpochIndex <$> decode
 
 instance Bi (A.Attributes ()) where
-  encode = A.encodeAttributes []
-  decode = A.decodeAttributes () $ \_ _ _ -> Nothing
+    encode = A.encodeAttributes []
+    decode = A.decodeAttributes () $ \_ _ _ -> Nothing
 
 instance Bi T.CoinPortion where
-  encode = encode . T.getCoinPortion
-  decode = do
-    word64 <- decode @Word64
-    case T.mkCoinPortion word64 of
-      Left err          -> fail err
-      Right coinPortion -> return coinPortion
+    encode = encode . T.getCoinPortion
+    decode = do
+        word64 <- decode @Word64
+        case T.mkCoinPortion word64 of
+            Left err          -> fail err
+            Right coinPortion -> return coinPortion
 
-instance Bi T.LocalSlotIndex where
-  encode = encode . T.getSlotIndex
-  decode = do
-    word16 <- decode @Word16
-    case T.mkLocalSlotIndex word16 of
-      Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)
-      Right slotIndex -> return slotIndex
+instance HasCoreConstants => Bi T.LocalSlotIndex where
+    encode = encode . T.getSlotIndex
+    decode = do
+        word16 <- decode @Word16
+        case T.mkLocalSlotIndex word16 of
+            Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)
+            Right slotIndex -> return slotIndex
 
-deriveSimpleBi ''T.SlotId [
-    Cons 'T.SlotId [
-        Field [| T.siEpoch :: T.EpochIndex     |],
-        Field [| T.siSlot  :: T.LocalSlotIndex |]
-    ]]
+instance HasCoreConstants => Bi T.SlotId where
+    encode (T.SlotId siEpoch siSlot) =
+        encodeListLen 2 <>
+        encode siEpoch  <>
+        encode siSlot
+    decode = T.SlotId <$> decode <*> decode
 
-instance Bi T.EpochOrSlot where
-  encode (T.EpochOrSlot e) = encode e
-  decode = T.EpochOrSlot <$> decode @(Either T.EpochIndex T.SlotId)
+instance HasCoreConstants => Bi T.EpochOrSlot where
+    encode (T.EpochOrSlot e) = encode e
+    decode = T.EpochOrSlot <$> decode @(Either T.EpochIndex T.SlotId)
 
 instance Bi T.SlotCount where
     encode = encode . T.getSlotCount

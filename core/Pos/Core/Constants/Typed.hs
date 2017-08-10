@@ -5,9 +5,6 @@ module Pos.Core.Constants.Typed
        (
          staticSysStart
        , staticBlkSecurityParam
-       , slotSecurityParam
-       , chainQualityThreshold
-       , epochSlots
 
        -- * Genesis constants
        , genesisBlockVersionData
@@ -38,7 +35,7 @@ import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Fee.Config        (ConfigOf (..))
 import           Pos.Core.Types             (BlockCount, BlockVersionData (..),
                                              CoinPortion, EpochIndex (..), ScriptVersion,
-                                             SlotCount, SoftforkRule (..), Timestamp (..),
+                                             SoftforkRule (..), Timestamp (..),
                                              unsafeCoinPortionFromDouble)
 
 ----------------------------------------------------------------------------
@@ -55,28 +52,6 @@ staticSysStart = Timestamp staticSysStartRaw
 -- runtime context (it can differ from this one).
 staticBlkSecurityParam :: BlockCount
 staticBlkSecurityParam = fromIntegral $ ccK coreConfig
-
--- | Security parameter expressed in number of slots. It uses chain
--- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.
-slotSecurityParam :: SlotCount
-slotSecurityParam = fromIntegral $ 2 * ccK coreConfig
-
--- We don't have a special newtype for it, so it can be any
--- 'Fractional'. I think adding newtype here would be overkill
--- (@gromak). Also this value is not actually part of the protocol,
--- but rather implementation detail, so we don't need to ensure
--- conrete precision. Apart from that, in reality we know that it's
--- 0.5, so any fractional type should be fine ☺
---
--- | Minimal chain quality (number of blocks divided by number of
--- slots) necessary for security of the system.
-chainQualityThreshold :: Fractional fractional => fractional
-chainQualityThreshold =
-    realToFrac staticBlkSecurityParam / realToFrac slotSecurityParam
-
--- | Number of slots inside one epoch.
-epochSlots :: SlotCount
-epochSlots = fromIntegral $ 10 * ccK coreConfig
 
 ----------------------------------------------------------------------------
 -- Genesis

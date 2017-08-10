@@ -317,6 +317,7 @@ library
                         Pos.Wallet.Web.Backup
                         Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.ClientTypes
+                        Pos.Wallet.Web.ClientTypes.Instances
                         Pos.Wallet.Web.ClientTypes.Types
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Error.Util

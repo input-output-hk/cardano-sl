@@ -6,7 +6,7 @@
 
 -- | Wallet web server.
 
-module Pos.Wallet.Web.Server.Methods
+module Pos.Wallet.Web.Server.Launcher
        ( walletApplication
        , walletServer
        , walletServeImpl
@@ -14,14 +14,32 @@ module Pos.Wallet.Web.Server.Methods
 
        , bracketWalletWebDB
        , bracketWalletWS
-
-       , addInitialRichAccount
        ) where
 
 import           Universum
 
-import           Pos.Wallet.Web      (TlsParams)
-import           Pos.Wallet.Web.Mode (MonadWalletWebMode)
+import           Ether.Internal                   (HasLens (..))
+import           Network.Wai                      (Application)
+import           Serokell.AcidState.ExtendedState (ExtendedState)
+import           Servant.Server                   (Handler, Server, serve)
+import           Servant.Utils.Enter              ((:~>) (..), enter)
+
+import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
+import           Pos.Context                      (GenesisUtxo)
+import           Pos.Wallet.SscType               (WalletSscType)
+import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
+import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
+import           Pos.Wallet.Web.Server.Methods    (servantHandlers)
+import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnections,
+                                                   getWalletWebSockets, initWSConnections,
+                                                   launchNotifier, upgradeApplicationWS)
+import           Pos.Wallet.Web.State             (closeState, openState)
+import           Pos.Wallet.Web.State.Storage     (WalletStorage)
+import           Pos.Wallet.Web.Tracking          (syncWalletsWithGState)
+import           Pos.Web                          (TlsParams, serveImpl)
+
+-- TODO [CSM-407]: Mixture of logic seems to be here
 
 walletServeImpl
     :: MonadWalletWebMode m
@@ -48,7 +66,7 @@ walletServer
     -> m (m :~> Handler)
     -> m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWalletsWithGState @WalletSscType =<< mapM getSKById =<< myRootAddresses
+    syncWalletsWithGState @WalletSscType =<< mapM findKey =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 

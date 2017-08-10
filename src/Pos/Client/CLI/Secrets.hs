@@ -16,8 +16,6 @@ import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSec
 
 import           Pos.Client.CLI.NodeOptions         (SimpleNodeArgs (..))
 
--- TODO (jk): Don't use Args, we do need just `devSpendingGenesisI`
--- So we can use `userSecretWithGenesisKey` for simple + wallet node
 userSecretWithGenesisKey
     :: (MonadIO m, MonadFail m) => SimpleNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey SimpleNodeArgs{..} userSecret

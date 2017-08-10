@@ -2,6 +2,7 @@
 
 module Pos.Core.Context
        ( CoreConstants (..)
+       , HasCoreConstants
        , ccBlkSecurityParam
        , blkSecurityParam
 
@@ -29,7 +30,9 @@ data CoreConstants = CoreConstants
 
 makeLenses ''CoreConstants
 
-blkSecurityParam :: Given CoreConstants => BlockCount
+type HasCoreConstants = Given CoreConstants
+
+blkSecurityParam :: HasCoreConstants => BlockCount
 blkSecurityParam = _ccBlkSecurityParam given
 
 -- | Access to primary key of the node.

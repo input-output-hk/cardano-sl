@@ -17,10 +17,11 @@ import           Ether.Internal       (HasLens (..))
 import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 
-import           Pos.Core             (ApplicationName, BlockVersion, NumSoftwareVersion,
-                                       SoftwareVersion (..), StakeholderId, addressHash,
-                                       blockVersionL, epochIndexL, headerHashG,
-                                       headerLeaderKeyL, headerSlotL)
+import           Pos.Core             (ApplicationName, BlockVersion, HasCoreConstants,
+                                       NumSoftwareVersion, SoftwareVersion (..),
+                                       StakeholderId, addressHash, blockVersionL,
+                                       epochIndexL, headerHashG, headerLeaderKeyL,
+                                       headerSlotL)
 import qualified Pos.DB.BatchOp       as DB
 import qualified Pos.DB.Class         as DB
 import           Pos.Lrc.Context      (LrcContext)
@@ -45,6 +46,7 @@ type USGlobalApplyMode ctx m =
     , DB.MonadDBRead m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
+    , HasCoreConstants
     )
 type USGlobalVerifyMode ctx m =
     ( WithLogger m
@@ -53,6 +55,7 @@ type USGlobalVerifyMode ctx m =
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
     , MonadError PollVerFailure m
+    , HasCoreConstants
     )
 
 withUSLogger :: WithLogger m => m a -> m a

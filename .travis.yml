@@ -12,7 +12,7 @@ matrix:
 before_install:
 - echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
-- export DCONFIG=travis
+- export DCONFIG=testnet_staging_wallet
 - mkdir -p s3
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 - sudo mkdir -p /etc/nix/

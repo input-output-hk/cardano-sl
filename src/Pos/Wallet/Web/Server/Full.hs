@@ -31,7 +31,7 @@ import           Pos.Wallet.Web.Mode           (WalletWebMode, WalletWebModeCont
                                                 WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Methods (addInitialRichAccount, walletApplication,
                                                 walletServeImpl, walletServer)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar)
+import           Pos.Wallet.Web.Sockets        (ConnectionsVar)
 import           Pos.Wallet.Web.State          (WalletState)
 import           Pos.Web                       (TlsParams)
 

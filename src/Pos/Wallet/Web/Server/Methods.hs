@@ -137,7 +137,7 @@ import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
                                                    wusWalletName)
-import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnections,
+import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),

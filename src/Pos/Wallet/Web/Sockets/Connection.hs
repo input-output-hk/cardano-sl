@@ -4,7 +4,7 @@
 -- This implements unidirectional sockets from server to client.
 -- Every message received from client will be ignored.
 
-module Pos.Wallet.Web.Server.Sockets
+module Pos.Wallet.Web.Sockets.Connection
        ( WebWalletSockets
        , MonadWalletWebSockets
        , getWalletWebSockets

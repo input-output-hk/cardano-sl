@@ -8,15 +8,15 @@ module Pos.Crypto.HDDiscovery
 
 import           Universum
 
-import           Data.Conduit        (mapOutput, runConduitRes, (.|))
-import qualified Data.Conduit.List   as CL
+import           Data.Conduit      (mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List as CL
 
-import           Pos.Core.Types      (Address (..), addrPkDerivationPath)
-import           Pos.Crypto.HD       (HDAddressPayload, HDPassphrase, unpackHDAddressAttr)
-import           Pos.Data.Attributes (attrData)
-import           Pos.DB.Class        (DBTag (GStateDB), MonadDBRead, dbIterSource)
-import           Pos.Txp.Core        (toaOut, txOutAddress)
-import           Pos.Txp.DB          (UtxoIter)
+import           Pos.Core          (AddrAttributes (..), Address (..),
+                                    addrAttributesUnwrapped)
+import           Pos.Crypto.HD     (HDAddressPayload, HDPassphrase, unpackHDAddressAttr)
+import           Pos.DB.Class      (DBTag (GStateDB), MonadDBRead, dbIterSource)
+import           Pos.Txp.Core      (toaOut, txOutAddress)
+import           Pos.Txp.DB        (UtxoIter)
 
 discoverHDAddress :: MonadDBRead m => HDPassphrase -> m [(Address, [Word32])]
 discoverHDAddress walletPassphrase =
@@ -34,9 +34,8 @@ discoverHDAddresses walletPassphrases =
     outAddr = txOutAddress . toaOut . snd
 
     hdPayload :: Address -> Maybe HDAddressPayload
-    hdPayload (PubKeyAddress _ p) =
-        addrPkDerivationPath . attrData $ p
-    hdPayload _ = Nothing
+    hdPayload (addrAttributesUnwrapped -> AddrAttributes {..}) =
+        aaPkDerivationPath
 
     appendMaybe :: (Maybe a, b, [(b, a)]) -> [(b, a)]
     appendMaybe (Nothing, _, r) = r

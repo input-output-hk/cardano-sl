@@ -1,15 +1,19 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Core types. TODO: we need to have a meeting, come up with project
--- structure and follow it.
+-- | Core types.
 
 module Pos.Core.Types
        (
-       -- * Address
-         Address (..)
-       , _RedeemAddress
-       , AddrPkAttrs (..)
-       , AddressHash
+       -- * Address and StakeholderId
+         AddressHash
+       , AddrSpendingData (..)
+       , AddrType (..)
+       , Address' (..)
+       , AddrAttributes (..)
+       , AddrStakeDistribution (..)
+       , Address (..)
+
+       -- * Stakeholders
        , StakeholderId
        , StakesMap
 
@@ -87,7 +91,6 @@ import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
 import           Data.Data                  (Data)
-import           Data.Default               (Default (..))
 import           Data.Hashable              (Hashable)
 import           Data.Ix                    (Ix)
 import qualified Data.Text                  as T
@@ -111,7 +114,7 @@ import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Has
 import           Pos.Data.Attributes        (Attributes)
 
 ----------------------------------------------------------------------------
--- Address
+-- Address, StakeholderId
 ----------------------------------------------------------------------------
 
 -- | Hash used to identify address.
@@ -120,29 +123,78 @@ type AddressHash = AbstractHash Blake2b_224
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey
 
--- | Address is where you can send coins.
-data Address
-    = PubKeyAddress
-          { addrKeyHash      :: !(AddressHash PublicKey)
-          , addrPkAttributes :: !(Attributes AddrPkAttrs) }
-    | ScriptAddress
-          { addrScriptHash :: !(AddressHash Script) }
-    | RedeemAddress
-          { addrRedeemKeyHash :: !(AddressHash RedeemPublicKey) }
-    | UnknownAddressType !Word8 !ByteString
-    deriving (Eq, Ord, Generic, Typeable, Show)
-
-instance NFData Address
-
-newtype AddrPkAttrs = AddrPkAttrs
-    { addrPkDerivationPath :: Maybe HDAddressPayload
-    } deriving (Eq, Ord, Show, Generic, Typeable, NFData)
-
-instance Default AddrPkAttrs where
-    def = AddrPkAttrs Nothing
-
 -- | A mapping between stakeholders and they stakes.
 type StakesMap = HashMap StakeholderId Coin
+
+-- | Data which is bound to an address and must be revealed in order
+-- to spend coins belonging to this address.
+data AddrSpendingData
+    = PubKeyASD !PublicKey
+    -- ^ Funds can be spent by revealing a 'PublicKey' and providing a
+    -- valid signature.
+    | ScriptASD !Script
+    -- ^ Funds can be spent by revealing a 'Script' and providing a
+    -- redeemer 'Script'.
+    | RedeemASD !RedeemPublicKey
+    -- ^ Funds can be spent by revealing a 'RedeemScript' and providing a
+    -- valid signature.
+    | UnknownASD !Word8 !ByteString
+    -- ^ Unknown type of spending data. It consists of a tag and
+    -- arbitrary 'ByteString'. It allows us to introduce a new type of
+    -- spending data via softfork.
+    deriving (Eq, Generic, Typeable, Show)
+
+-- | Type of an address. It corresponds to constructors of
+-- 'AddrSpendingData'. It's separated, because 'Address' doesn't store
+-- 'AddrSpendingData', but we want to know its type.
+data AddrType
+    = ATPubKey
+    | ATScript
+    | ATRedeem
+    | ATUnknown !Word8
+    deriving (Eq, Ord, Generic, Typeable, Show)
+
+-- TODO [CSL-1489] This stake distribution is currently unused!
+
+-- | Stake distribution associated with an address.
+data AddrStakeDistribution
+    = BootstrapEraDistr
+    -- ^ Stake distribution for bootstrap era.
+    | SingleKeyDistr !StakeholderId
+    -- ^ Stake distribution stating that all stake should go to the given stakeholder.
+    | MultiKeyDistr ![(StakeholderId, Coin)]
+    -- ^ Stake distribution which gives stake to multiple
+    -- stakeholders.
+    deriving (Eq, Ord, Show, Generic, Typeable)
+
+-- | Additional information stored along with address. It's intended
+-- to be put into 'Attributes' data type to make it extensible with
+-- softfork.
+data AddrAttributes = AddrAttributes
+    { aaPkDerivationPath  :: !(Maybe HDAddressPayload)
+    , aaStakeDistribution :: !AddrStakeDistribution
+    } deriving (Eq, Ord, Show, Generic, Typeable)
+
+-- | Hash of this data is stored in 'Address'. This type exists mostly
+-- for internal usage.
+newtype Address' = Address'
+    { unAddress' :: (AddressHash AddrSpendingData, Attributes AddrAttributes)
+    } deriving (Eq, Show, Generic, Typeable)
+
+-- | 'Address' is where you can send coins.
+data Address = Address
+    { addrRoot       :: !(AddressHash Address')
+    -- ^ Root of imaginary pseudo Merkle tree stored in this address.
+    , addrAttributes :: !(Attributes AddrAttributes)
+    -- ^ Attributes associated with this address.
+    , addrType       :: !AddrType
+    } deriving (Eq, Ord, Generic, Typeable, Show)
+
+instance NFData AddrType
+instance NFData AddrSpendingData
+instance NFData AddrAttributes
+instance NFData AddrStakeDistribution
+instance NFData Address
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty

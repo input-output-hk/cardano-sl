@@ -13,6 +13,7 @@ import           Control.Lens                (at, ix, _Wrapped)
 import           Control.Monad.Random.Strict (RandT, mapRandT)
 import           System.Random               (RandomGen (..))
 
+import           Pos.AllSecrets              (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Core              (mkGenesisBlock)
 import           Pos.Block.Logic             (applyBlocksUnsafe, createMainBlockInternal,
                                               normalizeMempool, verifyBlocksPrefix)
@@ -24,8 +25,7 @@ import           Pos.Generator.Block.Error   (BlockGenError (..))
 import           Pos.Generator.Block.Mode    (BlockGenRandMode, MonadBlockGen,
                                               mkBlockGenContext, usingPrimaryKey,
                                               withCurrentSlot)
-import           Pos.Generator.Block.Param   (BlockGenParams, HasAllSecrets (..),
-                                              HasBlockGenParams (..), unInvSecretsMap)
+import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc                     (lrcSingleShotNoLock)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)

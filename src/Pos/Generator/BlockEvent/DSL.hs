@@ -32,7 +32,8 @@ import           Control.Lens                (at, makeLenses, (%=), (.=))
 import           Control.Monad.Random.Strict (RandT, RandomGen, mapRandT)
 import qualified Data.Map                    as Map
 
-import           Pos.Generator.Block         (AllSecrets, MonadBlockGen)
+import           Pos.AllSecrets              (AllSecrets)
+import           Pos.Generator.Block         (MonadBlockGen)
 import           Pos.Generator.BlockEvent    (BlockApplyResult (..), BlockDesc (..),
                                               BlockEvent' (..), BlockEventApply' (..),
                                               BlockEventRollback' (..),

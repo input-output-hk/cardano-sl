@@ -5,7 +5,6 @@ module Test.Pos.Lrc.FollowTheSatoshiSpec
        ( spec
        ) where
 
-import           Data.Default          (def)
 import           Data.List             (scanl1)
 import qualified Data.Map              as M (fromList, insert, singleton)
 import qualified Data.Set              as S (deleteFindMin, fromList, size)
@@ -15,10 +14,10 @@ import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, 
 import           Universum
 
 import           Pos.Constants         (blkSecurityParam, epochSlots)
-import           Pos.Core              (Address (..), Coin, SharedSeed, StakeholderId,
+import           Pos.Core              (Coin, SharedSeed, addressHash, makePubKeyAddress,
                                         mkCoin, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin)
-import           Pos.Crypto            (unsafeHash)
+import           Pos.Crypto            (PublicKey, unsafeHash)
 import           Pos.Lrc               (followTheSatoshiUtxo)
 import           Pos.Txp               (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                                         txOutStake)
@@ -59,37 +58,38 @@ spec = do
         acceptable present (1 - (1 - highStake) ^ pLen) &&
         acceptable chosen highStake
 
--- | Type used to generate random Utxo and a pubkey hash (addrhash) that is
--- not in this map, meaning it does not hold any stake in the system's
+-- | Type used to generate random Utxo and a 'PublicKey' that is not
+-- in this map, meaning it does not hold any stake in the system's
 -- current state.
 --
--- Two necessarily different addrhashes are generated, as well as a list of
--- addrhashes who will be our other stakeholders. To guarantee a non-empty
--- utxo map, one of these addrhashes is inserted in the list, which is
--- converted to a set and then to a map, where each addrhash is given as key
+-- Two necessarily different public keys are generated, as well as a list of
+-- public keys who will be our other stakeholders. To guarantee a non-empty
+-- utxo map, one of these public keys is inserted in the list, which is
+-- converted to a set and then to a map, where each public key is given as key
 -- a random pair (TxId, Coin).
 newtype StakeAndHolder = StakeAndHolder
-    { getNoStake :: (StakeholderId, Utxo)
+    { getNoStake :: (PublicKey, Utxo)
     } deriving Show
 
 instance Arbitrary StakeAndHolder where
     arbitrary = StakeAndHolder <$> do
-        addrHash1 <- arbitrary
-        addrHash2 <- arbitrary `suchThat` ((/=) addrHash1)
-        listAdr <- do
+        pk1 <- arbitrary
+        pk2 <- arbitrary `suchThat` ((/=) pk1)
+        listPks <- do
             n <- choose (2, 10)
             replicateM n arbitrary
         txId <- arbitrary
         coins <- mkCoin <$> choose (1, 1000)
-        let setAdr = S.fromList $ addrHash1 : addrHash2 : listAdr
-            (myAddrHash, setUtxo) = S.deleteFindMin setAdr
+        let setPks :: Set PublicKey
+            setPks = S.fromList $ pk1 : pk2 : listPks
+            (myPk, setUtxo) = S.deleteFindMin setPks
             nAdr = S.size setUtxo
             values = scanl1 unsafeAddCoin $ replicate nAdr coins
-            toTxOutAux ah v = TxOutAux (TxOut (PubKeyAddress ah def) v) []
+            toTxOutAux pk v = TxOutAux (TxOut (makePubKeyAddress pk) v) []
             utxoList =
                 (zipWith TxIn (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
                 (zipWith toTxOutAux (toList setUtxo) values)
-        return (myAddrHash, M.fromList utxoList)
+        return (myPk, M.fromList utxoList)
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
 ftsListLength fts (getNoStake -> (_, utxo)) =
@@ -99,8 +99,8 @@ ftsNoStake
     :: SharedSeed
     -> StakeAndHolder
     -> Bool
-ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
-    not (addrHash `elem` followTheSatoshiUtxo fts utxo)
+ftsNoStake fts (getNoStake -> (addressHash -> sId, utxo)) =
+    not (sId `elem` followTheSatoshiUtxo fts utxo)
 
 -- | This test looks useless, but since transactions with zero coins are not
 -- allowed, the Utxo map will never have any addresses with 0 coins to them,
@@ -109,12 +109,12 @@ ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
 ftsAllStake
     :: SharedSeed
     -> TxIn
-    -> StakeholderId
+    -> PublicKey
     -> Coin
     -> Bool
-ftsAllStake fts key ah v =
-    let utxo = M.singleton key (TxOutAux (TxOut (PubKeyAddress ah def) v) [])
-    in all (== ah) $ followTheSatoshiUtxo fts utxo
+ftsAllStake fts input pk v =
+    let utxo = M.singleton input (TxOutAux (TxOut (makePubKeyAddress pk) v) [])
+    in all (== addressHash pk) $ followTheSatoshiUtxo fts utxo
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
@@ -179,18 +179,19 @@ ftsReasonableStake
     go total (_, !present, !chosen) (fts : nextSeed) (u : nextUtxo) =
         go (total - 1) (pLen, newPresent, newChosen) nextSeed nextUtxo
       where
-        (adrH, utxo) = getNoStake u
+        (pk, utxo) = getNoStake u
+        stId = addressHash pk
         totalStake   = fromIntegral . sumCoins . map snd $
                        concatMap txOutStake (toList utxo)
         newStake     = unsafeIntegerToCoin . round $
                            (stakeProbability * totalStake) /
                            (1 - stakeProbability)
-        txOut        = TxOut (PubKeyAddress adrH def) newStake
+        txOut        = TxOut (makePubKeyAddress pk) newStake
         newUtxo      = M.insert key (TxOutAux txOut []) utxo
         picks        = followTheSatoshiUtxo fts newUtxo
         pLen         = length picks
         newPresent   = present +
-            if adrH `elem` picks then 1 / (fromIntegral numberOfRuns) else 0
+            if stId `elem` picks then 1 / (fromIntegral numberOfRuns) else 0
         newChosen    = chosen +
-            fromIntegral (length (filter (== adrH) (toList picks))) /
+            fromIntegral (length (filter (== stId) (toList picks))) /
             (fromIntegral numberOfRuns * fromIntegral pLen)

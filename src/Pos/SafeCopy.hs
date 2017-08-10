@@ -21,9 +21,11 @@ import qualified Pos.Binary.Class                as Bi
 import           Pos.Block.Core
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
-import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
-                                                  ApplicationName (..), BlockCount (..),
-                                                  BlockVersion (..),
+import           Pos.Core.Types                  (AddrAttributes (..),
+                                                  AddrStakeDistribution (..),
+                                                  AddrType (..), Address (..),
+                                                  Address' (..), ApplicationName (..),
+                                                  BlockCount (..), BlockVersion (..),
                                                   BlockVersionData (..),
                                                   ChainDifficulty (..), Coin,
                                                   CoinPortion (..), EpochIndex (..),
@@ -115,7 +117,10 @@ deriveSafeCopySimple 0 'base ''BlockCount
 deriveSafeCopySimple 0 'base ''SlotCount
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''HDAddressPayload
-deriveSafeCopySimple 0 'base ''AddrPkAttrs
+deriveSafeCopySimple 0 'base ''AddrType -- ☃
+deriveSafeCopySimple 0 'base ''AddrStakeDistribution
+deriveSafeCopySimple 0 'base ''AddrAttributes
+deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
 -- TODO: in many cases TxDistribution would just be lots of empty lists, so

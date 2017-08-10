@@ -13,17 +13,17 @@ import           Control.Monad.Error.Class (MonadError (..))
 import           Data.List                 (zipWith3)
 import qualified Data.List.NonEmpty        as NE
 import           Formatting                (build, int, sformat, (%))
-import           Serokell.Util             (VerificationRes, allDistinct,
+import           Serokell.Util             (VerificationRes, allDistinct, enumerate,
                                             formatFirstError, verResToMonadError,
                                             verifyGeneric)
 
 import           Pos.Binary.Txp.Core       ()
-import           Pos.Core                  (Address (..), StakeholderId, coinF,
-                                            coinToInteger, integerToCoin, mkCoin,
+import           Pos.Core                  (AddrType (..), Address (..), StakeholderId,
+                                            addressF, coinF, coinToInteger, integerToCoin,
+                                            isRedeemAddress, isUnknownAddressType, mkCoin,
                                             sumCoins)
 import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress,
-                                            checkRedeemAddress, checkScriptAddress,
-                                            checkUnknownAddressType)
+                                            checkRedeemAddress, checkScriptAddress)
 import           Pos.Crypto                (SignTag (SignTx), WithHash (..), checkSig,
                                             hash, redeemCheckSig)
 import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
@@ -32,7 +32,8 @@ import           Pos.Script                (Script (..), isKnownScriptVersion,
 import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
                                             TxDistribution (..), TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
-                                            TxSigData (..), TxUndo, TxWitness)
+                                            TxOutDistribution, TxSigData (..), TxUndo,
+                                            TxWitness)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
@@ -119,49 +120,46 @@ verifyConsistency inputs witnesses
     errMsg = sformat errFmt (length inputs) (length witnesses)
 
 verifyOutputs :: VTxContext -> TxAux -> VerificationRes
-verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs)=
+verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs) =
     verifyGeneric $
-        [ ( length _txOutputs == length (getTxDistribution distrs)
-          , "length of outputs != length of tx distribution")
-        ]
-        ++
-        do (i, (TxOut{..}, d)) <-
-               zip [0 :: Int ..] $ toList (NE.zip _txOutputs (getTxDistribution distrs))
-           case txOutAddress of
-               PubKeyAddress{..} ->
-                   checkDist i d txOutValue ++
-                   [ ( areAttributesKnown addrPkAttributes
-                     , sformat ("output #"%int%" with pubkey address "%
-                                build%" has unknown attributes") i txOutAddress)
-                   ]
-               ScriptAddress{} ->
-                   checkDist i d txOutValue
-               RedeemAddress{} ->
-                   [ (False, sformat ("output #"%int%" sends money to a "%
-                                      "RedeemAddress, this is prohibited")
-                                     i) ]
-               UnknownAddressType t _
-                   | vtcVerifyAllIsKnown ->
-                         [ (False, sformat ("output #"%int%" has "%
-                                            "unknown address type: "%int)
-                                           i t) ]
-                   | otherwise ->
-                         checkDist i d txOutValue
+    ( length _txOutputs == length (getTxDistribution distrs)
+    , "length of outputs != length of tx distribution") :
+    concatMap
+        verifyOutput
+        (enumerate $ toList (NE.zip _txOutputs (getTxDistribution distrs)))
   where
+    verifyOutput :: (Int, (TxOut, TxOutDistribution)) -> [(Bool, Text)]
+    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..}, d)) =
+        [ ( not vtcVerifyAllIsKnown || areAttributesKnown addrAttributes
+          , sformat
+                ("output #"%int%" with address "%addressF%
+                 " has unknown attributes")
+                i addr
+          )
+        , ( not $ vtcVerifyAllIsKnown && isUnknownAddressType addr
+          , sformat ("output #"%int%" sends money to an address with unknown "
+                    %"type ("%addressF%"), this is prohibited") i addr
+          )
+        , ( not (isRedeemAddress addr)
+          , sformat ("output #"%int%" sends money to a redeem address ("
+                    %addressF%"), this is prohibited") i addr
+          )
+        ] ++ checkDist i d txOutValue
     checkDist i d txOutValue =
         let sumDist = sumCoins (map snd d)
-        in [ (sumDist <= coinToInteger txOutValue,
-              sformat ("output #"%int%" has distribution "%
-                       "sum("%int%") > txOutValue("%coinF%")")
-                      i sumDist txOutValue)
-           , (allDistinct (map fst d :: [StakeholderId]),
-              sformat ("output #"%int%"'s distribution "%
-                       "has duplicated addresses")
-                      i)
-           , (all (> mkCoin 0) (map snd d),
-              sformat ("output #"%int%"'s distribution "%
-                       "assigns 0 coins to some addresses")
-                      i)
+        in [ ( sumDist <= coinToInteger txOutValue
+             , sformat
+                   ("output #"%int%" has distribution "%"sum("%int%
+                    ") > txOutValue("%coinF%")")
+                   i sumDist txOutValue)
+           , ( allDistinct (map fst d :: [StakeholderId])
+             , sformat
+                   ("output #"%int%"'s distribution "%
+                    "has duplicated addresses") i)
+           , ( all (> mkCoin 0) (map snd d)
+             , sformat
+                   ("output #"%int%"'s distribution "%
+                    "assigns 0 coins to some addresses") i)
            ]
 
 verifyInputs :: VTxContext
@@ -190,7 +188,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
         -> TxInWitness
         -> [(Bool, Text)]
     inputPredicates i (txIn@TxIn{..}, toa@(TxOutAux txOut@TxOut{..} _)) witness =
-        [ ( checkAddrHash txOutAddress witness
+        [ ( checkSpendingData txOutAddress witness
           , sformat ("input #"%int%"'s witness doesn't match address "%
                      "of corresponding output:\n"%
                      "  input: "%build%"\n"%
@@ -210,11 +208,13 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
                   i err txIn txOut witness)
         ]
 
-    checkAddrHash addr wit = case wit of
-        PkWitness{..}          -> checkPubKeyAddress twKey addr
-        ScriptWitness{..}      -> checkScriptAddress twValidator addr
-        RedeemWitness{..}      -> checkRedeemAddress twRedeemKey addr
-        UnknownWitnessType t _ -> checkUnknownAddressType t addr
+    checkSpendingData addr wit = case wit of
+        PkWitness{..}            -> checkPubKeyAddress twKey addr
+        ScriptWitness{..}        -> checkScriptAddress twValidator addr
+        RedeemWitness{..}        -> checkRedeemAddress twRedeemKey addr
+        UnknownWitnessType witTag _ -> case addrType addr of
+            ATUnknown addrTag -> addrTag == witTag
+            _                 -> False
 
     -- the first argument here includes local context, can be used for scripts
     validateTxIn :: TxOutAux -> TxInWitness -> Either String ()

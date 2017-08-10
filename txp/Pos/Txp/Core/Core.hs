@@ -42,11 +42,11 @@ txInToPair (TxIn h i) = (h, i)
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
+--
+-- [CSL-1489] TODO: we should get rid of 'TxOutAux' and take
+-- distribution from 'Address'.
 txOutStake :: TxOutAux -> TxOutDistribution
-txOutStake TxOutAux {..} = case txOutAddress toaOut of
-    PubKeyAddress x _
-        | null toaDistr -> [(x, txOutValue toaOut)]
-    _other              -> toaDistr
+txOutStake TxOutAux {..} = toaDistr
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.
 mkTxProof :: TxPayload -> TxProof

@@ -38,14 +38,16 @@ import           Test.QuickCheck                (Arbitrary (..), Gen, Property,
                                                  ioProperty, oneof, suchThat)
 import           Test.QuickCheck.Monadic        (PropertyM, monadic)
 
+import           Pos.AllSecrets                 (AllSecrets (..), HasAllSecrets (..),
+                                                 mkInvAddrSpendingData, mkInvSecretsMap)
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
                                                  onRollbackBlocksStub)
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
-                                                 Timestamp (..), makePubKeyAddress,
-                                                 mkCoin, unsafeGetCoin)
+import           Pos.Core                       (AddrSpendingData (..), IsHeader, SlotId,
+                                                 StakeDistribution (..), Timestamp (..),
+                                                 makePubKeyAddress, mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
@@ -56,8 +58,6 @@ import qualified Pos.DB.Block                   as DB
 import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
-import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..),
-                                                 mkInvSecretsMap)
 import           Pos.Generator.BlockEvent       (SnapshotId)
 import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
                                                  GenesisWStakeholders (..),
@@ -162,13 +162,17 @@ instance Arbitrary TestParams where
             (arbitrary `suchThat` (\l -> length l < 15))
         let _tpStartTime = fromMicroseconds 0
         let invSecretsMap = mkInvSecretsMap secretKeysList
-        let _tpAllSecrets = AllSecrets invSecretsMap
-        let addresses =
-                map (makePubKeyAddress . toPublic) (toList invSecretsMap)
+        let publicKeys = map toPublic (toList invSecretsMap)
+        let addresses = map makePubKeyAddress publicKeys
+        let invAddrSpendingData =
+                mkInvAddrSpendingData $
+                addresses `zip` (map PubKeyASD publicKeys)
+        let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
         stakeDistribution <-
             genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
         let addrDistribution = [(addresses, stakeDistribution)]
-        let _tpGenesisContext = genesisContextImplicit addrDistribution
+        let _tpGenesisContext =
+                genesisContextImplicit invAddrSpendingData addrDistribution
         let _tpStakeDistributions = one stakeDistribution
         return TestParams {..}
 

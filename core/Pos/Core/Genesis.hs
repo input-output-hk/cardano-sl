@@ -7,7 +7,6 @@ module Pos.Core.Genesis
        , genesisDevPublicKeys
        , genesisDevSecretKeys
        , genesisDevHdwSecretKeys
-       , genesisDevAddresses
        , genesisDevFlatDistr
 
        -- * /genesis-core.bin/
@@ -34,7 +33,6 @@ import qualified Data.Text               as T
 import           Formatting              (int, sformat, (%))
 
 import           Pos.Binary.Crypto       ()
-import           Pos.Core.Address        (makePubKeyAddress)
 import           Pos.Core.Coin           (unsafeAddCoin, unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
@@ -68,10 +66,6 @@ genesisDevSecretKeys = map snd genesisDevKeyPairs
 genesisDevHdwSecretKeys :: [EncryptedSecretKey]
 genesisDevHdwSecretKeys =
     map generateHdwGenesisSecretKey [0 .. genesisKeysN - 1]
-
--- | List of addresses in genesis for dev mode.
-genesisDevAddresses :: [Address]
-genesisDevAddresses = map makePubKeyAddress genesisDevPublicKeys
 
 -- | Default flat stakes distributed among 'genesisKeysN' (from constants).
 genesisDevFlatDistr :: StakeDistribution

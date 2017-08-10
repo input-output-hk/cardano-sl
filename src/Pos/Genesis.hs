@@ -51,8 +51,8 @@ import qualified Pos.Constants              as Const
 import           Pos.Core                   (Address (..), Coin, SlotLeaders,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
-                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                             unsafeMulCoin)
+                                             makePubKeyAddress, mkCoin, safeExpStakes,
+                                             unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
@@ -87,6 +87,7 @@ instance HasLens GenesisWStakeholders GenesisContext GenesisWStakeholders where
 ----------------------------------------------------------------------------
 -- Static state & funcitons
 ----------------------------------------------------------------------------
+
 
 bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = map mkCoin
@@ -272,9 +273,7 @@ devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) Nothing =
         if poorStake <= 0 || richStake <= 0
         then error "Impossible to make RichPoorStakes with given parameters."
         else identity
-devStakesDistr Nothing Nothing Nothing (Just n) =
-    -- minimum stake allows to have max 11 weighted stakeholders in boot era
-    ExponentialStakes (fromIntegral n) (mkCoin 2048)
+devStakesDistr Nothing Nothing Nothing (Just n) = safeExpStakes n
 devStakesDistr _ _ _ _ =
     error "Conflicting distribution options were enabled. \
           \Choose one at most or nothing."

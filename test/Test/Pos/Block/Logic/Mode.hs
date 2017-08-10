@@ -59,7 +59,7 @@ import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets 
 import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
                                                  GenesisWStakeholders (..),
                                                  genesisContextImplicit, gtcUtxo,
-                                                 gtcWStakeholders)
+                                                 gtcWStakeholders, safeExpStakes)
 import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
 import           Pos.Launcher                   (newInitFuture)
@@ -140,32 +140,12 @@ instance Buildable TestParams where
 instance Show TestParams where
     show = formatToString build
 
--- -- It's safe to use unsafeX here because these functions are only used
--- -- in the test initialization. If something fails, tests are
--- -- misconfigured and it should be fixed immediately.
--- -- | Map each participant coin in the distribution.
--- stakeDistrAddCoin :: Coin -> StakeDistribution -> StakeDistribution
--- stakeDistrAddCoin a d = case d of
---     (FlatStakes n c)       -> FlatStakes n (addMul c n)
---     (BitcoinStakes n c)    -> BitcoinStakes n (addMul c n)
---     (CustomStakes cs)      -> CustomStakes $ map (`unsafeAddCoin` a) cs
---     r@RichPoorStakes{..}   -> r { sdRichStake = addMul sdRichStake sdRichmen
---                                 , sdPoorStake = addMul sdPoorStake sdPoor
---                                 }
---     -- there's no way to make the fair mapping of exp stakes since
---     -- it's defined above and 'ExponentialStakes' doesn't contain all
---     -- the data needed to describe distr in full.
---     ExponentialStakes n mc -> ExponentialStakes n (a `unsafeAddCoin` mc)
---   where
---     addMul :: Coin -> Word -> Coin
---     addMul c n = c `unsafeAddCoin` (a `unsafeMulCoin` n)
-
 -- More distributions can be added if we want (e. g. RichPoor).
 genSuitableStakeDistribution :: Word -> Gen StakeDistribution
 genSuitableStakeDistribution stakeholdersNum =
     oneof [ genFlat
           {-, genBitcoin-} -- is broken
-          , pure (ExponentialStakes stakeholdersNum (mkCoin 8200))
+          , pure $ safeExpStakes (15::Integer) -- 15 participants should be enough
           ]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)

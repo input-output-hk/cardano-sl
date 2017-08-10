@@ -4,6 +4,7 @@ module Pos.Core.Genesis.Types
        ( StakeDistribution (..)
        , getDistributionSize
        , getTotalStake
+       , safeExpStakes
 
        , AddrDistribution
        , GenesisWStakeholders (..)
@@ -15,7 +16,6 @@ module Pos.Core.Genesis.Types
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, sformat, (%))
 import           Serokell.Util       (allDistinct, listJson, pairF)
@@ -23,7 +23,6 @@ import           Serokell.Util       (allDistinct, listJson, pairF)
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeGetCoin,
                                       unsafeIntegerToCoin)
 import           Pos.Core.Types      (Address, Coin, StakeholderId, mkCoin)
-import           Pos.Util.Util       (getKeys)
 
 -- | Balances distribution in genesis block.
 --
@@ -70,6 +69,23 @@ getTotalStake (ExponentialStakes n (fromIntegral . unsafeGetCoin -> mc)) =
     mkCoin $ sum $ take (fromIntegral n) $ iterate (*2) mc
 getTotalStake (CustomStakes balances) =
     unsafeIntegerToCoin $ sumCoins balances
+
+-- | Generates exponential stakes that will be valid in boot era prior
+-- to number of participants.
+--
+-- Exponential stakes have the form @map (*b) [2^0, 2^1, 2^2, ...]@,
+-- where @b@ is the last argument of @ExponentialStakes@. It means
+-- that when distribution stakes are created, @b@ is their common
+-- divisor, so weights are @[2^0, 2^1, ..]@. We also require that no
+-- genesis balance is lower than sum of weights. So if stakes list has
+-- length @k@ we have weights sum @2^{k+1}-1@. That's why the lowest
+-- coin is taken to be @2^{k+1}@.
+safeExpStakes :: (Integral a) => a -> StakeDistribution
+safeExpStakes n =
+    -- This function should be used on start only so if this
+    -- `unsafeIntegerToCoin` fails it means we've misconfigured
+    -- something and it's easy to find/fix.
+    ExponentialStakes (fromIntegral n) (unsafeIntegerToCoin $ (2::Integer) ^ n)
 
 -- | Distributions accompained by related addresses set (what to
 -- distribute and how).

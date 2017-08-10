@@ -33,16 +33,9 @@ import           Formatting           (bprint, stext, (%))
 import           Universum
 
 import           Pos.Binary           ()
--- <<<<<<< HEAD
--- import           Pos.Core             (AddressIgnoringAttributes (AddressIA), siEpoch,
---                                        unsafeIntegerToCoin, unsafeSubCoin)
--- import           Pos.Crypto           (PublicKey, RedeemSecretKey, SafeSigner,
---                                        SignTag (SignTxIn), hash, redeemSign,
---                                        redeemToPublic, safeSign, safeToPublic)
--- =======
 import           Pos.Core             (AddressIgnoringAttributes (AddressIA),
-                                       StakeholderId, siEpoch, unsafeGetCoin,
-                                       unsafeIntegerToCoin, unsafeSubCoin)
+                                       StakeholderId, siEpoch, unsafeIntegerToCoin,
+                                       unsafeSubCoin)
 import           Pos.Crypto           (RedeemSecretKey, SafeSigner, SignTag (SignTx),
                                        hash, redeemSign, redeemToPublic, safeSign,
                                        safeToPublic)

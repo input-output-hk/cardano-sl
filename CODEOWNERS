@@ -39,3 +39,5 @@ src/Pos/CompileConfig/         @neongreen
 
 scripts/build/cardano-sl.sh    @neongreen
 HLint.hs                       @neongreen
+
+test/                          @rockbmb

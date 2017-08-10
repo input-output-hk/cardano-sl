@@ -14,6 +14,9 @@ import           Data.Monoid
 import           Data.List
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
+import qualified Text.PrettyPrint as PP
+import           Text.PrettyPrint (($$), (<+>))
+import           System.FilePath ((<.>))
 
 {- | There are two graph structures used here, one that contains the
    "active" set of nodes/edges (along with the alternatives); the
@@ -25,7 +28,8 @@ import qualified Data.Text.Lazy.IO as T
 
 
 -- | Graph nodes are annotated with the "name" of the node
-type NodeA = (String,NodeState)
+type NodeA = (NodeN, NodeState)
+type NodeN = String
 
 -- | The nodes state
 data NodeState = Alive | Dead deriving (Eq, Ord, Show)
@@ -103,6 +107,7 @@ flatten g =
     f (a,b,(s,cs)) = (a,b,s) : [(a,x,y) | (y,x) <- cs]
 
 -- | Flatten then render the graph as a "dot" file.
+render :: Gr NodeA EdgeA -> EscString -> T.Text
 render g title =
     printDotGraph . graphToDot (params title) $ (flatten g)
   where
@@ -177,12 +182,45 @@ checkConnected g'' =
       | length (bfs n g) == g'size = []
       | otherwise                  = [l]
 
+
+-- renderAsConfig :: Gr NodeA EdgeA -> T.Text
+renderAsConfig g =
+    PP.render $
+    PP.vcat
+    [ PP.quotes (PP.text name) PP.<> PP.colon
+      $$
+      PP.nest 2 (PP.text "static-routes" PP.<> PP.colon <+> routes)
+    | (name, routeHops) <- graphToConfig g
+    , let routes =
+            ppList
+              [ ppList (map (PP.doubleQuotes . PP.text) (primary:secondaries))
+              | RouteHop primary secondaries <- routeHops ]
+    ]
+  where
+    ppList = PP.brackets . PP.hsep . PP.punctuate PP.comma
+
+data RouteHop n = RouteHop n [n]  -- primary and secondaries
+  deriving Show
+
+graphToConfig :: Gr NodeA EdgeA -> [(NodeN, [RouteHop NodeN])]
+graphToConfig g =
+    [ (nname, routeHops)
+    | (nid, (nname, Alive)) <- labNodes g
+    , let routeHops = [ RouteHop (label primary) (map label secondaries)
+                      | (primary, (Primary, alternates))  <- lsuc g nid
+                      , let secondaries = [ n | (Secondary, n) <- alternates ] ]
+    ]
+  where
+    label :: Node -> NodeN
+    label n = name where Just (name, Alive) = lab g n
+
 main :: IO ()
 main = (flip evalStateT) 0 $ do
     let (the'graph, the'nodes) = layoutA
     outputDot "primary"
       $ render (secondaryToInactive the'graph) "all primary routes"
     outputDot "complete"  $ render the'graph "all routes"
+    outputYaml "complete"  $ renderAsConfig the'graph
     mapM_ (withDead the'graph) $ [[a] | a <- the'nodes]
     mapM_ (withDead the'graph)
        $ (nub . sort) [sort [a,b] | a <- the'nodes, b <- the'nodes, a /= b]
@@ -194,10 +232,12 @@ main = (flip evalStateT) 0 $ do
                      , a /= b, a /= c, b /=c ]
     return ()
   where
+    outputYaml :: MonadIO m => FilePath -> String -> m ()
+    outputYaml fp = liftIO . writeFile ("config" <.> fp <.> "yaml")
     outputDot :: FilePath -> T.Text -> StateT Int IO ()
     outputDot fp dot = do
       ix <- inc
-      liftIO $ T.writeFile ("test." ++ digits 3 ix ++ "." ++ fp ++ ".dot") dot
+      liftIO $ T.writeFile ("test" <.> digits 3 ix <.> fp <.> "dot") dot
     inc = get >>= \n -> put (n+1) >> return n
     digits n = reverse . take n . (++ repeat '0') . reverse . show
     withDead :: Gr NodeA EdgeA -> [LNode NodeA] -> StateT Int IO ()

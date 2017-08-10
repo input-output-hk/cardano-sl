@@ -8,7 +8,7 @@ fi
 newVersion=$1
 
 function updateVersion() {
-  sed -E -i -e "s/^(version\:\s+)(.+)/\1$newVersion/" $1 
+  sed -E -i -e "s/^(version\:\s+)(.+)/\1$newVersion/" $1
 }
 
 updateVersion cardano-sl.cabal
@@ -22,5 +22,6 @@ updateVersion update/cardano-sl-update.cabal
 updateVersion godtossing/cardano-sl-godtossing.cabal
 updateVersion tools/cardano-sl-tools.cabal
 updateVersion txp/cardano-sl-txp.cabal
+updateVersion wallet/cardano-sl-wallet.cabal
 
 echo "Updated to version $newVersion"

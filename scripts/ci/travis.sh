@@ -35,7 +35,7 @@ if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
 fi
 
-targets="cardano-sl cardano-sl-lwallet cardano-sl-tools"
+targets="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet"
 
 # TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times
 # become smaller and allow coverage report to be built.

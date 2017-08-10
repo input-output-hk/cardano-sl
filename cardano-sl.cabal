@@ -403,9 +403,13 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
-                      , wreq
                       , yaml
                       , http-types
+                      -- https://issues.serokell.io/issue/DEVOPS-230
+                      , cpphs
+
+  if !os(windows)
+    build-depends:      unix
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
@@ -479,6 +483,7 @@ executable cardano-node-simple
                      , lens
                      , log-warper
                      , mtl
+                     , neat-interpolation
                      , network-transport
                      , node-sketch
                      , network-transport-tcp

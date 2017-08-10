@@ -88,7 +88,6 @@ getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
         , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" args
         , npJLFile = jlPath
-        , npPropagation = not (CLI.disablePropagation commonArgs)
         , npReportServers = CLI.reportServers commonArgs
         , npUpdateParams = UpdateParams
             { upUpdatePath    = updateLatestPath

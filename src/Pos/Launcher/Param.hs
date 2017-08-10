@@ -60,7 +60,6 @@ data NodeParams = NodeParams
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
     , npGenesisTxpCtx  :: !GenesisTxpContext    -- ^ Predefined genesis context related to txp data.
     , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
-    , npPropagation    :: !Bool                 -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
     , npSecurityParams :: !SecurityParams       -- ^ Params for "Pos.Security"

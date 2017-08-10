@@ -7,6 +7,9 @@
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes
       ( SyncProgress (..)
+      , spLocalCD
+      , spNetworkCD
+      , spPeers
       , CId (..)
       , CHash (..)
       , CPassPhrase (..)
@@ -55,6 +58,7 @@ module Pos.Wallet.Web.ClientTypes
 import           Universum
 
 import           Control.Arrow             ((&&&))
+import           Control.Lens              (makeLenses)
 import           Control.Monad.Error.Class (throwError)
 import qualified Data.ByteArray            as ByteArray
 import qualified Data.ByteString           as BS
@@ -95,6 +99,8 @@ data SyncProgress = SyncProgress
     , _spNetworkCD :: Maybe ChainDifficulty
     , _spPeers     :: Word
     } deriving (Show, Generic, Typeable)
+
+makeLenses ''SyncProgress
 
 instance Default SyncProgress where
     def = SyncProgress 0 mzero 0

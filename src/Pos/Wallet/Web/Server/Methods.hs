@@ -21,8 +21,7 @@ module Pos.Wallet.Web.Server.Methods
 import           Universum
 
 import           Control.Concurrent               (forkFinally)
-import           Control.Lens                     (each, has, ix, makeLenses, traversed,
-                                                   (.=))
+import           Control.Lens                     (each, has, ix, traversed, (.=))
 import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
@@ -133,8 +132,9 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    NotifyEvent (..), SyncProgress (..),
                                                    Wal, addrMetaToAccount, addressToCId,
                                                    cIdToAddress, coinFromCCoin, encToCId,
-                                                   mkCCoin, mkCTxId, mkCTxs,
-                                                   toCUpdateInfo, txIdToCTxId)
+                                                   mkCCoin, mkCTxId, mkCTxs, spLocalCD,
+                                                   spNetworkCD, spPeers, toCUpdateInfo,
+                                                   txIdToCTxId)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
@@ -160,10 +160,11 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    setWalletSyncTip, setWalletTxMeta,
                                                    testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInsertions,
-                                                   syncWalletOnImport,
-                                                   syncWalletsWithGState,
-                                                   txMempoolToModifier)
+import           Pos.Wallet.Web.Tracking          (CAccModifier (..), CachedCAccModifier,
+                                                   fixCachedAccModifierFor,
+                                                   fixingCachedAccModifier,
+                                                   sortedInsertions, syncWalletOnImport,
+                                                   syncWalletsWithGState)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds, rewrapTxError)
 import           Pos.Web                          (TlsParams, serveImpl)
 
@@ -174,29 +175,6 @@ import           Pos.Web                          (TlsParams, serveImpl)
 -- This constraint used to be abstract (a list of classes), but specifying a
 -- concrete monad is quite likely more performant.
 type WalletWebMode m = m ~ Pos.Wallet.Web.Mode.WalletWebMode
-
-makeLenses ''SyncProgress
-
--- | `txMempoolToModifier`, once evaluated, is passed around under this type in
--- scope of single request.
-type CachedCAccModifier = CAccModifier
-
--- | Evaluates `txMempoolToModifier` and provides result as a parameter
--- to given function.
-fixingCachedAccModifier
-    :: (WalletWebMode m, MonadKeySearch key m)
-    => (CachedCAccModifier -> key -> m a)
-    -> key -> m a
-fixingCachedAccModifier action key =
-    findKey key >>= txMempoolToModifier >>= flip action key
-
-fixCachedAccModifierFor
-    :: (WalletWebMode m, MonadKeySearch key m)
-    => key
-    -> (CachedCAccModifier -> m a)
-    -> m a
-fixCachedAccModifierFor key action =
-    fixingCachedAccModifier (const . action) key
 
 walletServeImpl
     :: WalletWebMode m

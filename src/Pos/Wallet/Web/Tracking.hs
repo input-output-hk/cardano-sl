@@ -31,6 +31,10 @@ module Pos.Wallet.Web.Tracking
        , syncWalletOnImportWebWallet
        , txMempoolToModifierWebWallet
 
+       , CachedCAccModifier
+       , fixingCachedAccModifier
+       , fixCachedAccModifierFor
+
        , getWalletAddrMetasDB
        ) where
 
@@ -89,6 +93,7 @@ import           Pos.Util.Util              (maybeThrow)
 
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Wallet.SscType         (WalletSscType)
+import           Pos.Wallet.Web.Account     (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              CWAddressMeta (..), Wal, addressToCId, aiWId,
                                              encToCId, isTxLocalAddress)
@@ -206,6 +211,28 @@ txMempoolToModifierWebWallet encSK = do
         Just ordered -> pure $
             trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs $
             map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
+
+
+-- | `txMempoolToModifier`, once evaluated, is passed around under this type in
+-- scope of single request.
+type CachedCAccModifier = CAccModifier
+
+-- | Evaluates `txMempoolToModifier` and provides result as a parameter
+-- to given function.
+fixingCachedAccModifier
+    :: (MonadWalletTracking m, MonadKeySearch key m)
+    => (CachedCAccModifier -> key -> m a)
+    -> key -> m a
+fixingCachedAccModifier action key =
+    findKey key >>= txMempoolToModifier >>= flip action key
+
+fixCachedAccModifierFor
+    :: (MonadWalletTracking m, MonadKeySearch key m)
+    => key
+    -> (CachedCAccModifier -> m a)
+    -> m a
+fixCachedAccModifierFor key action =
+    fixingCachedAccModifier (const . action) key
 
 ----------------------------------------------------------------------------
 -- Logic

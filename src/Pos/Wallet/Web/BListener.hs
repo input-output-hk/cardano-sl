@@ -84,7 +84,6 @@ onApplyTracking
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = setLogger $ do
-    logWarning "This is ololo!"
     let oldestFirst = getOldestFirst blunds
         blkTxs = mconcat $ toList oldestFirst <&>
                  \(blk, _) -> sequence (getBlockHeader blk, gbTxs blk)

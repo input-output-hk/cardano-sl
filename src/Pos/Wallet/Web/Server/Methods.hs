@@ -10,115 +10,100 @@ module Pos.Wallet.Web.Server.Methods where
 
 import           Universum
 
-import           Control.Lens               (each, has, ix, traversed)
-import           Control.Monad.Catch        (SomeException, try)
-import qualified Control.Monad.Catch        as E
-import qualified Data.Aeson                 as A
-import           Data.ByteString.Base58     (bitcoinAlphabet, decodeBase58)
-import qualified Data.ByteString.Lazy       as BSL
-import           Data.Default               (Default (def))
-import qualified Data.DList                 as DL
-import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (findIndex, notElem)
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Set                   as S
-import qualified Data.Text.Buildable
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Formatting                 (bprint, build, sformat, shown, stext, (%))
-import qualified Formatting                 as F
-import           Pos.ReportServer.Report    (ReportType (RInfo))
-import qualified Serokell.Util.Base64       as B64
-import           Serokell.Util.Text         (listJson)
-import           Servant.Multipart          (fdFilePath)
-import           System.IO.Error            (isDoesNotExistError)
-import           System.Wlog                (logDebug, logError, logInfo, logWarning)
+import           Control.Lens                 (each, has, ix, traversed)
+import           Control.Monad.Catch          (SomeException, try)
+import qualified Control.Monad.Catch          as E
+import qualified Data.Aeson                   as A
+import           Data.ByteString.Base58       (bitcoinAlphabet, decodeBase58)
+import qualified Data.ByteString.Lazy         as BSL
+import           Data.Default                 (Default (def))
+import qualified Data.DList                   as DL
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.List.NonEmpty           as NE
+import qualified Data.Set                     as S
+import           Data.Time.Clock.POSIX        (getPOSIXTime)
+import           Formatting                   (build, sformat, shown, stext, (%))
+import qualified Formatting                   as F
+import           Pos.ReportServer.Report      (ReportType (RInfo))
+import qualified Serokell.Util.Base64         as B64
+import           Servant.Multipart            (fdFilePath)
+import           System.IO.Error              (isDoesNotExistError)
+import           System.Wlog                  (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Aeson.ClientTypes      ()
-import           Pos.Aeson.WalletBackup     ()
-import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Logic.Util       (withBlkSemaphore_)
-import           Pos.Client.Txp.Balances    (getOwnUtxos)
-import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util        (TxError (..), createMTx, overrideTxDistrBoot,
-                                             overrideTxOutDistrBoot)
-import           Pos.Communication          (SendActions (..), submitMTx,
-                                             submitRedemptionTx)
-import           Pos.Constants              (isDevelopment)
-import           Pos.Core                   (Address (..), Coin, TxFeePolicy (..),
-                                             TxSizeLinear (..), addressF, bvdTxFeePolicy,
-                                             calculateTxSizeLinear, decodeTextAddress,
-                                             getCurrentTimestamp, getTimestamp,
-                                             integerToCoin, makeRedeemAddress, mkCoin,
-                                             sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
-                                             unsafeSubCoin, _RedeemAddress)
-import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, SafeSigner,
-                                             aesDecrypt, changeEncPassphrase,
-                                             checkPassMatches, deriveAesKeyBS,
-                                             emptyPassphrase, fakeSigner, hash, keyGen,
-                                             redeemDeterministicKeyGen, redeemToPublic,
-                                             withSafeSigner, withSafeSigner)
-import           Pos.DB.Class               (gsAdoptedBVData)
-import           Pos.Genesis                (genesisDevHdwSecretKeys)
-import           Pos.Reporting.MemState     (HasReportServers (..),
-                                             HasReportingContext (..))
-import           Pos.Reporting.Methods      (sendReport, sendReportNodeNologs)
-import           Pos.Txp                    (TxFee (..))
-import           Pos.Txp.Core               (TxAux (..), TxOut (..), TxOutAux (..),
-                                             TxOutDistribution)
-import           Pos.Util                   (eitherToThrow, maybeThrow)
-import           Pos.Util.BackupPhrase      (toSeed)
-import qualified Pos.Util.Modifier          as MM
-import           Pos.Util.Servant           (decodeCType, encodeCType)
-import           Pos.Util.UserSecret        (UserSecretDecodingError (..), readUserSecret,
-                                             usWalletSet)
-import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey, getSecretKeys)
-import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers, getBalance,
-                                             getLocalHistory, localChainDifficulty,
-                                             networkChainDifficulty)
-import           Pos.Wallet.Web.Account     (AddrGenSeed, GenSeed (..),
-                                             MonadKeySearch (..), genSaveRootKey,
-                                             genUniqueAccountAddress, genUniqueAccountId,
-                                             getAddrIdx, getSKById)
-import           Pos.Wallet.Web.Backup      (AccountMetaBackup (..), StateBackup (..),
-                                             WalletBackup (..), WalletMetaBackup (..),
-                                             getStateBackup)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccount (..),
-                                             CAccountId (..), CAccountInit (..),
-                                             CAccountMeta (..), CAddress (..), CCoin,
-                                             CElectronCrashReport (..), CId, CInitialized,
-                                             CPaperVendWalletRedeem (..), CProfile,
-                                             CProfile (..), CTx (..), CTxId, CTxMeta (..),
-                                             CTxs (..), CUpdateInfo (..),
-                                             CWAddressMeta (..), CWallet (..),
-                                             CWalletInit (..), CWalletMeta (..),
-                                             CWalletRedeem (..), SyncProgress (..), Wal,
-                                             addrMetaToAccount, cIdToAddress,
-                                             coinFromCCoin, encToCId, mkCCoin, mkCTxs,
-                                             txIdToCTxId)
-import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
-import           Pos.Wallet.Web.Secret      (WalletUserSecret (..),
-                                             mkGenesisWalletUserSecret, wusAccounts,
-                                             wusWalletName)
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever, Existing),
-                                             CustomAddressType (ChangeAddr, UsedAddr),
-                                             addOnlyNewTxMeta, addWAddress, createAccount,
-                                             createWallet, getAccountIds, getAccountMeta,
-                                             getAccountWAddresses, getHistoryCache,
-                                             getNextUpdate, getProfile, getTxMeta,
-                                             getWalletAddresses, getWalletMeta,
-                                             getWalletPassLU, isCustomAddress,
-                                             removeAccount, removeHistoryCache,
-                                             removeNextUpdate, removeTxMetas,
-                                             removeWallet, setAccountMeta, setProfile,
-                                             setWalletMeta, setWalletPassLU,
-                                             setWalletSyncTip, setWalletTxMeta, testReset,
-                                             updateHistoryCache)
-import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifier,
-                                             fixCachedAccModifierFor,
-                                             fixingCachedAccModifier, sortedInsertions,
-                                             syncWalletOnImport)
-import           Pos.Wallet.Web.Util        (getWalletAccountIds, rewrapTxError)
+import           Pos.Aeson.ClientTypes        ()
+import           Pos.Aeson.WalletBackup       ()
+import           Pos.Binary.Class             (biSize)
+import           Pos.Block.Logic.Util         (withBlkSemaphore_)
+import           Pos.Client.Txp.Balances      (getOwnUtxos)
+import           Pos.Client.Txp.History       (TxHistoryEntry (..))
+import           Pos.Client.Txp.Util          (TxError (..), createMTx,
+                                               overrideTxDistrBoot,
+                                               overrideTxOutDistrBoot)
+import           Pos.Communication            (SendActions (..), submitMTx,
+                                               submitRedemptionTx)
+import           Pos.Constants                (isDevelopment)
+import           Pos.Core                     (Coin, TxFeePolicy (..), TxSizeLinear (..),
+                                               addressF, bvdTxFeePolicy,
+                                               calculateTxSizeLinear, decodeTextAddress,
+                                               getCurrentTimestamp, getTimestamp,
+                                               integerToCoin, makeRedeemAddress, mkCoin,
+                                               unsafeAddCoin, unsafeSubCoin,
+                                               _RedeemAddress)
+import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase, SafeSigner,
+                                               aesDecrypt, deriveAesKeyBS,
+                                               emptyPassphrase, fakeSigner, hash, keyGen,
+                                               redeemDeterministicKeyGen, redeemToPublic,
+                                               withSafeSigner, withSafeSigner)
+import           Pos.DB.Class                 (gsAdoptedBVData)
+import           Pos.Genesis                  (genesisDevHdwSecretKeys)
+import           Pos.Reporting.MemState       (HasReportServers (..),
+                                               HasReportingContext (..))
+import           Pos.Reporting.Methods        (sendReport, sendReportNodeNologs)
+import           Pos.Txp                      (TxFee (..))
+import           Pos.Txp.Core                 (TxAux (..), TxOut (..), TxOutAux (..),
+                                               TxOutDistribution)
+import           Pos.Util                     (eitherToThrow, maybeThrow)
+import           Pos.Util.BackupPhrase        (toSeed)
+import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
+                                               readUserSecret, usWalletSet)
+import           Pos.Wallet.KeyStorage        (addSecretKey, deleteSecretKey,
+                                               getSecretKeys)
+import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
+                                               getLocalHistory, localChainDifficulty,
+                                               networkChainDifficulty)
+import           Pos.Wallet.Web.Account       (GenSeed (..), MonadKeySearch (..),
+                                               genSaveRootKey, genUniqueAccountId)
+import           Pos.Wallet.Web.Backup        (AccountMetaBackup (..), StateBackup (..),
+                                               WalletBackup (..), WalletMetaBackup (..),
+                                               getStateBackup)
+import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CAccountId (..),
+                                               CAccountInit (..), CAccountMeta (..),
+                                               CAddress (..), CCoin,
+                                               CElectronCrashReport (..), CId,
+                                               CInitialized, CPaperVendWalletRedeem (..),
+                                               CProfile, CProfile (..), CTx (..), CTxId,
+                                               CTxMeta (..), CTxs (..), CUpdateInfo (..),
+                                               CWAddressMeta (..), CWallet (..),
+                                               CWalletInit (..), CWalletMeta (..),
+                                               CWalletRedeem (..), SyncProgress (..), Wal,
+                                               addrMetaToAccount, encToCId, mkCCoin,
+                                               mkCTxs, txIdToCTxId)
+import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
+import qualified Pos.Wallet.Web.Methods.Logic as L
+import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
+import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
+                                               mkGenesisWalletUserSecret, wusAccounts,
+                                               wusWalletName)
+import           Pos.Wallet.Web.State         (AddressLookupMode (Ever, Existing),
+                                               addOnlyNewTxMeta, createAccount,
+                                               getHistoryCache, getNextUpdate, getProfile,
+                                               getTxMeta, getWalletMeta, removeNextUpdate,
+                                               setProfile, setWalletSyncTip,
+                                               setWalletTxMeta, testReset,
+                                               updateHistoryCache)
+import           Pos.Wallet.Web.Tracking      (fixingCachedAccModifier,
+                                               syncWalletOnImport)
+import           Pos.Wallet.Web.Util          (getWalletAccountIds, rewrapTxError)
 
 
 getUserProfile :: MonadWalletWebMode m => m CProfile
@@ -163,7 +148,7 @@ data MoneySource
 getMoneySourceAddresses :: MonadWalletWebMode m => MoneySource -> m [CWAddressMeta]
 getMoneySourceAddresses (AddressMoneySource addrId) = return $ one addrId
 getMoneySourceAddresses (AccountMoneySource accId) =
-    getAccountAddrsOrThrow Existing accId
+    L.getAccountAddrsOrThrow Existing accId
 getMoneySourceAddresses (WalletMoneySource wid) =
     getWalletAccountIds wid >>=
     concatMapM (getMoneySourceAddresses . AccountMoneySource)
@@ -225,7 +210,7 @@ sendMoney SendActions {..} passphrase moneySource dstDistr = do
         let inputMetas = NE.map fst spendings
         let inpTxOuts = toList $ NE.map snd spendings
         sks <- mapM findKey inputMetas
-        srcAddrs <- forM inputMetas $ decodeCIdOrFail . cwamId
+        srcAddrs <- forM inputMetas $ L.decodeCIdOrFail . cwamId
         let dstAddrs = txOutAddress . toaOut <$> toList outputs
         withSafeSigners passphrase sks $ \ss -> do
             let hdwSigner = NE.zip ss srcAddrs
@@ -286,8 +271,8 @@ prepareTx passphrase moneySource dstDistr = do
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
             relatedWallet <- getSomeMoneySourceAccount moneySource
-            account       <- newAddress RandomSeed passphrase relatedWallet
-            remAddr       <- decodeCIdOrFail (cadId account)
+            account       <- L.newAddress RandomSeed passphrase relatedWallet
+            remAddr       <- L.decodeCIdOrFail (cadId account)
             pure $ Just $ TxOutAux (TxOut remAddr remaining) distr
 
     buildDistribution :: TxRaw -> Text
@@ -339,7 +324,7 @@ data TxRaw
 
 spendings2TxOuts :: MonadThrow m => NonEmpty (CWAddressMeta, Coin) -> m (NonEmpty TxOut)
 spendings2TxOuts spendings = fmap NE.fromList . forM (toList spendings) $ \(cAddr, c) -> do
-    addr <- decodeCIdOrFail $ cwamId cAddr
+    addr <- L.decodeCIdOrFail $ cwamId cAddr
     pure $ TxOut addr c
 
 createFakeTxFromRawTx :: MonadWalletWebMode m => TxRaw -> m TxAux
@@ -377,7 +362,7 @@ prepareTxRaw moneySource dstDistr fee = do
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
         notDstAddrs = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
         coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
-    balancesInps <- mapM getWAddressBalance notDstAddrs
+    balancesInps <- mapM L.getWAddressBalance notDstAddrs
     -- We want to minimise a fee of the transaction,
     -- fee depends on a size of the transaction and
     -- size depends on a number of inputs and outputs.
@@ -391,7 +376,7 @@ prepareTxRaw moneySource dstDistr fee = do
             either (throwM . RequestError) pure =<<
             runExceptT foo
     trOutputsPre <- forM dstDistr $ \(cAddr, coin) -> do
-        addr <- decodeCIdOrFail cAddr
+        addr <- L.decodeCIdOrFail cAddr
         pure $ TxOutAux (TxOut addr coin) []
     trOutputs <- withDistr $ overrideTxDistrBoot trOutputsPre
     remainingDistr <- withDistr $ overrideTxOutDistrBoot remaining []
@@ -399,7 +384,7 @@ prepareTxRaw moneySource dstDistr fee = do
     pure TxRaw{..}
   where
     checkIsNotRedeem cId =
-        whenM (has _RedeemAddress <$> decodeCIdOrFail cId) $
+        whenM (has _RedeemAddress <$> L.decodeCIdOrFail cId) $
             throwM . RequestError $
             sformat ("Destination address can't be redeem address: "%build) cId
 
@@ -457,7 +442,7 @@ withSafeSigners passphrase (sk :| sks) action =
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m ([CTx], Word)
 getFullWalletHistory cWalId = do
-    addrs <- mapM decodeCIdOrFail =<< getWalletAddrs Ever cWalId
+    addrs <- mapM L.decodeCIdOrFail =<< L.getWalletAddrs Ever cWalId
 
     blockHistory <- getHistoryCache cWalId >>= \case
         Just hist -> pure $ DL.fromList hist
@@ -489,7 +474,7 @@ getHistory mCWalId mAccountId mAddrId = do
             accIds' <- getWalletAccountIds cWalId'
             pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, [accId])
-    accAddrs <- map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
+    accAddrs <- map cwamId <$> concatMapM (L.getAccountAddrsOrThrow Ever) accIds
     addrs <- case mAddrId of
         Nothing -> pure accAddrs
         Just addr ->
@@ -538,7 +523,7 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
-    walAddrMetas <- getWalletAddrMetas Ever cWalId
+    walAddrMetas <- L.getWalletAddrMetas Ever cWalId
     mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
 
 
@@ -556,12 +541,12 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} = do
     skey <- genSaveRootKey passphrase cwBackupPhrase
     let cAddr = encToCId skey
 
-    CWallet{..} <- createWalletSafe cAddr cwInitMeta
+    CWallet{..} <- L.createWalletSafe cAddr cwInitMeta
     -- can't return this result, since balances can change
 
     let accMeta = CAccountMeta { caName = "Initial account" }
         accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    () <$ newAccount (DeterminedSeed initialAccAddrIdxs) passphrase accInit
+    () <$ L.newAccount (DeterminedSeed initialAccAddrIdxs) passphrase accInit
 
     return (skey, cAddr)
 
@@ -572,13 +557,13 @@ newWallet passphrase cwInit = do
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
     withBlkSemaphore_ $ \tip -> tip <$ setWalletSyncTip wId tip
-    getWallet wId
+    L.getWallet wId
 
 restoreWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 restoreWallet passphrase cwInit = do
     (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit
     syncWalletOnImport sk
-    getWallet wId
+    L.getWallet wId
 
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
@@ -644,13 +629,13 @@ redeemAdaInternal
 redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
-    accId <- decodeCAccountIdOrFail cAccId
+    accId <- L.decodeCAccountIdOrFail cAccId
     -- new redemption wallet
-    _ <- fixingCachedAccModifier getAccount accId
+    _ <- fixingCachedAccModifier L.getAccount accId
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
-    dstAddr <- decodeCIdOrFail . cadId =<<
-               newAddress RandomSeed passphrase accId
+    dstAddr <- L.decodeCIdOrFail . cadId =<<
+               L.newAddress RandomSeed passphrase accId
     (TxAux {..}, redeemAddress, redeemBalance) <-
         rewrapTxError "Cannot send redemption transaction" $
         submitRedemptionTx enqueueMsg redeemSK dstAddr
@@ -699,8 +684,8 @@ importWallet passphrase (toString -> fp) = do
         readUserSecret fp
     wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
     wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
-    changeWalletPassphrase wId emptyPassphrase passphrase
-    getWallet wId
+    L.changeWalletPassphrase wId emptyPassphrase passphrase
+    L.getWallet wId
   where
     noWalletSecret = RequestError "This key doesn't contain HD wallet info"
     noFile _ = RequestError "File doesn't exist"
@@ -716,7 +701,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
     addSecretKey key
-    importedWallet <- createWalletSafe wid wMeta
+    importedWallet <- L.createWalletSafe wid wMeta
 
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }
@@ -726,7 +711,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
         let accId = AccountId wid walletIndex
-        newAddress (DeterminedSeed accountIndex) passphrase accId
+        L.newAddress (DeterminedSeed accountIndex) passphrase accId
 
     void $ syncWalletOnImport key
 
@@ -785,10 +770,10 @@ restoreWalletFromBackup WalletBackup {..} = do
                     seedGen = DeterminedSeed aIdx
                 accId <- genUniqueAccountId seedGen wId
                 createAccount accId meta
-            void $ createWalletSafe wId wMeta
+            void $ L.createWalletSafe wId wMeta
             void $ syncWalletOnImport wbSecretKey
             -- Get wallet again to return correct balance and stuff
-            Just <$> getWallet wId
+            Just <$> L.getWallet wId
 
 restoreStateFromBackup :: MonadWalletWebMode m => StateBackup -> m [CWallet]
 restoreStateFromBackup (FullStateBackup walletBackups) =

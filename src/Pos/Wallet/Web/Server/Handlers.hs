@@ -13,6 +13,7 @@ import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Wallet.WalletMode         (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account        (GenSeed (RandomSeed))
 import           Pos.Wallet.Web.Api            (WalletApi)
+import qualified Pos.Wallet.Web.Methods        as M
 import           Pos.Wallet.Web.Mode           (MonadWalletWebMode)
 import qualified Pos.Wallet.Web.Server.Methods as M
 import           Pos.Wallet.Web.Tracking       (fixingCachedAccModifier)
@@ -37,7 +38,7 @@ servantHandlers sendActions =
     :<|>
      M.restoreWallet
     :<|>
-     M.renameWSet
+     M.renameWallet
     :<|>
      M.deleteWallet
     :<|>

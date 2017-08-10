@@ -335,7 +335,7 @@ bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
 
     TopologyRelay peers Nothing -> k $ TopologyRelay peers Nothing
     TopologyCore  peers Nothing -> k $ TopologyCore  peers Nothing
-    TopologyBehindNAT domains   -> k $ TopologyBehindNAT domains
+    TopologyBehindNAT v f doms  -> k $ TopologyBehindNAT v f doms
     TopologyLightWallet peers   -> k $ TopologyLightWallet peers
   where
     k topology = action (nc { ncTopology = topology })

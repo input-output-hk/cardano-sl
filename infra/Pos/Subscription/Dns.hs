@@ -20,7 +20,8 @@ import           Pos.Communication.Protocol            (Worker)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
 import           Pos.Network.Types                     (DnsDomains (..), Bucket(..),
                                                         NetworkConfig (..), NodeId (..),
-                                                        NodeType (..), resolveDnsDomains)
+                                                        NodeType (..), resolveDnsDomains,
+                                                        Valency, Fallbacks)
 import           Pos.Slotting                          (MonadSlotsData,
                                                         getLastKnownSlotDuration)
 import           Pos.Subscription.Common
@@ -44,10 +45,15 @@ type KnownRelays = Map NodeId KnownRelay
 activeRelays :: KnownRelays -> [NodeId]
 activeRelays = map fst . filter (relayActive . snd) . M.toList
 
+-- TODO: Use valency and fallbacks
 dnsSubscriptionWorker
     :: forall kademlia m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
-    => NetworkConfig kademlia -> DnsDomains DNS.Domain -> Worker m
-dnsSubscriptionWorker networkCfg dnsDomains sendActions =
+    => NetworkConfig kademlia
+    -> DnsDomains DNS.Domain
+    -> Valency
+    -> Fallbacks
+    -> Worker m
+dnsSubscriptionWorker networkCfg dnsDomains _valency _fallbacks sendActions =
     loop M.empty
   where
     loop :: KnownRelays -> m ()

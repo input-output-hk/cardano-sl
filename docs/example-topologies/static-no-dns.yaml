@@ -1,0 +1,19 @@
+nodes:
+  "node0":
+    type: core
+    region: undefined
+    static-routes: [["node1"], ["node2"]]
+    addr: 127.0.0.1
+    port: 3000
+  "node1":
+    type: core
+    region: undefined
+    static-routes: [["node0"], ["node2"]]
+    addr: 127.0.0.1
+    port: 3001
+  "node2":
+    type: core
+    region: undefined
+    static-routes: [["node0"], ["node1"]]
+    addr: 127.0.0.1
+    # default port

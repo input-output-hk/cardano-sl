@@ -569,6 +569,11 @@ test-suite cardano-test
                        Test.Pos.Lrc.FollowTheSatoshiSpec
                        Test.Pos.Lrc.WorkerSpec
 
+                       -- Txp
+                       Test.Pos.Client.Txp.Mode
+                       Test.Pos.Client.Txp.UtilSpec
+                       Test.Pos.Client.Txp.Util
+
                        -- Everything else
                        Test.Pos.CborSpec
                        Test.Pos.Communication.Identity.BinarySpec

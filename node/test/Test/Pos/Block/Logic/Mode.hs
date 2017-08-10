@@ -19,6 +19,7 @@ module Test.Pos.Block.Logic.Mode
 
        , BlockProperty
        , blockPropertyToProperty
+       , genSuitableStakeDistribution
        ) where
 
 import           Universum
@@ -110,7 +111,6 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- before testing starts.
 data TestParams = TestParams
     { _tpGenesisContext     :: !GenesisContext
-    -- ^ Genesis context.
     , _tpAllSecrets         :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
@@ -166,20 +166,20 @@ instance Arbitrary TestParams where
             toList @(NonEmpty SecretKey) <$>
              -- might have repetitions
             (arbitrary `suchThat` (\l -> length l < 15))
-        let _tpStartTime = fromMicroseconds 0
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let publicKeys = map toPublic (toList invSecretsMap)
         let addresses = map makePubKeyAddressBoot publicKeys
         let invAddrSpendingData =
                 mkInvAddrSpendingData $
                 addresses `zip` (map PubKeyASD publicKeys)
-        let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
         stakeDistribution <-
             genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
         let addrDistribution = [(addresses, stakeDistribution)]
         let _tpGenesisContext =
                 genesisContextImplicit invAddrSpendingData addrDistribution
+        let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
         let _tpStakeDistributions = one stakeDistribution
+        let _tpStartTime = fromMicroseconds 0
         return TestParams {..}
 
 ----------------------------------------------------------------------------

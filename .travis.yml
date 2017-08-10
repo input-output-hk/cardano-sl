@@ -33,10 +33,6 @@ script:
   else
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
-# We build explorer after cardano-sl
-- if [[ "$MODE" == "nix" ]]; then
-    nix-build -A cardano-sl-explorer --no-build-output --keep-going || nix-build -A cardano-sl-explorer -j 1 ;
-  fi
 
 deploy:
   provider: s3

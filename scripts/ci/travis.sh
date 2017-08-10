@@ -35,7 +35,7 @@ if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
 fi
 
-targets="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer"
+targets="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer-static"
 
 # TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times
 # become smaller and allow coverage report to be built.
@@ -67,35 +67,24 @@ done
 
 ./cardano-sl-tools.root/bin/cardano-wallet-hs2purs
 
+# Generate daedalus-bridge
 pushd daedalus
   nix-shell --run "npm install && npm run build:prod"
   echo $TRAVIS_BUILD_NUMBER > build-id
   cp ../log-config-prod.yaml .
 popd
 
+# Generate explorer frontend
+EXPLORER_EXECUTABLE=$(pwd)/cardano-sl-explorer-static.root/bin/cardano-explorer-hs2purs ./explorer/frontend/scripts/build.sh
+
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
+export BUILD_UID="$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}"
+export XZ_OPT=-1 
+
 echo "Packing up daedalus-bridge ..."
-XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}.tar.xz daedalus/
+tar cJf s3/daedalus-bridge-$BUILD_UID.tar.xz daedalus/
 echo "Done"
 
-# For explorer
-$(nix-build -A cardano-sl-explorer --no-build-output --keep-going)/bin/cardano-explorer-hs2purs --bridge-path explorer/frontend/src/Generated/
-echo "Done generating explorer purescript frontend bindings."
-
-pushd explorer
-  pushd frontend
-    nix-shell --run "rm -rf .psci_modules/ .pulp-cache/ node_modules/ bower_components/ output/"
-    nix-shell --run "npm install"
-    nix-shell --run "./scripts/generate-explorer-lenses.sh"
-    nix-shell --run "npm build:prod"
-    echo $TRAVIS_BUILD_NUMBER > build-id
-  popd
-popd
-
-# Alternative from top-level directory
-# nix-shell --run "cd explorer/frontend/ && ./scripts/build-explorer-frontend.sh"
-
-# Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
 echo "Packing up explorer-frontend ..."
-XZ_OPT=-1 tar cJf s3/explorer-frontend-$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}.tar.xz explorer/frontend/
+tar cJf s3/explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
 echo "Done"

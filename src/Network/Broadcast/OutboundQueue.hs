@@ -75,7 +75,6 @@ import Data.Either (rights)
 import Data.Foldable (fold)
 import Data.Maybe (maybeToList)
 import Data.Map.Strict (Map)
-import Data.Set (Set)
 import Data.Text (Text)
 import Data.Time
 import Data.Typeable (typeOf)
@@ -301,9 +300,8 @@ defaultDequeuePolicy NodeEdge = go
 -- consider this node to be a viable alternative again?
 type FailurePolicy nid = NodeType -> MsgType nid -> SomeException -> ReconsiderAfter
 
--- | How long (in sec) after a failure should we reconsider this node again for
--- new messages?
-newtype ReconsiderAfter = ReconsiderAfter Int
+-- | How long after a failure should we reconsider this node again?
+newtype ReconsiderAfter = ReconsiderAfter NominalDiffTime
 
 -- | Default failure policy
 --
@@ -400,8 +398,9 @@ mqDequeue qs notBusy =
 -- | How many messages are in-flight to each destination?
 type InFlight nid = Map nid (Map Precedence Int)
 
--- | Which nodes suffered from a recent communication failure?
-type Failures nid = Set nid
+-- | For each node, its most recent failure and how long we should wait before
+-- trying again
+type Failures nid = Map nid (UTCTime, ReconsiderAfter)
 
 inFlightTo :: Ord nid => nid -> Lens' (InFlight nid) (Map Precedence Int)
 inFlightTo nid = at nid . anon Map.empty Map.null
@@ -489,7 +488,7 @@ new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
     qScheduled <- MQ.new
     qBuckets   <- newMVar Map.empty
     qCtrlMsg   <- newEmptyMVar
-    qFailures  <- newMVar Set.empty
+    qFailures  <- newMVar Map.empty
 
     -- Only look for control messages when the queue is empty
     let checkCtrlMsg :: IO (Maybe CtrlMsg)
@@ -744,20 +743,20 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
         inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n + 1)
       forkThread threadRegistry $ \unmask -> do
         logDebug $ msgSending p
-        (ma, sendExecTime) <- timed $ M.try $ unmask $
-                                sendMsg (packetPayload p) (packetDestId p)
+        ta <- timed $ M.try $ unmask $
+                sendMsg (packetPayload p) (packetDestId p)
         -- TODO: Do we want to acknowledge the send here? Or after we have
         -- reduced qInFlight? The latter is safer (means the next enqueue is
         -- less likely to be rejected because there are no peers available with
         -- a small enough number of messages " ahead ") but it would mean we
         -- can only acknowledge the send after the delay, which seems
         -- undesirable.
-        liftIO $ putMVar (packetSent p) ma
-        unmask $ applyRateLimit qDequeuePolicy (packetDestType p) sendExecTime
-        case ma of
+        liftIO $ putMVar (packetSent p) (timedResult ta)
+        unmask $ applyRateLimit qDequeuePolicy (packetDestType p) (timedDuration ta)
+        case timedResult ta of
           Left err -> do
             logWarning $ msgSendFailed p err
-            intFailure outQ threadRegistry p sendExecTime err
+            intFailure outQ p (timedStart ta) err
           Right _  ->
             return ()
         applyMVar_ qInFlight $
@@ -793,35 +792,37 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
 --
 -- NOTE: Since we don't send messages to nodes listed in failures, we can
 -- assume that there isn't an existing failure here.
-intFailure :: forall m msg nid buck a.
-              OutboundQ msg nid buck
-           -> ThreadRegistry m
+intFailure :: forall m msg nid buck a. MonadIO m
+           => OutboundQ msg nid buck
            -> Packet msg nid a  -- ^ Packet we failed to send
-           -> ExecutionTime     -- ^ How long did the send take?
+           -> UTCTime           -- ^ Time of the send
            -> SomeException     -- ^ The exception thrown by the send action
            -> m ()
-intFailure OutQ{..} threadRegistry@TR{} p sendExecTime err = do
-    applyMVar_ qFailures $ Set.insert (packetDestId p)
-    forkThread threadRegistry $ \unmask -> do
-      -- Negative delay is interpreted as no delay
-      unmask $ liftIO $ threadDelay (delay * 1000000 - sendExecTime)
-      applyMVar_ qFailures $ Set.delete (packetDestId p)
-  where
-    delay :: Int
-    ReconsiderAfter delay =
-      qFailurePolicy (packetDestType p)
-                     (packetMsgType  p)
-                     err
+intFailure OutQ{..} p sendStartTime err = do
+    applyMVar_ qFailures $
+      Map.insert (packetDestId p) (
+          sendStartTime
+        , qFailurePolicy (packetDestType p)
+                         (packetMsgType  p)
+                         err
+        )
 
 hasRecentFailure :: MonadIO m => OutboundQ msg nid buck -> nid -> m Bool
-hasRecentFailure OutQ{..} nid = liftIO $ Set.member nid <$> readMVar qFailures
+hasRecentFailure OutQ{..} nid = do
+    mFailure <- liftIO $ Map.lookup nid <$> readMVar qFailures
+    case mFailure of
+      Nothing ->
+        return False
+      Just (timeOfFailure, ReconsiderAfter n) -> do
+        now <- liftIO $ getCurrentTime
+        return $ now < addUTCTime n timeOfFailure
 
 -- | Reset internal statistics about failed nodes
 --
 -- This is useful when we know for external reasons that nodes may be reachable
 -- again, allowing the outbound queue to enqueue messages to those nodes.
 clearRecentFailures :: MonadIO m => OutboundQ msg nid buck -> m ()
-clearRecentFailures OutQ{..} = applyMVar_ qFailures $ const Set.empty
+clearRecentFailures OutQ{..} = applyMVar_ qFailures $ const Map.empty
 
 {-------------------------------------------------------------------------------
   Public interface to enqueing
@@ -1074,7 +1075,7 @@ updatePeersBucket OutQ{..} buck f = liftIO $
           removed  = peersToSet before Set.\\ peersToSet after
       forM_ removed $ \nid -> do
         applyMVar_ qInFlight $ at nid .~ Nothing
-        applyMVar_ qFailures $ Set.delete nid
+        applyMVar_ qFailures $ Map.delete nid
         MQ.removeAllIn (KeyByDest nid) qScheduled
       return buckets'
   where
@@ -1209,12 +1210,22 @@ applyMVar_ mv f = liftIO $ modifyMVar_ mv $ \a -> return $! f a
 -- | Execution time of an action in microseconds
 type ExecutionTime = Int
 
-timed :: MonadIO m => m a -> m (a, ExecutionTime)
+data Timed a = Timed {
+      timedResult   :: a
+    , timedStart    :: UTCTime
+    , timedDuration :: ExecutionTime
+    }
+
+timed :: MonadIO m => m a -> m (Timed a)
 timed act = do
     before <- liftIO $ getCurrentTime
     a      <- act
     after  <- liftIO $ getCurrentTime
-    return (a, conv (after `diffUTCTime` before))
+    return Timed{
+        timedResult   = a
+      , timedStart    = before
+      , timedDuration = conv (after `diffUTCTime` before)
+      }
   where
     conv :: NominalDiffTime -> ExecutionTime
     conv t = round (realToFrac t * 1000000 :: Double)

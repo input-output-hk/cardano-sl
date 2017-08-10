@@ -42,3 +42,7 @@ HLint.hs                       @neongreen
 
 test/                          @rockbmb
 test/Test/Pos/Block/Logic/     @gromakovsky
+
+# Networking
+infra/Pos/Network              @dcoutts @avieth
+infra/Pos/Subscription         @dcoutts @avieth

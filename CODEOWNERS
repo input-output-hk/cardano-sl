@@ -41,3 +41,4 @@ scripts/build/cardano-sl.sh    @neongreen
 HLint.hs                       @neongreen
 
 test/                          @rockbmb
+test/Test/Pos/Block/Logic/     @gromakovsky

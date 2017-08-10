@@ -86,7 +86,7 @@ genTestParams = do
     let _tpAllSecrets = AllSecrets invSecretsMap
     r <- choose (1000::Word64, 10000)
     -- Total stake inside one group.
-    let totalStakeGroup = (`unsafeMulCoin` baseN) $ mkCoin r
+    let totalStakeGroup = mkCoin r `unsafeMulCoin` baseN
 
     -- It's essential to use 'toList invSecretsMap' instead of
     -- 'secretKeys' here, because we rely on the order further. Later
@@ -98,6 +98,7 @@ genTestParams = do
     let _tpGenesisContext = genesisContextImplicit addressesAndDistrs
     return TestParams {..}
   where
+    -- All stakes are multiples of this constant.
     baseN :: Integral i => i
     baseN = 1000000
     groupsNumber = length allRichmenComponents
@@ -125,8 +126,9 @@ genTestParams = do
             (`unsafeMulCoin` (baseN :: Int)) . mkCoin <$>
             choose (poorStakeN, k1)
         let richStake3 =
-                totalStakeGroup `unsafeSubCoin`
-                (foldr1 unsafeAddCoin [poorStake,richStake1,richStake2])
+                foldl' unsafeSubCoin
+                       totalStakeGroup
+                       [poorStake, richStake1, richStake2]
         let stakes = [poorStake, richStake1, richStake2, richStake3]
         case richStake3 >= thresholdCoin of
             True  -> return (addresses, CustomStakes stakes)

@@ -5,16 +5,15 @@
 
 module Pos.Generator.BlockEvent
        (
-       -- * Util
-         IsBlockEventFailure(..)
        -- * Block apply
-       , BlockApplyResult(..)
+         BlockApplyResult(..)
        , BlockEventApply'(..)
        , BlockEventApply
        , beaInput
        , beaOutValid
        -- * Block rollback
        , BlockRollbackResult(..)
+       , BlockRollbackFailure(..)
        , BlockEventRollback'(..)
        , BlockEventRollback
        , berInput
@@ -222,10 +221,6 @@ genBlocksInStructure secrets annotations s = do
 -- Block event types
 ----------------------------------------------------------------------------
 
--- | Determine whether the result of a block event is an expected failure.
-class IsBlockEventFailure a where
-    isBlockEventFailure :: a -> Bool
-
 data BlockApplyResult
     = BlockApplySuccess
     | BlockApplyFailure {- TODO: attach error info, such as:
@@ -234,11 +229,6 @@ data BlockApplyResult
                             * etc -}
     deriving (Show)
 
-instance IsBlockEventFailure BlockApplyResult where
-    isBlockEventFailure = \case
-        BlockApplyFailure -> True
-        _ -> False
-
 data BlockEventApply' blund = BlockEventApply
     { _beaInput    :: !(OldestFirst NE blund)
     , _beaOutValid :: !BlockApplyResult
@@ -246,24 +236,19 @@ data BlockEventApply' blund = BlockEventApply
 
 makeLenses ''BlockEventApply'
 
-instance IsBlockEventFailure (BlockEventApply' blund) where
-    isBlockEventFailure = isBlockEventFailure . view beaOutValid
-
 type BlockEventApply = BlockEventApply' BlundDefault
+
+-- | The type of failure that we expect from a rollback.
+-- Extend this data type as necessary if you need to check for
+-- other types of failures.
+data BlockRollbackFailure
+    = BlkRbSecurityLimitExceeded
+    deriving (Show)
 
 data BlockRollbackResult
     = BlockRollbackSuccess
-    | BlockRollbackFailure {- TODO: attach error info, such as:
-                                * not enough blocks to rollback
-                                * rollback limit exceeded
-                                * genesis block rollback
-                                * etc -}
+    | BlockRollbackFailure BlockRollbackFailure
     deriving (Show)
-
-instance IsBlockEventFailure BlockRollbackResult where
-    isBlockEventFailure = \case
-        BlockRollbackFailure -> True
-        _ -> False
 
 data BlockEventRollback' blund = BlockEventRollback
     { _berInput    :: !(NewestFirst NE blund)
@@ -271,9 +256,6 @@ data BlockEventRollback' blund = BlockEventRollback
     } deriving (Show, Functor, Foldable)
 
 makeLenses ''BlockEventRollback'
-
-instance IsBlockEventFailure (BlockEventRollback' blund) where
-    isBlockEventFailure = isBlockEventFailure . view berOutValid
 
 type BlockEventRollback = BlockEventRollback' BlundDefault
 
@@ -308,12 +290,6 @@ instance Buildable blund => Buildable (BlockEvent' blund) where
         BlkEvApply ev -> bprint ("Apply blocks: "%listJson) (getOldestFirst $ ev ^. beaInput)
         BlkEvRollback ev -> bprint ("Rollback blocks: "%listJson) (getNewestFirst $ ev ^. berInput)
         BlkEvSnap s -> bprint build s
-
-instance IsBlockEventFailure (BlockEvent' blund) where
-    isBlockEventFailure = \case
-        BlkEvApply    a -> isBlockEventFailure a
-        BlkEvRollback a -> isBlockEventFailure a
-        BlkEvSnap     _ -> False
 
 type BlockEvent = BlockEvent' BlundDefault
 

@@ -257,7 +257,7 @@ slogRollbackBlocks blunds = do
     maxSeenDifficulty <- GS.getMaxSeenDifficulty
     resultingDifficulty <-
         maybe 0 (view difficultyL) <$>
-        blkGetHeader @ssc (NE.head (getNewestFirst blunds) ^. prevBlockL)
+        blkGetHeader @ssc (NE.head (getOldestFirst . toOldestFirst $ blunds) ^. prevBlockL)
     when (maxSeenDifficulty >
           fromIntegral blkSecurityParam + resultingDifficulty) $
         reportFatalError "slogRollbackBlocks: the attempted rollback would \

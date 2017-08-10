@@ -41,7 +41,7 @@ import           Pos.Block.Core                (BiSsc, Block, mainBlockTxPayload
 import           Pos.Block.Core.Genesis.Lens   (genBlockEpoch)
 import           Pos.Block.Core.Main.Lens      (mainBlockSlot)
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
-import           Pos.Core                      (SlotId (..), gbHeader, gbhPrevBlock,
+import           Pos.Core                      (HasCoreConstants, SlotId (..), gbHeader, gbhPrevBlock,
                                                 getSlotIndex, headerHash,
                                                 mkLocalSlotIndex)
 import           Pos.Crypto                    (hash, hashHexF)
@@ -76,11 +76,11 @@ data JLTxR = JLTxR
     } deriving Show
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotId :: MonadError Text m => JLSlotId -> m SlotId
+fromJLSlotId :: (HasCoreConstants, MonadError Text m) => JLSlotId -> m SlotId
 fromJLSlotId (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex sl
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotIdUnsafe :: JLSlotId -> SlotId
+fromJLSlotIdUnsafe :: HasCoreConstants => JLSlotId -> SlotId
 fromJLSlotIdUnsafe x = case fromJLSlotId x of
     Right y -> y
     Left  _ -> error "illegal slot id"
@@ -157,7 +157,7 @@ appendJL path ev = liftIO $ do
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Returns event of created 'Block'.
-jlAdoptedBlock :: SscHelpersClass ssc => Block ssc -> JLEvent
+jlAdoptedBlock :: (HasCoreConstants, SscHelpersClass ssc) => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHeaderHash . headerHash
 
 jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig

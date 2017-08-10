@@ -32,7 +32,7 @@ import           Pos.Block.Core               (Block, BlockSignature (..),
                                                mcdSignature)
 import           Pos.Block.Types              (Blund, Undo (undoDlg))
 import           Pos.Context                  (lrcActionOnEpochReason)
-import           Pos.Core                     (EpochIndex (..), StakeholderId,
+import           Pos.Core                     (HasCoreConstants, EpochIndex (..), StakeholderId,
                                                addressHash, epochIndexL, gbHeader,
                                                gbhConsensus, headerHash, prevBlockL)
 import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
@@ -339,6 +339,7 @@ dlgVerifyBlocks ::
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
        , WithLogger m
+       , HasCoreConstants
        )
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE DlgUndo))

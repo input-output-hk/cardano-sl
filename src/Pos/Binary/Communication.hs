@@ -15,7 +15,7 @@ import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), VerInfo (..))
-import           Pos.Core                         (BlockVersion, HeaderHash)
+import           Pos.Core                         (BlockVersion, HeaderHash, HasCoreConstants)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 
 -- TODO: move into each component
@@ -36,11 +36,11 @@ deriveSimpleBi ''MsgGetBlocks [
         Field [| mgbTo   :: HeaderHash |]
     ]]
 
-instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
+instance (HasCoreConstants, SscHelpersClass ssc) => Bi (MsgHeaders ssc) where
   encode (MsgHeaders b) = encode b
   decode = MsgHeaders <$> decode
 
-instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
+instance (HasCoreConstants, SscHelpersClass ssc) => Bi (MsgBlock ssc) where
   encode (MsgBlock b) = encode b
   decode = MsgBlock <$> decode
 

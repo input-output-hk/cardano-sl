@@ -23,10 +23,8 @@ import qualified Pos.CLI             as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Constants       (isDevelopment)
 import           Pos.Context         (HasNodeContext)
-import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Launcher        (NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, runNode,
-                                      runNodeReal)
+import           Pos.Core            (HasCoreConstants, Timestamp (..), giveStaticConsts)
+import           Pos.Launcher        (NodeParams (..), runNodeReal)
 import           Pos.Security        (SecurityWorkersClass)
 import           Pos.Shutdown        (triggerShutdown)
 import           Pos.Ssc.Class       (SscConstraint, SscParams)
@@ -40,8 +38,8 @@ import           Pos.WorkMode        (RealMode, WorkMode)
 #ifdef WITH_WEB
 import           Pos.Web             (serveWebGT)
 #ifdef WITH_WALLET
-import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
-                                      runWRealMode, walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web      (WalletWebMode, runWalletNodeReal,
+                                      walletServeWebFull, walletServerOuts)
 #endif
 #endif
 
@@ -57,7 +55,7 @@ actionWithoutWallet ::
     => SscParams ssc
     -> NodeParams
     -> Production ()
-actionWithoutWallet sscParams nodeParams = do
+actionWithoutWallet sscParams nodeParams =
     runNodeReal @ssc nodeParams sscParams plugins
   where
     plugins :: ([WorkerSpec (RealMode ssc)], OutSpecs)
@@ -79,20 +77,13 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
 
 actionWithWallet :: SscParams SscGodTossing -> NodeParams -> Args -> Production ()
 actionWithWallet sscParams nodeParams args@Args {..} =
-    bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
-        bracketWalletWS $ \conn -> do
-            bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
-                runWRealMode
-                    db
-                    conn
-                    nr
-                    (runNode @SscGodTossing nr plugins)
+    runWalletNodeReal walletDbPath walletRebuildDb sscParams nodeParams plugins
   where
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
-    plugins :: ([WorkerSpec WalletWebMode], OutSpecs)
+    plugins :: HasCoreConstants => ([WorkerSpec WalletWebMode], OutSpecs)
     plugins = convPlugins (pluginsGT args) <> walletProd args
 
-walletProd :: Args -> ([WorkerSpec WalletWebMode], OutSpecs)
+walletProd :: HasCoreConstants => Args -> ([WorkerSpec WalletWebMode], OutSpecs)
 walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions
@@ -170,6 +161,9 @@ action args@Args {..} = do
 #endif
     case (userWantsWallet, sscParams) of
         (False, Left par)  -> actionWithoutWallet @SscNistBeacon par currentParams
-        (False, Right par) -> actionWithoutWallet @SscGodTossing par currentParams
+        (False, Right par) ->
+            -- TODO: What the heck?!
+            -- @actionWithoutWallet@ requires HasCoreConstants, why?
+            giveStaticConsts (actionWithoutWallet @SscGodTossing par currentParams)
         (True, Left _)     -> logError "Wallet does not support NIST beacon!"
         (True, Right par)  -> actionWithWallet par currentParams args

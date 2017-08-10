@@ -71,7 +71,7 @@ import           Pos.Communication                (OutSpecs, SendActions (..), s
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Context                      (GenesisUtxo)
-import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
+import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..), HasCoreConstants,
                                                    TxSizeLinear (..), addressF,
                                                    bvdTxFeePolicy, calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
@@ -173,7 +173,7 @@ import           Pos.Web                          (TlsParams, serveImpl)
 
 -- This constraint used to be abstract (a list of classes), but specifying a
 -- concrete monad is quite likely more performant.
-type WalletWebMode m = m ~ Pos.Wallet.Web.Mode.WalletWebMode
+type WalletWebMode m = (m ~ Pos.Wallet.Web.Mode.WalletWebMode, HasCoreConstants)
 
 makeLenses ''SyncProgress
 
@@ -184,14 +184,14 @@ type CachedCAccModifier = CAccModifier
 -- | Evaluates `txMempoolToModifier` and provides result as a parameter
 -- to given function.
 fixingCachedAccModifier
-    :: (WalletWebMode m, MonadKeySearch key m)
+    :: (WalletWebMode m, MonadKeySearch key m, HasCoreConstants)
     => (CachedCAccModifier -> key -> m a)
     -> key -> m a
 fixingCachedAccModifier action key =
     findKey key >>= txMempoolToModifier >>= flip action key
 
 fixCachedAccModifierFor
-    :: (WalletWebMode m, MonadKeySearch key m)
+    :: (WalletWebMode m, MonadKeySearch key m, HasCoreConstants)
     => key
     -> (CachedCAccModifier -> m a)
     -> m a
@@ -218,7 +218,8 @@ walletApplication serv = do
 walletServer
     :: forall ctx m.
        ( WalletWebMode m
-       , HasLens GenesisUtxo ctx GenesisUtxo)
+       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasCoreConstants)
     => SendActions m
     -> m (m :~> Handler)
     -> m (Server WalletApi)

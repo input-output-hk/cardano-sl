@@ -17,7 +17,7 @@ import           System.Wlog            (WithLogger)
 
 import           Pos.Context.Context    (GenesisUtxo (..))
 import           Pos.Context.Functions  (genesisUtxoM)
-import           Pos.Core               (HeaderHash)
+import           Pos.Core               (HasCoreConstants, HeaderHash)
 import           Pos.DB.Class           (MonadDB, MonadDBRead)
 import           Pos.DB.GState.Balances (getRealTotalStake)
 import           Pos.DB.GState.Common   (initGStateCommon, isInitialized, setInitialized)
@@ -33,7 +33,10 @@ import           Pos.Update.DB          (initGStateUS)
 -- | Put missing initial data into GState DB.
 prepareGStateDB ::
        forall ctx m.
-       (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m)
+       ( MonadReader ctx m
+       , HasLens GenesisUtxo ctx GenesisUtxo
+       , MonadDB m
+       , HasCoreConstants)
     => HeaderHash
     -> m ()
 prepareGStateDB initialTip = unlessM isInitialized $ do

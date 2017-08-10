@@ -4,20 +4,25 @@ module Pos.Binary.Block.Block
        (
        ) where
 
+import           Universum
+
 import           Pos.Binary.Block.Slog ()
-import           Pos.Binary.Class      (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Class      (Bi (..), encodeListLen, enforceSize)
 import           Pos.Binary.Core       ()
 import           Pos.Binary.Update     ()
-import           Pos.Block.Slog.Types  (SlogUndo)
 import           Pos.Block.Types       (Undo (..))
-import           Pos.Delegation.Types  (DlgUndo)
-import           Pos.Txp.Core.Types    (TxpUndo)
-import           Pos.Update.Poll.Types (USUndo)
+import           Pos.Core.Context      (HasCoreConstants)
 
-deriveSimpleBi ''Undo [
-    Cons 'Undo [
-        Field [| undoTx    :: TxpUndo  |],
-        Field [| undoDlg   :: DlgUndo  |],
-        Field [| undoUS    :: USUndo   |],
-        Field [| undoSlog  :: SlogUndo |]
-    ]]
+instance HasCoreConstants => Bi Undo where
+    encode Undo{..} = encodeListLen 4 <>
+        encode undoTx <>
+        encode undoDlg <>
+        encode undoUS <>
+        encode undoSlog
+    decode = do
+        enforceSize "Undo" 4
+        Undo <$>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode

@@ -29,7 +29,8 @@ import           Pos.Block.Core        (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types       (Blund)
 import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Context.Functions (genesisLeadersM)
-import           Pos.Core              (BlockCount, BlockVersionData, headerHash)
+import           Pos.Core              (BlockCount, BlockVersionData, HasCoreConstants,
+                                        headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
                                         loadBlundsByDepth, loadBlundsWhile,
                                         prepareBlockDB)
@@ -56,6 +57,7 @@ initNodeDBs
        , MonadBlockDBWrite ssc m
        , SscHelpersClass ssc
        , MonadDB m
+       , HasCoreConstants
        )
     => m ()
 initNodeDBs = do

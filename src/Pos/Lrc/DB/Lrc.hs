@@ -9,6 +9,7 @@ import           Universum
 import           Ether.Internal      (HasLens (..))
 
 import           Pos.Context.Context (GenesisUtxo)
+import           Pos.Core            (HasCoreConstants)
 import           Pos.DB.Class        (MonadDB)
 import           Pos.DB.Error        (DBError (..))
 import           Pos.Lrc.DB.Common   (prepareLrcCommon)
@@ -23,6 +24,7 @@ prepareLrcDB
     :: ( MonadReader ctx m
        , HasLens GenesisUtxo ctx GenesisUtxo
        , MonadDB m
+       , HasCoreConstants
        )
     => m ()
 prepareLrcDB = do

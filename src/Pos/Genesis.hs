@@ -33,9 +33,10 @@ import qualified Data.Map.Strict            as M
 import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
-import           Pos.Core                   (Address (..), Coin, SlotLeaders,
-                                             StakeholderId, applyCoinPortionUp,
-                                             coinToInteger, deriveLvl2KeyPair, divCoin,
+import           Pos.Core                   (Address (..), Coin, HasCoreConstants,
+                                             SlotLeaders, StakeholderId,
+                                             applyCoinPortionUp, coinToInteger,
+                                             deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
@@ -174,7 +175,7 @@ genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: GenesisUtxo -> SlotLeaders
+genesisLeaders :: HasCoreConstants => GenesisUtxo -> SlotLeaders
 genesisLeaders (GenesisUtxo utxo) =
     followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
 

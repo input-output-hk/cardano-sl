@@ -15,7 +15,8 @@ import           Serokell.Util.Text    (listJson)
 
 import           Pos.Block.Core        (BiSsc, Block)
 import           Pos.Block.Slog.Types  (SlogUndo (..))
-import           Pos.Core              (HasDifficulty (..), HasHeaderHash (..))
+import           Pos.Core              (HasCoreConstants, HasDifficulty (..),
+                                        HasHeaderHash (..))
 import           Pos.Delegation.Types  (DlgUndo)
 import           Pos.Txp.Core          (TxpUndo)
 import           Pos.Update.Poll.Types (USUndo)
@@ -33,7 +34,7 @@ instance NFData Undo
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)
 
-instance Buildable Undo where
+instance HasCoreConstants => Buildable Undo where
     build Undo{..} =
         bprint ("Undo:\n"%
                 "  undoTx: "%listJson%"\n"%

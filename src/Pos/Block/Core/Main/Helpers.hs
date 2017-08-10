@@ -24,8 +24,8 @@ import           Pos.Block.Core.Main.Types  (MainBlockHeader, MainBlockchain,
 import           Pos.Block.Core.Union.Types (BiHeader, BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), BlockchainHelpers (..),
                                              GenericBlock (..), GenericBlockHeader (..),
-                                             IsMainHeader (..), SlotId (..), epochIndexL,
-                                             gbExtra)
+                                             HasCoreConstants, IsMainHeader (..),
+                                             SlotId (..), epochIndexL, gbExtra)
 import           Pos.Crypto                 (ProxySignature (..), SignTag (..), checkSig,
                                              hash, isSelfSignedPsk, proxyVerify)
 import           Pos.Delegation.Helpers     (dlgVerifyPayload)
@@ -35,6 +35,7 @@ import           Pos.Util.Util              (Some (Some))
 
 instance ( BiHeader ssc
          , SscHelpersClass ssc
+         , HasCoreConstants
          , IsMainHeader (GenericBlockHeader $ MainBlockchain ssc)
          ) =>
          BlockchainHelpers (MainBlockchain ssc) where
@@ -49,7 +50,7 @@ instance ( BiHeader ssc
             throwError "Hash of extra body data is not equal to it's representation in the header."
 
 verifyMainBlockHeader ::
-       (Ssc ssc, MonadError Text m, Bi $ BodyProof $ MainBlockchain ssc)
+       (HasCoreConstants, Ssc ssc, MonadError Text m, Bi $ BodyProof $ MainBlockchain ssc)
     => MainBlockHeader ssc
     -> m ()
 verifyMainBlockHeader mbh = do

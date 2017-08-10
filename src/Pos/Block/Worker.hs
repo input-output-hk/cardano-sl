@@ -27,13 +27,13 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
-import           Pos.Constants               (blkSecurityParam, criticalCQ,
-                                              criticalCQBootstrap, networkDiameter,
-                                              nonCriticalCQ, nonCriticalCQBootstrap)
+import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
+                                              networkDiameter, nonCriticalCQ,
+                                              nonCriticalCQBootstrap)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
-                                              flattenSlotId, gbHeader, getSlotIndex,
-                                              slotIdF)
+                                              blkSecurityParam, flattenSlotId, gbHeader,
+                                              getSlotIndex, slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)

@@ -1,8 +1,11 @@
+{-# LANGUAGE RankNTypes  #-}
+
 -- | Core runtime context.
 
 module Pos.Core.Context
        ( CoreConstants (..)
        , HasCoreConstants
+       , giveStaticConsts
        , ccBlkSecurityParam
        , blkSecurityParam
        , slotSecurityParam
@@ -20,12 +23,13 @@ module Pos.Core.Context
 
 import           Universum
 
-import           Control.Lens     (makeLenses)
-import           Data.Reflection  (Given (..))
+import           Control.Lens       (makeLenses)
+import           Data.Reflection    (Given (..), give)
 
-import           Pos.Core.Address (addressHash, makePubKeyAddress)
-import           Pos.Core.Types   (Address, BlockCount (..), StakeholderId, SlotCount)
-import           Pos.Crypto       (PublicKey, SecretKey, toPublic)
+import           Pos.Core.Address   (addressHash, makePubKeyAddress)
+import           Pos.Core.Types     (Address, BlockCount (..), StakeholderId, SlotCount)
+import           Pos.Crypto         (PublicKey, SecretKey, toPublic)
+import           Pos.Core.Constants (staticBlkSecurityParam)
 
 -- | Core constants. They should be really constant and never change.
 data CoreConstants = CoreConstants
@@ -36,9 +40,11 @@ makeLenses ''CoreConstants
 
 type HasCoreConstants = Given CoreConstants
 
+giveStaticConsts :: (HasCoreConstants => r) -> r
+giveStaticConsts = give (CoreConstants staticBlkSecurityParam)
+
 blkSecurityParam :: HasCoreConstants => BlockCount
 blkSecurityParam = _ccBlkSecurityParam given
-
 
 -- | Security parameter expressed in number of slots. It uses chain
 -- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.

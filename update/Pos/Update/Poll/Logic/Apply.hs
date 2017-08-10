@@ -280,7 +280,7 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
-    :: MonadPoll m
+    :: (HasCoreConstants, MonadPoll m)
     => SlotId -> ChainDifficulty -> HeaderHash -> m ()
 applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData

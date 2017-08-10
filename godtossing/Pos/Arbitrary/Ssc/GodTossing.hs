@@ -23,8 +23,8 @@ import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..)
 import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
-import           Pos.Core                          (EpochIndex, SlotId (..), addressHash,
-                                                    addressHash)
+import           Pos.Core                          (EpochIndex, HasCoreConstants,
+                                                    SlotId (..), addressHash, addressHash)
 import           Pos.Crypto                        (SecretKey, deterministicVssKeyGen,
                                                     toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
@@ -170,7 +170,7 @@ instance Arbitrary GtPayload where
         toCertPair vc = (addressHash $ vcSigningKey vc, vc)
     shrink = genericShrink
 
-instance Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
+instance HasCoreConstants => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
     arbitrary = pure $ SscPayloadDependsOnSlot payloadGen
       where
         payloadGen slot
@@ -192,11 +192,11 @@ instance Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
         toCertPair vc = (addressHash $ vcSigningKey vc, vc)
         genValidCert SlotId{..} (sk, pk) = mkVssCertificate sk pk $ siEpoch + 5
 
-instance Arbitrary VssCertData where
+instance HasCoreConstants => Arbitrary VssCertData where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary GtGlobalState where
+instance HasCoreConstants => Arbitrary GtGlobalState where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 

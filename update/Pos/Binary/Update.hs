@@ -11,14 +11,13 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi, enforceSize,
                                              encodeListLen, decodeListLen)
 import           Pos.Binary.Infra           ()
-import           Pos.Core                   (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, CoinPortion,
+import           Pos.Core                   (HasCoreConstants, BlockVersion,
+                                             Coin, CoinPortion,
                                              EpochIndex, FlatSlotId, HeaderHash,
-                                             NumSoftwareVersion, ScriptVersion, SlotId,
+                                             ScriptVersion,
                                              SoftforkRule, SoftwareVersion, StakeholderId,
                                              TxFeePolicy)
 import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
-import           Pos.Slotting.Types         (SlottingData)
 import qualified Pos.Update.Core.Types      as U
 import qualified Pos.Update.Poll.Types      as U
 
@@ -114,25 +113,34 @@ deriveSimpleBi ''U.VoteState [
     Cons 'U.NegativeRevote []]
 
 instance Bi a => Bi (U.PrevValue a) where
-  encode (U.PrevValue a) = encodeListLen 1 <> encode a
-  encode U.NoExist       = encodeListLen 0
-  decode = do
-    len <- decodeListLen
-    case len of
-      1 -> U.PrevValue <$> decode
-      0 -> pure U.NoExist
-      _ -> fail $ "decode@PrevValue: invalid len: " <> show len
+    encode (U.PrevValue a) = encodeListLen 1 <> encode a
+    encode U.NoExist       = encodeListLen 0
+    decode = do
+        len <- decodeListLen
+        case len of
+            1 -> U.PrevValue <$> decode
+            0 -> pure U.NoExist
+            _ -> fail $ "decode@PrevValue: invalid len: " <> show len
 
-deriveSimpleBi ''U.USUndo [
-    Cons 'U.USUndo [
-        Field [| U.unChangedBV :: HashMap BlockVersion (U.PrevValue U.BlockVersionState)                |],
-        Field [| U.unLastAdoptedBV :: Maybe BlockVersion                                                |],
-        Field [| U.unChangedProps :: HashMap U.UpId (U.PrevValue U.ProposalState)                       |],
-        Field [| U.unChangedSV :: HashMap ApplicationName (U.PrevValue NumSoftwareVersion)              |],
-        Field [| U.unChangedConfProps :: HashMap SoftwareVersion (U.PrevValue U.ConfirmedProposalState) |],
-        Field [| U.unPrevProposers :: Maybe (HashSet StakeholderId)                                     |],
-        Field [| U.unSlottingData :: Maybe SlottingData                                                 |]
-    ]]
+instance HasCoreConstants => Bi U.USUndo where
+    encode U.USUndo{..} = encodeListLen 7 <>
+        encode unChangedBV <>
+        encode unLastAdoptedBV <>
+        encode unChangedProps <>
+        encode unChangedSV <>
+        encode unChangedConfProps <>
+        encode unPrevProposers <>
+        encode unSlottingData
+    decode = do
+        enforceSize "USUndo" 7
+        U.USUndo <$>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode
 
 deriveSimpleBi ''U.UpsExtra [
     Cons 'U.UpsExtra [
@@ -145,31 +153,46 @@ deriveSimpleBi ''U.DpsExtra [
         Field [| U.deImplicit   :: Bool       |]
     ]]
 
-deriveSimpleBi ''U.UndecidedProposalState [
-    Cons 'U.UndecidedProposalState [
-        Field [| U.upsVotes         :: U.StakeholderVotes |],
-        Field [| U.upsProposal      :: U.UpdateProposal   |],
-        Field [| U.upsSlot          :: SlotId             |],
-        Field [| U.upsPositiveStake :: Coin               |],
-        Field [| U.upsNegativeStake :: Coin               |],
-        Field [| U.upsExtra         :: Maybe U.UpsExtra   |]
-    ]]
+instance HasCoreConstants => Bi U.UndecidedProposalState where
+    encode U.UndecidedProposalState{..} = encodeListLen 6 <>
+        encode upsVotes <>
+        encode upsProposal <>
+        encode upsSlot <>
+        encode upsPositiveStake <>
+        encode upsNegativeStake <>
+        encode upsExtra
+    decode = U.UndecidedProposalState <$>
+        decode <*>
+        decode <*>
+        decode <*>
+        decode <*>
+        decode <*>
+        decode
 
-deriveSimpleBi ''U.DecidedProposalState [
-    Cons 'U.DecidedProposalState [
-        Field [| U.dpsDecision   :: Bool                     |],
-        Field [| U.dpsUndecided  :: U.UndecidedProposalState |],
-        Field [| U.dpsDifficulty :: Maybe ChainDifficulty    |],
-        Field [| U.dpsExtra      :: Maybe U.DpsExtra         |]
-    ]]
+instance HasCoreConstants => Bi U.DecidedProposalState where
+    encode U.DecidedProposalState{..} = encodeListLen 4 <>
+        encode dpsDecision <>
+        encode dpsUndecided <>
+        encode dpsDifficulty <>
+        encode dpsExtra
+    decode = U.DecidedProposalState <$>
+        decode <*>
+        decode <*>
+        decode <*>
+        decode
 
-deriveSimpleBi ''U.ProposalState [
-    Cons 'U.PSUndecided [
-        Field [| U.unPSUndecided :: U.UndecidedProposalState |]
-    ],
-    Cons 'U.PSDecided [
-        Field [| U.unPSDecided :: U.DecidedProposalState |]
-    ]]
+instance HasCoreConstants => Bi U.ProposalState where
+    encode U.PSUndecided{..} = encodeListLen 2 <>
+        encode (0 :: Word8) <> encode unPSUndecided
+    encode U.PSDecided{..} = encodeListLen 2 <>
+        encode (1 :: Word8) <> encode unPSDecided
+    decode = do
+        enforceSize "ProposalState" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> U.PSUndecided <$> decode
+            1 -> U.PSDecided <$> decode
+            _ -> fail $ "decode@ProposalState: unknown tag: " <> show tag
 
 deriveSimpleBi ''U.ConfirmedProposalState [
     Cons 'U.ConfirmedProposalState [

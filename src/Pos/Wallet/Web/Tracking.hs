@@ -50,9 +50,9 @@ import qualified Data.Text.Buildable
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, sformat, (%))
 import           Mockable                   (SharedAtomicT)
-import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logDebug, logError, logInfo,
-                                             logWarning)
+import           Serokell.Util              (listJson, listJsonIndent)
+import           System.Wlog                (HasLoggerName, WithLogger, logError, logInfo,
+                                             logWarning, modifyLoggerName)
 
 import           Pos.Block.Core             (BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
@@ -135,20 +135,20 @@ instance Monoid CAccModifier where
 instance Buildable CAccModifier where
     build CAccModifier{..} =
         bprint
-            (    "added addresses: "%listJson
-            %",\n deleted addresses: "%listJson
-            %",\n used addresses: "%listJson
-            %",\n change addresses: "%listJson
-            %",\n local utxo (difference): "%build
-            %",\n added history entries: "%listJson
-            %",\n deleted history entries: "%listJson)
+            ( "\n    added addresses: "%listJsonIndent 8
+            %",\n    deleted addresses: "%listJsonIndent 8
+            %",\n    used addresses: "%listJson
+            %",\n    change addresses: "%listJson
+            %",\n    local utxo (difference): "%build
+            %",\n    added history entries: "%listJsonIndent 8
+            %",\n    deleted history entries: "%listJsonIndent 8)
         (sortedInsertions camAddresses)
         (indexedDeletions camAddresses)
         (map (fst . fst) $ MM.insertions camUsed)
         (map (fst . fst) $ MM.insertions camChange)
         camUtxo
-        (toList camAddedHistory)
-        (toList camDeletedHistory)
+        camAddedHistory
+        camDeletedHistory
 
 type BlockLockMode ssc ctx m =
      ( WithLogger m
@@ -250,14 +250,14 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
                 bh <- unsafeLast . getNewestFirst <$> DB.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
-                logDebug $
+                logInfo $
                     sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
                     (headerHash bh)
                 syncWalletWithGStateUnsafe encSK wTipH bh
                 pure $ Just bh
             else pure wTipH
         withBlkSemaphore_ $ \tip -> do
-            logDebug $ sformat ("Syncing wallet with "%build%" under the block lock") tip
+            logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
             tipH <- maybe (error "Wallet tracking: no block header corresponding to tip") pure =<< DB.blkGetHeader tip
             tip <$ syncWalletWithGStateUnsafe encSK wNewTip tipH
 
@@ -280,7 +280,7 @@ syncWalletWithGStateUnsafe
                                --   Nothing when wallet's tip is genesisHash
     -> BlockHeader ssc         -- ^ GState header hash
     -> m ()
-syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
+syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     systemStart <- getSystemStart
     slottingData <- getSlottingData
 
@@ -309,7 +309,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
         computeAccModifier :: BlockHeader ssc -> m CAccModifier
         computeAccModifier wHeader = do
             allAddresses <- getWalletAddrMetasDB Ever wAddr
-            logDebug $
+            logInfo $
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
             if | diff gstateH > diff wHeader -> do
@@ -329,7 +329,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
                      blunds <- getNewestFirst <$>
                          DB.loadBlundsWhile (\b -> getBlockHeader b /= gstateH) (headerHash wHeader)
                      pure $ foldl' (\r b -> r <> rollbackBlock allAddresses b) mempty blunds
-               | otherwise -> mempty <$ logDebug (sformat ("Wallet "%build%" is already synced") wAddr)
+               | otherwise -> mempty <$ logInfo (sformat ("Wallet "%build%" is already synced") wAddr)
 
     whenNothing_ wTipHeader $ do
         genesisUtxo <- genesisUtxoM
@@ -528,6 +528,9 @@ selectOwnAccounts
     -> [(a, CWAddressMeta)]
 selectOwnAccounts encInfo getAddr =
     mapMaybe (\a -> (a,) <$> decryptAccount encInfo (getAddr a))
+
+setLogger :: HasLoggerName m => m a -> m a
+setLogger = modifyLoggerName (<> "wallet" <> "sync")
 
 insertIMM
     :: (Eq a, Hashable a)

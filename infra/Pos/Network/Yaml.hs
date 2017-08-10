@@ -9,23 +9,23 @@ module Pos.Network.Yaml (
   , NodeName(..)
   , NodeRegion(..)
   , NodeRoutes(..)
-  , NodeAddr(..)
   , NodeMetadata(..)
+  , RunKademlia
   ) where
 
-import           Data.Aeson                            (FromJSON (..), ToJSON (..), (.!=),
-                                                        (.:), (.:?), (.=))
-import qualified Data.Aeson                            as A
-import qualified Data.Aeson.Types                      as A
-import qualified Data.ByteString.Char8                 as BS.C8
-import qualified Data.HashMap.Lazy                     as HM
-import qualified Data.Map.Strict                       as M
+import           Data.Aeson             (FromJSON (..), ToJSON (..), (.!=),
+                                         (.:), (.:?), (.=))
+import qualified Data.Aeson             as A
+import qualified Data.Aeson.Types       as A
+import qualified Data.ByteString.Char8  as BS.C8
+import qualified Data.HashMap.Lazy      as HM
+import qualified Data.Map.Strict        as M
 import           Network.Broadcast.OutboundQueue.Types
-import qualified Network.DNS                           as DNS
+import qualified Network.DNS            as DNS
 import           Pos.Util.Config
 import           Universum
 
-import           Pos.Network.DnsDomains                (DnsDomains (..))
+import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 
 -- | Description of the network topology in a Yaml file
 --
@@ -34,7 +34,7 @@ import           Pos.Network.DnsDomains                (DnsDomains (..))
 -- the topology from the point of view of the current node.
 data Topology =
     TopologyStatic !AllStaticallyKnownPeers
-  | TopologyBehindNAT !DnsDomains
+  | TopologyBehindNAT !(DnsDomains (DNS.Domain))
   | TopologyP2P !Int !Int
   | TopologyTraditional !Int !Int
   deriving (Show)
@@ -54,19 +54,6 @@ newtype NodeRegion = NodeRegion Text
 newtype NodeRoutes = NodeRoutes [[NodeName]]
     deriving (Show)
 
-data NodeAddr =
-    -- | We specify the exact address of this node
-    --
-    -- If port unspecified, use the default.
-    NodeAddrExact ByteString (Maybe Word16)
-
-    -- | Do a DNS lookup to find the node's address
-    --
-    -- If domain unspecified, use the node's name
-    -- If port unspecified, use the default.
-  | NodeAddrDNS (Maybe DNS.Domain) (Maybe Word16)
-  deriving (Show)
-
 data NodeMetadata = NodeMetadata
     { -- | Node type
       nmType    :: !NodeType
@@ -78,9 +65,14 @@ data NodeMetadata = NodeMetadata
     , nmRoutes  :: !NodeRoutes
 
       -- | Address for this node
-    , nmAddress :: !NodeAddr
+    , nmAddress :: !(NodeAddr (Maybe DNS.Domain))
+
+      -- | Should the node register itself with the Kademlia network?
+    , nmKademlia :: !RunKademlia
     }
     deriving (Show)
+
+type RunKademlia = Bool
 
 -- | Parameters for Kademlia, in case P2P or traditional topology are used.
 data KademliaParams = KademliaParams
@@ -170,32 +162,46 @@ instance FromJSON NodeType where
         "relay"    -> return NodeRelay
         _otherwise -> fail $ "Invalid NodeType " ++ show typ
 
-instance FromJSON DnsDomains where
-  parseJSON = fmap (DnsDomains . aux) . parseJSON
+instance FromJSON (DnsDomains DNS.Domain) where
+  parseJSON = fmap DnsDomains . parseJSON
+
+instance FromJSON (NodeAddr DNS.Domain) where
+  parseJSON = A.withObject "NodeAddr" $ extractNodeAddr aux
     where
-      aux :: [[String]] -> [[DNS.Domain]]
-      aux = map (map BS.C8.pack)
+      aux :: Maybe DNS.Domain -> A.Parser DNS.Domain
+      aux Nothing    = fail "Missing domain name or address"
+      aux (Just dom) = return dom
+
+-- Useful when we have a 'NodeAddr' as part of a larger object
+extractNodeAddr :: (Maybe DNS.Domain -> A.Parser a)
+                -> A.Object
+                -> A.Parser (NodeAddr a)
+extractNodeAddr mkA obj = do
+    mAddr <- obj .:? "addr"
+    mHost <- obj .:? "host"
+    mPort <- obj .:? "port"
+    case (mAddr, mHost) of
+      (Just addr, Nothing) -> return $ NodeAddrExact (aux addr) mPort
+      (Nothing,  _)        -> do a <- mkA (aux <$> mHost)
+                                 return $ NodeAddrDNS a mPort
+      (Just _, Just _)     -> fail "Cannot use both 'addr' and 'host'"
+  where
+    aux :: String -> DNS.Domain
+    aux = BS.C8.pack
 
 instance FromJSON NodeMetadata where
   parseJSON = A.withObject "NodeMetadata" $ \obj -> do
-      nmType    <- obj .: "type"
-      nmRegion  <- obj .: "region"
-      nmRoutes  <- obj .: "static-routes"
-      nmAddress <- extractAddress obj
+      nmType     <- obj .: "type"
+      nmRegion   <- obj .: "region"
+      nmRoutes   <- obj .: "static-routes"
+      nmAddress  <- extractNodeAddr return obj
+      nmKademlia <- obj .:? "kademlia" .!= defaultRunKademlia nmType
       return NodeMetadata{..}
-    where
-      extractAddress :: A.Object -> A.Parser NodeAddr
-      extractAddress obj = do
-        mAddr <- obj .:? "addr"
-        mHost <- obj .:? "host"
-        mPort <- obj .:? "port"
-        case (mAddr, mHost) of
-          (Just addr, Nothing) -> return $ NodeAddrExact (aux addr)      mPort
-          (Nothing,  _)        -> return $ NodeAddrDNS   (aux <$> mHost) mPort
-          (Just _, Just _)     -> fail "Cannot use both 'addr' and 'host'"
-
-      aux :: String -> DNS.Domain
-      aux = BS.C8.pack
+   where
+     defaultRunKademlia :: NodeType -> RunKademlia
+     defaultRunKademlia NodeCore  = False
+     defaultRunKademlia NodeRelay = True
+     defaultRunKademlia NodeEdge  = False
 
 instance FromJSON AllStaticallyKnownPeers where
   parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
@@ -228,72 +234,3 @@ instance FromJSON Topology where
 
 instance IsConfig Topology where
   configPrefix = return Nothing
-
-{-------------------------------------------------------------------------------
-  ToJSON instances
--------------------------------------------------------------------------------}
-
-instance ToJSON NodeRegion where
-  toJSON (NodeRegion region) = toJSON region
-
-instance ToJSON NodeName where
-  toJSON (NodeName name) = toJSON name
-
-instance ToJSON NodeRoutes where
-  toJSON (NodeRoutes routes) = toJSON routes
-
-instance ToJSON NodeType where
-  toJSON NodeCore  = toJSON ("core"  :: Text)
-  toJSON NodeEdge  = toJSON ("edge"  :: Text)
-  toJSON NodeRelay = toJSON ("relay" :: Text)
-
-instance ToJSON DnsDomains where
-  toJSON DnsDomains{..} = toJSON $ aux dnsDomains
-    where
-      aux :: [[DNS.Domain]] -> [[String]]
-      aux = map (map BS.C8.unpack)
-
-instance ToJSON NodeMetadata where
-  toJSON NodeMetadata{..} = A.object $ addAddress nmAddress [
-        "type"          .= nmType
-      , "region"        .= nmRegion
-      , "static-routes" .= nmRoutes
-      ]
-    where
-      addAddress :: NodeAddr -> [A.Pair] -> [A.Pair]
-      addAddress (NodeAddrExact addr mPort) = (++) $ concat [
-          [ "host" .= aux addr ]
-        , [ "port" .= p | Just p <- [mPort] ]
-        ]
-      addAddress (NodeAddrDNS mHost mPort) = (++) $ concat [
-          [ "host" .= aux h | Just h <- [mHost] ]
-        , [ "port" .= p     | Just p <- [mPort] ]
-        ]
-
-      aux :: DNS.Domain -> String
-      aux = BS.C8.unpack
-
-instance ToJSON AllStaticallyKnownPeers where
-  toJSON AllStaticallyKnownPeers{..} =
-      A.object (map aux $ M.toList allStaticallyKnownPeers)
-    where
-      aux :: (NodeName, NodeMetadata) -> A.Pair
-      aux (NodeName name, info) = name .= info
-
-instance ToJSON Topology where
-  toJSON (TopologyStatic    nodes)  = A.object [ "nodes"  .= nodes                   ]
-  toJSON (TopologyBehindNAT relays) = A.object [ "relays" .= relays                  ]
-  toJSON (TopologyP2P v f)          = A.object
-      [ "p2p" .= A.object [
-            "variant"   .= ("normal" :: Text)
-          , "valency"   .= v
-          , "fallbacks" .= f
-          ]
-      ]
-  toJSON (TopologyTraditional v f)  = A.object
-      [ "p2p" .= A.object [
-            "variant"   .= ("traditional" :: Text)
-          , "valency"   .= v
-          , "fallbacks" .= f
-          ]
-      ]

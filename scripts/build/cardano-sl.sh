@@ -258,7 +258,14 @@ else
   to_build="cardano-sl-$spec_prj"
 fi
 
+# A warning for invalid flag usage when building explorer. This should not happen.
+if [[ $to_build == *"wallet"* && $wallet == false ]]; then
+  echo "You can't build output with wallet and not use wallet! Invalid flag '--no-wallet'."
+  exit
+fi
+
 echo "Going to build: $to_build"
+echo "'wallet' flag: $wallet"
 
 for prj in $to_build; do
   echo "Building $prj"

@@ -91,7 +91,6 @@ test_script:
       --no-haddock-deps
       --work-dir %STACK_WORK%
       --ghc-options="-DCONFIG=%DCONFIG%"
-      --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode
@@ -108,7 +107,6 @@ test_script:
       --no-haddock-deps
       --work-dir %STACK_WORK%
       --ghc-options="-DCONFIG=%DCONFIG%"
-      --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode

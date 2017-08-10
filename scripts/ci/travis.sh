@@ -79,7 +79,7 @@ XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}.tar.
 echo "Done"
 
 # For explorer
-$(nix-build -A cardano-sl-explorer)/bin/cardano-explorer-hs2purs --bridge-path explorer/frontend/src/Generated/
+$(nix-build -A cardano-sl-explorer --no-build-output --keep-going)/bin/cardano-explorer-hs2purs --bridge-path explorer/frontend/src/Generated/
 echo "Done generating explorer purescript frontend bindings."
 
 pushd explorer

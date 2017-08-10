@@ -327,6 +327,7 @@ library
                         Pos.Wallet.Web.Server.Full
                         Pos.Wallet.Web.Sockets
                         Pos.Wallet.Web.Sockets.Connection
+                        Pos.Wallet.Web.Sockets.Notifier
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.State

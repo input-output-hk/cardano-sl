@@ -37,7 +37,7 @@
     "purescript-aff-promise": "0.4.0",
     "purescript-media-types": "2.0.0",
     "purescript-functions": "2.0.0",
-    "purescript-websocket-simple": "1.0.1",
+    "purescript-websocket-simple": "https://github.com/input-output-hk/purescript-websocket-simple.git#akegalj/remove-browser-support",
     "purescript-refs": "2.0.0",
     "purescript-b64": "^0.0.2",
     "purescript-base58": "https://github.com/input-output-hk/purescript-base58.git",

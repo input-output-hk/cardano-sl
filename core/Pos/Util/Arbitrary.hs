@@ -3,7 +3,7 @@
 module Pos.Util.Arbitrary
        ( Nonrepeating (..)
        , ArbitraryUnsafe (..)
-       , Small (..)
+       , SmallGenerator (..)
        , makeSmall
        , sublistN
        , unsafeMakeList
@@ -40,15 +40,15 @@ makeSmall = scale f
       | otherwise =
           (round . (sqrt @Double) . realToFrac . (`div` 3)) n
 
-newtype Small a = Small
-    { getSmall :: a
+newtype SmallGenerator a = SmallGenerator
+    { getSmallGenerator :: a
     } deriving (Eq, Show)
 
-instance Arbitrary a => Arbitrary (Small a) where
-    arbitrary = Small <$> makeSmall arbitrary
-    shrink = fmap Small . shrink . getSmall
+instance Arbitrary a => Arbitrary (SmallGenerator a) where
+    arbitrary = SmallGenerator <$> makeSmall arbitrary
+    shrink = fmap SmallGenerator . shrink . getSmallGenerator
 
-deriving instance Bi a => Bi (Small a)
+deriving instance Bi a => Bi (SmallGenerator a)
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
 -- there's not enough elements.

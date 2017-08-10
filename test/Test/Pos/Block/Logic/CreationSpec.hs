@@ -33,7 +33,7 @@ import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
-import           Pos.Util                   (Small (..), makeSmall)
+import           Pos.Util                   (SmallGenerator (..), makeSmall)
 
 spec :: Spec
 spec = describe "Block.Logic.Creation" $ do
@@ -112,7 +112,8 @@ spec = describe "Block.Logic.Creation" $ do
         foo $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
 
     genTxAux :: Gen TxAux
-    genTxAux = goodTxToTxAux . getSmall <$> (arbitrary :: Gen (Small GoodTx))
+    genTxAux =
+        goodTxToTxAux . getSmallGenerator <$> (arbitrary :: Gen (SmallGenerator GoodTx))
 
     noSscBlock
         :: Byte

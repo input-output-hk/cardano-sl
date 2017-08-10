@@ -42,7 +42,7 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         verifyTxUtxoPure)
 import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
                                         makeScriptAddress, mkCoin, sumCoins)
-import           Pos.Util              (Small (..), nonrepeating, runGen)
+import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -88,8 +88,8 @@ findTxInUtxo key txO utxo =
         newUtxo = M.insert key txO utxo
     in (isJust $ utxoGet key newUtxo) && (isNothing $ utxoGet key utxo')
 
-verifyTxInUtxo :: Small GoodTx -> Property
-verifyTxInUtxo (Small (GoodTx ls)) =
+verifyTxInUtxo :: SmallGenerator GoodTx -> Property
+verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
     let txs = fmap (view _1) ls
         witness = V.fromList $ toList $ fmap (view _4) ls
         (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
@@ -100,8 +100,8 @@ verifyTxInUtxo (Small (GoodTx ls)) =
         txAux = TxAux newTx witness newDistr
     in qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
 
-badSigsTx :: Small BadSigsTx -> Property
-badSigsTx (Small (getBadSigsTx -> ls)) =
+badSigsTx :: SmallGenerator BadSigsTx -> Property
+badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
     let ((tx@UnsafeTx {..}, distr), utxo, extendedInputs, txWits) =
             getTxFromGoodTx ls
         ctx = VTxContext False
@@ -113,8 +113,8 @@ badSigsTx (Small (getBadSigsTx -> ls)) =
                         (map (fmap snd) extendedInputs))
     in notAllSignaturesAreValid === transactionIsNotVerified
 
-validateGoodTx :: Small GoodTx -> Property
-validateGoodTx (Small (getGoodTx -> ls)) =
+validateGoodTx :: SmallGenerator GoodTx -> Property
+validateGoodTx (SmallGenerator (getGoodTx -> ls)) =
     let quadruple@((tx, dist), utxo, _, txWits) = getTxFromGoodTx ls
         ctx = VTxContext False
         transactionIsVerified =

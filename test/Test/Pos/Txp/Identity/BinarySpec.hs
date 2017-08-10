@@ -13,7 +13,7 @@ import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
 import           Pos.Communication.Relay as R
 import qualified Pos.Txp                 as T
-import           Pos.Util                (Small)
+import           Pos.Util                (SmallGenerator)
 
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
                                           networkBinaryTest)
@@ -32,7 +32,7 @@ spec =
           binaryTest @T.TxSigData
           binaryTest @T.TxAux
           binaryTest @T.TxProof
-          binaryTest @(Small T.TxPayload)
+          binaryTest @(SmallGenerator T.TxPayload)
       describe "Network" $ do
         networkBinaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
         networkBinaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))

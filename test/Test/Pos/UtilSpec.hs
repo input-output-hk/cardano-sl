@@ -16,7 +16,7 @@ import qualified GHC.Exts              as IL (IsList (..))
 
 import           Pos.Binary            (AsBinary)
 import           Pos.Crypto            (PublicKey, Share)
-import           Pos.Util              (Small (..), diffDoubleMap)
+import           Pos.Util              (SmallGenerator (..), diffDoubleMap)
 import           Pos.Util.Chrono       (Chrono (..), NewestFirst (..), OldestFirst (..))
 
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
@@ -91,9 +91,9 @@ spec = describe "Util" $ do
 type HashMapDDM = HashMap PublicKey (HashMap PublicKey (AsBinary Share))
 
 ddmEmptyHashMap
-    :: Small HashMapDDM
+    :: SmallGenerator HashMapDDM
     -> Bool
-ddmEmptyHashMap (Small hm1) =
+ddmEmptyHashMap (SmallGenerator hm1) =
     let ddm = diffDoubleMap
         hasIdentity =
             let id1 = mempty `ddm` hm1
@@ -104,17 +104,17 @@ ddmEmptyHashMap (Small hm1) =
             in inv1 == mempty
     in hasIdentity && hasInverse
 
-doubleDiffDoesNothing :: Small HashMapDDM -> Small HashMapDDM -> Bool
-doubleDiffDoesNothing (Small hm1) (Small hm2) =
+doubleDiffDoesNothing :: SmallGenerator HashMapDDM -> SmallGenerator HashMapDDM -> Bool
+doubleDiffDoesNothing (SmallGenerator hm1) (SmallGenerator hm2) =
     let diff1 = hm1 `diffDoubleMap` hm2
         diff2 = diff1 `diffDoubleMap` hm2
     in diff1 == diff2
 
 verifyMapsAreSubtracted
-    :: Small HashMapDDM
-    -> Small HashMapDDM
+    :: SmallGenerator HashMapDDM
+    -> SmallGenerator HashMapDDM
     -> Bool
-verifyMapsAreSubtracted (Small hm1) (Small hm2) =
+verifyMapsAreSubtracted (SmallGenerator hm1) (SmallGenerator hm2) =
     let diffMap = hm1 `diffDoubleMap` hm2
         checkIsDiff pk innerMap
             | HM.member pk hm1 && HM.member pk hm2 =
@@ -123,10 +123,10 @@ verifyMapsAreSubtracted (Small hm1) (Small hm2) =
     in and $ HM.mapWithKey checkIsDiff diffMap
 
 verifyKeyIsPresent
-    :: Small HashMapDDM
-    -> Small HashMapDDM
+    :: SmallGenerator HashMapDDM
+    -> SmallGenerator HashMapDDM
     -> Bool
-verifyKeyIsPresent (Small hm1) (Small hm2) =
+verifyKeyIsPresent (SmallGenerator hm1) (SmallGenerator hm2) =
     let diffMap = hm1 `diffDoubleMap` hm2
         diffKeys = HM.keys diffMap
         checkKeyIsPresent pk =
@@ -147,10 +147,10 @@ verifyKeyIsPresent (Small hm1) (Small hm2) =
 -- ∃  k : k ∈ hm1 ⋀ k ∈ hm2 ⋀ (hm1 ! k ⋂ hm2 ! k ≠ ∅) ⇒
 -- Σ (| v1 |, v1 ∈ elems(hm1)) > Σ (| v |, v ∈ elems(diffMap))
 verifyDiffMapIsSmaller
-    :: Small HashMapDDM
-    -> Small HashMapDDM
+    :: SmallGenerator HashMapDDM
+    -> SmallGenerator HashMapDDM
     -> Bool
-verifyDiffMapIsSmaller (Small hm1) (Small hm2) =
+verifyDiffMapIsSmaller (SmallGenerator hm1) (SmallGenerator hm2) =
     let diffMap = hm1 `diffDoubleMap` hm2
         innerFun inner1 inner2 = not $ null $ HM.intersection inner1 inner2
         commonKey = HM.filter identity $ HM.intersectionWith innerFun hm1 hm2

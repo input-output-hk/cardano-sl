@@ -401,7 +401,7 @@ spec = describe "Cbor.Bi instances" $ do
                 prop "DataMsg MCVssCertificate" (soundInstanceProperty @(DataMsg MCVssCertificate) Proxy)
                 prop "DHTKey" (soundInstanceProperty @DHTKey Proxy)
                 prop "DHTData" (soundInstanceProperty @DHTData Proxy)
-                prop "MessageName" (soundInstanceProperty @MessageName Proxy)
+                prop "MessageCode" (soundInstanceProperty @MessageCode Proxy)
                 prop "HandlerSpec" (soundInstanceProperty @HandlerSpec Proxy .&&. extensionProperty @HandlerSpec Proxy)
                 prop "VerInfo" (soundInstanceProperty @VerInfo Proxy)
                 prop "DlgPayload" (soundInstanceProperty @DlgPayload Proxy)

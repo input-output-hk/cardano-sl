@@ -15,7 +15,8 @@ import           Universum
 import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (WithLogger, logDebug, logWarning)
+import           System.Wlog                (HasLoggerName (modifyLoggerName), WithLogger,
+                                             logInfo, logWarning)
 
 import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (BlockHeader, blockHeader, getBlockHeader,
@@ -48,13 +49,13 @@ walletGuard ::
     -> m ()
     -> m ()
 walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
-    Nothing -> logWarning $ sformat ("Wallet Tracking: there is no syncTip corresponding to wallet #"%build) wAddr
-    Just WS.NotSynced    -> logDebug $ sformat ("Wallet Tracking: Wallet #"%build%" hasn't been synced yet") wAddr
+    Nothing -> logWarning $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
+    Just WS.NotSynced    -> logInfo $ sformat ("Wallet #"%build%" hasn't been synced yet") wAddr
     Just (WS.SyncedWith wTip)
         | wTip /= curTip ->
-            logDebug $
-                sformat ("Wallet Tracking: skip wallet #"%build
-                        %", because of wallet's tip "%build%" mismatched with current tip") wAddr wTip
+            logWarning $
+                sformat ("Skip wallet #"%build%", because of wallet's tip "%build
+                         %" mismatched with current tip") wAddr wTip
         | otherwise -> action
 
 -- Perform this action under block lock.
@@ -66,7 +67,7 @@ onApplyTracking
     , MonadDBRead m
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
-onApplyTracking blunds = do
+onApplyTracking blunds = setLogger $ do
     let oldestFirst = getOldestFirst blunds
         txsWUndo = concatMap gbTxsWUndo oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
@@ -96,7 +97,7 @@ onApplyTracking blunds = do
         let mapModifier =
                 trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs blkTxsWUndo
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
-        logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
+        logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
     gbTxsWUndo :: Blund ssc -> [(TxAux, TxUndo, BlockHeader ssc)]
     gbTxsWUndo (Left _, _) = []
@@ -115,7 +116,7 @@ onRollbackTracking
     , MonadDBRead m
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
-onRollbackTracking blunds = do
+onRollbackTracking blunds = setLogger $ do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . blundTxUn) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
@@ -134,9 +135,12 @@ onRollbackTracking blunds = do
         let mapModifier = trackingRollbackTxs encSK allAddresses $
                           map (\(aux, undo) -> (aux, undo, newTip)) txs
         rollbackModifierFromWallet wid newTip mapModifier
-        logMsg "rolled back" (getNewestFirst blunds) wid mapModifier
+        logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
     blundTxUn (b, u) = zip (gbTxs b) (undoTx u)
+
+setLogger :: HasLoggerName m => m a -> m a
+setLogger = modifyLoggerName (<> "wallet" <> "blistener")
 
 logMsg
     :: WithLogger m
@@ -146,10 +150,9 @@ logMsg
     -> CAccModifier
     -> m ()
 logMsg action (NE.length -> bNums) wid accModifier =
-    logDebug $
-        sformat ("Wallet Tracking: "%build%" "%build%" block(s) to wallet "
-                %build%", "%build)
-        action bNums wid accModifier
+    logInfo $
+        sformat (build%" "%build%" block(s) to wallet "%build%", "%build)
+             action bNums wid accModifier
 
 catchInSync
     :: (MonadCatch m, WithLogger m)

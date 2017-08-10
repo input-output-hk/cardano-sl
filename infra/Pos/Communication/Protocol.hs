@@ -11,8 +11,7 @@ module Pos.Communication.Protocol
        , mapListener'
        , mapActionSpec
        , Message (..)
-       , MessageName (..)
-       , messageName'
+       , MessageCode
        , worker
        , worker'
        , localWorker
@@ -36,8 +35,7 @@ import           Formatting                       (bprint, build, sformat, (%))
 import           Mockable                         (Delay, Fork, Mockable, Mockables,
                                                    SharedAtomic, Throw, throw)
 import qualified Node                             as N
-import           Node.Message.Class               (Message (..), MessageName (..),
-                                                   messageName')
+import           Node.Message.Class               (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (WithLogger, logWarning)
 import           Universum
@@ -161,10 +159,10 @@ alternativeConversations nid ourVerInfo theirVerInfo convs =
     logOSNR _                                = pure ()
 
     checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
-        checkingOutSpecs (sndMsgName, ConvHandler rcvMsgName) nodeId peerInSpecs conv
+        checkingOutSpecs (sndMsgCode, ConvHandler rcvMsgCode) nodeId peerInSpecs conv
       where
-        sndMsgName = messageName . sndProxy $ fstArg h
-        rcvMsgName = messageName . rcvProxy $ fstArg h
+        sndMsgCode = messageCode . sndProxy $ fstArg h
+        rcvMsgCode = messageCode . rcvProxy $ fstArg h
 
     -- This is kind of last resort, in general we should handle conversation
     --    to be supported by external peer on higher level
@@ -192,8 +190,8 @@ makeSendActions ourVerInfo enqueue converse = SendActions
     }
 
 data SpecError
-    = OutSpecNotReported (MessageName, HandlerSpec)
-    | PeerInSpecNotReported NodeId (MessageName, HandlerSpec)
+    = OutSpecNotReported (MessageCode, HandlerSpec)
+    | PeerInSpecNotReported NodeId (MessageCode, HandlerSpec)
     deriving (Generic, Show)
 
 instance Exception SpecError
@@ -287,7 +285,7 @@ checkingInSpecs
     :: WithLogger m
     => VerInfo
     -> VerInfo
-    -> (MessageName, HandlerSpec)
+    -> (MessageCode, HandlerSpec)
     -> NodeId
     -> m ()
     -> m ()

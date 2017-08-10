@@ -79,20 +79,10 @@ XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}.tar.
 echo "Done"
 
 # For explorer
-pushd explorer
-  # Build the frontend
-  if [ -n "$EXPLORER_NIX_FILE" ]; then
-    $(nix-build -A cardano-sl-explorer $EXPLORER_NIX_FILE)/bin/cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
-  else
-    # stack --nix install happy --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
-    # stack --nix build --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
-    # stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
-    # I presume it's available after the Nix build
-     $(nix-build -A cardano-sl-explorer)/bin/cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
-    # cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
-  fi
-  echo "Done generating explorer purescript frontend bindings."
+$(nix-build -A cardano-sl-explorer)/bin/cardano-explorer-hs2purs --bridge-path explorer/frontend/src/Generated/
+echo "Done generating explorer purescript frontend bindings."
 
+pushd explorer
   pushd frontend
     nix-shell --run "rm -rf .psci_modules/ .pulp-cache/ node_modules/ bower_components/ output/"
     nix-shell --run "npm install"

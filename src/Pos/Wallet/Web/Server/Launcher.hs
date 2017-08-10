@@ -30,7 +30,7 @@ import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
-import           Pos.Wallet.Web.Server.Methods    (servantHandlers)
+import           Pos.Wallet.Web.Server.Handlers   (servantHandlers)
 import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    launchNotifier, upgradeApplicationWS)

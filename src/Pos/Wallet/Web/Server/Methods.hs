@@ -6,9 +6,7 @@
 
 -- | Wallet web server.
 
-module Pos.Wallet.Web.Server.Methods
-       ( addInitialRichAccount
-       ) where
+module Pos.Wallet.Web.Server.Methods where
 
 import           Universum
 
@@ -31,9 +29,7 @@ import qualified Formatting                 as F
 import           Pos.ReportServer.Report    (ReportType (RInfo))
 import qualified Serokell.Util.Base64       as B64
 import           Serokell.Util.Text         (listJson)
-import           Servant.API                ((:<|>) ((:<|>)))
 import           Servant.Multipart          (fdFilePath)
-import           Servant.Server             (ServerT)
 import           System.IO.Error            (isDoesNotExistError)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 
@@ -47,7 +43,7 @@ import           Pos.Client.Txp.Util        (TxError (..), createMTx, overrideTx
                                              overrideTxOutDistrBoot)
 import           Pos.Communication          (SendActions (..), submitMTx,
                                              submitRedemptionTx)
-import           Pos.Constants              (curSoftwareVersion, isDevelopment)
+import           Pos.Constants              (isDevelopment)
 import           Pos.Core                   (Address (..), Coin, TxFeePolicy (..),
                                              TxSizeLinear (..), addressF, bvdTxFeePolicy,
                                              calculateTxSizeLinear, decodeTextAddress,
@@ -76,14 +72,13 @@ import           Pos.Util.Servant           (decodeCType, encodeCType)
 import           Pos.Util.UserSecret        (UserSecretDecodingError (..), readUserSecret,
                                              usWalletSet)
 import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey, getSecretKeys)
-import           Pos.Wallet.WalletMode      (applyLastUpdate, blockchainSlotDuration,
-                                             connectedPeers, getBalance, getLocalHistory,
-                                             localChainDifficulty, networkChainDifficulty)
+import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers, getBalance,
+                                             getLocalHistory, localChainDifficulty,
+                                             networkChainDifficulty)
 import           Pos.Wallet.Web.Account     (AddrGenSeed, GenSeed (..),
                                              MonadKeySearch (..), genSaveRootKey,
                                              genUniqueAccountAddress, genUniqueAccountId,
                                              getAddrIdx, getSKById)
-import           Pos.Wallet.Web.Api         (WalletApi)
 import           Pos.Wallet.Web.Backup      (AccountMetaBackup (..), StateBackup (..),
                                              WalletBackup (..), WalletMetaBackup (..),
                                              getStateBackup)

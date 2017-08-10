@@ -323,6 +323,7 @@ library
                         Pos.Wallet.Web.Error.Util
                         Pos.Wallet.Web.Mode
                         Pos.Wallet.Web.Server
+                        Pos.Wallet.Web.Server.Handlers
                         Pos.Wallet.Web.Server.Launcher
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Runner

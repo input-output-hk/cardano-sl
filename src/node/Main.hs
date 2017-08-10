@@ -9,7 +9,7 @@ module Main
        ( main
        ) where
 
-import           Universum
+import           Universum           hiding (over)
 
 import           Control.Lens        (views)
 import           Data.Maybe          (fromJust)
@@ -25,7 +25,7 @@ import           Pos.Constants       (isDevelopment)
 import           Pos.Context         (HasNodeContext)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Launcher        (NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, hoistNodeResources, runNode,
+                                      bracketNodeResources, runNode,
                                       runNodeReal)
 import           Pos.Security        (SecurityWorkersClass)
 import           Pos.Shutdown        (triggerShutdown)
@@ -36,7 +36,6 @@ import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Update.Context  (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Util.Util       (powerLift)
 import           Pos.WorkMode        (RealMode, WorkMode)
 #ifdef WITH_WEB
 import           Pos.Web             (serveWebGT)
@@ -86,8 +85,8 @@ actionWithWallet sscParams nodeParams args@Args {..} =
                 runWRealMode
                     db
                     conn
-                    (hoistNodeResources powerLift nr)
-                    (runNode @SscGodTossing nrContext plugins)
+                    nr
+                    (runNode @SscGodTossing nr plugins)
   where
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     plugins :: ([WorkerSpec WalletWebMode], OutSpecs)
@@ -99,9 +98,7 @@ walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
         sendActions
         walletDebug
         walletPort
-        walletTLSCertPath
-        walletTLSKeyPath
-        walletTLSCAPath
+        (Just walletTLSParams)
 
 #else
 
@@ -116,7 +113,7 @@ pluginsGT ::
     , HasNodeContext SscGodTossing ctx
     ) => Args -> [m ()]
 pluginsGT Args {..}
-    | enableWeb = [serveWebGT webPort walletTLSCertPath walletTLSKeyPath walletTLSCAPath]
+    | enableWeb = [serveWebGT webPort (Just walletTLSParams)]
     | otherwise = []
 #endif
 
@@ -160,7 +157,6 @@ action args@Args {..} = do
 #else
     putText "Wallet is disabled, because software is built w/o it"
 #endif
-    putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = gtSscParams args vssSK

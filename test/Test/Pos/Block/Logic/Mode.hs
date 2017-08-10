@@ -54,10 +54,6 @@ import qualified Pos.DB.Block                   as DB
 import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
-import           Pos.Discovery                  (DiscoveryContextSum (..),
-                                                 HasDiscoveryContextSum (..),
-                                                 MonadDiscovery (..), findPeersSum,
-                                                 getPeersSum)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..),
                                                  mkInvSecretsMap)
 import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
@@ -65,6 +61,7 @@ import           Pos.Genesis                    (GenesisContext (..), GenesisUtx
                                                  genesisContextImplicit, gtcUtxo,
                                                  gtcWStakeholders)
 import qualified Pos.GState                     as GS
+import           Pos.KnownPeers                 (MonadFormatPeers (..))
 import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),
@@ -231,7 +228,6 @@ data BlockTestContext = BlockTestContext
     -- slot. Otherwise simple slotting is used.
     , btcParams            :: !TestParams
     , btcReportingContext  :: !ReportingContext
-    , btcDiscoveryContext  :: !DiscoveryContextSum
     , btcDelegation        :: !DelegationVar
     }
 
@@ -277,7 +273,6 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcTxpMem <- (, ignoreTxpMetrics) <$> mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings
             let btcReportingContext = emptyReportingContext
-            let btcDiscoveryContext = DCStatic mempty
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
@@ -422,9 +417,6 @@ instance HasLens SimpleSlottingVar BlockTestContext SimpleSlottingVar where
 instance HasReportingContext BlockTestContext where
     reportingContext = btcReportingContext_L
 
-instance HasDiscoveryContextSum BlockTestContext where
-    discoveryContextSum = btcDiscoveryContext_L
-
 instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
@@ -503,6 +495,5 @@ instance MonadBListener BlockTestMode where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
 
-instance MonadDiscovery BlockTestMode where
-    getPeers = getPeersSum
-    findPeers = findPeersSum
+instance MonadFormatPeers BlockTestMode where
+    formatKnownPeers _ = pure Nothing

@@ -28,7 +28,7 @@ import           Pos.Core                   (Address (..), Coin, SlotId (..),
                                              addressDetailedF, coinToInteger,
                                              makePubKeyAddress, sumCoins, unsafeGetCoin,
                                              unsafeIntegerToCoin)
-import           Pos.Crypto                 (SecretKey, SignTag (SignTxIn), WithHash (..),
+import           Pos.Crypto                 (SecretKey, SignTag (SignTx), WithHash (..),
                                              hash, sign, toPublic)
 import           Pos.DB                     (gsIsBootstrapEra)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
@@ -211,7 +211,7 @@ genTxPayload = do
         let resolvedSks = map (resolveSk . txOutAddress) inputsResolved
         let txInsWithSks = NE.fromList $ resolvedSks `zip` txIns
         let mkWit :: SecretKey -> TxSigData -> TxInWitness
-            mkWit sk txSigData = PkWitness (toPublic sk) (sign SignTxIn sk txSigData)
+            mkWit sk txSigData = PkWitness (toPublic sk) (sign SignTx sk txSigData)
         let txAux = makeAbstractTx mkWit txInsWithSks txOutAuxs
         let tx = taTx txAux
         let txId = hash tx

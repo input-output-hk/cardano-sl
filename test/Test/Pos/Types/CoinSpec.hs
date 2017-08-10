@@ -10,9 +10,10 @@ import           Universum
 import           Test.Hspec            (Expectation, Spec, anyErrorCall, describe, it,
                                         shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, (===))
+import           Test.QuickCheck       (Property, (.||.), (===))
 
 import qualified Pos.Arbitrary.Core    as C
+import qualified Pos.Core.Types        as C
 import qualified Pos.Types             as C
 
 import           Test.Pos.Util         (shouldThrowException, (.=.), (>=.))
@@ -25,6 +26,7 @@ spec = describe "Coin properties" $ do
             prop convertingCoinDesc coinToIntegralToCoin
             prop convertingWordDesc wordToCoinToWord
             prop convertingCoinIntegerDesc coinToIntegerToCoin
+            prop overflowInMkCoinErrorDesc overflowInMkCoinError
             prop convertingIntegerDesc integerToCoinToInteger
         describe "unsafeAddcoin" $ do
             prop unsafeAddCoinDesc overflowInSumCausesError
@@ -54,6 +56,7 @@ spec = describe "Coin properties" $ do
     \ changes nothing"
     convertingWordDesc = "Converting a 64-bit word into a coin and this coin to a 64-bit\
     \ word changes nothing"
+    overflowInMkCoinErrorDesc = "Pass to mkCoin more than maxCoinVal coins, mkCoin must call error"
     convertingCoinIntegerDesc = "Converting a coin into an integer and this integer to a\
     \ coin changes nothing"
     convertingIntegerDesc = "Converting a nonnegative integer into a coin and this coin\
@@ -136,7 +139,11 @@ coinToIntegralToCoin :: C.Coin -> Property
 coinToIntegralToCoin = C.mkCoin . C.unsafeGetCoin .=. identity
 
 wordToCoinToWord :: Word64 -> Property
-wordToCoinToWord = C.unsafeGetCoin . C.mkCoin .=. identity
+wordToCoinToWord c = c > C.maxCoinVal .||. C.unsafeGetCoin (C.mkCoin c) === c
+
+overflowInMkCoinError :: Expectation
+overflowInMkCoinError =
+    shouldThrowException C.mkCoin anyErrorCall (C.maxCoinVal + 1)
 
 coinToIntegerToCoin :: C.Coin -> Property
 coinToIntegerToCoin = C.unsafeIntegerToCoin . C.coinToInteger .=. identity

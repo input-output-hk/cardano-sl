@@ -6,9 +6,9 @@ import           Universum
 
 import           Control.Monad         (forM)
 import           Data.List             (intersperse)
-import           Data.String.QQ        (s)
 import           Data.Text             (Text)
 import           Data.Version          (showVersion)
+import           NeatInterpolation     (text)
 import           Options.Applicative   (Parser, execParser, footer, fullDesc, header,
                                         help, helper, info, infoOption, long, metavar,
                                         progDesc, strOption)
@@ -82,7 +82,7 @@ generateDocsChapter helpInfo = mconcat . intersperse doubleNL $
 
 -- | Top section for Markdown chapter.
 topSection :: Markdown
-topSection = [s|
+topSection = [text|
 ---
 layout: default
 title:  Cardano SL CLI Options

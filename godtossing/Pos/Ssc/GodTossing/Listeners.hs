@@ -19,6 +19,7 @@ import           Pos.Binary.Class                      (Bi)
 import           Pos.Binary.Crypto                     ()
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
+import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Communication.Limits.Types        (MessageLimited)
 import           Pos.Communication.MessagePart         (MessagePart)
 import           Pos.Communication.Relay               (DataMsg, InvOrData,
@@ -108,11 +109,12 @@ sscRelay
 sscRelay gtTag contentsToKey toContents processData =
     InvReqData NoMempool $
         InvReqDataParams
-          { contentsToKey = pure . tagWith contentsProxy . contentsToKey
-          , handleInv = sscIsDataUseful gtTag . unTagged
+          { invReqMsgType = MsgMPC
+          , contentsToKey = pure . tagWith contentsProxy . contentsToKey
+          , handleInv = \_ -> sscIsDataUseful gtTag . unTagged
           , handleReq =
-              \(Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
-          , handleData = \dat -> do
+              \_ (Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
+          , handleData = \_ dat -> do
                 let addr = contentsToKey dat
                 -- [CSL-685] TODO: Add here malicious emulation for network
                 -- addresses when TW will support getting peer address

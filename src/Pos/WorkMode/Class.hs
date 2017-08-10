@@ -22,7 +22,6 @@ import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Slog.Types        (HasSlogContext)
-import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
                                               BlockRetrievalQueueTag, HasSscContext,
                                               MonadLastKnownHeader, MonadProgressHeader,
@@ -32,13 +31,15 @@ import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Discovery.Class         (MonadDiscovery)
+import           Pos.DHT.Real.Types          (KademliaDHTInstance)
 import           Pos.Genesis                 (GenesisUtxo, GenesisWStakeholders)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
 import           Pos.Core                    (HasPrimaryKey)
+import           Pos.KnownPeers              (MonadFormatPeers, MonadKnownPeers)
+import           Pos.Network.Types           (NetworkConfig)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
@@ -73,7 +74,6 @@ type WorkMode ssc ctx m
       , MonadSscBlockDB ssc m
       , MonadBlockDBWrite ssc m
       , MonadTxpMem TxpExtra_TMP ctx m
-      , MonadRelayMem ctx m
       , MonadDelegation ctx m
       , MonadSscMem ssc ctx m
       , SscGStateClass ssc
@@ -84,8 +84,9 @@ type WorkMode ssc ctx m
       , MonadProgressHeader ssc ctx m
       , MonadLastKnownHeader ssc ctx m
       , MonadBListener m
-      , MonadDiscovery m
       , MonadReader ctx m
+      , MonadKnownPeers m
+      , MonadFormatPeers m
       , HasLens StartTime ctx StartTime
       , HasLens BlkSemaphore ctx BlkSemaphore
       , HasLens LrcContext ctx LrcContext
@@ -96,6 +97,7 @@ type WorkMode ssc ctx m
       , HasLens GenesisUtxo ctx GenesisUtxo
       , HasLens GenesisWStakeholders ctx GenesisWStakeholders
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
+      , HasLens (NetworkConfig KademliaDHTInstance) ctx (NetworkConfig KademliaDHTInstance)
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx

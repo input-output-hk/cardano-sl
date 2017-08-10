@@ -9,30 +9,32 @@ module NodeOptions
        , getNodeOptions
        ) where
 
-import           Data.String.QQ               (s)
+import           Universum                    hiding (show)
+
 import           Data.Version                 (showVersion)
-import           Options.Applicative.Simple   (Parser, auto, execParser, footerDoc,
+import           NeatInterpolation            (text)
+import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
                                                progDesc, showDefault, strOption, switch,
                                                value)
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
+import qualified Text.Parsec.Char             as P
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.CLI                      as CLI
 import           Pos.Constants                (isDevelopment)
-import           Pos.DHT.Model                (DHTKey)
-import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyOption,
-                                               dhtNetworkAddressOption,
-                                               dhtPeersFileOption)
+import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
+import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Security                 (AttackTarget, AttackType)
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
-import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
+import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
+                                               addressToNodeId)
+import           Pos.Web                      (TlsParams)
 
 data Args = Args
     { dbPath                    :: !FilePath
@@ -48,14 +50,11 @@ data Args = Args
       -- ^ A node may have a bind address which differs from its external
       -- address.
     , supporterNode             :: !Bool
-    , dhtNetworkAddress         :: !NetworkAddress
-    , dhtKey                    :: !(Maybe DHTKey)
-      -- ^ The Kademlia key to use. Randomly generated if Nothing is given.
-    , dhtPeersList              :: ![NetworkAddress]
-      -- ^ A list of initial Kademlia peers to useA.
-    , dhtPeersFile              :: !(Maybe FilePath)
-      -- ^ A file containing a list of Kademlia peers to use.
-    , dhtExplicitInitial        :: !Bool
+    , nodeType                  :: !NodeType
+    , peers                     :: ![(NodeId, NodeType)]
+      -- ^ Known peers (addresses with classification).
+    , networkConfigOpts         :: !NetworkConfigOpts
+      -- ^ Network configuration
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
@@ -63,9 +62,7 @@ data Args = Args
 #ifdef WITH_WEB
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
-    , walletTLSCertPath         :: !FilePath
-    , walletTLSKeyPath          :: !FilePath
-    , walletTLSCAPath           :: !FilePath
+    , walletTLSParams           :: !TlsParams
 #ifdef WITH_WALLET
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
@@ -78,7 +75,6 @@ data Args = Args
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
     , noNTP                     :: !Bool
-    , staticPeers               :: !Bool
     , enableMetrics             :: !Bool
     , ekgParams                 :: !(Maybe EkgParams)
     , statsdParams              :: !(Maybe StatsdParams)
@@ -125,11 +121,9 @@ argsParser = do
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"
-    dhtNetworkAddress <- dhtNetworkAddressOption (Just ("0.0.0.0", 0))
-    dhtKey <- optional dhtKeyOption
-    dhtPeersList <- many addrNodeOption
-    dhtPeersFile <- optional dhtPeersFileOption
-    dhtExplicitInitial <- dhtExplicitInitialOption
+    nodeType <- nodeTypeOption
+    peers <- (++) <$> corePeersList <*> relayPeersList
+    networkConfigOpts <- networkConfigOption
     jlPath <-
         CLI.optionalJSONPath
     maliciousEmulationAttacks <-
@@ -154,21 +148,7 @@ argsParser = do
         help "Activate web API (it’s not linked with a wallet web API)."
     webPort <-
         CLI.webPortOption 8080 "Port for web API."
-    walletTLSCertPath <- strOption $
-        long    "tlscert" <>
-        metavar "FILEPATH" <>
-        value   "server.crt" <>
-        help    "Path to file with TLS certificate"
-    walletTLSKeyPath <- strOption $
-        long    "tlskey" <>
-        metavar "FILEPATH" <>
-        value   "server.key" <>
-        help    "Path to file with TLS key"
-    walletTLSCAPath <- strOption $
-        long    "tlsca" <>
-        metavar "FILEPATH" <>
-        value   "ca.crt" <>
-        help    "Path to file with TLS certificate authority"
+    walletTLSParams <- CLI.tlsParamsOption
 #ifdef WITH_WALLET
     enableWallet <- switch $
         long "wallet" <>
@@ -202,9 +182,6 @@ argsParser = do
     noNTP <- switch $
         long "no-ntp" <>
         help "Whether to use real NTP servers to synchronise time or rely on local time"
-    staticPeers <- switch $
-        long "static-peers" <>
-        help "Don't use Kademlia, use only static peers"
 
     enableMetrics <- switch $
         long "metrics" <>
@@ -214,13 +191,29 @@ argsParser = do
     statsdParams <- optional statsdParamsOption
 
     pure Args{..}
+  where
+    corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
+    relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
 
-addrNodeOption :: Parser NetworkAddress
-addrNodeOption =
-    option (fromParsec addrParser) $
-        long "kademlia-peer" <>
+nodeTypeOption :: Parser NodeType
+nodeTypeOption =
+    option (fromParsec nodeTypeParser) $
+        long "node-type" <>
+        value NodeCore <>
+        metavar "core|relay|edge" <>
+        help "The type of this node (core, relay, edge), default core"
+  where
+    nodeTypeParser =
+            (NodeCore  <$ P.string "core")
+        <|> (NodeRelay <$ P.string "relay")
+        <|> (NodeEdge  <$ P.string "edge")
+
+peerOption :: String -> (NetworkAddress -> (NodeId, NodeType)) -> Parser (NodeId, NodeType)
+peerOption longName mk =
+    option (fromParsec (mk <$> addrParser)) $
+        long longName <>
         metavar "HOST:PORT" <>
-        help "Identifier of a node in a Kademlia network"
+        help "Address of a peer"
 
 getNodeOptions :: IO Args
 getNodeOptions = execParser programInfo
@@ -235,7 +228,7 @@ getNodeOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = Just [s|
+usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
   stack exec -- cardano-node                                             \

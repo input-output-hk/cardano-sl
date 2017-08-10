@@ -15,39 +15,44 @@ module Pos.Reporting.Methods
 
 import           Universum
 
-import           Control.Exception        (ErrorCall (..), SomeException)
-import           Control.Lens             (each, to)
-import           Control.Monad.Catch      (try)
-import           Data.Aeson               (encode)
-import           Data.Bits                (Bits (..))
-import qualified Data.HashMap.Strict      as HM
-import           Data.List                (isSuffixOf)
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Text.IO             as TIO
-import           Data.Time.Clock          (getCurrentTime)
-import           Formatting               (sformat, shown, stext, (%))
-import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
-import           Network.Wreq             (partFile, partLBS, post)
-import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
-import           Serokell.Util.Exceptions (TextException (..))
-import           Serokell.Util.Text       (listBuilderJSON, listJson)
-import           System.Directory         (doesFileExist)
-import           System.FilePath          (takeFileName)
-import           System.Info              (arch, os)
-import           System.IO                (hClose)
-import           System.IO.Temp           (withSystemTempFile)
-import           System.Wlog              (LoggerConfig (..), WithLogger, hwFilePath,
-                                           lcTree, logDebug, logError, logInfo, ltFiles,
-                                           ltSubloggers, retrieveLogContent)
+import           Control.Exception                     (ErrorCall (..), SomeException)
+import           Control.Lens                          (each, to)
+import           Control.Monad.Catch                   (try)
+import           Data.Aeson                            (encode)
+import           Data.Bits                             (Bits (..))
+import qualified Data.HashMap.Strict                   as HM
+import           Data.List                             (isSuffixOf)
+import qualified Data.List.NonEmpty                    as NE
+import qualified Data.Text.IO                          as TIO
+import           Data.Time.Clock                       (getCurrentTime)
+import           Formatting                            (sformat, shown, stext, (%))
+import           Network.HTTP.Client                   (httpLbs, newManager,
+                                                        parseUrlThrow)
+import qualified Network.HTTP.Client.MultipartFormData as Form
+import           Network.HTTP.Client.TLS               (tlsManagerSettings)
+import           Network.Info                          (IPv4 (..), getNetworkInterfaces,
+                                                        ipv4)
+import           Pos.ReportServer.Report               (ReportInfo (..), ReportType (..))
+import           Serokell.Util.Exceptions              (TextException (..))
+import           Serokell.Util.Text                    (listBuilderJSON)
+import           System.Directory                      (doesFileExist)
+import           System.FilePath                       (takeFileName)
+import           System.Info                           (arch, os)
+import           System.IO                             (hClose)
+import           System.Wlog                           (LoggerConfig (..), WithLogger,
+                                                        hwFilePath, lcTree, logDebug,
+                                                        logError, logInfo, ltFiles,
+                                                        ltSubloggers, retrieveLogContent)
 
-import           Paths_cardano_sl_infra   (version)
-import           Pos.Core.Constants       (protocolMagic)
-import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
-import           Pos.Exception            (CardanoFatalError)
-import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
-                                           HasReportingContext (..))
-import           Pos.Util.Util            (maybeThrow)
+import           Paths_cardano_sl_infra                (version)
+import           Pos.Core.Constants                    (protocolMagic)
+import           Pos.Exception                         (CardanoFatalError)
+import           Pos.KnownPeers                        (MonadFormatPeers (..))
+import           Pos.Reporting.Exceptions              (ReportingError (..))
+import           Pos.Reporting.MemState                (HasLoggerConfig (..),
+                                                        HasReportServers (..),
+                                                        HasReportingContext (..))
+import           Pos.Util.Util                         (maybeThrow, withSystemTempFile)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -63,6 +68,7 @@ type MonadReporting ctx m =
        ( MonadIO m
        , MonadMask m
        , MonadReader ctx m
+       , MonadFormatPeers m
        , HasReportingContext ctx
        , WithLogger m
        )
@@ -135,23 +141,23 @@ ipv4Local w =
 
 -- | Retrieves node info that we would like to know when analyzing
 -- malicious behavior of node.
-getNodeInfo :: (MonadIO m, MonadDiscovery m) => m Text
+getNodeInfo :: (MonadIO m, MonadFormatPeers m) => m Text
 getNodeInfo = do
-    peers <- getPeers
+    peersText <- fromMaybe "unknown" <$> formatKnownPeers sformat
     (ips :: [Text]) <-
         map show . filter ipExternal . map ipv4 <$>
         liftIO getNetworkInterfaces
-    pure $ sformat outputF (pretty $ listBuilderJSON ips) peers
+    pure $ sformat outputF (pretty $ listBuilderJSON ips) peersText
   where
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
-    outputF = ("{ nodeParams: '"%stext%"', otherNodes: "%listJson%" }")
+    outputF = ("{ nodeParams: '"%stext%"', peers: '"%stext%"' }")
 
 
 -- | Reports misbehaviour given reason string. Effectively designed
 -- for 'WorkMode' context.
 reportMisbehaviour
-    :: (MonadReporting ctx m, MonadDiscovery m)
+    :: (MonadReporting ctx m)
     => Bool -> Text -> m ()
 reportMisbehaviour isCritical reason = do
     logError $ "Reporting misbehaviour \"" <> reason <> "\""
@@ -164,7 +170,7 @@ reportMisbehaviour isCritical reason = do
 -- FIXME catch and squelch *all* exceptions? Probably a bad idea.
 -- | Report misbehaviour, but catch all errors inside
 reportMisbehaviourSilent
-    :: forall ctx m . (MonadReporting ctx m, MonadDiscovery m)
+    :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Text -> m ()
 reportMisbehaviourSilent isCritical reason =
     reportMisbehaviour isCritical reason `catch` handler
@@ -179,7 +185,7 @@ reportMisbehaviourSilent isCritical reason =
 -- happens and rethrow. Errors related to reporting itself are caught,
 -- logged and ignored.
 reportingFatal
-    :: forall ctx m a . (MonadReporting ctx m, MonadDiscovery m)
+    :: forall ctx m a . (MonadReporting ctx m)
     => m a -> m a
 reportingFatal action =
     action `catch` handler1 `catch` handler2
@@ -232,17 +238,25 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
     withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
         for_ rawLogs $ TIO.hPutStrLn tempHandle
         hClose tempHandle
+        rq0 <- parseUrlThrow $ reportServerUri <//> "report"
         let memlogFiles = bool [tempFp] [] (null rawLogs)
         let memlogPart = map partFile' memlogFiles
         let pathsPart = map partFile' existingFiles
         let payloadPart =
-                partLBS "payload"
+                Form.partLBS "payload"
                 (encode $ reportInfo curTime $ existingFiles ++ memlogFiles)
-        e <- try $ liftIO $ post (reportServerUri <//> "report") $
-             payloadPart : (memlogPart ++ pathsPart)
+        -- If performance will ever be a concern, moving to a global manager
+        -- should help a lot.
+        reportManager <- newManager tlsManagerSettings
+
+        -- Assemble the `Request` out of the Form data.
+        rq <- Form.formDataBody (payloadPart : (memlogPart ++ pathsPart)) rq0
+
+        -- Actually perform the HTTP `Request`.
+        e  <- try $ httpLbs rq reportManager
         whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
-    partFile' fp = partFile (toFileName fp) fp
+    partFile' fp = Form.partFile (toFileName fp) fp
     toFileName = toText . takeFileName
     reportInfo curTime files =
         ReportInfo

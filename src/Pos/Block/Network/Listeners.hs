@@ -30,7 +30,7 @@ import           Pos.WorkMode.Class         (WorkMode)
 blockListeners
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => MkListeners m
-blockListeners = constantListeners
+blockListeners = constantListeners $
     [ handleGetHeaders
     , handleGetBlocks
     , handleBlockHeaders

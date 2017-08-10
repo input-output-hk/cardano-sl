@@ -8,30 +8,34 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet      as CC
-import qualified Crypto.ECC.Edwards25519    as Ed25519
-import           Crypto.Hash                (digestFromByteString)
-import qualified Crypto.PVSS                as Pvss
-import qualified Crypto.Sign.Ed25519        as EdStandard
-import qualified Data.ByteArray             as ByteArray
-import qualified Data.ByteString            as BS
-import           Data.SafeCopy              (SafeCopy (..))
-import           Formatting                 (int, sformat, (%))
+import qualified Cardano.Crypto.Wallet    as CC
+import qualified Crypto.ECC.Edwards25519  as Ed25519
+import           Crypto.Hash              (digestFromByteString)
+import qualified Crypto.PVSS              as Pvss
+import qualified Crypto.Sign.Ed25519      as EdStandard
+import qualified Data.ByteArray           as ByteArray
+import qualified Data.ByteString          as BS
+import           Data.SafeCopy            (SafeCopy (..))
+import           Formatting               (int, sformat, (%))
+import           Pos.Crypto.AsBinary      (encShareBytes, secretBytes, secretProofBytes,
+                                           shareBytes, vssPublicKeyBytes)
 
-import           Pos.Binary.Class           (AsBinary (..), Bi (..), encodeBinary, decodeBinary, getCopyBi, putCopyBi,
-                                            encodeListLen, enforceSize)
-import           Pos.Crypto.Hashing         (AbstractHash (..), HashAlgorithm,
-                                             WithHash (..), withHash)
-import           Pos.Crypto.HD              (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning   (RedeemPublicKey (..), RedeemSecretKey (..),
-                                             RedeemSignature (..))
-import           Pos.Crypto.SafeSigning     (EncryptedSecretKey (..), PassPhrase)
-import           Pos.Crypto.SecretSharing   (EncShare (..), Secret (..), SecretProof (..),
-                                             SecretSharingExtra (..), Share (..),
-                                             VssKeyPair (..), VssPublicKey (..))
-import           Pos.Crypto.Signing         (ProxyCert (..), ProxySecretKey (..),
-                                             ProxySignature (..), PublicKey (..),
-                                             SecretKey (..), Signature (..), Signed (..))
+import           Pos.Binary.Class         (AsBinary (..), Bi (..), decodeBinary,
+                                           encodeBinary, encodeListLen, enforceSize,
+                                           getCopyBi, putCopyBi)
+import           Pos.Crypto.Hashing       (AbstractHash (..), HashAlgorithm,
+                                           WithHash (..), withHash)
+import           Pos.Crypto.HD            (HDAddressPayload (..))
+import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
+                                           RedeemSignature (..))
+import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase,
+                                           passphraseLength)
+import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
+                                           SecretSharingExtra (..), Share (..),
+                                           VssKeyPair (..), VssPublicKey (..))
+import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
+                                           ProxySignature (..), PublicKey (..),
+                                           SecretKey (..), Signature (..), Signed (..))
 
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
@@ -45,7 +49,7 @@ instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
 -- Hashing
 ----------------------------------------------------------------------------
 
-instance HashAlgorithm algo => Bi (AbstractHash algo a) where
+instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash algo a) where
     encode (AbstractHash digest) = encode (ByteArray.convert digest :: ByteString)
     decode = do
         bs <- decode @ByteString
@@ -87,29 +91,40 @@ instance Bi SecretSharingExtra where
           <*> decode
           <*> decode
 
-deriving instance Bi (AsBinary SecretSharingExtra)
-
 ----------------------------------------------------------------------------
 -- SecretSharing AsBinary
 ----------------------------------------------------------------------------
 
-#define BiMacro(B) \
+-- !A note about these instances! --
+--
+-- For most of the secret sharing types the only check we do during
+-- deserialization is length check. As long as length matches our
+-- expectations, the decoding succeeds (look at 'Binary' instances in
+-- 'pvss') which in turn means that we can use 'fromBinary' and be
+-- quite sure it will succeed. That's why it's important to check
+-- length here (this check is cheap, so it's good to do it as soon as
+-- possible). The only exception is 'SecretSharingExtra' (because we
+-- don't know its length in advance). Currently we check that
+-- 'SecretSharingExtra' can be parsed in 'verifyCommitment' function.
+--
+#define BiMacro(B, BYTES) \
   instance Bi (AsBinary B) where {\
     encode (AsBinary bs) = encode bs ;\
-    decode = AsBinary <$> decode}; \
+    decode = do { bs <- decode \
+                ; when (BYTES /= length bs) (fail $ "AsBinary B: length mismatch!") \
+                ; return (AsBinary bs) } }; \
 
-BiMacro(VssPublicKey)
-BiMacro(Secret)
-BiMacro(Share)
-BiMacro(EncShare)
-BiMacro(SecretProof)
+BiMacro(VssPublicKey, vssPublicKeyBytes)
+BiMacro(Secret, secretBytes)
+BiMacro(Share, shareBytes)
+BiMacro(EncShare, encShareBytes)
+BiMacro(SecretProof, secretProofBytes)
+
+deriving instance Bi (AsBinary SecretSharingExtra)
 
 ----------------------------------------------------------------------------
 -- Signing
 ----------------------------------------------------------------------------
-
-passphraseLength :: Int
-passphraseLength = 32
 
 instance Bi Ed25519.PointCompressed where
   encode (Ed25519.unPointCompressed -> k) = encode k
@@ -139,7 +154,7 @@ instance Bi CC.XSignature where
     encode (CC.unXSignature -> bs) = encode bs
     decode = either fail pure . CC.xsignature =<< decode
 
-deriving instance Bi (Signature a)
+deriving instance Typeable a => Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey
 
@@ -161,7 +176,7 @@ instance Bi a => Bi (Signed a) where
          <*> decode
          <*> decode
 
-deriving instance Bi (ProxyCert w)
+deriving instance Typeable w => Bi (ProxyCert w)
 
 instance Bi w => Bi (ProxySecretKey w) where
     encode ProxySecretKey{..} = encodeListLen 4
@@ -175,7 +190,7 @@ instance Bi w => Bi (ProxySecretKey w) where
                             <*> decode
                             <*> decode
 
-instance Bi w => Bi (ProxySignature w a) where
+instance (Typeable a, Bi w) => Bi (ProxySignature w a) where
     encode ProxySignature{..} = encodeListLen 2
                              <> encode psigPsk
                              <> encode psigSig
@@ -189,7 +204,7 @@ instance Bi PassPhrase where
     decode = do
         bs <- decode @ByteString
         let bl = BS.length bs
-        -- Currently passphrase may be 32-byte long, or empty (for
+        -- Currently passphrase may be either 32-byte long or empty (for
         -- unencrypted keys).
         if bl == 0 || bl == passphraseLength
             then pure $ ByteArray.convert bs
@@ -223,4 +238,4 @@ instance Bi EdStandard.Signature where
 
 deriving instance Bi RedeemPublicKey
 deriving instance Bi RedeemSecretKey
-deriving instance Bi (RedeemSignature a)
+deriving instance Typeable a => Bi (RedeemSignature a)

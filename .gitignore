@@ -44,6 +44,9 @@ GRTAGS
 GPATH
 TAGS
 
+# Vim
+tags
+
 # Intellij Idea & intellij-haskell
 .idea
 .ideaHaskellLib
@@ -52,3 +55,9 @@ TAGS
 # Misc
 .DS_Store
 *.swp
+
+# Compiled-scripts cruft
+scripts/haskell/dependencies.hs
+scripts/haskell/dependencies.hi
+scripts/haskell/dependencies.o
+scripts/haskell/dependencies

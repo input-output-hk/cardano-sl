@@ -24,16 +24,17 @@ module Pos.Launcher.Resource
 import           Universum                  hiding (bracket, finally)
 
 import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
-import           Data.Tagged                (untag)
+import           Data.Tagged                 (untag)
 import qualified Data.Time                  as Time
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Catch, Mockable, Production (..), Throw,
-                                             bracket, throw)
+                                             throw, Bracket, bracket, MonadMockable)
 import           Network.QDisc.Fair         (fairQDisc)
-import           Network.Transport.Abstract (Transport, closeTransport, hoistTransport)
+import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
-import           System.IO                  (Handle, hClose)
+import qualified Network.Transport          as NT (closeTransport)
+import           System.IO                  (Handle, hClose, hSetBuffering, BufferMode (..))
 import qualified System.Metrics             as Metrics
 import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
                                              getLoggerName, logError, productionB,
@@ -53,10 +54,10 @@ import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
-import           Pos.Discovery              (DiscoveryContextSum (..))
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
-                                             NetworkParams (..), NodeParams (..))
+                                             TransportParams (..), NodeParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
+import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
 import           Pos.Shutdown.Types         (ShutdownContext (..))
 import           Pos.Slotting               (SlottingContextSum (..), SlottingData,
                                              mkNtpSlottingVar, mkSimpleSlottingVar)
@@ -70,13 +71,12 @@ import           Pos.Explorer               (explorerTxpGlobalSettings)
 #else
 import           Pos.Txp                    (txpGlobalSettings)
 #endif
+
 import           Pos.Launcher.Mode          (InitMode, InitModeContext (..),
                                              newInitFuture, runInitMode)
 import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
-import           Pos.Util.Util              (powerLift)
-import           Pos.Worker                 (allWorkersCount)
 import           Pos.WorkMode               (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -113,12 +113,19 @@ hoistNodeResources nat nr =
 
 -- | Allocate all resources used by node. They must be released eventually.
 allocateNodeResources
-    :: forall ssc.
-      (SscConstraint ssc, SecurityWorkersClass ssc)
-    => NodeParams
+    :: forall ssc m.
+       ( SscConstraint ssc
+       , SecurityWorkersClass ssc
+       , WithLogger m
+       , MonadIO m
+       , MonadMockable m
+       )
+    => Transport m
+    -> NetworkConfig KademliaDHTInstance
+    -> NodeParams
     -> SscParams ssc
-    -> Production (NodeResources ssc Production)
-allocateNodeResources np@NodeParams {..} sscnp = do
+    -> Production (NodeResources ssc m)
+allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
     db <- openNodeDBs npRebuildDb npDbPathM
     (futureLrcContext, putLrcContext) <- newInitFuture
     (futureSlottingVar, putSlottingVar) <- newInitFuture
@@ -134,17 +141,20 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             futureLrcContext
     runInitMode initModeContext $ do
         initNodeDBs @ssc
-        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
+        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting networkConfig
         putLrcContext ncLrcContext
         setupLoggers $ bpLoggingParams npBaseParams
         dlgVar <- mkDelegationVar @ssc
         txpVar <- mkTxpLocalData
         sscState <- mkSscState @ssc
-        nrTransport <- powerLift @Production $ createTransportTCP $ npTcpAddr npNetwork
+        let nrTransport = transport
         nrJLogHandle <-
             case npJLFile of
                 Nothing -> pure Nothing
-                Just fp -> Just <$> openFile fp WriteMode
+                Just fp -> do
+                    h <- openFile fp WriteMode
+                    liftIO $ hSetBuffering h NoBuffering
+                    return $ Just h
 
         -- EKG monitoring stuff.
         --
@@ -172,24 +182,31 @@ allocateNodeResources np@NodeParams {..} sscnp = do
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
        forall ssc m. (SscConstraint ssc, MonadIO m)
-    => NodeResources ssc m -> m ()
+    => NodeResources ssc m -> Production ()
 releaseNodeResources NodeResources {..} = do
     releaseAllHandlers
     whenJust nrJLogHandle (liftIO . hClose)
     closeNodeDBs nrDBs
     releaseNodeContext nrContext
-    closeTransport nrTransport
 
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.
-bracketNodeResources :: forall ssc a.
-      (SscConstraint ssc, SecurityWorkersClass ssc)
+bracketNodeResources :: forall ssc m a.
+      ( SscConstraint ssc
+      , SecurityWorkersClass ssc
+      , WithLogger m
+      , MonadIO m
+      , MonadMockable m
+      )
     => NodeParams
     -> SscParams ssc
-    -> (NodeResources ssc Production -> Production a)
+    -> (NodeResources ssc m -> Production a)
     -> Production a
-bracketNodeResources np sp =
-    bracket (allocateNodeResources np sp) releaseNodeResources
+bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
+    bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
+        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources k
+  where
+    tcpAddr = tpTcpAddr (npTransport np)
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -220,16 +237,12 @@ allocateNodeContext
     => NodeParams
     -> SscParams ssc
     -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
+    -> NetworkConfig KademliaDHTInstance
     -> InitMode ssc (NodeContext ssc)
-allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
+allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
-    ncDiscoveryContext <-
-        case npDiscovery npNetwork of
-            Left peers -> pure (DCStatic peers)
-            Right kadParams ->
-                DCKademlia <$> createKademliaInstance npBaseParams kadParams
     ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar
     ncSlottingContext <-
         case npUseNTP of
@@ -238,7 +251,6 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     putSlotting ncSlottingVar ncSlottingContext
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize
-    ncInvPropagationQueue <- liftIO $ newTBQueueIO Const.propagationQueueSize
     ncRecoveryHeader <- liftIO newEmptyTMVarIO
     ncProgressHeader <- liftIO newEmptyTMVarIO
     ncShutdownFlag <- newTVarIO False
@@ -261,18 +273,14 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
 #else
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
+            , ncNetworkConfig = networkConfig
             , ..
             }
-    -- This queue won't be used.
-    fakeQueue <- liftIO (newTBQueueIO 100500)
-    let allWorkersNum = allWorkersCount @ssc (ctx fakeQueue)
-    ctx <$> liftIO (newTBQueueIO allWorkersNum)
+    -- TODO bounded queue not necessary.
+    ctx <$> liftIO (newTBQueueIO maxBound)
 
 releaseNodeContext :: forall ssc m . MonadIO m => NodeContext ssc -> m ()
-releaseNodeContext NodeContext {..} =
-    case ncDiscoveryContext of
-        DCKademlia kademlia -> stopDHTInstance kademlia
-        DCStatic _          -> pass
+releaseNodeContext _ = return ()
 
 -- Create new 'SlottingVar' using data from DB. Probably it would be
 -- good to have it in 'infra', but it's complicated.
@@ -294,22 +302,46 @@ createKademliaInstance BaseParams {..} kp =
     instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ Const.defaultPeers}
 
 -- | RAII for 'KademliaDHTInstance'.
-bracketKademlia
-    :: BaseParams
+bracketKademliaInstance
+    :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    => BaseParams
     -> KademliaParams
-    -> (KademliaDHTInstance -> Production a)
-    -> Production a
-bracketKademlia bp kp action =
+    -> (KademliaDHTInstance -> m a)
+    -> m a
+bracketKademliaInstance bp kp action =
     bracket (createKademliaInstance bp kp) stopDHTInstance action
+
+-- | The 'NodeParams' contain enough information to determine whether a Kademlia
+-- instance should be brought up. Use this to safely acquire/release one.
+bracketKademlia
+    :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    => BaseParams
+    -> NetworkConfig KademliaParams
+    -> (NetworkConfig KademliaDHTInstance -> m a)
+    -> m a
+bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
+    (TopologyP2P v f kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyP2P v f kinst)
+    (TopologyTraditional v f kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyTraditional v f kinst)
+    (TopologyRelay peers kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyRelay peers kinst)
+    (TopologyCore peers) -> k (TopologyCore peers)
+    (TopologyBehindNAT domains) -> k (TopologyBehindNAT domains)
+    (TopologyLightWallet peers) -> k (TopologyLightWallet peers)
+  where
+    k topology = action (nc { ncTopology = topology })
+
+data MissingKademliaParams = MissingKademliaParams
+    deriving (Show)
+
+instance Exception MissingKademliaParams
 
 ----------------------------------------------------------------------------
 -- Transport
 ----------------------------------------------------------------------------
 
 createTransportTCP
-    :: (MonadIO m, WithLogger m, Mockable Throw m)
+    :: (MonadIO n, MonadIO m, WithLogger m, Mockable Throw m)
     => TCP.TCPAddr
-    -> m (Transport m)
+    -> m (Transport n, m ())
 createTransportTCP addrInfo = do
     loggerName <- getLoggerName
     let tcpParams =
@@ -331,12 +363,13 @@ createTransportTCP addrInfo = do
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e
             throw e
-        Right transport -> return (concrete transport)
+        Right transport -> return (concrete transport, liftIO $ NT.closeTransport transport)
 
 -- | RAII for 'Transport'.
 bracketTransport
-    :: TCP.TCPAddr
-    -> (Transport Production -> Production a)
-    -> Production a
-bracketTransport tcpAddr =
-    bracket (createTransportTCP tcpAddr) (closeTransport)
+    :: ( MonadIO m, MonadIO n, Mockable Throw m, Mockable Bracket m, WithLogger m )
+    => TCP.TCPAddr
+    -> (Transport n -> m a)
+    -> m a
+bracketTransport tcpAddr k =
+    bracket (createTransportTCP tcpAddr) snd (k . fst)

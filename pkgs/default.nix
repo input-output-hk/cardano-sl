@@ -3187,7 +3187,7 @@ self: {
           description = "Monads for free";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      fsnotify = callPackage ({ async, base, containers, directory, filepath, hinotify, mkDerivation, stdenv, text, time, unix-compat }:
+      fsnotify = callPackage ({ async, base, containers, directory, filepath, hfsevents, mkDerivation, stdenv, text, time, unix-compat }:
       mkDerivation {
           pname = "fsnotify";
           version = "0.2.1";
@@ -3198,7 +3198,7 @@ self: {
             containers
             directory
             filepath
-            hinotify
+            hfsevents
             text
             time
             unix-compat
@@ -3479,24 +3479,32 @@ self: {
           description = "Convert strings into hexadecimal and back";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      hinotify = callPackage ({ async, base, containers, directory, mkDerivation, stdenv, unix }:
+      hfsevents = callPackage ({ Cocoa, CoreServices, base, bytestring, cereal, mkDerivation, mtl, stdenv, text, unix }:
       mkDerivation {
-          pname = "hinotify";
-          version = "0.3.9";
-          sha256 = "16fzql0s34my9k1ib4rdjf9fhhijkmmbrvi148f865m51160wj7j";
+          pname = "hfsevents";
+          version = "0.1.6";
+          sha256 = "019zbnvfd866ch49gax0c1c93zv92142saim1hrgypz5lprz7hvl";
           libraryHaskellDepends = [
-            async
             base
-            containers
-            directory
+            bytestring
+            cereal
+            mtl
+            text
             unix
+          ];
+          librarySystemDepends = [
+            Cocoa
+          ];
+          libraryToolDepends = [
+            CoreServices
           ];
           doHaddock = false;
           doCheck = false;
-          homepage = "https://github.com/kolmodin/hinotify.git";
-          description = "Haskell binding to inotify";
+          homepage = "http://github.com/luite/hfsevents";
+          description = "File/folder watching for OS X";
           license = stdenv.lib.licenses.bsd3;
-        }) {};
+          platforms = [ "x86_64-darwin" ];
+        }) { Cocoa = pkgs.Cocoa; };
       hourglass = callPackage ({ base, deepseq, mkDerivation, stdenv }:
       mkDerivation {
           pname = "hourglass";

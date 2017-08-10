@@ -13,32 +13,23 @@ before_install:
 - echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 - export DCONFIG=travis
-- mkdir -p ~/.local/bin s3
-- export PATH=$HOME/.local/bin:$PATH
+- mkdir -p s3
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
-# TODO: https://github.com/NixOS/nixpkgs/issues/21200
-- sudo service --status-all || true
-- sudo /etc/init.d/memcached stop || true
-- sudo /etc/init.d/mysql stop || true
-- sudo /etc/init.d/postgresql stop || true
 - sudo mkdir -p /etc/nix/
 - sudo touch /etc/nix/nix.conf
 - echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" | sudo tee -a /etc/nix/nix.conf
 - echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" | sudo tee -a /etc/nix/nix.conf
+# pickup new nix.conf  
 - if [ "x$OSTYPE" == xdarwin16 ]; then sudo launchctl unload /Library/LaunchDaemons/org.nixos.nix-daemon.plist ; sleep 5 ; sudo launchctl load /Library/LaunchDaemons/org.nixos.nix-daemon.plist ; fi
 
 install:
 - source scripts/set_nixpath.sh
 
-after_failure:
-- sudo dmesg
-
 script:
-# DEVOPS-107: wait 20min for output due to haddock generation
 - if [[ "$MODE" == "hlint" ]]; then
     nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   elif [[ "$MODE" == "stack2nix" ]]; then
-    nix-shell -p cabal2nix stack cabal-install ghc -Q -j 4 --run scripts/check-stack2nix.sh ;
+    nix-shell -p cabal2nix stack cabal-install ghc moreutils -Q -j 4 --run "scripts/check-stack2nix.sh | ts";
   else
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi

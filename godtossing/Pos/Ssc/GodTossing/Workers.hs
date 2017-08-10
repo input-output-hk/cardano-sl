@@ -29,7 +29,6 @@ import           System.Wlog                           (logDebug, logError, logI
 import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
-import           Pos.Communication.MessagePart         (MessagePart)
 import           Pos.Communication.Protocol            (Message, OutSpecs, EnqueueMsg,
                                                         Worker, WorkerSpec, SendActions (..),
                                                         onNewSlotWorker, MsgType (..),
@@ -274,7 +273,6 @@ sscProcessOurMessage action =
 
 sendOurData ::
     ( SscMode SscGodTossing ctx m
-    , MessagePart contents
     , Bi (DataMsg contents)
     , Typeable contents
     , Message (InvOrData (Tagged contents StakeholderId) contents)

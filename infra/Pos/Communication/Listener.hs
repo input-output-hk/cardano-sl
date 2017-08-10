@@ -19,7 +19,7 @@ import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Protocol     (ConversationActions, HandlerSpec (..),
                                                  ListenerSpec (..), Message, NodeId,
                                                  OutSpecs, VerInfo, checkingInSpecs,
-                                                 messageName)
+                                                 messageCode)
 import           Pos.DB.Class                   (MonadGState)
 
 -- TODO automatically provide a 'recvLimited' here by using the
@@ -39,7 +39,7 @@ listenerConv
     -> (ListenerSpec m, OutSpecs)
 listenerConv h = (lspec, mempty)
   where
-    spec = (rcvMsgName, ConvHandler sndMsgName)
+    spec = (rcvMsgCode, ConvHandler sndMsgCode)
     lspec =
       flip ListenerSpec spec $ \ourVerInfo ->
           N.Listener $ \peerVerInfo' nNodeId conv -> do
@@ -51,5 +51,5 @@ listenerConv h = (lspec, mempty)
     rcvProxy :: Proxy rcv
     rcvProxy = Proxy
 
-    sndMsgName = messageName sndProxy
-    rcvMsgName = messageName rcvProxy
+    sndMsgCode = messageCode sndProxy
+    rcvMsgCode = messageCode rcvProxy

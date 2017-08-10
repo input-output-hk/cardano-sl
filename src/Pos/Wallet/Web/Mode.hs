@@ -6,6 +6,7 @@ module Pos.Wallet.Web.Mode
        ( WalletWebMode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
+       , MonadWalletWebMode
        ) where
 
 import           Universum
@@ -138,6 +139,10 @@ instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeConte
     lensOf = identity
 
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
+
+-- This constraint used to be abstract (a list of classes), but specifying a
+-- concrete monad is quite likely more performant.
+type MonadWalletWebMode m = m ~ WalletWebMode
 
 instance MonadSlotsData WalletWebMode where
     getSystemStart = getSystemStartDefault

@@ -40,7 +40,6 @@ module Pos.Wallet.Web.ClientTypes.Types
       , coinFromCCoin
       , PassPhraseLU
       , CElectronCrashReport (..)
-      , NotifyEvent (..)
       , WithDerivationPath (..)
       , Wal (..)
       , Addr (..)
@@ -104,18 +103,6 @@ makeLenses ''SyncProgress
 
 instance Default SyncProgress where
     def = SyncProgress 0 mzero 0
-
--- Notifications
-data NotifyEvent
-    = ConnectionOpened
-    -- _ | NewWalletTransaction CId
-    -- _ | NewTransaction
-    | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
-    | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
-    | ConnectedPeersChanged Word
-    | UpdateAvailable
-    | ConnectionClosed
-    deriving (Show, Generic)
 
 -- | Client hash
 newtype CHash = CHash Text

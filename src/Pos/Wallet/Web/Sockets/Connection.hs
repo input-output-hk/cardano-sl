@@ -27,9 +27,9 @@ import qualified Network.WebSockets             as WS
 import           System.Wlog                    (logError, logNotice, usingLoggerName)
 
 import           Pos.Aeson.ClientTypes          ()
-import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
 import qualified Pos.Wallet.Web.Sockets.ConnSet as CS
-import           Pos.Wallet.Web.Sockets.Types   (WSConnection)
+import           Pos.Wallet.Web.Sockets.Types   (NotifyEvent (ConnectionClosed, ConnectionOpened),
+                                                 WSConnection)
 
 
 initWSConnections :: MonadIO m => m CS.ConnectionsVar

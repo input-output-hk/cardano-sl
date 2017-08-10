@@ -64,7 +64,7 @@ done
   #./update-haddock.sh
 #fi
 
-./cardano-sl-tools.root/bin/cardano-wallet-hs2purs
+./cardano-sl-wallet.root/bin/cardano-wallet-hs2purs
 
 pushd daedalus
   nix-shell --run "npm install && npm run build:prod"

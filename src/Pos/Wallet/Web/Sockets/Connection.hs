@@ -8,7 +8,6 @@ module Pos.Wallet.Web.Sockets.Connection
        ( WebWalletSockets
        , MonadWalletWebSockets
        , getWalletWebSockets
-       , ConnectionsVar
        , initWSConnections
        , closeWSConnections
        , upgradeApplicationWS
@@ -18,31 +17,27 @@ module Pos.Wallet.Web.Sockets.Connection
 import           Universum
 
 import           Control.Concurrent.STM.TVar    (swapTVar)
-import           Control.Monad.State.Strict     (MonadState (get, put))
 import           Data.Aeson                     (encode)
 import           Data.Default                   (Default (def))
-import qualified Data.IntMap.Strict             as IM
 import           Ether.Internal                 (HasLens (..))
 import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
-import           Serokell.Util.Concurrent       (modifyTVarS)
 import           System.Wlog                    (logError, logNotice, usingLoggerName)
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
+import qualified Pos.Wallet.Web.Sockets.ConnSet as CS
+import           Pos.Wallet.Web.Sockets.Types   (WSConnection)
 
 
-type WSConnection = WS.Connection
-type ConnectionsVar = TVar ConnectionSet
-
-initWSConnections :: MonadIO m => m ConnectionsVar
+initWSConnections :: MonadIO m => m CS.ConnectionsVar
 initWSConnections = newTVarIO def
 
-closeWSConnection :: MonadIO m => ConnectionTag -> ConnectionsVar -> m ()
+closeWSConnection :: MonadIO m => CS.ConnectionTag -> CS.ConnectionsVar -> m ()
 closeWSConnection tag var = liftIO $ usingLoggerName "closeWSConnection" $ do
-    maybeConn <- atomically $ deregisterConnection tag var
+    maybeConn <- atomically $ CS.deregisterConnection tag var
     case maybeConn of
         Nothing   ->
             logError $ sformat ("Attempted to close an unknown connection with tag "%build) tag
@@ -50,27 +45,27 @@ closeWSConnection tag var = liftIO $ usingLoggerName "closeWSConnection" $ do
             liftIO $ WS.sendClose conn ConnectionClosed
             logNotice $ sformat ("Closed WS connection with tag "%build) tag
 
-closeWSConnections :: MonadIO m => ConnectionsVar -> m ()
+closeWSConnections :: MonadIO m => CS.ConnectionsVar -> m ()
 closeWSConnections var = liftIO $ do
     conns <- atomically $ swapTVar var def
-    for_ (listConnections conns) $ flip WS.sendClose ConnectionClosed
+    for_ (CS.listConnections conns) $ flip WS.sendClose ConnectionClosed
 
-appendWSConnection :: ConnectionsVar -> WS.ServerApp
+appendWSConnection :: CS.ConnectionsVar -> WS.ServerApp
 appendWSConnection var pending = do
     conn <- WS.acceptRequest pending
-    bracket (atomically $ registerConnection conn var) releaseResources $ \_ -> do
+    bracket (atomically $ CS.registerConnection conn var) releaseResources $ \_ -> do
         sendWS conn ConnectionOpened
         WS.forkPingThread conn 30
         forever (ignoreData conn)
   where
     ignoreData :: WSConnection -> IO Text
     ignoreData = WS.receiveData
-    releaseResources :: MonadIO m => ConnectionTag -> m ()
+    releaseResources :: MonadIO m => CS.ConnectionTag -> m ()
     releaseResources tag = closeWSConnection tag var
 
 -- FIXME: we have no authentication and accept all incoming connections.
 -- Possible solution: reject pending connection if WS handshake doesn't have valid auth session token.
-upgradeApplicationWS :: ConnectionsVar -> Application -> Application
+upgradeApplicationWS :: CS.ConnectionsVar -> Application -> Application
 upgradeApplicationWS var = websocketsOr WS.defaultConnectionOptions (appendWSConnection var)
 
 -- sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
@@ -92,10 +87,13 @@ instance WS.WebSocketsData NotifyEvent where
 --------
 
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
-type MonadWalletWebSockets ctx m = (MonadReader ctx m, HasLens ConnectionsVar ctx ConnectionsVar)
+type MonadWalletWebSockets ctx m =
+    ( MonadReader ctx m
+    , HasLens CS.ConnectionsVar ctx CS.ConnectionsVar
+    )
 
-getWalletWebSockets :: MonadWalletWebSockets ctx m => m ConnectionsVar
-getWalletWebSockets = view (lensOf @ConnectionsVar)
+getWalletWebSockets :: MonadWalletWebSockets ctx m => m CS.ConnectionsVar
+getWalletWebSockets = view (lensOf @CS.ConnectionsVar)
 
 type WebWalletSockets ctx m = (MonadWalletWebSockets ctx m, MonadIO m)
 
@@ -103,45 +101,5 @@ notifyAll :: WebWalletSockets ctx m => NotifyEvent -> m ()
 notifyAll msg = do
   var <- getWalletWebSockets
   conns <- readTVarIO var
-  for_ (listConnections conns) $ flip sendWS msg
+  for_ (CS.listConnections conns) $ flip sendWS msg
 
-------------------------------------
--- Implementation of ConnectionSet
-------------------------------------
-
-data TaggedSet v = TaggedSet
-    { tsUnusedTag :: IM.Key
-    , tsData      :: IntMap v
-    }
-
-instance Default (TaggedSet v) where
-  def = TaggedSet 0 IM.empty
-
-type ConnectionTag = IM.Key
-type ConnectionSet = TaggedSet WSConnection
-
-registerConnection :: WSConnection -> ConnectionsVar -> STM ConnectionTag
-registerConnection conn var =
-    modifyTVarS var $ state $ registerConnectionPure conn
-
-deregisterConnection :: ConnectionTag -> ConnectionsVar -> STM (Maybe WSConnection)
-deregisterConnection tag var = modifyTVarS var $ do
-    conns <- get
-    case deregisterConnectionPure tag conns of
-        Nothing -> pure Nothing
-        Just (conn, newConns) -> do
-            put newConns
-            pure (Just conn)
-
-registerConnectionPure :: WSConnection -> ConnectionSet -> (ConnectionTag, ConnectionSet)
-registerConnectionPure conn conns =
-  let newKey = tsUnusedTag conns + 1 in
-  (newKey, TaggedSet newKey (IM.insert newKey conn $ tsData conns))
-
-deregisterConnectionPure :: ConnectionTag -> ConnectionSet -> Maybe (WSConnection, ConnectionSet)
-deregisterConnectionPure tag conns = do  -- Maybe monad
-  conn <- IM.lookup tag (tsData conns)
-  pure (conn, TaggedSet (tsUnusedTag conns) (IM.delete tag $ tsData conns))
-
-listConnections :: ConnectionSet -> [WSConnection]
-listConnections = IM.elems . tsData

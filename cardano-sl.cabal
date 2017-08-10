@@ -326,8 +326,10 @@ library
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full
                         Pos.Wallet.Web.Sockets
+                        Pos.Wallet.Web.Sockets.ConnSet
                         Pos.Wallet.Web.Sockets.Connection
                         Pos.Wallet.Web.Sockets.Notifier
+                        Pos.Wallet.Web.Sockets.Types
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.State

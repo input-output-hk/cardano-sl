@@ -7,8 +7,7 @@
 -- | Wallet web server.
 
 module Pos.Wallet.Web.Server.Methods
-       ( servantHandlers
-       , addInitialRichAccount
+       ( addInitialRichAccount
        ) where
 
 import           Universum
@@ -126,99 +125,6 @@ import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifi
                                              syncWalletOnImport)
 import           Pos.Wallet.Web.Util        (getWalletAccountIds, rewrapTxError)
 
-----------------------------------------------------------------------------
--- Handlers
-----------------------------------------------------------------------------
-
-servantHandlers
-    :: MonadWalletWebMode m
-    => SendActions m
-    -> ServerT WalletApi m
-servantHandlers sendActions =
-     testResetAll
-    :<|>
-
-     getWallet
-    :<|>
-     getWallets
-    :<|>
-     newWallet
-    :<|>
-     updateWallet
-    :<|>
-     restoreWallet
-    :<|>
-     renameWSet
-    :<|>
-     deleteWallet
-    :<|>
-     importWallet
-    :<|>
-     changeWalletPassphrase
-    :<|>
-
-     fixingCachedAccModifier getAccount
-    :<|>
-     getAccounts
-    :<|>
-     updateAccount
-    :<|>
-     newAccount RandomSeed
-    :<|>
-     deleteAccount
-    :<|>
-
-     newAddress RandomSeed
-    :<|>
-
-     isValidAddress
-    :<|>
-
-     getUserProfile
-    :<|>
-     updateUserProfile
-    :<|>
-
-     newPayment sendActions
-    :<|>
-     getTxFee
-    :<|>
-     updateTransaction
-    :<|>
-     getHistoryLimited
-    :<|>
-
-     nextUpdate
-    :<|>
-     applyUpdate
-    :<|>
-
-     redeemAda sendActions
-    :<|>
-     redeemAdaPaperVend sendActions
-    :<|>
-
-     reportingInitialized
-    :<|>
-     reportingElectroncrash
-    :<|>
-
-     (blockchainSlotDuration <&> fromIntegral)
-    :<|>
-     pure curSoftwareVersion
-    :<|>
-     syncProgress
-    :<|>
-     importStateJSON
-    :<|>
-     exportStateJSON
-
--- getAddresses :: MonadWalletWebMode m => m [CId]
--- getAddresses = map addressToCId <$> myAddresses
-
--- getBalances :: MonadWalletWebMode m => m [(CId, Coin)]
--- getBalances = join $ mapM gb <$> myAddresses
---   where gb addr = (,) (addressToCId addr) <$> getBalance addr
 
 getUserProfile :: MonadWalletWebMode m => m CProfile
 getUserProfile = getProfile

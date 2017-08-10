@@ -73,6 +73,7 @@ library
 
                         -- Network topology
                         Pos.Network.DnsDomains
+                        Pos.Network.Windows.DnsDomains
                         Pos.Network.Types
                         Pos.Network.Yaml
                         Pos.Network.CLI
@@ -163,6 +164,9 @@ library
     build-depends:     unix
 
   default-language:    Haskell2010
+
+  if os(windows)
+    C-sources:         Pos/Network/Windows/defaultdns.c
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric

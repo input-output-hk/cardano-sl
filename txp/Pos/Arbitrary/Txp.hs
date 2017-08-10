@@ -4,6 +4,7 @@
 
 module Pos.Arbitrary.Txp
        ( BadSigsTx (..)
+       , DoubleInputTx (..)
        , GoodTx (..)
        , goodTxToTxAux
        ) where
@@ -170,12 +171,24 @@ newtype BadSigsTx = BadSigsTx
     { getBadSigsTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
+-- | Ill-formed 'Tx' that spends an input twice.
+newtype DoubleInputTx = DoubleInputTx
+    { getDoubleInputTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    } deriving (Generic, Show)
+
 instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
     shrink = genericShrink
+
+instance Arbitrary DoubleInputTx where
+    arbitrary = DoubleInputTx <$> do
+        inputs <- arbitrary
+        pure $ buildProperTx (NE.cons (NE.head inputs) inputs)
+                             (identity, identity)
+    shrink = const []
 
 instance Arbitrary (MerkleRoot Tx) where
     arbitrary = MerkleRoot <$> (arbitrary @(Hash Raw))

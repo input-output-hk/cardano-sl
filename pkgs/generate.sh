@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p bash
 
 # regenerate the `pkgs/default.nix` file based on the current contents of cardano-sl.cabal and stack.yaml
 

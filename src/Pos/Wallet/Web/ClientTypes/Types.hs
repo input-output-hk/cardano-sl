@@ -5,7 +5,7 @@
 -- starting point
 
 -- | Types representing client (wallet) requests on wallet API.
-module Pos.Wallet.Web.ClientTypes
+module Pos.Wallet.Web.ClientTypes.Types
       ( SyncProgress (..)
       , spLocalCD
       , spNetworkCD

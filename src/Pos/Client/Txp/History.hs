@@ -23,6 +23,9 @@ module Pos.Client.Txp.History
        , deriveAddrHistoryBlk
        , TxHistoryRedirect
        , runTxHistoryRedirect
+
+       -- * Util
+       , mergeTxOuts
        ) where
 
 import           Universum
@@ -34,7 +37,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import           Data.DList                   (DList)
 import qualified Data.DList                   as DL
-import qualified Data.Map.Strict              as M (lookup)
+import qualified Data.Map.Strict              as M
 import           Data.Tagged                  (Tagged (..))
 import qualified Data.Text.Buildable
 import qualified Ether
@@ -47,7 +50,7 @@ import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
 import           Pos.Block.Types              (Blund)
 import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
-                                               Timestamp (..), difficultyL)
+                                               Timestamp (..), difficultyL, unsafeAddCoin)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.Block                 as DB
@@ -61,8 +64,8 @@ import           Pos.Txp                      (txProcessTransaction)
 #endif
 import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
                                                ToilT, Tx (..), TxAux (..), TxDistribution,
-                                               TxId, TxOut, TxOutAux (..), TxWitness,
-                                               TxpError (..), applyTxToUtxo,
+                                               TxId, TxOut (..), TxOut, TxOutAux (..),
+                                               TxWitness, TxpError (..), applyTxToUtxo,
                                                evalToilTEmpty, flattenTxPayload,
                                                getLocalTxs, runDBTxp, topsortTxs,
                                                txOutAddress, utxoGet)
@@ -81,6 +84,15 @@ getSenders :: MonadUtxoRead m => Tx -> m [TxOut]
 getSenders UnsafeTx {..} = do
     utxo <- catMaybes <$> mapM utxoGet (toList _txInputs)
     return $ toaOut <$> utxo
+
+-- | Folds transaction outputs related to same addresses
+mergeTxOuts :: [TxOut] -> [TxOut]
+mergeTxOuts txOuts =
+    map (uncurry TxOut) . M.toList $ foldr1 unsafeAddCoin <$> grouped
+  where
+    grouped =
+        M.fromListWith mappend $
+        txOuts <&> \TxOut{..} -> (txOutAddress, [txOutValue])
 
 -- | Datatype for returning info about tx history
 data TxHistoryEntry = THEntry
@@ -118,9 +130,9 @@ getTxsByPredicate pr mDiff mTs txs = go txs []
   where
     go [] acc = return acc
     go ((wh@(WithHash tx txId), _wit, dist) : rest) acc = do
-        inputs <- getSenders tx
+        inputs <- mergeTxOuts <$> getSenders tx
         let outgoings = toList $ txOutAddress <$> _txOutputs tx
-        let incomings = ordNub $ map txOutAddress inputs
+        let incomings = map txOutAddress inputs
 
         applyTxToUtxo wh dist
 

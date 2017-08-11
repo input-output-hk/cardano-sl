@@ -145,7 +145,10 @@ genSuitableStakeDistribution :: Word -> Gen StakeDistribution
 genSuitableStakeDistribution stakeholdersNum =
     oneof [genFlat{-, genBitcoin-}, pure (ExponentialStakes stakeholdersNum)]
   where
-    totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
+    -- Here we set minimum border of 1024 total coins to avoid running out of coins
+    -- in case if transaction fees are enabled.
+    -- Number 1024 is chosen randomly.
+    totalCoins = mkCoin <$> choose (max 1024 $ fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
     genFlat =
         FlatStakes stakeholdersNum <$> totalCoins
     -- Apparently bitcoin distribution is broken (it produces total stake

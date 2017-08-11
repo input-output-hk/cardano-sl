@@ -58,7 +58,7 @@ getTotalStake RichPoorStakes {..} = unsafeIntegerToCoin $
     coinToInteger sdRichStake * fromIntegral sdRichmen +
     coinToInteger sdPoorStake * fromIntegral sdPoor
 getTotalStake (ExponentialStakes n) =
-    mkCoin $ sum $ map (2^) [0 .. n - 1]
+    mkCoin $ sum $ map (2^) [10 .. n + 9]
 getTotalStake (CustomStakes balances) =
     unsafeIntegerToCoin $ sumCoins balances
 

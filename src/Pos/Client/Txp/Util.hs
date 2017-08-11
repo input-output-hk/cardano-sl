@@ -19,6 +19,7 @@ module Pos.Client.Txp.Util
        , createRedemptionTx
 
        -- * Fees logic
+       , txToLinearFee
        , computeTxFee
 
        -- * Additional datatypes

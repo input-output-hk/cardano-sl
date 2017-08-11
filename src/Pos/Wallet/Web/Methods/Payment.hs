@@ -4,9 +4,12 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Wallet web server.
+-- | Transaction creation and fees
 
-module Pos.Wallet.Web.Server.Methods where
+module Pos.Wallet.Web.Methods.Payment
+       ( newPayment
+       , getTxFee
+       ) where
 
 import           Universum
 

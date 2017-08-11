@@ -327,13 +327,13 @@ library
                         Pos.Wallet.Web.Methods.History
                         Pos.Wallet.Web.Methods.Logic
                         Pos.Wallet.Web.Methods.Misc
+                        Pos.Wallet.Web.Methods.Payment
                         Pos.Wallet.Web.Methods.Redeem
                         Pos.Wallet.Web.Methods.Reporting
                         Pos.Wallet.Web.Methods.Restore
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Handlers
                         Pos.Wallet.Web.Server.Launcher
-                        Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Runner
                         Pos.Wallet.Web.Sockets
                         Pos.Wallet.Web.Sockets.ConnSet

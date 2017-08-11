@@ -6,9 +6,6 @@ module Pos.Arbitrary.Txp
        ( BadSigsTx (..)
        , GoodTx (..)
        , goodTxToTxAux
-       , SmallBadSigsTx (..)
-       , SmallGoodTx (..)
-       , SmallTxPayload (..)
        ) where
 
 import           Universum
@@ -22,7 +19,7 @@ import           Test.QuickCheck                   (Arbitrary (..), Gen, choose,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core                ()
-import           Pos.Binary.Class                  (Bi, Raw)
+import           Pos.Binary.Class                  (Raw)
 import           Pos.Binary.Txp.Core               ()
 import           Pos.Core.Address                  (makePubKeyAddress)
 import           Pos.Core.Types                    (Coin)
@@ -152,8 +149,6 @@ newtype GoodTx = GoodTx
     { getGoodTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
-newtype SmallGoodTx = SmallGoodTx { getSmallGoodTx :: GoodTx } deriving (Generic, Show)
-
 goodTxToTxAux :: GoodTx -> TxAux
 goodTxToTxAux (GoodTx l) = TxAux tx witness distr
   where
@@ -170,28 +165,16 @@ instance Arbitrary GoodTx where
                        -- into a bad one (by setting one of outputs to 0, for
                        -- instance)
 
-instance Arbitrary SmallGoodTx where
-    arbitrary = SmallGoodTx <$> makeSmall arbitrary
-    shrink = const []  -- genericShrink
-
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
     { getBadSigsTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
-
-newtype SmallBadSigsTx =
-    SmallBadSigsTx BadSigsTx
-    deriving (Generic, Show)
 
 instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
-    shrink = genericShrink
-
-instance Arbitrary SmallBadSigsTx where
-    arbitrary = SmallBadSigsTx <$> makeSmall arbitrary
     shrink = genericShrink
 
 instance Arbitrary (MerkleRoot Tx) where
@@ -236,12 +219,4 @@ instance Arbitrary TxPayload where
         fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
         mkTxPayload <$>
         txOutDistGen
-    shrink = genericShrink
-
-newtype SmallTxPayload =
-    SmallTxPayload TxPayload
-    deriving (Generic, Show, Eq, Bi)
-
-instance Arbitrary SmallTxPayload where
-    arbitrary = SmallTxPayload <$> makeSmall arbitrary
     shrink = genericShrink

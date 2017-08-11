@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE DeriveTraversable   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Chronological sequences.
 
@@ -12,6 +13,10 @@ module Pos.Util.Chrono
        , toNewestFirst
        , toOldestFirst
        , NE
+       , nonEmptyOldestFirst
+       , nonEmptyNewestFirst
+       , splitAtNewestFirst
+       , splitAtOldestFirst
        ) where
 
 import           Universum          hiding (mapMaybe)
@@ -19,6 +24,7 @@ import           Universum          hiding (mapMaybe)
 import           Control.Lens       (makePrisms, makeWrapped, _Wrapped)
 import qualified Control.Lens       as Lens (Each (..))
 import           Data.Binary        (Binary)
+import           Data.Coerce        (coerce)
 import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup     (Semigroup)
 import qualified GHC.Exts           as IL
@@ -85,3 +91,29 @@ instance Chrono NonEmpty where
     toOldestFirst = OldestFirst . NE.reverse . getNewestFirst
 
 type NE = NonEmpty
+
+nonEmptyOldestFirst ::
+    forall a.
+       OldestFirst [] a
+    -> Maybe (OldestFirst NE a)
+nonEmptyOldestFirst = coerce (nonEmpty @a)
+
+nonEmptyNewestFirst ::
+    forall a.
+       NewestFirst [] a
+    -> Maybe (NewestFirst NE a)
+nonEmptyNewestFirst = coerce (nonEmpty @a)
+
+splitAtOldestFirst ::
+    forall a.
+       Int
+    -> OldestFirst NE a
+    -> (OldestFirst [] a, OldestFirst [] a)
+splitAtOldestFirst = coerce (NE.splitAt @a)
+
+splitAtNewestFirst ::
+    forall a.
+       Int
+    -> NewestFirst NE a
+    -> (NewestFirst [] a, NewestFirst [] a)
+splitAtNewestFirst = coerce (NE.splitAt @a)

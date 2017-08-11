@@ -23,6 +23,7 @@ module Pos.Launcher.Resource
 
 import           Universum                  hiding (bracket, finally)
 
+import           Control.Concurrent         (threadDelay)
 import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Tagged                 (untag)
 import qualified Data.Time                  as Time
@@ -37,7 +38,8 @@ import qualified Network.Transport          as NT (closeTransport)
 import           System.IO                  (Handle, hClose, hSetBuffering, BufferMode (..))
 import qualified System.Metrics             as Metrics
 import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
-                                             getLoggerName, logError, productionB,
+                                             getLoggerName, logError, logNotice, logWarning,
+                                             productionB,
                                              releaseAllHandlers, setupLogging,
                                              usingLoggerName)
 
@@ -202,11 +204,31 @@ bracketNodeResources :: forall ssc m a.
     -> SscParams ssc
     -> (NodeResources ssc m -> Production a)
     -> Production a
-bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
+bracketNodeResources np sp k =
+    bracketTransport tcpAddr $ \transport ->
     bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
-        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources k
+    bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources $ \nodeRes -> do
+      case npInitDelay np of
+        Nothing ->
+          -- Start node immediately
+          return ()
+        Just initDelay -> do
+          now <- liftIO $ Time.getCurrentTime
+          let delay = (toUSec . toSec) (initDelay `Time.diffUTCTime` now)
+          if delay >= 0 then do
+            logNotice $ sformat ("Delaying node startup until " % shown) initDelay
+            liftIO $ threadDelay delay
+          else do
+            logWarning $ sformat ("--init-delay parameter in the past")
+      k nodeRes
   where
     tcpAddr = tpTcpAddr (npTransport np)
+
+    toSec :: Time.NominalDiffTime -> Double
+    toSec = realToFrac
+
+    toUSec :: Double -> Int
+    toUSec = round . (* 1000000)
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -320,12 +342,23 @@ bracketKademlia
     -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a
 bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
-    (TopologyP2P v f kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyP2P v f kinst)
-    (TopologyTraditional v f kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyTraditional v f kinst)
-    (TopologyRelay peers kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyRelay peers kinst)
-    (TopologyCore peers) -> k (TopologyCore peers)
-    (TopologyBehindNAT domains) -> k (TopologyBehindNAT domains)
-    (TopologyLightWallet peers) -> k (TopologyLightWallet peers)
+    TopologyP2P v f kp ->
+      bracketKademliaInstance bp kp $ \kinst ->
+        k $ TopologyP2P v f kinst
+    TopologyTraditional v f kp ->
+      bracketKademliaInstance bp kp $ \kinst ->
+        k $ TopologyTraditional v f kinst
+    TopologyRelay peers (Just kp) ->
+      bracketKademliaInstance bp kp $ \kinst ->
+        k $ TopologyRelay peers (Just kinst)
+    TopologyCore peers (Just kp) ->
+      bracketKademliaInstance bp kp $ \kinst ->
+        k $ TopologyCore peers (Just kinst)
+
+    TopologyRelay peers Nothing -> k $ TopologyRelay peers Nothing
+    TopologyCore  peers Nothing -> k $ TopologyCore  peers Nothing
+    TopologyBehindNAT domains   -> k $ TopologyBehindNAT domains
+    TopologyLightWallet peers   -> k $ TopologyLightWallet peers
   where
     k topology = action (nc { ncTopology = topology })
 

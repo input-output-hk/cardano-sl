@@ -22,7 +22,7 @@ import           Pos.Communication.Protocol  (MkListeners (..), EnqueueMsg)
 import           Pos.Communication.Relay     (relayListeners)
 import           Pos.Communication.Util      (wrapListener)
 import           Pos.Delegation.Listeners    (delegationRelays)
-import           Pos.Network.Types           (Topology, topologyNodeType)
+import           Pos.Network.Types           (Topology, topologySubscriberNodeType)
 import           Pos.Ssc.Class               (SscListenersClass (..), SscWorkersClass)
 import           Pos.Subscription.Common     (subscriptionListeners)
 import           Pos.Txp                     (txRelays)
@@ -33,7 +33,7 @@ import           Pos.WorkMode.Class          (WorkMode)
 allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc ctx m)
     => Topology kademlia -> EnqueueMsg m -> MkListeners m
-allListeners topology enqueue = mconcat
+allListeners topology enqueue = mconcat $
         -- TODO blockListeners should use 'enqueue' rather than its own
         -- block retrieval queue, no?
         [ modifier "block"        $ blockListeners
@@ -41,7 +41,9 @@ allListeners topology enqueue = mconcat
         , modifier "tx"           $ relayListeners enqueue txRelays
         , modifier "delegation"   $ relayListeners enqueue delegationRelays
         , modifier "update"       $ relayListeners enqueue usRelays
-        , modifier "subscription" $ subscriptionListeners (topologyNodeType topology)
+        ] ++ [
+          modifier "subscription" $ subscriptionListeners subscriberNodeType
+        | Just subscriberNodeType <- [topologySubscriberNodeType topology]
         ]
   where
     modifier lname mkL = mkL { mkListeners = mkListeners' }

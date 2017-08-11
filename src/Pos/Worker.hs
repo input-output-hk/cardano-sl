@@ -81,7 +81,7 @@ allWorkers NodeResources {..} = mconcatPair
       -- spawned when the DHT instance is created and killed when it's
       -- released.
     , case topologyRunKademlia (ncTopology ncNetworkConfig) of
-        Just kinst -> dhtWorkers kinst
+        Just (kinst, _) -> dhtWorkers kinst
         Nothing -> mempty
     ]
   where

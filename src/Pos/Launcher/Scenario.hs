@@ -33,7 +33,7 @@ import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThres
 import qualified Pos.GState            as GS
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
-import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
+import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
 import           Pos.Reporting         (reportMisbehaviourSilent)
 import           Pos.Security          (SecurityWorkersClass)
 import           Pos.Shutdown          (waitForWorkers)
@@ -69,17 +69,14 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
 
     -- Synchronously join the Kademlia network before doing any more.
     --
-    -- In case of end-user p2p modes, if we can't join the network, an exception
-    -- is raised and the program stops.
-    -- But for relay nodes, not finding any peers in the network is not fatal.
-    -- It could be that this is the first relay coming up. The relay can still
-    -- do its work using its static topology.
-    case ncTopology (ncNetworkConfig nrContext) of
-        TopologyCore _ (Just kInst) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
-        TopologyRelay _ (Just kInst) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
-        TopologyP2P _ _ kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
-        TopologyTraditional _ _ kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
-        _ -> return ()
+    -- See 'topologyRunKademlia' documentation: the second component is 'True'
+    -- iff it's essential that at least one of the initial peers is contacted.
+    -- Otherwise, it's OK to not find any initial peers and the program can
+    -- continue.
+    case topologyRunKademlia (ncTopology (ncNetworkConfig nrContext)) of
+        Just (kInst, True)  -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+        Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
+        Nothing             -> return ()
 
     genesisStakeholders <- view (lensOf @GenesisWStakeholders)
     logInfo $ sformat ("Dust threshold: "%build)

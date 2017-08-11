@@ -141,15 +141,17 @@ topologySubscriptionWorker = go
     go (TopologyTraditional v f kademlia) = Just $ SubscriptionWorkerKademlia kademlia NodeCore v f
     go TopologyLightWallet{}              = Nothing
 
--- | Should we register to the Kademlia network?
-topologyRunKademlia :: Topology kademlia -> Maybe kademlia
+-- | Should we register to the Kademlia network? If so, is it essential that we
+-- successfully join it (contact at least one existing peer)? Second component
+-- is 'True' if yes.
+topologyRunKademlia :: Topology kademlia -> Maybe (kademlia, Bool)
 topologyRunKademlia = go
   where
-    go (TopologyCore  _        mKademlia) = mKademlia
-    go (TopologyRelay _        mKademlia) = mKademlia
+    go (TopologyCore  _        mKademlia) = flip (,) False <$> mKademlia
+    go (TopologyRelay _        mKademlia) = flip (,) False <$> mKademlia
     go TopologyBehindNAT{}                = Nothing
-    go (TopologyP2P _ _         kademlia) = Just kademlia
-    go (TopologyTraditional _ _ kademlia) = Just kademlia
+    go (TopologyP2P _ _         kademlia) = Just (kademlia, True)
+    go (TopologyTraditional _ _ kademlia) = Just (kademlia, True)
     go TopologyLightWallet{}              = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs

@@ -324,6 +324,7 @@ library
                         Pos.Wallet.Web.Mode
                         Pos.Wallet.Web.Methods
                         Pos.Wallet.Web.Methods.Backup
+                        Pos.Wallet.Web.Methods.History
                         Pos.Wallet.Web.Methods.Logic
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Handlers

@@ -11,14 +11,13 @@ module NodeOptions
 
 import           Universum                    hiding (show)
 
-import           Data.Time                    (UTCTime, parseTimeM, defaultTimeLocale)
 import           Data.Version                 (showVersion)
 import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
                                                progDesc, showDefault, strOption, switch,
-                                               value, str, ReadM)
+                                               value)
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
 import qualified Text.Parsec.Char             as P
@@ -79,9 +78,6 @@ data Args = Args
     , enableMetrics             :: !Bool
     , ekgParams                 :: !(Maybe EkgParams)
     , statsdParams              :: !(Maybe StatsdParams)
-    , initDelay                 :: !(Maybe UTCTime)
-      -- ^ Delay startup of the node until the specified time
-      -- (but after opening the network port, so that other nodes can connect)
     } deriving Show
 
 argsParser :: Parser Args
@@ -193,7 +189,6 @@ argsParser = do
 
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
-    initDelay <- optional initDelayOption
 
     pure Args{..}
   where
@@ -212,16 +207,6 @@ nodeTypeOption =
             (NodeCore  <$ P.string "core")
         <|> (NodeRelay <$ P.string "relay")
         <|> (NodeEdge  <$ P.string "edge")
-
-initDelayOption :: Parser UTCTime
-initDelayOption =
-    option (str >>= parse) $
-        long "init-delay" <>
-        metavar "yyyy-mm-ddThh:mm:ss-zzzz" <>
-        help "Delay starting the node until specified time (after opening network ports)"
-  where
-    parse :: String -> ReadM UTCTime
-    parse = parseTimeM True defaultTimeLocale "%FT%T%z"
 
 peerOption :: String -> (NetworkAddress -> (NodeId, NodeType)) -> Parser (NodeId, NodeType)
 peerOption longName mk =

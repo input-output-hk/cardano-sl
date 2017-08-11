@@ -29,9 +29,9 @@ import           Pos.Communication              (SendActions (..), submitMTx)
 import           Pos.Core                       (Coin, TxFeePolicy (..),
                                                  TxSizeLinear (..), addressF,
                                                  bvdTxFeePolicy, calculateTxSizeLinear,
-                                                 decodeTextAddress, getCurrentTimestamp,
-                                                 integerToCoin, mkCoin, unsafeAddCoin,
-                                                 unsafeSubCoin, _RedeemAddress)
+                                                 getCurrentTimestamp, integerToCoin,
+                                                 mkCoin, unsafeAddCoin, unsafeSubCoin,
+                                                 _RedeemAddress)
 import           Pos.Crypto                     (PassPhrase, fakeSigner, hash, keyGen,
                                                  withSafeSigners)
 import           Pos.DB.Class                   (gsAdoptedBVData)
@@ -39,31 +39,17 @@ import           Pos.Txp                        (TxFee (..))
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..), TxOutAux (..),
                                                  TxOutDistribution)
 import           Pos.Util                       (eitherToThrow, maybeThrow)
-import           Pos.Wallet.KeyStorage          (deleteSecretKey, getSecretKeys)
-import           Pos.Wallet.WalletMode          (applyLastUpdate, connectedPeers,
-                                                 localChainDifficulty,
-                                                 networkChainDifficulty)
 import           Pos.Wallet.Web.Account         (GenSeed (..), MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
-                                                 CCoin, CId, CProfile, CProfile (..),
-                                                 CTx (..), CTxs (..), CUpdateInfo (..),
-                                                 CWAddressMeta (..), SyncProgress (..),
-                                                 Wal, addrMetaToAccount, mkCCoin)
+                                                 CCoin, CId, CTx (..), CTxs (..),
+                                                 CWAddressMeta (..), Wal,
+                                                 addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
-import           Pos.Wallet.Web.State           (AddressLookupMode (Existing),
-                                                 getNextUpdate, getProfile,
-                                                 removeNextUpdate, setProfile, testReset)
+import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
 import           Pos.Wallet.Web.Util            (getWalletAccountIds, rewrapTxError)
-
-
-getUserProfile :: MonadWalletWebMode m => m CProfile
-getUserProfile = getProfile
-
-updateUserProfile :: MonadWalletWebMode m => CProfile -> m CProfile
-updateUserProfile profile = setProfile profile >> getUserProfile
 
 
 newPayment
@@ -380,31 +366,3 @@ selectSrcAddresses allAddrs outputCoins (TxFee fee) =
                          (\fa -> Right (mkCoin 0, fa :| []))
                          (find ((reqCoins ==) . snd) addresses)
 
-
--- NOTE: later we will have `isValidAddress :: CId -> m Bool` which should work for arbitrary crypto
-isValidAddress :: MonadWalletWebMode m => Text -> m Bool
-isValidAddress sAddr =
-    pure . isRight $ decodeTextAddress sAddr
-
--- | Get last update info
-nextUpdate :: MonadWalletWebMode m => m CUpdateInfo
-nextUpdate = getNextUpdate >>=
-             maybeThrow (RequestError "No updates available")
-
-applyUpdate :: MonadWalletWebMode m => m ()
-applyUpdate = removeNextUpdate >> applyLastUpdate
-
-
-syncProgress :: MonadWalletWebMode m => m SyncProgress
-syncProgress = do
-    SyncProgress
-    <$> localChainDifficulty
-    <*> networkChainDifficulty
-    <*> connectedPeers
-
-testResetAll :: MonadWalletWebMode m => m ()
-testResetAll = deleteAllKeys >> testReset
-  where
-    deleteAllKeys = do
-        keyNum <- length <$> getSecretKeys
-        replicateM_ keyNum $ deleteSecretKey 0

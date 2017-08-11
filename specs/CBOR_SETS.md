@@ -29,7 +29,7 @@ When a CBOR-based protocal does see multiple identical items in a set it should 
 
 CBOR has a notion of maps, but not of sets. While CBOR is first and foremost about structured data without
 too much in the way of semantic hints, there is inherently some associated semantics and that is sometimes
-important and useful. In particular the semantics of maps are important in the case of canonical CBOR [3]
+important and useful. In particular the semantics of maps are important in the case of canonical CBOR [2]
 (where unique and sorted keys are required). They are also important for interoperability since internal
 data structures for maps also enforce unique keys.
 
@@ -46,7 +46,7 @@ or in testing that implementations correctly reject non-canonical representation
 ## References
 
 [1] C. Bormann, and P. Hoffman. "Concise Binary Object Representation (CBOR)". RFC 7049, October 2013.
-[3] https://tools.ietf.org/html/rfc7049#section-3.9
+[2] https://tools.ietf.org/html/rfc7049#section-3.9
 
 ## Author
 

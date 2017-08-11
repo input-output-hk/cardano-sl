@@ -48,9 +48,8 @@ or in testing that implementations correctly reject non-canonical representation
 [1] C. Bormann, and P. Hoffman. "Concise Binary Object Representation (CBOR)". RFC 7049, October 2013.
 [2] https://tools.ietf.org/html/rfc7049#section-3.9
 
-## Author
+## Authors
 
 Duncan Coutts     <duncan@well-typed.com>
 Alfredo Di Napoli <alfredo.dinapoli@iohk.io>
 Artyom  Kazak     <yom@artyom.me>
-

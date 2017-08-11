@@ -23,7 +23,7 @@ an item of integer 1 cannot be distinguished from an item of string "1". This me
 items are used, the simultaneous use of string items that look like numbers needs to be avoided.
 Again, this leads to the conclusion that items should be of a single CBOR type.
 
-When a CBOR-based protocal does see multiple identical items in a set it should reject the set as invalid.
+When a CBOR-based protocol does see multiple identical items in a set it should reject the set as invalid.
 
 ## Rationale
 

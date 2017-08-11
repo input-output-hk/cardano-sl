@@ -8,8 +8,8 @@ ROOT_DIR=${1:-.}
 DIR_GENERATED_WEB=$ROOT_DIR/src/Generated/Pos/Explorer/Web/Lenses
 DIR_GENERATED_TYPES=$ROOT_DIR/src/Generated/Pos/Core/Lenses
 DIR_TYPES_LENSES=$ROOT_DIR/src/Explorer/Lenses
-DIR_TIME_LENSES=$ROOT_DIR/$DIR_TIME/Lenses
-DIR_VIEW_LENSES=$ROOT_DIR/$DIR_VIEW/Lenses
+DIR_TIME_LENSES=$ROOT_DIR/src/Data/Time/Lenses
+DIR_VIEW_LENSES=$ROOT_DIR/src/Explorer/View/Lenses
 
 rm -rf $DIR_GENERATED_WEB
 rm -rf $DIR_GENERATED_TYPES
@@ -23,6 +23,8 @@ set -e
 
 mkdir -p $DIR_GENERATED_WEB
 
+echo "Generating $DIR_GENERATED_WEB lenses."
+
 purescript-derive-lenses \
     < $DIR_GENERATED_WEB/../ClientTypes.purs \
     --moduleName Pos.Explorer.Web.Lenses.ClientTypes \
@@ -33,6 +35,8 @@ purescript-derive-lenses \
 
 
 mkdir -p $DIR_GENERATED_TYPES
+
+echo "Generating $DIR_GENERATED_TYPES lenses."
 
 purescript-derive-lenses \
   < $DIR_GENERATED_TYPES/../Types.purs \
@@ -50,6 +54,8 @@ set -e
 DIR_TYPES=$ROOT_DIR/src/Explorer/Types
 
 mkdir -p $DIR_TYPES_LENSES
+
+echo "Generating $DIR_TYPES_LENSES lenses."
 
 purescript-derive-lenses \
   < $DIR_TYPES/State.purs \
@@ -74,12 +80,12 @@ purescript-derive-lenses \
 # Data.Time
 # - - - - - - - - - - -
 
-DIR_TIME=$ROOT_DIR/src/Data/Time
-
 mkdir -p $DIR_TIME_LENSES
 
+echo "Generating $DIR_TIME_LENSES lenses."
+
 purescript-derive-lenses \
-    < $DIR_TIME/NominalDiffTime.purs \
+    < src/Data/Time/NominalDiffTime.purs \
     --moduleName Data.Time.NominalDiffTime.Lenses \
     --moduleImports "import Data.Time.Duration  (Seconds (..))" \
     > $DIR_TIME_LENSES/NominalDiffTime.purs
@@ -88,12 +94,12 @@ purescript-derive-lenses \
 # View
 # - - - - - - - - - - -
 
-DIR_VIEW=$ROOT_DIR/src/Explorer/View
-
 mkdir -p $DIR_VIEW_LENSES
 
+echo "Generating $DIR_VIEW_LENSES lenses."
+
 purescript-derive-lenses \
-    < $DIR_VIEW/Types.purs \
+    < $DIR_VIEW_LENSES/../Types.purs \
     --moduleName Explorer.View.Lenses \
     --moduleImports "import Data.Time.NominalDiffTime (NominalDiffTime(..))" \
     --moduleImports "import Data.Maybe (Maybe)" \

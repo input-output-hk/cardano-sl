@@ -439,7 +439,7 @@ instance Arbitrary G.GenesisCoreData where
                          <$> arbitrary
                          <*> pure (wordILen - a)
                          <*> arbitrary
-                , G.safeExpStakes <$> choose (5::Integer, 15)
+                , pure $ G.safeExpStakes wordILen
                 , G.CustomStakes <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen

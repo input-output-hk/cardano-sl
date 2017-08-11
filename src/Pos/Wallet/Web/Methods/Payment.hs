@@ -49,7 +49,8 @@ import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
-import           Pos.Wallet.Web.Util            (getWalletAccountIds, rewrapTxError)
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAccountIds,
+                                                 rewrapTxError)
 
 
 newPayment
@@ -149,7 +150,7 @@ sendMoney SendActions {..} passphrase moneySource dstDistr = do
         let inputMetas = NE.map fst spendings
         let inpTxOuts = toList $ NE.map snd spendings
         sks <- mapM findKey inputMetas
-        srcAddrs <- forM inputMetas $ L.decodeCIdOrFail . cwamId
+        srcAddrs <- forM inputMetas $ decodeCTypeOrFail . cwamId
         let dstAddrs = txOutAddress . toaOut <$> toList outputs
         withSafeSigners sks (pure passphrase) $ \mss -> do
             ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
@@ -212,7 +213,7 @@ prepareTx passphrase moneySource dstDistr = do
         | otherwise = do
             relatedWallet <- getSomeMoneySourceAccount moneySource
             account       <- L.newAddress RandomSeed passphrase relatedWallet
-            remAddr       <- L.decodeCIdOrFail (cadId account)
+            remAddr       <- decodeCTypeOrFail (cadId account)
             pure $ Just $ TxOutAux (TxOut remAddr remaining) distr
 
     buildDistribution :: TxRaw -> Text
@@ -264,7 +265,7 @@ data TxRaw
 
 spendings2TxOuts :: MonadThrow m => NonEmpty (CWAddressMeta, Coin) -> m (NonEmpty TxOut)
 spendings2TxOuts spendings = fmap NE.fromList . forM (toList spendings) $ \(cAddr, c) -> do
-    addr <- L.decodeCIdOrFail $ cwamId cAddr
+    addr <- decodeCTypeOrFail $ cwamId cAddr
     pure $ TxOut addr c
 
 createFakeTxFromRawTx :: MonadWalletWebMode m => TxRaw -> m TxAux
@@ -316,7 +317,7 @@ prepareTxRaw moneySource dstDistr fee = do
             either (throwM . RequestError) pure =<<
             runExceptT foo
     trOutputsPre <- forM dstDistr $ \(cAddr, coin) -> do
-        addr <- L.decodeCIdOrFail cAddr
+        addr <- decodeCTypeOrFail cAddr
         pure $ TxOutAux (TxOut addr coin) []
     trOutputs <- withDistr $ overrideTxDistrBoot trOutputsPre
     remainingDistr <- withDistr $ overrideTxOutDistrBoot remaining []
@@ -324,7 +325,7 @@ prepareTxRaw moneySource dstDistr fee = do
     pure TxRaw{..}
   where
     checkIsNotRedeem cId =
-        whenM (has _RedeemAddress <$> L.decodeCIdOrFail cId) $
+        whenM (has _RedeemAddress <$> decodeCTypeOrFail cId) $
             throwM . RequestError $
             sformat ("Destination address can't be redeem address: "%build) cId
 

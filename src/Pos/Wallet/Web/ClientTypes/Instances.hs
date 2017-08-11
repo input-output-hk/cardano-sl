@@ -20,8 +20,10 @@ import           Pos.Core                             (Address, Coin, decodeText
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
 import           Pos.Util.Servant                     (FromCType (..), OriginType,
                                                        ToCType (..))
-import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, mkCTxId)
+import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
+                                                       mkCCoin, mkCTxId)
 import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccountId (..),
+                                                       CCoin (..),
                                                        CElectronCrashReport (..),
                                                        CId (..), CPassPhrase (..), CTxId)
 
@@ -65,6 +67,24 @@ instance ToCType CAccountId where
     encodeCType = CAccountId . sformat build
 
 
+type instance OriginType CCoin = Coin
+
+instance FromCType CCoin where
+    decodeCType =
+        maybe (Left "Invalid coins amount") Right .
+        fmap mkCoin . readMaybe . toString . getCCoin
+
+instance ToCType CCoin where
+    encodeCType = mkCCoin
+
+
+type instance OriginType (CId w) = Address
+
+instance FromCType (CId w) where
+    decodeCType = cIdToAddress
+
+instance ToCType (CId w) where
+    encodeCType = addressToCId
 
 ----------------------------------------------------------------------------
 -- Servant

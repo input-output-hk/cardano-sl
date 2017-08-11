@@ -30,12 +30,12 @@ import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), addOnlyNewTxMeta,
                                                getHistoryCache, getTxMeta,
                                                setWalletTxMeta)
-import           Pos.Wallet.Web.Util          (getWalletAccountIds)
+import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getWalletAccountIds)
 
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m ([CTx], Word)
 getFullWalletHistory cWalId = do
-    addrs <- mapM L.decodeCIdOrFail =<< L.getWalletAddrs Ever cWalId
+    addrs <- mapM decodeCTypeOrFail =<< L.getWalletAddrs Ever cWalId
 
     blockHistory <- getHistoryCache cWalId >>= \case
         Just hist -> pure $ DL.fromList hist

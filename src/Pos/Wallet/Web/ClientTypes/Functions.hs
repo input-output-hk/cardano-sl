@@ -2,7 +2,6 @@
 -- | Functions on client types
 module Pos.Wallet.Web.ClientTypes.Functions
       ( mkCCoin
-      , coinFromCCoin
       , addressToCId
       , cIdToAddress
       , encToCId
@@ -24,7 +23,6 @@ import qualified Formatting                       as F
 
 import           Pos.Aeson.Types                  ()
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Core.Coin                    (mkCoin)
 import           Pos.Crypto                       (EncryptedSecretKey, encToPublic,
                                                    hashHexF)
 import           Pos.Txp.Core.Types               (Tx (..), TxId, txOutAddress,
@@ -154,9 +152,6 @@ addrMetaToAccount CWAddressMeta{..} = AccountId
 
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
-
-coinFromCCoin :: CCoin -> Maybe Coin
-coinFromCCoin = fmap mkCoin . readMaybe . toString . getCCoin
 
 -- | Return counts of negative and positive votes
 countVotes :: StakeholderVotes -> (Int, Int)

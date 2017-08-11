@@ -6,6 +6,7 @@
 module Pos.Wallet.Web.Util
     ( getWalletAccountIds
     , rewrapTxError
+    , decodeCTypeOrFail
     ) where
 
 import           Universum
@@ -13,6 +14,7 @@ import           Universum
 import           Formatting                 (build, sformat, stext, (%))
 
 import           Pos.Client.Txp.Util        (TxError (..))
+import           Pos.Util.Servant           (FromCType (..), OriginType)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal)
 import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.State       (WebWalletModeDB, getAccountIds)
@@ -28,3 +30,8 @@ rewrapTxError prefix =
     rewrapToWalletError (\TxError{} -> True) (RequestError . sbuild)
   where
     sbuild = sformat (stext%": "%build) prefix
+
+decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
+decodeCTypeOrFail = either wrongAddress pure . decodeCType
+  where wrongAddress err = throwM . DecodeError $
+            sformat ("Error while decoding CId: "%stext) err

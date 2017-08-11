@@ -25,9 +25,6 @@ module Pos.Wallet.Web.Methods.Logic
        , updateAccount
        , changeWalletPassphrase
 
-       , decodeCIdOrFail
-       , decodeCAccountIdOrFail
-       , decodeCCoinOrFail
        , getAccountAddrsOrThrow
        ) where
 
@@ -36,27 +33,25 @@ import           Universum
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (findIndex, notElem)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Formatting                 (build, sformat, stext, (%))
+import           Formatting                 (build, sformat, (%))
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
-import           Pos.Core                   (Address, Coin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core                   (Coin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
                                              checkPassMatches, emptyPassphrase)
 import           Pos.Util                   (maybeThrow)
 import qualified Pos.Util.Modifier          as MM
-import           Pos.Util.Servant           (decodeCType, encodeCType)
+import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (getBalance)
 import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountAddress,
                                              genUniqueAccountId, getAddrIdx, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccount (..),
-                                             CAccountId (..), CAccountInit (..),
-                                             CAccountMeta (..), CAddress (..), CCoin, CId,
-                                             CWAddressMeta (..), CWallet (..),
-                                             CWalletMeta (..), Wal, addrMetaToAccount,
-                                             cIdToAddress, coinFromCCoin, encToCId,
-                                             mkCCoin)
+                                             CAccountInit (..), CAccountMeta (..),
+                                             CAddress (..), CId, CWAddressMeta (..),
+                                             CWallet (..), CWalletMeta (..), Wal,
+                                             addrMetaToAccount, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
@@ -72,8 +67,7 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifier,
                                              fixCachedAccModifierFor,
                                              fixingCachedAccModifier, sortedInsertions)
-import           Pos.Wallet.Web.Util        (getWalletAccountIds)
-
+import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getWalletAccountIds)
 
 
 ----------------------------------------------------------------------------
@@ -82,7 +76,7 @@ import           Pos.Wallet.Web.Util        (getWalletAccountIds)
 
 getWAddressBalance :: MonadWalletWebMode m => CWAddressMeta -> m Coin
 getWAddressBalance addr =
-    getBalance <=< decodeCIdOrFail $ cwamId addr
+    getBalance <=< decodeCTypeOrFail $ cwamId addr
 
 getWAddress
     :: MonadWalletWebMode m
@@ -136,28 +130,13 @@ getWallet cAddr = do
     wallets    <- getAccounts (Just cAddr)
     let walletsNum = length wallets
     balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
-                     mapM (decodeCCoinOrFail . caAmount) wallets
+                     mapM (decodeCTypeOrFail . caAmount) wallets
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- getWalletPassLU cAddr >>= maybeThrow noWSet
     pure $ CWallet cAddr meta walletsNum balance hasPass passLU
   where
     noWSet = RequestError $
         sformat ("No wallet with address "%build%" found") cAddr
-
--- TODO [CSM-407]: Write smth like `decodeCTypeOrFail` instead of next functions
-decodeCIdOrFail :: MonadThrow m => CId w -> m Address
-decodeCIdOrFail = either wrongAddress pure . cIdToAddress
-  where wrongAddress err = throwM . DecodeError $
-            sformat ("Error while decoding CId: "%stext) err
-
-decodeCAccountIdOrFail :: MonadThrow m => CAccountId -> m AccountId
-decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
-  where wrongAddress err = throwM . DecodeError $
-            sformat ("Error while decoding CAccountId: "%stext) err
-
-decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
-decodeCCoinOrFail c =
-    coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
 
 getWalletAddrMetas
     :: MonadWalletWebMode m
@@ -238,7 +217,7 @@ createWalletSafe cid wsMeta = do
 deleteWallet :: MonadWalletWebMode m => CId Wal -> m ()
 deleteWallet wid = do
     accounts <- getAccounts (Just wid)
-    mapM_ (deleteAccount <=< decodeCAccountIdOrFail . caId) accounts
+    mapM_ (deleteAccount <=< decodeCTypeOrFail . caId) accounts
     removeWallet wid
     removeTxMetas wid
     removeHistoryCache wid

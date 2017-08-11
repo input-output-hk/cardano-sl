@@ -33,7 +33,7 @@ import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
-import           Pos.Wallet.Web.Util            (rewrapTxError)
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, rewrapTxError)
 
 
 redeemAda :: MonadWalletWebMode m => SendActions m -> PassPhrase -> CWalletRedeem -> m CTx
@@ -81,12 +81,12 @@ redeemAdaInternal
 redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
-    accId <- L.decodeCAccountIdOrFail cAccId
+    accId <- decodeCTypeOrFail cAccId
     -- new redemption wallet
     _ <- fixingCachedAccModifier L.getAccount accId
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
-    dstAddr <- L.decodeCIdOrFail . cadId =<<
+    dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
     (TxAux {..}, redeemAddress, redeemBalance) <-
         rewrapTxError "Cannot send redemption transaction" $

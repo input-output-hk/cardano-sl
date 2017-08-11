@@ -7,8 +7,8 @@ module Pos.Txp.Toil.Failure
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, build, int, sformat,
-                                             shown, stext, (%))
+import           Formatting                 (bprint, build, int, sformat, shown, stext,
+                                             (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text         (listJson, pairF)
 import           Serokell.Util.Verify       (formatAllErrors)
@@ -42,7 +42,7 @@ data ToilVerFailure
                           , tifMinFee :: !TxFee
                           , tifSize   :: !Byte }
     | ToilUnknownAttributes !UnparsedFields
-    | ToilBootDifferentStake !TxOutDistribution
+    | ToilBootInappropriate !Text
     deriving (Show, Eq)
 
 instance Exception ToilVerFailure
@@ -86,6 +86,5 @@ instance Buildable ToilVerFailure where
             tifMinFee
     build (ToilUnknownAttributes uf) =
         bprint ("transaction has unknown attributes: "%shown) uf
-    build (ToilBootDifferentStake distr) =
-        bprint ("transaction has non-boot stake distr in boot era: "%listJson)
-               (map (sformat pairF) distr)
+    build (ToilBootInappropriate msg) =
+        bprint ("transaction is not suitable for boot era: "%stext) msg

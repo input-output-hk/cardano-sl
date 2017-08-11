@@ -55,7 +55,7 @@
     "git-revision-webpack-plugin": "^2.5.1",
     "html-webpack-plugin": "^2.29.0",
     "jsdom": "^11.1.0",
-    "lost": "^8.1.0",
+    "lost": "^8.2.0",
     "module-alias": "^2.0.0",
     "postcss-button": "^0.1.19",
     "postcss-color-function": "^4.0.0",

@@ -45,11 +45,10 @@ import           Pos.Core                       (Coin, TxFeePolicy (..),
                                                  unsafeAddCoin, unsafeSubCoin,
                                                  _RedeemAddress)
 import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
-                                                 SafeSigner, aesDecrypt, deriveAesKeyBS,
+                                                 aesDecrypt, deriveAesKeyBS,
                                                  emptyPassphrase, fakeSigner, hash,
                                                  keyGen, redeemDeterministicKeyGen,
-                                                 redeemToPublic, withSafeSigner,
-                                                 withSafeSigner)
+                                                 redeemToPublic, withSafeSigners)
 import           Pos.DB.Class                   (gsAdoptedBVData)
 import           Pos.Genesis                    (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState         (HasReportServers (..),
@@ -205,7 +204,8 @@ sendMoney SendActions {..} passphrase moneySource dstDistr = do
         sks <- mapM findKey inputMetas
         srcAddrs <- forM inputMetas $ L.decodeCIdOrFail . cwamId
         let dstAddrs = txOutAddress . toaOut <$> toList outputs
-        withSafeSigners passphrase sks $ \ss -> do
+        withSafeSigners sks (pure passphrase) $ \mss -> do
+            ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
             let hdwSigner = NE.zip ss srcAddrs
             TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
                 submitMTx enqueueMsg hdwSigner outputs
@@ -418,20 +418,6 @@ selectSrcAddresses allAddrs outputCoins (TxFee fee) =
                    maybe (Right (balance `unsafeSubCoin` reqCoins, (ad, balance) :| []))
                          (\fa -> Right (mkCoin 0, fa :| []))
                          (find ((reqCoins ==) . snd) addresses)
-
-withSafeSigners
-    :: (MonadIO m, MonadThrow m)
-    => PassPhrase
-    -> NonEmpty (EncryptedSecretKey)
-    -> (NonEmpty SafeSigner -> m a) -> m a
-withSafeSigners passphrase (sk :| sks) action =
-    withSafeSigner sk (pure passphrase) $ \mss -> do
-        ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
-        case nonEmpty sks of
-            Nothing -> action (ss :| [])
-            Just sks' -> do
-                let action' = action . (ss :|) . toList
-                withSafeSigners passphrase sks' action'
 
 
 -- | Which index to use to create initial account and address on new wallet

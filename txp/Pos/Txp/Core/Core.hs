@@ -18,8 +18,7 @@ import           Data.List           (zipWith3)
 import           Pos.Binary.Core     ()
 import           Pos.Binary.Crypto   ()
 import           Pos.Binary.Txp.Core ()
-import           Pos.Core.Address    (AddressIgnoringAttributes (..))
-import           Pos.Core.Types      (Address (..))
+import           Pos.Core            (Address (..))
 import           Pos.Crypto          (hash)
 import           Pos.Merkle          (mtRoot)
 import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
@@ -30,13 +29,12 @@ import           Pos.Util.Util       (leftToPanic)
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
 addrBelongsTo :: TxOutAux -> Address -> Bool
-addrBelongsTo TxOutAux {..} = ((==) `on` AddressIA) (txOutAddress toaOut)
+addrBelongsTo TxOutAux {..} = (== txOutAddress toaOut)
 
 -- | Extended version of `addBelongsTo`, allows to compare against several
 -- addresses.
-addrBelongsToSet :: TxOutAux -> HashSet AddressIgnoringAttributes -> Bool
-TxOutAux {..} `addrBelongsToSet` addrs =
-    AddressIA (txOutAddress toaOut) `HS.member` addrs
+addrBelongsToSet :: TxOutAux -> HashSet Address -> Bool
+TxOutAux {..} `addrBelongsToSet` addrs = txOutAddress toaOut `HS.member` addrs
 
 -- | Make a pair from 'TxIn'.
 txInToPair :: TxIn -> (TxId, Word32)

@@ -26,6 +26,8 @@ module Pos.Client.Txp.Util
        , TxError (..)
        ) where
 
+import           Universum
+
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Control.Monad.State      (StateT (..), evalStateT)
@@ -37,12 +39,10 @@ import qualified Data.Text.Buildable
 import qualified Data.Vector              as V
 import           Ether.Internal           (HasLens (..))
 import           Formatting               (bprint, build, sformat, stext, (%))
-import           Universum
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core                 (AddressIgnoringAttributes (AddressIA),
-                                           TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
+import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
                                            calculateTxSizeLinear, integerToCoin,
                                            integerToCoin, siEpoch, unsafeAddCoin,
                                            unsafeSubCoin)
@@ -179,10 +179,10 @@ makeMPubKeyTxAddrs
 makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
   where
     signers = HM.fromList . toList $
-        map (swap . second AddressIA) hdwSigners
+        map swap hdwSigners
     getSigner (TxOut addr _) =
         fromMaybe (error "Requested signer for unknown address") $
-        HM.lookup (AddressIA addr) signers
+        HM.lookup addr signers
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: SafeSigner -> TxInputs -> TxOutputs -> TxAux

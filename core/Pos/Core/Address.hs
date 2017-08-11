@@ -1,7 +1,6 @@
 module Pos.Core.Address
        ( Address (..)
        , AddrPkAttrs (..)
-       , AddressIgnoringAttributes (..)
        , addressF
        , addressDetailedF
        , checkPubKeyAddress
@@ -65,21 +64,6 @@ addrToBase58 = encodeBase58 addrAlphabet . Bi.serialize'
 
 instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
-
-newtype AddressIgnoringAttributes = AddressIA Address
-
-instance Eq AddressIgnoringAttributes where
-    AddressIA (PubKeyAddress h1 _) == AddressIA (PubKeyAddress h2 _) = h1 == h2
-    AddressIA a1                   == AddressIA a2                   = a1 == a2
-
-instance Ord AddressIgnoringAttributes where
-    AddressIA (PubKeyAddress h1 _) `compare` AddressIA (PubKeyAddress h2 _) =
-        h1 `compare` h2
-    AddressIA a1 `compare` AddressIA a2 = compare a1 a2
-
-instance Bi Address => Hashable AddressIgnoringAttributes where
-    hashWithSalt s (AddressIA (PubKeyAddress h _)) = hashWithSalt s h
-    hashWithSalt s (AddressIA a)                   = hashWithSalt s a
 
 -- | A function which decodes base58 address from given ByteString
 decodeAddress :: Bi Address => ByteString -> Either String Address

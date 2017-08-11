@@ -91,7 +91,6 @@ import           Pos.Update.Core           (BlockVersionModifier (..), Stakehold
                                             UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll           (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase     (BackupPhrase)
-import           Pos.Util.Servant          (FromCType (..), OriginType, ToCType (..))
 
 -- TODO [CSM-407] Structurize this mess
 
@@ -136,25 +135,6 @@ newtype CPassPhrase = CPassPhrase Text
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
-type instance OriginType CPassPhrase = PassPhrase
-
--- These two instances nearly duplicate `instance Bi PassPhrase`
--- in `Pos.Binary.Crypto`.
-instance FromCType CPassPhrase where
-    decodeCType (CPassPhrase text) = do
-        bs <- Base16.decode text
-        let bl = BS.length bs
-        -- Currently passphrase may be either 32-byte long or empty (for
-        -- unencrypted keys).
-        if bl == 0 || bl == passphraseLength
-            then pure $ ByteArray.convert bs
-            else fail . toString $ sformat
-                 ("Expected password length 0 or "%int%", not "%int)
-                 passphraseLength bl
-
-instance ToCType CPassPhrase where
-    encodeCType = CPassPhrase . Base16.encode . ByteArray.convert
-
 ----------------------------------------------------------------------------
 -- Wallet
 ----------------------------------------------------------------------------
@@ -175,21 +155,6 @@ instance Buildable AccountId where
 
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
-
-type instance OriginType CAccountId = AccountId
-
-instance FromCType CAccountId where
-    decodeCType (CAccountId url) =
-        case splitOn "@" url of
-            [part1, part2] -> do
-                aiWId  <- addressToCId <$> decodeTextAddress part1
-                aiIndex <- maybe (Left "Invalid wallet index") Right $
-                            readMaybe $ toString part2
-                return AccountId{..}
-            _ -> Left "Expected 2 parts separated by '@'"
-
-instance ToCType CAccountId where
-    encodeCType = CAccountId . sformat F.build
 
 -- TODO: extract first three fields as @Coordinates@ and use only it where
 -- required (maybe nowhere)
@@ -287,18 +252,6 @@ data CWalletInit = CWalletInit
     { cwInitMeta     :: !CWalletMeta
     , cwBackupPhrase :: !BackupPhrase
     } deriving (Eq, Show, Generic)
-
-class WithDerivationPath a where
-    getDerivationPath :: a -> [Word32]
-
-instance WithDerivationPath (CId Wal) where
-    getDerivationPath _ = []
-
-instance WithDerivationPath AccountId where
-    getDerivationPath AccountId{..} = [aiIndex]
-
-instance WithDerivationPath CWAddressMeta where
-    getDerivationPath CWAddressMeta{..} = [cwamWalletIndex, cwamAccountIndex]
 
 -- | Query data for redeem
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
@@ -415,17 +368,3 @@ data CElectronCrashReport = CElectronCrashReport
     , cecCompanyName :: Text
     , cecUploadDump  :: FileData
     } deriving (Show, Generic)
-
-instance FromMultipart CElectronCrashReport where
-    fromMultipart form = do
-        let look t = lookupInput t form
-        CElectronCrashReport
-          <$> look "ver"
-          <*> look "platform"
-          <*> look "process_type"
-          <*> look "guid"
-          <*> look "_version"
-          <*> look "_productName"
-          <*> look "prod"
-          <*> look "_companyName"
-          <*> lookupFile "upload_file_minidump" form

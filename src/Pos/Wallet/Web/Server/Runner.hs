@@ -27,11 +27,11 @@ import           Pos.Communication.Protocol     (SendActions)
 import           Pos.Launcher.Resource          (NodeResources)
 import           Pos.Launcher.Runner            (runRealBasedMode)
 import           Pos.Wallet.SscType             (WalletSscType)
+import           Pos.Wallet.Web.Methods         (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode            (WalletWebMode, WalletWebModeContext (..),
                                                  WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl,
                                                  walletServer)
-import           Pos.Wallet.Web.Server.Methods  (addInitialRichAccount)
 import           Pos.Wallet.Web.Sockets         (ConnectionsVar)
 import           Pos.Wallet.Web.State           (WalletState)
 import           Pos.Web                        (TlsParams)

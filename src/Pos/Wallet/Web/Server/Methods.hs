@@ -10,11 +10,9 @@ module Pos.Wallet.Web.Server.Methods where
 
 import           Universum
 
-import           Control.Lens                   (has, ix, traversed)
+import           Control.Lens                   (has)
 import           Control.Monad.Catch            (SomeException, try)
-import qualified Control.Monad.Catch            as E
 import           Data.ByteString.Base58         (bitcoinAlphabet, decodeBase58)
-import           Data.Default                   (Default (def))
 import qualified Data.List.NonEmpty             as NE
 import qualified Data.Set                       as S
 import           Formatting                     (build, sformat, shown, (%))
@@ -22,13 +20,11 @@ import qualified Formatting                     as F
 import           Pos.ReportServer.Report        (ReportType (RInfo))
 import qualified Serokell.Util.Base64           as B64
 import           Servant.Multipart              (fdFilePath)
-import           System.IO.Error                (isDoesNotExistError)
 import           System.Wlog                    (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Aeson.WalletBackup         ()
 import           Pos.Binary.Class               (biSize)
-import           Pos.Block.Logic.Util           (withBlkSemaphore_)
 import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (TxError (..), createMTx,
@@ -36,7 +32,6 @@ import           Pos.Client.Txp.Util            (TxError (..), createMTx,
                                                  overrideTxOutDistrBoot)
 import           Pos.Communication              (SendActions (..), submitMTx,
                                                  submitRedemptionTx)
-import           Pos.Constants                  (isDevelopment)
 import           Pos.Core                       (Coin, TxFeePolicy (..),
                                                  TxSizeLinear (..), addressF,
                                                  bvdTxFeePolicy, calculateTxSizeLinear,
@@ -44,13 +39,11 @@ import           Pos.Core                       (Coin, TxFeePolicy (..),
                                                  integerToCoin, makeRedeemAddress, mkCoin,
                                                  unsafeAddCoin, unsafeSubCoin,
                                                  _RedeemAddress)
-import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
-                                                 aesDecrypt, deriveAesKeyBS,
-                                                 emptyPassphrase, fakeSigner, hash,
-                                                 keyGen, redeemDeterministicKeyGen,
+import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
+                                                 fakeSigner, hash, keyGen,
+                                                 redeemDeterministicKeyGen,
                                                  redeemToPublic, withSafeSigners)
 import           Pos.DB.Class                   (gsAdoptedBVData)
-import           Pos.Genesis                    (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState         (HasReportServers (..),
                                                  HasReportingContext (..))
 import           Pos.Reporting.Methods          (sendReport, sendReportNodeNologs)
@@ -59,17 +52,12 @@ import           Pos.Txp.Core                   (TxAux (..), TxOut (..), TxOutAu
                                                  TxOutDistribution)
 import           Pos.Util                       (eitherToThrow, maybeThrow)
 import           Pos.Util.BackupPhrase          (toSeed)
-import           Pos.Util.UserSecret            (UserSecretDecodingError (..),
-                                                 readUserSecret, usWalletSet)
-import           Pos.Wallet.KeyStorage          (addSecretKey, deleteSecretKey,
-                                                 getSecretKeys)
+import           Pos.Wallet.KeyStorage          (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode          (applyLastUpdate, connectedPeers,
                                                  localChainDifficulty,
                                                  networkChainDifficulty)
-import           Pos.Wallet.Web.Account         (GenSeed (..), MonadKeySearch (..),
-                                                 genSaveRootKey, genUniqueAccountId)
+import           Pos.Wallet.Web.Account         (GenSeed (..), MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAccountId (..),
-                                                 CAccountInit (..), CAccountMeta (..),
                                                  CAddress (..), CCoin,
                                                  CElectronCrashReport (..), CId,
                                                  CInitialized,
@@ -77,24 +65,17 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAccountI
                                                  CProfile (..), CTx (..), CTxId,
                                                  CTxMeta (..), CTxs (..),
                                                  CUpdateInfo (..), CWAddressMeta (..),
-                                                 CWallet (..), CWalletInit (..),
-                                                 CWalletMeta (..), CWalletRedeem (..),
-                                                 SyncProgress (..), Wal,
-                                                 addrMetaToAccount, encToCId, mkCCoin)
-import           Pos.Wallet.Web.Error           (WalletError (..), rewrapToWalletError)
+                                                 CWalletRedeem (..), SyncProgress (..),
+                                                 Wal, addrMetaToAccount, mkCCoin)
+import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
-import           Pos.Wallet.Web.Secret          (WalletUserSecret (..),
-                                                 mkGenesisWalletUserSecret, wusAccounts,
-                                                 wusWalletName)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Existing),
-                                                 createAccount, getNextUpdate, getProfile,
+                                                 getNextUpdate, getProfile,
                                                  removeNextUpdate, setProfile,
-                                                 setWalletSyncTip, setWalletTxMeta,
-                                                 testReset, updateHistoryCache)
-import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier,
-                                                 syncWalletOnImport)
+                                                 setWalletTxMeta, testReset)
+import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
 import           Pos.Wallet.Web.Util            (getWalletAccountIds, rewrapTxError)
 
 

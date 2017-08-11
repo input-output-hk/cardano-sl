@@ -1,19 +1,29 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Instances for client types
 
 module Pos.Wallet.Web.ClientTypes.Instances () where
 
 import           Universum
 
-import           Servant.API                      (FromHttpApiData (..))
+import qualified Data.ByteArray                       as ByteArray
+import qualified Data.ByteString                      as BS
+import           Data.Text                            (splitOn)
+import           Formatting                           (build, int, sformat, (%))
+import qualified Serokell.Util.Base16                 as Base16
+import           Servant.API                          (FromHttpApiData (..))
+import           Servant.Multipart                    (FromMultipart (..), lookupFile,
+                                                       lookupInput)
 
-import           Pos.Core                         (Address, Coin, decodeTextAddress,
-                                                   mkCoin)
-import           Pos.Util.Servant                 (FromCType (..), OriginType,
-                                                   ToCType (..))
-import           Pos.Wallet.Web.ClientTypes.Types (CAccountId (..), CId (..),
-                                                   CPassPhrase (..), CTxId, addressToCId,
-                                                   mkCTxId)
-
+import           Pos.Core                             (Address, Coin, decodeTextAddress,
+                                                       mkCoin)
+import           Pos.Crypto                           (PassPhrase, passphraseLength)
+import           Pos.Util.Servant                     (FromCType (..), OriginType,
+                                                       ToCType (..))
+import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, mkCTxId)
+import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccountId (..),
+                                                       CElectronCrashReport (..),
+                                                       CId (..), CPassPhrase (..), CTxId)
 
 ----------------------------------------------------------------------------
 -- Convertions
@@ -52,7 +62,7 @@ instance FromCType CAccountId where
             _ -> Left "Expected 2 parts separated by '@'"
 
 instance ToCType CAccountId where
-    encodeCType = CAccountId . sformat F.build
+    encodeCType = CAccountId . sformat build
 
 
 

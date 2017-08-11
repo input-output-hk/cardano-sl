@@ -1,48 +1,8 @@
-{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
-{-# LANGUAGE TypeFamilies #-}
 
--- This module is to be moved later anywhere else, just to have a
--- starting point
-
--- | Types representing client (wallet) requests on wallet API.
-module Pos.Wallet.Web.ClientTypes.Types
-      ( SyncProgress (..)
-      , spLocalCD
-      , spNetworkCD
-      , spPeers
-      , CId (..)
-      , CHash (..)
-      , CPassPhrase (..)
-      , CProfile (..)
-      , CPwHash
-      , CTx (..)
-      , CTxs (..)
-      , CTxId
-      , CTxMeta (..)
-      , CTExMeta (..)
-      , CInitialized (..)
-      , AccountId (..)
-      , CAccountId (..)
-      , CWAddressMeta (..)
-      , CAddress (..)
-      , CAccount (..)
-      , CWalletAssurance (..)
-      , CAccountMeta (..)
-      , CAccountInit (..)
-      , CWallet (..)
-      , CWalletMeta (..)
-      , CWalletInit (..)
-      , CUpdateInfo (..)
-      , CWalletRedeem (..)
-      , CPaperVendWalletRedeem (..)
-      , CCoin
-      , mkCCoin
+-- | Functions on client types
+module Pos.Wallet.Web.ClientTypes.Functions
+      ( mkCCoin
       , coinFromCCoin
-      , PassPhraseLU
-      , CElectronCrashReport (..)
-      , WithDerivationPath (..)
-      , Wal (..)
-      , Addr (..)
       , addressToCId
       , cIdToAddress
       , encToCId
@@ -56,42 +16,31 @@ module Pos.Wallet.Web.ClientTypes.Types
 
 import           Universum
 
-import           Control.Arrow             ((&&&))
-import           Control.Lens              (makeLenses)
-import           Control.Monad.Error.Class (throwError)
-import qualified Data.ByteArray            as ByteArray
-import qualified Data.ByteString           as BS
-import           Data.Default              (Default, def)
-import           Data.Hashable             (Hashable (..))
-import qualified Data.Set                  as S
-import           Data.Text                 (Text, splitOn)
-import           Data.Text.Buildable       (build)
-import           Data.Time.Clock.POSIX     (POSIXTime)
-import           Data.Typeable             (Typeable)
-import           Formatting                (bprint, int, sformat, (%))
-import qualified Formatting                as F
-import qualified Prelude
-import qualified Serokell.Util.Base16      as Base16
-import           Servant.Multipart         (FileData, FromMultipart (..), lookupFile,
-                                            lookupInput)
+import           Control.Monad.Error.Class        (throwError)
+import qualified Data.Set                         as S
+import           Data.Text                        (Text)
+import           Formatting                       (sformat)
+import qualified Formatting                       as F
 
-import           Pos.Aeson.Types           ()
-import           Pos.Client.Txp.History    (TxHistoryEntry (..))
-import           Pos.Core.Coin             (mkCoin)
-import           Pos.Core.Types            (ScriptVersion)
-import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
-                                            hashHexF, passphraseLength)
-import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
-                                            txOutValue)
-import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
-                                            Coin, SoftwareVersion, decodeTextAddress,
-                                            makePubKeyAddress, sumCoins, unsafeGetCoin,
-                                            unsafeIntegerToCoin)
-import           Pos.Update.Core           (BlockVersionModifier (..), StakeholderVotes,
-                                            UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll           (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase     (BackupPhrase)
-import           Pos.Util.Servant          (FromCType (..), OriginType, ToCType (..))
+import           Pos.Aeson.Types                  ()
+import           Pos.Client.Txp.History           (TxHistoryEntry (..))
+import           Pos.Core.Coin                    (mkCoin)
+import           Pos.Crypto                       (EncryptedSecretKey, encToPublic,
+                                                   hashHexF)
+import           Pos.Txp.Core.Types               (Tx (..), TxId, txOutAddress,
+                                                   txOutValue)
+import           Pos.Types                        (Address (..), ChainDifficulty, Coin,
+                                                   decodeTextAddress, makePubKeyAddress,
+                                                   sumCoins, unsafeGetCoin,
+                                                   unsafeIntegerToCoin)
+import           Pos.Update.Core                  (BlockVersionModifier (..),
+                                                   StakeholderVotes, UpdateProposal (..),
+                                                   isPositiveVote)
+import           Pos.Update.Poll                  (ConfirmedProposalState (..))
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin (..),
+                                                   CHash (..), CId (..), CTx (..),
+                                                   CTxId (..), CTxMeta, CTxs (..),
+                                                   CUpdateInfo (..), CWAddressMeta (..))
 
 
 -- TODO: this is not completely safe. If someone changes
@@ -115,9 +64,6 @@ mkCTxId = CTxId . CHash
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat hashHexF
-
-convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
-convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
 -- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.

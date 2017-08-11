@@ -1,8 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# LANGUAGE TypeFamilies #-}
-
--- This module is to be moved later anywhere else, just to have a
--- starting point
 
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes.Types
@@ -17,7 +13,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CPwHash
       , CTx (..)
       , CTxs (..)
-      , CTxId
+      , CTxId (..)
       , CTxMeta (..)
       , CTExMeta (..)
       , CInitialized (..)
@@ -35,62 +31,31 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CUpdateInfo (..)
       , CWalletRedeem (..)
       , CPaperVendWalletRedeem (..)
-      , CCoin
-      , mkCCoin
-      , coinFromCCoin
+      , CCoin (..)
       , PassPhraseLU
       , CElectronCrashReport (..)
-      , WithDerivationPath (..)
       , Wal (..)
       , Addr (..)
-      , addressToCId
-      , cIdToAddress
-      , encToCId
-      , mkCTxs
-      , mkCTxId
-      , txIdToCTxId
-      , toCUpdateInfo
-      , addrMetaToAccount
-      , isTxLocalAddress
       ) where
 
 import           Universum
 
-import           Control.Arrow             ((&&&))
-import           Control.Lens              (makeLenses)
-import           Control.Monad.Error.Class (throwError)
-import qualified Data.ByteArray            as ByteArray
-import qualified Data.ByteString           as BS
-import           Data.Default              (Default, def)
-import           Data.Hashable             (Hashable (..))
-import qualified Data.Set                  as S
-import           Data.Text                 (Text, splitOn)
-import           Data.Text.Buildable       (build)
-import           Data.Time.Clock.POSIX     (POSIXTime)
-import           Data.Typeable             (Typeable)
-import           Formatting                (bprint, int, sformat, (%))
-import qualified Formatting                as F
+import           Control.Lens          (makeLenses)
+import           Data.Default          (Default, def)
+import           Data.Hashable         (Hashable (..))
+import           Data.Text             (Text)
+import           Data.Text.Buildable   (build)
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           Data.Typeable         (Typeable)
+import           Formatting            (bprint, (%))
+import qualified Formatting            as F
 import qualified Prelude
-import qualified Serokell.Util.Base16      as Base16
-import           Servant.Multipart         (FileData, FromMultipart (..), lookupFile,
-                                            lookupInput)
+import           Servant.Multipart     (FileData)
 
-import           Pos.Aeson.Types           ()
-import           Pos.Client.Txp.History    (TxHistoryEntry (..))
-import           Pos.Core.Coin             (mkCoin)
-import           Pos.Core.Types            (ScriptVersion)
-import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
-                                            hashHexF, passphraseLength)
-import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
-                                            txOutValue)
-import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
-                                            Coin, SoftwareVersion, decodeTextAddress,
-                                            makePubKeyAddress, sumCoins, unsafeGetCoin,
-                                            unsafeIntegerToCoin)
-import           Pos.Update.Core           (BlockVersionModifier (..), StakeholderVotes,
-                                            UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll           (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase     (BackupPhrase)
+import           Pos.Aeson.Types       ()
+import           Pos.Core.Types        (ScriptVersion)
+import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
+import           Pos.Util.BackupPhrase (BackupPhrase)
 
 -- TODO [CSM-407] Structurize this mess
 

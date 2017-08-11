@@ -318,6 +318,7 @@ library
                         Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.ClientTypes.Instances
+                        Pos.Wallet.Web.ClientTypes.Functions
                         Pos.Wallet.Web.ClientTypes.Types
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Error.Util

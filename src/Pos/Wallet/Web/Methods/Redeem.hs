@@ -14,6 +14,7 @@ import qualified Serokell.Util.Base64           as B64
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Aeson.WalletBackup         ()
+import           Pos.Client.Txp.Addresses       (MonadAddresses)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Communication              (SendActions (..), submitRedemptionTx)
 import           Pos.Core                       (getCurrentTimestamp, makeRedeemAddress)
@@ -36,7 +37,9 @@ import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, rewrapTxError)
 
 
-redeemAda :: MonadWalletWebMode m => SendActions m -> PassPhrase -> CWalletRedeem -> m CTx
+redeemAda
+    :: (MonadWalletWebMode m, MonadAddresses m)
+    => SendActions m -> PassPhrase -> CWalletRedeem -> m CTx
 redeemAda sendActions passphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
         -- NOTE: this is just safety measure
@@ -50,7 +53,7 @@ redeemAda sendActions passphrase CWalletRedeem {..} = do
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
 redeemAdaPaperVend
-    :: MonadWalletWebMode m
+    :: (MonadWalletWebMode m, MonadAddresses m)
     => SendActions m
     -> PassPhrase
     -> CPaperVendWalletRedeem
@@ -72,7 +75,7 @@ redeemAdaPaperVend sendActions passphrase CPaperVendWalletRedeem {..} = do
         throwM . RequestError $ "Decryption failed: " <> show e
 
 redeemAdaInternal
-    :: MonadWalletWebMode m
+    :: (MonadWalletWebMode m, MonadAddresses m)
     => SendActions m
     -> PassPhrase
     -> CAccountId

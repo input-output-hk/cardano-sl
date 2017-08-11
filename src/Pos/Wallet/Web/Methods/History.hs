@@ -10,32 +10,32 @@ module Pos.Wallet.Web.Methods.History
 
 import           Universum
 
-import qualified Data.DList                   as DL
-import           Data.Time.Clock.POSIX        (getPOSIXTime)
-import           Formatting                   (build, sformat, (%))
-import           System.Wlog                  (logWarning)
+import qualified Data.DList                 as DL
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           Formatting                 (build, sformat, (%))
+import           System.Wlog                (logWarning)
 
-import           Pos.Aeson.ClientTypes        ()
-import           Pos.Aeson.WalletBackup       ()
-import           Pos.Client.Txp.History       (TxHistoryEntry (..))
-import           Pos.Core                     (getTimestamp)
-import           Pos.Wallet.WalletMode        (getLocalHistory, localChainDifficulty,
-                                               networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                               CTxMeta (..), CTxs, CWAddressMeta (..),
-                                               Wal, mkCTxs, txIdToCTxId)
-import           Pos.Wallet.Web.Error         (WalletError (..))
-import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                               getHistoryCache, getTxMeta,
-                                               setWalletTxMeta)
-import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getWalletAccountIds)
+import           Pos.Aeson.ClientTypes      ()
+import           Pos.Aeson.WalletBackup     ()
+import           Pos.Client.Txp.History     (TxHistoryEntry (..))
+import           Pos.Core                   (getTimestamp)
+import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
+                                             networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
+                                             CTxMeta (..), CTxs, CWAddressMeta (..), Wal,
+                                             mkCTxs, txIdToCTxId)
+import           Pos.Wallet.Web.Error       (WalletError (..))
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
+import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
+                                             getHistoryCache, getTxMeta, setWalletTxMeta)
+import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
+                                             getWalletAccountIds, getWalletAddrMetas,
+                                             getWalletAddrs)
 
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m ([CTx], Word)
 getFullWalletHistory cWalId = do
-    addrs <- mapM decodeCTypeOrFail =<< L.getWalletAddrs Ever cWalId
+    addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
 
     blockHistory <- getHistoryCache cWalId >>= \case
         Just hist -> pure $ DL.fromList hist
@@ -67,7 +67,7 @@ getHistory mCWalId mAccountId mAddrId = do
             accIds' <- getWalletAccountIds cWalId'
             pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, [accId])
-    accAddrs <- map cwamId <$> concatMapM (L.getAccountAddrsOrThrow Ever) accIds
+    accAddrs <- map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
     addrs <- case mAddrId of
         Nothing -> pure accAddrs
         Just addr ->
@@ -116,7 +116,7 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
-    walAddrMetas <- L.getWalletAddrMetas Ever cWalId
+    walAddrMetas <- getWalletAddrMetas Ever cWalId
     mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()

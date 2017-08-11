@@ -11,6 +11,7 @@ module Test.Pos.Block.Logic.Mode
        , HasTestParams (..)
        , TestInitModeContext (..)
        , BlockTestContextTag
+       , PureDBSnapshotsVar(..)
        , BlockTestContext(..)
        , btcSlotId_L
        , BlockTestMode
@@ -23,6 +24,7 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
+import qualified Data.Map                       as Map
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (Microsecond, TimeUnit (..))
 import           Ether.Internal                 (HasLens (..))
@@ -45,7 +47,7 @@ import           Pos.Core                       (IsHeader, SlotId, StakeDistribu
                                                  Timestamp (..), makePubKeyAddress,
                                                  mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
-import           Pos.DB                         (MonadBlockDBGeneric (..),
+import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
                                                  MonadDB (..), MonadDBRead (..),
                                                  MonadGState (..))
@@ -56,6 +58,7 @@ import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..),
                                                  mkInvSecretsMap)
+import           Pos.Generator.BlockEvent       (SnapshotId)
 import           Pos.Genesis                    (genesisUtxo)
 import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
@@ -145,7 +148,10 @@ genSuitableStakeDistribution :: Word -> Gen StakeDistribution
 genSuitableStakeDistribution stakeholdersNum =
     oneof [genFlat{-, genBitcoin-}, pure (ExponentialStakes stakeholdersNum)]
   where
-    totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
+    -- Here we set minimum border of 1024 total coins to avoid running out of coins
+    -- in case if transaction fees are enabled.
+    -- Number 1024 is chosen randomly.
+    totalCoins = mkCoin <$> choose (max 1024 $ fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
     genFlat =
         FlatStakes stakeholdersNum <$> totalCoins
     -- Apparently bitcoin distribution is broken (it produces total stake
@@ -191,6 +197,10 @@ runTestInitMode ctx = runProduction . flip runReaderT ctx
 -- Main context
 ----------------------------------------------------------------------------
 
+newtype PureDBSnapshotsVar = PureDBSnapshotsVar
+    { getPureDBSnapshotsVar :: IORef (Map SnapshotId DBPure)
+    }
+
 data BlockTestContext = BlockTestContext
     { btcGState            :: !GS.GStateContext
     , btcSystemStart       :: !Timestamp
@@ -206,6 +216,7 @@ data BlockTestContext = BlockTestContext
     , btcParams            :: !TestParams
     , btcReportingContext  :: !ReportingContext
     , btcDelegation        :: !DelegationVar
+    , btcPureDBSnapshots   :: !PureDBSnapshotsVar
     }
 
 makeLensesWith postfixLFields ''BlockTestContext
@@ -254,6 +265,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
             btcDelegation <- mkDelegationVar @SscGodTossing
+            btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
             let btCtx = BlockTestContext {btcSystemStart = systemStart, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
     sudoLiftIO $ runTestInitMode @SscGodTossing initCtx $ initBlockTestContextDo
@@ -369,6 +381,9 @@ instance HasLens DBPureVar BlockTestContext DBPureVar where
         setter _ pdb = DB.PureDB pdb
         pureDBLens = lens getter setter
         realDBInTestsError = error "You are using real db in tests"
+
+instance HasLens PureDBSnapshotsVar BlockTestContext PureDBSnapshotsVar where
+    lensOf = btcPureDBSnapshots_L
 
 instance HasLens LoggerName BlockTestContext LoggerName where
       lensOf = btcLoggerName_L

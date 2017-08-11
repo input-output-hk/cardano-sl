@@ -10,8 +10,6 @@ module Pos.Wallet.Web.Methods.Logic
        , getWAddress
 
        , getWAddressBalance
-       , getWalletAddrMetas
-       , getWalletAddrs
 
        , createWalletSafe
        , newAccount
@@ -24,8 +22,6 @@ module Pos.Wallet.Web.Methods.Logic
        , renameWallet
        , updateAccount
        , changeWalletPassphrase
-
-       , getAccountAddrsOrThrow
        ) where
 
 import           Universum
@@ -47,7 +43,7 @@ import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey, getS
 import           Pos.Wallet.WalletMode      (getBalance)
 import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountAddress,
                                              genUniqueAccountId, getAddrIdx, getSKById)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccount (..),
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
                                              CAddress (..), CId, CWAddressMeta (..),
                                              CWallet (..), CWalletMeta (..), Wal,
@@ -58,16 +54,16 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
                                              addWAddress, createAccount, createWallet,
                                              getAccountIds, getAccountMeta,
-                                             getAccountWAddresses, getWalletAddresses,
-                                             getWalletMeta, getWalletPassLU,
-                                             isCustomAddress, removeAccount,
-                                             removeHistoryCache, removeTxMetas,
-                                             removeWallet, setAccountMeta, setWalletMeta,
-                                             setWalletPassLU)
+                                             getWalletAddresses, getWalletMeta,
+                                             getWalletPassLU, isCustomAddress,
+                                             removeAccount, removeHistoryCache,
+                                             removeTxMetas, removeWallet, setAccountMeta,
+                                             setWalletMeta, setWalletPassLU)
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifier,
                                              fixCachedAccModifierFor,
                                              fixingCachedAccModifier, sortedInsertions)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getWalletAccountIds)
+import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
+                                             getWalletAccountIds)
 
 
 ----------------------------------------------------------------------------
@@ -93,16 +89,6 @@ getWAddress cachedAccModifier cAddr = do
     isUsed   <- getFlag UsedAddr camUsed
     isChange <- getFlag ChangeAddr camChange
     return $ CAddress aId (mkCCoin balance) isUsed isChange
-
-getAccountAddrsOrThrow
-    :: MonadWalletWebMode m
-    => AddressLookupMode -> AccountId -> m [CWAddressMeta]
-getAccountAddrsOrThrow mode accId =
-    getAccountWAddresses mode accId >>= maybeThrow noWallet
-  where
-    noWallet =
-        RequestError $
-        sformat ("No account with id "%build%" found") accId
 
 getAccount :: MonadWalletWebMode m => CachedCAccModifier -> AccountId -> m CAccount
 getAccount accMod accId = do
@@ -137,18 +123,6 @@ getWallet cAddr = do
   where
     noWSet = RequestError $
         sformat ("No wallet with address "%build%" found") cAddr
-
-getWalletAddrMetas
-    :: MonadWalletWebMode m
-    => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
-getWalletAddrMetas lookupMode cWalId =
-    concatMapM (getAccountAddrsOrThrow lookupMode) =<<
-    getWalletAccountIds cWalId
-
-getWalletAddrs
-    :: MonadWalletWebMode m
-    => AddressLookupMode -> CId Wal -> m [CId Addr]
-getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
 
 getAccounts
     :: MonadWalletWebMode m

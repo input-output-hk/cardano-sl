@@ -64,7 +64,12 @@ char *getWindowsDefDnsServer(void) {
     return dnsIPAddress;
 }
 
-/*int main(){
+/*
+
+// Test with 'gcc -o dnsServer -Wall -Werror -pedantic defaultdns.c' on a Windows
+// machine.
+
+int main(){
     printf(getWindowsDefDnsServer());
     return 0;
 }*/

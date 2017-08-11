@@ -73,7 +73,6 @@ library
 
                         -- Network topology
                         Pos.Network.DnsDomains
-                        Pos.Network.Windows.DnsDomains
                         Pos.Network.Types
                         Pos.Network.Yaml
                         Pos.Network.CLI
@@ -102,6 +101,9 @@ library
                         Pos.Util.LogSafe
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
+
+  if os(windows)
+    exposed-modules:    Pos.Network.Windows.DnsDomains
 
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants

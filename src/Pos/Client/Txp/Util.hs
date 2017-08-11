@@ -12,6 +12,7 @@ module Pos.Client.Txp.Util
        , makeMOfNTx
        , makeRedemptionTx
        , createTx
+       , createTxNoOverride
        , createMTx
        , createMOfNTx
        , createRedemptionTx
@@ -223,6 +224,22 @@ createMTx utxo hwdSigners outputs =
     getSigner addr =
         fromMaybe (error "Requested signer for unknown address") $
         HM.lookup (AddressIA addr) signers
+
+-- | Make a multi-transaction using given secret key and info for
+-- outputs. Don't override TxDistr
+createTxNoOverride ::
+       TxCreateMode ctx m
+    => Utxo
+    -> SafeSigner
+    -> TxOutputs
+    -> m (Either Text TxAux)
+createTxNoOverride utxo ss outputs =
+    runExceptT $ do
+        uncurry (makePubKeyTx ss) <$>
+            prepareInpOuts
+                utxo
+                (makePubKeyAddress $ safeToPublic ss)
+                outputs
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.

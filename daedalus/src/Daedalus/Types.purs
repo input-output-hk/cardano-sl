@@ -34,7 +34,7 @@ import Prelude
 import Data.Types as DT
 import Pos.Core.Types as C
 import Pos.Util.BackupPhrase as BP
-import Pos.Wallet.Web.ClientTypes as CT
+import Pos.Wallet.Web.ClientTypes.Types as CT
 import Pos.Wallet.Web.Error.Types as E
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION, Error, error, throw)
@@ -51,7 +51,7 @@ import Data.Maybe (Maybe(Nothing))
 import Data.String (split, null, trim, joinWith, Pattern(..))
 import Data.Types (mkTime)
 import Pos.Util.BackupPhrase (BackupPhrase(..))
-import Pos.Wallet.Web.ClientTypes (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal(..), CAccountId(..), CWalletMeta(..))
+import Pos.Wallet.Web.ClientTypes.Types (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal(..), CAccountId(..), CWalletMeta(..))
 
 space :: Pattern
 space = Pattern " "

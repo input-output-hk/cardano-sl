@@ -9,21 +9,20 @@ module Params
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
+import           Mockable              (Fork, Mockable)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           System.Wlog           (LoggerName, WithLogger)
-import           Mockable              (Mockable, Fork)
 
 import qualified Pos.CLI               as CLI
 import           Pos.Constants         (isDevelopment)
-import           Pos.Context           (mkGenesisTxpContext)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
-import           Pos.Genesis           (devAddrDistr, devStakesDistr, genesisUtxo,
-                                        genesisUtxoProduction)
+import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
+                                        genesisContextProduction, genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
-                                        TransportParams (..), NodeParams (..))
-import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
+                                        NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
+import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
 import           Pos.Security          (SecurityParams (..))
 import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
@@ -77,9 +76,12 @@ getNodeParams args@Args {..} systemStart = do
                 (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
-    let npGenesisTxpCtx
-            | isDevelopment = mkGenesisTxpContext $ genesisUtxo Nothing (devAddrDistr devStakeDistr)
-            | otherwise =  mkGenesisTxpContext genesisUtxoProduction
+    let npGenesisCtx
+            | isDevelopment =
+              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
+              in GenesisContext (genesisUtxo bootStakeholders aDistr)
+                                bootStakeholders
+            | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

@@ -11,14 +11,11 @@ module Pos.Wallet.Web.Server.Methods where
 import           Universum
 
 import           Control.Lens                   (has)
-import           Control.Monad.Catch            (SomeException, try)
 import qualified Data.List.NonEmpty             as NE
 import qualified Data.Set                       as S
-import           Formatting                     (build, sformat, shown, (%))
+import           Formatting                     (build, sformat, (%))
 import qualified Formatting                     as F
-import           Pos.ReportServer.Report        (ReportType (RInfo))
-import           Servant.Multipart              (fdFilePath)
-import           System.Wlog                    (logDebug, logError, logInfo)
+import           System.Wlog                    (logDebug, logInfo)
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Aeson.WalletBackup         ()
@@ -38,9 +35,6 @@ import           Pos.Core                       (Coin, TxFeePolicy (..),
 import           Pos.Crypto                     (PassPhrase, fakeSigner, hash, keyGen,
                                                  withSafeSigners)
 import           Pos.DB.Class                   (gsAdoptedBVData)
-import           Pos.Reporting.MemState         (HasReportServers (..),
-                                                 HasReportingContext (..))
-import           Pos.Reporting.Methods          (sendReport, sendReportNodeNologs)
 import           Pos.Txp                        (TxFee (..))
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..), TxOutAux (..),
                                                  TxOutDistribution)
@@ -51,8 +45,7 @@ import           Pos.Wallet.WalletMode          (applyLastUpdate, connectedPeers
                                                  networkChainDifficulty)
 import           Pos.Wallet.Web.Account         (GenSeed (..), MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
-                                                 CCoin, CElectronCrashReport (..), CId,
-                                                 CInitialized, CProfile, CProfile (..),
+                                                 CCoin, CId, CProfile, CProfile (..),
                                                  CTx (..), CTxs (..), CUpdateInfo (..),
                                                  CWAddressMeta (..), SyncProgress (..),
                                                  Wal, addrMetaToAccount, mkCCoin)
@@ -400,31 +393,6 @@ nextUpdate = getNextUpdate >>=
 
 applyUpdate :: MonadWalletWebMode m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
-
-
-reportingInitialized :: MonadWalletWebMode m => CInitialized -> m ()
-reportingInitialized cinit = do
-    sendReportNodeNologs (RInfo $ show cinit) `catchAll` handler
-  where
-    handler e =
-        logError $
-        sformat ("Didn't manage to report initialization time "%shown%
-                 " because of exception "%shown) cinit e
-
-reportingElectroncrash :: forall m. MonadWalletWebMode m => CElectronCrashReport -> m ()
-reportingElectroncrash celcrash = do
-    servers <- view (reportingContext . reportServers)
-    errors <- fmap lefts $ forM servers $ \serv ->
-        try $ sendReport [fdFilePath $ cecUploadDump celcrash]
-                         []
-                         (RInfo $ show celcrash)
-                         "daedalus"
-                         (toString serv)
-    whenNotNull errors $ handler . NE.head
-  where
-    fmt = ("Didn't manage to report electron crash "%shown%" because of exception "%shown)
-    handler :: SomeException -> m ()
-    handler e = logError $ sformat fmt celcrash e
 
 
 syncProgress :: MonadWalletWebMode m => m SyncProgress

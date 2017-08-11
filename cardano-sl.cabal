@@ -315,7 +315,6 @@ library
                         Pos.Wallet.Web.Account
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Backup
-                        Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.ClientTypes.Instances
                         Pos.Wallet.Web.ClientTypes.Functions
@@ -346,6 +345,9 @@ library
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking
+                        Pos.Wallet.Web.Tracking.BListener
+                        Pos.Wallet.Web.Tracking.Sync
+                        Pos.Wallet.Web.Tracking.Modifier
 
   build-depends:        QuickCheck
                       , MonadRandom

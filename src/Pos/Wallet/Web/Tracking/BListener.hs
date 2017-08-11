@@ -4,7 +4,7 @@
 -- Guaranteed that state of GStateDB and BlockDB isn't changed
 -- during @onApplyBlocks@ and @onRollbackBlocks@ callbacks.
 
-module Pos.Wallet.Web.BListener
+module Pos.Wallet.Web.Tracking.BListener
        ( MonadBListener(..)
        , onApplyTracking
        , onRollbackTracking
@@ -12,33 +12,34 @@ module Pos.Wallet.Web.BListener
 
 import           Universum
 
-import           Control.Lens               (to)
-import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (HasLoggerName (modifyLoggerName), WithLogger,
-                                             logInfo, logWarning)
+import           Control.Lens                     (to)
+import qualified Data.List.NonEmpty               as NE
+import           Formatting                       (build, sformat, (%))
+import           System.Wlog                      (HasLoggerName (modifyLoggerName),
+                                                   WithLogger, logInfo, logWarning)
 
-import           Pos.Block.BListener        (MonadBListener (..))
-import           Pos.Block.Core             (BlockHeader, blockHeader, getBlockHeader,
-                                             mainBlockTxPayload)
-import           Pos.Block.Types            (Blund, undoTx)
-import           Pos.Core                   (HeaderHash, difficultyL, headerHash,
-                                             headerSlotL, prevBlockL)
-import           Pos.DB.BatchOp             (SomeBatchOp)
-import           Pos.DB.Class               (MonadDBRead)
-import qualified Pos.GState                 as GS
-import           Pos.Slotting               (MonadSlotsData (..), getSlotStartPure)
-import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
-import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Block.BListener              (MonadBListener (..))
+import           Pos.Block.Core                   (BlockHeader, blockHeader,
+                                                   getBlockHeader, mainBlockTxPayload)
+import           Pos.Block.Types                  (Blund, undoTx)
+import           Pos.Core                         (HeaderHash, difficultyL, headerHash,
+                                                   headerSlotL, prevBlockL)
+import           Pos.DB.BatchOp                   (SomeBatchOp)
+import           Pos.DB.Class                     (MonadDBRead)
+import qualified Pos.GState                       as GS
+import           Pos.Slotting                     (MonadSlotsData (..), getSlotStartPure)
+import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
+import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
+import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
 
-import           Pos.Wallet.Web.Account     (AccountMode, getSKById)
-import           Pos.Wallet.Web.ClientTypes (CId, Wal)
-import qualified Pos.Wallet.Web.State       as WS
-import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToWallet,
-                                             getWalletAddrMetasDB,
-                                             rollbackModifierFromWallet, trackingApplyTxs,
-                                             trackingRollbackTxs)
+import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
+import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
+import qualified Pos.Wallet.Web.State             as WS
+import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
+import           Pos.Wallet.Web.Tracking.Sync     (applyModifierToWallet,
+                                                   getWalletAddrMetasDB,
+                                                   rollbackModifierFromWallet,
+                                                   trackingApplyTxs, trackingRollbackTxs)
 
 walletGuard ::
     ( AccountMode ctx m

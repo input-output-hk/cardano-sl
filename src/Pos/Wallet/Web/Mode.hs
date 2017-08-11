@@ -73,13 +73,13 @@ import           Pos.Wallet.Redirect            (MonadBlockchainInfo (..),
                                                  networkChainDifficultyWebWallet,
                                                  waitForUpdateWebWallet)
 import           Pos.Wallet.SscType             (WalletSscType)
-import           Pos.Wallet.Web.BListener       (MonadBListener (..), onApplyTracking,
-                                                 onRollbackTracking)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State.State     (WalletState)
 import           Pos.Wallet.Web.Tracking        (MonadWalletTracking (..),
                                                  syncWalletOnImportWebWallet,
                                                  txMempoolToModifierWebWallet)
+import           Pos.Wallet.Web.Tracking        (MonadBListener (..), onApplyTracking,
+                                                 onRollbackTracking)
 import           Pos.WorkMode                   (RealModeContext (..))
 
 data WalletWebModeContext = WalletWebModeContext

@@ -6,90 +6,35 @@
 
 module Pos.Wallet.Web.Tracking.Modifier
        ( CAccModifier (..)
-       , sortedInsertions
-
-       , syncWalletsWithGState
-       , trackingApplyTxs
-       , trackingRollbackTxs
-       , applyModifierToWallet
-       , rollbackModifierFromWallet
-       , BlockLockMode
-       , MonadWalletTracking (..)
-
-       , syncWalletOnImportWebWallet
-       , txMempoolToModifierWebWallet
-
        , CachedCAccModifier
-       , fixingCachedAccModifier
-       , fixCachedAccModifierFor
 
-       , getWalletAddrMetasDB
+       , VoidModifier
+       , deleteAndInsertVM
+       , deleteAndInsertMM
+
+       , IndexedMapModifier (..)
+       , sortedInsertions
+       , indexedDeletions
+       , insertIMM
+       , deleteIMM
+       , deleteAndInsertIMM
        ) where
 
 import           Universum
-import           Unsafe                     (unsafeLast)
 
-import           Control.Lens               (to)
-import           Control.Monad.Catch        (handleAll)
-import           Control.Monad.Trans        (MonadTrans)
 import           Data.DList                 (DList)
-import qualified Data.DList                 as DL
-import qualified Data.HashMap.Strict        as HM
-import           Data.List                  ((!!))
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Map                   as M
 import qualified Data.Text.Buildable
-import           Ether.Internal             (HasLens (..))
-import           Formatting                 (bprint, build, sformat, (%))
-import           Mockable                   (SharedAtomicT)
+import           Formatting                 (bprint, build, (%))
 import           Serokell.Util              (listJson, listJsonIndent)
-import           System.Wlog                (HasLoggerName, WithLogger, logError, logInfo,
-                                             logWarning, modifyLoggerName)
 
-import           Pos.Block.Core             (BlockHeader, getBlockHeader,
-                                             mainBlockTxPayload)
-import           Pos.Block.Logic            (withBlkSemaphore_)
-import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Constants              (blkSecurityParam, genesisHash)
-import           Pos.Context                (BlkSemaphore, GenesisUtxo (..), genesisUtxoM)
-import           Pos.Core                   (AddrPkAttrs (..), Address (..),
-                                             BlockHeaderStub, ChainDifficulty,
-                                             HasDifficulty (..), HeaderHash, Timestamp,
-                                             headerHash, headerSlotL, makePubKeyAddress)
-import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
-                                             WithHash (..), deriveHDPassphrase,
-                                             encToPublic, hash, shortHashF,
-                                             unpackHDAddressAttr)
-import           Pos.Data.Attributes        (Attributes (..))
-import qualified Pos.DB.Block               as DB
-import qualified Pos.DB.DB                  as DB
-import           Pos.DB.Error               (DBError (DBMalformed))
-import           Pos.DB.Rocks               (MonadRealDB)
-import           Pos.GState.BlockExtra      (foldlUpWhileM, resolveForwardLink)
-import           Pos.Slotting               (MonadSlotsData (..), getSlotStartPure)
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxIn (..),
-                                             TxOutAux (..), TxUndo, flattenTxPayload,
-                                             getTxDistribution, toaOut, topsortTxs,
-                                             txOutAddress)
-import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxsNUndo)
+import           Pos.Core                   (HeaderHash)
+import           Pos.Txp.Core               (TxId)
 import           Pos.Txp.Toil               (UtxoModifier)
-import           Pos.Util.Chrono            (getNewestFirst)
 import           Pos.Util.Modifier          (MapModifier)
 import qualified Pos.Util.Modifier          as MM
-import           Pos.Util.Util              (maybeThrow)
 
-import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Wallet.SscType         (WalletSscType)
-import           Pos.Wallet.Web.Account     (MonadKeySearch (..))
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal, addressToCId, aiWId,
-                                             encToCId, isTxLocalAddress)
-import           Pos.Wallet.Web.Error.Types (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode (..),
-                                             CustomAddressType (..), WalletTip (..),
-                                             WebWalletModeDB)
-import qualified Pos.Wallet.Web.State       as WS
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta)
 
 -- VoidModifier describes a difference between two states.
 -- It's (set of added k, set of deleted k) essentially.
@@ -143,30 +88,9 @@ instance Buildable CAccModifier where
         camAddedHistory
         camDeletedHistory
 
-----------------------------------------------------------------------------
--- Cached modifier
-----------------------------------------------------------------------------
-
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.
 type CachedCAccModifier = CAccModifier
-
--- | Evaluates `txMempoolToModifier` and provides result as a parameter
--- to given function.
-fixingCachedAccModifier
-    :: (MonadWalletTracking m, MonadKeySearch key m)
-    => (CachedCAccModifier -> key -> m a)
-    -> key -> m a
-fixingCachedAccModifier action key =
-    findKey key >>= txMempoolToModifier >>= flip action key
-
-fixCachedAccModifierFor
-    :: (MonadWalletTracking m, MonadKeySearch key m)
-    => key
-    -> (CachedCAccModifier -> m a)
-    -> m a
-fixCachedAccModifierFor key action =
-    fixingCachedAccModifier (const . action) key
 
 ----------------------------------------------------------------------------
 -- Funcs

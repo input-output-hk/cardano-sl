@@ -25,23 +25,23 @@ import           Universum                  hiding (bracket, finally)
 
 import           Control.Concurrent         (threadDelay)
 import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
-import           Data.Tagged                 (untag)
+import           Data.Tagged                (untag)
 import qualified Data.Time                  as Time
 import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (Catch, Mockable, Production (..), Throw,
-                                             throw, Bracket, bracket, MonadMockable)
+import           Mockable                   (Bracket, Catch, Mockable, MonadMockable,
+                                             Production (..), Throw, bracket, throw)
 import           Network.QDisc.Fair         (fairQDisc)
+import qualified Network.Transport          as NT (closeTransport)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
-import qualified Network.Transport          as NT (closeTransport)
-import           System.IO                  (Handle, hClose, hSetBuffering, BufferMode (..))
+import           System.IO                  (BufferMode (..), Handle, hClose,
+                                             hSetBuffering)
 import qualified System.Metrics             as Metrics
 import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
-                                             getLoggerName, logError, logNotice, logWarning,
-                                             productionB,
-                                             releaseAllHandlers, setupLogging,
-                                             usingLoggerName)
+                                             getLoggerName, logError, logNotice,
+                                             logWarning, productionB, releaseAllHandlers,
+                                             setupLogging, usingLoggerName)
 
 import           Pos.Binary                 ()
 import           Pos.Block.Slog             (mkSlogContext)
@@ -57,7 +57,7 @@ import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
-                                             TransportParams (..), NodeParams (..))
+                                             NodeParams (..), TransportParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
 import           Pos.Shutdown.Types         (ShutdownContext (..))
@@ -80,6 +80,11 @@ import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
 import           Pos.WorkMode               (TxpExtra_TMP)
+
+#ifdef linux_HOST_OS
+import qualified System.Systemd.Daemon      as Systemd
+import qualified System.Wlog                as Logger
+#endif
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -220,6 +225,8 @@ bracketNodeResources np sp k =
             liftIO $ threadDelay delay
           else do
             logWarning $ sformat ("--init-delay parameter in the past")
+      -- Notify systemd we are fully operative
+      notifyReady
       k nodeRes
   where
     tcpAddr = tpTcpAddr (npTransport np)
@@ -406,3 +413,17 @@ bracketTransport
     -> m a
 bracketTransport tcpAddr k =
     bracket (createTransportTCP tcpAddr) snd (k . fst)
+
+-- | Notify process manager tools like systemd the node is ready.
+-- Available only on Linux for systems where `libsystemd-dev` is installed.
+-- It defaults to a noop for all the other platforms.
+notifyReady :: (MonadIO m, WithLogger m) => m ()
+#ifdef linux_HOST_OS
+notifyReady = do
+    res <- liftIO Systemd.notifyReady
+    case res of
+        Just () -> return ()
+        Nothing -> Logger.logWarning "notifyReady failed to notify systemd."
+#else
+notifyReady = return ()
+#endif

@@ -61,10 +61,6 @@ import           Pos.Util.JsonLog                (JsonLogConfig (..),
 import           Pos.WorkMode                    (EnqueuedConversation (..), OQ, RealMode,
                                                   RealModeContext (..), WorkMode)
 
-#ifdef linux_HOST_OS
-import qualified System.Systemd.Daemon           as Systemd
-import qualified System.Wlog                     as Logger
-#endif
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -223,7 +219,6 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
             mkListeners mkL' ourVerInfo theirVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
-    notifyReady
     node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo defaultNodeEnvironment $ \__node ->
         NodeAction mkListeners' $ \converse ->
             let sendActions :: SendActions m
@@ -238,17 +233,3 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
         stopDequeue
         afterNode other
     mkConnectDelay = const (pure Nothing)
-
--- | Notify process manager tools like systemd the node is ready.
--- Available only on Linux for systems where `libsystemd-dev` is installed.
--- It defaults to a noop for all the other platforms.
-notifyReady :: (MonadIO m, WithLogger m) => m ()
-#ifdef linux_HOST_OS
-notifyReady = do
-    res <- liftIO Systemd.notifyReady
-    case res of
-        Just () -> return ()
-        Nothing -> Logger.logWarning "notifyReady failed to notify systemd."
-#else
-notifyReady = return ()
-#endif

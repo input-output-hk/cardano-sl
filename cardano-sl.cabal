@@ -63,6 +63,7 @@ library
                         Pos.Generator
                         Pos.Generator.Block
                         Pos.Generator.BlockEvent
+                        Pos.Generator.BlockEvent.DSL
 
                         -- Genesis data
                         Pos.Genesis

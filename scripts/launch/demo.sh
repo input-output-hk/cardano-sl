@@ -85,10 +85,10 @@ while [[ $i -lt $panesCnt ]]; do
       fi
   fi
 
-  if [[ $stake_distr_param == "flat" ]]; then
-    stake_distr=$flat_distr
-  else
+  if [[ $stake_distr_param == "rich_poor" ]]; then
     stake_distr=$rich_poor_distr
+  else
+    stake_distr=$flat_distr
   fi
 
   if [[ "$CSL_PRODUCTION" != "" ]]; then

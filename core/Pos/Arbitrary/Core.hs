@@ -15,7 +15,6 @@ module Pos.Arbitrary.Core
        , SafeCoinPairSum (..)
        , SafeCoinPairSub (..)
        , SafeWord (..)
-       , SmallHashMap (..)
        , UnreasonableEoS (..)
        ) where
 
@@ -33,9 +32,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Test.QuickCheck.Instances         ()
 
 import           Pos.Arbitrary.Crypto              ()
-import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
-                                                    SignedVarInt (..), TinyVarInt (..),
-                                                    UnsignedVarInt (..))
+import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVarInt (..),
+                                                    TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
@@ -45,9 +43,8 @@ import           Pos.Core.Constants                (epochSlots, sharedSeedLength
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
-import           Pos.Crypto                        (PublicKey, Share)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
-import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
+import           Pos.Util.Arbitrary                (nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
 ----------------------------------------------------------------------------
@@ -483,14 +480,6 @@ instance Arbitrary Microsecond where
 
 deriving instance Arbitrary Types.Timestamp
 deriving instance Arbitrary Types.TimeDiff
-
-newtype SmallHashMap =
-    SmallHashMap (HashMap PublicKey (HashMap PublicKey (AsBinary Share)))
-    deriving (Show, Generic)
-
-instance Arbitrary SmallHashMap where
-    arbitrary = SmallHashMap <$> makeSmall arbitrary
-    shrink = genericShrink
 
 deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (SignedVarInt a)

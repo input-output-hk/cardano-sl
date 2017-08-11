@@ -70,6 +70,7 @@ getNodeParams args@Args {..} systemStart = do
         peekUserSecret (getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     let npTransport = getTransportParams args npNetworkConfig
+        npInitDelay = initDelay
         devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)

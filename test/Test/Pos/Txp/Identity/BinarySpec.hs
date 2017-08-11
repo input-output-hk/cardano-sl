@@ -10,10 +10,10 @@ import           Data.Tagged             (Tagged)
 import           Test.Hspec              (Spec, describe)
 
 import           Pos.Arbitrary.Infra     ()
-import           Pos.Arbitrary.Txp       (SmallTxPayload)
 import           Pos.Binary              ()
 import           Pos.Communication.Relay as R
 import qualified Pos.Txp                 as T
+import           Pos.Util                (SmallGenerator)
 
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
                                           networkBinaryTest)
@@ -32,7 +32,7 @@ spec =
           binaryTest @T.TxSigData
           binaryTest @T.TxAux
           binaryTest @T.TxProof
-          binaryTest @SmallTxPayload
+          binaryTest @(SmallGenerator T.TxPayload)
       describe "Network" $ do
         networkBinaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
         networkBinaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))

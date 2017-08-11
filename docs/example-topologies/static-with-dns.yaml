@@ -1,0 +1,20 @@
+nodes:
+  node0:
+    type: core
+    region: eu-central-1
+    static-routes: [["node1"], ["node2"]]
+    host: node0.local
+    # default port
+  node1:
+    type: core
+    region: eu-west-1
+    static-routes: [["node0"], ["node2"]]
+    addr: 12.34.56.78
+    # default port
+  node2:
+    type: relay
+    region: eu-west-2
+    static-routes: [["node0"], ["node1"]]
+    # uses 'node2' as the hostname
+    port: 3000
+    kademlia: true

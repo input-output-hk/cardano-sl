@@ -1,15 +1,15 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Network.DnsDomains (
     DnsDomains(..)
+  , NodeAddr(..)
   , resolveDnsDomains
-    -- * Re-exports
-  , DNSError
   ) where
 
 import           Universum
-import           Data.IP     (IPv4)
+import qualified Data.ByteString.Char8 as BS.C8
+import           Data.IP               (IPv4)
 import           Network.Broadcast.OutboundQueue.Types (Alts, AllOf)
-import           Network.DNS (DNSError)
-import qualified Network.DNS as DNS
 
 -- | DNS domains for relay discovery
 --
@@ -20,9 +20,23 @@ import qualified Network.DNS as DNS
 -- fall-back). The idea is that querying each of the elements of the inner
 -- lists provides a complete set of relay nodes to be tried, using the
 -- backup domain names only when one or more of the primary ones fail.
-data DnsDomains = DnsDomains {
-      dnsDomains :: !(Alts (AllOf DNS.Domain))
+data DnsDomains a = DnsDomains {
+      dnsDomains :: !(Alts (AllOf (NodeAddr a)))
     }
+  deriving (Show)
+
+-- | Node address
+data NodeAddr a =
+    -- | We specify the exact address of this node
+    --
+    -- If port unspecified, use the default.
+    NodeAddrExact ByteString (Maybe Word16)
+
+    -- | Do a DNS lookup to find the node's address
+    --
+    -- If domain unspecified, use the node's name
+    -- If port unspecified, use the default.
+  | NodeAddrDNS a (Maybe Word16)
   deriving (Show)
 
 -- | Resolve 'DnsDomains'
@@ -31,33 +45,39 @@ data DnsDomains = DnsDomains {
 -- of errors if _all_ alternatives fail; in that case, it returns the (first)
 -- error that occurred for all alternatives (we don't continue trying a set of
 -- domains after the first error).
-resolveDnsDomains :: DnsDomains -> IO (Either [DNSError] [IPv4])
-resolveDnsDomains (DnsDomains{..}) = do
-    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
-    DNS.withResolver resolvSeed $ \resolver ->
-      findAlts resolver [] dnsDomains
+resolveDnsDomains :: forall a e.
+                     (a -> IO (Either e [IPv4])) -- ^ Actual resolution
+                  -> Word16                      -- ^ Default port
+                  -> DnsDomains a
+                  -> IO (Either [e] [(ByteString, Word16)])
+resolveDnsDomains resolve defaultPort (DnsDomains{..}) =
+    findAlts [] dnsDomains
   where
     -- Find a set of DNS names all of which we can resolve together
-    findAlts :: DNS.Resolver
-             -> [DNSError]
-             -> Alts (AllOf DNS.Domain)
-             -> IO (Either [DNSError] [IPv4])
-    findAlts _        errs []           = return $ Left (reverse errs)
-    findAlts resolver errs (alts:altss) = do
-      mAddrs <- tryAlts resolver alts
+    findAlts :: [e]
+             -> Alts (AllOf (NodeAddr a))
+             -> IO (Either [e] [(ByteString, Word16)])
+    findAlts errs []           = return $ Left (reverse errs)
+    findAlts errs (alts:altss) = do
+      mAddrs <- tryAlts alts
       case mAddrs of
-        Left  err   -> findAlts resolver (err:errs) altss
+        Left  err   -> findAlts (err:errs) altss
         Right addrs -> return $ Right addrs
 
     -- Resolve a set of domains names. If they can all be resolved, return
     -- the set; if an error occurs, return Nothing.
-    tryAlts :: DNS.Resolver -> AllOf DNS.Domain -> IO (Either DNSError [IPv4])
-    tryAlts resolver = go []
+    tryAlts :: AllOf (NodeAddr a) -> IO (Either e [(ByteString, Word16)])
+    tryAlts = go []
       where
-        go :: [IPv4] -> [DNS.Domain] -> IO (Either DNSError [IPv4])
+        go :: [(ByteString, Word16)] -> [NodeAddr a] -> IO (Either e [(ByteString, Word16)])
         go acc []         = return $ Right (reverse acc)
-        go acc (dom:doms) = do
-          mAddrs <- DNS.lookupA resolver dom
-          case mAddrs of
-            Left  err   -> return $ Left err
-            Right addrs -> go (reverse addrs ++ acc) doms
+        go acc (NodeAddrDNS dom mPort:addrs) = do
+          let toAddr :: IPv4 -> (ByteString, Word16)
+              toAddr ip = (BS.C8.pack (show ip), fromMaybe defaultPort mPort)
+          mIPs <- resolve dom
+          case mIPs of
+            Left  err -> return $ Left err
+            Right ips -> go (reverse (map toAddr ips) ++ acc) addrs
+        go acc (NodeAddrExact ip mPort:addrs) = do
+          let port = fromMaybe defaultPort mPort
+          go ((ip, port):acc) addrs

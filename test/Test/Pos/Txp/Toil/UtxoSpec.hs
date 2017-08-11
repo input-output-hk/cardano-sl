@@ -22,8 +22,7 @@ import           Test.QuickCheck       (Property, arbitrary, counterexample, pro
 import qualified Text.Regex.TDFA       as TDFA
 import qualified Text.Regex.TDFA.Text  as TDFA
 
-import           Pos.Arbitrary.Txp     (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
-                                        SmallGoodTx (..))
+import           Pos.Arbitrary.Txp     (BadSigsTx (..), GoodTx (..))
 import           Pos.Core              (addressHash)
 import           Pos.Crypto            (SignTag (SignTx), checkSig, fakeSigner, hash,
                                         toPublic, unsafeHash, withHash)
@@ -43,7 +42,7 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         verifyTxUtxoPure)
 import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
                                         makeScriptAddress, mkCoin, sumCoins)
-import           Pos.Util              (nonrepeating, runGen)
+import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -89,8 +88,8 @@ findTxInUtxo key txO utxo =
         newUtxo = M.insert key txO utxo
     in (isJust $ utxoGet key newUtxo) && (isNothing $ utxoGet key utxo')
 
-verifyTxInUtxo :: SmallGoodTx -> Property
-verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
+verifyTxInUtxo :: SmallGenerator GoodTx -> Property
+verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
     let txs = fmap (view _1) ls
         witness = V.fromList $ toList $ fmap (view _4) ls
         (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
@@ -101,8 +100,8 @@ verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
         txAux = TxAux newTx witness newDistr
     in qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
 
-badSigsTx :: SmallBadSigsTx -> Property
-badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
+badSigsTx :: SmallGenerator BadSigsTx -> Property
+badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
     let ((tx@UnsafeTx {..}, distr), utxo, extendedInputs, txWits) =
             getTxFromGoodTx ls
         ctx = VTxContext False
@@ -114,8 +113,8 @@ badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
                         (map (fmap snd) extendedInputs))
     in notAllSignaturesAreValid === transactionIsNotVerified
 
-validateGoodTx :: SmallGoodTx -> Property
-validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
+validateGoodTx :: SmallGenerator GoodTx -> Property
+validateGoodTx (SmallGenerator (getGoodTx -> ls)) =
     let quadruple@((tx, dist), utxo, _, txWits) = getTxFromGoodTx ls
         ctx = VTxContext False
         transactionIsVerified =

@@ -62,8 +62,7 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAccountI
                                                  CElectronCrashReport (..), CId,
                                                  CInitialized,
                                                  CPaperVendWalletRedeem (..), CProfile,
-                                                 CProfile (..), CTx (..), CTxId,
-                                                 CTxMeta (..), CTxs (..),
+                                                 CProfile (..), CTx (..), CTxs (..),
                                                  CUpdateInfo (..), CWAddressMeta (..),
                                                  CWalletRedeem (..), SyncProgress (..),
                                                  Wal, addrMetaToAccount, mkCCoin)
@@ -73,8 +72,7 @@ import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Existing),
                                                  getNextUpdate, getProfile,
-                                                 removeNextUpdate, setProfile,
-                                                 setWalletTxMeta, testReset)
+                                                 removeNextUpdate, setProfile, testReset)
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
 import           Pos.Wallet.Web.Util            (getWalletAccountIds, rewrapTxError)
 
@@ -399,11 +397,6 @@ selectSrcAddresses allAddrs outputCoins (TxFee fee) =
                    maybe (Right (balance `unsafeSubCoin` reqCoins, (ad, balance) :| []))
                          (\fa -> Right (mkCoin 0, fa :| []))
                          (find ((reqCoins ==) . snd) addresses)
-
-
-updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
-updateTransaction accId txId txMeta = do
-    setWalletTxMeta (aiWId accId) txId txMeta
 
 
 -- NOTE: later we will have `isValidAddress :: CId -> m Bool` which should work for arbitrary crypto

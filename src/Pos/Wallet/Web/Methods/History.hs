@@ -5,6 +5,7 @@
 module Pos.Wallet.Web.Methods.History
        ( getHistoryLimited
        , addHistoryTx
+       , updateTransaction
        ) where
 
 import           Universum
@@ -20,14 +21,15 @@ import           Pos.Client.Txp.History       (TxHistoryEntry (..))
 import           Pos.Core                     (getTimestamp)
 import           Pos.Wallet.WalletMode        (getLocalHistory, localChainDifficulty,
                                                networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CId, CTx (..),
+import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CId, CTx (..), CTxId,
                                                CTxMeta (..), CTxs, CWAddressMeta (..),
                                                Wal, mkCTxs, txIdToCTxId)
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                               getHistoryCache, getTxMeta)
+                                               getHistoryCache, getTxMeta,
+                                               setWalletTxMeta)
 import           Pos.Wallet.Web.Util          (getWalletAccountIds)
 
 
@@ -116,4 +118,8 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
     walAddrMetas <- L.getWalletAddrMetas Ever cWalId
     mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
+
+updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
+updateTransaction accId txId txMeta = do
+    setWalletTxMeta (aiWId accId) txId txMeta
 

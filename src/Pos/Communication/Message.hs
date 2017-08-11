@@ -12,6 +12,7 @@ import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGe
 import           Pos.Communication.MessagePart    (MessagePart (..))
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                    ReqMsg)
+import           Pos.Communication.Types.Protocol (MsgSubscribe)
 import           Pos.Delegation.Types             (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Types.Message (MCCommitment, MCOpening, MCShares,
                                                    MCVssCertificate)
@@ -42,6 +43,10 @@ instance Message MsgGetBlocks where
 instance Message (MsgBlock ssc) where
     messageName _ = varIntMName 7
     formatMessage _ = "Block"
+
+instance Message MsgSubscribe where
+    messageName _ = varIntMName 13
+    formatMessage _ = "Subscribe"
 
 instance MessagePart TxMsgContents where
     pMessageName _ = varIntMName 0

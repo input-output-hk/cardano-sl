@@ -67,7 +67,7 @@ import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (TxError (..), createMTx,
                                                    overrideTxDistrBoot,
                                                    overrideTxOutDistrBoot)
-import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
+import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Context                      (GenesisUtxo)
@@ -88,7 +88,6 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
 import           Pos.DB.Class                     (gsAdoptedBVData)
-import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
@@ -114,8 +113,7 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    MonadKeySearch (..), genSaveRootKey,
                                                    genUniqueAccountAddress,
                                                    genUniqueAccountId, getAddrIdx,
-                                                   getSKByAccAddr, getSKByAddr,
-                                                   myRootAddresses)
+                                                   getSKById, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.Backup            (AccountMetaBackup (..),
                                                    StateBackup (..), WalletBackup (..),
@@ -167,7 +165,7 @@ import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInse
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds, rewrapTxError)
-import           Pos.Web.Server                   (serveImpl)
+import           Pos.Web                          (TlsParams, serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -204,9 +202,7 @@ walletServeImpl
     :: WalletWebMode m
     => m Application     -- ^ Application getter
     -> Word16            -- ^ Port to listen
-    -> FilePath          -- ^ TLS Certificate path
-    -> FilePath          -- ^ TLS Key file
-    -> FilePath          -- ^ TLS ca file
+    -> Maybe TlsParams
     -> m ()
 walletServeImpl app =
     serveImpl app "127.0.0.1"
@@ -227,7 +223,7 @@ walletServer
     -> m (m :~> Handler)
     -> m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWalletsWithGState @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    syncWalletsWithGState @WalletSscType =<< mapM getSKById =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -479,7 +475,7 @@ getWallet cAddr = do
     let walletsNum = length wallets
     balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                      mapM (decodeCCoinOrFail . caAmount) wallets
-    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKByAddr cAddr
+    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- getWalletPassLU cAddr >>= maybeThrow noWSet
     pure $ CWallet cAddr meta walletsNum balance hasPass passLU
   where
@@ -616,7 +612,7 @@ sendMoney
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
-sendMoney sendActions passphrase moneySource dstDistr = do
+sendMoney SendActions {..} passphrase moneySource dstDistr = do
     (spendings, outputs) <- prepareTx passphrase moneySource dstDistr
     sendDo spendings outputs
   where
@@ -628,14 +624,13 @@ sendMoney sendActions passphrase moneySource dstDistr = do
     sendDo spendings outputs = do
         let inputMetas = NE.map fst spendings
         let inpTxOuts = toList $ NE.map snd spendings
-        na <- getPeers
-        sks <- forM inputMetas $ getSKByAccAddr passphrase
+        sks <- mapM findKey inputMetas
         srcAddrs <- forM inputMetas $ decodeCIdOrFail . cwamId
         let dstAddrs = txOutAddress . toaOut <$> toList outputs
         withSafeSigners passphrase sks $ \ss -> do
             let hdwSigner = NE.zip ss srcAddrs
             TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
-                submitMTx sendActions hdwSigner (toList na) outputs
+                submitMTx enqueueMsg hdwSigner outputs
             logInfo $
                 sformat ("Successfully spent money from "%
                          listF ", " addressF % " addresses on " %
@@ -1080,7 +1075,7 @@ changeWalletPassphrase
     :: WalletWebMode m
     => CId Wal -> PassPhrase -> PassPhrase -> m ()
 changeWalletPassphrase wid oldPass newPass = do
-    oldSK <- getSKByAddr wid
+    oldSK <- getSKById wid
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
@@ -1151,7 +1146,7 @@ redeemAdaInternal
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal sendActions passphrase cAccId seedBs = do
+redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCAccountIdOrFail cAccId
@@ -1161,10 +1156,9 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstAddr <- decodeCIdOrFail . cadId =<<
                newAddress RandomSeed passphrase accId
-    na <- getPeers
     (TxAux {..}, redeemAddress, redeemBalance) <-
         rewrapTxError "Cannot send redemption transaction" $
-        submitRedemptionTx sendActions redeemSK (toList na) dstAddr
+        submitRedemptionTx enqueueMsg redeemSK dstAddr
     -- add redemption transaction to the history of new wallet
     let txInputs = [TxOut redeemAddress redeemBalance]
     ts <- Just <$> getCurrentTimestamp

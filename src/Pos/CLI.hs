@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
 
 -- | Module for command-line utilites, parsers and convenient handlers.
 
@@ -27,6 +28,7 @@ module Pos.CLI
 
        , sysStartOption
        , nodeIdOption
+       , tlsParamsOption
        ) where
 
 import           Universum
@@ -34,8 +36,8 @@ import           Universum
 import           Control.Lens                         (zoom, (?=))
 import           Data.Time.Clock.POSIX                (getPOSIXTime)
 import           Data.Time.Units                      (toMicroseconds)
+import qualified Options.Applicative                  as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import qualified Options.Applicative.Simple           as Opt
 import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
 import           System.Wlog                          (LoggerConfig (..),
@@ -58,6 +60,9 @@ import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
+#ifdef WITH_WEB
+import           Pos.Web.Types                        (TlsParams (..))
+#endif
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -132,7 +137,6 @@ data CommonArgs = CommonArgs
     { logConfig          :: !(Maybe FilePath)
     , logPrefix          :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
-    , disablePropagation :: !Bool
     , reportServers      :: ![Text]
     , updateServers      :: ![Text]
     -- distributions, only used in dev mode
@@ -150,8 +154,6 @@ commonArgsParser = do
     logPrefix <- optionalLogPrefix
     --
     sscAlgo <- sscAlgoOption
-    --
-    disablePropagation <- disablePropagationOption
     --
     reportServers <- reportServersOption
     updateServers <- updateServersOption
@@ -224,14 +226,6 @@ sscAlgoOption =
                        "Shared Seed Calculation algorithm which nodes will use."
         <> Opt.value GodTossingAlgo
         <> Opt.showDefault
-
-disablePropagationOption :: Opt.Parser Bool
-disablePropagationOption =
-    Opt.switch
-        (Opt.long "disable-propagation" <>
-         Opt.help "Disable network propagation (transactions, SSC data, blocks). I.e.\
-                  \ all data is to be sent only by entity who creates data and entity is\
-                  \ yosend it to all peers on his own.")
 
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
@@ -343,3 +337,30 @@ sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.help    helpMsg
   where
     helpMsg = "System start time. Format - seconds since Unix Epoch."
+
+#ifdef WITH_WEB
+tlsParamsOption :: Opt.Parser TlsParams
+tlsParamsOption = do
+    tpCertPath <-
+        Opt.strOption $
+            templateParser
+                "tlscert"
+                "FILEPATH"
+                "Path to file with TLS certificate"
+                <> Opt.value "server.crt"
+    tpKeyPath <-
+        Opt.strOption $
+            templateParser
+                "tlskey"
+                "FILEPATH"
+                "Path to file with TLS key"
+                <> Opt.value "server.key"
+    tpCaPath <-
+        Opt.strOption $
+            templateParser
+                "tlsca"
+                "FILEPATH"
+                "Path to file with TLS certificate authority"
+                <> Opt.value "ca.crt"
+    return TlsParams{..}
+#endif

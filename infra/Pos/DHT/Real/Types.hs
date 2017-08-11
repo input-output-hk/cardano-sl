@@ -35,5 +35,5 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiInitialPeers    :: ![NetworkAddress]
     , kdiExplicitInitial :: !Bool
     , kdiKnownPeersCache :: !(TVar [NetworkAddress])
-    , kdiDumpPath        :: !FilePath
+    , kdiDumpPath        :: !(Maybe FilePath)
     }

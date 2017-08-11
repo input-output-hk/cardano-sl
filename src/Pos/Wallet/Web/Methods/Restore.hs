@@ -1,10 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TypeFamilies #-}
 
--- | Wallet web server.
+-- | Everything related to wallet creation
 
 module Pos.Wallet.Web.Methods.Restore
        ( newWallet

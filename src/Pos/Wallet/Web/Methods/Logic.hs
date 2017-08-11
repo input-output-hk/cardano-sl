@@ -1,10 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TypeFamilies #-}
 
--- | Wallet web server.
+-- | Wallets, accounts and addresses management logic
 
 module Pos.Wallet.Web.Methods.Logic
        ( getWallet

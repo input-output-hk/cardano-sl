@@ -1,10 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Wallet web server.
+-- | Server launcher
 
 module Pos.Wallet.Web.Server.Launcher
        ( walletApplication

@@ -50,6 +50,6 @@ or in testing that implementations correctly reject non-canonical representation
 
 ## Authors
 
-Duncan Coutts     <duncan@well-typed.com>
+Duncan  Coutts    <duncan@well-typed.com>
 Alfredo Di Napoli <alfredo.dinapoli@iohk.io>
 Artyom  Kazak     <yom@artyom.me>

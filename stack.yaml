@@ -18,6 +18,7 @@ packages:
 - godtossing
 - tools
 - txp
+- explorer
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -79,6 +80,16 @@ packages:
     commit: c9b06eb77225c8bb2092f1169c093d7a04129e53 # 2.0.11
   extra-dep: true
 
+# Required for explorer
+- location:
+    git: https://github.com/serokell/engine.io.git
+    commit: a594e402fd450f11ad60d09ddbd93db500000632
+  extra-dep: true
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
+
 nix:
   shell-file: shell.nix
 
@@ -125,3 +136,4 @@ ghc-options:
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror
   cardano-sl-lwallet:    -Werror
+  cardano-sl-explorer:   -Werror

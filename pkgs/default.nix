@@ -705,6 +705,20 @@ self: {
           description = "The most complete prelude formed solely from the \"base\" package";
           license = stdenv.lib.licenses.mit;
         }) {};
+      base-unicode-symbols = callPackage ({ base, mkDerivation, stdenv }:
+      mkDerivation {
+          pname = "base-unicode-symbols";
+          version = "0.2.2.4";
+          sha256 = "1afc5pchd3vw33bmjbjygkd0l5zh7glbsx4bfyxfscpc1x1l3y52";
+          libraryHaskellDepends = [
+            base
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://haskell.org/haskellwiki/Unicode-symbols";
+          description = "Unicode alternatives for common functions and operators";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       base16-bytestring = callPackage ({ base, bytestring, ghc-prim, mkDerivation, stdenv }:
       mkDerivation {
           pname = "base16-bytestring";
@@ -1381,6 +1395,96 @@ self: {
           doHaddock = false;
           doCheck = true;
           description = "Cardano SL - basic DB interfaces";
+          license = stdenv.lib.licenses.mit;
+        }) {};
+      cardano-sl-explorer = callPackage ({ aeson, base, base16-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-update, containers, cpphs, either, engine-io, engine-io-wai, ether, exceptions, formatting, http-types, lens, lifted-base, log-warper, memory, mkDerivation, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-simple, purescript-bridge, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, socket-io, stdenv, stm, swagger2, tagged, text, text-format, time, time-units, transformers, universum, unordered-containers, wai, wai-cors, warp }:
+      mkDerivation {
+          pname = "cardano-sl-explorer";
+          version = "0.2.0";
+          src = ./../explorer;
+          isLibrary = true;
+          isExecutable = true;
+          libraryHaskellDepends = [
+            aeson
+            base
+            base16-bytestring
+            binary
+            bytestring
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-db
+            cardano-sl-infra
+            cardano-sl-ssc
+            containers
+            either
+            engine-io
+            engine-io-wai
+            ether
+            exceptions
+            formatting
+            http-types
+            lens
+            lifted-base
+            log-warper
+            memory
+            monad-control
+            monad-loops
+            mtl
+            node-sketch
+            serokell-util
+            servant
+            servant-server
+            socket-io
+            stm
+            tagged
+            text
+            text-format
+            time
+            time-units
+            transformers
+            universum
+            unordered-containers
+            wai
+            wai-cors
+            warp
+          ];
+          libraryToolDepends = [ cpphs ];
+          executableHaskellDepends = [
+            aeson
+            base
+            bytestring
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
+            cardano-sl-update
+            containers
+            ether
+            formatting
+            lens
+            log-warper
+            mtl
+            network-transport-tcp
+            node-sketch
+            optparse-simple
+            purescript-bridge
+            serokell-util
+            servant-multipart
+            servant-server
+            servant-swagger
+            servant-swagger-ui
+            swagger2
+            text
+            time
+            time-units
+            universum
+          ];
+          executableToolDepends = [
+            cpphs
+          ];
+          doHaddock = false;
+          doCheck = true;
+          description = "Cardano explorer";
           license = stdenv.lib.licenses.mit;
         }) {};
       cardano-sl-godtossing = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, containers, cpphs, cryptonite, data-default, ether, file-embed, formatting, generic-arbitrary, hashable, lens, log-warper, mkDerivation, mmorph, mono-traversable, mtl, node-sketch, rocksdb-haskell, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
@@ -2757,6 +2861,72 @@ self: {
           doCheck = false;
           homepage = "https://github.com/tibbe/ekg-statsd";
           description = "Push metrics to statsd";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      engine-io = callPackage ({ aeson, async, attoparsec, base, base64-bytestring, bytestring, either, fetchgit, free, mkDerivation, monad-loops, mwc-random, stdenv, stm, stm-delay, text, transformers, unordered-containers, vector, websockets }:
+      mkDerivation {
+          pname = "engine-io";
+          version = "1.2.15";
+          src = fetchgit {
+            url = "https://github.com/serokell/engine.io.git";
+            sha256 = "0j2rxbw5g88ivmjzhmhnxk4cgkxdw97i2qlzw47gzyv56ciqfdny";
+            rev = "a594e402fd450f11ad60d09ddbd93db500000632";
+          };
+          postUnpack = "sourceRoot+=/engine-io; echo source root reset to \$sourceRoot";
+          libraryHaskellDepends = [
+            aeson
+            async
+            attoparsec
+            base
+            base64-bytestring
+            bytestring
+            either
+            free
+            monad-loops
+            mwc-random
+            stm
+            stm-delay
+            text
+            transformers
+            unordered-containers
+            vector
+            websockets
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/ocharles/engine.io";
+          description = "A Haskell implementation of Engine.IO";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      engine-io-wai = callPackage ({ attoparsec, base, bytestring, either, engine-io, fetchgit, http-types, mkDerivation, mtl, stdenv, text, transformers, transformers-compat, unordered-containers, wai, wai-websockets, websockets }:
+      mkDerivation {
+          pname = "engine-io-wai";
+          version = "1.0.6";
+          src = fetchgit {
+            url = "https://github.com/serokell/engine.io.git";
+            sha256 = "0j2rxbw5g88ivmjzhmhnxk4cgkxdw97i2qlzw47gzyv56ciqfdny";
+            rev = "a594e402fd450f11ad60d09ddbd93db500000632";
+          };
+          postUnpack = "sourceRoot+=/engine-io-wai; echo source root reset to \$sourceRoot";
+          libraryHaskellDepends = [
+            attoparsec
+            base
+            bytestring
+            either
+            engine-io
+            http-types
+            mtl
+            text
+            transformers
+            transformers-compat
+            unordered-containers
+            wai
+            wai-websockets
+            websockets
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/ocharles/engine.io";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       entropy = callPackage ({ Cabal, base, bytestring, directory, filepath, mkDerivation, process, stdenv, unix }:
@@ -5745,6 +5915,34 @@ self: {
           description = "A web server for the Snap Framework";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      socket-io = callPackage ({ aeson, attoparsec, base, bytestring, engine-io, fetchgit, mkDerivation, mtl, stdenv, stm, text, transformers, unordered-containers, vector }:
+      mkDerivation {
+          pname = "socket-io";
+          version = "1.3.7";
+          src = fetchgit {
+            url = "https://github.com/serokell/engine.io.git";
+            sha256 = "0j2rxbw5g88ivmjzhmhnxk4cgkxdw97i2qlzw47gzyv56ciqfdny";
+            rev = "a594e402fd450f11ad60d09ddbd93db500000632";
+          };
+          postUnpack = "sourceRoot+=/socket-io; echo source root reset to \$sourceRoot";
+          libraryHaskellDepends = [
+            aeson
+            attoparsec
+            base
+            bytestring
+            engine-io
+            mtl
+            stm
+            text
+            transformers
+            unordered-containers
+            vector
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/ocharles/engine.io";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       socks = callPackage ({ base, bytestring, cereal, mkDerivation, network, stdenv }:
       mkDerivation {
           pname = "socks";
@@ -5857,6 +6055,21 @@ self: {
           homepage = "https://github.com/nikita-volkov/stm-containers";
           description = "Containers for STM";
           license = stdenv.lib.licenses.mit;
+        }) {};
+      stm-delay = callPackage ({ base, mkDerivation, stdenv, stm }:
+      mkDerivation {
+          pname = "stm-delay";
+          version = "0.1.1.1";
+          sha256 = "0cla21v89gcvmr1iwzibq13v1yq02xg4h6k9l6kcprj7mhd5hcmi";
+          libraryHaskellDepends = [
+            base
+            stm
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/joeyadams/haskell-stm-delay";
+          description = "Updatable one-shot timer polled with STM";
+          license = stdenv.lib.licenses.bsd3;
         }) {};
       streaming-commons = callPackage ({ array, async, base, blaze-builder, bytestring, directory, mkDerivation, network, process, random, stdenv, stm, text, transformers, unix, zlib }:
       mkDerivation {
@@ -6843,6 +7056,28 @@ self: {
           doCheck = false;
           homepage = "http://www.yesodweb.com/book/web-application-interface";
           description = "WAI application for static serving";
+          license = stdenv.lib.licenses.mit;
+        }) {};
+      wai-cors = callPackage ({ attoparsec, base, base-unicode-symbols, bytestring, case-insensitive, http-types, mkDerivation, mtl, stdenv, transformers, wai }:
+      mkDerivation {
+          pname = "wai-cors";
+          version = "0.2.5";
+          sha256 = "0vkn5nws9vcjn809qv2jfhf9ckfcgvfhs1v3xx1b03iy0j59n215";
+          libraryHaskellDepends = [
+            attoparsec
+            base
+            base-unicode-symbols
+            bytestring
+            case-insensitive
+            http-types
+            mtl
+            transformers
+            wai
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/larskuhtz/wai-cors";
+          description = "CORS for WAI";
           license = stdenv.lib.licenses.mit;
         }) {};
       wai-extra = callPackage ({ aeson, ansi-terminal, base, base64-bytestring, blaze-builder, bytestring, case-insensitive, containers, cookie, data-default-class, deepseq, directory, fast-logger, http-types, iproute, lifted-base, mkDerivation, network, old-locale, resourcet, stdenv, streaming-commons, stringsearch, text, time, transformers, unix, unix-compat, vault, void, wai, wai-logger, word8, zlib }:

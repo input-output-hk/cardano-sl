@@ -1,0 +1,17 @@
+node_modules
+bower_components
+dist
+output
+.DS_Store
+typings
+npm-debug.log
+package-lock.json
+.psc-ide-port
+.psci_modules
+# generated backend types + lenses
+src/Generated/*
+# generated lenses
+src/Data/Time/Lenses/*
+src/Explorer/I18n/Lenses.purs
+src/Explorer/Lenses/*
+src/Explorer/View/Lenses/*

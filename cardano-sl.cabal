@@ -25,7 +25,7 @@ Flag with-wallet
   description: Build with wallet.
 
 Flag with-explorer
-  default:     False
+  default:     True
   manual:      True
 
   description: Build with explorer
@@ -375,6 +375,7 @@ library
                       , cereal
                       , conduit >= 1.2.8
                       , containers
+                      , cpphs
                       , cryptonite >= 0.23 && <= 0.23
                       , cryptonite-openssl >= 0.6
                       , data-default

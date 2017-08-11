@@ -1,0 +1,124 @@
+
+.explorer-dashboard {
+
+  .api-content {
+    lost-utility: clearfix;
+    &__container {
+      lost-column: 1/1;
+    }
+  }
+
+  @media (--md) {
+    .api-content {
+      &__container {
+        lost-column: 1/2 2;
+      }
+    }
+  }
+
+  .api-code {
+    font-family: var(--fontFamily0-Regular);
+    font-weight: normal;
+
+    &__tabs {
+      padding: 0 18px;
+      height: 40px;
+      box: horizontal;
+    }
+
+    @media (--md) {
+      &__tabs {
+        padding: 0 24px;
+      }
+    }
+
+    &__tab {
+      box-item: center;
+      margin-right: 12px;
+      font-size: 12px;
+      button: standard-button;
+      color: color(var(--color8) a(0.5));
+      border-bottom: none;
+      &.selected {
+        color: var(--color8);
+        border-bottom: 1px solid var(--color8);
+      }
+    }
+  }
+
+
+  .api-snippet {
+
+    background-color: var(--color6);
+    font-family: var(--fontFamily0-Regular);
+    font-weight: normal;
+    padding: 18px;
+    margin-bottom: 12px;
+
+    &__headline {
+      font-size: 12px;
+      color: color(var(--color8) a(0.5));
+      position: relative;
+      &::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 5px;
+        width: 24px;
+        border-bottom: 1px solid color(var(--color8) a(0.4));
+
+      }
+    }
+
+    &__code {
+      font-size: 10px;
+      color: var(--color8);
+      padding-top: 6px;
+    }
+  }
+
+  @media (--md) {
+    .api-snippet {
+      padding: 18px 24px;
+    }
+
+  }
+
+  .api-about {
+    font-family: var(--fontFamily0-Regular);
+    font-weight: normal;
+    padding: 0 18px;
+
+    &__headline {
+      color: var(--color8);
+      font-size: 13px;
+    }
+
+    &__description {
+      color: color(var(--color8) a(0.5));
+      font-size: 10px;
+    }
+
+    &__button {
+      font-family: var(--fontFamily0-Regular);
+      font-weight: normal;
+      font-size: 12;
+
+      margin-top: 24px;
+      padding: 18px 24px;
+
+      border-radius: 2px;
+      button: outline-button;
+      button-color: var(--color5) var(--color4) var(--color4);
+      button-border: 1px var(--color5) transparent transparent;
+      button-background: transparent var(--color5) var(--color5);
+    }
+  }
+
+  @media (--md) {
+    .api-about {
+      padding: 40px 24px 0 24px;
+    }
+  }
+}

@@ -21,10 +21,11 @@ import           System.Wlog                      (HasLoggerName (..), LoggerNam
 
 import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
                                                    onRollbackBlocksStub)
+import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core                         (SlotId (..))
+import           Pos.Core                         (Address, SlotId (..))
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
@@ -130,3 +131,7 @@ instance MonadTxHistory LightWalletSscType LightWalletMode where
     getBlockHistory = getBlockHistoryWallet
     getLocalHistory = getLocalHistoryWallet
     saveTx = saveTxWallet
+
+instance MonadAddresses LightWalletMode where
+    type AddrData LightWalletMode = Address
+    getNewAddress = pure

@@ -4,6 +4,7 @@ module Pos.Wallet.Web.Account
        ( myRootAddresses
        , getAddrIdx
        , getSKById
+       , getSKByAccAddr
        , genSaveRootKey
        , genUniqueAccountId
        , genUniqueAccountAddress
@@ -28,7 +29,7 @@ import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
-                                             addressToCId, encToCId)
+                                             addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
@@ -57,6 +58,22 @@ getSKById wid = do
     maybeThrow notFound msk
   where notFound =
           RequestError $ sformat ("No wallet with address "%build%" found") wid
+
+getSKByAccAddr
+    :: AccountMode ctx m
+    => PassPhrase
+    -> CWAddressMeta
+    -> m EncryptedSecretKey
+getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
+    (addr, accKey) <-
+        deriveAccountSK passphrase (addrMetaToAccount addrMeta) cwamAccountIndex
+    let accCAddr = addressToCId addr
+    if accCAddr /= cwamId
+             -- if you see this error, maybe you generated public key address with
+             -- no hd wallet attribute (if so, address would be ~half shorter than
+             -- others)
+        then throwM . InternalError $ "Account is contradictory!"
+        else return accKey
 
 genSaveRootKey
     :: AccountMode ctx m

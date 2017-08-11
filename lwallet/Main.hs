@@ -43,7 +43,7 @@ import           Serokell.Util                    (ms, sec)
 import           Pos.Binary                       (Raw, serialize')
 import qualified Pos.CLI                          as CLI
 import           Pos.Client.Txp.Balances          (getOwnUtxo)
-import           Pos.Client.Txp.Util              (createTx)
+import           Pos.Client.Txp.Util              (TxError (..), createTx)
 import           Pos.Communication                (NodeId, OutSpecs, SendActions, Worker,
                                                    WorkerSpec, dataFlow, delegationRelays,
                                                    immediateConcurrentConversations,
@@ -81,7 +81,7 @@ import           Pos.Update                       (BlockVersionData (..),
                                                    UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret              (readUserSecret, usKeys)
 import           Pos.Util.Util                    (powerLift)
-import           Pos.Wallet                       (MonadWallet, addSecretKey, getBalance,
+import           Pos.Wallet                       (addSecretKey, getBalance,
                                                    getSecretKeys)
 import           Pos.Wallet.Light                 (LightWalletMode, WalletParams (..),
                                                    runWalletStaticPeers)
@@ -149,23 +149,24 @@ addTxSubmit mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) 
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) -> return (TxCount submitted (failed + 1) sending, ()))
 
-runCmd :: forall ssc ctx m. MonadWallet ssc ctx m => SendActions m -> Command -> CmdCtx -> m ()
+runCmd :: SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
 runCmd _ (Balance addr) _ =
     getBalance addr >>=
     putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) CmdCtx{na} = do
     skeys <- getSecretKeys
-    etx <-
-        withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
-        runEitherT $ do
-            ss <- mss `whenNothing` throwError "Invalid passphrase"
-            lift $ submitTx
-                (immediateConcurrentConversations sendActions na)
-                ss
-                (map (flip TxOutAux []) outputs)
+    let skey = skeys !! idx
+        curAddr = makePubKeyAddress $ encToPublic skey
+    etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runEitherT $ do
+        ss <- mss `whenNothing` throwError "Invalid passphrase"
+        lift $ submitTx
+            (immediateConcurrentConversations sendActions na)
+            ss
+            (map (flip TxOutAux []) outputs)
+            curAddr
     case etx of
-        Left err -> putText $ sformat ("Error: "%stext) err
-        Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+        Left err      -> putText $ sformat ("Error: "%stext) err
+        Right (tx, _) -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) CmdCtx{..} = do
     let nNeighbours = length na
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
@@ -204,7 +205,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
             atomically $ writeTQueue txQueue (key, txOuts, neighbours)
 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
-        let writeTPS :: m ()
+        let writeTPS :: LightWalletMode ()
             writeTPS = do
                 delay (sec slotDuration)
                 currentTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
@@ -219,7 +220,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                 else writeTPS
             -- Repeatedly take transactions from the queue and send them.
             -- Do this n times.
-            sendTxs :: Int -> m ()
+            sendTxs :: Int -> LightWalletMode ()
             sendTxs n
                 | n <= 0 = do
                       logInfo "All done sending transactions on this thread."
@@ -228,10 +229,12 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just (key, txOuts, neighbours) -> do
                           utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic (fakeSigner key)
-                          tx <- createTx utxo (fakeSigner key) txOuts
-                          case tx of
-                              Left err -> addTxFailed tpsMVar >> logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
-                              Right tx -> do
+                          etx <- createTx utxo (fakeSigner key) txOuts (makePubKeyAddress $ toPublic key)
+                          case etx of
+                              Left (TxError err) -> do
+                                  addTxFailed tpsMVar
+                                  logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
+                              Right (tx, _) -> do
                                   submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
                                   addTxSubmit tpsMVar >> logInfo (sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours)
                           delay $ ms delay_
@@ -363,11 +366,11 @@ runCmdOuts = relayPropagateOut $ mconcat
                 , txRelays @SscGodTossing @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 ]
 
-evalCmd :: MonadWallet ssc ctx m => SendActions m -> Command -> CmdCtx -> m ()
+evalCmd :: SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
 evalCmd _ Quit _      = pure ()
 evalCmd sa cmd cmdCtx = runCmd sa cmd cmdCtx >> evalCommands sa cmdCtx
 
-evalCommands :: MonadWallet ssc ctx m => SendActions m -> CmdCtx -> m ()
+evalCommands :: SendActions LightWalletMode -> CmdCtx -> LightWalletMode ()
 evalCommands sa cmdCtx = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -377,12 +380,12 @@ evalCommands sa cmdCtx = do
         Left err   -> putStrLn err >> evalCommands sa cmdCtx
         Right cmd_ -> evalCmd sa cmd_ cmdCtx
 
-runWalletRepl :: MonadWallet ssc ctx m => CmdCtx -> Worker m
+runWalletRepl :: CmdCtx -> Worker LightWalletMode
 runWalletRepl cmdCtx sa = do
     putText "Welcome to Wallet CLI Node"
     evalCmd sa Help cmdCtx
 
-runWalletCmd :: MonadWallet ssc ctx m => CmdCtx -> Text -> Worker m
+runWalletCmd :: CmdCtx -> Text -> Worker LightWalletMode
 runWalletCmd cmdCtx str sa = do
     let strs = T.splitOn "," str
     for_ strs $ \scmd -> do

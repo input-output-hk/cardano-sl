@@ -358,6 +358,7 @@ library
                       , http-client
                       , http-client-tls
                       , http-conduit
+                      , http-types
                       , iproute
                       , kademlia
                       , lens
@@ -387,6 +388,9 @@ library
                       , rocksdb-haskell >= 1.0.0
                       , safecopy
                       , serokell-util >= 0.1.3.4
+                      , servant >= 0.8.1
+                      , servant-multipart >= 0.10
+                      , servant-server >= 0.8.1
                       , stm
                       , stm-containers
                       , string-qq
@@ -403,24 +407,16 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
+                      , wai
+                      , wai-extra
+                      , warp
+                      , warp-tls
                       , yaml
-                      , http-types
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs
 
   if !os(windows)
     build-depends:      unix
-                      , servant >= 0.8.1
-                      , servant-multipart >= 0.10
-                      , servant-server >= 0.8.1
-                      , wai
-                      , wai-extra
-                      , warp
-                      , warp-tls
-
-  if !os(windows)
-    build-depends:      unix
-
 
   hs-source-dirs:       src
   default-language:     Haskell2010

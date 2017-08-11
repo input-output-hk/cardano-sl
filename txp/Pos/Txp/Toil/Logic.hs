@@ -34,11 +34,10 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Core.Coin              (integerToCoin)
 import           Pos.Core.Constants         (memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
-import           Pos.Core.Slotting          (isBootstrapEra)
 import           Pos.Core.Types             (BlockVersionData (..), Coin, EpochIndex,
                                              StakeholderId)
 import           Pos.Crypto                 (WithHash (..), hash)
-import           Pos.DB.Class               (MonadGState (..))
+import           Pos.DB.Class               (MonadGState (..), gsIsBootstrapEra)
 import           Pos.Util.Util              (HasLens', lensOf')
 
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOutDistribution, TxUndo,
@@ -168,7 +167,7 @@ verifyGState
     => EpochIndex -> TxAux -> TxFee -> m ()
 verifyGState curEpoch txAux txFee = do
     BlockVersionData {..} <- gsAdoptedBVData
-    verifyBootEra @ctx curEpoch bvdUnlockStakeEpoch txAux
+    verifyBootEra @ctx curEpoch txAux
     let txSize = biSize txAux
     let limit = bvdMaxTxSize
     verifyTxFeePolicy txFee bvdTxFeePolicy txSize
@@ -179,10 +178,12 @@ verifyBootEra
     :: forall ctx m .
        ( MonadError ToilVerFailure m
        , HasLens' ctx GenesisStakeholders
-       , MonadReader ctx m)
-    => EpochIndex -> EpochIndex -> TxAux -> m ()
-verifyBootEra curEpoch unlockEpoch txAux = do
-    let bootEra = isBootstrapEra curEpoch unlockEpoch
+       , MonadReader ctx m
+       , MonadGState m
+       )
+    => EpochIndex -> TxAux -> m ()
+verifyBootEra curEpoch txAux = do
+    bootEra <- gsIsBootstrapEra curEpoch
     bootHolders <- views (lensOf' @GenesisStakeholders) unGenesisStakeholders
     let bootRel = notBootRelated bootHolders
     when (bootEra && not (null bootRel)) $

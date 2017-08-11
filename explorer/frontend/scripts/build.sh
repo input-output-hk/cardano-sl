@@ -31,7 +31,7 @@ pushd $scriptDir/..
   nix-shell --run "rm -rf .psci_modules/ .pulp-cache/ node_modules/ bower_components/ output/"
   nix-shell --run "npm install"
   nix-shell --run ./scripts/generate-explorer-lenses.sh
-  nix-shell --run "npm ${1:-build:prod}"
+  nix-shell --run "npm run ${1:-build:prod}"
 popd
 
 echo "Done."

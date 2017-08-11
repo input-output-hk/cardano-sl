@@ -13,7 +13,6 @@ module Pos.Launcher.Param
 import           Universum
 
 import           Control.Lens           (makeLensesWith)
-import           Data.Time              (UTCTime)
 import           Ether.Internal         (HasLens (..))
 import qualified Network.Transport.TCP  as TCP
 import           System.Wlog            (LoggerName)
@@ -70,7 +69,6 @@ data NodeParams = NodeParams
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     , npNetworkConfig  :: !(NetworkConfig KademliaParams)
-    , npInitDelay      :: !(Maybe UTCTime)      -- ^ delay node startup
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams

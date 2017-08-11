@@ -327,6 +327,7 @@ library
                         Pos.Wallet.Web.Methods.History
                         Pos.Wallet.Web.Methods.Logic
                         Pos.Wallet.Web.Methods.Redeem
+                        Pos.Wallet.Web.Methods.Reporting
                         Pos.Wallet.Web.Methods.Restore
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Handlers

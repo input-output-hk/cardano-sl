@@ -97,7 +97,7 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
     normalize x =
         x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
 stakeDistribution (ExponentialStakes n) =
-    [mkCoin (2 ^ i) | i <- [n - 1, n - 2 .. 0]]
+    [mkCoin (2 ^ (i + 10)) | i <- [n - 1, n - 2 .. 0]]
 stakeDistribution ts@RichPoorStakes {..} =
     checkMpcThd (getTotalStake ts) sdRichStake basicDist
   where

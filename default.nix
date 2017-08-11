@@ -26,6 +26,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
   overrides = self: super: {
     cardano-sl = overrideCabal super.cardano-sl (drv: {
       src = cleanSource2 drv.src;
+      testTarget = "--test-option='--skip=Block.Logic.Var'";
       patchPhase = ''
        export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
       '';

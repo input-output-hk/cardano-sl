@@ -234,8 +234,8 @@ if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-lwallet"
   stack clean cardano-sl-lwallet
 
-  echo "Cleaning cardano-wallet"
-  stack clean cardano-wallet
+  echo "Cleaning cardano-sl-wallet"
+  stack clean cardano-sl-wallet
 
   echo "Cleaning cardano-sl-explorer"
   stack clean cardano-sl-explorer

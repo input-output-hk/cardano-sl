@@ -10,22 +10,23 @@ module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
 import           Universum
 
 import qualified Data.HashMap.Strict   as HM
-import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
-import           Test.Hspec.QuickCheck (prop, modifyMaxSuccess)
-import           Test.QuickCheck       (Property, (.&&.), (===))
 import           Data.Reflection       (Reifies (..))
+import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck       (Property, (.&&.), (===))
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, InvalidRichmenStakes (..),
                                         ValidRichmenStakes (..))
-import           Pos.Core              (Coin, mkCoin, unsafeAddressHash, StakeholderId, CoinPortion,
-                                        unsafeCoinPortionFromDouble, unsafeGetCoin,
-                                        unsafeSubCoin)
-import           Pos.Core.Coin         (applyCoinPortionDown,
-                                        sumCoins)
+import           Pos.Core              (Coin, CoinPortion, StakeholderId, mkCoin,
+                                        unsafeAddressHash, unsafeCoinPortionFromDouble,
+                                        unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Coin         (applyCoinPortionDown, sumCoins)
 import           Pos.Lrc               (RichmenStakes, RichmenType (RTUsual),
                                         findRichmenPure)
 import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
-                                        computeSharesDistrPure, isDistrInaccuracyAcceptable)
+                                        computeSharesDistrPure,
+                                        isDistrInaccuracyAcceptable,
+                                        sharesDistrMaxSumDistr)
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do
@@ -47,6 +48,13 @@ spec = describe "computeSharesDistr" $ do
         prop twentyRichmen2Desc twentyRichmen2
         modifyMaxSuccess (const 30) $
             prop validateReasonableDesc validateReasonable
+
+    describe "isDistrInaccuracyAcceptable" $ do
+        prop distrEqDesc distrFits
+        prop distrErrorType1Desc distrErrorType1
+        prop distrErrorType2Desc distrErrorType2
+        prop distrHalfSum1Desc distrHalfSum1
+        prop distrHalfSum2Desc distrHalfSum2
   where
     emptyRichmenStakesDesc = "Doesn't fail to calculate a share distribution when the richmen\
     \ stake is empty."
@@ -71,6 +79,16 @@ spec = describe "computeSharesDistr" $ do
     twentyRichmen2Desc = "20 richmen with similar stake to test fairness of generated distribution"
     validateReasonableDesc = "Given a valid richmen, validate fairness and some reasonable statements"
 
+    distrEqDesc = "Distribution fits coins"
+    distrErrorType1Desc = "Distribution tells we can't reveal a secret, but coins tell we can"
+    distrErrorType2Desc = "Distribution tells we can reveal a secret, but coins tell we can't"
+    distrHalfSum1Desc =
+        "Distribution equals @sumDistr / 2@ , sum of coins is greater > @sumCoins / 2@.\
+        \ Inaccuracy is less than @sharesDistrInaccuracy@"
+    distrHalfSum2Desc =
+        "Distribution equals @sumDistr / 2@ , sum of coins is greater > @sumCoins / 2@.\
+        \ Inaccuracy is greater than @sharesDistrInaccuracy@"
+
 data TestMpcThd
 
 instance Reifies TestMpcThd CoinPortion where
@@ -92,11 +110,9 @@ isLimitedBy mx sd = sum (toList sd) <= mx
 -- Distribution is fair if a max inaccuracy is less than @sharesDistrInaccuracy@.
 isDistrFair :: RichmenStakes -> SharesDistribution -> Bool
 isDistrFair (HM.map unsafeGetCoin -> rs) sd = do
-    let !totalDistr = sum sd
-    let !totalCoins = sum rs
     let stakeholders = HM.keys rs
     let coinsNDistr = map (first fromIntegral . findStk) stakeholders
-    isDistrInaccuracyAcceptable (fromIntegral totalCoins, totalDistr) coinsNDistr
+    isDistrInaccuracyAcceptable coinsNDistr
   where
 
     findStk :: StakeholderId -> (Word64, Word16)
@@ -121,7 +137,7 @@ isDistrReasonable mx rs (Right sd) =
     minStake = mkCoin . ceiling $ (fromIntegral totalCoins) * testMpcThd
 
 isDistrReasonableMax :: RichmenStakes -> Either TossVerFailure SharesDistribution -> Bool
-isDistrReasonableMax = isDistrReasonable $ truncate $ toRational (3::Int) / toRational testMpcThd
+isDistrReasonableMax = isDistrReasonable $ sharesDistrMaxSumDistr testMpcThd
 
 maxCoin :: Coin
 maxCoin = maxBound @Coin
@@ -227,3 +243,22 @@ lrcConsistency =
     coins        = map mkCoin [1,2,4,6,8,19,39,78,156,312]
     -- threshold used for the test
     mpcThd' = unsafeCoinPortionFromDouble 0.01
+
+----------------------------------------------------------------------------
+-- isDistrInaccuracyAcceptable tests
+----------------------------------------------------------------------------
+
+distrFits :: Bool
+distrFits = isDistrInaccuracyAcceptable [(10, 1), (20, 2), (30, 3)]
+
+distrErrorType1 :: Bool
+distrErrorType1 = not $ isDistrInaccuracyAcceptable [(20, 2), (40, 2), (10, 1), (20, 2), (20, 2)]
+
+distrErrorType2 :: Bool
+distrErrorType2 = not $ isDistrInaccuracyAcceptable [(10, 2), (30, 4), (20, 2), (30, 3)]
+
+distrHalfSum1 :: Bool
+distrHalfSum1 = isDistrInaccuracyAcceptable [(20, 2), (41, 3), (10, 1), (20, 2), (20, 2)]
+
+distrHalfSum2 :: Bool
+distrHalfSum2 = not $ isDistrInaccuracyAcceptable [(20, 2), (42, 3), (10, 1), (20, 2), (20, 2)]

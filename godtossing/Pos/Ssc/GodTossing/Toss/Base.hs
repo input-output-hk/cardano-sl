@@ -18,6 +18,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        , computeSharesDistr
        , isDistrInaccuracyAcceptable
        , sharesDistrInaccuracy
+       , sharesDistrMaxSumDistr
 
        -- * Payload processing
        , checkCommitmentsPayload
@@ -143,6 +144,10 @@ computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 sharesDistrInaccuracy :: Fractional a => a
 sharesDistrInaccuracy = 0.05
 
+-- | Max sum of distribution
+sharesDistrMaxSumDistr :: RealFrac a => a -> Word16
+sharesDistrMaxSumDistr thd = truncate $ 3 / thd
+
 -- | Internal type for work with Coin.
 type CoinUnsafe = Int64
 
@@ -162,8 +167,10 @@ type Knapsack s = STUArray s Word16 CoinUnsafe
 -- 2. when nodes must reveal commitment, but they can't
 -- We can get these situations when sum of stakes of nodes
 -- which sent shares is close to 0.5.
-isDistrInaccuracyAcceptable :: (CoinUnsafe, Word16) -> [(CoinUnsafe, Word16)] -> Bool
-isDistrInaccuracyAcceptable (totalCoins, totalDistr) coinsNDistr = runST $ do
+isDistrInaccuracyAcceptable :: [(CoinUnsafe, Word16)] -> Bool
+isDistrInaccuracyAcceptable coinsNDistr = runST $ do
+    let !totalDistr = sum $ map snd coinsNDistr
+    let !totalCoins = sum $ map fst coinsNDistr
     let halfDistr = totalDistr `div` 2 + 1
     let invalid = totalCoins + 1
 
@@ -229,12 +236,13 @@ computeSharesDistrPure richmen threshold
     | otherwise = do
         when (totalCoins == 0) $
             throwError $ TossInternallError "Richmen total stake equals zero"
-        let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
-        let fromX = ceiling $ 1 / minimum portions
-        let toX = truncate $ 3 / mpcThreshold
 
+        let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
         unless (all ((>= mpcThreshold) . toRational) portions) $
             throwError $ TossInternallError "Richmen stakes less than threshsold"
+
+        let fromX = ceiling $ 1 / minimum portions
+        let toX = sharesDistrMaxSumDistr mpcThreshold
 
         -- If we didn't find an appropriate distribution
         -- we use distribution [1, 1, ... 1] as fallback.
@@ -266,7 +274,7 @@ computeSharesDistrPure richmen threshold
             let curDistr = normalize curDistrN
             let !s = sum curDistr
             if s == prevSum then compute (x + 1) toX prevSum
-            else if isDistrInaccuracyAcceptable (totalCoins, s) (zip coins curDistr) then Just curDistr
+            else if isDistrInaccuracyAcceptable (zip coins curDistr) then Just curDistr
             else compute (x + 1) toX s
 
     multPortions :: Word16 -> [Word16]

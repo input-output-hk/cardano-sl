@@ -186,13 +186,12 @@ isDistrInaccuracyAcceptable coinsNDistr = runST $ do
     -- to evaluate max inaccuracy of the bad case type 2.
     -- So for every sum of generated shares
     -- we store this sum of coins and try to maximize it.
+
+    -- We don't compute bad case of type 1 explicitly,
+    -- because if there is such subset which causes inaccuracy of type 1
+    -- we can take complement of this subset and get the same inaccuracy of type 2.
     dpMax <- newArray (0, totalDistr) (-invalid) :: ST s (Knapsack s)
-    -- Similar reasoning is true for the bad case of type 1:
-    -- for every sum of shares distribution which is greater than @totalDistr@ / 2
-    -- we would know the minimum sum of real distribution.
-    dpMin <- newArray (0, totalDistr) invalid    :: ST s (Knapsack s)
     writeArray dpMax 0 0
-    writeArray dpMin 0 0
 
     -- Relaxation function.
     let relax dp coins w nw cmp = do
@@ -202,17 +201,15 @@ isDistrInaccuracyAcceptable coinsNDistr = runST $ do
                 writeArray dp nw (dpW + coins)
             pure (dpW + coins)
 
-    let weights = [totalDistr, totalDistr-1..0]
+    let weights = [halfDistr - 1, halfDistr - 2..0]
     let halfCoins = totalCoins `div` 2 + 1
     let totalDistrD, totalCoinsD :: Double
         totalDistrD = fromIntegral totalDistr
         totalCoinsD = fromIntegral totalCoins
+
     let computeLimit i =
             let p = fromIntegral i / totalDistrD in
-            if i < halfDistr then
-                max halfCoins (ceiling (totalCoinsD * (sharesDistrInaccuracy + p)))
-            else
-                min (halfCoins - 1) (floor (totalCoinsD * (p - sharesDistrInaccuracy)))
+            max halfCoins (ceiling (totalCoinsD * (sharesDistrInaccuracy + p)))
 
     let weightsNLimits = zip weights (map computeLimit weights)
     isAcceptable <- newSTRef True
@@ -221,9 +218,7 @@ isDistrInaccuracyAcceptable coinsNDistr = runST $ do
         -- Try to relax coins for whole weights
         forM_ weightsNLimits $ \(w, limit) -> when (w >= distr) $ do
             sCoinsMx <- relax dpMax coins (w - distr) w (>)
-            sCoinsMn <- relax dpMin coins (w - distr) w (<)
-            when (w < halfDistr && sCoinsMx >= limit || w >= halfDistr && sCoinsMn <= limit) $
-                writeSTRef isAcceptable False
+            when (sCoinsMx >= limit) $ writeSTRef isAcceptable False
     readSTRef isAcceptable
 
 computeSharesDistrPure

@@ -266,14 +266,21 @@ blockPropertyScenarioGen m = do
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ flip evalRandT g $ runBlockEventGenT allSecrets m
 
+prettyScenario :: BlockScenario -> Text
+prettyScenario scenario = pretty (fmap (headerHash . fst) scenario)
+
 blockEventSuccessProp :: BlockProperty ()
 blockEventSuccessProp = do
     scenario <- blockPropertyScenarioGen $ genSuccessWithForks
     let (scenario', checkCount) = enrichWithSnapshotChecking scenario
     when (checkCount <= 0) $ stopProperty $
         "No checks were generated, this is a bug in the test suite: " <>
-        pretty (fmap (headerHash . fst) scenario')
-    verifyBlockScenarioResult =<< lift (runBlockScenario scenario')
+        prettyScenario scenario'
+    runBlockScenarioAndVerify scenario'
+
+runBlockScenarioAndVerify :: BlockScenario -> BlockProperty ()
+runBlockScenarioAndVerify bs =
+    verifyBlockScenarioResult =<< lift (runBlockScenario bs)
 
 verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
 verifyBlockScenarioResult = \case
@@ -305,7 +312,7 @@ singleForkSpec fd = do
 singleForkProp :: ForkDepth -> BlockProperty ()
 singleForkProp fd = do
     scenario <- blockPropertyScenarioGen $ genSingleFork fd
-    verifyBlockScenarioResult =<< lift (runBlockScenario scenario)
+    runBlockScenarioAndVerify scenario
 
 data ForkDepth = ForkShort | ForkMedium | ForkDeep
 

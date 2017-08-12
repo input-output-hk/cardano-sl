@@ -23,7 +23,6 @@ module Pos.Launcher.Resource
 
 import           Universum                  hiding (bracket, finally)
 
-import           Control.Concurrent         (threadDelay)
 import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Tagged                 (untag)
 import qualified Data.Time                  as Time
@@ -38,8 +37,7 @@ import qualified Network.Transport          as NT (closeTransport)
 import           System.IO                  (Handle, hClose, hSetBuffering, BufferMode (..))
 import qualified System.Metrics             as Metrics
 import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
-                                             getLoggerName, logError, logNotice, logWarning,
-                                             productionB,
+                                             getLoggerName, logError, productionB,
                                              releaseAllHandlers, setupLogging,
                                              usingLoggerName)
 
@@ -66,7 +64,7 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics, gtcUtxo,
+import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
@@ -137,7 +135,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            (npGenesisTxpCtx ^. gtcUtxo)
+            npGenesisCtx
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -204,31 +202,11 @@ bracketNodeResources :: forall ssc m a.
     -> SscParams ssc
     -> (NodeResources ssc m -> Production a)
     -> Production a
-bracketNodeResources np sp k =
-    bracketTransport tcpAddr $ \transport ->
+bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
     bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
-    bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources $ \nodeRes -> do
-      case npInitDelay np of
-        Nothing ->
-          -- Start node immediately
-          return ()
-        Just initDelay -> do
-          now <- liftIO $ Time.getCurrentTime
-          let delay = (toUSec . toSec) (initDelay `Time.diffUTCTime` now)
-          if delay >= 0 then do
-            logNotice $ sformat ("Delaying node startup until " % shown) initDelay
-            liftIO $ threadDelay delay
-          else do
-            logWarning $ sformat ("--init-delay parameter in the past")
-      k nodeRes
+        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources k
   where
     tcpAddr = tpTcpAddr (npTransport np)
-
-    toSec :: Time.NominalDiffTime -> Double
-    toSec = realToFrac
-
-    toUSec :: Double -> Int
-    toUSec = round . (* 1000000)
 
 ----------------------------------------------------------------------------
 -- Logging

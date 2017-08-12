@@ -212,11 +212,13 @@ initQueue NetworkConfig{..} = do
         -- Kademlia worker is responsible for adding peers
         return ()
       TopologyCore StaticPeers{..} _ ->
-        staticPeersOnChange $ \peers ->
+        staticPeersOnChange $ \peers -> do
+          OQ.clearRecentFailures oq
           OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
       TopologyRelay StaticPeers{..} _ ->
-        staticPeersOnChange $ \peers ->
-          OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
+        staticPeersOnChange $ \peers -> do
+          OQ.clearRecentFailures oq
+          OQ.updatePeersBucket   oq BucketStatic (\_ -> peers)
 
     return oq
   where

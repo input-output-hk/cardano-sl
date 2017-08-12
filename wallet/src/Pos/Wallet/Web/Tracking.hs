@@ -30,8 +30,6 @@ module Pos.Wallet.Web.Tracking
 
        , syncWalletOnImportWebWallet
        , txMempoolToModifierWebWallet
-
-       , getWalletAddrMetasDB
        ) where
 
 import           Universum
@@ -72,7 +70,6 @@ import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
-import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.Rocks               (MonadRealDB)
 import           Pos.GState.BlockExtra      (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting               (MonadSlotsData (..), getSlotStartPure)
@@ -85,18 +82,17 @@ import           Pos.Txp.Toil               (UtxoModifier)
 import           Pos.Util.Chrono            (getNewestFirst)
 import           Pos.Util.Modifier          (MapModifier)
 import qualified Pos.Util.Modifier          as MM
-import           Pos.Util.Util              (maybeThrow)
 
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Wallet.SscType         (WalletSscType)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal, addressToCId, aiWId,
-                                             encToCId, isTxLocalAddress)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta (..), Wal,
+                                             addressToCId, encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
                                              CustomAddressType (..), WalletTip (..),
                                              WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
+import           Pos.Wallet.Web.Util        (getWalletAddrMetas)
 
 -- VoidModifier describes a difference between two states.
 -- It's (set of added k, set of deleted k) essentially.
@@ -200,7 +196,7 @@ txMempoolToModifierWebWallet encSK = do
             throwM $ InternalError errMsg
 
     tipH <- DB.getTipHeader @WalletSscType
-    allAddresses <- getWalletAddrMetasDB Ever wId
+    allAddresses <- getWalletAddrMetas Ever wId
     case topsortTxs wHash txsWUndo of
         Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
@@ -308,7 +304,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
         computeAccModifier :: BlockHeader ssc -> m CAccModifier
         computeAccModifier wHeader = do
-            allAddresses <- getWalletAddrMetasDB Ever wAddr
+            allAddresses <- getWalletAddrMetas Ever wAddr
             logInfo $
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
@@ -581,19 +577,3 @@ decryptAccount (hdPass, wCId) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Ju
     guard $ length derPath == 2
     pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (addressToCId addr)
 decryptAccount _ _ = Nothing
-
--- TODO [CSM-237] Move to somewhere (duplicate getWalletsAddrMetas from Methods.hs)
-getWalletAddrMetasDB
-    :: (WebWalletModeDB ctx m, MonadThrow m)
-    => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
-getWalletAddrMetasDB lookupMode cWalId = do
-    walletAccountIds <- filter ((== cWalId) . aiWId) <$> WS.getAccountIds
-    concatMapM (getAccountAddrsOrThrowDB lookupMode) walletAccountIds
-  where
-    getAccountAddrsOrThrowDB
-        :: (WebWalletModeDB ctx m, MonadThrow m)
-        => AddressLookupMode -> AccountId -> m [CWAddressMeta]
-    getAccountAddrsOrThrowDB mode accId =
-        WS.getAccountWAddresses mode accId >>= maybeThrow (noWallet accId)
-    noWallet accId = DBMalformed $
-        sformat ("No account with id "%build%" found") accId

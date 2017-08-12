@@ -19,7 +19,7 @@ Flag with-wallet
   description: Build with wallet
 
 Flag with-explorer
-  default:     False
+  default:     True
   manual:      True
 
   description: Build with explorer
@@ -91,6 +91,7 @@ library
                         Pos.Statistics
 
                         -- Client
+                        Pos.Client.Txp.Addresses
                         Pos.Client.Txp.Balances
                         Pos.Client.Txp.History
                         Pos.Client.Txp.Util
@@ -333,6 +334,7 @@ library
                       , cereal
                       , conduit >= 1.2.8
                       , containers
+                      , cpphs
                       , cryptonite >= 0.23 && <= 0.23
                       , cryptonite-openssl >= 0.6
                       , data-default

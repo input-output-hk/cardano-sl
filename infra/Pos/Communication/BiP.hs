@@ -36,7 +36,7 @@ biPackMsg :: Bi.Encoding -> LBS.ByteString
 biPackMsg = Bi.toLazyByteString
 
 biUnpackMsg :: Bi t => Bi.Decoder RealWorld t -> TW.Decoder (UnpackM BiP) t
-biUnpackMsg decoder = TW.Decoder (fromBiDecoder (Bi.deserialiseIncremental decoder))
+biUnpackMsg decoder = TW.Decoder (fromBiDecoder Proxy (Bi.deserialiseIncremental decoder))
 
 instance  Bi t => Serializable BiP t where
     packMsg _   = pure . biPackMsg . Bi.encode
@@ -44,12 +44,12 @@ instance  Bi t => Serializable BiP t where
 
 type M = ST RealWorld
 
-fromBiDecoder :: Bi t => M (Bi.IDecode RealWorld t) -> M (TW.DecoderStep M t)
-fromBiDecoder x = do
+fromBiDecoder :: Bi t => Proxy t -> M (Bi.IDecode RealWorld t) -> M (TW.DecoderStep M t)
+fromBiDecoder p x = do
     nextStep <- x
     case nextStep of
-      (Bi.Partial cont)    -> return $ TW.Partial $ \bs -> TW.Decoder $ fromBiDecoder (cont bs)
+      (Bi.Partial cont)    -> return $ TW.Partial $ \bs -> TW.Decoder $ fromBiDecoder p (cont bs)
       (Bi.Done bs off t)   -> return (TW.Done bs off t)
       (Bi.Fail bs off exn) -> do
-          let msg = "fromBiDecoder failure: " <> show exn <> ", leftover: " <> show bs
+          let msg = "fromBiDecoder failure for " <> label p <> ": " <> show exn <> ", leftover: " <> show bs
           return (TW.Fail bs off (toText @String msg))

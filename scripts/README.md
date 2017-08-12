@@ -61,7 +61,8 @@ Please note that these scripts are for CI only (we use Travis and AppVeyor). The
 * `ci/update-cli-docs.sh` - update [Cardano SL CLI Options](https://cardanodocs.com/technical/cli-options/) chapter.
 * `ci/update-haddock.sh` - update Haddock-documentation for Cardano SL source code.
 * `ci/update-wallet-web-api-docs.sh` - update [Cardano SL Wallet Web API](https://cardanodocs.com/technical/wallet/api/) chapter.
-* `ci/appveyor-retry.cmd` - command we use in `appveyor.yml` configuration file. 
+* `ci/update-explorer-web-api-docs.sh` - update [Cardano SL Explorer Web API](https://cardanodocs.com/technical/explorer/api/) chapter.
+* `ci/appveyor-retry.cmd` - command we use in `appveyor.yml` configuration file.
 
 ## Common
 

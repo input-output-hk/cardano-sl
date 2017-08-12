@@ -9,7 +9,7 @@
 # 
 # > tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
 #
-#   300         number of seconds it runs for
+#   300         number of transactions to send per thread
 #   $CONC       number of threads
 #   500         number of msec wait after sending a transaction (per thread)
 #   neighbours  send transaction to every neighbour
@@ -18,7 +18,7 @@
 #
 # node_cmd , bench_cmd defined in scripts/common_functions.sh
 
-CONC=4 scripts/launch/demo.sh 3 `dirname $0`/topology
+CONC=4 scripts/launch/demo.sh 3 `dirname $0`/topology rich_poor
 
 # transaction generator generates file tps-sent.csv
 #

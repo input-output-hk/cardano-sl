@@ -9,8 +9,10 @@ module WalletOptions
        , getWalletOptions
        ) where
 
-import           Data.String.QQ               (s)
+import           Universum
+
 import           Data.Version                 (showVersion)
+import           NeatInterpolation            (text)
 import           Options.Applicative          (CommandFields, Mod, Parser, auto, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
@@ -18,7 +20,6 @@ import           Options.Applicative          (CommandFields, Mod, Parser, auto,
                                                switch, value)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Universum
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.CLI                      as CLI
@@ -33,9 +34,6 @@ data WalletOptions = WalletOptions
     , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
     , woAction      :: !WalletAction
     , woPeers       :: ![NodeId]
-    , woTLSCertPath :: !FilePath          -- ^ TLS Certificate path
-    , woTLSKeyPath  :: !FilePath          -- ^ TLS Key file
-    , woTLSCAPath   :: !FilePath          -- ^ TLS ca file
     }
 
 data WalletAction = Repl
@@ -94,22 +92,6 @@ argsParser = do
         CLI.commonArgsParser
     woAction <-
         actionParser
-    woTLSCertPath <- strOption $
-        long    "tlscert" <>
-        metavar "FILEPATH" <>
-        value   "server.crt" <>
-        help    "Path to file with TLS certificate"
-    woTLSKeyPath <- strOption $
-        long    "tlskey" <>
-        metavar "FILEPATH" <>
-        value   "server.key" <>
-        help    "Path to file with TLS key"
-    woTLSCAPath <- strOption $
-        long    "tlsca" <>
-        metavar "FILEPATH" <>
-        value   "ca.crt" <>
-        help    "Path to file with TLS certificate authority"
-
 
     woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
 
@@ -128,7 +110,7 @@ getWalletOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = Just [s|
+usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
   stack exec -- cardano-wallet                                   \

@@ -16,6 +16,7 @@ daedalus/                      @akegalj
 .travis.yml                    @domenkozar
 appveyor.yml                   @domenkozar
 nixpkgs-src.json               @domenkozar
+pkgs/generate.sh               @domenkozar
 
 # Documentation
 *.md                           @denisshevchenko
@@ -39,3 +40,10 @@ src/Pos/CompileConfig/         @neongreen
 
 scripts/build/cardano-sl.sh    @neongreen
 HLint.hs                       @neongreen
+
+test/                          @rockbmb
+test/Test/Pos/Block/Logic/     @gromakovsky
+
+# Networking
+infra/Pos/Network              @dcoutts @avieth
+infra/Pos/Subscription         @dcoutts @avieth

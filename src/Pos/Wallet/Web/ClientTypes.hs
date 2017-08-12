@@ -56,6 +56,8 @@ import           Universum
 
 import           Control.Arrow             ((&&&))
 import           Control.Monad.Error.Class (throwError)
+import qualified Data.ByteArray            as ByteArray
+import qualified Data.ByteString           as BS
 import           Data.Default              (Default, def)
 import           Data.Hashable             (Hashable (..))
 import qualified Data.Set                  as S
@@ -63,7 +65,7 @@ import           Data.Text                 (Text, splitOn)
 import           Data.Text.Buildable       (build)
 import           Data.Time.Clock.POSIX     (POSIXTime)
 import           Data.Typeable             (Typeable)
-import           Formatting                (bprint, sformat, (%))
+import           Formatting                (bprint, int, sformat, (%))
 import qualified Formatting                as F
 import qualified Prelude
 import qualified Serokell.Util.Base16      as Base16
@@ -71,12 +73,11 @@ import           Servant.Multipart         (FileData, FromMultipart (..), lookup
                                             lookupInput)
 
 import           Pos.Aeson.Types           ()
-import           Pos.Binary.Class          (decodeFull, serialize')
 import           Pos.Client.Txp.History    (TxHistoryEntry (..))
 import           Pos.Core.Coin             (mkCoin)
 import           Pos.Core.Types            (ScriptVersion)
 import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
-                                            hashHexF)
+                                            hashHexF, passphraseLength)
 import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
                                             txOutValue)
 import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
@@ -248,12 +249,22 @@ instance Show CPassPhrase where
 
 type instance OriginType CPassPhrase = PassPhrase
 
+-- These two instances nearly duplicate `instance Bi PassPhrase`
+-- in `Pos.Binary.Crypto`.
 instance FromCType CPassPhrase where
-    decodeCType (CPassPhrase text) =
-        first toText . decodeFull  =<< Base16.decode text
+    decodeCType (CPassPhrase text) = do
+        bs <- Base16.decode text
+        let bl = BS.length bs
+        -- Currently passphrase may be either 32-byte long or empty (for
+        -- unencrypted keys).
+        if bl == 0 || bl == passphraseLength
+            then pure $ ByteArray.convert bs
+            else fail . toString $ sformat
+                 ("Expected password length 0 or "%int%", not "%int)
+                 passphraseLength bl
 
 instance ToCType CPassPhrase where
-    encodeCType = CPassPhrase . Base16.encode . serialize'
+    encodeCType = CPassPhrase . Base16.encode . ByteArray.convert
 
 ----------------------------------------------------------------------------
 -- Wallet

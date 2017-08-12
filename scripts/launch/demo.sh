@@ -32,8 +32,14 @@ if [[ $config_dir == "" ]]
     config_dir="./run"
 fi
 
+# The stake distribution.
+# Use "flat" for flat_distr. Anything else will use rich_poor_distr
+stake_distr_param=$3
+flat_distr=" --flat-distr \"($n, 100000)\" "
+rich_poor_distr=" --rich-poor-distr \"($n,50000,6000000000,0.99)\" "
+
 # Stats are not mandatory either
-stats=$3
+stats=$4
 
 panesCnt=$n
 
@@ -79,7 +85,11 @@ while [[ $i -lt $panesCnt ]]; do
       fi
   fi
 
-  stake_distr=" --rich-poor-distr \"($n,50000,6000000000,0.99)\" "
+  if [[ $stake_distr_param == "rich_poor" ]]; then
+    stake_distr=$rich_poor_distr
+  else
+    stake_distr=$flat_distr
+  fi
 
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       stake_distr=""

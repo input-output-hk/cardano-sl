@@ -15,7 +15,7 @@ instance Bi key => Bi (ReqMsg key) where
   encode = encode . rmKey
   decode = ReqMsg <$> decode
 
-instance Bi (MempoolMsg tag) where
+instance Typeable tag => Bi (MempoolMsg tag) where
   -- The extra byte is needed because time-warp doesn't work with
   -- possibly-empty messages. 228 was chosen as homage to @pva701
   encode MempoolMsg = encode (228 :: Word8)

@@ -14,7 +14,7 @@ import qualified Data.HashMap.Strict        as HM
 
 import           Pos.Crypto                 (EncryptedSecretKey)
 import           Pos.Util.Util              (maybeThrow)
-import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
+import           Pos.Wallet.Web.Account     (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
                                              CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.Error       (WalletError (..))
@@ -40,7 +40,7 @@ data StateBackup = FullStateBackup [WalletBackup]
 
 getWalletBackup :: AccountMode ctx m => CId Wal -> m WalletBackup
 getWalletBackup wId = do
-    sk <- getSKByAddr wId
+    sk <- getSKById wId
     meta <- maybeThrow (InternalError "Wallet have no meta") =<<
             getWalletMeta wId
     accountIds <- getWalletAccountIds wId

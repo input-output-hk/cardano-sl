@@ -26,9 +26,11 @@ import           Data.Aeson                    (encode)
 import           Data.Aeson.TH                 (deriveJSON)
 import           Data.Aeson.Types              (ToJSON)
 import qualified Data.ByteString.Lazy          as LBS
+import           Ether                         (TaggedTrans (..), IdentityT)
 import           Formatting                    (sformat)
 import           JsonLog.JsonLogT              (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT              as JL
+import           JsonLog.CanJsonLog            (CanJsonLog)
 import           Mockable                      (Catch, Mockable, realTime)
 import           Serokell.Aeson.Options        (defaultOptions)
 import           System.Wlog                   (WithLogger)
@@ -173,3 +175,8 @@ jsonLogDefault
 jsonLogDefault x = do
     jlc <- view jsonLogConfig
     JL.jsonLogDefault jlc x
+
+deriving instance CanJsonLog (t m) => CanJsonLog (TaggedTrans tag t m)
+
+-- Required for @Explorer@ @BListener@ redirect
+deriving instance CanJsonLog m => CanJsonLog (TaggedTrans tag IdentityT m)

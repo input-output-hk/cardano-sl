@@ -3,7 +3,7 @@
 module Pos.Wallet.Web.Account
        ( myRootAddresses
        , getAddrIdx
-       , getSKByAddr
+       , getSKById
        , getSKByAccAddr
        , genSaveRootKey
        , genUniqueAccountId
@@ -47,17 +47,17 @@ myRootAddresses = encToCId <<$>> getSecretKeys
 getAddrIdx :: AccountMode ctx m => CId Wal -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
   where notFound =
-          RequestError $ sformat ("No wallet set with address "%build%" found") addr
+          RequestError $ sformat ("No wallet with address "%build%" found") addr
 
-getSKByAddr
+getSKById
     :: AccountMode ctx m
     => CId Wal
     -> m EncryptedSecretKey
-getSKByAddr addr = do
-    msk <- find (\k -> encToCId k == addr) <$> getSecretKeys
+getSKById wid = do
+    msk <- find (\k -> encToCId k == wid) <$> getSecretKeys
     maybeThrow notFound msk
   where notFound =
-          RequestError $ sformat ("No wallet set with address "%build%" found") addr
+          RequestError $ sformat ("No wallet with address "%build%" found") wid
 
 getSKByAccAddr
     :: AccountMode ctx m
@@ -155,14 +155,10 @@ deriveAccountSK
     -> Word32
     -> m (Address, EncryptedSecretKey)
 deriveAccountSK passphrase AccountId{..} accIndex = do
-    -- this function is used in conditions when several secret keys with same
-    -- public key are stored, thus checking for passphrase here as well
-    let niceSK k = encToCId k == aiWId
-    key <- maybeThrow noKey . find niceSK =<< getSecretKeys
+    key <- getSKById aiWId
     maybeThrow badPass $
         deriveLvl2KeyPair passphrase key aiIndex accIndex
   where
-    noKey   = RequestError "No secret key with such address found"
     badPass = RequestError "Passphrase doesn't match"
 
 deriveAccountAddress
@@ -178,12 +174,12 @@ deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
         cwamId          = addressToCId addr
     return CWAddressMeta{..}
 
--- | Allows to find a key related ti given @id@ item.
+-- | Allows to find a key related to given @id@ item.
 class MonadKeySearch id m where
     findKey :: id -> m EncryptedSecretKey
 
 instance AccountMode ctx m => MonadKeySearch (CId Wal) m where
-    findKey = getSKByAddr
+    findKey = getSKById
 
 instance AccountMode ctx m => MonadKeySearch AccountId m where
     findKey = findKey . aiWId

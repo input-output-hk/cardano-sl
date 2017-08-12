@@ -3,13 +3,27 @@ let
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
+  , dconfigs ? [ "testnet_staging" "travis" ]
 }:
 with import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; packageSet = import ./.; };
+with builtins;
 let
   lib = import ./lib.nix;
   pkgs = import lib.fetchNixPkgs { config={}; };
-  cardano = import ./. { inherit pkgs; };
-  jobs = mapTestOn (packagePlatforms cardano);
-in {
-  inherit (jobs) cardano-sl cardano-sl-static;
-}
+  mkJob = dconfig: system: let
+    jobs = import ./. { inherit system dconfig; };
+  in {
+    name = system;
+    value = {
+      inherit (jobs) cardano-sl cardano-sl-static cardano-sl-tools cardano-sl-explorer-static stack2nix;
+    };
+  };
+  mkJobs = dconfig: systems: listToAttrs (map (mkJob dconfig) systems);
+  mkDconfigs = dconfig: let
+    cardano = import ./. { inherit pkgs dconfig; };
+    jobs = mkJobs dconfig supportedSystems;
+  in {
+    name = dconfig;
+    value = jobs;
+  };
+in (listToAttrs (map mkDconfigs dconfigs))

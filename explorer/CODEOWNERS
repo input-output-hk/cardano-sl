@@ -1,0 +1,13 @@
+# Unless a later match takes precedence, @akegalj will be requested
+# for review when someone opens a pull request.
+
+*                               @akegalj
+
+# Order is important; the last matching pattern takes the most precedence.
+
+*.purs                          @sectore
+frontend/                       @sectore
+
+src/                            @ksaric
+src/Pos/Explorer/Socket/        @martoon
+test/                           @ksaric

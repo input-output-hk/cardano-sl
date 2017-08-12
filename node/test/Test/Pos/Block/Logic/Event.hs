@@ -79,7 +79,7 @@ runBlockEvent (BlkEvApply ev) =
     onSuccess = case ev ^. beaOutValid of
         BlockApplySuccess -> BlockEventSuccess (IsExpected True)
         BlockApplyFailure -> BlockEventSuccess (IsExpected False)
-    onFailure e = case ev ^. beaOutValid of
+    onFailure (e :: SomeException) = case ev ^. beaOutValid of
         BlockApplySuccess -> BlockEventFailure (IsExpected False) e
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
@@ -90,17 +90,18 @@ runBlockEvent (BlkEvRollback ev) =
     onSuccess = case ev ^. berOutValid of
         BlockRollbackSuccess   -> BlockEventSuccess (IsExpected True)
         BlockRollbackFailure _ -> BlockEventSuccess (IsExpected False)
-    onFailure e = case ev ^. berOutValid of
+    onFailure (e :: SomeException) = case ev ^. berOutValid of
         BlockRollbackSuccess -> BlockEventFailure (IsExpected False) e
         BlockRollbackFailure brf ->
             let
                 isExpected = case brf of
-                    BlkRbSecurityLimitExceeded ->
-                        case fromException e of
-                            Just (CardanoFatalError msg) | "security risk" `T.isInfixOf` msg ->
-                                True
-                            _ ->
-                                False
+                    BlkRbSecurityLimitExceeded
+                        | Just cfe <- fromException e
+                        , CardanoFatalError msg <- cfe
+                        , "security risk" `T.isInfixOf` msg ->
+                          True
+                        | otherwise ->
+                          False
             in
                 BlockEventFailure (IsExpected isExpected) e
 

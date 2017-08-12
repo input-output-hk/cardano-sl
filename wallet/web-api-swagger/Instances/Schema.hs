@@ -20,55 +20,57 @@ import           Pos.Types             (ApplicationName, BlockCount (..), BlockV
                                         ChainDifficulty, Coin, SlotCount (..),
                                         SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import qualified Pos.Wallet.Web        as W
+
+import qualified Pos.Wallet.Web.ClientTypes as CT
+import qualified Pos.Wallet.Web.Error.Types as ET
 
 -- | Instances we need to build Swagger-specification for 'walletApi':
 -- 'ToParamSchema' - for types in parameters ('Capture', etc.),
 -- 'ToSchema' - for types in bodies.
 instance ToSchema      Coin
 instance ToParamSchema Coin
-instance ToSchema      W.CTxId
-instance ToParamSchema W.CTxId
-instance ToSchema      W.CTx
-instance ToSchema      W.CTxMeta
-instance ToSchema      W.CHash
-instance ToParamSchema W.CHash
-instance ToSchema      (W.CId W.Wal)
-instance ToSchema      (W.CId W.Addr)
-instance ToParamSchema (W.CId W.Wal)
-instance ToParamSchema (W.CId W.Addr)
-instance ToSchema      W.CProfile
-instance ToSchema      W.WalletError
+instance ToSchema      CT.CTxId
+instance ToParamSchema CT.CTxId
+instance ToSchema      CT.CTx
+instance ToSchema      CT.CTxMeta
+instance ToSchema      CT.CHash
+instance ToParamSchema CT.CHash
+instance ToSchema      (CT.CId CT.Wal)
+instance ToSchema      (CT.CId CT.Addr)
+instance ToParamSchema (CT.CId CT.Wal)
+instance ToParamSchema (CT.CId CT.Addr)
+instance ToSchema      CT.CProfile
+instance ToSchema      ET.WalletError
 
-instance ToSchema      W.CAccountId
-instance ToParamSchema W.CAccountId where
+instance ToSchema      CT.CAccountId
+instance ToParamSchema CT.CAccountId where
     toParamSchema _ = mempty
         & type_ .~ SwaggerString
         & format ?~ "walletSetAddress@walletKeyIndex"
 
-instance ToSchema      W.CWalletAssurance
-instance ToSchema      W.CAccountMeta
-instance ToSchema      W.CWalletMeta
-instance ToSchema      W.CAccountInit
-instance ToSchema      W.CWalletInit
-instance ToSchema      W.CWalletRedeem
-instance ToSchema      W.CWallet
-instance ToSchema      W.CAccount
-instance ToSchema      W.CAddress
-instance ToSchema      W.CPaperVendWalletRedeem
-instance ToSchema      W.CCoin
-instance ToSchema      W.CInitialized
-instance ToSchema      W.CElectronCrashReport
-instance ToSchema      W.CUpdateInfo
+instance ToSchema      CT.CWalletAssurance
+instance ToSchema      CT.CAccountMeta
+instance ToSchema      CT.CWalletMeta
+instance ToSchema      CT.CAccountInit
+instance ToSchema      CT.CWalletInit
+instance ToSchema      CT.CWalletRedeem
+instance ToSchema      CT.CWallet
+instance ToSchema      CT.CAccount
+instance ToSchema      CT.CAddress
+instance ToSchema      CT.CPaperVendWalletRedeem
+instance ToSchema      CT.CCoin
+instance ToSchema      CT.CInitialized
+instance ToSchema      CT.CElectronCrashReport
+instance ToSchema      CT.CUpdateInfo
 instance ToSchema      SoftwareVersion
 instance ToSchema      ApplicationName
-instance ToSchema      W.SyncProgress
+instance ToSchema      CT.SyncProgress
 instance ToSchema      BlockCount
 instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
-instance ToParamSchema W.CPassPhrase
+instance ToParamSchema CT.CPassPhrase
 
 instance ToSchema FileData where
     declareNamedSchema _ = do

@@ -1,6 +1,6 @@
 -- | VSS certificates and secrets related stuff.
 
-module Secrets
+module Pos.Client.CLI.Secrets
        ( updateUserSecretVSS
        , userSecretWithGenesisKey
        ) where
@@ -14,11 +14,11 @@ import           Pos.Genesis         (genesisDevSecretKeys)
 import           Pos.Ssc.GodTossing  (genesisDevVssKeyPairs)
 import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSecret)
 
-import           NodeOptions         (Args (..))
+import           Pos.Client.CLI.NodeOptions         (SimpleNodeArgs (..))
 
 userSecretWithGenesisKey
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey Args{..} userSecret
+    :: (MonadIO m, MonadFail m) => SimpleNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
+userSecretWithGenesisKey SimpleNodeArgs{..} userSecret
     | isDevelopment = case devSpendingGenesisI of
           Nothing -> fetchPrimaryKey userSecret
           Just i -> do
@@ -29,8 +29,8 @@ userSecretWithGenesisKey Args{..} userSecret
     | otherwise = fetchPrimaryKey userSecret
 
 updateUserSecretVSS
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS Args{..} us
+    :: (MonadIO m, MonadFail m) => SimpleNodeArgs -> UserSecret -> m UserSecret
+updateUserSecretVSS SimpleNodeArgs{..} us
     | isDevelopment = case devVssGenesisI of
           Nothing -> fillUserSecretVSS us
           Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
@@ -68,4 +68,3 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
 --         return (sk, us)
 --   where
 --     keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
-

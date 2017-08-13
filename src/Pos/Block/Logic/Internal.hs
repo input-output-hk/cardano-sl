@@ -235,6 +235,7 @@ rollbackBlocksUnsafe toRollback = reportingFatal $ do
     -- in 'applyBlocksUnsafe' and we always ensure that some blocks
     -- are applied after rollback.
     dlgNormalizeOnRollback @ssc
+    sanityCheckDB
 
 ----------------------------------------------------------------------------
 -- Garbage

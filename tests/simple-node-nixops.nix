@@ -1,5 +1,11 @@
 import <nixpkgs/nixos/tests/make-test.nix> ({ pkgs, ... }:
 let
+  iohk-nixops = pkgs.fetchFromGitHub {
+    owner = "input-output-hk";
+    repo = "iohk-nixops";
+    rev = "1777ae1edcfd64696e72e35de9c4b3bc947ba43e";
+    sha256 = "0xy6m1lgrwbn1vnnzgrn7fpccvfzf9l3fnrzc11bpvcag6rkyzbd";
+  };
 in {
   name = "boot";
   nodes = {

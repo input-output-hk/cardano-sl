@@ -64,7 +64,7 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics, gtcUtxo,
+import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
@@ -135,7 +135,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            (npGenesisTxpCtx ^. gtcUtxo)
+            npGenesisCtx
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -320,12 +320,23 @@ bracketKademlia
     -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a
 bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
-    (TopologyP2P v f kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyP2P v f kinst)
-    (TopologyTraditional v f kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyTraditional v f kinst)
-    (TopologyRelay peers kp) -> bracketKademliaInstance bp kp $ \kinst -> k (TopologyRelay peers kinst)
-    (TopologyCore peers) -> k (TopologyCore peers)
-    (TopologyBehindNAT domains) -> k (TopologyBehindNAT domains)
-    (TopologyLightWallet peers) -> k (TopologyLightWallet peers)
+    TopologyP2P v f kp ->
+      bracketKademliaInstance bp kp $ \kinst ->
+        k $ TopologyP2P v f kinst
+    TopologyTraditional v f kp ->
+      bracketKademliaInstance bp kp $ \kinst ->
+        k $ TopologyTraditional v f kinst
+    TopologyRelay peers (Just kp) ->
+      bracketKademliaInstance bp kp $ \kinst ->
+        k $ TopologyRelay peers (Just kinst)
+    TopologyCore peers (Just kp) ->
+      bracketKademliaInstance bp kp $ \kinst ->
+        k $ TopologyCore peers (Just kinst)
+
+    TopologyRelay peers Nothing -> k $ TopologyRelay peers Nothing
+    TopologyCore  peers Nothing -> k $ TopologyCore  peers Nothing
+    TopologyBehindNAT domains   -> k $ TopologyBehindNAT domains
+    TopologyLightWallet peers   -> k $ TopologyLightWallet peers
   where
     k topology = action (nc { ncTopology = topology })
 

@@ -12,6 +12,7 @@ module Test.Pos.Block.Logic.Mode
        , HasTestParams (..)
        , TestInitModeContext (..)
        , BlockTestContextTag
+       , PureDBSnapshotsVar(..)
        , BlockTestContext(..)
        , btcSlotId_L
        , BlockTestMode
@@ -24,6 +25,7 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
+import qualified Data.Map                       as Map
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (Microsecond, TimeUnit (..))
 import           Ether.Internal                 (HasLens (..))
@@ -34,7 +36,7 @@ import qualified Prelude
 import           System.Wlog                    (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck                (Arbitrary (..), Gen, Property,
                                                  Testable (..), choose, forAll,
-                                                 ioProperty, oneof)
+                                                 ioProperty, oneof, suchThat)
 import           Test.QuickCheck.Monadic        (PropertyM, monadic)
 
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
@@ -46,7 +48,7 @@ import           Pos.Core                       (IsHeader, SlotId, StakeDistribu
                                                  Timestamp (..), makePubKeyAddress,
                                                  mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
-import           Pos.DB                         (MonadBlockDBGeneric (..),
+import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
                                                  MonadDB (..), MonadDBRead (..),
                                                  MonadGState (..))
@@ -57,7 +59,11 @@ import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
 import           Pos.Generator.Block            (AllSecrets (..), HasAllSecrets (..),
                                                  mkInvSecretsMap)
-import           Pos.Genesis                    (genesisUtxo)
+import           Pos.Generator.BlockEvent       (SnapshotId)
+import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
+                                                 GenesisWStakeholders (..),
+                                                 genesisContextImplicit, gtcUtxo,
+                                                 gtcWStakeholders, safeExpStakes)
 import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
 import           Pos.Launcher                   (newInitFuture)
@@ -80,12 +86,9 @@ import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (GenericTxpLocalData, GenesisStakeholders,
-                                                 GenesisTxpContext, GenesisUtxo (..),
-                                                 TxpGlobalSettings, TxpHolderTag,
-                                                 TxpMetrics, gtcStakeholders, gtcUtxo,
-                                                 ignoreTxpMetrics, mkGenesisTxpContext,
-                                                 mkGenesisTxpContext, mkTxpLocalData,
+import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
+                                                 TxpHolderTag, TxpMetrics,
+                                                 ignoreTxpMetrics, mkTxpLocalData,
                                                  utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
@@ -108,8 +111,8 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpGenTxpContext      :: !GenesisTxpContext
-    -- ^ Genesis txp-related data.
+    { _tpGenesisContext     :: !GenesisContext
+    -- ^ Genesis context.
     , _tpAllSecrets         :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
@@ -141,7 +144,7 @@ instance Buildable TestParams where
             _tpStakeDistributions
             _tpStartTime
       where
-        utxo =  unGenesisUtxo (_tpGenTxpContext ^. gtcUtxo)
+        utxo = unGenesisUtxo (_tpGenesisContext ^. gtcUtxo)
 
 instance Show TestParams where
     show = formatToString build
@@ -149,28 +152,31 @@ instance Show TestParams where
 -- More distributions can be added if we want (e. g. RichPoor).
 genSuitableStakeDistribution :: Word -> Gen StakeDistribution
 genSuitableStakeDistribution stakeholdersNum =
-    oneof [genFlat{-, genBitcoin-}, pure (ExponentialStakes stakeholdersNum)]
+    oneof [ genFlat
+          {-, genBitcoin-} -- is broken
+          , pure $ safeExpStakes (15::Integer) -- 15 participants should be enough
+          ]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
-    genFlat =
-        FlatStakes stakeholdersNum <$> totalCoins
-    -- Apparently bitcoin distribution is broken (it produces total stake
-    -- greater than requested one) and I don't think it's worth fixing it.
-    -- genBitcoin = BitcoinStakes stakeholdersNum <$> totalCoins
+    genFlat = FlatStakes stakeholdersNum <$> totalCoins
 
 instance Arbitrary TestParams where
     arbitrary = do
-        secretKeysList <- toList @(NonEmpty SecretKey) <$> arbitrary -- might have repetitions
+        secretKeysList <-
+            toList @(NonEmpty SecretKey) <$>
+             -- might have repetitions
+            (arbitrary `suchThat` (\l -> length l < 15))
         let _tpStartTime = fromMicroseconds 0
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let _tpAllSecrets = AllSecrets invSecretsMap
-        stakeDistribution <-
-            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
         let addresses =
                 map (makePubKeyAddress . toPublic) (toList invSecretsMap)
-        let utxo = genesisUtxo Nothing [(addresses, stakeDistribution)]
-        let _tpGenTxpContext = mkGenesisTxpContext utxo
-        return TestParams {_tpStakeDistributions = one stakeDistribution, ..}
+        stakeDistribution <-
+            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
+        let addrDistribution = [(addresses, stakeDistribution)]
+        let _tpGenesisContext = genesisContextImplicit addrDistribution
+        let _tpStakeDistributions = one stakeDistribution
+        return TestParams {..}
 
 ----------------------------------------------------------------------------
 -- Init mode with instances
@@ -197,6 +203,10 @@ runTestInitMode ctx = runProduction . flip runReaderT ctx
 -- Main context
 ----------------------------------------------------------------------------
 
+newtype PureDBSnapshotsVar = PureDBSnapshotsVar
+    { getPureDBSnapshotsVar :: IORef (Map SnapshotId DBPure)
+    }
+
 data BlockTestContext = BlockTestContext
     { btcGState            :: !GS.GStateContext
     , btcSystemStart       :: !Timestamp
@@ -212,6 +222,7 @@ data BlockTestContext = BlockTestContext
     , btcParams            :: !TestParams
     , btcReportingContext  :: !ReportingContext
     , btcDelegation        :: !DelegationVar
+    , btcPureDBSnapshots   :: !PureDBSnapshotsVar
     }
 
 makeLensesWith postfixLFields ''BlockTestContext
@@ -237,7 +248,7 @@ initBlockTestContext tp@TestParams {..} callback = do
     let initCtx =
             TestInitModeContext
                 dbPureVar
-                (_tpGenTxpContext ^. gtcUtxo)
+                (_tpGenesisContext ^. gtcUtxo)
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -264,6 +275,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
             btcDelegation <- mkDelegationVar @SscGodTossing
+            btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
             let btCtx = BlockTestContext {btcSystemStart = systemStart, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
     sudoLiftIO $ runTestInitMode @SscGodTossing initCtx $ initBlockTestContextDo
@@ -380,6 +392,9 @@ instance HasLens DBPureVar BlockTestContext DBPureVar where
         pureDBLens = lens getter setter
         realDBInTestsError = error "You are using real db in tests"
 
+instance HasLens PureDBSnapshotsVar BlockTestContext PureDBSnapshotsVar where
+    lensOf = btcPureDBSnapshots_L
+
 instance HasLens LoggerName BlockTestContext LoggerName where
       lensOf = btcLoggerName_L
 
@@ -418,10 +433,10 @@ instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP
     lensOf = btcTxpMem_L
 
 instance HasLens GenesisUtxo BlockTestContext GenesisUtxo where
-    lensOf = btcParams_L . tpGenTxpContext . gtcUtxo
+    lensOf = btcParams_L . tpGenesisContext . gtcUtxo
 
-instance HasLens GenesisStakeholders BlockTestContext GenesisStakeholders where
-    lensOf = btcParams_L . tpGenTxpContext . gtcStakeholders
+instance HasLens GenesisWStakeholders BlockTestContext GenesisWStakeholders where
+    lensOf = btcParams_L . tpGenesisContext . gtcWStakeholders
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName

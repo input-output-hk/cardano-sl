@@ -21,7 +21,6 @@ import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Communication.Limits.Types        (MessageLimited)
-import           Pos.Communication.MessagePart         (MessagePart)
 import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         InvReqDataParams (..),
                                                         MempoolParams (NoMempool),
@@ -97,7 +96,6 @@ sscRelay
        , Typeable contents
        , MessageLimited (DataMsg contents)
        , Bi (DataMsg contents)
-       , MessagePart contents
        , Message (InvOrData (Tagged contents StakeholderId) contents)
        , Message (ReqMsg (Tagged contents StakeholderId))
        )

@@ -20,8 +20,8 @@ import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 
-import           Pos.Core                    (BlockVersionData, EpochIndex, HeaderHash,
-                                              siEpoch)
+import           Pos.Core                    (BlockVersionData, EpochIndex,
+                                              GenesisWStakeholders, HeaderHash, siEpoch)
 import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Slotting                (MonadSlots (..))
@@ -30,11 +30,11 @@ import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, get
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
-                                              GenesisStakeholders, MonadUtxoRead (..),
-                                              ToilModifier, ToilT, ToilVerFailure (..),
-                                              Utxo, execToilTLocal, normalizeToil,
-                                              processTx, runDBToil, runToilTLocal,
-                                              utxoGet, utxoGetReader)
+                                              MonadUtxoRead (..), ToilModifier, ToilT,
+                                              ToilVerFailure (..), ToilVerFailure (..),
+                                              Utxo, evalUtxoStateT, execToilTLocal,
+                                              normalizeToil, processTx, runDBToil,
+                                              runToilTLocal, utxoGetReader)
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -44,20 +44,19 @@ type TxpLocalWorkMode ctx m =
     , MonadSlots m
     , MonadTxpMem () ctx m
     , WithLogger m
-    , HasLens GenesisStakeholders ctx GenesisStakeholders
-    , MonadReader ctx m
+    , HasLens GenesisWStakeholders ctx GenesisWStakeholders
     )
 
 -- Base context for tx processing in.
 data ProcessTxContext = ProcessTxContext
-    { _ptcGenStakeholders :: !GenesisStakeholders
+    { _ptcGenStakeholders :: !GenesisWStakeholders
     , _ptcAdoptedBVData   :: !BlockVersionData
     , _ptcUtxoBase        :: !Utxo
     }
 
 makeLenses ''ProcessTxContext
 
-instance HasLens GenesisStakeholders ProcessTxContext GenesisStakeholders where
+instance HasLens GenesisWStakeholders ProcessTxContext GenesisWStakeholders where
     lensOf = ptcGenStakeholders
 
 instance HasLens Utxo ProcessTxContext Utxo where
@@ -82,8 +81,8 @@ txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
-    genStks <- view (lensOf @GenesisStakeholders)
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
+    bootHolders <- view (lensOf @GenesisWStakeholders)
     localUM <- lift $ getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
@@ -100,9 +99,9 @@ txProcessTransaction itw@(txId, txAux) = do
             toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     let ctx =
             ProcessTxContext
-            { _ptcAdoptedBVData = bvd
+            { _ptcGenStakeholders = bootHolders
+            , _ptcAdoptedBVData = bvd
             , _ptcUtxoBase = resolved
-            , _ptcGenStakeholders = genStks
             }
     pRes <-
         lift $

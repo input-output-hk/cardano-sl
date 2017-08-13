@@ -3,6 +3,7 @@
 module Pos.Util.Arbitrary
        ( Nonrepeating (..)
        , ArbitraryUnsafe (..)
+       , SmallGenerator (..)
        , makeSmall
        , sublistN
        , unsafeMakeList
@@ -12,6 +13,7 @@ module Pos.Util.Arbitrary
        , runGen
        ) where
 
+import           Pos.Binary.Class       (Bi)
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
 import           Data.List.NonEmpty     (NonEmpty ((:|)))
@@ -37,6 +39,16 @@ makeSmall = scale f
       | n < 0 = n
       | otherwise =
           (round . (sqrt @Double) . realToFrac . (`div` 3)) n
+
+newtype SmallGenerator a = SmallGenerator
+    { getSmallGenerator :: a
+    } deriving (Eq, Show)
+
+instance Arbitrary a => Arbitrary (SmallGenerator a) where
+    arbitrary = SmallGenerator <$> makeSmall arbitrary
+    shrink = fmap SmallGenerator . shrink . getSmallGenerator
+
+deriving instance Bi a => Bi (SmallGenerator a)
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
 -- there's not enough elements.

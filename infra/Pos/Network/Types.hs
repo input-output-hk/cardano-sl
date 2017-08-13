@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Network.Types
     ( NetworkConfig (..)
     , Topology(..)
@@ -13,10 +15,12 @@ module Pos.Network.Types
     , resolveDnsDomains
     , defaultNetworkConfig
     , initQueue
+      -- * Auxiliary
+    , Resolver
+    , initDnsOnUse
       -- * Re-exports
       -- ** from .DnsDomains
     , DnsDomains(..)
-    , DNSError
       -- ** from time-warp
     , NodeType (..)
     , MsgType (..)
@@ -25,13 +29,14 @@ module Pos.Network.Types
     , NodeId (..)
     ) where
 
-import qualified Data.ByteString.Char8                 as BS.C8
 import           Data.IP                               (IPv4)
 import           Network.Broadcast.OutboundQueue       (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
+import           Network.DNS                           (DNSError)
+import qualified Network.DNS                           as DNS
 import           Node.Internal                         (NodeId (..))
-import           Pos.Network.DnsDomains                (DNSError, DnsDomains (..))
+import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import           Pos.Network.Yaml                      (NodeName (..))
 import           Pos.Util.TimeWarp                     (addressToNodeId)
@@ -80,14 +85,14 @@ data Topology kademlia =
     -- | All peers of the node have been statically configured
     --
     -- This is used for core and relay nodes
-    TopologyCore !StaticPeers
+    TopologyCore !StaticPeers !(Maybe kademlia)
 
-  | TopologyRelay !StaticPeers !kademlia
+  | TopologyRelay !StaticPeers !(Maybe kademlia)
 
     -- | We discover our peers through DNS
     --
     -- This is used for behind-NAT nodes.
-  | TopologyBehindNAT !DnsDomains
+  | TopologyBehindNAT !(DnsDomains DNS.Domain)
 
     -- | We discover our peers through Kademlia
   | TopologyP2P !Valency !Fallbacks !kademlia
@@ -112,44 +117,53 @@ topologyNodeType TopologyLightWallet{} = NodeEdge
 
 -- | The NodeType to assign to subscribers. Give Nothing if subscribtion
 -- is not allowed for a node with this topology.
+--
+-- TODO: We allow corf nodes to run Kademlia, but we do not run the subscription
+-- listener on them currently. We may wish to make that configurable.
 topologySubscriberNodeType :: Topology kademlia -> Maybe NodeType
+topologySubscriberNodeType TopologyCore{}        = Nothing
 topologySubscriberNodeType TopologyRelay{}       = Just NodeEdge
-topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
+topologySubscriberNodeType TopologyBehindNAT{}   = Nothing
 topologySubscriberNodeType TopologyP2P{}         = Just NodeRelay
-topologySubscriberNodeType _                     = Nothing
+topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
+topologySubscriberNodeType TopologyLightWallet{} = Nothing
 
 data SubscriptionWorker kademlia =
-    SubscriptionWorkerBehindNAT DnsDomains
+    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
   | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
 topologySubscriptionWorker :: Topology kademlia -> Maybe (SubscriptionWorker kademlia)
 topologySubscriptionWorker = go
   where
+    go TopologyCore{}                     = Nothing
+    go TopologyRelay{}                    = Nothing
     go (TopologyBehindNAT doms)           = Just $ SubscriptionWorkerBehindNAT doms
     go (TopologyP2P v f kademlia)         = Just $ SubscriptionWorkerKademlia kademlia NodeRelay v f
     go (TopologyTraditional v f kademlia) = Just $ SubscriptionWorkerKademlia kademlia NodeCore v f
-    go _otherwise                         = Nothing
+    go TopologyLightWallet{}              = Nothing
 
 -- | Should we register to the Kademlia network?
 topologyRunKademlia :: Topology kademlia -> Maybe kademlia
 topologyRunKademlia = go
   where
-    go (TopologyRelay _ kademlia)         = Just kademlia
-    go (TopologyP2P _ _ kademlia)         = Just kademlia
+    go (TopologyCore  _        mKademlia) = mKademlia
+    go (TopologyRelay _        mKademlia) = mKademlia
+    go TopologyBehindNAT{}                = Nothing
+    go (TopologyP2P _ _         kademlia) = Just kademlia
     go (TopologyTraditional _ _ kademlia) = Just kademlia
-    go _                                  = Nothing
+    go TopologyLightWallet{}              = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia
-                  -> DnsDomains
+                  -> DnsDomains DNS.Domain
                   -> IO (Either [DNSError] [NodeId])
 resolveDnsDomains NetworkConfig{..} dnsDomains =
-    fmap (map ipv4ToNodeId) <$> DnsDomains.resolveDnsDomains dnsDomains
-  where
-    -- | Turn IPv4 address returned by DNS into a NodeId
-    ipv4ToNodeId :: IPv4 -> NodeId
-    ipv4ToNodeId addr = addressToNodeId (BS.C8.pack (show addr), ncDefaultPort)
+    initDnsOnUse $ \resolve ->
+      fmap (fmap addressToNodeId) <$> DnsDomains.resolveDnsDomains
+                                        resolve
+                                        ncDefaultPort
+                                        dnsDomains
 
 -- | The various buckets we use for the outbound queue
 data Bucket =
@@ -197,12 +211,14 @@ initQueue NetworkConfig{..} = do
       TopologyTraditional{} ->
         -- Kademlia worker is responsible for adding peers
         return ()
-      TopologyCore StaticPeers{..} ->
-        staticPeersOnChange $ \peers ->
+      TopologyCore StaticPeers{..} _ ->
+        staticPeersOnChange $ \peers -> do
+          OQ.clearRecentFailures oq
           OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
       TopologyRelay StaticPeers{..} _ ->
-        staticPeersOnChange $ \peers ->
-          OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
+        staticPeersOnChange $ \peers -> do
+          OQ.clearRecentFailures oq
+          OQ.updatePeersBucket   oq BucketStatic (\_ -> peers)
 
     return oq
   where
@@ -211,3 +227,22 @@ initQueue NetworkConfig{..} = do
     enqueuePolicy = OQ.defaultEnqueuePolicy ourNodeType
     dequeuePolicy = OQ.defaultDequeuePolicy ourNodeType
     failurePolicy = OQ.defaultFailurePolicy ourNodeType
+
+{-------------------------------------------------------------------------------
+  Auxiliary
+-------------------------------------------------------------------------------}
+
+type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
+
+-- | Initialize the DNS library whenever it's used
+--
+-- This isn't great for performance but it means that we do not initialize it
+-- when we need it; initializing it once only on demand is possible but requires
+-- jumping through too many hoops.
+--
+-- TODO: Make it possible to change DNS config (esp for use on Windows).
+initDnsOnUse :: (Resolver -> IO a) -> IO a
+initDnsOnUse k = k $ \dom -> do
+    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
+    DNS.withResolver resolvSeed $ \resolver ->
+      DNS.lookupA resolver dom

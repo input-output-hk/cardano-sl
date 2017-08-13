@@ -6,17 +6,17 @@ module Pos.Lrc.DB.Lrc
 
 import           Universum
 
-import           Ether.Internal      (HasLens (..))
+import           Ether.Internal     (HasLens (..))
 
-import           Pos.Context.Context (GenesisUtxo)
-import           Pos.DB.Class        (MonadDB)
-import           Pos.DB.Error        (DBError (..))
-import           Pos.Lrc.DB.Common   (prepareLrcCommon)
-import           Pos.Lrc.DB.Issuers  (prepareLrcIssuers)
-import           Pos.Lrc.DB.Leaders  (prepareLrcLeaders)
-import           Pos.Lrc.DB.Richmen  (getRichmenUS, prepareLrcRichmen)
-import           Pos.Lrc.DB.Seed     (prepareLrcSeed)
-import           Pos.Util            (maybeThrow)
+import           Pos.DB.Class       (MonadDB)
+import           Pos.DB.Error       (DBError (..))
+import           Pos.Genesis        (GenesisUtxo)
+import           Pos.Lrc.DB.Common  (prepareLrcCommon)
+import           Pos.Lrc.DB.Issuers (prepareLrcIssuers)
+import           Pos.Lrc.DB.Leaders (prepareLrcLeaders)
+import           Pos.Lrc.DB.Richmen (getRichmenUS, prepareLrcRichmen)
+import           Pos.Lrc.DB.Seed    (prepareLrcSeed)
+import           Pos.Util           (maybeThrow)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB

@@ -37,7 +37,7 @@ import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPa
 import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
                                           slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
-import           Pos.Core                (GenesisStakeholders, IsGenesisHeader,
+import           Pos.Core                (GenesisWStakeholders, IsGenesisHeader,
                                           IsMainHeader, epochIndexL, gbBody, gbHeader,
                                           headerHash)
 import           Pos.DB                  (MonadDB, MonadGState, SomeBatchOp (..))
@@ -87,7 +87,7 @@ type MonadBlockBase ssc ctx m
        , HasLens LrcContext ctx LrcContext
        , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , SscGStateClass ssc
-       , HasLens GenesisStakeholders ctx GenesisStakeholders
+       , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        , MonadDelegation ctx m
        , MonadReader ctx m
        )
@@ -121,7 +121,7 @@ type MonadMempoolNormalization ssc ctx m
       , MonadSscMem ssc ctx m
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateContext ctx UpdateContext
-      , HasLens GenesisStakeholders ctx GenesisStakeholders
+      , HasLens GenesisWStakeholders ctx GenesisWStakeholders
       -- Needed to load useful information from db
       , MonadBlockDB ssc m
       , MonadSscBlockDB ssc m

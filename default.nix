@@ -17,15 +17,16 @@ let
       f1 = cleanSourceFilter name type;
       baseName = baseNameOf (toString name);
       f2 = ! (type == "symlink" && hasSuffix ".root" baseName);
-      f3 = ! (hasSuffix ".swp" baseName);
+      f3 = ! (hasSuffix ".root" baseName);
       f4 = ! (baseName == ".stack-work");
       f5 = ! (hasSuffix ".nix" baseName);
-    in f1 && f2 && f3 && f4 && f5);
+      f6 = ! (hasSuffix ".swp" baseName);
+    in f1 && f2 && f3 && f4 && f5 && f6);
 in ((import ./pkgs { inherit pkgs; }).override {
   overrides = self: super: {
     cardano-sl = overrideCabal super.cardano-sl (drv: {
       src = cleanSource2 drv.src;
-      doHaddock = false;
+      testTarget = "--test-option='--skip=Block.Logic.Var'";
       patchPhase = ''
        export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
       '';
@@ -33,8 +34,6 @@ in ((import ./pkgs { inherit pkgs; }).override {
       configureFlags = [
         "-f-asserts"
         "-f-dev-mode"
-        # TODO: "-fwith-explorer"
-        # https://github.com/NixOS/nixpkgs/pull/24692#issuecomment-306509337
         "--ghc-option=-optl-lm"
       ];
       # waiting on load-command size fix in dyld
@@ -65,6 +64,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
     cardano-sl-lwallet = overrideCabal super.cardano-sl-lwallet (drv: { src = cleanSource2 drv.src; });
 
     cardano-sl-static = justStaticExecutables self.cardano-sl;
+    cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
 
     # Gold linker fixes
     cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
@@ -85,7 +85,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
   stack2nix = import (pkgs.fetchFromGitHub {
     owner = "input-output-hk";
     repo = "stack2nix";
-    rev = "83aa25dc3694bafe309c437f28ba3e8eff99c953";
-    sha256 = "1h0swg18506kk3l4b5n0gpbmirarkswhnsif5g0ypnch331p1z5i";
+    rev = "9e9676b919cc38df203fbfc1316891815e27c37b";
+    sha256 = "0rsfwxrhrq72y2rai4sidpihlnxfjvnaaa7qk94179ghjqs47hvv";
   }) { inherit pkgs; };
 }

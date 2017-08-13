@@ -60,13 +60,13 @@ eApplyToil curTime txun hh = do
     Txp.applyToil txun
     mapM_ applier $ zip [0..] txun
   where
-    applier (i, (txAux, txundo)) = do
+    applier (i, (txAux, txUndo)) = do
         let tx = taTx txAux
             id = hash tx
-            newExtra = TxExtra (Just (hh, i)) curTime txundo
+            newExtra = TxExtra (Just (hh, i)) curTime txUndo
         extra <- fromMaybe newExtra <$> getTxExtra id
-        putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txundo
-        let balanceUpdate = getBalanceUpdate txAux txundo
+        putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txUndo
+        let balanceUpdate = getBalanceUpdate txAux txUndo
         updateAddrBalances balanceUpdate
 
 -- | Rollback transactions from one block.
@@ -75,10 +75,10 @@ eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback $ reverse txun
   where
-    extraRollback (txAux, txundo) = do
+    extraRollback (txAux, txUndo) = do
         delTxExtraWithHistory (hash (taTx txAux)) $
-          getTxRelatedAddrs txAux txundo
-        let BalanceUpdate {..} = getBalanceUpdate txAux txundo
+          getTxRelatedAddrs txAux txUndo
+        let BalanceUpdate {..} = getBalanceUpdate txAux txUndo
         updateAddrBalances BalanceUpdate {
             plusBalance = minusBalance,
             minusBalance = plusBalance

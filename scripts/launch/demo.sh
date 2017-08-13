@@ -76,9 +76,11 @@ while [[ $i -lt $panesCnt ]]; do
   tmux select-pane -t $im
 
   wallet_args=''
+  exec_name='cardano-node-simple'
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
           wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt " # --wallet-rebuild-db'
+          exec_name='cardano-node'
           if [[ $WALLET_DEBUG != "" ]]; then
               wallet_args="$wallet_args --wallet-debug"
           fi
@@ -98,7 +100,7 @@ while [[ $i -lt $panesCnt ]]; do
   pane="${window}.$i"
 
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir") --no-ntp" C-m
+    tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp" C-m
   else
     # Number of transactions to send per-thread: 300
     # Concurrency (number of threads sending transactions); $CONC

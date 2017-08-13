@@ -88,8 +88,7 @@ import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
                                                  TxpHolderTag, TxpMetrics,
-                                                 ignoreTxpMetrics, mkTxpLocalData,
-                                                 utxoF)
+                                                 ignoreTxpMetrics, mkTxpLocalData, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -103,6 +102,9 @@ import           Pos.Txp                        (txpGlobalSettings)
 #endif
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
+
+-- Remove this once there's no #ifdef-ed Pos.Txp import
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 ----------------------------------------------------------------------------
 -- Parameters

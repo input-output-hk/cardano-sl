@@ -73,6 +73,9 @@ import           Pos.Explorer                (explorerTxpGlobalSettings)
 import           Pos.Txp                     (txpGlobalSettings)
 #endif
 
+-- Remove this once there's no #ifdef-ed Pos.Txp import
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
+
 ----------------------------------------------------------------------------
 -- Constraint
 ----------------------------------------------------------------------------

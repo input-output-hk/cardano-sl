@@ -100,7 +100,12 @@ let
     };
   });
   other = rec {
-    stack2nix = pkgs.haskellPackages.callPackage ./pkgs/stack2nix.nix {};
+    stack2nix = import (pkgs.fetchFromGitHub {
+      owner = "input-output-hk";
+      repo = "stack2nix";
+      rev = "9e9676b919cc38df203fbfc1316891815e27c37b";
+      sha256 = "0rsfwxrhrq72y2rai4sidpihlnxfjvnaaa7qk94179ghjqs47hvv";
+    }) { inherit pkgs; };
     make-genesis = pkgs.callPackage ./tests/make-genesis.nix { inherit (cardanoPkgs) cardano-sl-tools; };
     testjob = (import ./default.nix { inherit pkgs; genesis = make-genesis; }).cardano-sl-static;
   };

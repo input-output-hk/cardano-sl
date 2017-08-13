@@ -38,12 +38,12 @@ data WalletArgs = WalletArgs
 walletArgsParser :: Parser WalletNodeArgs
 walletArgsParser = do
     simpleNodeArgs <- simpleNodeArgsParser
+    enableWeb <- switch $
+        long "web" <>
+        help "Activate web API (it’s not linked with a wallet web API)."
     webPort <-
         CLI.webPortOption 8080 "Port for web API."
     walletTLSParams <- tlsParamsOption
-    enableWallet <- switch $
-        long "wallet" <>
-        help "Activate Wallet web API."
     walletPort <-
         CLI.walletPortOption 8090 "Port for Daedalus Wallet API."
     walletDbPath <- strOption $

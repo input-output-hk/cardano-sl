@@ -19,7 +19,6 @@ stack exec -- cardano-node \
     --kademlia-peer cardano-node-11.aws.iohkdev.io:3000 \
     --kademlia-peer cardano-node-12.aws.iohkdev.io:3000 \
     --kademlia-peer cardano-node-13.aws.iohkdev.io:3000 \
-    --wallet \
     --wallet-db-path wdb-qanet \
     --static-peers \
     --no-ntp \

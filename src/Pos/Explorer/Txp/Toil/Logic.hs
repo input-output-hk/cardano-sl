@@ -73,7 +73,7 @@ eApplyToil curTime txun hh = do
 eRollbackToil :: EGlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
 eRollbackToil txun = do
     Txp.rollbackToil txun
-    mapM_ extraRollback txun
+    mapM_ extraRollback $ reverse txun
   where
     extraRollback (txAux, txundo) = do
         delTxExtraWithHistory (hash (taTx txAux)) $

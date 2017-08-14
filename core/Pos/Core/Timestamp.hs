@@ -6,13 +6,16 @@ module Pos.Core.Timestamp
        , getCurrentTimestamp
        , diffTimestamp
        , addMicrosecondsToTimestamp
+
+       -- * Convertions
+       , timestampToPosix
        ) where
 
 import           Universum
 
 import           Data.Text.Buildable   (Buildable)
 import qualified Data.Text.Buildable   as Buildable
-import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Data.Time.Units       (Microsecond)
 import           Formatting            (Format, build)
 import qualified Prelude
@@ -53,3 +56,6 @@ diffTimestamp t1 t2 = getTimestamp t1 - getTimestamp t2
 
 addMicrosecondsToTimestamp :: Microsecond -> Timestamp -> Timestamp
 addMicrosecondsToTimestamp m t = Timestamp { getTimestamp = (getTimestamp t) + m }
+
+timestampToPosix :: Timestamp -> POSIXTime
+timestampToPosix (Timestamp ts) = fromIntegral ts / 1000000

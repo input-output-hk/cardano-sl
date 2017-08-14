@@ -59,6 +59,7 @@ import           Pos.Core                   (AddrPkAttrs (..), Address (..),
                                              ChainDifficulty, HasDifficulty (..),
                                              HeaderHash, Timestamp, headerHash,
                                              headerSlotL, makePubKeyAddress)
+import           Pos.Core.Timestamp         (timestampToPosix)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              WithHash (..), deriveHDPassphrase,
                                              encToPublic, hash, shortHashF,
@@ -425,9 +426,9 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     getTxTime tx = ctmDate <<$>> WS.getTxMeta wid (txIdToCTxId $ _thTxId tx)
     sortTxs txs = do
         txsWTime <- forM txs $ \tx -> (tx, ) <$> getTxTime tx
-        -- sort on `Maybe Timestamp`, but we don't really care
-        -- about placement of unknown txs
-        return $ map fst $ sortWith (Down . snd) txsWTime
+        let txRealTime (THEntry{..}, mtime) =
+                mtime <|> (timestampToPosix <$> _thTimestamp)
+        return $ map fst $ sortOn (fmap Down . txRealTime) txsWTime
 
 rollbackModifierFromWallet
     :: WebWalletModeDB m

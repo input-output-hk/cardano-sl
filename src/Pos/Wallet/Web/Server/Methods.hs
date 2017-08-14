@@ -69,7 +69,7 @@ import           Pos.Constants                    (curSoftwareVersion, isDevelop
 import           Pos.Context                      (GenesisUtxo)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, getCurrentTimestamp,
-                                                   getTimestamp, mkCoin, sumCoins,
+                                                   mkCoin, sumCoins, timestampToPosix,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
                                                    unsafeSubCoin)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
@@ -743,7 +743,7 @@ addHistoryTx cWalId wtx@THEntry{..} = do
             networkChainDifficulty
     meta <- CTxMeta <$> case _thTimestamp of
       Nothing -> liftIO $ getPOSIXTime
-      Just ts -> return $ fromIntegral (getTimestamp ts) / 1000000
+      Just ts -> return $ timestampToPosix ts
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId

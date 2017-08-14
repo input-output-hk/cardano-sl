@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -o xtrace
 
+# Make sure we're in a tmux session.
+if ! [ -n "$TMUX" ]; then
+  echo "You must run this script from the tmux session!"
+  exit 1
+fi
+
 base=$(dirname "$0")
 source "$base"/../common-functions.sh
-
-# Make sure we're in a tmux session
-# if [[ $TERM != screen* ]]; then
-    # echo "ERROR: Must have tmux started!"
-    # exit 1
-# fi
 
 # If stack-work doesn't exist use function
 if [[ ! -d "$base/../../.stack-work" ]]; then

@@ -17,7 +17,7 @@ import           Test.QuickCheck.Monadic     (assert, pick, pre)
 
 import           Pos.Block.Logic             (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (blkSecurityParam)
+import           Pos.Core                    (HasCoreConstants, blkSecurityParam)
 import           Pos.DB.Pure                 (dbPureDump)
 import           Pos.Generator.BlockEvent    (BlockEventCount (..),
                                               BlockEventGenParams (..), genBlockEvents)
@@ -31,12 +31,13 @@ import           Test.Pos.Block.Logic.Util   (EnableTxPayload (..), InplaceDB (.
                                               bpGenBlock, bpGenBlocks,
                                               bpGoToArbitraryState, getAllSecrets,
                                               satisfySlotCheck)
-import           Test.Pos.Util               (splitIntoChunks, stopProperty)
+import           Test.Pos.Util               (giveTestsConsts, splitIntoChunks,
+                                              stopProperty)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.
-spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
+spec = giveTestsConsts $ describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
     describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
     describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
     describe "applyBlocks" applyBlocksSpec
@@ -47,7 +48,7 @@ spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
 -- verifyBlocksPrefix
 ----------------------------------------------------------------------------
 
-verifyBlocksPrefixSpec :: Spec
+verifyBlocksPrefixSpec :: HasCoreConstants => Spec
 verifyBlocksPrefixSpec = do
     prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
     prop verifyValidBlocksDesc verifyValidBlocks
@@ -62,13 +63,13 @@ verifyBlocksPrefixSpec = do
         "always succeeds for GState for which these blocks where generated " <>
         "as long as all these blocks are from the same epoch"
 
-verifyEmptyMainBlock :: BlockProperty ()
+verifyEmptyMainBlock :: HasCoreConstants => BlockProperty ()
 verifyEmptyMainBlock = do
     emptyBlock <- fst <$> bpGenBlock (EnableTxPayload False) (InplaceDB False)
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
         stopProperty . pretty
 
-verifyValidBlocks :: BlockProperty ()
+verifyValidBlocks :: HasCoreConstants => BlockProperty ()
 verifyValidBlocks = do
     bpGoToArbitraryState
     blocks <-
@@ -93,7 +94,7 @@ verifyValidBlocks = do
 -- verifyAndApplyBlocks
 ----------------------------------------------------------------------------
 
-verifyAndApplyBlocksSpec :: Spec
+verifyAndApplyBlocksSpec :: HasCoreConstants => Spec
 verifyAndApplyBlocksSpec = do
     prop applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
   where
@@ -127,8 +128,9 @@ applyBlocksSpec = pass
 -- General functions
 ----------------------------------------------------------------------------
 
-applyByOneOrAllAtOnce ::
-       (OldestFirst NE (Blund SscGodTossing) -> BlockTestMode ())
+applyByOneOrAllAtOnce
+    :: HasCoreConstants
+    => (OldestFirst NE (Blund SscGodTossing) -> BlockTestMode ())
     -> BlockProperty ()
 applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
@@ -160,7 +162,7 @@ applyByOneOrAllAtOnce applier = do
 -- Block events
 ----------------------------------------------------------------------------
 
-blockEventSuccessSpec :: Spec
+blockEventSuccessSpec :: HasCoreConstants => Spec
 blockEventSuccessSpec = do
     prop blockEventSuccessDesc blockEventSuccessProp
   where
@@ -168,7 +170,7 @@ blockEventSuccessSpec = do
         "a sequence of interleaved block applications and rollbacks " <>
         "results in the original state of the blockchain"
 
-blockEventSuccessProp :: BlockProperty ()
+blockEventSuccessProp :: HasCoreConstants => BlockProperty ()
 blockEventSuccessProp = do
     allSecrets <- getAllSecrets
     let

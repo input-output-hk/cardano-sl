@@ -18,6 +18,7 @@ import           Pos.Binary            (Bi)
 import qualified Pos.Block.Core        as T
 import qualified Pos.Block.Pure        as T
 import           Pos.Constants         (genesisHash)
+import           Pos.Core              (HasCoreConstants)
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         SignTag (..), createPsk, proxySign, sign,
                                         toPublic)
@@ -29,8 +30,10 @@ import qualified Pos.Types             as T
 import           Pos.Util.Chrono       (NewestFirst (..))
 import           Pos.Util.Util         (leftToPanic)
 
+import           Test.Pos.Util         (giveTestsConsts)
+
 spec :: Spec
-spec = describe "Block properties" $ do
+spec = giveTestsConsts $ describe "Block properties" $ do
     describe "mkMainHeader" $ do
         prop mainHeaderFormationDesc (mainHeaderFormation @SscNistBeacon)
         prop mainHeaderFormationDesc (mainHeaderFormation @SscGodTossing)
@@ -55,7 +58,7 @@ spec = describe "Block properties" $ do
     verifyHeaderDesc = "Successfully verifies a correct main block header"
     verifyHeadersDesc = "Successfully verifies a correct chain of block headers"
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
-    emptyHeaderChain l =
+    emptyHeaderChain l = giveTestsConsts $ -- WHAT THE HECK? WHY IS IT NEEDED?
         it verifyEmptyHsDesc $ isVerSuccess $ T.verifyHeaders l
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create
@@ -65,7 +68,7 @@ spec = describe "Block properties" $ do
 -- the ensuing failed tests.
 
 genesisHeaderFormation
-    :: SscHelpersClass ssc
+    :: (HasCoreConstants, SscHelpersClass ssc)
     => Maybe (T.BlockHeader ssc)
     -> T.EpochIndex
     -> T.Body (T.GenesisBlockchain ssc)
@@ -88,7 +91,7 @@ genesisHeaderFormation prevHeader epoch body =
         T.GenesisConsensusData {T._gcdEpoch = epoch, T._gcdDifficulty = difficulty}
 
 mainHeaderFormation
-    :: SscHelpersClass ssc
+    :: (HasCoreConstants, SscHelpersClass ssc)
     => Maybe (T.BlockHeader ssc)
     -> T.SlotId
     -> Either SecretKey (SecretKey, SecretKey, Bool)
@@ -149,13 +152,13 @@ mainHeaderFormation prevHeader slotId signer body extra =
 ----------------------------------------------------------------------------
 
 validateGoodMainHeader
-    :: forall ssc . SscHelpersClass ssc
+    :: forall ssc . (HasCoreConstants, SscHelpersClass ssc)
     => T.HeaderAndParams ssc -> Bool
 validateGoodMainHeader (T.getHAndP -> (params, header)) =
     isVerSuccess $ T.verifyHeader params header
 
 validateGoodHeaderChain
-    :: forall ssc . SscHelpersClass ssc
+    :: forall ssc . (HasCoreConstants, SscHelpersClass ssc)
     => T.BlockHeaderList ssc -> Bool
 validateGoodHeaderChain (T.BHL (l, _)) =
     isVerSuccess $ T.verifyHeaders (NewestFirst l)

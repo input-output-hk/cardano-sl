@@ -11,10 +11,11 @@ import qualified Data.HashSet                      as HS
 import           Test.Hspec                        (Spec, describe)
 import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
 import           Test.QuickCheck                   (Arbitrary (..), Property, conjoin,
-                                                   (===))
+                                                    (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Core                          (ApplicationName, BlockVersion,
+                                                    HasCoreConstants,
                                                     SoftwareVersion (..), StakeholderId,
                                                     addressHash)
 import           Pos.Crypto                        (hash)
@@ -23,10 +24,10 @@ import           Pos.Update.Core                   (UpId, UpdateProposal (..), a
 import qualified Pos.Update.Poll                   as Poll
 import qualified Pos.Util.Modifier                 as MM
 
-import           Test.Pos.Util                     (formsMonoid)
+import           Test.Pos.Util                     (formsMonoid, giveTestsConsts)
 
 spec :: Spec
-spec = describe "Poll" $ do
+spec = giveTestsConsts $ describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop
@@ -74,7 +75,7 @@ data PollAction
     | SetEpochProposers (HashSet StakeholderId)
     deriving (Show, Eq, Generic)
 
-instance Arbitrary PollAction where
+instance HasCoreConstants => Arbitrary PollAction where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

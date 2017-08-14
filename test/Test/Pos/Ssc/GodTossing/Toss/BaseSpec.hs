@@ -9,10 +9,16 @@ import           Universum
 import           Control.Lens          (ix)
 import qualified Data.HashMap.Strict   as HM
 import           System.Random         (mkStdGen, randomR)
+import           Test.Hspec            (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), Property,
+                                        elements, listOf, sublistOf, suchThat, vector,
+                                        (==>))
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
 import           Pos.Constants         (genesisBlockVersionData)
+import           Pos.Core              (HasCoreConstants)
 import           Pos.Crypto            (PublicKey, SecretKey, Share,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
@@ -34,14 +40,10 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (.
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
 
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), Property,
-                                        elements, listOf, sublistOf, suchThat, vector,
-                                        (==>))
+import           Test.Pos.Util         (giveTestsConsts)
 
 spec :: Spec
-spec = describe "Ssc.GodTossing.Base" $ do
+spec = giveTestsConsts $ describe "Ssc.GodTossing.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
         prop description_notVerifiesBadComm notVerifiesBadComm
@@ -140,7 +142,7 @@ emptyPayload
 emptyPayload pureToss mrs gtgs =
     isRight $ tossRunner mrs gtgs $ pureToss mempty
 
-emptyPayloadComms :: GoodCommsPayload -> GtGlobalState -> Bool
+emptyPayloadComms :: HasCoreConstants => GoodCommsPayload -> GtGlobalState -> Bool
     -- The 'checkCommitmentsPayload' function will never pass without a valid
     -- multirichmen hashmap, meaning we can't use entirely arbitrary data.
     -- As such, one from a 'GoodCommsPayload' is fetched instead since the
@@ -160,7 +162,7 @@ data GoodPayload p = GoodPayload
 
 type GoodCommsPayload = GoodPayload CommitmentsMap
 
-instance Arbitrary GoodCommsPayload where
+instance HasCoreConstants => Arbitrary GoodCommsPayload where
     arbitrary = do
         -- These fields won't be needed for anything, so they can be entirely arbitrary.
         _gsOpenings <- arbitrary
@@ -203,7 +205,7 @@ instance Arbitrary GoodCommsPayload where
         return GoodPayload {..}
 
 -- TODO: Account for 'CommSharesOnWrongParticipants' failure
-checksGoodCommsPayload :: GoodCommsPayload -> Bool
+checksGoodCommsPayload :: HasCoreConstants => GoodCommsPayload -> Bool
 checksGoodCommsPayload (GoodPayload epoch gtgs commsMap mrs) =
     case tossRunner mrs gtgs $ checkCommitmentsPayload epoch commsMap of
         Left (CommSharesOnWrongParticipants _) -> True
@@ -212,7 +214,8 @@ checksGoodCommsPayload (GoodPayload epoch gtgs commsMap mrs) =
 
 -- TODO: Account for 'CommSharesOnWrongParticipants' failure
 checksBadCommsPayload
-    :: GoodCommsPayload
+    :: HasCoreConstants
+    => GoodCommsPayload
     -> StakeholderId
     -> SignedCommitment
     -> Int
@@ -267,7 +270,7 @@ newtype GoodOpeningPayload = GoodOpens
     { getGoodOpens :: (GtGlobalState, OpeningsMap)
     } deriving (Show, Eq)
 
-instance Arbitrary GoodOpeningPayload where
+instance HasCoreConstants => Arbitrary GoodOpeningPayload where
     arbitrary = GoodOpens <$> do
 
       -- These fields won't be used, so they can be entirely arbitrary
@@ -307,12 +310,13 @@ instance Arbitrary GoodOpeningPayload where
 
         return (GtGlobalState {..}, opensPayload)
 
-checksGoodOpeningsPayload :: MultiRichmenStakes -> GoodOpeningPayload -> Bool
+checksGoodOpeningsPayload :: HasCoreConstants => MultiRichmenStakes -> GoodOpeningPayload -> Bool
 checksGoodOpeningsPayload mrs (getGoodOpens -> (gtgs, openPayload)) =
     isRight . tossRunner mrs gtgs $ checkOpeningsPayload openPayload
 
 checksBadOpeningsPayload
-    :: StakeholderId
+    :: HasCoreConstants
+    => StakeholderId
     -> Opening
     -> SignedCommitment
     -> MultiRichmenStakes
@@ -353,7 +357,7 @@ checksBadOpeningsPayload
 
 type GoodSharesPayload = GoodPayload SharesMap
 
-instance Arbitrary GoodSharesPayload where
+instance HasCoreConstants => Arbitrary GoodSharesPayload where
     arbitrary = do
       -- These openings won't be needed for anything, so they can be entirely arbitrary.
         _gsOpenings <- arbitrary
@@ -410,7 +414,7 @@ instance Arbitrary GoodSharesPayload where
 
 -- NOTE: this test does not care for 'DecrSharesNotMatchCommitment' failure. This would
 --make the already non-trivial arbitrary instance for 'GoodSharesPayload' unmanageable.
-checksGoodSharesPayload :: GoodSharesPayload -> Bool
+checksGoodSharesPayload :: HasCoreConstants => GoodSharesPayload -> Bool
 checksGoodSharesPayload (GoodPayload epoch gtgs sharesMap mrs) =
     case tossRunner mrs gtgs $ checkSharesPayload epoch sharesMap of
         Left (DecrSharesNotMatchCommitment _) -> True
@@ -422,7 +426,8 @@ checksGoodSharesPayload (GoodPayload epoch gtgs sharesMap mrs) =
 -- NOTE: does not check for 'DecrSharesNotMatchCommitment' failure. This would make the
 -- already non-trivial arbitrary instance for 'GoodSharesPayload' unmanageable.
 checksBadSharesPayload
-    :: GoodSharesPayload
+    :: HasCoreConstants
+    => GoodSharesPayload
     -> StakeholderId
     -> NonEmpty (AsBinary Share)
     -> VssCertificate
@@ -473,7 +478,7 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) sid ne ce
 
 type GoodCertsPayload = GoodPayload VssCertificatesMap
 
-instance Arbitrary GoodCertsPayload where
+instance HasCoreConstants => Arbitrary GoodCertsPayload where
     arbitrary = do
 
         -- These fields of 'GtGlobalState' are irrelevant for the
@@ -534,11 +539,11 @@ instance Arbitrary GoodCertsPayload where
 
         return GoodPayload {..}
 
-checksGoodCertsPayload :: GoodCertsPayload -> Bool
+checksGoodCertsPayload :: HasCoreConstants => GoodCertsPayload -> Bool
 checksGoodCertsPayload (GoodPayload epoch gtgs certsMap mrs) =
     isRight . tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap
 
-checksBadCertsPayload :: GoodCertsPayload -> StakeholderId -> VssCertificate -> Property
+checksBadCertsPayload :: HasCoreConstants => GoodCertsPayload -> StakeholderId -> VssCertificate -> Property
 checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =
     let mrsWithMissingEpoch = HM.delete epoch mrs
         noRichmen =

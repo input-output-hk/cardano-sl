@@ -23,8 +23,9 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication          ()
-import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
-import           Pos.Core                   (SlotId (..), unsafeMkLocalSlotIndex)
+import           Pos.Constants              (genesisMaxBlockSize)
+import           Pos.Core                   (HasCoreConstants, SlotId (..),
+                                             blkSecurityParam, unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
@@ -35,8 +36,10 @@ import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
 
+import           Test.Pos.Util              (giveTestsConsts)
+
 spec :: Spec
-spec = describe "Block.Logic.Creation" $ do
+spec = giveTestsConsts $ describe "Block.Logic.Creation" $ do
 
     -- Sampling the minimum empty block size
     (sk0,prevHeader0) <- runIO $ generate arbitrary
@@ -100,13 +103,15 @@ spec = describe "Block.Logic.Creation" $ do
                 in counterexample ("Tested with block size limit: " <> show s) $
                    leftToCounter blk2 (const True)
   where
+    defGTP :: HasCoreConstants => SlotId -> GtPayload
     defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
+
     infLimit = convertUnit @Gigabyte @Byte 1
 
     leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
     leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x
 
-    emptyBlk :: Testable p => (Either Text (MainBlock SscGodTossing) -> p) -> Property
+    emptyBlk :: (HasCoreConstants, Testable p) => (Either Text (MainBlock SscGodTossing) -> p) -> Property
     emptyBlk foo =
         forAll arbitrary $ \(prevHeader, sk, slotId) ->
         foo $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
@@ -115,7 +120,8 @@ spec = describe "Block.Logic.Creation" $ do
     genTxAux = goodTxToTxAux . getSmallGoodTx <$> arbitrary
 
     noSscBlock
-        :: Byte
+        :: HasCoreConstants
+        => Byte
         -> BlockHeader SscGodTossing
         -> [TxAux]
         -> DlgPayload
@@ -128,7 +134,8 @@ spec = describe "Block.Logic.Creation" $ do
             limit prevHeader txs Nothing neutralSId proxyCerts (defGTP neutralSId) updatePayload sk
 
     producePureBlock
-        :: Byte
+        :: HasCoreConstants
+        => Byte
         -> BlockHeader SscGodTossing
         -> [TxAux]
         -> ProxySKBlockInfo
@@ -142,7 +149,7 @@ spec = describe "Block.Logic.Creation" $ do
         createMainBlockPure limit prev psk slot sk $
         RawPayload txs sscPay dlgPay usPay
 
-validGtPayloadGen :: Gen (GtPayload, SlotId)
+validGtPayloadGen :: HasCoreConstants => Gen (GtPayload, SlotId)
 validGtPayloadGen = do
     vssCerts <- makeSmall $ fmap mkVssCertificatesMap $ listOf $ vssCertificateEpochGen 0
     let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))

@@ -5,6 +5,8 @@ module Test.Pos.Lrc.FollowTheSatoshiSpec
        ( spec
        ) where
 
+import           Universum
+
 import           Data.Default          (def)
 import           Data.List             (scanl1)
 import qualified Data.Map              as M (fromList, insert, singleton)
@@ -12,19 +14,19 @@ import qualified Data.Set              as S (deleteFindMin, fromList, size)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
-import           Universum
 
-import           Pos.Constants         (blkSecurityParam, epochSlots)
-import           Pos.Core              (Address (..), Coin, SharedSeed, StakeholderId,
+import           Pos.Core              (Address (..), Coin, SharedSeed, StakeholderId, HasCoreConstants,
                                         mkCoin, sumCoins, unsafeAddCoin,
-                                        unsafeIntegerToCoin)
+                                        unsafeIntegerToCoin, blkSecurityParam, epochSlots)
 import           Pos.Crypto            (unsafeHash)
 import           Pos.Lrc               (followTheSatoshiUtxo)
 import           Pos.Txp               (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                                         txOutStake)
 
+import           Test.Pos.Util         (giveTestsConsts)
+
 spec :: Spec
-spec = do
+spec = giveTestsConsts $ do
     let smaller = modifyMaxSuccess (const 1)
     describe "FollowTheSatoshi" $ do
         describe "followTheSatoshiUtxo" $ do
@@ -91,12 +93,13 @@ instance Arbitrary StakeAndHolder where
                 (zipWith toTxOutAux (toList setUtxo) values)
         return (myAddrHash, M.fromList utxoList)
 
-ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
+ftsListLength :: HasCoreConstants => SharedSeed -> StakeAndHolder -> Bool
 ftsListLength fts (getNoStake -> (_, utxo)) =
     length (followTheSatoshiUtxo fts utxo) == fromIntegral epochSlots
 
 ftsNoStake
-    :: SharedSeed
+    :: HasCoreConstants
+    => SharedSeed
     -> StakeAndHolder
     -> Bool
 ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
@@ -107,7 +110,8 @@ ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
 -- meaning a situation where a stakeholder has 100% of stake is one where the
 -- map has a single element.
 ftsAllStake
-    :: SharedSeed
+    :: HasCoreConstants
+    => SharedSeed
     -> TxIn
     -> StakeholderId
     -> Coin
@@ -118,7 +122,7 @@ ftsAllStake fts key ah v =
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
-numberOfRuns :: Int
+numberOfRuns :: HasCoreConstants => Int
 -- The higher is 'blkSecurityParam', the longer epochs will be and the more
 -- time FTS will take
 numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
@@ -127,14 +131,14 @@ newtype FtsStream = Stream
     { getStream :: [SharedSeed]
     } deriving Show
 
-instance Arbitrary FtsStream where
+instance HasCoreConstants => Arbitrary FtsStream where
     arbitrary = Stream . take numberOfRuns <$> infiniteListOf arbitrary
 
 newtype UtxoStream = UtxoStream
     { getUtxoStream :: [StakeAndHolder]
     } deriving Show
 
-instance Arbitrary UtxoStream where
+instance HasCoreConstants => Arbitrary UtxoStream where
     arbitrary = UtxoStream . take numberOfRuns <$> infiniteListOf arbitrary
 
 -- | This test is a sanity check to verify that 'followTheSatoshiUtxo' does not
@@ -150,7 +154,8 @@ instance Arbitrary UtxoStream where
 -- For a low/high stake, the test succeeds if this comparison is below/above the
 -- threshold, respectively.
 ftsReasonableStake
-    :: Double
+    :: HasCoreConstants
+    => Double
     -> ((Int, Double, Double) -> Bool)
     -> FtsStream
     -> UtxoStream

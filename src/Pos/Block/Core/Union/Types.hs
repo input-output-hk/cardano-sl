@@ -16,7 +16,7 @@ module Pos.Block.Core.Union.Types
 import           Universum
 
 import           Pos.Binary.Class             (Bi)
-import           Pos.Core                     (HasCoreConstants, HeaderHash)
+import           Pos.Core                     (HeaderHash)
 import           Pos.Crypto                   (unsafeHash)
 import           Pos.Ssc.Class.Types          (Ssc (..))
 
@@ -34,7 +34,7 @@ type BiSsc ssc =
     ( Ssc ssc
     , Bi (GenericBlockHeader (GenesisBlockchain ssc))
     , Bi (GenericBlockHeader (MainBlockchain ssc))
-    , HasCoreConstants)
+    )
 
 -- | Either header of ordinary main block or genesis block.
 type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)

@@ -10,8 +10,12 @@ import qualified Data.HashMap.Strict   as HM
 import qualified Data.HashSet          as HS
 import qualified Data.Set              as S
 import           Data.Tuple            (swap)
+import           Test.Hspec            (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
+                                        suchThat, vectorOf, (==>))
 
-import           Pos.Core.Constants    (slotSecurityParam)
+import           Pos.Core.Context      (HasCoreConstants, slotSecurityParam)
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..),
                                         VssCertificate (..), delete, empty, expiryEoS,
@@ -22,13 +26,10 @@ import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotI
                                         SlotId (..))
 import           Pos.Util.Chrono       (NewestFirst (..))
 
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
-                                        suchThat, vectorOf, (==>))
+import           Test.Pos.Util         (giveTestsConsts)
 
 spec :: Spec
-spec = describe "Ssc.GodTossing.VssCertData" $ do
+spec = giveTestsConsts $ describe "Ssc.GodTossing.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $
@@ -76,7 +77,7 @@ newtype CorrectVssCertData = CorrectVssCertData
     { getVssCertData :: VssCertData
     } deriving (Show)
 
-instance Arbitrary CorrectVssCertData where
+instance HasCoreConstants => Arbitrary CorrectVssCertData where
     arbitrary = (CorrectVssCertData <$>) $ do
         n <- choose (0, 100)
         certificatesToAdd <- choose (0, n)
@@ -163,7 +164,7 @@ verifyDeleteAndFilter (getVssCertData -> vcd@VssCertData{..}) =
 data RollbackData = Rollback GtGlobalState EpochOrSlot [VssCertificate]
     deriving (Show, Eq)
 
-instance Arbitrary RollbackData where
+instance HasCoreConstants => Arbitrary RollbackData where
     arbitrary = do
         goodVssCertData@(VssCertData {..}) <- getVssCertData <$> arbitrary
         certsToRollbackN <- choose (0, 100) >>= choose . (0,)
@@ -183,7 +184,7 @@ instance Arbitrary RollbackData where
                           certsToRollback
 
 verifyRollback
-    :: RollbackData -> Property
+    :: HasCoreConstants => RollbackData -> Property
 verifyRollback (Rollback oldGtGlobalState rollbackEoS vssCerts) =
     let certAdder vcd = foldl' (flip insert) vcd vssCerts
         newGtGlobalState@(GtGlobalState _ _ _ newVssCertData) =

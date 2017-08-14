@@ -10,10 +10,10 @@ import           Universum
 import qualified Pos.Txp       as T
 import qualified Pos.Types     as T
 
-import           Test.Pos.Util (safeCopyTest)
+import           Test.Pos.Util (giveTestsConsts, safeCopyTest)
 
 spec :: Spec
-spec = describe "Types" $ do
+spec = giveTestsConsts $ describe "Types" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @T.EpochIndex
         safeCopyTest @T.LocalSlotIndex

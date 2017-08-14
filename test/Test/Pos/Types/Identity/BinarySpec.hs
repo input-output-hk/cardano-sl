@@ -14,10 +14,10 @@ import qualified Pos.Core.Fee                  as Fee
 import           Pos.Data.Attributes           (Attributes (..))
 import qualified Pos.Types                     as T
 
-import           Test.Pos.Util                 (binaryTest)
+import           Test.Pos.Util                 (binaryTest, giveTestsConsts)
 
 spec :: Spec
-spec = describe "Types" $ do
+spec = giveTestsConsts $ describe "Types" $ do
     -- 100 is not enough to catch some bugs (e.g. there was a bug with
     -- addresses that only manifested when address's CRC started with 0x00)
     describe "Bi instances" $ do

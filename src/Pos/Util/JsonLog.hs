@@ -127,7 +127,7 @@ $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
 
 -- | Return event of created block.
-jlCreatedBlock :: BiSsc ssc => Block ssc -> JLEvent
+jlCreatedBlock :: (BiSsc ssc, HasCoreConstants) => Block ssc -> JLEvent
 jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHeaderHash $ headerHash block

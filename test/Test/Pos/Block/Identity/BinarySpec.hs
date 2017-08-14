@@ -17,10 +17,10 @@ import qualified Pos.Communication   ()
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 
-import           Test.Pos.Util       (binaryTest, networkBinaryTest)
+import           Test.Pos.Util       (binaryTest, giveTestsConsts, networkBinaryTest)
 
 spec :: Spec
-spec = describe "Block types" $ do
+spec = giveTestsConsts $ describe "Block types" $ do
     describe "Bi instances" $ do
         describe "Block network types" $ do
             describe "MsgGetHeaders" $

@@ -5,6 +5,7 @@
 module Pos.Core.Context
        ( CoreConstants (..)
        , HasCoreConstants
+       , giveConsts
        , giveStaticConsts
        , ccBlkSecurityParam
        , blkSecurityParam
@@ -40,8 +41,11 @@ makeLenses ''CoreConstants
 
 type HasCoreConstants = Given CoreConstants
 
+giveConsts :: BlockCount -> (HasCoreConstants => r) -> r
+giveConsts = give . CoreConstants
+
 giveStaticConsts :: (HasCoreConstants => r) -> r
-giveStaticConsts = give (CoreConstants staticBlkSecurityParam)
+giveStaticConsts = giveConsts staticBlkSecurityParam
 
 blkSecurityParam :: HasCoreConstants => BlockCount
 blkSecurityParam = _ccBlkSecurityParam given

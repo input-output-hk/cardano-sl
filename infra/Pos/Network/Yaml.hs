@@ -11,6 +11,8 @@ module Pos.Network.Yaml (
   , NodeRoutes(..)
   , NodeMetadata(..)
   , RunKademlia
+  , Valency
+  , Fallbacks
   ) where
 
 import           Data.Aeson             (FromJSON (..), ToJSON (..), (.!=),
@@ -34,10 +36,22 @@ import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 -- the topology from the point of view of the current node.
 data Topology =
     TopologyStatic !AllStaticallyKnownPeers
-  | TopologyBehindNAT !(DnsDomains (DNS.Domain))
-  | TopologyP2P !Int !Int
-  | TopologyTraditional !Int !Int
+  | TopologyBehindNAT !Valency !Fallbacks !(DnsDomains (DNS.Domain))
+  | TopologyP2P !Valency !Fallbacks
+  | TopologyTraditional !Valency !Fallbacks
   deriving (Show)
+
+-- | The number of peers we want to send to
+--
+-- In other words, this should correspond to the length of the outermost lists
+-- in the OutboundQueue's 'Peers' data structure.
+type Valency = Int
+
+-- | The number of fallbacks for each peer we want to send to
+--
+-- In other words, this should corresponding to one less than the length of the
+-- innermost lists in the OutboundQueue's 'Peers' data structure.
+type Fallbacks = Int
 
 -- | All statically known peers in the newtork
 data AllStaticallyKnownPeers = AllStaticallyKnownPeers {
@@ -213,13 +227,16 @@ instance FromJSON AllStaticallyKnownPeers where
 instance FromJSON Topology where
   parseJSON = A.withObject "Topology" $ \obj -> do
       mNodes  <- obj .:? "nodes"
-      mRelays <- obj .:? "relays"
+      mWallet <- obj .:? "wallet"
       mP2p    <- obj .:? "p2p"
-      case (mNodes, mRelays, mP2p) of
+      case (mNodes, mWallet, mP2p) of
         (Just nodes, Nothing, Nothing) ->
             TopologyStatic <$> parseJSON nodes
-        (Nothing, Just relays, Nothing) ->
-            TopologyBehindNAT <$> parseJSON relays
+        (Nothing, Just wallet, Nothing) -> flip (A.withObject "wallet") wallet $ \walletObj -> do
+            relays    <- walletObj .:  "relays"
+            valency   <- walletObj .:? "valency"   .!= 1
+            fallbacks <- walletObj .:? "fallbacks" .!= 1
+            return (TopologyBehindNAT valency fallbacks relays)
         (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
             variantTxt <- p2pObj .: "variant"
             variant <- flip (A.withText "P2P variant") variantTxt $ \txt -> case txt of

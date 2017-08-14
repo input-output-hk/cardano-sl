@@ -37,15 +37,14 @@ char *getWindowsDefDnsServer(void) {
 
     if (dwRetVal = GetNetworkParams(pFixedInfo, &ulOutBufLen) == NO_ERROR) {
         strcpy(dnsIPAddress, pFixedInfo->DnsServerList.IpAddress.String);
+        if (pFixedInfo) FREE(pFixedInfo);
+        return dnsIPAddress;
     }
     else {
         printf("GetNetworkParams failed with error: %d\n", dwRetVal);
+        if (pFixedInfo) FREE(pFixedInfo);
         return NULL;
     }
-
-    if (pFixedInfo) FREE(pFixedInfo);
-
-    return dnsIPAddress;
 }
 
 /*

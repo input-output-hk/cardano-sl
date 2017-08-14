@@ -115,14 +115,11 @@ reifyHashDigestSize = reifyNat (fromIntegral (hashDigestSize' @algo))
 decodeAbstractHash
     :: forall algo a.
        Bi (AbstractHash algo a)
-    => Text -> AbstractHash algo a
-decodeAbstractHash = processRes . Bi.decodeFull . processRes . B16.decode
-  where
-    processRes (Right x) = x
-    processRes (Left e)  = error $ "decode hash error: " <> e
+    => Text -> Either Text (AbstractHash algo a)
+decodeAbstractHash = B16.decode >=> Bi.decodeFull
 
 -- | Parses given hash in base16 form.
-decodeHash :: Bi (Hash a) => Text -> Hash a
+decodeHash :: Bi (Hash a) => Text -> Either Text (Hash a)
 decodeHash = decodeAbstractHash @Blake2b_256
 
 -- | Encode thing as 'Binary' data and then wrap into constructor.

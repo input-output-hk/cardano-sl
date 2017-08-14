@@ -12,6 +12,8 @@ module KeygenOptions
        , getKeygenOptions
        ) where
 
+import           Universum
+
 import           Data.Version           (showVersion)
 import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
                                          header, help, helper, info, infoOption, long,
@@ -20,10 +22,9 @@ import           Options.Applicative    (Parser, auto, command, execParser, full
 import           Serokell.Util.OptParse (fromParsec)
 import qualified Text.Parsec            as P
 import qualified Text.Parsec.String     as P
-import           Universum
 
-import           Pos.Core.Types         (Address (..), StakeholderId)
-import           Pos.Types              (decodeTextAddress)
+import           Pos.CLI                (stakeholderIdParser)
+import           Pos.Core               (StakeholderId)
 
 import           Paths_cardano_sl       (version)
 
@@ -197,7 +198,7 @@ bootStakeholderParser =
   where
     pairParser :: P.Parser (StakeholderId, Word16)
     pairParser = do
-        st <- stakeholderId
+        st <- stakeholderIdParser
         void $ P.char ','
         d <- word16
         pure (st,d)
@@ -211,16 +212,6 @@ bootStakeholderParser =
         maybe (fail $ show val <> " is not a valid word16")
               (pure . fromInteger)
               val
-
-    stakeholderId :: P.Parser StakeholderId
-    stakeholderId = lexeme $ do
-        str <- P.many1 P.alphaNum
-        case decodeTextAddress (toText str) of
-            Left err                  -> fail (toString err)
-            Right (PubKeyAddress{..}) -> pure addrKeyHash
-            Right p                   ->
-                fail $ "Expected public key address, but it's " ++
-                       toString (pretty p)
 
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo

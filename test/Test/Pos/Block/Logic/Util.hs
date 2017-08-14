@@ -25,6 +25,7 @@ import           Pos.Core                    (BlockCount, HasCoreConstants, Slot
                                               epochIndexL)
 import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
+import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Chrono             (NE, OldestFirst (..))
 import           Pos.Util.Util               (HasLens (..), _neLast)
@@ -51,6 +52,7 @@ bpGenBlocks
     -> BlockProperty (OldestFirst [] (Blund SscGodTossing))
 bpGenBlocks blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
     allSecrets <- getAllSecrets
+    genStakeholders <- view (lensOf @GenesisWStakeholders)
     let genBlockGenParams s =
             pure
                 BlockGenParams
@@ -59,6 +61,7 @@ bpGenBlocks blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
                 , _bgpTxGenParams =
                       def & tgpTxCountRange %~ bool (const (0,0)) identity enableTxPayload
                 , _bgpInplaceDB = inplaceDB
+                , _bgpGenStakeholders = genStakeholders
                 }
     params <- pick $ sized genBlockGenParams
     g <- pick $ MkGen $ \qc _ -> qc

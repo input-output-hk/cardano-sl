@@ -17,7 +17,7 @@ import           Formatting                (sformat, (%))
 import           Serokell.Util             (enumerate, subList)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
-import           Test.QuickCheck           (Gen, arbitrary, choose)
+import           Test.QuickCheck           (Gen, choose)
 import           Test.QuickCheck.Monadic   (pick)
 
 import           Pos.Block.Core            (mainBlockTxPayload)
@@ -25,15 +25,16 @@ import           Pos.Block.Logic           (applyBlocksUnsafe)
 import           Pos.Core                  (Address, Coin, EpochIndex, HasCoreConstants,
                                             StakeholderId, addressHash,
                                             applyCoinPortionUp, blkSecurityParam, coinF,
-                                            divCoin, makePubKeyAddress, mkCoin,
-                                            unsafeAddCoin, unsafeMulCoin, unsafeSubCoin)
+                                            makePubKeyAddress, mkCoin, unsafeGetCoin,
+                                            unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic)
 import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
                                             mkInvSecretsMap)
-import           Pos.Genesis               (StakeDistribution (..), genesisUtxo)
+import           Pos.Genesis               (StakeDistribution (..),
+                                            genesisContextImplicit)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
-import           Pos.Txp                   (TxAux, mkGenesisTxpContext, mkTxPayload)
+import           Pos.Txp                   (TxAux, mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys)
 
@@ -82,46 +83,53 @@ genTestParams = do
     secretKeys <- nonrepeating stakeholdersNum
     let invSecretsMap = mkInvSecretsMap secretKeys
     let _tpAllSecrets = AllSecrets invSecretsMap
+    -- Single group stake multiplier.
+    r <- choose (1000::Word64, 10000)
     -- Total stake inside one group.
-    totalStakeGroup <-
-        (`divCoin` groupsNumber) . max minTotalStake <$> arbitrary
+    let totalStakeGroup = mkCoin r `unsafeMulCoin` (baseN::Integer)
+
     -- It's essential to use 'toList invSecretsMap' instead of
     -- 'secretKeys' here, because we rely on the order further. Later
     -- we can add ability to extend 'TestParams' or context.
     addressesAndDistrs <-
-        mapM
-            (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
-            (enumerate allRichmenComponents)
+        mapM (genAddressesAndDistrs r totalStakeGroup (toList invSecretsMap))
+             (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
-    let utxo = genesisUtxo Nothing addressesAndDistrs
-    let _tpGenTxpContext = mkGenesisTxpContext utxo
+    let _tpGenesisContext = genesisContextImplicit addressesAndDistrs
     return TestParams {..}
   where
+    -- All stakes are multiples of this constant.
+    baseN :: Integral i => i
+    baseN = 1000000
     groupsNumber = length allRichmenComponents
-    minTotalStake = mkCoin 100000
     genAddressesAndDistrs ::
-           Coin
+           Word64
+        -> Coin
         -> [SecretKey]
         -> (GroupId, Lrc.SomeRichmenComponent)
         -> Gen ([Address], StakeDistribution)
-    genAddressesAndDistrs totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
+    genAddressesAndDistrs r totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
         let secretKeysRange = subList (4 * i, 4 * (i + 1)) allSecretKeys
         let skToAddr = makePubKeyAddress . toPublic
         let addresses = map skToAddr secretKeysRange
         let totalStake = totalStakeGroup `unsafeMulCoin` groupsNumber
         let thresholdCoin =
                 Lrc.rcInitialThreshold proxy `applyCoinPortionUp` totalStake
-        let poorStake = thresholdCoin `unsafeSubCoin` mkCoin 1
-        -- Let's add small stake to two richmen just for fun.
-        let genSmallRichStake =
-                unsafeAddCoin thresholdCoin . mkCoin <$> choose (0, 10)
-        richStake1 <- genSmallRichStake
-        richStake2 <- genSmallRichStake
+        let thresholdN = unsafeGetCoin thresholdCoin
+        let poorStakeN = thresholdN `div` baseN
+        let poorStake = mkCoin baseN `unsafeMulCoin` poorStakeN
+        let k1 = (r - poorStakeN) `div` 3
+        -- This ensures that no rich stake is less than threshold and
+        -- no more than k1, which is the remained stake (w/o poor)
+        -- divided by three.
+        [richStake1,richStake2] <-
+            replicateM 2 $
+            (`unsafeMulCoin` (baseN :: Int)) . mkCoin <$>
+            choose (poorStakeN, k1)
         let richStake3 =
-                foldl'
-                    unsafeSubCoin
-                    totalStakeGroup
-                    [poorStake, richStake1, richStake2]
+                foldl' unsafeSubCoin
+                       totalStakeGroup
+                       [poorStake, richStake1, richStake2]
         let stakes = [poorStake, richStake1, richStake2, richStake3]
         case richStake3 >= thresholdCoin of
             True  -> return (addresses, CustomStakes stakes)
@@ -229,8 +237,8 @@ checkRichmen = do
         -- It's safe because there must be 4 stakeholders by construction.
         poorGuy <- unsafeHead <$> relevantStakeholders i
         poorGuyStake <- lift $ fromMaybe minBound <$> GS.getRealStake poorGuy
-        totalStake <- lift GS.getRealTotalStake
-        unless (isNothing $ richmen ^. at poorGuy) $
+        unless (isNothing $ richmen ^. at poorGuy) $ do
+            totalStake <- lift GS.getRealTotalStake
             stopProperty $ sformat
                 ("Poor guy was considered rich by LRC! His real stake is "
                  %coinF%", real total stake is "%coinF)

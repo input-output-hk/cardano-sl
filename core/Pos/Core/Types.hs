@@ -12,7 +12,6 @@ module Pos.Core.Types
        , AddressHash
        , StakeholderId
        , StakesMap
-       , GenesisStakeholders (..)
 
        , Timestamp (..)
        , TimeDiff (..)
@@ -141,10 +140,6 @@ instance Default AddrPkAttrs where
 -- | A mapping between stakeholders and they stakes.
 type StakesMap = HashMap StakeholderId Coin
 
--- | Newtype over 'StakesMap' to be used in genesis.
-newtype GenesisStakeholders =
-    GenesisStakeholders { unGenesisStakeholders :: HashSet StakeholderId }
-
 ----------------------------------------------------------------------------
 -- ChainDifficulty
 ----------------------------------------------------------------------------
@@ -193,8 +188,7 @@ data SoftwareVersion = SoftwareVersion
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =
-      bprint (stext % ":" % int)
-         (getApplicationName svAppName) svNumber
+        bprint (stext % ":" % int) (getApplicationName svAppName) svNumber
 
 instance Show SoftwareVersion where
     show = toString . pretty

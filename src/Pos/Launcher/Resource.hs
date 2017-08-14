@@ -65,7 +65,7 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics, gtcUtxo,
+import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
@@ -137,7 +137,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            (npGenesisTxpCtx ^. gtcUtxo)
+            npGenesisCtx
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -338,7 +338,7 @@ bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
 
     TopologyRelay peers Nothing -> k $ TopologyRelay peers Nothing
     TopologyCore  peers Nothing -> k $ TopologyCore  peers Nothing
-    TopologyBehindNAT domains   -> k $ TopologyBehindNAT domains
+    TopologyBehindNAT v f doms  -> k $ TopologyBehindNAT v f doms
     TopologyLightWallet peers   -> k $ TopologyLightWallet peers
   where
     k topology = action (nc { ncTopology = topology })

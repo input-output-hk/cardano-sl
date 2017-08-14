@@ -13,17 +13,17 @@ import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map              as M
 import qualified Data.Vector           as V (fromList)
 import           Formatting            (build, int, sformat, shown, (%))
+import           Serokell.Util         (allDistinct)
 import           Serokell.Util.Text    (listJsonIndent)
 import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
                                         it, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, arbitrary, counterexample, property,
-                                        (===))
+                                        (==>))
 import qualified Text.Regex.TDFA       as TDFA
 import qualified Text.Regex.TDFA.Text  as TDFA
 
-import           Pos.Arbitrary.Txp     (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
-                                        SmallGoodTx (..))
+import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
 import           Pos.Core              (addressHash)
 import           Pos.Crypto            (SignTag (SignTx), checkSig, fakeSigner, hash,
                                         toPublic, unsafeHash, withHash)
@@ -43,7 +43,7 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         verifyTxUtxoPure)
 import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
                                         makeScriptAddress, mkCoin, sumCoins)
-import           Pos.Util              (nonrepeating, runGen)
+import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -59,6 +59,7 @@ spec = describe "Txp.Toil.Utxo" $ do
         prop description_verifyTxInUtxo verifyTxInUtxo
         prop description_validateGoodTx validateGoodTx
         prop description_badSigsTx badSigsTx
+        prop description_doubleInputTx doubleInputTx
     describe "applyTxToUtxoPure" $ do
         prop description_applyTxToUtxoGood applyTxToUtxoGood
     scriptTxSpec
@@ -74,7 +75,9 @@ spec = describe "Txp.Toil.Utxo" $ do
     description_validateGoodTx =
         "validates a transaction whose inputs and well-formed transaction outputs"
     description_badSigsTx =
-        "a transaction with inputs improperly signed is never validated"
+        "a transaction with inputs improperly signed is not validated"
+    description_doubleInputTx =
+        "a transaction that spends an input twice is not validated"
     description_applyTxToUtxoGood =
         "correctly removes spent outputs used as inputs in given transaction and\
         \ successfully adds this transaction's outputs to the utxo map"
@@ -89,8 +92,8 @@ findTxInUtxo key txO utxo =
         newUtxo = M.insert key txO utxo
     in (isJust $ utxoGet key newUtxo) && (isNothing $ utxoGet key utxo')
 
-verifyTxInUtxo :: SmallGoodTx -> Property
-verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
+verifyTxInUtxo :: SmallGenerator GoodTx -> Property
+verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
     let txs = fmap (view _1) ls
         witness = V.fromList $ toList $ fmap (view _4) ls
         (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
@@ -101,27 +104,38 @@ verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
         txAux = TxAux newTx witness newDistr
     in qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
 
-badSigsTx :: SmallBadSigsTx -> Property
-badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
+badSigsTx :: SmallGenerator BadSigsTx -> Property
+badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
     let ((tx@UnsafeTx {..}, distr), utxo, extendedInputs, txWits) =
             getTxFromGoodTx ls
         ctx = VTxContext False
-        transactionIsNotVerified =
-            isLeft $ verifyTxUtxoPure ctx utxo $ TxAux tx txWits distr
+        transactionVerRes =
+            verifyTxUtxoPure ctx utxo $ TxAux tx txWits distr
         notAllSignaturesAreValid =
             any (signatureIsNotValid tx distr)
                 (NE.zip (NE.fromList (toList txWits))
                         (map (fmap snd) extendedInputs))
-    in notAllSignaturesAreValid === transactionIsNotVerified
+    in notAllSignaturesAreValid ==> qcIsLeft transactionVerRes
 
-validateGoodTx :: SmallGoodTx -> Property
-validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
+doubleInputTx :: SmallGenerator DoubleInputTx -> Property
+doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
+    let ((tx@UnsafeTx {..}, distr), utxo, _extendedInputs, txWits) =
+            getTxFromGoodTx ls
+        ctx = VTxContext False
+        transactionVerRes =
+            verifyTxUtxoPure ctx utxo $ TxAux tx txWits distr
+        someInputsAreDuplicated =
+            not $ allDistinct (toList _txInputs)
+    in someInputsAreDuplicated ==> qcIsLeft transactionVerRes
+
+validateGoodTx :: SmallGenerator GoodTx -> Property
+validateGoodTx (SmallGenerator (getGoodTx -> ls)) =
     let quadruple@((tx, dist), utxo, _, txWits) = getTxFromGoodTx ls
         ctx = VTxContext False
-        transactionIsVerified =
-            isRight $ verifyTxUtxoPure ctx utxo $ TxAux tx txWits dist
+        transactionVerRes =
+            verifyTxUtxoPure ctx utxo $ TxAux tx txWits dist
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
-    in transactionIsVerified === transactionReallyIsGood
+    in transactionReallyIsGood ==> qcIsRight transactionVerRes
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -476,6 +490,11 @@ errorsShouldMatch (Left e) _ =
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------
+
+qcIsLeft :: Show b => Either a b -> Property
+qcIsLeft (Left _) = property True
+qcIsLeft (Right x) =
+    counterexample ("expected Left, got Right (" ++ show x ++ ")") False
 
 qcIsRight :: Show a => Either a b -> Property
 qcIsRight (Right _) = property True

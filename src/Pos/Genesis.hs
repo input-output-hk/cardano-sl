@@ -6,39 +6,53 @@
 
 module Pos.Genesis
        (
+       -- * Reexports
          module Pos.Core.Genesis
        , module Pos.Ssc.GodTossing.Genesis
+       , GenesisUtxo(..)
 
-       -- * Static state
+       -- * Context
+       , GenesisContext (..)
+       , gtcUtxo
+       , gtcWStakeholders
+
+       -- * Static state/functions/common
        , stakeDistribution
        , genesisUtxo
-       , genesisUtxoProduction
-       , genesisDelegation
        , genesisSeed
        , genesisLeaders
+       , generateWStakeholders
+       , genesisContextImplicit
+
+       -- * Prod mode genesis
+       , genesisUtxoProduction
+       , genesisContextProduction
 
        -- * Dev mode genesis
        , accountGenesisIndex
        , wAddressGenesisIndex
        , devStakesDistr
        , devAddrDistr
+
        ) where
 
 import           Universum
 
+import           Control.Lens               (makeLenses)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
--- import qualified Data.Ratio                 as Ratio
-import           Serokell.Util              (enumerate)
+import qualified Data.Ratio                 as Ratio
+import           Ether.Internal             (HasLens (..))
+import           Formatting                 (sformat)
+import           Serokell.Util              (enumerate, listJson, pairF)
 
 import qualified Pos.Constants              as Const
-import           Pos.Core                   (Address (..), Coin, HasCoreConstants,
-                                             SlotLeaders, StakeholderId,
+import           Pos.Core                   (Address (..), Coin, SlotLeaders, HasCoreConstants,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
-                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                             unsafeMulCoin)
+                                             makePubKeyAddress, mkCoin, safeExpStakes,
+                                             unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
@@ -51,8 +65,29 @@ import           Pos.Core.Genesis
 import           Pos.Ssc.GodTossing.Genesis
 
 ----------------------------------------------------------------------------
--- Static state
+-- Context
 ----------------------------------------------------------------------------
+
+-- | Genesis context related to transaction processing.
+data GenesisContext = GenesisContext
+    { _gtcUtxo          :: !GenesisUtxo
+      -- ^ Genesis utxo.
+    , _gtcWStakeholders :: !GenesisWStakeholders
+      -- ^ Weighted genesis stakeholders.
+    } deriving (Show)
+
+makeLenses ''GenesisContext
+
+instance HasLens GenesisUtxo GenesisContext GenesisUtxo where
+    lensOf = gtcUtxo
+
+instance HasLens GenesisWStakeholders GenesisContext GenesisWStakeholders where
+    lensOf = gtcWStakeholders
+
+----------------------------------------------------------------------------
+-- Static state & funcitons
+----------------------------------------------------------------------------
+
 
 bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = map mkCoin
@@ -97,8 +132,9 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
   where
     normalize x =
         x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
-stakeDistribution (ExponentialStakes n) =
-    [mkCoin (2 ^ i) | i <- [n - 1, n - 2 .. 0]]
+stakeDistribution (ExponentialStakes n mc) =
+    reverse $ take (fromIntegral n) $
+    iterate (`unsafeMulCoin` (2::Integer)) mc
 stakeDistribution ts@RichPoorStakes {..} =
     checkMpcThd (getTotalStake ts) sdRichStake basicDist
   where
@@ -112,72 +148,88 @@ stakeDistribution ts@RichPoorStakes {..} =
                 genericReplicate sdPoor sdPoorStake
 stakeDistribution (CustomStakes coins) = coins
 
--- | Generates genesis 'Utxo' given optional boot stakeholders (with
--- weights) and address distributions.  If genesis stakeholders are
--- not supplied, they are calculated from address distributions by
--- making each 'PubKeyAddress' genesis stakeholder with weight equal
--- to balance. All the stake is distributed among genesis stakeholders
--- (using 'genesisSplitBoot').
---
--- TODO [CSL-1351] This documentation will become correct later.
-genesisUtxo ::
-       Maybe (HashMap StakeholderId Word16) -> [AddrDistribution] -> GenesisUtxo
-genesisUtxo bootStakeholdersMaybe ad
-    -- TODO [CSL-1351] Uncomment ↓.
-    --- | null bootStakeholders =
-    ---     error "genesisUtxo: no stakeholders for the bootstrap era"
-    -- TODO [CSL-1351] Delete (it's here to please hlint) ↓.
-    | ((*) @Int) 2 3 == 7 = error "hlint — makaka"
+-- Converts list of addr distrs to pre-map (addr,coin)
+concatAddrDistrs :: [AddrDistribution] -> [(Address, Coin)]
+concatAddrDistrs addrDistrs =
+    concatMap (uncurry zip . second stakeDistribution) addrDistrs
+
+-- | Generates genesis 'Utxo' given weighted boot stakeholders and
+-- address distributions. All the stake is distributed among genesis
+-- stakeholders (using 'genesisSplitBoot').
+genesisUtxo :: GenesisWStakeholders -> [AddrDistribution] -> GenesisUtxo
+genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
+    | null bootStakeholders =
+        error "genesisUtxo: no stakeholders for the bootstrap era"
     | otherwise = GenesisUtxo . M.fromList $ map utxoEntry balances
   where
-    -- This type is drunk.
-    somethingComplicated :: [([Address], [Coin])]
-    somethingComplicated = map (second stakeDistribution) ad
     balances :: [(Address, Coin)]
-    balances = concatMap (uncurry zip) somethingComplicated
+    balances = concatAddrDistrs ad
     utxoEntry (addr, coin) =
         ( TxIn (unsafeHash addr) 0
--- Note: it's quite bad because HD wallets become stakeholders and each
--- transaction will give them quite a lot of stake.
--- But CSL-1351 is planned for this sprint, so I suppose it's fine (it's
--- unlikely to cause problems anyway).
--- TODO [CSL-1351] Delete ↓.
         , TxOutAux (TxOut addr coin) (outDistr coin))
-    -- Empty distribution for PubKey address means that the owner of
-    -- this address will have the stake.
-    outDistr coin = maybe [] (flip genesisSplitBoot coin) bootStakeholdersMaybe
--- TODO [CSL-1351] Uncomment ↓.
---         , TxOutAux (TxOut addr coin) (genesisSplitBoot bootStakeholders coin))
---     bootStakeholdersCalculated = balancesToStakeholders balances
---     bootStakeholders =
---         fromMaybe bootStakeholdersCalculated bootStakeholdersMaybe
+    genesisSplitBoot' x c =
+        either (\e -> error $ "genesisUtxo can't split: " <> show e <>
+                              ", genesis utxo " <> show ad)
+               identity
+               (genesisSplitBoot x c)
+    outDistr = genesisSplitBoot' gws
 
--- balancesToStakeholders :: [(Address, Coin)] -> HashMap StakeholderId Word16
--- balancesToStakeholders balances = foldr step mempty balances
---   where
---     totalBalance = sumCoins $ map snd balances
---     targetTotalWeight = maxBound @Word16 -- for the maximal precision
---     calcWeight :: Coin -> Word16
---     calcWeight balance =
---         floor $
---         coinToInteger balance Ratio.% totalBalance *
---         toRational targetTotalWeight
---     step (PubKeyAddress x _, balance) = HM.insertWith (+) x (calcWeight balance)
---     step _                            = identity
+-- | Same as 'genesisUtxo' but generates 'GenesisWStakeholders' set
+-- using 'generateWStakeholders' inside and wraps it all in
+-- 'GenesisContext'.
+genesisContextImplicit :: [AddrDistribution] -> GenesisContext
+genesisContextImplicit addrDistr =
+    GenesisContext utxo genStakeholders
+  where
+    genStakeholders = generateWStakeholders addrDistr
+    utxo = genesisUtxo genStakeholders addrDistr
 
--- | 'GenesisUtxo' used in production.
-genesisUtxoProduction :: GenesisUtxo
-genesisUtxoProduction =
-    genesisUtxo (Just genesisProdBootStakeholders) genesisProdAddrDistribution
-
--- This is probably 100% useless.
-genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
-genesisDelegation = mempty
+-- | Generate weighted stakeholders using passed address distribution.
+generateWStakeholders :: [AddrDistribution] -> GenesisWStakeholders
+generateWStakeholders addrDistrs =
+    if null withCoins
+    then GenesisWStakeholders mempty
+    else GenesisWStakeholders $ foldr step mempty withCoins
+  where
+    withCoins = concatAddrDistrs addrDistrs
+    coins = map snd withCoins
+    intCoins = map coinToInteger coins
+    commonGcd = foldr1 gcd intCoins
+    targetTotalWeight = maxBound @Word16 -- for the maximal precision
+    safeConvert :: Integer -> Word16
+    safeConvert i
+        | i <= 0 =
+          error $ "generateWStakeholders can't convert: non-positive coin " <> show i
+        | i > fromIntegral targetTotalWeight =
+          error $ "generateWStakeholders can't convert: too big " <> show i <>
+                  ", withCoins: " <> sformat listJson (map (sformat pairF) withCoins)
+        | otherwise = fromIntegral i
+    calcWeight :: Coin -> Word16
+    calcWeight balance =
+        safeConvert $ floor $
+        (coinToInteger balance) Ratio.%
+        (commonGcd)
+    step (PubKeyAddress x _, balance) = HM.insertWith (+) x (calcWeight balance)
+    step _                            = identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
 genesisLeaders :: HasCoreConstants => GenesisUtxo -> SlotLeaders
 genesisLeaders (GenesisUtxo utxo) =
     followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
+
+----------------------------------------------------------------------------
+-- Production mode genesis
+----------------------------------------------------------------------------
+
+-- | 'GenesisUtxo' used in production.
+genesisUtxoProduction :: GenesisUtxo
+genesisUtxoProduction =
+    genesisUtxo genesisProdBootStakeholders genesisProdAddrDistribution
+
+-- | 'GenesisContext' that uses all the data for prod.
+genesisContextProduction :: GenesisContext
+genesisContextProduction =
+    GenesisContext genesisUtxoProduction genesisProdBootStakeholders
 
 ----------------------------------------------------------------------------
 -- Development mode genesis
@@ -221,8 +273,7 @@ devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) Nothing =
         if poorStake <= 0 || richStake <= 0
         then error "Impossible to make RichPoorStakes with given parameters."
         else identity
-devStakesDistr Nothing Nothing Nothing (Just n) =
-    ExponentialStakes (fromIntegral n)
+devStakesDistr Nothing Nothing Nothing (Just n) = safeExpStakes n
 devStakesDistr _ _ _ _ =
     error "Conflicting distribution options were enabled. \
           \Choose one at most or nothing."
@@ -244,12 +295,13 @@ genesisDevHdwAccountKeyDatas =
 -- | Address distribution for dev mode. It's supposed that you pass
 -- the distribution from 'devStakesDistr' here. This function will add
 -- dev genesis addresses and hd addrs/distr.
-devAddrDistr :: StakeDistribution -> [AddrDistribution]
-devAddrDistr distr =
-    [ (mainAddrs, distr)        -- Addresses from passed stake
-    , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
-    ]
+devAddrDistr :: StakeDistribution -> ([AddrDistribution], GenesisWStakeholders)
+devAddrDistr distr = (aDistr, gws)
   where
+    gws = generateWStakeholders [(mainAddrs, distr)]
+    aDistr = [ (mainAddrs, distr)        -- Addresses from passed stake
+             , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
+             ]
     distrSize = length $ stakeDistribution distr
     mainAddrs =
         take distrSize $ genesisDevAddresses <> tailAddresses

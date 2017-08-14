@@ -36,7 +36,6 @@ import           Pos.Constants               (genesisHeavyDelThd)
 import           Pos.Context                 (GenesisUtxo, genesisStakesM)
 import           Pos.Core                    (Coin, EpochIndex, StakeholderId)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
-import           Pos.Genesis                 (genesisDelegation)
 import           Pos.Lrc.Class               (RichmenComponent (..),
                                               SomeRichmenComponent (..),
                                               someRichmenComponent)
@@ -72,7 +71,7 @@ computeInitial initialDistr proxy =
         richmenType
   where
     richmenType
-        | rcConsiderDelegated proxy = RTDelegation genesisDelegation
+        | rcConsiderDelegated proxy = RTDelegation mempty
         | otherwise = RTUsual
 
 ----------------------------------------------------------------------------

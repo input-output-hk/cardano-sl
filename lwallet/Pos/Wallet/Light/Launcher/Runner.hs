@@ -17,12 +17,12 @@ import           System.Wlog                     (WithLogger, logDebug, logInfo)
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
                                                   OutSpecs, WorkerSpec)
 import           Pos.Core                        (HasCoreConstants)
+import           Pos.Genesis                     (gtcUtxo, gtcWStakeholders)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..), OQ,
                                                   initQueue, runServer)
 import           Pos.Network.Types               (NetworkConfig, Topology (..),
                                                   defaultNetworkConfig)
 import           Pos.Reporting.MemState          (emptyReportingContext)
-import           Pos.Txp                         (gtcStakeholders, mkGenesisTxpContext)
 import           Pos.Util.JsonLog                (JsonLogConfig (..))
 import           Pos.Util.Util                   ()
 import           Pos.Wallet.KeyStorage           (keyDataFromFile)
@@ -97,12 +97,13 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
                 peers
                 JsonLogDisabled
                 lpRunnerTag
-                (mkGenesisTxpContext wpGenesisUtxo ^. gtcStakeholders)
+                (wpGenesisContext ^. gtcWStakeholders)
             ) .
             runServer_ transport listeners outs oq . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams
+    wpGenesisUtxo = wpGenesisContext ^. gtcUtxo
     openDB =
         maybe
             (openMemState wpGenesisUtxo)

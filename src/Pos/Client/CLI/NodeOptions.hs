@@ -5,9 +5,9 @@
 -- | Command line options of pos-node.
 
 module Pos.Client.CLI.NodeOptions
-       ( SimpleNodeArgs (..)
+       ( CommonNodeArgs (..)
        , getSimpleNodeOptions
-       , simpleNodeArgsParser
+       , commonNodeArgsParser
        , usageExample
        ) where
 
@@ -37,7 +37,7 @@ import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNu
 import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
                                                addressToNodeId)
 
-data SimpleNodeArgs = SimpleNodeArgs
+data CommonNodeArgs = CommonNodeArgs
     { dbPath                    :: !FilePath
     , rebuildDB                 :: !Bool
     -- these two arguments are only used in development mode
@@ -69,8 +69,8 @@ data SimpleNodeArgs = SimpleNodeArgs
     , statsdParams              :: !(Maybe StatsdParams)
     } deriving Show
 
-simpleNodeArgsParser :: Parser SimpleNodeArgs
-simpleNodeArgsParser = do
+commonNodeArgsParser :: Parser CommonNodeArgs
+commonNodeArgsParser = do
     dbPath <- strOption $
         long    "db-path" <>
         metavar "FILEPATH" <>
@@ -152,7 +152,7 @@ simpleNodeArgsParser = do
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
 
-    pure SimpleNodeArgs{..}
+    pure CommonNodeArgs{..}
   where
     corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
     relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
@@ -177,10 +177,10 @@ peerOption longName mk =
         metavar "HOST:PORT" <>
         help "Address of a peer"
 
-getSimpleNodeOptions :: IO SimpleNodeArgs
+getSimpleNodeOptions :: IO CommonNodeArgs
 getSimpleNodeOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> simpleNodeArgsParser) $
+    programInfo = info (helper <*> versionOption <*> commonNodeArgsParser) $
         fullDesc <> progDesc "Cardano SL main server node."
                  <> header "Cardano SL node."
                  <> footerDoc usageExample

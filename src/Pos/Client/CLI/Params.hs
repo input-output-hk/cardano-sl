@@ -28,31 +28,31 @@ import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.UserSecret   (peekUserSecret)
 
-import           Pos.Client.CLI.NodeOptions           (SimpleNodeArgs (..))
+import           Pos.Client.CLI.NodeOptions           (CommonNodeArgs (..))
 import           Pos.Client.CLI.Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
 
 
-loggingParams :: LoggerName -> SimpleNodeArgs -> LoggingParams
-loggingParams tag SimpleNodeArgs{..} =
+loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
+loggingParams tag CommonNodeArgs{..} =
     LoggingParams
     { lpHandlerPrefix = CLI.logPrefix commonArgs
     , lpConfigPath    = CLI.logConfig commonArgs
     , lpRunnerTag     = tag
     }
 
-getBaseParams :: LoggerName -> SimpleNodeArgs -> BaseParams
-getBaseParams loggingTag args@SimpleNodeArgs {..} =
+getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams
+getBaseParams loggingTag args@CommonNodeArgs {..} =
     BaseParams { bpLoggingParams = loggingParams loggingTag args }
 
-gtSscParams :: SimpleNodeArgs -> VssKeyPair -> GtParams
-gtSscParams SimpleNodeArgs {..} vssSK =
+gtSscParams :: CommonNodeArgs -> VssKeyPair -> GtParams
+gtSscParams CommonNodeArgs {..} vssSK =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 
-getKeyfilePath :: SimpleNodeArgs -> FilePath
-getKeyfilePath SimpleNodeArgs {..}
+getKeyfilePath :: CommonNodeArgs -> FilePath
+getKeyfilePath CommonNodeArgs {..}
     | isDevelopment = case devSpendingGenesisI of
           Nothing -> keyfilePath
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
@@ -60,10 +60,10 @@ getKeyfilePath SimpleNodeArgs {..}
 
 getSimpleNodeParams ::
        (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
-    => SimpleNodeArgs
+    => CommonNodeArgs
     -> Timestamp
     -> m NodeParams
-getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
+getSimpleNodeParams args@CommonNodeArgs {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
             updateUserSecretVSS args =<<
@@ -107,7 +107,7 @@ getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
         , ..
         }
 
-getTransportParams :: SimpleNodeArgs -> NetworkConfig kademlia -> TransportParams
+getTransportParams :: CommonNodeArgs -> NetworkConfig kademlia -> TransportParams
 getTransportParams args networkConfig = TransportParams { tpTcpAddr = tcpAddr }
   where
     tcpAddr = case ncTopology networkConfig of

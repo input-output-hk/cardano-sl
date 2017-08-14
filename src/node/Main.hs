@@ -33,7 +33,7 @@ import           Pos.Update.Context  (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode)
 
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..), getSimpleNodeOptions)
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), getSimpleNodeOptions)
 import           Pos.Client.CLI.Params (getSimpleNodeParams, gtSscParams)
 import           Pos.Client.CLI.Util (printFlags)
 
@@ -56,8 +56,8 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     void $ takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore
     triggerShutdown
 
-action :: SimpleNodeArgs -> Production ()
-action args@SimpleNodeArgs {..} = do
+action :: CommonNodeArgs -> Production ()
+action args@CommonNodeArgs {..} = do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime

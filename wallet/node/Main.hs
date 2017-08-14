@@ -33,7 +33,7 @@ import           Pos.Web             (serveWebGT)
 import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                       runWRealMode, walletServeWebFull, walletServerOuts)
 
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..))
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Params (getSimpleNodeParams, gtSscParams)
 import           Pos.Client.CLI.Util (printFlags)
 
@@ -71,7 +71,7 @@ pluginsGT WalletArgs {..}
     | otherwise = []
 
 action :: WalletNodeArgs -> Production ()
-action (WalletNodeArgs (snArgs@SimpleNodeArgs {..}) (wArgs@WalletArgs {..})) = do
+action (WalletNodeArgs (snArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime

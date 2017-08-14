@@ -20,10 +20,10 @@ import qualified Options.Applicative          as Opt
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.CLI                      as CLI
-import           Pos.Client.CLI.NodeOptions   (SimpleNodeArgs (..), simpleNodeArgsParser, usageExample)
+import           Pos.Client.CLI.NodeOptions   (CommonNodeArgs (..), commonNodeArgsParser, usageExample)
 import           Pos.Web.Types                (TlsParams (..))
 
-data WalletNodeArgs = WalletNodeArgs SimpleNodeArgs WalletArgs
+data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
 
 data WalletArgs = WalletArgs
     { enableWeb                 :: !Bool
@@ -38,7 +38,7 @@ data WalletArgs = WalletArgs
 
 walletArgsParser :: Parser WalletNodeArgs
 walletArgsParser = do
-    simpleNodeArgs <- simpleNodeArgsParser
+    simpleNodeArgs <- commonNodeArgsParser
     enableWeb <- switch $
         long "web" <>
         help "Activate web API (it’s not linked with a wallet web API)."

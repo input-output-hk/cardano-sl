@@ -6,7 +6,7 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..),
-                                             deriveSimpleBi, encodeListLen)
+                                             deriveSimpleBi, encodeListLen, enforceSize)
 import           Pos.Binary.Core.Coin       ()
 import           Pos.Binary.Core.Fee        ()
 import           Pos.Binary.Core.Script     ()
@@ -57,7 +57,9 @@ instance HasCoreConstants => Bi T.SlotId where
         encodeListLen 2 <>
         encode siEpoch  <>
         encode siSlot
-    decode = T.SlotId <$> decode <*> decode
+    decode = do
+        enforceSize "SlotId" 2
+        T.SlotId <$> decode <*> decode
 
 instance HasCoreConstants => Bi T.EpochOrSlot where
     encode (T.EpochOrSlot e) = encode e

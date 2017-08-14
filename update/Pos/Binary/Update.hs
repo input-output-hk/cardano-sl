@@ -161,13 +161,15 @@ instance HasCoreConstants => Bi U.UndecidedProposalState where
         encode upsPositiveStake <>
         encode upsNegativeStake <>
         encode upsExtra
-    decode = U.UndecidedProposalState <$>
-        decode <*>
-        decode <*>
-        decode <*>
-        decode <*>
-        decode <*>
-        decode
+    decode = do
+        enforceSize "UndecidedProposalState" 6
+        U.UndecidedProposalState <$>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode
 
 instance HasCoreConstants => Bi U.DecidedProposalState where
     encode U.DecidedProposalState{..} = encodeListLen 4 <>
@@ -175,11 +177,13 @@ instance HasCoreConstants => Bi U.DecidedProposalState where
         encode dpsUndecided <>
         encode dpsDifficulty <>
         encode dpsExtra
-    decode = U.DecidedProposalState <$>
-        decode <*>
-        decode <*>
-        decode <*>
-        decode
+    decode = do
+        enforceSize "DecidedProposalState" 4
+        U.DecidedProposalState <$>
+            decode <*>
+            decode <*>
+            decode <*>
+            decode
 
 instance HasCoreConstants => Bi U.ProposalState where
     encode U.PSUndecided{..} = encodeListLen 2 <>

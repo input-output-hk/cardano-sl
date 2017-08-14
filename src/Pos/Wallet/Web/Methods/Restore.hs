@@ -23,7 +23,7 @@ import           Pos.Aeson.WalletBackup       ()
 import           Pos.Block.Logic.Util         (withBlkSemaphore_)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
-                                               emptyPassphrase)
+                                               emptyPassphrase, firstHardened)
 import           Pos.Genesis                  (genesisDevHdwSecretKeys)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
@@ -49,7 +49,7 @@ import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 -- | Which index to use to create initial account and address on new wallet
 -- creation
 initialAccAddrIdxs :: Word32
-initialAccAddrIdxs = 0
+initialAccAddrIdxs = firstHardened
 
 newWalletFromBackupPhrase
     :: MonadWalletWebMode m

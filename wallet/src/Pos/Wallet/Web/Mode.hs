@@ -17,7 +17,7 @@ import           Mockable                      (Production)
 import           System.Wlog                   (HasLoggerName (..))
 
 import           Pos.Block.Core                (Block, BlockHeader)
-import           Pos.Block.Slog.Types          (HasSlogContext (..))
+import           Pos.Block.Slog                (HasSlogContext (..))
 import           Pos.Block.Types               (Undo)
 import           Pos.Context                   (HasNodeContext (..))
 import           Pos.Core                      (HasPrimaryKey (..), IsHeader)

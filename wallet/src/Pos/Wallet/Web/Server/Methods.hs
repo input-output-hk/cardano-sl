@@ -59,7 +59,8 @@ import           System.Wlog                      (logDebug, logError, logInfo,
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
-import           Pos.Block.Logic.Util             (withBlkSemaphore_)
+
+import           Pos.Block.Logic                  (withBlkSemaphore_)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))

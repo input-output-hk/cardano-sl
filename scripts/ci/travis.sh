@@ -35,7 +35,7 @@ if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
 fi
 
-targets="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer-static"
+targets="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet cardano-sl-explorer-static"
 
 # TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times
 # become smaller and allow coverage report to be built.
@@ -65,7 +65,7 @@ done
   #./update-haddock.sh
 #fi
 
-./cardano-sl-tools.root/bin/cardano-wallet-hs2purs
+./cardano-sl-wallet.root/bin/cardano-wallet-hs2purs
 
 # Generate daedalus-bridge
 pushd daedalus
@@ -79,7 +79,7 @@ EXPLORER_EXECUTABLE=$(pwd)/cardano-sl-explorer-static.root/bin/cardano-explorer-
 
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
 export BUILD_UID="$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}"
-export XZ_OPT=-1 
+export XZ_OPT=-1
 
 echo "Packing up daedalus-bridge ..."
 tar cJf s3/daedalus-bridge-$BUILD_UID.tar.xz daedalus/

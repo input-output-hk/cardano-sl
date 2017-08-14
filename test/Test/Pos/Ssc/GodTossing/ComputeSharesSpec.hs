@@ -83,10 +83,10 @@ spec = describe "computeSharesDistr" $ do
     distrErrorType1Desc = "Distribution tells we can't reveal a secret, but coins tell we can"
     distrErrorType2Desc = "Distribution tells we can reveal a secret, but coins tell we can't"
     distrHalfSum1Desc =
-        "Distribution equals @sumDistr / 2@ , sum of coins is greater > @sumCoins / 2@.\
+        "Distribution equals @sumDistr / 2@ , sum of coins is greater than @sumCoins / 2@.\
         \ Inaccuracy is less than @sharesDistrInaccuracy@"
     distrHalfSum2Desc =
-        "Distribution equals @sumDistr / 2@ , sum of coins is greater > @sumCoins / 2@.\
+        "Distribution equals @sumDistr / 2@ , sum of coins is greater than @sumCoins / 2@.\
         \ Inaccuracy is greater than @sharesDistrInaccuracy@"
 
 data TestMpcThd
@@ -258,7 +258,13 @@ distrErrorType2 :: Bool
 distrErrorType2 = not $ isDistrInaccuracyAcceptable [(10, 2), (30, 4), (20, 2), (30, 3)]
 
 distrHalfSum1 :: Bool
-distrHalfSum1 = isDistrInaccuracyAcceptable [(20, 2), (41, 3), (10, 1), (20, 2), (20, 2)]
+distrHalfSum1 =
+    -- We can achieve the following distributions (61/111, 5/10)~(0.5495, 0.5)
+    -- we should take             vvvvv                      vvvvv
+    isDistrInaccuracyAcceptable [(20, 2), (10, 1), (20, 2), (41, 3), (20, 2)]
 
 distrHalfSum2 :: Bool
-distrHalfSum2 = not $ isDistrInaccuracyAcceptable [(20, 2), (42, 3), (10, 1), (20, 2), (20, 2)]
+distrHalfSum2 =
+    -- We can achieve the following distributions (62/112, 5/10)~(0.55357, 0.5)
+    -- we should take                   vvvvv             vvvvv
+    not $ isDistrInaccuracyAcceptable [(20, 2), (10, 1), (42, 3), (20, 2), (20, 2)]

@@ -4,9 +4,11 @@
 
 -- | Command line options of pos-node.
 
-module NodeOptions
-       ( Args (..)
-       , getNodeOptions
+module Pos.Client.CLI.NodeOptions
+       ( SimpleNodeArgs (..)
+       , getSimpleNodeOptions
+       , simpleNodeArgsParser
+       , usageExample
        ) where
 
 import           Universum                    hiding (show)
@@ -34,9 +36,8 @@ import           Pos.Statistics               (EkgParams, StatsdParams, ekgParam
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
                                                addressToNodeId)
-import           Pos.Web                      (TlsParams)
 
-data Args = Args
+data SimpleNodeArgs = SimpleNodeArgs
     { dbPath                    :: !FilePath
     , rebuildDB                 :: !Bool
     -- these two arguments are only used in development mode
@@ -59,18 +60,6 @@ data Args = Args
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
     , kademliaDumpPath          :: !FilePath
-#ifdef WITH_WEB
-    , enableWeb                 :: !Bool
-    , webPort                   :: !Word16
-    , walletTLSParams           :: !TlsParams
-#ifdef WITH_WALLET
-    , enableWallet              :: !Bool
-    , walletPort                :: !Word16
-    , walletDbPath              :: !FilePath
-    , walletRebuildDb           :: !Bool
-    , walletDebug               :: !Bool
-#endif
-#endif
     , commonArgs                :: !CLI.CommonArgs
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
@@ -80,8 +69,8 @@ data Args = Args
     , statsdParams              :: !(Maybe StatsdParams)
     } deriving Show
 
-argsParser :: Parser Args
-argsParser = do
+simpleNodeArgsParser :: Parser SimpleNodeArgs
+simpleNodeArgsParser = do
     dbPath <- strOption $
         long    "db-path" <>
         metavar "FILEPATH" <>
@@ -142,33 +131,6 @@ argsParser = do
         value   "kademlia.dump" <>
         help    "Path to Kademlia dump file. If file doesn't exist, it will be created." <>
         showDefault
-#ifdef WITH_WEB
-    enableWeb <- switch $
-        long "web" <>
-        help "Activate web API (it’s not linked with a wallet web API)."
-    webPort <-
-        CLI.webPortOption 8080 "Port for web API."
-    walletTLSParams <- CLI.tlsParamsOption
-#ifdef WITH_WALLET
-    enableWallet <- switch $
-        long "wallet" <>
-        help "Activate Wallet web API."
-    walletPort <-
-        CLI.walletPortOption 8090 "Port for Daedalus Wallet API."
-    walletDbPath <- strOption $
-        long  "wallet-db-path" <>
-        help  "Path to the wallet's database." <>
-        value "wallet-db"
-    walletRebuildDb <- switch $
-        long "wallet-rebuild-db" <>
-        help "If wallet's database already exists, discard its contents \
-             \and create a new one from scratch."
-    walletDebug <- switch $
-        long "wallet-debug" <>
-        help "Run wallet with debug params (e.g. include \
-             \all the genesis keys in the set of secret keys)."
-#endif
-#endif
     commonArgs <- CLI.commonArgsParser
     updateLatestPath <- strOption $
         long    "update-latest-path" <>
@@ -190,7 +152,7 @@ argsParser = do
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
 
-    pure Args{..}
+    pure SimpleNodeArgs{..}
   where
     corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
     relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
@@ -215,10 +177,10 @@ peerOption longName mk =
         metavar "HOST:PORT" <>
         help "Address of a peer"
 
-getNodeOptions :: IO Args
-getNodeOptions = execParser programInfo
+getSimpleNodeOptions :: IO SimpleNodeArgs
+getSimpleNodeOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> argsParser) $
+    programInfo = info (helper <*> versionOption <*> simpleNodeArgsParser) $
         fullDesc <> progDesc "Cardano SL main server node."
                  <> header "Cardano SL node."
                  <> footerDoc usageExample

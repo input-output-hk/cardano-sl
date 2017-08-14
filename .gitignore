@@ -52,6 +52,9 @@ tags
 .ideaHaskellLib
 *.iml
 
+# Atom
+.haskell-ghc-mod.json
+
 # Misc
 .DS_Store
 *.swp

@@ -6,8 +6,11 @@ module Pos.Network.Windows.DnsDomains (
 
 import           Universum
 
-import           Foreign.C            (CString, peekCString)
+import           Foreign.C             (CString, peekCString)
+import           Foreign.Marshal.Utils (maybePeek)
 
+
+-- | Returns @nullPtr@ on failure.
 foreign import ccall "getWindowsDefDnsServer" getWindowsDefDnsServer :: IO CString
 
 -- | Gets one of the default DNS servers the current machine is using. To be used
@@ -15,8 +18,8 @@ foreign import ccall "getWindowsDefDnsServer" getWindowsDefDnsServer :: IO CStri
 -- or when the operation is not supported by the operating system), returns @""@.
 --
 -- >>> getWindowsDefaultDnsServer
--- "8.8.8.8"
+-- Just "8.8.8.8"
 -- >>> getWindowsDefaultDnsServer
--- ""
-getWindowsDefaultDnsServer :: IO String
-getWindowsDefaultDnsServer = getWindowsDefDnsServer >>= peekCString
+-- Nothing
+getWindowsDefaultDnsServer :: IO (Maybe String)
+getWindowsDefaultDnsServer = getWindowsDefDnsServer >>= maybePeek peekCString

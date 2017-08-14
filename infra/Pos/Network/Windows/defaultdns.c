@@ -20,7 +20,7 @@ char *getWindowsDefDnsServer(void) {
     pFixedInfo = (FIXED_INFO *) MALLOC(sizeof (FIXED_INFO));
         if (pFixedInfo == NULL) {
             printf(allocationErr);
-            return dnsIPAddress;
+            return NULL;
         }
         ulOutBufLen = sizeof (FIXED_INFO);
 
@@ -31,32 +31,16 @@ char *getWindowsDefDnsServer(void) {
         pFixedInfo = (FIXED_INFO *) MALLOC(ulOutBufLen);
         if (pFixedInfo == NULL) {
             printf(allocationErr);
-            return dnsIPAddress;
+            return NULL;
         }
     }
 
-    switch (dwRetVal = GetNetworkParams(pFixedInfo, &ulOutBufLen)) {
-    case ERROR_BUFFER_OVERFLOW:
-        FREE(pFixedInfo);
-        pFixedInfo = (FIXED_INFO *) MALLOC(ulOutBufLen);
-        if (pFixedInfo == NULL) {
-            printf(allocationErr);
-        }
-    case ERROR_INVALID_PARAMETER:
-        printf("An invalid parameter was passed to the function\n");
-        break;
-    case ERROR_NO_DATA:
-        printf("No network parameter information exists for the local computer\n");
-        break;
-    case ERROR_NOT_SUPPORTED:
-        printf("The 'GetNetworkParams function' is not supported by the current "
-               "operating system\n");
-        break;
-    case NO_ERROR:
+    if (dwRetVal = GetNetworkParams(pFixedInfo, &ulOutBufLen) == NO_ERROR) {
         strcpy(dnsIPAddress, pFixedInfo->DnsServerList.IpAddress.String);
-        break;
-    default:
-        printf("An error occurred, no IP address returned\n");
+    }
+    else {
+        printf("GetNetworkParams failed with error: %d\n", dwRetVal);
+        return NULL;
     }
 
     if (pFixedInfo) FREE(pFixedInfo);
@@ -66,8 +50,8 @@ char *getWindowsDefDnsServer(void) {
 
 /*
 
-// Test with 'gcc -o dnsServer -Wall -Werror -pedantic defaultdns.c' on a Windows
-// machine.
+// Test with 'gcc -o dnsServer -Wall -Werror -pedantic -liphlpapi defaultdns.c' on a
+// Windows machine.
 
 int main(){
     printf(getWindowsDefDnsServer());

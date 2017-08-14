@@ -109,9 +109,9 @@ we would like to have; the queue will then enqueue the message to _one_ node
 in this set; we call this an "enqueue-one instruction".
 
 As for enqueue-all instructions, an enqueue-one instruction is considered to
-have failed when we could not _any_ node to enqueue the message to (that is,
-any node in the specified set with no recent failures). In this case the message
-is lost.
+have failed when we could not find _any_ node to enqueue the message to (that
+is, any node in the specified set with no recent failures). In this case the
+message is lost.
 
 ### Failure to choose an alternative (e.g., `queue.node0.FailedChooseAlt`)
 

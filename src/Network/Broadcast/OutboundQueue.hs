@@ -97,13 +97,15 @@ import Data.Text (Text)
 import Data.Time
 import Data.Typeable (typeOf)
 import Formatting (Format, sformat, (%), shown, string)
+import System.Metrics.Counter (Counter)
 import System.Wlog.CanLog (WithLogger, logDebug)
 import System.Wlog.Severity (Severity(..))
-import qualified Data.Map.Strict    as Map
-import qualified Data.Set           as Set
-import qualified Data.Text          as T
-import qualified System.Metrics     as Monitoring
-import qualified System.Wlog.CanLog as Log
+import qualified Data.Map.Strict        as Map
+import qualified Data.Set               as Set
+import qualified Data.Text              as T
+import qualified System.Metrics         as Monitoring
+import qualified System.Metrics.Counter as Counter
+import qualified System.Wlog.CanLog     as Log
 
 import Network.Broadcast.OutboundQueue.Types
 import Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
@@ -618,33 +620,33 @@ new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
 -- | Queue health metrics
 data QHealth = QHealth {
       -- | Total number of failed "enqueue all" instructions
-      qFailedEnqueueAll :: MVar Int
+      qFailedEnqueueAll :: Counter
 
       -- | Total number of failed "enqueue one" instructions
-    , qFailedEnqueueOne :: MVar Int
+    , qFailedEnqueueOne :: Counter
 
       -- | Total number of times a message failed to send to _any_ of the
       -- peers it got enqueued to
-    , qFailedAllSends :: MVar Int
+    , qFailedAllSends :: Counter
 
       -- | Total number of times cherish looped
-    , qFailedCherishLoop :: MVar Int
+    , qFailedCherishLoop :: Counter
 
       -- | Total number we could not choose a node from a list of alternatives
-    , qFailedChooseAlt :: MVar Int
+    , qFailedChooseAlt :: Counter
 
       -- | Total number of failed sends
-    , qFailedSend :: MVar Int
+    , qFailedSend :: Counter
     }
 
 newQHealth :: IO QHealth
 newQHealth = QHealth
-    <$> newMVar 0
-    <*> newMVar 0
-    <*> newMVar 0
-    <*> newMVar 0
-    <*> newMVar 0
-    <*> newMVar 0
+    <$> Counter.new
+    <*> Counter.new
+    <*> Counter.new
+    <*> Counter.new
+    <*> Counter.new
+    <*> Counter.new
 
 -- | An enumeration of the various kinds of failures
 --
@@ -678,7 +680,7 @@ failureSeverity FailedCherishLoop = Error
 failureSeverity FailedChooseAlt   = Warning
 failureSeverity FailedSend        = Warning
 
-failureCounter :: Failure msg nid fmt -> QHealth -> MVar Int
+failureCounter :: Failure msg nid fmt -> QHealth -> Counter
 failureCounter FailedEnqueueAll  = qFailedEnqueueAll
 failureCounter FailedEnqueueOne  = qFailedEnqueueOne
 failureCounter FailedAllSends    = qFailedAllSends
@@ -731,7 +733,7 @@ logFailure :: (WithLogger m, MonadIO m)
 logFailure OutQ{..} failure fmt = do
     Log.logMessage (failureSeverity failure)
                    (failureFormat failure qSelf fmt)
-    applyMVar_ (failureCounter failure qHealth) (+ 1)
+    liftIO $ Counter.inc $ failureCounter failure qHealth
 
 {-------------------------------------------------------------------------------
   EKG metrics
@@ -767,10 +769,10 @@ registerQueueMetrics OutQ{..} store = do
                             (fromIntegral <$> f)
                             store
 
-    regCounter :: Integral a => [String] -> (QHealth -> MVar a) -> IO ()
+    regCounter :: [String] -> (QHealth -> Counter) -> IO ()
     regCounter qualName ctr = Monitoring.registerCounter
                                 (metric qualName)
-                                (fromIntegral <$> readMVar (ctr qHealth))
+                                (fromIntegral <$> Counter.read (ctr qHealth))
                                 store
 
     metric :: [String] -> Text

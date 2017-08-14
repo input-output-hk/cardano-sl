@@ -102,7 +102,7 @@ invalidateProxyCaches curTime = do
 -- * Sets '_dwEpochId' to epoch of tip.
 -- * Initializes mempools/LRU caches.
 mkDelegationVar ::
-       forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m, MonadMask m)
+       forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m)
     => m DelegationVar
 mkDelegationVar = do
     tip <- DB.getTipHeader @ssc

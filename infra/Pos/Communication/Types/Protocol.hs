@@ -104,7 +104,7 @@ data SendActions m = SendActions {
 --
 -- You probably do not want to use this. Use 'enqueueMsg' instead.
 immediateConcurrentConversations
-    :: ( Applicative m, Mockable Async m )
+    :: ( Mockable Async m )
     => SendActions m
     -> [NodeId]
     -> EnqueueMsg m
@@ -273,7 +273,12 @@ instance Monoid OutSpecs where
                     (name, h1) (name, h2)
 
 toOutSpecs :: [(MessageCode, HandlerSpec)] -> OutSpecs
-toOutSpecs = OutSpecs . HM.fromList
+toOutSpecs = OutSpecs . merge . fmap (uncurry HM.singleton)
+  where
+    merge = foldr (HM.unionWithKey merger) mempty
+    merger name h1 h2 = error $ sformat
+        ("Conflicting key output spec in toOutSpecs: "%build%" at "%build%" "%build)
+        name h1 h2
 
 -- | Data type to represent listeners, provided upon our version info and peerData
 -- received from other node, in and out specs for all listeners which may be provided

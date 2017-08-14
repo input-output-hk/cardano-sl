@@ -99,7 +99,7 @@ instance MessageLimitedPure Bool where
 --   an exception is raised.
 recvLimited
     :: forall rcv snd m .
-       ( Monad m, DB.MonadGState m, MessageLimited rcv )
+       ( DB.MonadGState m, MessageLimited rcv )
     => ConversationActions snd rcv m -> m (Maybe rcv)
 recvLimited conv = getMsgLenLimit (Proxy @rcv) >>= recv conv . getLimit
 

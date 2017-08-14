@@ -15,7 +15,7 @@ foreign import ccall "getWindowsDefDnsServer" getWindowsDefDnsServer :: IO CStri
 
 -- | Gets one of the default DNS servers the current machine is using. To be used
 -- on Windows systems only. On failure (i.e. when there are no DNS servers available,
--- or when the operation is not supported by the operating system), returns @""@.
+-- or when the operation is not supported by the operating system), returns @Nothing@.
 --
 -- >>> getWindowsDefaultDnsServer
 -- Just "8.8.8.8"

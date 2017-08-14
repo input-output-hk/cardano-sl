@@ -140,9 +140,9 @@ relayDemo = do
 
       block "* Sending to specific nodes" nodeEs $ do
         -- This will send to the relay node
-        send Asynchronous nodeC1 (MsgRequestBlock (Set.fromList (nodeId <$> [nodeC2, nodeR]))) (MsgId 500)
+        send Asynchronous nodeC1 (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC2, nodeR]))) (MsgId 500)
         -- Edge nodes can never send to core nodes
-        send Asynchronous (nodeEs !! 0) (MsgRequestBlock (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
+        send Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
 
       logNotice "End of demo"
 
@@ -195,7 +195,7 @@ nodeForwardListener node = forever $ do
       let sender = msgSender msgData
           forwardMsgType = case msgType msgData of
             MsgAnnounceBlockHeader _ -> Just (MsgAnnounceBlockHeader (OriginForward sender))
-            MsgRequestBlock _ -> Nothing
+            MsgRequestBlocks _ -> Nothing
             MsgRequestBlockHeaders -> Nothing
             MsgTransaction _ -> Just (MsgTransaction (OriginForward sender))
             MsgMPC _ -> Just (MsgMPC (OriginForward sender))

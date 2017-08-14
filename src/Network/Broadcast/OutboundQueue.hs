@@ -31,12 +31,22 @@ module Network.Broadcast.OutboundQueue (
   , Enqueue(..)
   , EnqueuePolicy
   , defaultEnqueuePolicy
+  , defaultEnqueuePolicyCore
+  , defaultEnqueuePolicyRelay
+  , defaultEnqueuePolicyEdgeBehindNat
+  , defaultEnqueuePolicyEdgeExchange
+  , defaultEnqueuePolicyEdgeP2P
     -- ** Dequeueing policy
   , RateLimit(..)
   , MaxInFlight(..)
   , Dequeue(..)
   , DequeuePolicy
   , defaultDequeuePolicy
+  , defaultDequeuePolicyCore
+  , defaultDequeuePolicyRelay
+  , defaultDequeuePolicyEdgeBehindNat
+  , defaultDequeuePolicyEdgeExchange
+  , defaultDequeuePolicyEdgeP2P
     -- ** Failure policy
   , FailurePolicy
   , ReconsiderAfter(..)
@@ -73,8 +83,10 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Data.Either (rights)
 import Data.Foldable (fold)
-import Data.Maybe (maybeToList)
+import Data.List (sortBy)
 import Data.Map.Strict (Map)
+import Data.Maybe (maybeToList)
+import Data.Ord (comparing)
 import Data.Text (Text)
 import Data.Time
 import Data.Typeable (typeOf)
@@ -159,40 +171,47 @@ data Enqueue =
 -- of the next layer up to configure these peers as desired.
 --
 -- TODO: Sanity check the number of forwarding sets and number of alternatives.
--- TODO: Verify the max queue sizes against the updated policy.
 type EnqueuePolicy nid =
            MsgType nid  -- ^ Type of the message we want to send
         -> [Enqueue]
 
--- TODO: Verify the policy for data requests
-defaultEnqueuePolicy :: NodeType           -- ^ Type of this node
-                     -> EnqueuePolicy nid
-defaultEnqueuePolicy NodeCore = go
+-- | Pick default policy given node type
+--
+-- NOTE: Assumes standard behind-NAT node in the case of edge nodes.
+defaultEnqueuePolicy :: NodeType -> EnqueuePolicy nid
+defaultEnqueuePolicy NodeCore  = defaultEnqueuePolicyCore
+defaultEnqueuePolicy NodeRelay = defaultEnqueuePolicyRelay
+defaultEnqueuePolicy NodeEdge  = defaultEnqueuePolicyEdgeBehindNat
+
+-- | Default enqueue policy for core nodes
+defaultEnqueuePolicyCore :: EnqueuePolicy nid
+defaultEnqueuePolicyCore = go
   where
-    -- Enqueue policy for core nodes
     go :: EnqueuePolicy nid
     go (MsgAnnounceBlockHeader _) = [
         EnqueueAll NodeCore  (MaxAhead 0) PHighest
-      , EnqueueAll NodeRelay (MaxAhead 0) PMedium
+      , EnqueueAll NodeRelay (MaxAhead 0) PHigh
       ]
     go MsgRequestBlockHeaders = [
-        EnqueueAll NodeCore  (MaxAhead 20) PLowest
-      , EnqueueAll NodeRelay (MaxAhead 20) PLowest
+        EnqueueAll NodeCore  (MaxAhead 1) PHigh
+      , EnqueueAll NodeRelay (MaxAhead 1) PHigh
       ]
-    -- TODO use the argument (Set nid).
-    go (MsgRequestBlock _) = [
+    go (MsgRequestBlocks _) = [
         -- We never ask for data from edge nodes
-        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 20) PLowest
+        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 1) PHigh
       ]
     go (MsgMPC _) = [
-        EnqueueAll NodeCore (MaxAhead 1) PHigh
+        EnqueueAll NodeCore (MaxAhead 1) PMedium
         -- not sent to relay nodes
       ]
     go (MsgTransaction _) = [
         EnqueueAll NodeCore (MaxAhead 20) PLow
         -- not sent to relay nodes
       ]
-defaultEnqueuePolicy NodeRelay = go
+
+-- | Default enqueue policy for relay nodes
+defaultEnqueuePolicyRelay :: EnqueuePolicy nid
+defaultEnqueuePolicyRelay = go
   where
     -- Enqueue policy for relay nodes
     go :: EnqueuePolicy nid
@@ -202,28 +221,30 @@ defaultEnqueuePolicy NodeRelay = go
       , EnqueueAll NodeEdge  (MaxAhead 0) PMedium
       ]
     go MsgRequestBlockHeaders = [
-        EnqueueAll NodeCore  (MaxAhead 20) PLowest
-      , EnqueueAll NodeRelay (MaxAhead 20) PLowest
+        EnqueueAll NodeCore  (MaxAhead 1) PHigh
+      , EnqueueAll NodeRelay (MaxAhead 1) PHigh
       ]
-    -- TODO use the argument (Set nid).
-    go (MsgRequestBlock _) = [
-        -- We never ask for data from edge nodes
-        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 20) PLowest
+    go (MsgRequestBlocks _) = [
+        -- We never ask for blocks from edge nodes
+        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 1) PHigh
       ]
     go (MsgTransaction _) = [
         EnqueueAll NodeCore  (MaxAhead 20) PLow
-      , EnqueueAll NodeRelay (MaxAhead 20) PLowest
+      , EnqueueAll NodeRelay (MaxAhead 20) PLow
         -- transactions not forwarded to edge nodes
       ]
     go (MsgMPC _) = [
         -- Relay nodes never sent any MPC messages to anyone
       ]
-defaultEnqueuePolicy NodeEdge = go
+
+-- | Default enqueue policy for standard behind-NAT edge nodes
+defaultEnqueuePolicyEdgeBehindNat :: EnqueuePolicy nid
+defaultEnqueuePolicyEdgeBehindNat = go
   where
     -- Enqueue policy for edge nodes
     go :: EnqueuePolicy nid
     go (MsgTransaction OriginSender) = [
-        EnqueueAll NodeRelay (MaxAhead 0) PHighest
+        EnqueueAll NodeRelay (MaxAhead 1) PLow
       ]
     go (MsgTransaction (OriginForward _)) = [
         -- don't forward transactions that weren't created at this node
@@ -232,12 +253,60 @@ defaultEnqueuePolicy NodeEdge = go
         -- not forwarded
       ]
     go MsgRequestBlockHeaders = [
-        EnqueueAll NodeRelay (MaxAhead 20) PLowest
+        EnqueueAll NodeRelay (MaxAhead 0) PHigh
       ]
-    -- TODO use the argument (Set nid).
-    go (MsgRequestBlock _) = [
+    go (MsgRequestBlocks _) = [
         -- Edge nodes can only talk to relay nodes
-        EnqueueOne [NodeRelay] (MaxAhead 20) PLowest
+        EnqueueOne [NodeRelay] (MaxAhead 0) PHigh
+      ]
+    go (MsgMPC _) = [
+        -- not relevant
+      ]
+
+-- | Default enqueue policy for exchange nodes
+defaultEnqueuePolicyEdgeExchange :: EnqueuePolicy nid
+defaultEnqueuePolicyEdgeExchange = go
+  where
+    -- Enqueue policy for edge nodes
+    go :: EnqueuePolicy nid
+    go (MsgTransaction OriginSender) = [
+        EnqueueAll NodeRelay (MaxAhead 6) PLow
+      ]
+    go (MsgTransaction (OriginForward _)) = [
+        -- don't forward transactions that weren't created at this node
+      ]
+    go (MsgAnnounceBlockHeader _) = [
+        -- not forwarded
+      ]
+    go MsgRequestBlockHeaders = [
+        EnqueueAll NodeRelay (MaxAhead 0) PHigh
+      ]
+    go (MsgRequestBlocks _) = [
+        -- Edge nodes can only talk to relay nodes
+        EnqueueOne [NodeRelay] (MaxAhead 0) PHigh
+      ]
+    go (MsgMPC _) = [
+        -- not relevant
+      ]
+
+-- | Default enqueue policy for edge nodes using P2P
+defaultEnqueuePolicyEdgeP2P :: EnqueuePolicy nid
+defaultEnqueuePolicyEdgeP2P = go
+  where
+    -- Enqueue policy for edge nodes
+    go :: EnqueuePolicy nid
+    go (MsgTransaction _) = [
+        EnqueueAll NodeRelay (MaxAhead 3) PLow
+      ]
+    go (MsgAnnounceBlockHeader _) = [
+        EnqueueAll NodeRelay (MaxAhead 0) PHighest
+      ]
+    go MsgRequestBlockHeaders = [
+        EnqueueAll NodeRelay (MaxAhead 1) PHigh
+      ]
+    go (MsgRequestBlocks _) = [
+        -- Edge nodes can only talk to relay nodes
+        EnqueueOne [NodeRelay] (MaxAhead 1) PHigh
       ]
     go (MsgMPC _) = [
         -- not relevant
@@ -267,28 +336,57 @@ newtype MaxInFlight = MaxInFlight Int
 -- not the same of the message we're sending.
 type DequeuePolicy = NodeType -> Dequeue
 
-defaultDequeuePolicy :: NodeType -- ^ Our node type
-                     -> DequeuePolicy
-defaultDequeuePolicy NodeCore = go
+-- | Pick default dequeue policy for a given node
+--
+-- NOTE: Assumes standard behind-NAT in the case of edge nodes.
+defaultDequeuePolicy :: NodeType -> DequeuePolicy
+defaultDequeuePolicy NodeCore  = defaultDequeuePolicyCore
+defaultDequeuePolicy NodeRelay = defaultDequeuePolicyRelay
+defaultDequeuePolicy NodeEdge  = defaultDequeuePolicyEdgeBehindNat
+
+-- | Default dequeue policy for core nodes
+defaultDequeuePolicyCore :: DequeuePolicy
+defaultDequeuePolicyCore = go
   where
-    -- Dequeueing policy for core nodes
     go :: DequeuePolicy
-    go NodeCore  = Dequeue NoRateLimiting (MaxInFlight 2)
-    go NodeRelay = Dequeue NoRateLimiting (MaxInFlight 1)
+    go NodeCore  = Dequeue NoRateLimiting (MaxInFlight 3)
+    go NodeRelay = Dequeue NoRateLimiting (MaxInFlight 2)
     go NodeEdge  = error "defaultDequeuePolicy: core to edge not applicable"
-defaultDequeuePolicy NodeRelay = go
+
+-- | Dequeueing policy for relay nodes
+defaultDequeuePolicyRelay :: DequeuePolicy
+defaultDequeuePolicyRelay = go
   where
-    -- Dequeueing policy for relay nodes
     go :: DequeuePolicy
-    go NodeCore  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 1)
+    go NodeCore  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
     go NodeRelay = Dequeue (MaxMsgPerSec 3) (MaxInFlight 2)
-    go NodeEdge  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 1)
-defaultDequeuePolicy NodeEdge = go
+    go NodeEdge  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
+
+-- | Dequeueing policy for standard behind-NAT edge nodes
+defaultDequeuePolicyEdgeBehindNat :: DequeuePolicy
+defaultDequeuePolicyEdgeBehindNat = go
   where
-    -- Dequeueing policy for edge nodes
     go :: DequeuePolicy
     go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
-    go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 1)
+    go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
+    go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
+
+-- | Dequeueing policy for exchange edge nodes
+defaultDequeuePolicyEdgeExchange :: DequeuePolicy
+defaultDequeuePolicyEdgeExchange = go
+  where
+    go :: DequeuePolicy
+    go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
+    go NodeRelay = Dequeue (MaxMsgPerSec 5) (MaxInFlight 3)
+    go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
+
+-- | Dequeueing policy for P2P edge nodes
+defaultDequeuePolicyEdgeP2P :: DequeuePolicy
+defaultDequeuePolicyEdgeP2P = go
+  where
+    go :: DequeuePolicy
+    go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
+    go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
     go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
 
 {-------------------------------------------------------------------------------
@@ -517,7 +615,8 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
 
       enq@EnqueueAll{..} -> do
         let fwdSets :: AllOf (Alts nid)
-            fwdSets = removeOrigin (msgOrigin msgType) $ peers ^. peersOfType enqNodeType
+            fwdSets = removeOrigin (msgOrigin msgType) $
+                        peers ^. peersOfType enqNodeType
 
             sendAll :: [Packet msg nid a]
                     -> AllOf (Alts nid)
@@ -534,10 +633,10 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
 
         enqueued <- sendAll [] fwdSets
 
-        -- Log an error if we didn't manage to send the message to any peer
+        -- Log an error if we didn't manage to enqueue the message to any peer
         -- at all (provided that we were configured to send it to some)
         if | null fwdSets ->
-               logDebug $ msgNotSent enqNodeType -- This isn't an error
+               logDebug $ msgNotEnqueued enqNodeType -- This isn't an error
            | null enqueued ->
                logError $ msgEnqFailed enq fwdSets
            | otherwise ->
@@ -548,7 +647,8 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
       enq@EnqueueOne{..} -> do
         let fwdSets :: [(NodeType, Alts nid)]
             fwdSets = concatMap
-                        (\t -> map (t,) $ removeOrigin (msgOrigin msgType) $ peers ^. peersOfType t)
+                        (\t -> map (t,) $ removeOrigin (msgOrigin msgType) $
+                                            peers ^. peersOfType t)
                         enqNodeTypes
 
             sendOne :: [(NodeType, Alts nid)] -> m [Packet msg nid a]
@@ -557,8 +657,12 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
                     . map (sendFwdSet [] enqMaxAhead enqPrecedence)
 
         enqueued <- sendOne fwdSets
-        when (null enqueued) $
-          logError $ msgEnqFailed enq fwdSets
+
+        -- Log an error if we didn't manage to enqueue the message
+        if null enqueued
+          then logError $ msgEnqFailed enq fwdSets
+          else logDebug $ msgEnqueued enqueued
+
         return enqueued
   where
     -- Attempt to send the message to a single forwarding set
@@ -595,12 +699,12 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
         OriginSender    -> id
         OriginForward n -> filter (not . null) . map (filter (/= n))
 
-    msgNotSent :: NodeType -> Text
-    msgNotSent nodeType = sformat
+    msgNotEnqueued :: NodeType -> Text
+    msgNotEnqueued nodeType = sformat
       ( shown
       % ": message "
       % formatMsg
-      % " not sent to any nodes of type "
+      % " not enqueued to any nodes of type "
       % shown
       % " since no such (relevant) peers listed in "
       % shown
@@ -629,25 +733,46 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
               )
               qSelf enq msg fwdSets
 
+-- | Node ID with current stats needed to pick a node from a list of alts
+data NodeWithStats nid = NodeWithStats {
+      nstatsId      :: nid  -- ^ Node ID
+    , nstatsFailure :: Bool -- ^ Recent failure?
+    , nstatsAhead   :: Int  -- ^ Number of messages ahead
+    }
+
+-- | Compute current node statistics
+nodeWithStats :: (MonadIO m, WithLogger m)
+              => OutboundQ msg nid buck
+              -> Precedence -- ^ For determining number of messages ahead
+              -> nid
+              -> m (NodeWithStats nid)
+nodeWithStats outQ prec nstatsId = do
+    nstatsAhead   <- countAhead outQ nstatsId prec
+    nstatsFailure <- hasRecentFailure outQ nstatsId
+    return NodeWithStats{..}
+
+-- | Choose an appropriate node from a list of alternatives
+--
+-- All alternatives are assumed to be of the same type; we prefer to pick
+-- nodes with a smaller number of messages ahead.
 pickAlt :: forall m msg nid buck. (MonadIO m, WithLogger m)
         => OutboundQ msg nid buck
         -> MaxAhead
         -> Precedence
-        -> Alts nid
+        -> [nid]
         -> m (Maybe nid)
-pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts =
-    orElseM [ do
-        failure <- hasRecentFailure outQ alt
-        ahead   <- countAhead outQ alt prec
-        if | failure -> do
-               logDebug $ msgFailure alt
+pickAlt outQ@OutQ{} maxAhead prec alts = do
+    alts' <- mapM (nodeWithStats outQ prec) alts
+    orElseM [
+        if | nstatsFailure -> do
+               logDebug $ msgFailure nstatsId
                return Nothing
-           | ahead > maxAhead -> do
-               logDebug $ msgAhead alt ahead maxAhead
+           | MaxAhead n <- maxAhead, nstatsAhead > n -> do
+               logDebug $ msgAhead nstatsId nstatsAhead n
                return Nothing
            | otherwise -> do
-               return $ Just alt
-      | alt <- alts
+               return $ Just nstatsId
+      | NodeWithStats{..} <- sortBy (comparing nstatsAhead) alts'
       ]
   where
     msgFailure :: nid -> Text
@@ -660,7 +785,6 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts =
           "Rejected alternative " % shown
         % " as it has " % shown
         % " messages ahead, which is more than the maximum " % shown
-
 
 -- | Check how many messages are currently ahead
 --

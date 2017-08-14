@@ -165,7 +165,7 @@ data MsgType nid =
   | MsgRequestBlockHeaders
 
     -- | Request for a specific block from these peers.
-  | MsgRequestBlock (Set nid)
+  | MsgRequestBlocks (Set nid)
 
     -- | New transaction
   | MsgTransaction (Origin nid)
@@ -178,13 +178,13 @@ msgOrigin :: MsgType nid -> Origin nid
 msgOrigin msg = case msg of
   MsgAnnounceBlockHeader origin -> origin
   MsgRequestBlockHeaders -> OriginSender
-  MsgRequestBlock _ -> OriginSender
+  MsgRequestBlocks _ -> OriginSender
   MsgTransaction origin -> origin
   MsgMPC origin -> origin
 
 msgEnqueueTo :: MsgType nid -> EnqueueTo nid
 msgEnqueueTo msg = case msg of
-  MsgRequestBlock peers -> EnqueueToSubset peers
+  MsgRequestBlocks peers -> EnqueueToSubset peers
   _ -> EnqueueToAll
 
 -- | Node types

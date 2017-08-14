@@ -53,6 +53,7 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
 import           Pos.Core.Coin                    (subCoin)
+import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types                   (Timestamp (..), mkCoin)
 import           Pos.Crypto                       (Hash, SecretKey, SignTag (SignUSVote),
                                                    emptyPassphrase, encToPublic,
@@ -356,7 +357,7 @@ updateDataElement ProposeUpdateSystem{..} = do
     pure (pusSystemTag, UpdateData diffHash installerHash dummyHash dummyHash)
 
 -- This solution is hacky, but will work for now
-runCmdOuts :: OutSpecs
+runCmdOuts :: HasCoreConstants => OutSpecs
 runCmdOuts = relayPropagateOut $ mconcat
                 [ usRelays @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 , delegationRelays @SscGodTossing @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
@@ -456,7 +457,7 @@ main = do
                       , genesisStakeDistr = devStakeDistr
                       }
 
-            plugins :: ([ WorkerSpec LightWalletMode ], OutSpecs)
+            plugins :: HasCoreConstants => ([WorkerSpec LightWalletMode], OutSpecs)
             plugins = first pure $ case woAction of
                 Repl    -> worker' runCmdOuts $ runWalletRepl cmdCtx
                 Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmdCtx cmd
@@ -468,7 +469,7 @@ main = do
             GodTossingAlgo -> do
                 logInfo "Using MPC coin tossing"
                 liftIO $ hFlush stdout
-                runWalletStaticPeers transport' (S.fromList allPeers) params plugins
+                giveStaticConsts $ runWalletStaticPeers transport' (S.fromList allPeers) params plugins
             NistBeaconAlgo ->
                 logError "Wallet does not support NIST beacon!"
 

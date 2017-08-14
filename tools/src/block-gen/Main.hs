@@ -14,7 +14,8 @@ import           System.Wlog                 (usingLoggerName)
 
 import           Pos.Core                    (StakeDistribution (..),
                                               genesisDevSecretKeys,
-                                              genesisProdAddrDistribution, isDevelopment,
+                                              genesisProdAddrDistribution,
+                                              giveStaticConsts, isDevelopment,
                                               makePubKeyAddress, mkCoin)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
@@ -70,7 +71,7 @@ main = flip catch catchEx $ do
                 def
                 True
     seed <- maybe randomIO pure bgoSeed
-    bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
+    bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db -> giveStaticConsts $
         runProduction $
         initTBlockGenMode db genUtxo $
             void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)

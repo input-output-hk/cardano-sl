@@ -18,7 +18,7 @@ import           Mockable                       (Production)
 import           System.Wlog                    (HasLoggerName (..))
 
 import           Pos.Block.Core                 (Block, BlockHeader)
-import           Pos.Block.Slog.Types           (HasSlogContext (..))
+import           Pos.Block.Slog                 (HasSlogContext (..))
 import           Pos.Block.Types                (Undo)
 import           Pos.Context                    (HasNodeContext (..))
 import           Pos.Core                       (HasPrimaryKey (..), IsHeader)
@@ -75,11 +75,11 @@ import           Pos.Wallet.Redirect            (MonadBlockchainInfo (..),
 import           Pos.Wallet.SscType             (WalletSscType)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State.State     (WalletState)
-import           Pos.Wallet.Web.Tracking        (MonadWalletTracking (..),
+import           Pos.Wallet.Web.Tracking        (MonadBListener (..),
+                                                 MonadWalletTracking (..),
+                                                 onApplyTracking, onRollbackTracking,
                                                  syncWalletOnImportWebWallet,
                                                  txMempoolToModifierWebWallet)
-import           Pos.Wallet.Web.Tracking        (MonadBListener (..), onApplyTracking,
-                                                 onRollbackTracking)
 import           Pos.WorkMode                   (RealModeContext (..))
 
 data WalletWebModeContext = WalletWebModeContext

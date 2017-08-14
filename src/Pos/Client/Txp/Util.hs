@@ -40,19 +40,19 @@ import           Formatting               (bprint, build, sformat, stext, (%))
 import           Universum
 
 import           Pos.Binary               (biSize)
-import           Pos.Context              (GenesisStakeholders, genesisStakeholdersM)
+import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core                 (AddressIgnoringAttributes (AddressIA),
                                            TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
                                            calculateTxSizeLinear, integerToCoin,
                                            integerToCoin, siEpoch, unsafeAddCoin,
-                                           unsafeGetCoin, unsafeSubCoin)
+                                           unsafeSubCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SignTag (SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
                                            redeemSign, redeemToPublic, safeSign,
                                            safeToPublic)
 import           Pos.Data.Attributes      (mkAttributes)
 import           Pos.DB                   (MonadGState, gsAdoptedBVData, gsIsBootstrapEra)
-import           Pos.Genesis              (genesisSplitBoot)
+import           Pos.Genesis              (GenesisWStakeholders, genesisSplitBoot)
 import           Pos.Script               (Script)
 import           Pos.Script.Examples      (multisigRedeemer, multisigValidator)
 import           Pos.Slotting.Class       (MonadSlots (getCurrentSlotBlocking))
@@ -61,8 +61,6 @@ import           Pos.Txp                  (Tx (..), TxAux (..), TxDistribution (
                                            TxOut (..), TxOutAux (..), TxOutDistribution,
                                            TxSigData (..), Utxo)
 import           Pos.Types                (Address, Coin, StakeholderId, mkCoin, sumCoins)
-
-import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -104,7 +102,7 @@ type TxDistrMode ctx m
      = ( MonadGState m
        , MonadReader ctx m
        , MonadSlots m
-       , HasLens GenesisStakeholders ctx GenesisStakeholders
+       , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        )
 
 type TxCreateMode ctx m
@@ -144,16 +142,10 @@ overrideTxOutDistrBoot c oldDistr = do
     --    frontend so it's fine too.
     epoch <- siEpoch <$> lift getCurrentSlotBlocking
     bootEra <- lift $ gsIsBootstrapEra epoch
-    genStakeholders <- toList <$> genesisStakeholdersM
+    genStakeholders <- view (lensOf @GenesisWStakeholders)
     if not bootEra
       then pure oldDistr
-      else do
-          when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
-               throwTxError $
-               sformat ("Can't spend "%build%" coins: amount is too small for boot "%
-                        " era and can't be distributed among genStakeholders") c
-          -- TODO CSL-1351 boot stakeholders' weights are not used
-          pure $ genesisSplitBoot (HM.fromList $ map (,1) genStakeholders) c
+      else either throwTxError pure (genesisSplitBoot genStakeholders c)
 
 -- | Same as 'overrideTxOutDistrBoot' but changes 'TxOutputs' all at once
 overrideTxDistrBoot

@@ -20,7 +20,9 @@ import qualified Options.Applicative        as Opt
 import           Universum
 
 import qualified Paths_cardano_sl           as CSL
-import qualified Pos.Wallet.Web             as W
+
+import qualified Pos.Wallet.Web.Error.Types as ET
+import           Pos.Wallet.Web.Api         (walletApi)
 
 import           CustomSwagger              (toCustomSwagger)
 import           Description                ()
@@ -44,14 +46,14 @@ showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
 -- We need this instance for correct Swagger-specification.
 instance {-# OVERLAPPING #-}
          (Typeable a, ToSchema a) =>
-         ToSchema (Either W.WalletError a) where
+         ToSchema (Either ET.WalletError a) where
     declareNamedSchema proxy =
         genericDeclareNamedSchema defaultSchemaOptions proxy
-            & mapped . name ?~ show (typeRep $ Proxy @(Either W.WalletError a))
+            & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger
-swaggerSpecForWalletApi = toCustomSwagger W.walletApi
+swaggerSpecForWalletApi = toCustomSwagger walletApi
     & info . title       .~ "Cardano SL Wallet Web API"
     & info . version     .~ (toText $ showVersion CSL.version)
     & info . description ?~ "This is an API for Cardano SL wallet."
@@ -65,4 +67,3 @@ main = do
     putStrLn $ "Done. See " <> jsonFile <> "."
   where
     jsonFile = "wallet-web-api-swagger.json"
-

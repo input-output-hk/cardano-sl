@@ -1,74 +1,73 @@
 -- | Getter params from Args
 
-module Params
+module Pos.Client.CLI.Params
        ( loggingParams
-       , getNodeParams
+       , getSimpleNodeParams
        , gtSscParams
        ) where
 
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
+import           Mockable              (Fork, Mockable)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           System.Wlog           (LoggerName, WithLogger)
-import           Mockable              (Mockable, Fork)
 
 import qualified Pos.CLI               as CLI
 import           Pos.Constants         (isDevelopment)
-import           Pos.Context           (mkGenesisTxpContext)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
-import           Pos.Genesis           (devAddrDistr, devStakesDistr, genesisUtxo,
-                                        genesisUtxoProduction)
+import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
+                                        genesisContextProduction, genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
-                                        TransportParams (..), NodeParams (..))
-import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
+                                        NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
+import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
 import           Pos.Security          (SecurityParams (..))
 import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.UserSecret   (peekUserSecret)
 
-import           NodeOptions           (Args (..))
-import           Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
+import           Pos.Client.CLI.NodeOptions           (SimpleNodeArgs (..))
+import           Pos.Client.CLI.Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
 
 
-loggingParams :: LoggerName -> Args -> LoggingParams
-loggingParams tag Args{..} =
+loggingParams :: LoggerName -> SimpleNodeArgs -> LoggingParams
+loggingParams tag SimpleNodeArgs{..} =
     LoggingParams
     { lpHandlerPrefix = CLI.logPrefix commonArgs
     , lpConfigPath    = CLI.logConfig commonArgs
     , lpRunnerTag     = tag
     }
 
-getBaseParams :: LoggerName -> Args -> BaseParams
-getBaseParams loggingTag args@Args {..} =
+getBaseParams :: LoggerName -> SimpleNodeArgs -> BaseParams
+getBaseParams loggingTag args@SimpleNodeArgs {..} =
     BaseParams { bpLoggingParams = loggingParams loggingTag args }
 
-gtSscParams :: Args -> VssKeyPair -> GtParams
-gtSscParams Args {..} vssSK =
+gtSscParams :: SimpleNodeArgs -> VssKeyPair -> GtParams
+gtSscParams SimpleNodeArgs {..} vssSK =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 
-getKeyfilePath :: Args -> FilePath
-getKeyfilePath Args {..}
+getKeyfilePath :: SimpleNodeArgs -> FilePath
+getKeyfilePath SimpleNodeArgs {..}
     | isDevelopment = case devSpendingGenesisI of
           Nothing -> keyfilePath
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
     | otherwise = keyfilePath
 
-getNodeParams ::
+getSimpleNodeParams ::
        (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
-    => Args
+    => SimpleNodeArgs
     -> Timestamp
     -> m NodeParams
-getNodeParams args@Args {..} systemStart = do
+getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
-        updateUserSecretVSS args =<<
-        peekUserSecret (getKeyfilePath args)
+            updateUserSecretVSS args =<<
+                peekUserSecret (getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     let npTransport = getTransportParams args npNetworkConfig
         devStakeDistr =
@@ -77,9 +76,12 @@ getNodeParams args@Args {..} systemStart = do
                 (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
-    let npGenesisTxpCtx
-            | isDevelopment = mkGenesisTxpContext $ genesisUtxo Nothing (devAddrDistr devStakeDistr)
-            | otherwise =  mkGenesisTxpContext genesisUtxoProduction
+    let npGenesisCtx
+            | isDevelopment =
+              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
+              in GenesisContext (genesisUtxo bootStakeholders aDistr)
+                                bootStakeholders
+            | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
@@ -105,7 +107,7 @@ getNodeParams args@Args {..} systemStart = do
         , ..
         }
 
-getTransportParams :: Args -> NetworkConfig kademlia -> TransportParams
+getTransportParams :: SimpleNodeArgs -> NetworkConfig kademlia -> TransportParams
 getTransportParams args networkConfig = TransportParams { tpTcpAddr = tcpAddr }
   where
     tcpAddr = case ncTopology networkConfig of

@@ -20,7 +20,7 @@ import           System.Wlog                  (logDebug)
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
-import           Pos.Block.Logic.Util         (withBlkSemaphore_)
+import           Pos.Block.Logic              (withBlkSemaphore_)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)

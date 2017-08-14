@@ -27,13 +27,13 @@ import           Data.Time.Units                   (Microsecond, Millisecond,
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
                                                     choose, oneof, scale, shrinkIntegral,
-                                                    suchThat, vector, vectorOf, sized)
+                                                    sized, suchThat, vector, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
 import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVarInt (..),
-                                                    UnsignedVarInt (..), TinyVarInt(..))
+                                                    TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
@@ -43,7 +43,7 @@ import           Pos.Core.Constants                (epochSlots, sharedSeedLength
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
-import           Pos.Data.Attributes               (Attributes (..), UnparsedFields(..))
+import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -439,13 +439,14 @@ instance Arbitrary G.GenesisCoreData where
                          <$> arbitrary
                          <*> pure (wordILen - a)
                          <*> arbitrary
-                , pure $ G.ExponentialStakes wordILen
+                , pure $ G.safeExpStakes wordILen
                 , G.CustomStakes <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
         hashmapOfHolders <- arbitrary :: Gen (HashMap Types.StakeholderId Word16)
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
-            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs) hashmapOfHolders
+            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
+                                hashmapOfHolders
 
 instance Arbitrary G.StakeDistribution where
     arbitrary = oneof
@@ -460,7 +461,7 @@ instance Arbitrary G.StakeDistribution where
            sdPoor <- choose (0, 20)
            sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
            return G.RichPoorStakes{..}
-      , G.ExponentialStakes <$> choose (0, 20)
+      , G.safeExpStakes <$> choose (0::Integer, 20)
       , G.CustomStakes <$> arbitrary
       ]
     shrink = genericShrink

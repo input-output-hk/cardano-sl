@@ -9,11 +9,6 @@ module Pos.Txp.Toil.Types
        , formatUtxo
        , utxoF
        , GenesisUtxo (..)
-       , GenesisStakeholders (..)
-       , GenesisTxpContext
-       , mkGenesisTxpContext
-       , gtcUtxo
-       , gtcStakeholders
        , _GenesisUtxo
 
        , TxFee(..)
@@ -40,18 +35,18 @@ import           Universum
 
 import           Control.Lens               (makeLenses, makePrisms, makeWrapped)
 import           Data.Default               (Default, def)
+import qualified Data.HashMap.Strict        as HM
 import qualified Data.Map                   as M (toList)
-import qualified Data.HashMap.Strict as HM
 import           Data.Text.Lazy.Builder     (Builder)
 import           Formatting                 (Format, later)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (mapBuilderJson)
 
-import           Pos.Core                   (Coin, StakeholderId, StakesMap, GenesisStakeholders (..),
+import           Pos.Core                   (Coin, StakeholderId, StakesMap,
                                              unsafeAddCoin)
-import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo, txOutStake)
+import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo,
+                                             txOutStake)
 import qualified Pos.Util.Modifier          as MM
-import           Pos.Util.Util              (getKeys)
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -85,19 +80,6 @@ newtype GenesisUtxo = GenesisUtxo
 
 makePrisms  ''GenesisUtxo
 makeWrapped ''GenesisUtxo
-
--- | Genesis context related to transaction processing.
-data GenesisTxpContext = UnsafeGenesisTxpContext
-    { _gtcUtxo         :: !GenesisUtxo
-    , _gtcStakeholders :: !GenesisStakeholders
-    }
-
-makeLenses ''GenesisTxpContext
-
-mkGenesisTxpContext :: GenesisUtxo -> GenesisTxpContext
-mkGenesisTxpContext genUtxo = UnsafeGenesisTxpContext
-    genUtxo
-    (GenesisStakeholders . getKeys . utxoToStakes $ unGenesisUtxo genUtxo)
 
 ----------------------------------------------------------------------------
 -- Fee

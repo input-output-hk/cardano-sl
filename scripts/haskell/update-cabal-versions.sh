@@ -23,5 +23,6 @@ updateVersion update/cardano-sl-update.cabal
 updateVersion godtossing/cardano-sl-godtossing.cabal
 updateVersion tools/cardano-sl-tools.cabal
 updateVersion txp/cardano-sl-txp.cabal
+updateVersion wallet/cardano-sl-wallet.cabal
 
 echo "Updated to version $newVersion"

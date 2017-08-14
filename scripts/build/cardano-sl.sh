@@ -30,6 +30,7 @@ set -o pipefail
 
 # MODES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
 # NOTE
 # You can try building any of these modes, but in some branches some of
 # these modes may be unavailable (no genesis).
@@ -58,7 +59,7 @@ set -o pipefail
 # * Pass --for-installer to enable 'for-installer' flag (which means that most
 #   of executables won't be built).
 
-# We can't have lwallet or explorer here, because it depends on 'cardano-sl'.
+# We can't have lwallet, wallet or explorer here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
 
 args=''
@@ -154,6 +155,8 @@ do
     spec_prj="godtossing"
   elif [[ $var == "lwallet" ]]; then
     spec_prj="lwallet"
+  elif [[ $var == "wallet" ]]; then
+    spec_prj="wallet"
   elif [[ $var == "explorer" ]]; then
     spec_prj="explorer"
   elif [[ $var == "tools" ]]; then
@@ -187,12 +190,12 @@ if [[ $explorer == false ]]; then
   commonargs="$commonargs --flag cardano-sl:-with-explorer"
 fi
 
-if [[ $for_installer == true ]]; then
-  commonargs="$commonargs --flag cardano-sl-tools:for-installer"
+if [[ $wallet == true ]]; then
+  commonargs="$commonargs --flag cardano-sl:with-wallet"
 fi
 
-if [[ $wallet == false ]]; then
-  commonargs="$commonargs --flag cardano-sl:-with-wallet"
+if [[ $for_installer == true ]]; then
+  commonargs="$commonargs --flag cardano-sl-tools:for-installer"
 fi
 
 # CONFIG = dev, prod, or wallet
@@ -231,6 +234,9 @@ if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-lwallet"
   stack clean cardano-sl-lwallet
 
+  echo "Cleaning cardano-sl-wallet"
+  stack clean cardano-sl-wallet
+
   echo "Cleaning cardano-sl-explorer"
   stack clean cardano-sl-explorer
 
@@ -249,17 +255,27 @@ if [[ $spec_prj == "" ]]; then
   for prj in $projects; do
     to_build="$to_build cardano-sl-$prj"
   done
-  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer"
+
+  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet cardano-sl-explorer"
+
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
 elif [[ $spec_prj == "lwallet" ]]; then
   to_build="cardano-sl-lwallet"
+elif [[ $spec_prj == "wallet" ]]; then
+  to_build="cardano-sl-wallet"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-explorer"
 elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer"
+  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer cardano-sl-wallet "
 else
   to_build="cardano-sl-$spec_prj"
+fi
+
+# A warning for invalid flag usage when building wallet. This should not happen.
+if [[ $to_build == *"wallet"* && $wallet == false ]]; then
+  echo "You can't build output with wallet and not use wallet! Invalid flag '--no-wallet'."
+  exit
 fi
 
 # A warning for invalid flag usage when building explorer. This should not happen.
@@ -269,6 +285,7 @@ if [[ $to_build == *"explorer"* && $explorer == false ]]; then
 fi
 
 echo "Going to build: $to_build"
+echo "'wallet' flag: $wallet"
 echo "'explorer' flag: $explorer"
 
 for prj in $to_build; do

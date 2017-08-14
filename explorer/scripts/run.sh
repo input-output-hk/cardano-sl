@@ -16,11 +16,16 @@ if [[ "$2" != "" ]]; then
 fi
 
 source "$common_path"
-cmd="stack exec cardano-explorer -- `dht_config rand 0` \
+cmd="stack exec cardano-explorer \
       --rebuild-db \
       --flat-distr ($n,100000) \
       --listen 127.0.0.1:$((3000+$n)) \
       --system-start $system_start \
+      --kademlia-peer localhost:3000 \
+      --kademlia-peer localhost:3001 \
+      --kademlia-peer localhost:3002 \
+      --static-peers \
       --log-config log-config.yaml"
+
 echo "$cmd"
 $cmd

@@ -43,6 +43,7 @@ import qualified Pos.DB.DB                      as DB
 import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
+import           Pos.Binary.Class               (biSize)
 import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
@@ -76,12 +77,12 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  CGenesisAddressInfo (..),
                                                  CGenesisSummary (..), CHash,
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), TxInternal (..),
+                                                 CTxSummary (..), TxInternal (..), Byte,
                                                  convertTxOutputs, fromCAddress,
                                                  fromCHash, fromCTxId, getEpochIndex,
                                                  getSlotIndex, mkCCoin, tiToTxEntry,
                                                  toBlockEntry, toBlockSummary, toCAddress,
-                                                 toCHash, toPosixTime, toTxBrief)
+                                                 toCHash, toPosixTime, toTxBrief, toCTxId)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -129,6 +130,8 @@ explorerHandlers _sendActions =
       apiGenesisPagesTotal
     :<|>
       apiGenesisAddressInfo
+    :<|>
+      apiStatsTxs
   where
     apiBlocksPages        = getBlocksPagesDefault
     apiBlocksPagesTotal   = getBlocksPagesTotalDefault
@@ -141,6 +144,7 @@ explorerHandlers _sendActions =
     apiGenesisSummary     = catchExplorerError getGenesisSummary
     apiGenesisPagesTotal  = getGenesisPagesTotalDefault
     apiGenesisAddressInfo = getGenesisAddressInfoDefault
+    apiStatsTxs           = getStatsTxsDefault
 
     catchExplorerError    = try
 
@@ -161,6 +165,9 @@ explorerHandlers _sendActions =
 
     getGenesisAddressInfoDefault page size =
         catchExplorerError $ getGenesisAddressInfo page (defaultPageSize size)
+
+    getStatsTxsDefault page =
+        catchExplorerError $ getStatsTxs page
 
     defaultPageSize size = (fromIntegral $ fromMaybe 10 size)
     defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
@@ -605,6 +612,44 @@ epochSlotSearch epochIndex slotIndex = do
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
+
+getStatsTxs
+    :: forall ctx m. ExplorerMode ctx m
+    => Maybe Word
+    -> m (Integer, [(CTxId, Byte)])
+getStatsTxs mPageNumber = do
+    -- Get blocks from the requested page
+    blocksPage <- getBlocksPage mPageNumber 10
+
+    blockPageTxsInfo <- getBlockPageTxsInfo blocksPage
+    pure blockPageTxsInfo
+  where
+    getBlockPageTxsInfo
+        :: (Integer, [CBlockEntry])
+        -> m (Integer, [(CTxId, Byte)])
+    getBlockPageTxsInfo (blockPageNumber, cBlockEntries) = do
+        blockTxsInfo <- blockPageTxsInfo
+        pure (blockPageNumber, blockTxsInfo)
+      where
+        cHashes :: [CHash]
+        cHashes = cbeBlkHash <$> cBlockEntries
+
+        blockPageTxsInfo :: m [(CTxId, Byte)]
+        blockPageTxsInfo = concat <$> forM cHashes getBlockTxsInfo
+
+    getBlockTxsInfo
+        :: CHash
+        -> m [(CTxId, Byte)]
+    getBlockTxsInfo cHash = do
+        h   <- unwrapOrThrow $ fromCHash cHash
+        blk <- getMainBlock h
+        txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+
+        pure $ txToTxIdSize <$> txs
+      where
+        txToTxIdSize :: Tx -> (CTxId, Byte)
+        txToTxIdSize tx = (toCTxId $ hash tx, biSize tx)
+
 
 --------------------------------------------------------------------------------
 -- Helpers

@@ -12,6 +12,10 @@ module Pos.Network.Types
     , topologyUnknownNodeType
     , topologySubscriptionWorker
     , topologyRunKademlia
+      -- * Default policies for a given topology
+    , topologyEnqueuePolicy
+    , topologyDequeuePolicy
+    , topologyFailurePolicy
     , resolveDnsDomains
     , defaultNetworkConfig
     , initQueue
@@ -52,19 +56,41 @@ import           GHC.Show                              (Show(..))
 
 -- | Information about the network in which a node participates.
 data NetworkConfig kademlia = NetworkConfig
-    { ncTopology    :: !(Topology kademlia)
+    { ncTopology      :: !(Topology kademlia)
       -- ^ Network topology from the point of view of the current node
-    , ncDefaultPort :: !Word16
+    , ncDefaultPort   :: !Word16
       -- ^ Port number to use when translating IP addresses to NodeIds
-    , ncSelfName    :: !(Maybe NodeName)
+    , ncSelfName      :: !(Maybe NodeName)
       -- ^ Our node name (if known)
+    , ncEnqueuePolicy :: !(OQ.EnqueuePolicy NodeId)
+    , ncDequeuePolicy :: !OQ.DequeuePolicy
+    , ncFailurePolicy :: !(OQ.FailurePolicy NodeId)
     }
-  deriving (Show)
 
-defaultNetworkConfig :: Topology topology -> NetworkConfig topology
+instance Show kademlia => Show (NetworkConfig kademlia) where
+    show = show . showableNetworkConfig
+
+data ShowableNetworkConfig kademlia = ShowableNetworkConfig {
+      sncTopology    :: !(Topology kademlia)
+    , sncDefaultPort :: !Word16
+    , sncSelfName    :: !(Maybe NodeName)
+    }
+    deriving (Show)
+
+showableNetworkConfig :: NetworkConfig kademlia -> ShowableNetworkConfig kademlia
+showableNetworkConfig NetworkConfig {..} =
+    let sncTopology    = ncTopology
+        sncDefaultPort = ncDefaultPort
+        sncSelfName    = ncSelfName
+    in  ShowableNetworkConfig {..}
+
+defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
 defaultNetworkConfig ncTopology = NetworkConfig {
-      ncDefaultPort = 3000
-    , ncSelfName    = Nothing
+      ncDefaultPort   = 3000
+    , ncSelfName      = Nothing
+    , ncEnqueuePolicy = topologyEnqueuePolicy ncTopology
+    , ncDequeuePolicy = topologyDequeuePolicy ncTopology
+    , ncFailurePolicy = topologyFailurePolicy ncTopology
     , ..
     }
 
@@ -279,9 +305,9 @@ initQueue :: (MonadIO m, WithLogger m, FormatMsg msg)
           -> m (OutboundQ msg NodeId Bucket)
 initQueue NetworkConfig{..} mStore = do
     oq <- OQ.new (maybe "self" toString ncSelfName)
-                 (topologyEnqueuePolicy   ncTopology)
-                 (topologyDequeuePolicy   ncTopology)
-                 (topologyFailurePolicy   ncTopology)
+                 ncEnqueuePolicy
+                 ncDequeuePolicy
+                 ncFailurePolicy
                  (topologyMaxBucketSize   ncTopology)
                  (topologyUnknownNodeType ncTopology)
 

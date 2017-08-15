@@ -10,11 +10,46 @@ module Pos.Network.Policy
     , defaultDequeuePolicyEdgeP2P
     , defaultDequeuePolicyEdgeExchange
     , defaultFailurePolicy
+
+    , fromStaticPolicies
     ) where
 
 import           Universum
 import           Network.Broadcast.OutboundQueue.Types
 import           Network.Broadcast.OutboundQueue
+import qualified Pos.Network.Yaml as Y
+
+fromStaticPolicies
+    :: Y.StaticPolicies
+    -> (EnqueuePolicy nid, DequeuePolicy, FailurePolicy nid)
+fromStaticPolicies staticPolicies =
+    ( enqueuePolicy
+    , dequeuePolicy
+    , failurePolicy
+    )
+  where
+    enqueuePolicy msgType =
+        let staticEnqueues = Y.getStaticEnqueuePolicy (Y.staticEnqueuePolicy staticPolicies) msgType
+            mkEnqueue it@(Y.StaticEnqueueAll {..}) = EnqueueAll
+                { enqNodeType   = Y.senqNodeType it
+                , enqMaxAhead   = MaxAhead (fromIntegral (Y.senqMaxAhead it))
+                , enqPrecedence = Y.senqPrecedence it
+                }
+            mkEnqueue it@(Y.StaticEnqueueOne {..}) = EnqueueOne
+                { enqNodeTypes  = Y.senqNodeTypes it
+                , enqMaxAhead   = MaxAhead (fromIntegral (Y.senqMaxAhead it))
+                , enqPrecedence = Y.senqPrecedence it
+                }
+        in  fmap mkEnqueue staticEnqueues
+    dequeuePolicy nodeType =
+        let staticDequeue = Y.getStaticDequeuePolicy (Y.staticDequeuePolicy staticPolicies) nodeType
+        in  Dequeue {
+                  deqRateLimit = maybe NoRateLimiting (MaxMsgPerSec . fromIntegral) (Y.sdeqRateLimit staticDequeue)
+                , deqMaxInFlight = MaxInFlight (fromIntegral (Y.sdeqMaxInFlight staticDequeue))
+                }
+    failurePolicy nodeType msgType _ =
+        let seconds = Y.getStaticFailure (Y.getStaticFailurePolicy (Y.staticFailurePolicy staticPolicies) nodeType) msgType
+        in  ReconsiderAfter (fromIntegral seconds)
 
 -- | Default enqueue policy for core nodes
 defaultEnqueuePolicyCore :: EnqueuePolicy nid

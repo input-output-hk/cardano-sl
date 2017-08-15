@@ -1,0 +1,82 @@
+enqueue:
+  announceBlockHeader:
+    - all:
+        nodeType: 'core'
+        maxAhead: 1
+        precedence: 'highest'
+  requestBlockHeaders:
+    - all:
+        nodeType: 'core'
+        maxAhead: 1
+        precedence: 'highest'
+  requestBlocks:
+    - all:
+        nodeType: 'core'
+        maxAhead: 1
+        precedence: 'highest'
+  transaction:
+    send:
+      - all:
+          nodeType: 'core'
+          maxAhead: 1
+          precedence: 'highest'
+    forward:
+      - all:
+          nodeType: 'core'
+          maxAhead: 1
+          precedence: 'highest'
+  mpc:
+    send:
+      - all:
+          nodeType: 'core'
+          maxAhead: 1
+          precedence: 'highest'
+    forward:
+      - all:
+          nodeType: 'core'
+          maxAhead: 1
+          precedence: 'highest'
+
+
+dequeue:
+  core:
+    rateLimit: 25
+    maxInFlight: 1
+  relay:
+    rateLimit: 25
+    maxInFlight: 1
+  edge:
+    rateLimit: 25
+    maxInFlight: 1
+
+failure:
+  core:
+    announceBlockHeader: 1
+    requestBlockHeaders: 1
+    requestBlocks: 1
+    transaction:
+      send: 1
+      forward: 1
+    mpc:
+      send: 1
+      forward: 1
+  relay:
+    announceBlockHeader: 1
+    requestBlockHeaders: 1
+    requestBlocks: 1
+    transaction:
+      send: 1
+      forward: 1
+    mpc:
+      send: 1
+      forward: 1
+  edge:
+    announceBlockHeader: 1
+    requestBlockHeaders: 1
+    requestBlocks: 1
+    transaction:
+      send: 1
+      forward: 1
+    mpc:
+      send: 1
+      forward: 1

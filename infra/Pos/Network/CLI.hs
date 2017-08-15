@@ -35,6 +35,7 @@ import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
                                                          fromYamlConfig)
 import           Pos.Network.DnsDomains          (DnsDomains (..), NodeAddr (..))
+import qualified Pos.Network.Policy              as Policy
 import           Pos.Network.Types               (NodeId)
 import qualified Pos.Network.Types               as T
 import           Pos.Network.Yaml                (NodeMetadata (..), NodeName (..))
@@ -62,6 +63,8 @@ data NetworkConfigOpts = NetworkConfigOpts {
 
       -- | Port number to use when translating IP addresses to NodeIds
     , networkConfigOptsPort     :: Word16
+
+    , networkConfigOptsPolicies :: Maybe FilePath
     }
   deriving (Show)
 
@@ -91,6 +94,11 @@ networkConfigOption = NetworkConfigOpts
           , Opt.metavar "PORT"
           , Opt.help "Port number for IP address to node ID translation"
           , Opt.value 3000
+          ])
+    <*> (Opt.optional . Opt.strOption $ mconcat [
+            Opt.long "policies"
+          , Opt.metavar "FILEPATH"
+          , Opt.help "Path to a YAML file containing the network policies"
           ])
 
 {-------------------------------------------------------------------------------
@@ -235,10 +243,26 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
       Y.TopologyTraditional v f -> do
         kparams <- liftIO $ getKademliaParams cfg
         return (T.TopologyTraditional v f kparams)
+    (enqueuePolicy, dequeuePolicy, failurePolicy) <- case networkConfigOptsPolicies of
+        -- If no policy file is given we just use the default derived from the
+        -- topology.
+        Nothing -> return
+            ( T.topologyEnqueuePolicy ourTopology
+            , T.topologyDequeuePolicy ourTopology
+            , T.topologyFailurePolicy ourTopology
+            )
+        -- A policy file is given: the topology-derived defaults are ignored
+        -- and we take the complete policy description from the file.
+        Just fp -> do
+            staticPolicies <- liftIO $ readPolicies fp
+            return $ Policy.fromStaticPolicies staticPolicies
     return T.NetworkConfig {
-        ncTopology    = ourTopology
-      , ncDefaultPort = networkConfigOptsPort
-      , ncSelfName    = networkConfigOptsSelf
+        ncTopology      = ourTopology
+      , ncDefaultPort   = networkConfigOptsPort
+      , ncSelfName      = networkConfigOptsSelf
+      , ncEnqueuePolicy = enqueuePolicy
+      , ncDequeuePolicy = dequeuePolicy
+      , ncFailurePolicy = failurePolicy
       }
 
 -- | Come up with kademlia parameters, possibly throwing an exception in case
@@ -363,6 +387,13 @@ readTopology fp = do
       Left  err      -> throwM $ CannotParseNetworkConfig err
       Right topology -> return topology
 
+readPolicies :: FilePath -> IO Y.StaticPolicies
+readPolicies fp = do
+    mStaticPolicies <- Yaml.decodeFileEither fp
+    case mStaticPolicies of
+      Left  err            -> throwM $ CannotParsePolicies err
+      Right staticPolicies -> return staticPolicies
+
 parseKademlia :: FilePath -> IO Y.KademliaParams
 parseKademlia fp = do
     mKademlia <- Yaml.decodeFileEither fp
@@ -389,6 +420,9 @@ data NetworkConfigException =
 
     -- | We cannot parse the kademlia .yaml file
   | CannotParseKademliaConfig Yaml.ParseException
+
+    -- | A policy description .yaml was specified but couldn't be parsed.
+  | CannotParsePolicies Yaml.ParseException
 
     -- | We use a set of statically known peers but we weren't given the
     -- name of the current node

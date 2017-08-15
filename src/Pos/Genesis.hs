@@ -190,8 +190,8 @@ generateWStakeholders addrDistrs =
     coins = map snd withCoins
     intCoins = map coinToInteger coins
     commonGcd = foldr1 gcd intCoins
-    targetTotalWeight = maxBound @Word16 -- for the maximal precision
-    safeConvert :: Integer -> Word16
+    targetTotalWeight = maxBound @GenesisStakeholderWeight -- for the maximal precision
+    safeConvert :: Integer -> GenesisStakeholderWeight
     safeConvert i
         | i <= 0 =
           error $ "generateWStakeholders can't convert: non-positive coin " <> show i
@@ -199,7 +199,7 @@ generateWStakeholders addrDistrs =
           error $ "generateWStakeholders can't convert: too big " <> show i <>
                   ", withCoins: " <> sformat listJson (map (sformat pairF) withCoins)
         | otherwise = fromIntegral i
-    calcWeight :: Coin -> Word16
+    calcWeight :: Coin -> GenesisStakeholderWeight
     calcWeight balance =
         safeConvert $ floor $
         (coinToInteger balance) Ratio.%

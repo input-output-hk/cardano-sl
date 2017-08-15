@@ -39,6 +39,7 @@ import           Pos.Core.Coin           (unsafeAddCoin, unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
+                                          GenesisStakeholderWeight,
                                           GenesisWStakeholders (..),
                                           StakeDistribution (..), bootDustThreshold,
                                           getTotalStake, mkGenesisCoreData, safeExpStakes)

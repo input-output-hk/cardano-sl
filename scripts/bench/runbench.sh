@@ -18,7 +18,7 @@
 #
 # node_cmd , bench_cmd defined in scripts/common_functions.sh
 
-CORE_NODES=3 CONC=4 scripts/launch/demo.sh 5 `dirname $0`/topology rich_poor
+CORE_NODES=3 CONC=4 NUM_TXS=$1 scripts/launch/demo.sh 5 `dirname $0`/topology rich_poor
 
 # transaction generator generates file tps-sent.csv
 #

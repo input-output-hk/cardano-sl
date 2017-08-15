@@ -52,6 +52,10 @@ if [[ "$CONC" != "" ]]; then
   panesCnt=$((n+1))
 fi
 
+if [[ "$NUM_TXS" == "" ]]; then
+  NUM_TXS=3000
+fi
+
 # System start time in seconds (time since epoch).
 # An extra second is added so that the nodes have extra time to start up
 # and start processing the first slot.
@@ -108,7 +112,7 @@ while [[ $i -lt $panesCnt ]]; do
     # Number of transactions to send per-thread: 300
     # Concurrency (number of threads sending transactions); $CONC
     # Delay between sends on each thread: 500 milliseconds
-    tmux send-keys "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" 3000 $CONC 500 neighbours)" C-m
+    tmux send-keys "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" $NUM_TXS $CONC 500 neighbours)" C-m
   fi
   i=$((i+1))
 done

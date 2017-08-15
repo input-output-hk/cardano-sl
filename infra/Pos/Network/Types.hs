@@ -209,11 +209,9 @@ topologyEnqueuePolicy = go
     go TopologyCore{}        = Policy.defaultEnqueuePolicyCore
     go TopologyRelay{}       = Policy.defaultEnqueuePolicyRelay
     go TopologyBehindNAT{..} = Policy.defaultEnqueuePolicyEdgeBehindNat
-                                    Nothing -- default max trans ahead
     go TopologyP2P{}         = Policy.defaultEnqueuePolicyEdgeP2P
     go TopologyTraditional{} = Policy.defaultEnqueuePolicyCore
     go TopologyLightWallet{} = Policy.defaultEnqueuePolicyEdgeBehindNat
-                                    Nothing -- default max trans ahead
 
 -- | Dequeue policy for the given topology
 topologyDequeuePolicy :: Topology kademia -> OQ.DequeuePolicy
@@ -222,13 +220,9 @@ topologyDequeuePolicy = go
     go TopologyCore{}        = Policy.defaultDequeuePolicyCore
     go TopologyRelay{}       = Policy.defaultDequeuePolicyRelay
     go TopologyBehindNAT{..} = Policy.defaultDequeuePolicyEdgeBehindNat
-                                   Nothing -- default rate limit
-                                   Nothing -- default max in-flight
     go TopologyP2P{}         = Policy.defaultDequeuePolicyEdgeP2P
     go TopologyTraditional{} = Policy.defaultDequeuePolicyCore
     go TopologyLightWallet{} = Policy.defaultDequeuePolicyEdgeBehindNat
-                                   Nothing -- default rate limit
-                                   Nothing -- default max in-flight
 
 -- | Failure policy for the given topology
 topologyFailurePolicy :: Topology kademia -> OQ.FailurePolicy NodeId

@@ -12,14 +12,19 @@
   * IERs_V2.md
 -------------------------------------------------------------------------------}
 
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MultiWayIf          #-}
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE KindSignatures            #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE MultiWayIf                #-}
+{-# LANGUAGE NamedFieldPuns            #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE PolyKinds                 #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE StandaloneDeriving        #-}
+{-# LANGUAGE TupleSections             #-}
 
 module Network.Broadcast.OutboundQueue (
     OutboundQ -- opaque
@@ -30,11 +35,11 @@ module Network.Broadcast.OutboundQueue (
   , MaxAhead(..)
   , Enqueue(..)
   , EnqueuePolicy
+  , UnknownNodeType(..)
   , defaultEnqueuePolicy
   , defaultEnqueuePolicyCore
   , defaultEnqueuePolicyRelay
   , defaultEnqueuePolicyEdgeBehindNat
-  , defaultEnqueuePolicyEdgeExchange
   , defaultEnqueuePolicyEdgeP2P
     -- ** Dequeueing policy
   , RateLimit(..)
@@ -45,12 +50,13 @@ module Network.Broadcast.OutboundQueue (
   , defaultDequeuePolicyCore
   , defaultDequeuePolicyRelay
   , defaultDequeuePolicyEdgeBehindNat
-  , defaultDequeuePolicyEdgeExchange
   , defaultDequeuePolicyEdgeP2P
     -- ** Failure policy
   , FailurePolicy
   , ReconsiderAfter(..)
   , defaultFailurePolicy
+    -- ** Subscription
+  , MaxBucketSize(..)
     -- * Enqueueing
   , Origin(..)
   , EnqueueTo (..)
@@ -73,6 +79,7 @@ module Network.Broadcast.OutboundQueue (
   , peersFromList
   , updatePeersBucket
     -- * Debugging
+  , registerQueueMetrics
   , dumpState
   ) where
 
@@ -83,17 +90,24 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Data.Either (rights)
 import Data.Foldable (fold)
-import Data.List (sortBy)
+import Data.List (sortBy, intercalate)
 import Data.Map.Strict (Map)
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, fromMaybe)
+import Data.Monoid ((<>))
 import Data.Ord (comparing)
 import Data.Text (Text)
 import Data.Time
 import Data.Typeable (typeOf)
 import Formatting (Format, sformat, (%), shown, string)
-import System.Wlog.CanLog
-import qualified Data.Map.Strict as Map
-import qualified Data.Set        as Set
+import System.Metrics.Counter (Counter)
+import System.Wlog.CanLog (WithLogger, logDebug)
+import System.Wlog.Severity (Severity(..))
+import qualified Data.Map.Strict        as Map
+import qualified Data.Set               as Set
+import qualified Data.Text              as T
+import qualified System.Metrics         as Monitoring
+import qualified System.Metrics.Counter as Counter
+import qualified System.Wlog.CanLog     as Log
 
 import Network.Broadcast.OutboundQueue.Types
 import Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
@@ -182,6 +196,7 @@ defaultEnqueuePolicy :: NodeType -> EnqueuePolicy nid
 defaultEnqueuePolicy NodeCore  = defaultEnqueuePolicyCore
 defaultEnqueuePolicy NodeRelay = defaultEnqueuePolicyRelay
 defaultEnqueuePolicy NodeEdge  = defaultEnqueuePolicyEdgeBehindNat
+                                   Nothing -- default number of transactions
 
 -- | Default enqueue policy for core nodes
 defaultEnqueuePolicyCore :: EnqueuePolicy nid
@@ -238,39 +253,15 @@ defaultEnqueuePolicyRelay = go
       ]
 
 -- | Default enqueue policy for standard behind-NAT edge nodes
-defaultEnqueuePolicyEdgeBehindNat :: EnqueuePolicy nid
-defaultEnqueuePolicyEdgeBehindNat = go
+defaultEnqueuePolicyEdgeBehindNat
+    :: Maybe MaxAhead -- ^ Maximum number of transactions ahead (default: 1)
+    -> EnqueuePolicy nid
+defaultEnqueuePolicyEdgeBehindNat mMaxTrans = go
   where
     -- Enqueue policy for edge nodes
     go :: EnqueuePolicy nid
     go (MsgTransaction OriginSender) = [
-        EnqueueAll NodeRelay (MaxAhead 1) PLow
-      ]
-    go (MsgTransaction (OriginForward _)) = [
-        -- don't forward transactions that weren't created at this node
-      ]
-    go (MsgAnnounceBlockHeader _) = [
-        -- not forwarded
-      ]
-    go MsgRequestBlockHeaders = [
-        EnqueueAll NodeRelay (MaxAhead 0) PHigh
-      ]
-    go (MsgRequestBlocks _) = [
-        -- Edge nodes can only talk to relay nodes
-        EnqueueOne [NodeRelay] (MaxAhead 0) PHigh
-      ]
-    go (MsgMPC _) = [
-        -- not relevant
-      ]
-
--- | Default enqueue policy for exchange nodes
-defaultEnqueuePolicyEdgeExchange :: EnqueuePolicy nid
-defaultEnqueuePolicyEdgeExchange = go
-  where
-    -- Enqueue policy for edge nodes
-    go :: EnqueuePolicy nid
-    go (MsgTransaction OriginSender) = [
-        EnqueueAll NodeRelay (MaxAhead 6) PLow
+        EnqueueAll NodeRelay (fromMaybe (MaxAhead 1) mMaxTrans) PLow
       ]
     go (MsgTransaction (OriginForward _)) = [
         -- don't forward transactions that weren't created at this node
@@ -326,9 +317,11 @@ data Dequeue = Dequeue {
 
 -- | Rate limiting
 data RateLimit = NoRateLimiting | MaxMsgPerSec Int
+  deriving Show
 
 -- | Maximum number of in-flight messages (for latency hiding)
 newtype MaxInFlight = MaxInFlight Int
+  deriving Show
 
 -- | Dequeue policy
 --
@@ -343,6 +336,8 @@ defaultDequeuePolicy :: NodeType -> DequeuePolicy
 defaultDequeuePolicy NodeCore  = defaultDequeuePolicyCore
 defaultDequeuePolicy NodeRelay = defaultDequeuePolicyRelay
 defaultDequeuePolicy NodeEdge  = defaultDequeuePolicyEdgeBehindNat
+                                   Nothing -- use default MaxMsgPerSec
+                                   Nothing -- use default RateLimit
 
 -- | Default dequeue policy for core nodes
 defaultDequeuePolicyCore :: DequeuePolicy
@@ -363,21 +358,16 @@ defaultDequeuePolicyRelay = go
     go NodeEdge  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
 
 -- | Dequeueing policy for standard behind-NAT edge nodes
-defaultDequeuePolicyEdgeBehindNat :: DequeuePolicy
-defaultDequeuePolicyEdgeBehindNat = go
+defaultDequeuePolicyEdgeBehindNat
+    :: Maybe RateLimit    -- ^ Max messages per second (per thread); default: 1
+    -> Maybe MaxInFlight  -- ^ Max number of convs to the relay; default: 2
+    -> DequeuePolicy
+defaultDequeuePolicyEdgeBehindNat mMaxMsgPerSec mMaxInFlight = go
   where
     go :: DequeuePolicy
     go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
-    go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
-    go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
-
--- | Dequeueing policy for exchange edge nodes
-defaultDequeuePolicyEdgeExchange :: DequeuePolicy
-defaultDequeuePolicyEdgeExchange = go
-  where
-    go :: DequeuePolicy
-    go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
-    go NodeRelay = Dequeue (MaxMsgPerSec 5) (MaxInFlight 3)
+    go NodeRelay = Dequeue (fromMaybe (MaxMsgPerSec 1) mMaxMsgPerSec)
+                           (fromMaybe (MaxInFlight 2)  mMaxInFlight)
     go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
 
 -- | Dequeueing policy for P2P edge nodes
@@ -510,15 +500,14 @@ inFlightWithPrec nid prec = inFlightTo nid . at prec . anon 0 (== 0)
 --
 -- NOTE: The 'Ord' instance on the type of the buckets @buck@ determines the
 -- final 'Peers' value that the queue gets every time it reads all buckets.
-data OutboundQ msg nid buck = forall self .
-                            ( FormatMsg msg
-                            , Ord nid
-                            , Show nid
-                            , Show self
-                            , Ord buck
-                            ) => OutQ {
+data OutboundQ msg nid buck = ( FormatMsg msg
+                              , Ord nid
+                              , Show nid
+                              , Ord buck
+                              , Show buck
+                              ) => OutQ {
       -- | Node ID of the current node (primarily for debugging purposes)
-      qSelf :: self
+      qSelf :: String
 
       -- | Enqueuing policy
     , qEnqueuePolicy :: EnqueuePolicy nid
@@ -528,6 +517,12 @@ data OutboundQ msg nid buck = forall self .
 
       -- | Failure policy
     , qFailurePolicy :: FailurePolicy nid
+
+      -- | Maximum size of the buckets
+    , qMaxBucketSize :: buck -> MaxBucketSize
+
+      -- | Assumed type of unknown nodes
+    , qUnknownNodeType :: nid -> NodeType
 
       -- | Messages sent but not yet acknowledged
     , qInFlight :: MVar (InFlight nid)
@@ -549,6 +544,9 @@ data OutboundQ msg nid buck = forall self .
 
       -- | Signal we use to wake up blocked threads
     , qSignal :: Signal CtrlMsg
+
+      -- | Some metrics about the queue's health
+    , qHealth :: QHealth buck
     }
 
 -- | Use a formatter to get a dump of the state.
@@ -565,28 +563,49 @@ dumpState outQ@OutQ{} formatter = do
   where
     format = "OutboundQ internal state '{"%shown%"}'"
 
+-- | Type assumed for unknown nodes
+--
+-- Occassionally the queue will receive requests to send messages to nodes it
+-- does not know about. This may happen for instance when the network contains
+-- P2P nodes and those nodes announce new blocks to us, but we have not
+-- registered those nodes as our peers (P2P networks often are not
+-- bidirectional). In order to be able to apply the various policies, the queue
+-- needs to assume a node type for these nodes.
+newtype UnknownNodeType nid = UnknownNodeType (nid -> NodeType)
+
 -- | Initialize the outbound queue
 --
 -- NOTE: The dequeuing thread must be started separately. See 'dequeueThread'.
-new :: forall m msg nid buck self.
+new :: forall m msg nid buck.
        ( MonadIO m
        , FormatMsg msg
        , Ord nid
        , Show nid
-       , Show self
+       , Enum buck
+       , Bounded buck
        , Ord buck
+       , Show buck
        )
-    => self -- ^ Showable identifier of this node, for logging purposes.
+    => String                  -- ^ Identifier of this node (for logging)
     -> EnqueuePolicy nid
     -> DequeuePolicy
     -> FailurePolicy nid
+    -> (buck -> MaxBucketSize)
+    -> UnknownNodeType nid
     -> m (OutboundQ msg nid buck)
-new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
+new qSelf
+    qEnqueuePolicy
+    qDequeuePolicy
+    qFailurePolicy
+    qMaxBucketSize
+    (UnknownNodeType qUnknownNodeType)
+  = liftIO $ do
     qInFlight  <- newMVar Map.empty
     qScheduled <- MQ.new
     qBuckets   <- newMVar Map.empty
     qCtrlMsg   <- newEmptyMVar
     qFailures  <- newMVar Map.empty
+    qHealth    <- newQHealth
 
     -- Only look for control messages when the queue is empty
     let checkCtrlMsg :: IO (Maybe CtrlMsg)
@@ -601,9 +620,220 @@ new qSelf qEnqueuePolicy qDequeuePolicy qFailurePolicy = liftIO $ do
     return OutQ{..}
 
 {-------------------------------------------------------------------------------
+  Monitoring the queue's health
+-------------------------------------------------------------------------------}
+
+-- | Queue health metrics
+data QHealth buck = QHealth {
+      -- | Total number of failed "enqueue all" instructions
+      qFailedEnqueueAll :: Counter
+
+      -- | Total number of failed "enqueue one" instructions
+    , qFailedEnqueueOne :: Counter
+
+      -- | Total number of times a message failed to send to _any_ of the
+      -- peers it got enqueued to
+    , qFailedAllSends :: Counter
+
+      -- | Total number of times cherish looped
+    , qFailedCherishLoop :: Counter
+
+      -- | Total number we could not choose a node from a list of alternatives
+    , qFailedChooseAlt :: Counter
+
+      -- | Total number of failed sends
+    , qFailedSend :: Counter
+
+      -- | Total number of times we refused to update a bucket because doing
+      -- so would exceed the bucket's maximum size
+    , qFailedBucketFull :: buck -> Counter
+    }
+
+newQHealth :: forall buck. (Enum buck, Bounded buck, Ord buck)
+           => IO (QHealth buck)
+newQHealth = QHealth
+    <$> Counter.new
+    <*> Counter.new
+    <*> Counter.new
+    <*> Counter.new
+    <*> Counter.new
+    <*> Counter.new
+    <*> indexedCounter
+  where
+    indexedCounter :: IO (buck -> Counter)
+    indexedCounter = do
+      bs <- forM [minBound .. maxBound] $ \b -> (b, ) <$> Counter.new
+      return (Map.fromList bs Map.!)
+
+-- | An enumeration of the various kinds of failures
+--
+-- The third type argument indicates the additional information we need to
+-- format a human-readable error or warning message for the failure.
+data Failure msg nid buck fmt where
+    FailedEnqueueAll   :: Failure msg nid buck (Enqueue, Some msg, [Alts nid])
+    FailedEnqueueOne   :: Failure msg nid buck (Enqueue, Some msg, [(NodeType, Alts nid)])
+    FailedAllSends     :: Failure msg nid buck (Some msg, [nid])
+    FailedCherishLoop  :: Failure msg nid buck ()
+    FailedChooseAlt    :: Failure msg nid buck [nid]
+    FailedSend         :: Failure msg nid buck (Some (Packet msg nid), SomeException)
+    FailedBucketFull   :: buck -> Failure msg nid buck ()
+
+deriving instance Show buck => Show (Failure msg nid buck fmt)
+
+enumFailures :: (Enum buck, Bounded buck) => [Some (Failure msg nid buck)]
+enumFailures = mconcat [
+      [Some FailedEnqueueAll]
+    , [Some FailedEnqueueOne]
+    , [Some FailedAllSends]
+    , [Some FailedCherishLoop]
+    , [Some FailedChooseAlt]
+    , [Some FailedSend]
+    , [Some (FailedBucketFull b) | b <- [minBound .. maxBound]]
+    ]
+
+failureSeverity :: Failure msg nid buck fmt -> Severity
+failureSeverity FailedEnqueueAll     = Error
+failureSeverity FailedEnqueueOne     = Error
+failureSeverity FailedAllSends       = Error
+failureSeverity FailedCherishLoop    = Error
+failureSeverity FailedChooseAlt      = Warning
+failureSeverity FailedSend           = Warning
+failureSeverity (FailedBucketFull _) = Warning
+
+failureCounter :: Failure msg nid buck fmt -> QHealth buck -> Counter
+failureCounter failure QHealth{..} =
+    case failure of
+      FailedEnqueueAll   -> qFailedEnqueueAll
+      FailedEnqueueOne   -> qFailedEnqueueOne
+      FailedAllSends     -> qFailedAllSends
+      FailedCherishLoop  -> qFailedCherishLoop
+      FailedChooseAlt    -> qFailedChooseAlt
+      FailedSend         -> qFailedSend
+      FailedBucketFull b -> qFailedBucketFull b
+
+-- | Qualified name for the EKG counter for a failure
+failureCounterName :: Show buck => Failure msg nid buck fmt -> [String]
+failureCounterName FailedEnqueueAll     = ["FailedEnqueueAll"]
+failureCounterName FailedEnqueueOne     = ["FailedEnqueueOne"]
+failureCounterName FailedAllSends       = ["FailedAllSends"]
+failureCounterName FailedCherishLoop    = ["FailedCherishLoop"]
+failureCounterName FailedChooseAlt      = ["FailedChooseAlt"]
+failureCounterName FailedSend           = ["FailedSend"]
+failureCounterName (FailedBucketFull b) = ["FailedBucketFull", show b]
+
+failureFormat :: (FormatMsg msg, Show nid, Show buck)
+              => Failure msg nid buck fmt -> String -> fmt -> Text
+failureFormat FailedEnqueueAll self (enq, Some msg, fwdSets) =
+    sformat ( string
+            % ": enqueue instruction " % shown
+            % " failed to enqueue message " % formatMsg
+            % " to forwarding sets " % shown
+            )
+            self enq msg fwdSets
+failureFormat FailedEnqueueOne self (enq, Some msg, fwdSets) =
+    sformat ( string
+            % ": enqueue instruction " % shown
+            % " failed to enqueue message " % formatMsg
+            % " to forwarding sets " % shown
+            )
+            self enq msg fwdSets
+failureFormat FailedAllSends self (Some msg, nids) =
+    sformat ( string % ": message " % formatMsg
+            % " got enqueued to " % shown
+            % " but all sends failed"
+            )
+            self msg nids
+failureFormat FailedCherishLoop self () =
+    sformat ( string % ": enqueueCherished loop? This a policy failure." )
+            self
+failureFormat FailedChooseAlt self alts =
+    sformat ( string % ": could not choose suitable alternative from " % shown )
+            self alts
+failureFormat FailedSend self (Some Packet{..}, err) =
+    sformat ( string % ": sending " % formatMsg % " to " % shown
+            % " failed with " % string % " :: " % shown)
+            self
+            packetPayload
+            packetDestId
+            (displayException err)
+            (typeOf err)
+failureFormat (FailedBucketFull b) self () =
+    sformat ( string % ": maximum bucket size of bucket " % shown % " exceeded" )
+            self b
+
+logFailure :: (WithLogger m, MonadIO m)
+           => OutboundQ msg nid buck
+           -> Failure msg nid buck fmt
+           -> fmt
+           -> m ()
+logFailure OutQ{..} failure fmt = do
+    Log.logMessage (failureSeverity failure)
+                   (failureFormat failure qSelf fmt)
+    liftIO $ Counter.inc $ failureCounter failure qHealth
+
+{-------------------------------------------------------------------------------
+  EKG metrics
+-------------------------------------------------------------------------------}
+
+registerQueueMetrics :: forall msg nid buck. (Enum buck, Bounded buck, Show buck)
+                     => OutboundQ msg nid buck -> Monitoring.Store -> IO ()
+registerQueueMetrics OutQ{..} store = do
+    -- Gauges showing queue internal state
+    regGauge ["InFlight"]  $ countInFlight <$> readMVar qInFlight
+    regGauge ["Failures"]  $ readMVar qFailures >>= countRecentFailures
+    regGauge ["Scheduled"] $ MQ.size qScheduled
+
+    -- We create a gauge for every bucket
+    --
+    -- Since these buckets are added to the map when needed, but we register
+    -- all gauges up-front, we need to enumerate the list of buckets
+    --
+    -- NOTE: By reporting this per bucket, we can easily distinguish the number
+    -- of subscribers ('BucketSubscriptionListener') from, say, statically known
+    -- peers ('BucketStatic').
+    forM_ [minBound .. maxBound] $ \buck ->
+      regGauge ["bucket", show buck] $
+        countPeers . Map.findWithDefault mempty buck <$> readMVar qBuckets
+
+    -- Counters for all failures
+    forM_ (enumFailures :: [Some (Failure msg nid buck)]) $ \(Some failure) ->
+      regCounter (failureCounterName failure)
+                 (failureCounter     failure)
+  where
+    regGauge :: Integral a => [String] -> IO a -> IO ()
+    regGauge qualName f = Monitoring.registerGauge
+                            (metric qualName)
+                            (fromIntegral <$> f)
+                            store
+
+    regCounter :: [String] -> (QHealth buck -> Counter) -> IO ()
+    regCounter qualName ctr = Monitoring.registerCounter
+                                (metric qualName)
+                                (fromIntegral <$> Counter.read (ctr qHealth))
+                                store
+
+    metric :: [String] -> Text
+    metric = T.pack . intercalate "." . (["queue", qSelf] ++)
+
+countInFlight :: InFlight nid -> Int
+countInFlight = sum . fmap sum
+
+countPeers :: Ord nid => Peers nid -> Int
+countPeers = Set.size . peersToSet
+
+countRecentFailures :: MonadIO m => Failures nid -> m Int
+countRecentFailures fs = liftIO $ aux <$> getCurrentTime
+  where
+    aux :: UTCTime -> Int
+    aux now = Map.size (Map.filter (isRecentFailure now) fs)
+
+{-------------------------------------------------------------------------------
   Interpreter for the enqueing policy
 -------------------------------------------------------------------------------}
 
+-- | Enqueue a message to the specified set of peers
+--
+-- If no suitable peers can be found, choose one from the fallback set (if any).
 intEnqueue :: forall m msg nid buck a. (MonadIO m, WithLogger m)
            => OutboundQ msg nid buck
            -> MsgType nid
@@ -623,7 +853,8 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
                     -> m [Packet msg nid a]
             sendAll acc []           = return acc
             sendAll acc (alts:altss) = do
-              mPacket <- sendFwdSet (map packetDestId acc)
+              mPacket <- sendFwdSet True -- warn on failure
+                                    (map packetDestId acc)
                                     enqMaxAhead
                                     enqPrecedence
                                     (enqNodeType, alts)
@@ -636,11 +867,11 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
         -- Log an error if we didn't manage to enqueue the message to any peer
         -- at all (provided that we were configured to send it to some)
         if | null fwdSets ->
-               logDebug $ msgNotEnqueued enqNodeType -- This isn't an error
+               logDebug $ debugNotEnqueued enqNodeType -- This isn't an error
            | null enqueued ->
-               logError $ msgEnqFailed enq fwdSets
+               logFailure outQ FailedEnqueueAll (enq, Some msg, fwdSets)
            | otherwise ->
-               logDebug $ msgEnqueued enqueued
+               logDebug $ debugEnqueued enqueued
 
         return enqueued
 
@@ -651,31 +882,34 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
                                             peers ^. peersOfType t)
                         enqNodeTypes
 
+            -- We don't warn when choosing an alternative here, as failure to
+            -- choose an alternative implies failure to enqueue for 'EnqueueOne'
             sendOne :: [(NodeType, Alts nid)] -> m [Packet msg nid a]
             sendOne = fmap maybeToList
                     . orElseM
-                    . map (sendFwdSet [] enqMaxAhead enqPrecedence)
+                    . map (sendFwdSet False [] enqMaxAhead enqPrecedence)
 
         enqueued <- sendOne fwdSets
 
         -- Log an error if we didn't manage to enqueue the message
         if null enqueued
-          then logError $ msgEnqFailed enq fwdSets
-          else logDebug $ msgEnqueued enqueued
+          then logFailure outQ FailedEnqueueOne (enq, Some msg, fwdSets)
+          else logDebug $ debugEnqueued enqueued
 
         return enqueued
   where
     -- Attempt to send the message to a single forwarding set
-    sendFwdSet :: [nid]                -- ^ Nodes we already sent something to
+    sendFwdSet :: Bool                 -- ^ Warn on failure?
+               -> [nid]                -- ^ Nodes we already sent something to
                -> MaxAhead             -- ^ Max allowed number of msgs ahead
                -> Precedence           -- ^ Precedence of the message
                -> (NodeType, Alts nid) -- ^ Alternatives to choose from
                -> m (Maybe (Packet msg nid a))
-    sendFwdSet alreadyPicked maxAhead prec (nodeType, alts) = do
+    sendFwdSet warnOnFailure alreadyPicked maxAhead prec (nodeType, alts) = do
       mAlt <- pickAlt outQ maxAhead prec $ filter (`notElem` alreadyPicked) alts
       case mAlt of
         Nothing -> do
-          logWarning $ msgNoAlt alts
+          when warnOnFailure $ logFailure outQ FailedChooseAlt alts
           return Nothing
         Just alt -> liftIO $ do
           sentVar <- newEmptyMVar
@@ -699,9 +933,9 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
         OriginSender    -> id
         OriginForward n -> filter (not . null) . map (filter (/= n))
 
-    msgNotEnqueued :: NodeType -> Text
-    msgNotEnqueued nodeType = sformat
-      ( shown
+    debugNotEnqueued :: NodeType -> Text
+    debugNotEnqueued nodeType = sformat
+      ( string
       % ": message "
       % formatMsg
       % " not enqueued to any nodes of type "
@@ -714,24 +948,10 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
       nodeType
       peers
 
-    msgEnqueued :: [Packet msg nid a] -> Text
-    msgEnqueued enqueued =
-      sformat (shown % ": message " % formatMsg % " enqueued to " % shown)
+    debugEnqueued :: [Packet msg nid a] -> Text
+    debugEnqueued enqueued =
+      sformat (string % ": message " % formatMsg % " enqueued to " % shown)
               qSelf msg (map packetDestId enqueued)
-
-    msgNoAlt :: [nid] -> Text
-    msgNoAlt alts =
-      sformat (shown % ": could not choose suitable alternative from " % shown)
-              qSelf alts
-
-    msgEnqFailed :: Show fwdSets => Enqueue -> fwdSets -> Text
-    msgEnqFailed enq fwdSets =
-      sformat ( shown
-              % ": enqueue instruction " % shown
-              % " failed to enqueue message " % formatMsg
-              % " to forwarding sets " % shown
-              )
-              qSelf enq msg fwdSets
 
 -- | Node ID with current stats needed to pick a node from a list of alts
 data NodeWithStats nid = NodeWithStats {
@@ -761,27 +981,27 @@ pickAlt :: forall m msg nid buck. (MonadIO m, WithLogger m)
         -> Precedence
         -> [nid]
         -> m (Maybe nid)
-pickAlt outQ@OutQ{} maxAhead prec alts = do
+pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
     alts' <- mapM (nodeWithStats outQ prec) alts
     orElseM [
         if | nstatsFailure -> do
-               logDebug $ msgFailure nstatsId
+               logDebug $ debugFailure nstatsId
                return Nothing
-           | MaxAhead n <- maxAhead, nstatsAhead > n -> do
-               logDebug $ msgAhead nstatsId nstatsAhead n
+           | nstatsAhead > maxAhead -> do
+               logDebug $ debugAhead nstatsId nstatsAhead maxAhead
                return Nothing
            | otherwise -> do
                return $ Just nstatsId
       | NodeWithStats{..} <- sortBy (comparing nstatsAhead) alts'
       ]
   where
-    msgFailure :: nid -> Text
-    msgFailure = sformat $
+    debugFailure :: nid -> Text
+    debugFailure = sformat $
           "Rejected alternative " % shown
         % " as it has a recent failure"
 
-    msgAhead :: nid -> Int -> Int -> Text
-    msgAhead = sformat $
+    debugAhead :: nid -> Int -> Int -> Text
+    debugAhead = sformat $
           "Rejected alternative " % shown
         % " as it has " % shown
         % " messages ahead, which is more than the maximum " % shown
@@ -794,7 +1014,7 @@ pickAlt outQ@OutQ{} maxAhead prec alts = do
 countAhead :: forall m msg nid buck. (MonadIO m, WithLogger m)
            => OutboundQ msg nid buck -> nid -> Precedence -> m Int
 countAhead OutQ{..} nid prec = do
-    logDebug . msgInFlight =<< liftIO (readMVar qInFlight)
+    logDebug . debugInFlight =<< liftIO (readMVar qInFlight)
     (inFlight, inQueue) <- liftIO $ (,)
       <$> forM [prec .. maxBound] (\prec' ->
             view (inFlightWithPrec nid prec') <$> readMVar qInFlight)
@@ -802,8 +1022,8 @@ countAhead OutQ{..} nid prec = do
             MQ.sizeBy (KeyByDestPrec nid prec') qScheduled)
     return $ sum inFlight + sum inQueue
   where
-    msgInFlight :: InFlight nid -> Text
-    msgInFlight = sformat (shown % ": inFlight = " % shown) qSelf
+    debugInFlight :: InFlight nid -> Text
+    debugInFlight = sformat (string % ": inFlight = " % shown) qSelf
 
 {-------------------------------------------------------------------------------
   Interpreter for the dequeueing policy
@@ -866,7 +1086,7 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
       applyMVar_ qInFlight $
         inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n + 1)
       forkThread threadRegistry $ \unmask -> do
-        logDebug $ msgSending p
+        logDebug $ debugSending p
         ta <- timed $ M.try $ unmask $
                 sendMsg (packetPayload p) (packetDestId p)
         -- TODO: Do we want to acknowledge the send here? Or after we have
@@ -879,34 +1099,24 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
         unmask $ applyRateLimit qDequeuePolicy (packetDestType p) (timedDuration ta)
         case timedResult ta of
           Left err -> do
-            logWarning $ msgSendFailed p err
+            logFailure outQ FailedSend (Some p, err)
             intFailure outQ p (timedStart ta) err
           Right _  ->
             return ()
         applyMVar_ qInFlight $
           inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n - 1)
-        logDebug $ msgSent p
+        logDebug $ debugSent p
         liftIO $ poke qSignal
 
-    msgSending :: Packet msg nid a -> Text
-    msgSending Packet{..} =
-      sformat (shown % ": sending " % formatMsg % " to " % shown)
+    debugSending :: Packet msg nid a -> Text
+    debugSending Packet{..} =
+      sformat (string % ": sending " % formatMsg % " to " % shown)
               qSelf packetPayload packetDestId
 
-    msgSent :: Packet msg nid a -> Text
-    msgSent Packet{..} =
-      sformat (shown % ": sent " % formatMsg % " to " % shown)
+    debugSent :: Packet msg nid a -> Text
+    debugSent Packet{..} =
+      sformat (string % ": sent " % formatMsg % " to " % shown)
               qSelf packetPayload packetDestId
-
-    msgSendFailed :: Packet msg nid a -> SomeException -> Text
-    msgSendFailed Packet{..} (SomeException err) =
-      sformat ( shown % ": sending " % formatMsg % " to " % shown
-              % " failed with " % string % " :: " % shown)
-              qSelf
-              packetPayload
-              packetDestId
-              (displayException err)
-              (typeOf err)
 
 {-------------------------------------------------------------------------------
   Interpreter for failure policy
@@ -932,14 +1142,17 @@ intFailure OutQ{..} p sendStartTime err = do
         )
 
 hasRecentFailure :: MonadIO m => OutboundQ msg nid buck -> nid -> m Bool
-hasRecentFailure OutQ{..} nid = do
-    mFailure <- liftIO $ Map.lookup nid <$> readMVar qFailures
+hasRecentFailure OutQ{..} nid = liftIO $ do
+    mFailure <- Map.lookup nid <$> readMVar qFailures
     case mFailure of
-      Nothing ->
-        return False
-      Just (timeOfFailure, ReconsiderAfter n) -> do
-        now <- liftIO $ getCurrentTime
-        return $ now < addUTCTime n timeOfFailure
+      Nothing      -> return False
+      Just failure -> (`isRecentFailure` failure) <$> getCurrentTime
+
+isRecentFailure :: UTCTime                    -- ^ Now
+                -> (UTCTime, ReconsiderAfter) -- ^ Failure
+                -> Bool
+isRecentFailure now (timeOfFailure, ReconsiderAfter n) =
+    now < addUTCTime n timeOfFailure
 
 -- | Reset internal statistics about failed nodes
 --
@@ -1005,19 +1218,32 @@ enqueueCherished outQ msgType msg =
 -------------------------------------------------------------------------------}
 
 -- | Enqueue message to the specified set of peers
-intEnqueueTo :: (MonadIO m, WithLogger m)
+intEnqueueTo :: forall m msg nid buck a. (MonadIO m, WithLogger m)
              => OutboundQ msg nid buck
              -> MsgType nid
              -> msg a
              -> EnqueueTo nid
              -> m [Packet msg nid a]
-intEnqueueTo outQ@OutQ{} msgType msg enqTo = do
-    peers <- getAllPeers outQ
-    intEnqueue outQ msgType msg (restriction peers)
+intEnqueueTo outQ@OutQ{..} msgType msg enqTo = do
+    peers <- restrict <$> getAllPeers outQ
+    intEnqueue outQ msgType msg peers
   where
-    restriction = case enqTo of
-      EnqueueToAll -> id
-      EnqueueToSubset peers' -> restrictPeers peers'
+    -- Restrict the set of all peers to the requested subset (if one).
+    --
+    -- Any unknown peers will be used as a fallback in case no other peers
+    -- can be found.
+    restrict :: Peers nid -> Peers nid
+    restrict allPeers =
+      case enqTo of
+        EnqueueToAll           -> allPeers
+        EnqueueToSubset subset ->
+          let restricted = restrictPeers subset allPeers
+              unknown    = peersFromList
+                         . map (\nid -> (qUnknownNodeType nid, [nid]))
+                         . Set.toList
+                         $ subset Set.\\ peersToSet allPeers
+
+          in  restricted <> unknown
 
 waitAsync :: MonadIO m
           => [Packet msg nid a] -> [(nid, m (Either SomeException a))]
@@ -1029,20 +1255,12 @@ warnIfNotOneSuccess :: forall m msg nid buck a. (MonadIO m, WithLogger m)
                     -> msg a
                     -> m [(nid, Either SomeException a)]
                     -> m ()
-warnIfNotOneSuccess OutQ{qSelf} msg act = do
+warnIfNotOneSuccess outQ msg act = do
     attempts <- act
     -- If the attempts is null, we would already have logged an error that
     -- we couldn't enqueue at all
     when (not (null attempts) && null (successes attempts)) $
-      logError $ msgNotSent (map fst attempts)
-  where
-    msgNotSent :: [nid] ->Text
-    msgNotSent nids =
-      sformat ( shown % ": message " % formatMsg
-              % " got enqueued to " % shown
-              % " but all sends failed"
-              )
-              qSelf msg nids
+      logFailure outQ FailedAllSends (Some msg, map fst attempts)
 
 -- | Repeatedly run an action until at least one send succeeds, we run out of
 -- options, or we reach a predetermined maximum number of iterations.
@@ -1050,12 +1268,12 @@ cherish :: forall m msg nid buck a. (MonadIO m, WithLogger m)
         => OutboundQ msg nid buck
         -> m [(nid, Either SomeException a)]
         -> m Bool
-cherish OutQ{qSelf} act =
+cherish outQ act =
     go maxNumIterations
   where
     go :: Int -> m Bool
     go 0 = do
-      logError $ msgLoop
+      logFailure outQ FailedCherishLoop ()
       return False
     go n = do
       attempts <- act
@@ -1079,11 +1297,6 @@ cherish OutQ{qSelf} act =
     -- (Thus, the latter should be significantly larger than send timeouts.)
     maxNumIterations :: Int
     maxNumIterations = 4
-
-    msgLoop :: Text
-    msgLoop =
-      sformat (shown % ": enqueueCherished loop? This a policy failure.")
-              qSelf
 
 successes :: [(nid, Either SomeException a)] -> [a]
 successes = rights . map snd
@@ -1172,6 +1385,13 @@ flush OutQ{..} = liftIO $ do
   queue again.
 -------------------------------------------------------------------------------}
 
+-- | Maximum size for a bucket (if limited)
+data MaxBucketSize = BucketSizeUnlimited | BucketSizeMax Int
+
+exceedsBucketSize :: Int -> MaxBucketSize -> Bool
+exceedsBucketSize _ BucketSizeUnlimited = False
+exceedsBucketSize n (BucketSizeMax m)   = m > n
+
 -- | Internal method: read all buckets of peers
 getAllPeers :: MonadIO m => OutboundQ msg nid buck -> m (Peers nid)
 getAllPeers OutQ{..} = liftIO $ fold <$> readMVar qBuckets
@@ -1186,22 +1406,36 @@ getAllPeers OutQ{..} = liftIO $ fold <$> readMVar qBuckets
 -- thread @T@ adds node @n@ to its (private) bucket and then enqueues a message,
 -- that message will not be deleted because another thread happened to remove
 -- node @n@ from _their_ bucket.
-updatePeersBucket :: forall m msg nid buck. MonadIO m
+--
+-- Returns 'False' if the update could not complete
+-- (maximum bucket size exceeded).
+updatePeersBucket :: forall m msg nid buck. (MonadIO m, WithLogger m)
                   => OutboundQ msg nid buck
                   -> buck
                   -> (Peers nid -> Peers nid)
-                  -> m ()
-updatePeersBucket OutQ{..} buck f = liftIO $
-    modifyMVar_ qBuckets $ \buckets -> do
+                  -> m Bool
+updatePeersBucket outQ@OutQ{..} buck f = do
+    success <- liftIO $ modifyMVar qBuckets $ \buckets -> do
+
       let before   = fold buckets
           buckets' = Map.alter f' buck buckets
           after    = fold buckets'
           removed  = peersToSet before Set.\\ peersToSet after
-      forM_ removed $ \nid -> do
-        applyMVar_ qInFlight $ at nid .~ Nothing
-        applyMVar_ qFailures $ Map.delete nid
-        MQ.removeAllIn (KeyByDest nid) qScheduled
-      return buckets'
+
+      if    Set.size (peersToSet (buckets' Map.! buck))
+         `exceedsBucketSize`
+            qMaxBucketSize buck
+        then return (buckets, False)
+        else do
+          forM_ removed $ \nid -> do
+            applyMVar_ qInFlight $ at nid .~ Nothing
+            applyMVar_ qFailures $ Map.delete nid
+            MQ.removeAllIn (KeyByDest nid) qScheduled
+          return (buckets', True)
+
+    unless success $
+      logFailure outQ (FailedBucketFull buck) ()
+    return success
   where
     f' :: Maybe (Peers nid) -> Maybe (Peers nid)
     f' Nothing      = Just $ f mempty
@@ -1353,3 +1587,7 @@ timed act = do
   where
     conv :: NominalDiffTime -> ExecutionTime
     conv t = round (realToFrac t * 1000000 :: Double)
+
+-- | Existential
+data Some (f :: k -> *) where
+  Some :: f a -> Some f

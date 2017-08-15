@@ -37,7 +37,6 @@ let
         configureFlags = [
           "-f-asserts"
           "-f-dev-mode"
-          "-f-with-explorer"
           # https://github.com/NixOS/nixpkgs/pull/24692#issuecomment-306509337
           "--ghc-option=-optl-lm"
         ];

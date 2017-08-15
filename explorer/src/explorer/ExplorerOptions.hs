@@ -24,6 +24,7 @@ import           Pos.Network.CLI            (NetworkConfigOpts, networkConfigOpt
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,
                                              dhtNetworkAddressOption, dhtPeersFileOption)
+import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Statistics             (EkgParams, StatsdParams, ekgParamsOption,
                                              statsdParamsOption)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
@@ -61,6 +62,7 @@ data Args = Args
     , statsdParams       :: !(Maybe StatsdParams)
     , notifierPort       :: !Word16
     , staticPeers        :: !Bool
+    , sscAlgo            :: !SscAlgo
     } deriving Show
 
 argsParser :: Parser Args
@@ -135,6 +137,8 @@ argsParser = do
     staticPeers <- switch $
         long "static-peers" <>
         help "Don't use Kademlia, use only static peers"
+
+    sscAlgo <- CLI.sscAlgoOption
 
     pure Args{..}
 

@@ -1225,25 +1225,25 @@ intEnqueueTo :: forall m msg nid buck a. (MonadIO m, WithLogger m)
              -> EnqueueTo nid
              -> m [Packet msg nid a]
 intEnqueueTo outQ@OutQ{..} msgType msg enqTo = do
-    peers <- restrict =<< getAllPeers outQ
+    peers <- restrict <$> getAllPeers outQ
     intEnqueue outQ msgType msg peers
   where
     -- Restrict the set of all peers to the requested subset (if one).
     --
     -- Any unknown peers will be used as a fallback in case no other peers
     -- can be found.
-    restrict :: Peers nid -> m (Peers nid)
+    restrict :: Peers nid -> Peers nid
     restrict allPeers =
       case enqTo of
-        EnqueueToAll           -> return allPeers
-        EnqueueToSubset subset -> do
+        EnqueueToAll           -> allPeers
+        EnqueueToSubset subset ->
           let restricted = restrictPeers subset allPeers
               unknown    = peersFromList
                          . map (\nid -> (qUnknownNodeType nid, [nid]))
                          . Set.toList
                          $ subset Set.\\ peersToSet allPeers
 
-          return $ restricted <> unknown
+          in  restricted <> unknown
 
 waitAsync :: MonadIO m
           => [Packet msg nid a] -> [(nid, m (Either SomeException a))]

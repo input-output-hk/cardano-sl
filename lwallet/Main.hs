@@ -469,7 +469,7 @@ main = do
                 -- Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                 --     walletServeWebLite sendActions webDaedalusDbPath False webPort
 
-        case CLI.sscAlgo woCommonArgs of
+        case woSscAlgo of
             GodTossingAlgo -> do
                 logInfo "Using MPC coin tossing"
                 liftIO $ hFlush stdout

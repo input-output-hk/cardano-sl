@@ -26,8 +26,8 @@ import           Pos.Genesis           (StakeDistribution (..), accountGenesisIn
                                         wAddressGenesisIndex)
 import           Pos.Ssc.GodTossing    (VssCertificate, mkVssCertificate)
 import           Pos.Types             (Address, coinPortionToDouble, unsafeIntegerToCoin)
-import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
-                                        usPrimKey, usVss, usWalletSet,
+import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret,
+                                        usPrimKey, usVss, usWallets,
                                         writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
 
@@ -38,7 +38,8 @@ rearrangeKeyfile fp = do
     us <- takeUserSecret fp
     let sk = maybeToList $ us ^. usPrimKey
     writeUserSecretRelease $
-        us & usKeys %~ (++ map noPassEncrypt sk)
+        -- AJ: TODO: Not certain if this is correct. Most probably `rearrange` doesn't make sense anymore
+        us & usWallets %~ (++ map (mkGenesisWalletUserSecret . noPassEncrypt) sk)
 
 generateKeyfile
     :: (MonadIO m, MonadFail m, WithLogger m)
@@ -51,6 +52,7 @@ generateKeyfile isPrim mbSk fp = do
     initializeUserSecret fp
     (sk, hdwSk) <- case mbSk of
         Just x  -> return x
+        -- AJ: TODO: Why do we use unrelated sk and hdwSk? Why not `hdwSk = noPassEncrypt sd`. safeKeyGen effectively does noPassEncrypt.
         Nothing -> (,) <$> (snd <$> keyGen) <*> (snd <$> safeKeyGen emptyPassphrase)
     vss <- vssKeyGen
     us <- takeUserSecret fp
@@ -58,8 +60,8 @@ generateKeyfile isPrim mbSk fp = do
     writeUserSecretRelease $
         us & (if isPrim
               then usPrimKey .~ Just sk
-              else (usKeys %~ (noPassEncrypt sk :))
-                 . (usWalletSet ?~ mkGenesisWalletUserSecret hdwSk))
+              -- AJ: TODO: Again, this is most probably wrong.
+              else usWallets %~ (++ [mkGenesisWalletUserSecret hdwSk]))
            & usVss .~ Just vss
 
     expiry <- liftIO $

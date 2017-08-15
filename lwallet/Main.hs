@@ -76,10 +76,9 @@ import           Pos.Update                       (BlockVersionData (..),
                                                    BlockVersionModifier (..),
                                                    SystemTag (..), UpdateData (..),
                                                    UpdateVote (..), mkUpdateProposalWSign)
-import           Pos.Util.UserSecret              (readUserSecret, usKeys)
+import           Pos.Util.UserSecret              (readUserSecret) --, usKeys)
 import           Pos.Util.Util                    (powerLift)
-import           Pos.Wallet                       (addSecretKey, getBalance,
-                                                   getSecretKeys)
+import           Pos.Wallet                       (getBalance, getSecretKeys)
 import           Pos.Wallet.Light                 (LightWalletMode, WalletParams (..),
                                                    makePubKeyAddressLWallet,
                                                    runWalletStaticPeers)
@@ -335,12 +334,13 @@ runCmd sendActions (DelegateHeavy i delegatePk curEpoch) CmdCtx{na} = do
           let psk = safeCreatePsk ss delegatePk curEpoch
           dataFlow "pskHeavy" (immediateConcurrentConversations sendActions na) (MsgTransaction OriginSender) psk
    putText "Sent heavyweight cert"
-runCmd _ (AddKeyFromPool i) CmdCtx{..} = do
-   let key = skeys !! i
-   addSecretKey $ noPassEncrypt key
-runCmd _ (AddKeyFromFile f) _ = do
-    secret <- readUserSecret f
-    mapM_ addSecretKey $ secret ^. usKeys
+-- AJ: TODO: Restore similar functionality with a new API
+-- runCmd _ (AddKeyFromPool i) CmdCtx{..} = do
+--    let key = skeys !! i
+--    addSecretKey $ noPassEncrypt key
+-- runCmd _ (AddKeyFromFile f) _ = do
+--     secret <- readUserSecret f
+--     mapM_ addSecretKey $ secret ^. usKeys
 runCmd _ Quit _ = pure ()
 
 dummyHash :: Hash Raw

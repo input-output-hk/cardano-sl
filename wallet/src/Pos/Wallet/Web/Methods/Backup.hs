@@ -17,7 +17,7 @@ import           Formatting                   (build, sformat, stext, (%))
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
-import           Pos.Wallet.KeyStorage        (addSecretKey)
+import           Pos.Wallet.KeyStorage        -- (addSecretKey)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genUniqueAccountId)
 import           Pos.Wallet.Web.Backup        (AccountMetaBackup (..), TotalBackup (..),
                                                WalletBackup (..), WalletMetaBackup (..),
@@ -44,7 +44,8 @@ restoreWalletFromBackup WalletBackup {..} = do
                 accList = HM.toList wbAccounts
                           & each . _2 %~ \(AccountMetaBackup am) -> am
 
-            addSecretKey wbSecretKey
+            -- AJ: TODO: ADD THIS KEY SOMEWHERE
+            -- addSecretKey wbSecretKey
             for_ accList $ \(idx, meta) -> do
                 let aIdx = fromInteger $ fromIntegral idx
                     seedGen = DeterminedSeed aIdx
@@ -69,4 +70,3 @@ exportWalletJSON :: MonadWalletWebMode m => CId Wal -> Text -> m ()
 exportWalletJSON wid (toString -> fp) = do
     wBackup <- TotalBackup <$> getWalletBackup wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup
-

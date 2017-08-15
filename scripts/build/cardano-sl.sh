@@ -202,6 +202,8 @@ norun='--no-run-tests --no-run-benchmarks'
 
 if [[ $no_nix == true ]]; then
   commonargs="$commonargs --no-nix"
+else
+  commonargs="$commonargs --nix"
 fi
 
 if [[ "$prodMode" != "" ]]; then

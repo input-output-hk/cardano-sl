@@ -128,6 +128,7 @@ type TransactionHistory = HashMap CTxId CTxMeta
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap (CId Addr) HeaderHash
 
+-- AJ: THIS HERE THING
 data WalletStorage = WalletStorage
     { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
     , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)

@@ -7,6 +7,7 @@ module Pos.Network.Yaml (
   , KademliaId(..)
   , KademliaAddress(..)
   , NodeName(..)
+  , nodeNameToString
   , NodeRegion(..)
   , NodeRoutes(..)
   , NodeMetadata(..)
@@ -22,7 +23,9 @@ import qualified Data.Aeson.Types       as A
 import qualified Data.ByteString.Char8  as BS.C8
 import qualified Data.HashMap.Lazy      as HM
 import qualified Data.Map.Strict        as M
+import qualified Data.Text              as T
 import           Network.Broadcast.OutboundQueue.Types
+import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS            as DNS
 import           Pos.Util.Config
 import           Universum
@@ -35,10 +38,28 @@ import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 -- describes the entire network topology (all statically known nodes), not just
 -- the topology from the point of view of the current node.
 data Topology =
-    TopologyStatic !AllStaticallyKnownPeers
-  | TopologyBehindNAT !Valency !Fallbacks !(DnsDomains (DNS.Domain))
-  | TopologyP2P !Valency !Fallbacks
-  | TopologyTraditional !Valency !Fallbacks
+    TopologyStatic {
+        topologyAllPeers :: !AllStaticallyKnownPeers
+      }
+
+  | TopologyBehindNAT {
+        topologyValency        :: !Valency
+      , topologyFallbacks      :: !Fallbacks
+      , topologyDnsDomains     :: !(DnsDomains (DNS.Domain))
+      , topologyOptMaxAhead    :: !(Maybe OQ.MaxAhead)
+      , topologyOptRateLimit   :: !(Maybe OQ.RateLimit)
+      , topologyOptMaxInFlight :: !(Maybe OQ.MaxInFlight)
+      }
+
+  | TopologyP2P {
+        topologyValency   :: !Valency
+      , topologyFallbacks :: !Fallbacks
+      }
+
+  | TopologyTraditional {
+        topologyValency   :: !Valency
+      , topologyFallbacks :: !Fallbacks
+      }
   deriving (Show)
 
 -- | The number of peers we want to send to
@@ -61,6 +82,9 @@ data AllStaticallyKnownPeers = AllStaticallyKnownPeers {
 
 newtype NodeName = NodeName Text
     deriving (Show, Ord, Eq, IsString)
+
+nodeNameToString :: NodeName -> String
+nodeNameToString (NodeName txt) = T.unpack txt
 
 newtype NodeRegion = NodeRegion Text
     deriving (Show, Ord, Eq, IsString)
@@ -233,19 +257,21 @@ instance FromJSON Topology where
         (Just nodes, Nothing, Nothing) ->
             TopologyStatic <$> parseJSON nodes
         (Nothing, Just wallet, Nothing) -> flip (A.withObject "wallet") wallet $ \walletObj -> do
-            relays    <- walletObj .:  "relays"
-            valency   <- walletObj .:? "valency"   .!= 1
-            fallbacks <- walletObj .:? "fallbacks" .!= 1
-            return (TopologyBehindNAT valency fallbacks relays)
+            topologyDnsDomains     <- walletObj .:  "relays"
+            topologyValency        <- walletObj .:? "valency"   .!= 1
+            topologyFallbacks      <- walletObj .:? "fallbacks" .!= 1
+            topologyOptMaxAhead    <- fmap OQ.MaxAhead     <$> walletObj .:? "maxAhead"
+            topologyOptRateLimit   <- fmap OQ.MaxMsgPerSec <$> walletObj .:? "rateLimit"
+            topologyOptMaxInFlight <- fmap OQ.MaxInFlight  <$> walletObj .:? "maxInFlight"
+            return TopologyBehindNAT{..}
         (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
-            variantTxt <- p2pObj .: "variant"
-            variant <- flip (A.withText "P2P variant") variantTxt $ \txt -> case txt of
-                "traditional" -> pure TopologyTraditional
-                "normal"      -> pure TopologyP2P
-                _             -> fail "P2P variant: expected 'traditional' or 'normal'"
-            valency <- p2pObj .:? "valency" .!= 3
-            fallbacks <- p2pObj .:? "fallbacks" .!= 1
-            pure (variant valency fallbacks)
+            variantTxt        <- p2pObj .: "variant"
+            topologyValency   <- p2pObj .:? "valency"   .!= 3
+            topologyFallbacks <- p2pObj .:? "fallbacks" .!= 1
+            flip (A.withText "P2P variant") variantTxt $ \txt -> case txt of
+              "traditional" -> return TopologyTraditional{..}
+              "normal"      -> return TopologyP2P{..}
+              _             -> fail "P2P variant: expected 'traditional' or 'normal'"
         _ ->
           fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
 

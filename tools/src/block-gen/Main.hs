@@ -52,12 +52,13 @@ main = flip catch catchEx $ giveStaticConsts $ do
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
     let nodes = length invSecretsMap
-    let flatDistr = FlatStakes (fromIntegral nodes) (mkCoin $ fromIntegral nodes)
     let bootStakeholders
             | isDevelopment =
                 GenesisWStakeholders $ HM.fromList $
                 zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
             | otherwise = genesisProdBootStakeholders
+    let flatDistr = FlatStakes (fromIntegral nodes)
+                               (mkCoin $ fromIntegral $ length (getGenesisWStakeholders bootStakeholders) * nodes)
     let addrDistribution
             | isDevelopment = fst $ devAddrDistr flatDistr
             | otherwise = genesisProdAddrDistribution

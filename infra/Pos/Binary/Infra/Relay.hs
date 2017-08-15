@@ -5,7 +5,8 @@ module Pos.Binary.Infra.Relay
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
-import           Pos.Communication.Types.Relay (InvMsg (..), MempoolMsg (..), ReqMsg (..))
+import           Pos.Communication.Types.Relay (InvMsg (..), MempoolMsg (..),
+                                                ReqMsg (..), ResMsg (..))
 
 instance Bi key => Bi (InvMsg key) where
   encode = encode . imKey
@@ -14,6 +15,10 @@ instance Bi key => Bi (InvMsg key) where
 instance Bi key => Bi (ReqMsg key) where
   encode = encode . rmKey
   decode = ReqMsg <$> decode
+
+instance Bi key => Bi (ResMsg key) where
+  encode (ResMsg {..}) = encode (resKey, resOk)
+  decode = uncurry ResMsg <$> decode
 
 instance Typeable tag => Bi (MempoolMsg tag) where
   -- The extra byte is needed because time-warp doesn't work with

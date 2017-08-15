@@ -1486,13 +1486,14 @@ self: {
           description = "Cardano explorer";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-godtossing = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, containers, cpphs, cryptonite, data-default, ether, file-embed, formatting, generic-arbitrary, hashable, lens, log-warper, mkDerivation, mmorph, mono-traversable, mtl, node-sketch, rocksdb-haskell, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-godtossing = callPackage ({ QuickCheck, aeson, array, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, containers, cpphs, cryptonite, data-default, ether, file-embed, formatting, generic-arbitrary, hashable, lens, log-warper, mkDerivation, mmorph, mono-traversable, mtl, node-sketch, rocksdb-haskell, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-godtossing";
           version = "0.5.1";
           src = ./../godtossing;
           libraryHaskellDepends = [
             aeson
+            array
             base
             bytestring
             cardano-sl-core
@@ -4807,8 +4808,8 @@ self: {
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "1lxxxdazgw1chrcjc8pqs3ac6xp699f2s70ymb2hgqq4xcfr1ic9";
-            rev = "a6671797bd56b2f691b30a4950701d3591f8f925";
+            sha256 = "1c78qh2fg7vbrqvlv4x93y8cd303abrcv157v6g4zwj9gglpdp57";
+            rev = "fb2b1b132809cd7dcc8ddcd5b26f17c9e39ad687";
           };
           isLibrary = true;
           isExecutable = true;

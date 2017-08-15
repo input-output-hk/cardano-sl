@@ -57,7 +57,7 @@ import           Pos.Util.Util              (eitherToThrow)
 ----------------------------------------------------------------------------
 
 -- | Generates list of distinct ints in the given range [a,b].
-selectDistinct :: forall m. (MonadRandom m, MonadIO m) => Int -> (Int,Int) -> m [Int]
+selectDistinct :: forall m. (MonadRandom m) => Int -> (Int,Int) -> m [Int]
 selectDistinct n0 p@(a, b)
     | b - a < 0 = error $ "selectDistinct: b < a " <> show p
     | otherwise = do
@@ -77,7 +77,7 @@ selectDistinct n0 p@(a, b)
 
 -- | Separates coin into provided number of coins. All resulting coins
 -- are nonzero.
-splitCoins :: (MonadRandom m, MonadIO m) => Int -> Coin -> m [Coin]
+splitCoins :: (MonadRandom m) => Int -> Coin -> m [Coin]
 splitCoins n c0
     | c == (0::Int) = error "splitCoins, c = 0"
     | c < n = error $ "splitCoins: can't split " <> pretty c0 <>

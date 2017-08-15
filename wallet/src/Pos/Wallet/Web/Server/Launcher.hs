@@ -17,14 +17,12 @@ module Pos.Wallet.Web.Server.Launcher
 
 import           Universum
 
-import           Ether.Internal                   (HasLens (..))
 import           Network.Wai                      (Application)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server                   (Handler, Server, serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
-import           Pos.Context                      (GenesisUtxo)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
@@ -58,9 +56,8 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: forall ctx m.
-       ( MonadWalletWebMode m
-       , HasLens GenesisUtxo ctx GenesisUtxo)
+    :: forall m.
+       ( MonadWalletWebMode m )
     => SendActions m
     -> m (m :~> Handler)
     -> m (Server WalletApi)

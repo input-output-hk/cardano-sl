@@ -81,6 +81,7 @@ function node_cmd {
   local wallet_args=$4
   local system_start=$5
   local config_dir=$6
+  local exec_name=$7
   local st=''
   local reb=''
   local no_ntp=''
@@ -118,7 +119,7 @@ function node_cmd {
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
 
-  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
+  echo -n "$(find_binary $exec_name) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
   ekg_server="127.0.0.1:"$((8000+$i))
   statsd_server="127.0.0.1:"$((8125+$i))

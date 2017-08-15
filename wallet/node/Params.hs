@@ -9,7 +9,8 @@ import           Universum
 import           Mockable              (Fork, Mockable)
 import           System.Wlog           (WithLogger)
 
-import qualified Pos.CLI               as CLI
+import           Pos.Client.CLI        (CommonNodeArgs (..))
+import qualified Pos.Client.CLI        as CLI
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
@@ -20,11 +21,6 @@ import           Pos.Security          (SecurityParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.UserSecret   (peekUserSecret)
 
-import           Pos.Client.CLI.NodeOptions  (CommonNodeArgs (..))
-
-import           Pos.Client.CLI.Params  (getBaseParams, getKeyfilePath, getTransportParams)
-import           Pos.Client.CLI.Secrets (updateUserSecretVSS, userSecretWithGenesisKey)
-
 getNodeParams ::
        (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
     => CommonNodeArgs
@@ -32,11 +28,11 @@ getNodeParams ::
     -> m NodeParams
 getNodeParams args@CommonNodeArgs{..} systemStart = do
     (primarySK, userSecret) <-
-        userSecretWithGenesisKey args =<<
-            updateUserSecretVSS args =<<
-                peekUserSecret (getKeyfilePath args)
+        CLI.userSecretWithGenesisKey args =<<
+            CLI.updateUserSecretVSS args =<<
+                peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    let npTransport = getTransportParams args npNetworkConfig
+    let npTransport = CLI.getTransportParams args npNetworkConfig
         devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
@@ -55,7 +51,7 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
         , npSecretKey = primarySK
         , npUserSecret = userSecret
         , npSystemStart = systemStart
-        , npBaseParams = getBaseParams "node" args
+        , npBaseParams = CLI.getBaseParams "node" args
         , npJLFile = jlPath
         , npReportServers = CLI.reportServers commonArgs
         , npUpdateParams = UpdateParams

@@ -19,7 +19,9 @@ import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 
 import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
+import           Pos.Client.CLI      (SimpleNodeArgs (..), CommonNodeArgs (..),
+                                      NodeArgs(..))
+import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec, worker)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Launcher        (NodeParams (..), runNodeReal)
@@ -32,11 +34,6 @@ import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Update.Context  (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode)
-
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..), CommonNodeArgs (..),
-                                             NodeArgs(..), getSimpleNodeOptions)
-import           Pos.Client.CLI.Params (getNodeParams, gtSscParams)
-import           Pos.Client.CLI.Util (printFlags)
 
 actionWithoutWallet ::
        forall ssc. (SscConstraint ssc, SecurityWorkersClass ssc)
@@ -62,12 +59,12 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getNodeParams cArgs nArgs systemStart
+    currentParams <- CLI.getNodeParams cArgs nArgs systemStart
     putText $ "Running using " <> show sscAlgo
     putText "Wallet is disabled, because software is built w/o it"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams cArgs vssSK
+    let gtParams = CLI.gtSscParams cArgs vssSK
 
     let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
         sscParams = bool (Left ()) (Right gtParams) (sscAlgo == GodTossingAlgo)
@@ -77,6 +74,6 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
 
 main :: IO ()
 main = do
-    args <- getSimpleNodeOptions
-    printFlags
+    args <- CLI.getSimpleNodeOptions
+    CLI.printFlags
     runProduction (action args)

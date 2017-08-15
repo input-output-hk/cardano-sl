@@ -16,7 +16,7 @@ import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 
 import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
+import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec, worker)
 import           Pos.Constants       (isDevelopment)
 import           Pos.Explorer        (runExplorerBListener)

@@ -18,9 +18,8 @@ import qualified Options.Applicative        as Opt
 import           Universum                  hiding (show)
 
 import           Paths_cardano_sl           (version)
-import qualified Pos.CLI                    as CLI
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), commonNodeArgsParser,
-                                             usageExample)
+import           Pos.Client.CLI             (CommonNodeArgs (..))
+import qualified Pos.Client.CLI             as CLI
 import           Pos.Web.Types              (TlsParams (..))
 
 data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
@@ -37,7 +36,7 @@ data WalletArgs = WalletArgs
 
 walletArgsParser :: Parser WalletNodeArgs
 walletArgsParser = do
-    commonNodeArgs <- commonNodeArgsParser
+    commonNodeArgs <- CLI.commonNodeArgsParser
     enableWeb <- switch $
         long "web" <>
         help "Activate web API (it’s not linked with a wallet web API)."
@@ -67,7 +66,7 @@ getWalletNodeOptions = execParser programInfo
     programInfo = info (helper <*> versionOption <*> walletArgsParser) $
         fullDesc <> progDesc "Cardano SL main server node w/ wallet."
                  <> header "Cardano SL node."
-                 <> footerDoc usageExample
+                 <> footerDoc CLI.usageExample
 
     versionOption = infoOption
         ("cardano-node-" <> showVersion version)

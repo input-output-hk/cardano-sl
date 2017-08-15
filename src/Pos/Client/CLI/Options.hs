@@ -1,19 +1,10 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE CPP           #-}
 
--- | Module for command-line utilites, parsers and convenient handlers.
+-- | Module for command-line options and flags
 
-module Pos.CLI
-       ( addrParser
-       , attackTypeParser
-       , attackTargetParser
-       , defaultLoggerConfig
-       , getNodeSystemStart
-       , readLoggerConfig
-       , sscAlgoOption
-
-       -- | CLI options and flags
-       , CommonArgs (..)
+module Pos.Client.CLI.Options
+       ( CommonArgs (..)
        , commonArgsParser
        , optionalJSONPath
        , optionalLogPrefix
@@ -25,6 +16,7 @@ module Pos.CLI
        , externalNetworkAddressOption
        , listenNetworkAddressOption
        , templateParser
+       , sscAlgoOption
 
        , sysStartOption
        , nodeIdOption
@@ -59,75 +51,7 @@ import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
-
-----------------------------------------------------------------------------
--- Utilities
-----------------------------------------------------------------------------
-
--- | Decides which secret-sharing algorithm to use.
-sscAlgoParser :: P.Parser SscAlgo
-sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
-                NistBeaconAlgo   <$ (P.string "NistBeacon")
-
-attackTypeParser :: P.Parser AttackType
-attackTypeParser = P.string "No" >>
-    AttackNoBlocks <$ (P.string "Blocks") <|>
-    AttackNoCommitments <$ (P.string "Commitments")
-
-base58AddrParser :: P.Parser (AddressHash PublicKey)
-base58AddrParser = do
-    token <- some $ P.noneOf " "
-    case decodeTextAddress (toText token) of
-      Left _  -> fail "Incorrect address"
-      Right r -> return $ addrKeyHash r
-
-attackTargetParser :: P.Parser AttackTarget
-attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
-                     (NetworkAddressTarget <$> addrParser)
-
--- | Default logger config. Will be used if `--log-config` argument is
--- not passed. Corresponds to next logger config:
---
--- > node:
--- >   severity: Info
--- >   comm:
--- >     severity: Warning
---
-defaultLoggerConfig :: LoggerConfig
-defaultLoggerConfig = fromScratch $ zoom lcTree $ zoomLogger "node" $ do
-    ltSeverity ?= Info
-    zoomLogger "comm" $ ltSeverity ?= Warning
-
--- | Reads logger config from given path. By default return
--- 'defaultLoggerConfig'.
-readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
-readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
-
--- | This function carries out special logic to convert given
--- timestamp to the system start time.
-getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
-getNodeSystemStart cliOrConfigSystemStart
-  | cliOrConfigSystemStart >= 1400000000 =
-    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
-    -- It was chosen arbitrarily as some date far enough in the past.
-    -- See CSL-983 for more information.
-    pure cliOrConfigSystemStart
-  | otherwise = do
-    let frameLength = timestampToSeconds cliOrConfigSystemStart
-    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
-    -- The whole timeline is split into frames, with the first frame starting
-    -- at UNIX epoch start. We're looking for a time `t` which would be in the
-    -- middle of the same frame as the current UNIX time.
-    let currentFrame = currentPOSIXTime `div` frameLength
-        t = currentFrame * frameLength + (frameLength `div` 2)
-    pure $ Timestamp $ sec $ fromIntegral t
-  where
-    timestampToSeconds :: Timestamp -> Integer
-    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
-
-----------------------------------------------------------------------------
--- ClI Options
-----------------------------------------------------------------------------
+import           Pos.Client.CLI.Util                   (sscAlgoParser)
 
 data CommonArgs = CommonArgs
     { logConfig          :: !(Maybe FilePath)

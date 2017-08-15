@@ -19,7 +19,7 @@ import           Prelude                    (show)
 import           Serokell.Util.OptParse     (fromParsec)
 
 import           Paths_cardano_sl_explorer  (version)
-import qualified Pos.CLI                    as CLI
+import qualified Pos.Client.CLI             as CLI
 import           Pos.Network.CLI            (NetworkConfigOpts, networkConfigOption)
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,

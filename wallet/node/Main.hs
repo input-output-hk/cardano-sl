@@ -17,7 +17,8 @@ import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logError, logInfo)
 
 import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
+import           Pos.Client.CLI      (CommonNodeArgs (..))
+import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Context         (HasNodeContext)
 import           Pos.Core.Types      (Timestamp (..))
@@ -31,10 +32,6 @@ import           Pos.WorkMode        (WorkMode)
 import           Pos.Web             (serveWebGT)
 import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                       runWRealMode, walletServeWebFull, walletServerOuts)
-
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
-import           Pos.Client.CLI.Params (gtSscParams)
-import           Pos.Client.CLI.Util (printFlags)
 
 import           NodeOptions (WalletNodeArgs(..), WalletArgs(..), getWalletNodeOptions)
 import           Params (getNodeParams)
@@ -80,7 +77,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = do
     putText $ "Wallet is enabled!"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams cArgs vssSK
+    let gtParams = CLI.gtSscParams cArgs vssSK
 
     let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
         sscParams = bool (Left ()) (Right gtParams) False
@@ -91,6 +88,6 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = do
 main :: IO ()
 main = do
     args <- getWalletNodeOptions
-    printFlags
+    CLI.printFlags
     putText "[Attention] Software is built with wallet part"
     runProduction (action args)

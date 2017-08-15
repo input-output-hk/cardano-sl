@@ -28,7 +28,12 @@ import qualified Text.Parsec.Char             as P
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
-import qualified Pos.CLI                      as CLI
+
+import           Pos.Client.CLI.Options       (CommonArgs(..), commonArgsParser,
+                                               externalNetworkAddressOption,
+                                               listenNetworkAddressOption,
+                                               optionalJSONPath, sscAlgoOption)
+import           Pos.Client.CLI.Util          (attackTypeParser, attackTargetParser)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
@@ -61,7 +66,7 @@ data CommonNodeArgs = CommonNodeArgs
       -- ^ Network configuration
     , jlPath                    :: !(Maybe FilePath)
     , kademliaDumpPath          :: !FilePath
-    , commonArgs                :: !CLI.CommonArgs
+    , commonArgs                :: !CommonArgs
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
     , noNTP                     :: !Bool
@@ -105,9 +110,9 @@ commonNodeArgsParser = do
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet. Words should be separated by spaces.")
     externalAddress <-
-        CLI.externalNetworkAddressOption (Just ("0.0.0.0", 0))
+        externalNetworkAddressOption (Just ("0.0.0.0", 0))
     bindAddress <-
-        CLI.listenNetworkAddressOption (Just ("0.0.0.0", 0))
+        listenNetworkAddressOption (Just ("0.0.0.0", 0))
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"
@@ -115,14 +120,14 @@ commonNodeArgsParser = do
     peers <- (++) <$> corePeersList <*> relayPeersList
     networkConfigOpts <- networkConfigOption
     jlPath <-
-        CLI.optionalJSONPath
+        optionalJSONPath
     kademliaDumpPath <- strOption $
         long    "kademlia-dump-path" <>
         metavar "FILEPATH" <>
         value   "kademlia.dump" <>
         help    "Path to Kademlia dump file. If file doesn't exist, it will be created." <>
         showDefault
-    commonArgs <- CLI.commonArgsParser
+    commonArgs <- commonArgsParser
     updateLatestPath <- strOption $
         long    "update-latest-path" <>
         metavar "FILEPATH" <>
@@ -160,14 +165,14 @@ data NodeArgs = NodeArgs
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser = do
     commonNodeArgs <- commonNodeArgsParser
-    sscAlgo <- CLI.sscAlgoOption
+    sscAlgo <- sscAlgoOption
     maliciousEmulationAttacks <-
-        many $ option (fromParsec CLI.attackTypeParser) $
+        many $ option (fromParsec attackTypeParser) $
         long    "attack" <>
         metavar "NoBlocks | NoCommitments" <>
         help    "Attack type to emulate. This option can be defined more than once."
     maliciousEmulationTargets <-
-        many $ option (fromParsec CLI.attackTargetParser) $
+        many $ option (fromParsec attackTargetParser) $
         long    "attack-target" <>
         metavar "HOST:PORT | PUBKEYHASH" <>
         help    "Node for attack. This option can be defined more than once."

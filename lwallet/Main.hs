@@ -41,7 +41,7 @@ import           System.Posix.Process             (exitImmediately)
 import           Serokell.Util                    (ms, sec)
 
 import           Pos.Binary                       (Raw, serialize')
-import qualified Pos.CLI                          as CLI
+import qualified Pos.Client.CLI                   as CLI
 import           Pos.Client.Txp.Balances          (getOwnUtxo)
 import           Pos.Client.Txp.Util              (TxError (..), createTx)
 import           Pos.Communication                (NodeId, OutSpecs, SendActions, Worker,

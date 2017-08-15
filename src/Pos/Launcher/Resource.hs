@@ -43,7 +43,7 @@ import           System.Wlog                (CanLog, LoggerConfig (..), WithLogg
 
 import           Pos.Binary                 ()
 import           Pos.Block.Slog             (mkSlogContext)
-import           Pos.CLI                    (readLoggerConfig)
+import           Pos.Client.CLI.Util        (readLoggerConfig)
 import qualified Pos.Constants              as Const
 import           Pos.Context                (BlkSemaphore (..), ConnectedPeers (..),
                                              NodeContext (..), StartTime (..))

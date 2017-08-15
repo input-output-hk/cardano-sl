@@ -42,7 +42,6 @@ library
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
-                        Pos.CLI
                         Pos.Context
                         Pos.CompileConfig
                         Pos.Communication
@@ -96,10 +95,8 @@ library
                         Pos.Client.Txp.History
                         Pos.Client.Txp.Util
 
-                        Pos.Client.CLI.NodeOptions
-                        Pos.Client.CLI.Params
-                        Pos.Client.CLI.Secrets
-                        Pos.Client.CLI.Util
+                        -- Client CLI
+                        Pos.Client.CLI
 
                         -- Txp
                         Pos.Txp
@@ -208,6 +205,13 @@ library
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
                         Pos.Block.Worker
+
+                        -- Client
+                        Pos.Client.CLI.NodeOptions
+                        Pos.Client.CLI.Options
+                        Pos.Client.CLI.Params
+                        Pos.Client.CLI.Secrets
+                        Pos.Client.CLI.Util
 
                         -- Compile config
                         Pos.CompileConfig.Parser

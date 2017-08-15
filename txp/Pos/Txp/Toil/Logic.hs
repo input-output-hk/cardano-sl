@@ -183,10 +183,13 @@ verifyGState curEpoch txAux txFee = do
 -- it's defined in txp module above.
 bootRelatedDistr :: GenesisWStakeholders -> [(StakeholderId, Coin)] -> Bool
 bootRelatedDistr g@(GenesisWStakeholders bootHolders) txOutDistr
-    -- We allow small outputs to attribute stake to whoever because
-    -- it's not likely they will shift overall stake distribution
-    -- much.
-    | coinSum < unsafeGetCoin (bootDustThreshold g) = True
+    | coinSum < unsafeGetCoin (bootDustThreshold g) =
+        -- We allow small outputs to attribute stake in any proportion
+        -- user wants because it's not likely they will shift overall
+        -- stake distribution much. Anyway we require that all
+        -- addresses in txDistr are keys of boot stakeholders.
+        let bootHoldersKeys = getKeys bootHolders
+        in all (`HS.member` bootHoldersKeys) stakeholders
     | otherwise =
         -- All addresses in txDistr are from bootHolders and every boot
         -- stakeholder is mentioned in txOutDistr

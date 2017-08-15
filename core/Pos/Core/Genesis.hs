@@ -127,17 +127,18 @@ genesisSplitBoot ::
        GenesisWStakeholders -> Coin -> [(StakeholderId, Coin)]
 genesisSplitBoot g@(GenesisWStakeholders bootWHolders) c
     | c < bootDustThreshold g =
-          snd $
-          foldr (\(s,w) r@(totalSum, res) ->
-                   if totalSum >= cval then r
-                   else let w' = (fromIntegral w :: Word64)
-                            toInclude = fromIntegral $ min w' (totalSum - w')
-                        in ( totalSum + toInclude
-                           , (s, mkCoin toInclude):res))
-                (0::Word64,[])
-                (HM.toList bootWHolders)
-    | otherwise = bootHolders `zip` stakeCoins
+          snd $ foldr foldrFunc (0::Word64,[]) (HM.toList bootWHolders)
+    | otherwise =
+          bootHolders `zip` stakeCoins
   where
+    foldrFunc (s,w) r@(totalSum, res) = case compare totalSum cval of
+        EQ -> r
+        GT -> error "genesisSplitBoot: totalSum > cval can't happen"
+        LT -> let w' = (fromIntegral w :: Word64)
+                  toInclude = bool w' (cval - totalSum) (totalSum + w' > cval)
+              in (totalSum + toInclude
+                 ,(s, mkCoin toInclude):res)
+
     weights :: [Word64]
     weights = map fromIntegral $ HM.elems bootWHolders
 

@@ -27,8 +27,8 @@ import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Tagged                (untag)
 import qualified Data.Time                  as Time
 import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (Bracket, Catch, Mockable, MonadMockable,
-                                             Production (..), Throw, bracket, throw)
+import           Mockable                   (Bracket, Catch, Mockable, Production (..),
+                                             Throw, bracket, throw)
 import           Network.QDisc.Fair         (fairQDisc)
 import qualified Network.Transport          as NT (closeTransport)
 import           Network.Transport.Abstract (Transport, hoistTransport)
@@ -75,7 +75,6 @@ import           Pos.Txp                    (txpGlobalSettings)
 
 import           Pos.Launcher.Mode          (InitMode, InitModeContext (..),
                                              newInitFuture, runInitMode)
-import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
 import           Pos.WorkMode               (TxpExtra_TMP)
@@ -116,10 +115,6 @@ hoistNodeResources nat nr =
 allocateNodeResources
     :: forall ssc m.
        ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , WithLogger m
-       , MonadIO m
-       , MonadMockable m
        , HasCoreConstants
        )
     => Transport m
@@ -183,7 +178,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
-       forall ssc m. (SscConstraint ssc, MonadIO m)
+       forall ssc m. ( )
     => NodeResources ssc m -> Production ()
 releaseNodeResources NodeResources {..} = do
     releaseAllHandlers
@@ -195,10 +190,7 @@ releaseNodeResources NodeResources {..} = do
 -- resources will be released eventually.
 bracketNodeResources :: forall ssc m a.
       ( SscConstraint ssc
-      , SecurityWorkersClass ssc
-      , WithLogger m
       , MonadIO m
-      , MonadMockable m
       , HasCoreConstants
       )
     => NodeParams
@@ -236,7 +228,7 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 allocateNodeContext
     :: forall ssc .
-      (SscConstraint ssc, SecurityWorkersClass ssc, HasCoreConstants)
+      (HasCoreConstants, SscConstraint ssc)
     => NodeParams
     -> SscParams ssc
     -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())

@@ -25,10 +25,10 @@ import           System.Wlog           (WithLogger, getLoggerName, logError, log
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
 import qualified Pos.Constants         as Const
-import           Pos.Context           (BlkSemaphore (..), HasNodeContext (..),
-                                        NodeContext (..), getOurPubKeyAddress,
-                                        getOurPublicKey)
-import           Pos.DHT.Real          (KademliaDHTInstance (..), kademliaJoinNetwork)
+import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
+                                        getOurPublicKey, ncNetworkConfig)
+import           Pos.DHT.Real          (KademliaDHTInstance (..), kademliaJoinNetwork,
+                                        kademliaJoinNetworkNoThrow)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
 import           Pos.Launcher.Resource (NodeResources (..))
@@ -42,7 +42,6 @@ import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Types             (addressHash)
 import           Pos.Util              (inAssertMode)
 import           Pos.Util.LogSafe      (logInfoS)
-import           Pos.Util.UserSecret   (HasUserSecret (..))
 import           Pos.Worker            (allWorkers)
 import           Pos.WorkMode.Class    (WorkMode)
 
@@ -50,11 +49,7 @@ import           Pos.WorkMode.Class    (WorkMode)
 -- Initialization, running of workers, running of plugins.
 runNode'
     :: forall ssc ctx m.
-       ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , WorkMode ssc ctx m
-       , HasNodeContext ssc ctx
-       , HasUserSecret ctx
+       ( WorkMode ssc ctx m
        )
     => NodeResources ssc m
     -> [WorkerSpec m]
@@ -73,11 +68,15 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
                         ", pk hash: "%build) pk addr pkHash
 
     -- Synchronously join the Kademlia network before doing any more.
-    -- If we can't join the network, an exception is raised and the program
-    -- stops.
+    --
+    -- See 'topologyRunKademlia' documentation: the second component is 'True'
+    -- iff it's essential that at least one of the initial peers is contacted.
+    -- Otherwise, it's OK to not find any initial peers and the program can
+    -- continue.
     case topologyRunKademlia (ncTopology (ncNetworkConfig nrContext)) of
-        Nothing    -> return ()
-        Just kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+        Just (kInst, True)  -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+        Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
+        Nothing             -> return ()
 
     genesisStakeholders <- view (lensOf @GenesisWStakeholders)
     logInfo $ sformat ("Dust threshold: "%build)
@@ -121,8 +120,6 @@ runNode ::
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
-       , HasNodeContext ssc ctx
-       , HasUserSecret ctx
        )
     => NodeResources ssc m
     -> ([WorkerSpec m], OutSpecs)
@@ -156,7 +153,6 @@ nodeStartMsg = logInfo msg
 --        ( MonadDB m
 --        , MonadReader ctx m
 --        , MonadIO m
---        , HasUserSecret ctx
 --        , HasPrimaryKey ctx )
 --     => m ()
 -- putProxySecretKeys = do

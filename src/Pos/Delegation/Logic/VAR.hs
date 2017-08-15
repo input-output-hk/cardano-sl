@@ -298,7 +298,6 @@ getNoLongerRichmen ::
        ( Monad m
        , MonadIO m
        , MonadDBRead m
-       , WithLogger m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
        )
@@ -334,11 +333,9 @@ makeLenses ''DlgVerState
 dlgVerifyBlocks ::
        forall ssc ctx m.
        ( DB.MonadBlockDB ssc m
-       , DB.MonadDBRead m
        , MonadIO m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
-       , WithLogger m
        , HasCoreConstants
        )
     => OldestFirst NE (Block ssc)
@@ -486,7 +483,6 @@ dlgApplyBlocks ::
        , MonadDBRead m
        , WithLogger m
        , MonadMask m
-       , HasLens LrcContext ctx LrcContext
        )
     => OldestFirst NE (Blund ssc)
     -> m (NonEmpty SomeBatchOp)
@@ -538,12 +534,7 @@ dlgRollbackBlocks
     :: forall ssc ctx m.
        ( MonadDelegation ctx m
        , DB.MonadBlockDB ssc m
-       , DB.MonadDBRead m
-       , MonadIO m
-       , MonadMask m
        , WithLogger m
-       , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 dlgRollbackBlocks blunds = do
@@ -570,12 +561,9 @@ dlgNormalizeOnRollback ::
        forall ssc ctx m.
        ( MonadDelegation ctx m
        , DB.MonadBlockDB ssc m
-       , DB.MonadDBRead m
        , DB.MonadGState m
        , MonadIO m
        , MonadMask m
-       , WithLogger m
-       , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
        , Mockable CurrentTime m
        )

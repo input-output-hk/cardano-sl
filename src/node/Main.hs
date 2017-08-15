@@ -49,8 +49,7 @@ actionWithoutWallet sscParams nodeParams =
     plugins = updateTriggerWorker
 
 updateTriggerWorker
-    :: SscConstraint ssc
-    => ([WorkerSpec (RealMode ssc)], OutSpecs)
+    :: ([WorkerSpec (RealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore

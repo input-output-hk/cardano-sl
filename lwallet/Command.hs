@@ -72,7 +72,7 @@ lexeme p = spaces *> p >>= \x -> spaces $> x
 text :: String -> Parser Text
 text = lexeme . fmap toText . string
 
-many1Till :: Show b => Parser a -> Parser b -> Parser [a]
+many1Till :: Parser a -> Parser b -> Parser [a]
 many1Till p end = (:) <$> p <*> manyTill p end
 
 anyText :: Parser Text

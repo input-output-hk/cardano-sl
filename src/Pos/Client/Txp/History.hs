@@ -205,7 +205,7 @@ class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
     saveTx :: (TxId, TxAux) -> m ()
 
     default getBlockHistory
-        :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
+        :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
         => [Address] -> m (DList TxHistoryEntry)
     getBlockHistory = lift . getBlockHistory
 

@@ -23,7 +23,7 @@ import           Pos.Communication.Limits.Types        (MessageLimited)
 import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         InvReqDataParams (..),
                                                         MempoolParams (NoMempool),
-                                                        Relay (..), ReqMsg)
+                                                        Relay (..), ReqMsg, ReqOrRes)
 import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Core                              (HasCoreConstants, StakeholderId,
                                                         addressHash)
@@ -98,6 +98,7 @@ sscRelay
        , MessageLimited (DataMsg contents)
        , Bi (DataMsg contents)
        , Message (InvOrData (Tagged contents StakeholderId) contents)
+       , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
        , HasCoreConstants
        )

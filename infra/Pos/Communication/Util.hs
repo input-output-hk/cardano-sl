@@ -9,9 +9,8 @@ module Pos.Communication.Util
 import           Universum
 
 import           Formatting                  (sformat, shown, hex, (%))
-import           Mockable                    (Async, Bracket, Delay, Mockable)
 import qualified Node                        as N
-import           System.Wlog                 (LoggerName, WithLogger, modifyLoggerName)
+import           System.Wlog                 (LoggerName, modifyLoggerName)
 
 import           Pos.Communication.Constants (networkWaitLogInterval)
 import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
@@ -71,22 +70,14 @@ _convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
         ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy rcv) conv
 
 wrapListener
-  :: ( CanLogInParallel m
-     , Mockable Async m
-     , Mockable Bracket m
-     , Mockable Delay m
-     , MonadIO m
-     , WithLogger m
-     )
+  :: ( CanLogInParallel m )
   => LoggerName -> Listener m -> Listener m
 wrapListener lname = modifyLogger lname
   where
     modifyLogger _name = mapListener $ modifyLoggerName (<> lname)
 
 wrapActionSpec
-  :: ( CanLogInParallel m
-     , Mockable Bracket m
-     )
+  :: ( CanLogInParallel m )
   => LoggerName -> ActionSpec m a -> ActionSpec m a
 wrapActionSpec lname = modifyLogger lname
   where
@@ -94,13 +85,7 @@ wrapActionSpec lname = modifyLogger lname
                                     (<> lname)
 
 wrapSendActions
-  :: ( CanLogInParallel m
-     , Mockable Async m
-     , Mockable Bracket m
-     , Mockable Delay m
-     , MonadIO m
-     , WithLogger m
-     )
+  :: ( CanLogInParallel m )
   => SendActions m
   -> SendActions m
 wrapSendActions =

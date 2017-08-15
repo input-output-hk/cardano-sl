@@ -4,6 +4,8 @@
 module Pos.Communication.Types.Relay
        ( InvMsg (..)
        , ReqMsg (..)
+       , ResMsg (..)
+       , ReqOrRes
        , MempoolMsg (..)
        , DataMsg (..)
        , InvOrData
@@ -22,13 +24,15 @@ import           Universum
 -- some data.
 data InvMsg key = InvMsg
     { imKey :: !key
+    -- ^ Key for the data that you wish to announce.
     }
     deriving (Show, Eq)
 
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
 data ReqMsg key = ReqMsg
-    { rmKey :: !key
+    { rmKey :: !(Maybe key)
+    -- ^ Optional key for the data that you request.
     }
     deriving (Show, Eq)
 
@@ -44,6 +48,18 @@ type InvOrData key contents = Either (InvMsg key) (DataMsg contents)
 
 -- | InvOrData with key tagged by contents
 type InvOrDataTK key contents = InvOrData (Tagged contents key) contents
+
+-- | Response to a 'ReqMsg' indicating whether it was successfully processed.
+data ResMsg key = ResMsg
+    { resKey :: !key
+    -- ^ The key for the data to which this response is relevant (maybe it
+    -- comes from a previous ReqMsg).
+    , resOk  :: !Bool
+    -- ^ True if the request was successfully processed.
+    }
+    deriving (Show, Eq)
+
+type ReqOrRes key = Either (ReqMsg key) (ResMsg key)
 
 instance (Buildable contents) =>
          Buildable (DataMsg contents) where

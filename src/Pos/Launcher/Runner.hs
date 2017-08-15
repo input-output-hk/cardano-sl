@@ -54,7 +54,6 @@ import           Pos.Launcher.Param              (BaseParams (..), LoggingParams
                                                   NodeParams (..))
 import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
 import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue)
-import           Pos.Security                    (SecurityWorkersClass)
 import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
@@ -70,7 +69,7 @@ import           Pos.WorkMode                    (RealMode, RealModeContext (..)
 -- | Run activity in 'RealMode'.
 runRealMode
     :: forall ssc a.
-       (SscConstraint ssc, SecurityWorkersClass ssc)
+       (SscConstraint ssc)
     => NodeResources ssc (RealMode ssc)
     -> (ActionSpec (RealMode ssc) a, OutSpecs)
     -> Production a
@@ -79,7 +78,7 @@ runRealMode = runRealBasedMode identity identity
 -- | Run activity in something convertible to 'RealMode' and back.
 runRealBasedMode
     :: forall ssc ctx m a.
-       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc ctx m)
+       (SscConstraint ssc, WorkMode ssc ctx m)
     => (forall b. m b -> RealMode ssc b)
     -> (forall b. RealMode ssc b -> m b)
     -> NodeResources ssc m
@@ -93,7 +92,7 @@ runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs)
 -- | RealMode runner.
 runRealModeDo
     :: forall ssc a.
-       (SscConstraint ssc, SecurityWorkersClass ssc)
+       (SscConstraint ssc)
     => NodeResources ssc (RealMode ssc)
     -> OutSpecs
     -> ActionSpec (RealMode ssc) a

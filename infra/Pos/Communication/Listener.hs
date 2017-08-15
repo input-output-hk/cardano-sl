@@ -11,16 +11,12 @@ import qualified Node                           as N
 import           System.Wlog                    (WithLogger)
 import           Universum
 
-import           Mockable.Class                 (Mockable)
-import           Mockable.Exception             (Throw)
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Infra               ()
-import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Protocol     (ConversationActions, HandlerSpec (..),
                                                  ListenerSpec (..), Message, NodeId,
                                                  OutSpecs, VerInfo, checkingInSpecs,
                                                  messageCode)
-import           Pos.DB.Class                   (MonadGState)
 
 -- TODO automatically provide a 'recvLimited' here by using the
 -- 'MessageLimited'?
@@ -30,10 +26,7 @@ listenerConv
        , Bi rcv
        , Message snd
        , Message rcv
-       , MonadGState m
-       , MessageLimited rcv
        , WithLogger m
-       , Mockable Throw m
        )
     => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
     -> (ListenerSpec m, OutSpecs)

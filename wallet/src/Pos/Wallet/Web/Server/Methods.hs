@@ -37,7 +37,6 @@ import qualified Data.List.NonEmpty               as NE
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
-import           Ether.Internal                   (HasLens (..))
 import           Formatting                       (bprint, build, sformat, shown, stext,
                                                    (%))
 import qualified Formatting                       as F
@@ -68,7 +67,6 @@ import           Pos.Client.Txp.Util              (computeTxFee)
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
-import           Pos.Context                      (GenesisUtxo)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, makeRedeemAddress,
@@ -211,9 +209,8 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: forall ctx m.
-       ( WalletWebMode m
-       , HasLens GenesisUtxo ctx GenesisUtxo)
+    :: forall m.
+       ( WalletWebMode m )
     => SendActions m
     -> m (m :~> Handler)
     -> m (Server WalletApi)

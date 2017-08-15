@@ -64,6 +64,7 @@ import           Pos.Core                    (HeaderHash, headerHash, prevBlockL
 import           Pos.Crypto.Hashing          (hashHexF)
 import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..),
                                               MonadBlockGen, TxGenParams, genBlocks)
+import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.GState.Context          (withClonedGState)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
@@ -159,32 +160,36 @@ flattenBlockchainTree prePath tree = do
 genBlocksInForest ::
        (MonadBlockGen ctx m, RandomGen g)
     => AllSecrets
+    -> GenesisWStakeholders
     -> BlockchainForest BlockDesc
     -> RandT g m (BlockchainForest BlundDefault)
-genBlocksInForest secrets =
-    traverse $ mapRandT withClonedGState . genBlocksInTree secrets
+genBlocksInForest secrets bootStakeholders =
+    traverse $ mapRandT withClonedGState .
+    genBlocksInTree secrets bootStakeholders
 
 genBlocksInTree ::
        (MonadBlockGen ctx m, RandomGen g)
     => AllSecrets
+    -> GenesisWStakeholders
     -> BlockchainTree BlockDesc
     -> RandT g m (BlockchainTree BlundDefault)
-genBlocksInTree secrets blockchainTree = do
+genBlocksInTree secrets bootStakeholders blockchainTree = do
     let
         BlockchainTree blockDesc blockchainForest = blockchainTree
         txGenParams = case blockDesc of
             BlockDescDefault  -> def
             BlockDescCustom p -> p
         blockGenParams = BlockGenParams
-            { _bgpSecrets     = secrets
-            , _bgpBlockCount  = 1
-            , _bgpTxGenParams = txGenParams
-            , _bgpInplaceDB   = True
+            { _bgpSecrets         = secrets
+            , _bgpGenStakeholders = bootStakeholders
+            , _bgpBlockCount      = 1
+            , _bgpTxGenParams     = txGenParams
+            , _bgpInplaceDB       = True
             }
     -- Partial pattern-matching is safe because we specify
     -- blockCount = 1 in the generation parameters.
     OldestFirst [block] <- genBlocks blockGenParams
-    forestBlocks <- genBlocksInForest secrets blockchainForest
+    forestBlocks <- genBlocksInForest secrets bootStakeholders blockchainForest
     return $ BlockchainTree block forestBlocks
 
 -- Precondition: paths in the structure are non-empty.
@@ -193,10 +198,11 @@ genBlocksInStructure ::
        , Functor t, Foldable t
        , RandomGen g )
     => AllSecrets
+    -> GenesisWStakeholders
     -> Map Path BlockDesc
     -> t Path
     -> RandT g m (t BlundDefault)
-genBlocksInStructure secrets annotations s = do
+genBlocksInStructure secrets bootStakeholders annotations s = do
     let
         getAnnotation :: Path -> BlockDesc
         getAnnotation path =
@@ -208,7 +214,7 @@ genBlocksInStructure secrets annotations s = do
         descForest :: BlockchainForest BlockDesc
         descForest = buildBlockchainForest BlockDescDefault paths
     blockForest :: BlockchainForest BlundDefault <-
-        genBlocksInForest secrets descForest
+        genBlocksInForest secrets bootStakeholders descForest
     let
         getBlock :: Path -> BlundDefault
         getBlock path = Map.findWithDefault

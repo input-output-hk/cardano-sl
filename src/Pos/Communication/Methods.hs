@@ -31,7 +31,7 @@ sendTx
     :: (MinWorkMode m, MonadGState m)
     => EnqueueMsg m -> TxAux -> m ()
 sendTx enqueue txAux =
-    invReqDataFlowTK
+    void $ invReqDataFlowTK
         "tx"
         enqueue
         (MsgTransaction OriginSender)
@@ -43,7 +43,7 @@ sendVote
     :: (MinWorkMode m, MonadGState m)
     => EnqueueMsg m -> UpdateVote -> m ()
 sendVote enqueue vote =
-    invReqDataFlowTK
+    void $ invReqDataFlowTK
         "UpdateVote"
         enqueue
         (MsgMPC OriginSender)
@@ -60,7 +60,7 @@ sendUpdateProposal
     -> m ()
 sendUpdateProposal enqueue upid proposal votes = do
     logInfo $ sformat ("Announcing proposal with id "%hashHexF) upid
-    invReqDataFlowTK
+    void $ invReqDataFlowTK
         "UpdateProposal"
         enqueue
         (MsgMPC OriginSender)

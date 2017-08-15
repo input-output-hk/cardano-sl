@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-projects="core db lrc infra update ssc godtossing tools txp lwallet"
+projects="core db lrc infra update ssc godtossing tools txp lwallet wallet"
 
 incpath=$(find $(stack path $@ --compiler-bin)/../lib -maxdepth 2 -path */include)
 

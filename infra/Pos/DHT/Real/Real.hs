@@ -20,8 +20,8 @@ import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import           Data.List                 (intersect, (\\))
 import           Formatting                (build, int, sformat, shown, (%))
-import           Mockable                  (Async, Catch, Mockable, MonadMockable,
-                                            Promise, Throw, catch, catchAll, throw, try,
+import           Mockable                  (Catch, Mockable, MonadMockable,
+                                            Throw, catch, catchAll, throw, try,
                                             waitAnyUnexceptional, withAsync)
 import qualified Network.Kademlia          as K
 import qualified Network.Kademlia.Instance as K (KademliaInstance (state),
@@ -54,7 +54,6 @@ kademliaConfig = K.defaultConfig { K.k = 16 }
 --   the action is finished.
 foreverRejoinNetwork
     :: ( MonadMockable m
-       , Eq (Promise m (Maybe ()))
        , MonadIO m
        , WithLogger m
        )
@@ -123,10 +122,8 @@ startDHTInstance kconf@KademliaParams {..} = do
 
 rejoinNetwork
     :: ( MonadIO m
-       , Mockable Async m
        , Mockable Catch m
        , Mockable Throw m
-       , Eq (Promise m (Maybe ()))
        , WithLogger m
        , Bi DHTData
        , Bi DHTKey
@@ -246,8 +243,6 @@ kademliaJoinNetworkNoThrow
     :: ( MonadIO m
        , Mockable Catch m
        , Mockable Throw m
-       , Mockable Async m
-       , Eq (Promise m (Maybe ()))
        , WithLogger m
        , Bi DHTKey
        , Bi DHTData

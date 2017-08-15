@@ -170,12 +170,20 @@ verifyInputs :: VTxContext
              -> VerificationRes
 verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
     verifyGeneric . concat $
+    [allInputsDifferent] :
     zipWith3 inputPredicates [0 ..] (toList resolvedInputs) (toList witnesses)
   where
     witnesses = taWitness
     distrs = taDistribution
     txHash = hash taTx
     distrHash = hash distrs
+
+    allInputsDifferent :: (Bool, Text)
+    allInputsDifferent =
+        ( allDistinct (toList (map fst resolvedInputs))
+        , "transaction tries to spent an unspent input more than once"
+        )
+
     inputPredicates
         :: Word32           -- ^ Input index
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data

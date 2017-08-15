@@ -16,6 +16,7 @@ import           Data.List.NonEmpty           (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty           as NE
 import qualified Data.Ratio                   as Ratio
 import           Data.Semigroup               ((<>))
+import           Ether.Internal               (HasLens (..))
 import           Test.Hspec                   (Spec, describe)
 import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Gen          (Gen (MkGen))
@@ -33,6 +34,7 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEvent
                                                emitBlockRollback,
                                                enrichWithSnapshotChecking, pathSequence,
                                                runBlockEventGenT)
+import           Pos.Genesis                  (GenesisWStakeholders)
 import qualified Pos.GState                   as GS
 import           Pos.Ssc.GodTossing           (SscGodTossing)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
@@ -263,8 +265,9 @@ genSuccessWithForks = do
 blockPropertyScenarioGen :: BlockEventGenT QCGen BlockTestMode () -> BlockProperty BlockScenario
 blockPropertyScenarioGen m = do
     allSecrets <- getAllSecrets
+    genStakeholders <- view (lensOf @GenesisWStakeholders)
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ flip evalRandT g $ runBlockEventGenT allSecrets m
+    lift $ flip evalRandT g $ runBlockEventGenT allSecrets genStakeholders m
 
 prettyScenario :: BlockScenario -> Text
 prettyScenario scenario = pretty (fmap (headerHash . fst) scenario)

@@ -23,13 +23,12 @@ module Pos.Launcher.Resource
 
 import           Universum                  hiding (bracket, finally)
 
-import           Control.Concurrent         (threadDelay)
 import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Tagged                 (untag)
 import qualified Data.Time                  as Time
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Catch, Mockable, Production (..), Throw,
-                                             throw, Bracket, bracket, MonadMockable)
+                                             throw, Bracket, bracket)
 import           Network.QDisc.Fair         (fairQDisc)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Network.Transport.Concrete (concrete)
@@ -38,8 +37,7 @@ import qualified Network.Transport          as NT (closeTransport)
 import           System.IO                  (Handle, hClose, hSetBuffering, BufferMode (..))
 import qualified System.Metrics             as Metrics
 import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
-                                             getLoggerName, logError, logNotice, logWarning,
-                                             productionB,
+                                             getLoggerName, logError, productionB,
                                              releaseAllHandlers, setupLogging,
                                              usingLoggerName)
 
@@ -66,7 +64,7 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics, gtcUtxo,
+import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
@@ -76,7 +74,6 @@ import           Pos.Txp                    (txpGlobalSettings)
 
 import           Pos.Launcher.Mode          (InitMode, InitModeContext (..),
                                              newInitFuture, runInitMode)
-import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
 import           Pos.WorkMode               (TxpExtra_TMP)
@@ -117,10 +114,6 @@ hoistNodeResources nat nr =
 allocateNodeResources
     :: forall ssc m.
        ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , WithLogger m
-       , MonadIO m
-       , MonadMockable m
        )
     => Transport m
     -> NetworkConfig KademliaDHTInstance
@@ -137,7 +130,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            (npGenesisTxpCtx ^. gtcUtxo)
+            npGenesisCtx
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -183,7 +176,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
-       forall ssc m. (SscConstraint ssc, MonadIO m)
+       forall ssc m. ( )
     => NodeResources ssc m -> Production ()
 releaseNodeResources NodeResources {..} = do
     releaseAllHandlers
@@ -195,40 +188,17 @@ releaseNodeResources NodeResources {..} = do
 -- resources will be released eventually.
 bracketNodeResources :: forall ssc m a.
       ( SscConstraint ssc
-      , SecurityWorkersClass ssc
-      , WithLogger m
       , MonadIO m
-      , MonadMockable m
       )
     => NodeParams
     -> SscParams ssc
     -> (NodeResources ssc m -> Production a)
     -> Production a
-bracketNodeResources np sp k =
-    bracketTransport tcpAddr $ \transport ->
+bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
     bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
-    bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources $ \nodeRes -> do
-      case npInitDelay np of
-        Nothing ->
-          -- Start node immediately
-          return ()
-        Just initDelay -> do
-          now <- liftIO $ Time.getCurrentTime
-          let delay = (toUSec . toSec) (initDelay `Time.diffUTCTime` now)
-          if delay >= 0 then do
-            logNotice $ sformat ("Delaying node startup until " % shown) initDelay
-            liftIO $ threadDelay delay
-          else do
-            logWarning $ sformat ("--init-delay parameter in the past")
-      k nodeRes
+        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources k
   where
     tcpAddr = tpTcpAddr (npTransport np)
-
-    toSec :: Time.NominalDiffTime -> Double
-    toSec = realToFrac
-
-    toUSec :: Double -> Int
-    toUSec = round . (* 1000000)
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -255,7 +225,7 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 allocateNodeContext
     :: forall ssc .
-      (SscConstraint ssc, SecurityWorkersClass ssc)
+      (SscConstraint ssc)
     => NodeParams
     -> SscParams ssc
     -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
@@ -357,7 +327,7 @@ bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
 
     TopologyRelay peers Nothing -> k $ TopologyRelay peers Nothing
     TopologyCore  peers Nothing -> k $ TopologyCore  peers Nothing
-    TopologyBehindNAT domains   -> k $ TopologyBehindNAT domains
+    TopologyBehindNAT v f doms  -> k $ TopologyBehindNAT v f doms
     TopologyLightWallet peers   -> k $ TopologyLightWallet peers
   where
     k topology = action (nc { ncTopology = topology })

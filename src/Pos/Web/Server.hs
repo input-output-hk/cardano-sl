@@ -6,6 +6,7 @@
 module Pos.Web.Server
        ( MyWorkMode
        , WebMode
+       , serveImplNoTLS
        , serveImpl
        , nat
        , serveWebBase
@@ -78,6 +79,13 @@ applicationGT :: MyWorkMode SscGodTossing ctx m => m Application
 applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
+
+serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
+serveImplNoTLS application host port =
+    liftIO . runSettings mySettings . webLogger =<< application
+  where
+    mySettings = setHost (fromString host) $
+                 setPort (fromIntegral port) defaultSettings
 
 serveImpl
     :: MonadIO m

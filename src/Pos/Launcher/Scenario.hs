@@ -12,48 +12,44 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
-import           Control.Lens        (views)
-import           Development.GitRev  (gitBranch, gitHash)
-import           Ether.Internal      (HasLens (..))
-import           Formatting          (build, sformat, shown, int, (%))
-import           Mockable            (fork)
-import           Serokell.Util.Text  (listJson)
-import           System.Exit         (ExitCode (..))
-import           System.Wlog         (WithLogger, getLoggerName, logError, logInfo,
-                                      logWarning)
+import           Control.Lens          (views)
+import           Development.GitRev    (gitBranch, gitHash)
+import           Ether.Internal        (HasLens (..))
+import           Formatting            (build, int, sformat, shown, (%))
+import           Mockable              (fork)
+import           Serokell.Util.Text    (listJson)
+import           System.Exit           (ExitCode (..))
+import           System.Wlog           (WithLogger, getLoggerName, logError, logInfo,
+                                        logWarning)
 
-import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
-                                      wrapActionSpec)
-import qualified Pos.Constants       as Const
-import           Pos.DHT.Real        (kademliaJoinNetwork, KademliaDHTInstance (..))
-import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
-                                      genesisStakeholdersM, getOurPubKeyAddress,
-                                      getOurPublicKey, NodeContext (..))
-import qualified Pos.GState          as GS
+import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
+                                        wrapActionSpec)
+import qualified Pos.Constants         as Const
+import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
+                                        getOurPublicKey, ncNetworkConfig)
+import           Pos.DHT.Real          (KademliaDHTInstance (..), kademliaJoinNetwork,
+                                        kademliaJoinNetworkNoThrow)
+import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
+import qualified Pos.GState            as GS
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Lrc.DB          as LrcDB
-import           Pos.Network.Types   (NetworkConfig (..), topologyRunKademlia)
-import           Pos.Reporting       (reportMisbehaviourSilent)
-import           Pos.Security        (SecurityWorkersClass)
-import           Pos.Shutdown        (waitForWorkers)
-import           Pos.Slotting        (waitSystemStart)
-import           Pos.Ssc.Class       (SscConstraint)
-import           Pos.Types           (addressHash)
-import           Pos.Util            (inAssertMode)
-import           Pos.Util.LogSafe    (logInfoS)
-import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Worker          (allWorkers)
-import           Pos.WorkMode.Class  (WorkMode)
+import           Pos.Lrc.DB            as LrcDB
+import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
+import           Pos.Reporting         (reportMisbehaviourSilent)
+import           Pos.Security          (SecurityWorkersClass)
+import           Pos.Shutdown          (waitForWorkers)
+import           Pos.Slotting          (waitSystemStart)
+import           Pos.Ssc.Class         (SscConstraint)
+import           Pos.Types             (addressHash)
+import           Pos.Util              (inAssertMode)
+import           Pos.Util.LogSafe      (logInfoS)
+import           Pos.Worker            (allWorkers)
+import           Pos.WorkMode.Class    (WorkMode)
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode'
     :: forall ssc ctx m.
-       ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , WorkMode ssc ctx m
-       , HasNodeContext ssc ctx
-       , HasUserSecret ctx
+       ( WorkMode ssc ctx m
        )
     => NodeResources ssc m
     -> [WorkerSpec m]
@@ -72,14 +68,21 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
                         ", pk hash: "%build) pk addr pkHash
 
     -- Synchronously join the Kademlia network before doing any more.
-    -- If we can't join the network, an exception is raised and the program
-    -- stops.
+    --
+    -- See 'topologyRunKademlia' documentation: the second component is 'True'
+    -- iff it's essential that at least one of the initial peers is contacted.
+    -- Otherwise, it's OK to not find any initial peers and the program can
+    -- continue.
     case topologyRunKademlia (ncTopology (ncNetworkConfig nrContext)) of
-        Nothing -> return ()
-        Just kInst -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+        Just (kInst, True)  -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+        Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
+        Nothing             -> return ()
 
-    genesisStakeholders <- genesisStakeholdersM
-    logInfo $ sformat ("Genesis stakeholders: " %int) (length genesisStakeholders)
+    genesisStakeholders <- view (lensOf @GenesisWStakeholders)
+    logInfo $ sformat ("Dust threshold: "%build)
+        (bootDustThreshold genesisStakeholders)
+    logInfo $ sformat ("Genesis stakeholders: " %int)
+        (length $ getGenesisWStakeholders genesisStakeholders)
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
@@ -117,8 +120,6 @@ runNode ::
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
-       , HasNodeContext ssc ctx
-       , HasUserSecret ctx
        )
     => NodeResources ssc m
     -> ([WorkerSpec m], OutSpecs)
@@ -152,7 +153,6 @@ nodeStartMsg = logInfo msg
 --        ( MonadDB m
 --        , MonadReader ctx m
 --        , MonadIO m
---        , HasUserSecret ctx
 --        , HasPrimaryKey ctx )
 --     => m ()
 -- putProxySecretKeys = do

@@ -21,8 +21,8 @@ import           Pos.Crypto                 (WithHash (..))
 import           Pos.Slotting               (getLastKnownSlotDuration, onNewSlot)
 import           Pos.Txp                    (PendingTx (..), PtxCondition (..),
                                              ToilVerFailure (..), TxAux (..), getMemPool,
-                                             processTx, ptxCreationSlot, runDBToil,
-                                             runToilTLocal, topsortTxs)
+                                             processTx, runDBToil, runToilTLocal,
+                                             topsortTxs)
 import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.State       (getPendingTxs, setPtxCondition)
 

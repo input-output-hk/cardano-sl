@@ -92,6 +92,7 @@ import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
+import           Pos.Slotting                     (getCurrentSlotInaccurate)
 import           Pos.Txp                          (PendingTx (..),
                                                    PtxCondition (PtxApplying), TxFee (..))
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..),
@@ -646,7 +647,8 @@ sendMoney SendActions {..} passphrase moneySource dstDistr = do
             -- TODO: this should be removed in production
             let txHash    = hash tx
                 srcWallet = getMoneySourceWallet moneySource
-            addOnlyNewPendingTx $ PendingTx txHash txAux PtxApplying
+            curSlot <- getCurrentSlotInaccurate
+            addOnlyNewPendingTx $ PendingTx txHash txAux curSlot PtxApplying
             ts <- Just <$> getCurrentTimestamp
             ctxs <- addHistoryTx srcWallet $
                 THEntry txHash tx inpTxOuts Nothing (toList srcAddrs) dstAddrs ts
@@ -1168,7 +1170,8 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
         submitRedemptionTx enqueueMsg redeemSK dstAddr
     let txInputs = [TxOut redeemAddress redeemBalance]
     let txHash = hash taTx
-    addOnlyNewPendingTx $ PendingTx txHash txAux PtxApplying
+    curSlot <- getCurrentSlotInaccurate
+    addOnlyNewPendingTx $ PendingTx txHash txAux curSlot PtxApplying
     -- add redemption transaction to the history of wallet
     ts <- Just <$> getCurrentTimestamp
     ctxs <- addHistoryTx (aiWId accId) $

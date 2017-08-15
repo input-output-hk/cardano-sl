@@ -1,22 +1,13 @@
 -- | Pending transactions processing.
 
 module Pos.Txp.Pending.Util
-    ( ptxCreationSlot
-    , ptxExpireSlot
-
-    , isPtxInBlocks
+    ( isPtxInBlocks
     ) where
 
 import           Universum
 
-import           Pos.Core              (SlotId)
-import           Pos.Txp.Pending.Types (PendingTx, PtxCondition (..))
+import           Pos.Txp.Pending.Types (PtxCondition (..))
 
-ptxCreationSlot :: PendingTx -> SlotId
-ptxCreationSlot = undefined
-
-ptxExpireSlot :: PendingTx -> SlotId
-ptxExpireSlot = undefined
 
 isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = \case

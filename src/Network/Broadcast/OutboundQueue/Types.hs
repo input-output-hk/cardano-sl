@@ -5,9 +5,12 @@
 module Network.Broadcast.OutboundQueue.Types (
     EnqueueTo (..)
   , Peers (..)
+  , classifyNode
+  , classifyNodeDefault
+  , Routes (..)
   , AllOf
   , Alts
-  , peersOfType
+  , routesOfType
   , simplePeers
   , peersFromList
   , peersToSet
@@ -22,11 +25,44 @@ module Network.Broadcast.OutboundQueue.Types (
   ) where
 
 import Data.Bifunctor (second)
+import Data.Map (Map)
+import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Maybe (mapMaybe)
 import Control.Lens
 import Formatting
+
+-- | Node types
+data NodeType =
+    -- | Core node
+    --
+    -- Core nodes:
+    --
+    -- * can become slot leader
+    -- * never create currency transactions
+    NodeCore
+
+    -- | Edge node
+    --
+    -- Edge nodes:
+    --
+    -- * cannot become slot leader
+    -- * creates currency transactions,
+    -- * cannot communicate with core nodes
+    -- * may or may not be behind NAT/firewalls
+  | NodeEdge
+
+    -- | Relay node
+    --
+    -- Relay nodes:
+    --
+    -- * cannot become slot leader
+    -- * never create currency transactions
+    -- * can communicate with core nodes
+  | NodeRelay
+  deriving (Show, Eq, Ord)
+
 
 {-------------------------------------------------------------------------------
   Known peers
@@ -40,13 +76,27 @@ data EnqueueTo nid =
     -- known peers.
   | EnqueueToSubset (Set nid)
 
--- Requirement: efficient subset on Peers.
+
+-- | Classification of a set of 'nid's¸ along with routes on a subset of that
+--   classification: every 'nid' in the 'Routes nid' is a key in the
+--   'Map nid NodeType'.
+data Peers nid = Peers {
+      peersRoutes         :: Routes nid
+    , peersClassification :: Map nid NodeType
+    }
+    deriving (Show, Eq)
+
+classifyNode :: Ord nid => Peers nid -> nid -> Maybe NodeType
+classifyNode Peers {..} nid = Map.lookup nid peersClassification
+
+classifyNodeDefault :: Ord nid => Peers nid -> NodeType -> nid -> NodeType
+classifyNodeDefault peers deflt = maybe deflt id . classifyNode peers
 
 -- | All known peers, split per node type, in order of preference
-data Peers nid = Peers {
-      _peersCore  :: AllOf (Alts nid)
-    , _peersRelay :: AllOf (Alts nid)
-    , _peersEdge  :: AllOf (Alts nid)
+data Routes nid = Routes {
+      _routesCore  :: AllOf (Alts nid)
+    , _routesRelay :: AllOf (Alts nid)
+    , _routesEdge  :: AllOf (Alts nid)
     }
   deriving (Show, Eq)
 
@@ -60,28 +110,33 @@ type AllOf a = [a]
 -- Non-empty list of alternatives (in order of preference)
 type Alts a = [a]
 
-makeLenses ''Peers
+makeLenses ''Routes
 
-instance Functor Peers where
-  fmap f Peers{..} = Peers{
-        _peersCore  = map (map f) _peersCore
-      , _peersRelay = map (map f) _peersRelay
-      , _peersEdge  = map (map f) _peersEdge
+instance Functor Routes where
+  fmap f Routes{..} = Routes{
+        _routesCore  = map (map f) _routesCore
+      , _routesRelay = map (map f) _routesRelay
+      , _routesEdge  = map (map f) _routesEdge
       }
 
-peersOfType :: NodeType -> Lens' (Peers nid) (AllOf (Alts nid))
-peersOfType NodeCore  = peersCore
-peersOfType NodeRelay = peersRelay
-peersOfType NodeEdge  = peersEdge
+routesOfType :: NodeType -> Lens' (Routes nid) (AllOf (Alts nid))
+routesOfType NodeCore  = routesCore
+routesOfType NodeRelay = routesRelay
+routesOfType NodeEdge  = routesEdge
 
 -- | Restrict a 'Peers nid' to those members of some 'Set nid'.
 restrictPeers :: forall nid . Ord nid => Set nid -> Peers nid -> Peers nid
-restrictPeers restriction  Peers {..} = Peers
-    { _peersCore  = restrict _peersCore
-    , _peersRelay = restrict _peersRelay
-    , _peersEdge  = restrict _peersEdge
+restrictPeers restriction peers = Peers
+    { peersRoutes         = Routes
+        { _routesCore  = restrict _routesCore
+        , _routesRelay = restrict _routesRelay
+        , _routesEdge  = restrict _routesEdge
+        }
+    , peersClassification = Map.filterWithKey (\k _ -> k `Set.member` restriction) classification
     }
   where
+    Routes {..} = peersRoutes peers
+    classification = peersClassification peers
     predicate :: nid -> Bool
     predicate = flip Set.member restriction
     restrict :: AllOf (Alts nid) -> AllOf (Alts nid)
@@ -94,41 +149,69 @@ restrictPeers restriction  Peers {..} = Peers
 --
 -- This effectively means that all of these peers will be sent all (relevant)
 -- messages.
-simplePeers :: forall nid. [(NodeType, nid)] -> Peers nid
-simplePeers = peersFromList . map (second (:[]))
+simplePeers :: forall nid. Ord nid => [(NodeType, nid)] -> Peers nid
+simplePeers = peersFromList mempty . map (second (:[]))
 
--- | Construct 'Peers' from a list of alternatives and their types
-peersFromList :: forall nid. [(NodeType, Alts nid)] -> Peers nid
-peersFromList = go mempty
+-- | Construct 'Peers' from a list of alternatives and their types (routes) and
+--   some extra classified nodes (not in the routes).
+peersFromList :: forall nid. Ord nid => Map nid NodeType -> [(NodeType, Alts nid)] -> Peers nid
+peersFromList notRouted = go start
   where
+    start :: Peers nid
+    start = mempty { peersClassification = notRouted }
     go :: Peers nid -> [(NodeType, Alts nid)] -> Peers nid
     go acc []                  = acc
-    go acc ((typ, alts):altss) = go (acc & peersOfType typ %~ (alts :)) altss
+    go acc ((typ, alts):altss) = -- go (acc & routesOfType typ %~ (alts :)) altss
+      let routes = peersRoutes acc
+          routes' = routes & routesOfType typ %~ (alts :)
+          newClassifications = Map.fromList (fmap (flip (,) typ) alts)
+          classification = peersClassification acc
+          classification' = Map.union newClassifications classification
+          acc' = acc
+              { peersRoutes = routes'
+              , peersClassification = classification'
+              }
+      in  go acc' altss
 
 -- | Flatten 'Peers' structure
 peersToSet :: Ord nid => Peers nid -> Set nid
 peersToSet Peers{..} = Set.unions . concat $ [
-      map Set.fromList _peersCore
-    , map Set.fromList _peersRelay
-    , map Set.fromList _peersEdge
+      map Set.fromList (_routesCore peersRoutes)
+    , map Set.fromList (_routesRelay peersRoutes)
+    , map Set.fromList (_routesEdge peersRoutes)
+    , [Map.keysSet peersClassification]
     ]
 
-instance Monoid (Peers nid) where
-  mempty      = Peers [] [] []
-  mappend a b = Peers {
-                    _peersCore  = comb _peersCore
-                  , _peersRelay = comb _peersRelay
-                  , _peersEdge  = comb _peersEdge
+instance Monoid (Routes nid) where
+  mempty      = Routes [] [] []
+  mappend a b = Routes {
+                    _routesCore  = comb _routesCore
+                  , _routesRelay = comb _routesRelay
+                  , _routesEdge  = comb _routesEdge
                   }
     where
-      comb :: Monoid a => (Peers nid -> a) -> a
+      comb :: Monoid a => (Routes nid -> a) -> a
       comb f = f a `mappend` f b
+
+-- This instance is somewhat irresponsible: if both sides contain the same
+-- 'nid' but have a different classification for it, the one on the left
+-- will be taken.
+instance Ord nid => Monoid (Peers nid) where
+  mempty = Peers mempty mempty
+  mappend (Peers a b) (Peers c d) = Peers (mappend a c) (mappend b d)
 
 removePeer :: forall nid. Ord nid => nid -> Peers nid -> Peers nid
 removePeer toRemove peers =
-    peers & peersCore  %~ remove
-          & peersRelay %~ remove
-          & peersEdge  %~ remove
+    let routes' =
+              (peersRoutes peers)
+            & routesCore  %~ remove
+            & routesRelay %~ remove
+            & routesEdge  %~ remove
+        classification' = Map.delete toRemove (peersClassification peers)
+    in  Peers
+            { peersRoutes = routes'
+            , peersClassification = classification'
+            }
   where
     remove :: AllOf (Alts nid) -> AllOf (Alts nid)
     remove = map $ filter (/= toRemove)
@@ -186,36 +269,6 @@ msgEnqueueTo :: MsgType nid -> EnqueueTo nid
 msgEnqueueTo msg = case msg of
   MsgRequestBlocks peers -> EnqueueToSubset peers
   _ -> EnqueueToAll
-
--- | Node types
-data NodeType =
-    -- | Core node
-    --
-    -- Core nodes:
-    --
-    -- * can become slot leader
-    -- * never create currency transactions
-    NodeCore
-
-    -- | Edge node
-    --
-    -- Edge nodes:
-    --
-    -- * cannot become slot leader
-    -- * creates currency transactions,
-    -- * cannot communicate with core nodes
-    -- * may or may not be behind NAT/firewalls
-  | NodeEdge
-
-    -- | Relay node
-    --
-    -- Relay nodes:
-    --
-    -- * cannot become slot leader
-    -- * never create currency transactions
-    -- * can communicate with core nodes
-  | NodeRelay
-  deriving (Show, Eq, Ord)
 
 class FormatMsg msg where
   formatMsg :: forall r a. Format r (msg a -> r)

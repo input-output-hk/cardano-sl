@@ -664,7 +664,7 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
       enq@EnqueueAll{..} -> do
         let fwdSets :: AllOf (Alts nid)
             fwdSets = removeOrigin (msgOrigin msgType) $
-                        peers ^. peersOfType enqNodeType
+                        peersRoutes peers ^. routesOfType enqNodeType
 
             sendAll :: [Packet msg nid a]
                     -> AllOf (Alts nid)
@@ -697,7 +697,7 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
         let fwdSets :: [(NodeType, Alts nid)]
             fwdSets = concatMap
                         (\t -> map (t,) $ removeOrigin (msgOrigin msgType) $
-                                            peers ^. peersOfType t)
+                                            peersRoutes peers ^. routesOfType t)
                         enqNodeTypes
 
             -- We don't warn when choosing an alternative here, as failure to
@@ -1056,8 +1056,8 @@ intEnqueueTo outQ@OutQ{..} msgType msg enqTo = do
         EnqueueToAll           -> allPeers
         EnqueueToSubset subset ->
           let restricted = restrictPeers subset allPeers
-              unknown    = peersFromList
-                         . map (\nid -> (qUnknownNodeType nid, [nid]))
+              unknown    = peersFromList mempty
+                         . map (\nid -> (classifyNodeDefault allPeers (qUnknownNodeType nid) nid, [nid]))
                          . Set.toList
                          $ subset Set.\\ peersToSet allPeers
 

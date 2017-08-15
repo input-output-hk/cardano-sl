@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 projects="core db lrc infra update ssc godtossing tools txp lwallet wallet"
 
-incpath=$(find $(stack path $@ --compiler-bin)/../lib -maxdepth 2 -path */include)
+# incpath can be used to specify custom include paths, e. g.:
+# incpath=$(find $(stack path $@ --compiler-bin)/../lib -maxdepth 2 -path */include)
+incpath=""
 
 # Some people have tests and subprojects symlinked into src/, others don't
 if [ -d "src/core" ]; then

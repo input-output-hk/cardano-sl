@@ -16,6 +16,7 @@ module Pos.Util.Modifier
        , insertions
        , insertionsMap
        , deletions
+       , deletionsSet
 
        , insert
        , delete
@@ -28,16 +29,19 @@ module Pos.Util.Modifier
        ) where
 
 import           Universum                 hiding (filter, mapMaybe, toList)
-import qualified Universum                 (filter, mapMaybe)
+import qualified Universum
 
 import           Data.Hashable             (Hashable)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.HashSet              as HS
 import qualified Data.Map                  as M
 import qualified Data.Text.Buildable
 import           Formatting                (bprint, (%))
 import           Serokell.Util             (listJson, pairF)
 import           Test.QuickCheck           (Arbitrary)
 import           Test.QuickCheck.Instances ()
+
+import           Pos.Util.Util             (getKeys)
 
 -- | 'MapModifier' is a type which collects modifications (insertions
 -- and deletions) of something map-like.
@@ -141,9 +145,13 @@ insertionsMap = HM.mapMaybe identity . getMapModifier
 insertions :: MapModifier k v -> [(k, v)]
 insertions = HM.toList . insertionsMap
 
+-- | Get all deletions from 'MapModifier' as a 'HashSet'.
+deletionsSet :: MapModifier k v -> HashSet k
+deletionsSet = getKeys . HM.filter isNothing . getMapModifier
+
 -- | Get all deletions from 'MapModifier'.
 deletions :: MapModifier k v -> [k]
-deletions = HM.keys . HM.filter isNothing . getMapModifier
+deletions = HS.toList . deletionsSet
 
 -- | Insert something into 'MapModifier'. Effect of it is like
 -- inserting something into underlying container (which replaces

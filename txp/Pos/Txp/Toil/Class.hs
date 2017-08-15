@@ -18,6 +18,7 @@ import           Universum
 import           Control.Lens               (at, (.=))
 import           Control.Monad.Trans.Class  (MonadTrans)
 import qualified Ether
+import           Fmt                        ((+|), (|+))
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core                   (Coin, StakeholderId)
@@ -45,9 +46,13 @@ instance Monad m => MonadUtxoRead (Ether.StateT' Utxo m) where
     utxoGet id = ether $ use (at id)
 
 class MonadUtxoRead m => MonadUtxo m where
+    -- | Add an unspent output to UTXO. If it's already in the UTXO, throw
+    -- an error.
     utxoPut :: TxIn -> TxOutAux -> m ()
     default utxoPut :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> TxOutAux -> m ()
     utxoPut a = lift . utxoPut a
+    -- | Delete an unspent input from UTXO. If it's not in the UTXO, throw
+    -- an error.
     utxoDel :: TxIn -> m ()
     default utxoDel :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> m ()
     utxoDel = lift . utxoDel
@@ -56,8 +61,12 @@ instance {-# OVERLAPPABLE #-}
   (MonadUtxo m, MonadTrans t, Monad (t m)) => MonadUtxo (t m)
 
 instance Monad m => MonadUtxo (Ether.StateT' Utxo m) where
-    utxoPut id v = ether $ at id .= Just v
-    utxoDel id = ether $ at id .= Nothing
+    utxoPut id aux = ether $ use (at id) >>= \case
+        Nothing -> at id .= Just aux
+        Just _  -> error ("utxoPut@(StateT Utxo): "+|id|+" is already in utxo")
+    utxoDel id = ether $ use (at id) >>= \case
+        Just _  -> at id .= Nothing
+        Nothing -> error ("utxoDel@(StateT Utxo): "+|id|+" is not in the utxo")
 
 ----------------------------------------------------------------------------
 -- MonadBalances

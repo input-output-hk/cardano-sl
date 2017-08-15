@@ -11,7 +11,9 @@ import           Data.List             (zipWith3)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map              as M
+import qualified Data.Text.Buildable   as B
 import qualified Data.Vector           as V (fromList)
+import           Fmt                   (blockListF', genericF, nameF, (+|), (|+))
 import           Formatting            (build, int, sformat, shown, (%))
 import           Serokell.Util         (allDistinct)
 import           Serokell.Util.Text    (listJsonIndent)
@@ -99,10 +101,16 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
         (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
         newTx = UnsafeTx ins (map toaOut outs) (mkAttributes ())
         newDistr = TxDistribution (map toaDistr outs)
-        utxo = foldr (\(tx, d) -> applyTxToUtxoPure (withHash tx) d) mempty txs
+        utxo = M.fromList $ do
+            (tx@UnsafeTx{..}, TxDistribution distr) <- toList txs
+            let id = hash tx
+            (idx, out, outD) <- zip3 [0..] (toList _txOutputs) (toList distr)
+            pure ((TxIn id idx), TxOutAux out outD)
         vtxContext = VTxContext False
         txAux = TxAux newTx witness newDistr
-    in qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
+    in counterexample ("\n"+|nameF "txs" (blockListF' genericF txs)|+""
+                           +|nameF "transaction" (B.build txAux)|+"") $
+       qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
 
 badSigsTx :: SmallGenerator BadSigsTx -> Property
 badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =

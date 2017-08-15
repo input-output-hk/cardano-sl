@@ -11,7 +11,7 @@ module Pos.Generator.Block.Payload
 
 import           Universum
 
-import           Control.Lens               (at, uses, (%=), (.=), (?=))
+import           Control.Lens               (at, uses, (%=), (.=))
 import           Control.Lens.TH            (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
 import qualified Data.HashMap.Strict        as HM
@@ -20,6 +20,7 @@ import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
 import           Ether.Internal             (HasLens (..))
+import           Fmt                        ((+|), (|+))
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (RandomGen (..))
 
@@ -108,9 +109,15 @@ makeLenses ''GenTxData
 instance (Monad m) => MonadUtxoRead (StateT GenTxData m) where
     utxoGet txIn = uses gtdUtxo $ M.lookup txIn
 
-instance (Monad m) => MonadUtxo (StateT GenTxData m) where
-    utxoPut txIn txOutAux = gtdUtxo . at txIn ?= txOutAux
-    utxoDel txIn = gtdUtxo . at txIn .= Nothing
+instance Monad m => MonadUtxo (StateT GenTxData m) where
+    utxoPut id aux = use (gtdUtxo . at id) >>= \case
+        Nothing -> gtdUtxo . at id .= Just aux
+        Just _  -> error ("utxoPut@(StateT GenTxData): "+|id|+
+                          " is already in utxo")
+    utxoDel id = use (gtdUtxo . at id) >>= \case
+        Just _  -> gtdUtxo . at id .= Nothing
+        Nothing -> error ("utxoDel@(StateT GenTxData): "+|id|+
+                          " is not in the utxo")
 
 -- TODO: move to txp, think how to unite it with 'Pos.Arbitrary.Txp'.
 -- | Generate valid 'TxPayload' using current global state.

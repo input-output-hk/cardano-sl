@@ -9,11 +9,14 @@ module Pos.Txp.Toil.Trans
        , evalToilTEmpty
        ) where
 
+import           Universum
+
 import           Control.Lens        (at, to, (%=), (+=), (.=))
 import           Data.Default        (Default (def))
 import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
 import qualified Ether
-import           Universum
+import           Fmt                 ((+|), (|+))
 
 import           Pos.Binary.Class    (biSize)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..),
@@ -42,8 +45,16 @@ instance MonadUtxoRead m => MonadUtxoRead (ToilT __ m) where
     utxoGet id = ether $ MM.lookupM utxoGet id =<< use tmUtxo
 
 instance MonadUtxoRead m => MonadUtxo (ToilT __ m) where
-    utxoPut id aux = ether $ tmUtxo %= MM.insert id aux
-    utxoDel id = ether $ tmUtxo %= MM.delete id
+    utxoPut id aux = ether $ do
+        utxo <- use tmUtxo
+        when (id `HM.member` MM.insertionsMap utxo) $
+            error ("utxoPut@ToilT: "+|id|+" is already in utxo")
+        tmUtxo %= MM.insert id aux
+    utxoDel id = ether $ do
+        utxo <- use tmUtxo
+        when (id `HS.member` MM.deletionsSet utxo) $
+            error ("utxoDel@ToilT: "+|id|+" is already deleted from utxo")
+        tmUtxo %= MM.delete id
 
 instance MonadBalancesRead m => MonadBalancesRead (ToilT __ m) where
     getStake id =

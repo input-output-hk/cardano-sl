@@ -309,8 +309,8 @@ library
                         Pos.Explorer.DB
                         Pos.Explorer.BListener
 
-  build-depends:        QuickCheck
-                      , MonadRandom
+  build-depends:        MonadRandom
+                      , QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
@@ -353,6 +353,7 @@ library
                       , file-embed >= 0.0.10
                       , filelock >= 0.1.0.1
                       , filepath
+                      , fmt
                       , focus
                       , formatting
                       , generic-arbitrary
@@ -372,7 +373,6 @@ library
                       , mmorph
                       , monad-control
                       , monad-loops
-                      , MonadRandom
                       , mono-traversable
                       , mtl
                       , neat-interpolation
@@ -592,15 +592,15 @@ test-suite cardano-test
                      , QuickCheck
                      , base
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-godtossing
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
-                     , cardano-sl-ssc
-                     , cardano-sl
                      , cborg
                      , cereal
                      , containers
@@ -608,17 +608,17 @@ test-suite cardano-test
                      , data-default
                      , ether
                      , exceptions
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , hspec
                      , kademlia
                      , lens
                      , log-warper
-                     , MonadRandom
                      , memory
+                     , mmorph
                      , monad-control
                      , mtl
-                     , mmorph
                      , node-sketch
                      , pvss
                      , quickcheck-instances

@@ -138,6 +138,11 @@ function node_cmd {
   echo -n " --node-id node$i"
   echo -n " --topology $config_dir/topology$i.yaml"
   echo -n " --kademlia $config_dir/kademlia$i.yaml"
+  # Use the policies option if you want to change enqueue/dequeue/failure
+  # policies without re-compiling. See example files
+  #   run/policy_core.yaml
+  #   run/policy_relay.yaml
+  #echo -n " --policies $config_dir/policy$i.yaml"
   echo ''
   sleep 0.8
 }

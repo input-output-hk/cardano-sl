@@ -4,47 +4,36 @@ module Pos.Binary.GodTossing.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
-                                                   enforceSize)
-import           Pos.Core                         (EpochIndex, HasCoreConstants)
-import           Pos.Ssc.GodTossing.Core          (Opening, SignedCommitment,
-                                                   VssCertificatesMap)
+import           Pos.Binary.Class                 (Cons (..), Field (..), deriveSimpleBi, deriveSimpleBiCxt)
+import           Pos.Core.Context                 (HasCoreConstants)
+import           Pos.Core.Types                   (EpochIndex, EpochOrSlot, StakeholderId)
+import           Pos.Ssc.GodTossing.Core          (CommitmentsMap, Opening, OpeningsMap,
+                                                   SharesMap, SignedCommitment,
+                                                   VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
 import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 
-instance HasCoreConstants => Bi VssCertData where
-    encode VssCertData{..} = encodeListLen 6 <>
-        encode lastKnownEoS <>
-        encode certs <>
-        encode whenInsMap <>
-        encode whenInsSet <>
-        encode whenExpire <>
-        encode expiredCerts
-    decode = do
-        enforceSize "VssCertData" 6
-        VssCertData <$>
-            decode <*>
-            decode <*>
-            decode <*>
-            decode <*>
-            decode <*>
-            decode
+deriveSimpleBiCxt [t|HasCoreConstants|] ''VssCertData [
+    Cons 'VssCertData [
+        Field [| lastKnownEoS :: EpochOrSlot                       |],
+        Field [| certs        :: VssCertificatesMap                |],
+        Field [| whenInsMap   :: HashMap StakeholderId EpochOrSlot |],
+        Field [| whenInsSet   :: Set (EpochOrSlot, StakeholderId)  |],
+        Field [| whenExpire   :: Set (EpochOrSlot, StakeholderId)  |],
+        Field [| expiredCerts :: Set (EpochOrSlot, (StakeholderId,
+                                                      EpochOrSlot,
+                                                      VssCertificate)) |]
+    ]]
 
-instance HasCoreConstants => Bi GtGlobalState where
-    encode GtGlobalState{..} = encodeListLen 4 <>
-        encode _gsCommitments <>
-        encode _gsOpenings <>
-        encode _gsShares <>
-        encode _gsVssCertificates
-    decode = do
-        enforceSize "GtGlobalState" 4
-        GtGlobalState <$>
-            decode <*>
-            decode <*>
-            decode <*>
-            decode
+deriveSimpleBiCxt [t|HasCoreConstants|] ''GtGlobalState [
+    Cons 'GtGlobalState [
+        Field [| _gsCommitments     :: CommitmentsMap |],
+        Field [| _gsOpenings        :: OpeningsMap    |],
+        Field [| _gsShares          :: SharesMap      |],
+        Field [| _gsVssCertificates :: VssCertData    |]
+    ]]
 
 deriveSimpleBi ''GtSecretStorage [
     Cons 'GtSecretStorage [

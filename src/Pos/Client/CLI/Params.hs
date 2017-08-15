@@ -2,7 +2,10 @@
 
 module Pos.Client.CLI.Params
        ( loggingParams
-       , getSimpleNodeParams
+       , getBaseParams
+       , getKeyfilePath
+       , getNodeParams
+       , getTransportParams
        , gtSscParams
        ) where
 
@@ -28,8 +31,9 @@ import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.UserSecret   (peekUserSecret)
 
-import           Pos.Client.CLI.NodeOptions           (CommonNodeArgs (..))
-import           Pos.Client.CLI.Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
+import           Pos.Client.CLI.NodeOptions  (CommonNodeArgs (..), NodeArgs (..),
+                                              maliciousEmulationAttacks, maliciousEmulationTargets)
+import           Pos.Client.CLI.Secrets (updateUserSecretVSS, userSecretWithGenesisKey)
 
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
@@ -58,18 +62,19 @@ getKeyfilePath CommonNodeArgs {..}
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
     | otherwise = keyfilePath
 
-getSimpleNodeParams ::
+getNodeParams ::
        (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
     => CommonNodeArgs
+    -> NodeArgs
     -> Timestamp
     -> m NodeParams
-getSimpleNodeParams args@CommonNodeArgs {..} systemStart = do
+getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
     (primarySK, userSecret) <-
-        userSecretWithGenesisKey args =<<
-            updateUserSecretVSS args =<<
-                peekUserSecret (getKeyfilePath args)
+        userSecretWithGenesisKey cArgs =<<
+            updateUserSecretVSS cArgs =<<
+                peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    let npTransport = getTransportParams args npNetworkConfig
+    let npTransport = getTransportParams cArgs npNetworkConfig
         devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
@@ -88,7 +93,7 @@ getSimpleNodeParams args@CommonNodeArgs {..} systemStart = do
         , npSecretKey = primarySK
         , npUserSecret = userSecret
         , npSystemStart = systemStart
-        , npBaseParams = getBaseParams "node" args
+        , npBaseParams = getBaseParams "node" cArgs
         , npJLFile = jlPath
         , npReportServers = CLI.reportServers commonArgs
         , npUpdateParams = UpdateParams

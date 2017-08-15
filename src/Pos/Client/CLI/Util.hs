@@ -6,6 +6,7 @@ import           Universum
 
 import           Pos.Constants       (isDevelopment)
 import           Pos.Util            (inAssertMode)
+
 printFlags :: IO ()
 printFlags = do
     if isDevelopment

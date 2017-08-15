@@ -126,6 +126,7 @@ executable cardano-node
   hs-source-dirs:     node
   main-is:            Main.hs
   other-modules:      NodeOptions
+                      Params
 
   build-depends:      aeson >= 0.11.2.1
                       , ansi-wl-pprint

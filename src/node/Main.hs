@@ -33,8 +33,9 @@ import           Pos.Update.Context  (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode)
 
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), getSimpleNodeOptions)
-import           Pos.Client.CLI.Params (getSimpleNodeParams, gtSscParams)
+import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..), CommonNodeArgs (..),
+                                             NodeArgs(..), getSimpleNodeOptions)
+import           Pos.Client.CLI.Params (getNodeParams, gtSscParams)
 import           Pos.Client.CLI.Util (printFlags)
 
 actionWithoutWallet ::
@@ -56,21 +57,21 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     void $ takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore
     triggerShutdown
 
-action :: CommonNodeArgs -> Production ()
-action args@CommonNodeArgs {..} = do
+action :: SimpleNodeArgs -> Production ()
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getSimpleNodeParams args systemStart
-    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
+    currentParams <- getNodeParams cArgs nArgs systemStart
+    putText $ "Running using " <> show sscAlgo
     putText "Wallet is disabled, because software is built w/o it"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams args vssSK
+    let gtParams = gtSscParams cArgs vssSK
 
     let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
-        sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
+        sscParams = bool (Left ()) (Right gtParams) (sscAlgo == GodTossingAlgo)
     case (sscParams) of
         (Left par)  -> actionWithoutWallet @SscNistBeacon par currentParams
         (Right par) -> actionWithoutWallet @SscGodTossing par currentParams

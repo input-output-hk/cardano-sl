@@ -26,7 +26,6 @@ import           Pos.Launcher        (NodeParams (..), NodeResources (..),
 import           Pos.Ssc.Class       (SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
-import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (WorkMode)
 import           Pos.Web             (serveWebGT)
@@ -34,10 +33,11 @@ import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWal
                                       runWRealMode, walletServeWebFull, walletServerOuts)
 
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
-import           Pos.Client.CLI.Params (getSimpleNodeParams, gtSscParams)
+import           Pos.Client.CLI.Params (gtSscParams)
 import           Pos.Client.CLI.Util (printFlags)
 
 import           NodeOptions (WalletNodeArgs(..), WalletArgs(..), getWalletNodeOptions)
+import           Params (getNodeParams)
 
 actionWithWallet :: SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
@@ -71,20 +71,19 @@ pluginsGT WalletArgs {..}
     | otherwise = []
 
 action :: WalletNodeArgs -> Production ()
-action (WalletNodeArgs (snArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = do
+action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getSimpleNodeParams snArgs systemStart
-    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
+    currentParams <- getNodeParams cArgs systemStart
     putText $ "Wallet is enabled!"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams snArgs vssSK
+    let gtParams = gtSscParams cArgs vssSK
 
     let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
-        sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
+        sscParams = bool (Left ()) (Right gtParams) False
     case sscParams of
         (Left _)     -> logError "Wallet does not support NIST beacon!"
         (Right par)  -> actionWithWallet par currentParams wArgs

@@ -38,7 +38,7 @@ data WalletArgs = WalletArgs
 
 walletArgsParser :: Parser WalletNodeArgs
 walletArgsParser = do
-    simpleNodeArgs <- commonNodeArgsParser
+    commonNodeArgs <- commonNodeArgsParser
     enableWeb <- switch $
         long "web" <>
         help "Activate web API (it’s not linked with a wallet web API)."
@@ -63,7 +63,7 @@ walletArgsParser = do
         help "Run wallet with debug params (e.g. include \
              \all the genesis keys in the set of secret keys)."
 
-    pure $ WalletNodeArgs simpleNodeArgs WalletArgs{..}
+    pure $ WalletNodeArgs commonNodeArgs WalletArgs{..}
 
 getWalletNodeOptions :: IO WalletNodeArgs
 getWalletNodeOptions = execParser programInfo

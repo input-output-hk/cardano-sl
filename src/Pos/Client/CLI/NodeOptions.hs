@@ -6,8 +6,10 @@
 
 module Pos.Client.CLI.NodeOptions
        ( CommonNodeArgs (..)
-       , getSimpleNodeOptions
+       , SimpleNodeArgs (..)
+       , NodeArgs (..)
        , commonNodeArgsParser
+       , getSimpleNodeOptions
        , usageExample
        ) where
 
@@ -31,6 +33,7 @@ import           Pos.Constants                (isDevelopment)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Security                 (AttackTarget, AttackType)
+import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
@@ -57,8 +60,6 @@ data CommonNodeArgs = CommonNodeArgs
     , networkConfigOpts         :: !NetworkConfigOpts
       -- ^ Network configuration
     , jlPath                    :: !(Maybe FilePath)
-    , maliciousEmulationAttacks :: ![AttackType]
-    , maliciousEmulationTargets :: ![AttackTarget]
     , kademliaDumpPath          :: !FilePath
     , commonArgs                :: !CLI.CommonArgs
     , updateLatestPath          :: !FilePath
@@ -115,16 +116,6 @@ commonNodeArgsParser = do
     networkConfigOpts <- networkConfigOption
     jlPath <-
         CLI.optionalJSONPath
-    maliciousEmulationAttacks <-
-        many $ option (fromParsec CLI.attackTypeParser) $
-        long    "attack" <>
-        metavar "NoBlocks | NoCommitments" <>
-        help    "Attack type to emulate. This option can be defined more than once."
-    maliciousEmulationTargets <-
-        many $ option (fromParsec CLI.attackTargetParser) $
-        long    "attack-target" <>
-        metavar "HOST:PORT | PUBKEYHASH" <>
-        help    "Node for attack. This option can be defined more than once."
     kademliaDumpPath <- strOption $
         long    "kademlia-dump-path" <>
         metavar "FILEPATH" <>
@@ -157,6 +148,32 @@ commonNodeArgsParser = do
     corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
     relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
 
+
+data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
+
+data NodeArgs = NodeArgs
+    { sscAlgo                   :: !SscAlgo
+    , maliciousEmulationAttacks :: ![AttackType]
+    , maliciousEmulationTargets :: ![AttackTarget]
+    } deriving Show
+
+simpleNodeArgsParser :: Parser SimpleNodeArgs
+simpleNodeArgsParser = do
+    commonNodeArgs <- commonNodeArgsParser
+    sscAlgo <- CLI.sscAlgoOption
+    maliciousEmulationAttacks <-
+        many $ option (fromParsec CLI.attackTypeParser) $
+        long    "attack" <>
+        metavar "NoBlocks | NoCommitments" <>
+        help    "Attack type to emulate. This option can be defined more than once."
+    maliciousEmulationTargets <-
+        many $ option (fromParsec CLI.attackTargetParser) $
+        long    "attack-target" <>
+        metavar "HOST:PORT | PUBKEYHASH" <>
+        help    "Node for attack. This option can be defined more than once."
+
+    pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
+
 nodeTypeOption :: Parser NodeType
 nodeTypeOption =
     option (fromParsec nodeTypeParser) $
@@ -177,10 +194,10 @@ peerOption longName mk =
         metavar "HOST:PORT" <>
         help "Address of a peer"
 
-getSimpleNodeOptions :: IO CommonNodeArgs
+getSimpleNodeOptions :: IO SimpleNodeArgs
 getSimpleNodeOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> commonNodeArgsParser) $
+    programInfo = info (helper <*> versionOption <*> simpleNodeArgsParser) $
         fullDesc <> progDesc "Cardano SL main server node."
                  <> header "Cardano SL node."
                  <> footerDoc usageExample

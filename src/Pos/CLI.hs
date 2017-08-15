@@ -8,9 +8,9 @@ module Pos.CLI
        , attackTypeParser
        , attackTargetParser
        , defaultLoggerConfig
-       , readLoggerConfig
-       , sscAlgoParser
        , getNodeSystemStart
+       , readLoggerConfig
+       , sscAlgoOption
 
        -- | CLI options and flags
        , CommonArgs (..)
@@ -132,7 +132,6 @@ getNodeSystemStart cliOrConfigSystemStart
 data CommonArgs = CommonArgs
     { logConfig          :: !(Maybe FilePath)
     , logPrefix          :: !(Maybe FilePath)
-    , sscAlgo            :: !SscAlgo
     , reportServers      :: ![Text]
     , updateServers      :: ![Text]
     -- distributions, only used in dev mode
@@ -148,8 +147,6 @@ commonArgsParser :: Opt.Parser CommonArgs
 commonArgsParser = do
     logConfig <- optionalLogConfig
     logPrefix <- optionalLogPrefix
-    --
-    sscAlgo <- sscAlgoOption
     --
     reportServers <- reportServersOption
     updateServers <- updateServersOption

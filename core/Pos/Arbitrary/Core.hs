@@ -443,7 +443,8 @@ instance Arbitrary G.GenesisCoreData where
                 , G.CustomStakes <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
-        hashmapOfHolders <- arbitrary :: Gen (HashMap Types.StakeholderId Word16)
+        hashmapOfHolders <-
+            arbitrary :: Gen (HashMap Types.StakeholderId G.GenesisStakeholderWeight)
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
             G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
                                 hashmapOfHolders

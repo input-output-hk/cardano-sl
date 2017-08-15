@@ -7,6 +7,7 @@ module Pos.Core.Genesis.Types
        , safeExpStakes
 
        , AddrDistribution
+       , GenesisStakeholderWeight
        , GenesisWStakeholders (..)
        , GenesisCoreData (..)
        , bootDustThreshold
@@ -91,10 +92,12 @@ safeExpStakes n =
 -- distribute and how).
 type AddrDistribution = ([Address], StakeDistribution)
 
+type GenesisStakeholderWeight = Word32
+
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.
 newtype GenesisWStakeholders = GenesisWStakeholders
-    { getGenesisWStakeholders :: HashMap StakeholderId Word16
+    { getGenesisWStakeholders :: HashMap StakeholderId GenesisStakeholderWeight
     } deriving (Show, Eq)
 
 instance Buildable GenesisWStakeholders where
@@ -124,7 +127,7 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
 -- goes wrong.
 mkGenesisCoreData ::
        [AddrDistribution]
-    -> HashMap StakeholderId Word16
+    -> HashMap StakeholderId GenesisStakeholderWeight
     -> Either String GenesisCoreData
 mkGenesisCoreData distribution bootStakeholders = do
     -- Every set of addresses should match the stakeholders count

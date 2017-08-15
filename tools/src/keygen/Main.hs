@@ -23,8 +23,8 @@ import           Pos.Binary           (decodeFull, serialize')
 import           Pos.Core             (StakeholderId, mkCoin)
 import           Pos.Crypto           (redeemPkB64F)
 import           Pos.Genesis          (AddrDistribution, GenesisCoreData (..),
-                                       GenesisGtData (..), StakeDistribution (..),
-                                       genesisDevHdwSecretKeys, genesisDevHdwSecretKeys,
+                                       GenesisGtData (..), GenesisStakeholderWeight,
+                                       StakeDistribution (..), genesisDevHdwSecretKeys,
                                        genesisDevSecretKeys, mkGenesisCoreData)
 import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
                                        makeRedeemAddress)
@@ -60,7 +60,9 @@ getTestnetData ::
        (MonadIO m, MonadFail m, WithLogger m)
     => FilePath
     -> TestStakeOptions
-    -> m ([AddrDistribution], HashMap StakeholderId Word16, GenesisGtData)
+    -> m ( [AddrDistribution]
+         , HashMap StakeholderId GenesisStakeholderWeight
+         , GenesisGtData)
 getTestnetData dir tso@TestStakeOptions{..} = do
 
     let keysDir = dir </> "keys-testnet"
@@ -199,7 +201,7 @@ genGenesisFiles GenesisGenOptions{..} = do
             | null ggoBootStakeholders =
                 mconcat $ catMaybes [ view _2 <$> mTestnetData ]
             | otherwise =
-                HM.fromList ggoBootStakeholders
+                map fromIntegral $ HM.fromList ggoBootStakeholders
     when (null gcdBootstrapStakeholders) $
         error "gcdBootstrapStakeholders is empty. Current keygen implementation \
               \doesn't support explicit boot stakeholders, so if testnet is not \

@@ -1441,11 +1441,6 @@ updatePeersBucket outQ@OutQ{..} buck f = do
     f' Nothing      = Just $ f mempty
     f' (Just peers) = Just $ f peers
 
-data PeersBucketSizeExceeded = PeersBucketSizeExceeded
-  deriving Show
-
-instance Exception PeersBucketSizeExceeded
-
 {-------------------------------------------------------------------------------
   Auxiliary: starting and registering threads
 -------------------------------------------------------------------------------}

@@ -18,7 +18,7 @@ import           Pos.Binary            (Bi)
 import qualified Pos.Block.Core        as T
 import qualified Pos.Block.Pure        as T
 import           Pos.Constants         (genesisHash)
-import           Pos.Core              (HasCoreConstants)
+import           Pos.Core              (HasCoreConstants, giveStaticConsts)
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         SignTag (..), createPsk, proxySign, sign,
                                         toPublic)
@@ -30,10 +30,8 @@ import qualified Pos.Types             as T
 import           Pos.Util.Chrono       (NewestFirst (..))
 import           Pos.Util.Util         (leftToPanic)
 
-import           Test.Pos.Util         (giveTestsConsts)
-
 spec :: Spec
-spec = giveTestsConsts $ describe "Block properties" $ do
+spec = giveStaticConsts $ describe "Block properties" $ do
     describe "mkMainHeader" $ do
         prop mainHeaderFormationDesc (mainHeaderFormation @SscNistBeacon)
         prop mainHeaderFormationDesc (mainHeaderFormation @SscGodTossing)
@@ -58,7 +56,7 @@ spec = giveTestsConsts $ describe "Block properties" $ do
     verifyHeaderDesc = "Successfully verifies a correct main block header"
     verifyHeadersDesc = "Successfully verifies a correct chain of block headers"
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
-    emptyHeaderChain l = giveTestsConsts $ -- WHAT THE HECK? WHY IS IT NEEDED?
+    emptyHeaderChain l = giveStaticConsts $ -- WHAT THE HECK? WHY IS IT NEEDED?
         it verifyEmptyHsDesc $ isVerSuccess $ T.verifyHeaders l
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create

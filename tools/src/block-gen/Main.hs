@@ -33,7 +33,7 @@ import           Error                       (TBlockGenError (..))
 import           Options                     (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
-main = flip catch catchEx $ do
+main = flip catch catchEx $ giveStaticConsts $ do
     if isDevelopment then
         putText $ "Generating in DEV mode"
     else
@@ -77,7 +77,7 @@ main = flip catch catchEx $ do
                 True
                 bootStakeholders
     seed <- maybe randomIO pure bgoSeed
-    bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db -> giveStaticConsts $
+    bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
         initTBlockGenMode db genUtxo $
             void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)

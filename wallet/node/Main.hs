@@ -43,10 +43,10 @@ import           Pos.Client.CLI.Util        (printFlags)
 import           NodeOptions                (WalletArgs (..), WalletNodeArgs (..),
                                              getWalletNodeOptions)
 
-actionWithWallet :: SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
+actionWithWallet :: HasCoreConstants => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
-        bracketWalletWS $ \conn -> giveStaticConsts $
+        bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
                 runWRealMode
                     db
@@ -75,7 +75,7 @@ pluginsGT WalletArgs {..}
     | otherwise = []
 
 action :: WalletNodeArgs -> Production ()
-action (WalletNodeArgs (snArgs@SimpleNodeArgs {..}) (wArgs@WalletArgs {..})) = do
+action (WalletNodeArgs (snArgs@SimpleNodeArgs {..}) (wArgs@WalletArgs {..})) = giveStaticConsts $ do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime

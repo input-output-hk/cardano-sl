@@ -403,7 +403,7 @@ runWalletCmd cmdCtx str sa = do
 #endif
 
 main :: IO ()
-main = do
+main = giveStaticConsts $ do
     WalletOptions {..} <- getWalletOptions
     --filePeers <- maybe (return []) CLI.readPeersFile
     --                   (CLI.dhtPeersFile woCommonArgs)
@@ -474,7 +474,7 @@ main = do
             GodTossingAlgo -> do
                 logInfo "Using MPC coin tossing"
                 liftIO $ hFlush stdout
-                giveStaticConsts $ runWalletStaticPeers transport' (S.fromList allPeers) params plugins
+                runWalletStaticPeers transport' (S.fromList allPeers) params plugins
             NistBeaconAlgo ->
                 logError "Wallet does not support NIST beacon!"
 

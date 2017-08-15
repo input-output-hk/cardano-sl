@@ -12,16 +12,17 @@ import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
 import           Pos.Communication.Relay ()
 import qualified Pos.Communication.Relay as R
+import           Pos.Core                (giveStaticConsts)
 import qualified Pos.Update              as U
 
-import           Test.Pos.Util           (binaryTest, giveTestsConsts, msgLenLimitedTest,
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
                                           networkBinaryTest)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 spec :: Spec
-spec = giveTestsConsts $
+spec = giveStaticConsts $
     describe "Update system" $ do
         describe "Bi instances" $ do
             describe "Core" $ do

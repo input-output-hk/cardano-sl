@@ -17,17 +17,17 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Core                          (ApplicationName, BlockVersion,
                                                     HasCoreConstants,
                                                     SoftwareVersion (..), StakeholderId,
-                                                    addressHash)
+                                                    addressHash, giveStaticConsts)
 import           Pos.Crypto                        (hash)
 import           Pos.Slotting.Types                (SlottingData)
 import           Pos.Update.Core                   (UpId, UpdateProposal (..), applyBVM)
 import qualified Pos.Update.Poll                   as Poll
 import qualified Pos.Util.Modifier                 as MM
 
-import           Test.Pos.Util                     (formsMonoid, giveTestsConsts)
+import           Test.Pos.Util                     (formsMonoid)
 
 spec :: Spec
-spec = giveTestsConsts $ describe "Poll" $ do
+spec = giveStaticConsts $ describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop

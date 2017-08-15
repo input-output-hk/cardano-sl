@@ -60,7 +60,7 @@ main = do
     runProduction (action args)
 
 action :: Args -> Production ()
-action args@Args {..} = do
+action args@Args {..} = giveStaticConsts $ do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
@@ -79,8 +79,7 @@ action args@Args {..} = do
             , updateTriggerWorker
             ]
 
-    giveStaticConsts $
-      bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
+    bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
         runExplorerRealMode
             (hoistNodeResources (lift . runExplorerBListener) nr)
             (runNode @SscGodTossing nr plugins)

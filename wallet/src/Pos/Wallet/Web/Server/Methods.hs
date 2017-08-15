@@ -177,14 +177,14 @@ type CachedCAccModifier = CAccModifier
 -- | Evaluates `txMempoolToModifier` and provides result as a parameter
 -- to given function.
 fixingCachedAccModifier
-    :: (WalletWebMode m, MonadKeySearch key m, HasCoreConstants)
+    :: (WalletWebMode m, MonadKeySearch key m)
     => (CachedCAccModifier -> key -> m a)
     -> key -> m a
 fixingCachedAccModifier action key =
     findKey key >>= txMempoolToModifier >>= flip action key
 
 fixCachedAccModifierFor
-    :: (WalletWebMode m, MonadKeySearch key m, HasCoreConstants)
+    :: (WalletWebMode m, MonadKeySearch key m)
     => key
     -> (CachedCAccModifier -> m a)
     -> m a

@@ -43,6 +43,7 @@ import           Pos.Binary.Relay                  ()
 import           Pos.Block.Core
 import           Pos.Communication.Protocol
 import           Pos.Communication.Types.Relay     (DataMsg)
+import           Pos.Core.Context                  (giveStaticConsts)
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
@@ -68,8 +69,6 @@ import           Pos.Update.Core
 import           Pos.Update.Poll
 import           Pos.Util.BackupPhrase
 import           Pos.Util.Chrono
-
-import           Test.Pos.Util                     (giveTestsConsts)
 
 ----------------------------------------
 
@@ -303,7 +302,7 @@ testAgainstFile name x expected =
               Right actual -> x `shouldBe` actual
 
 spec :: Spec
-spec = giveTestsConsts $ describe "Cbor.Bi instances" $ do
+spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
         describe "(Hash)Map and (Hash)Set instances are sound" $ do
             prop "HashMap Int Int" (soundInstanceProperty @(HashMap Int Int) Proxy)

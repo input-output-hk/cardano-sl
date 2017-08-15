@@ -31,13 +31,13 @@ type TxId = Text
 type BlockId = Text
 
 main :: IO ()
-main = do
+main = giveStaticConsts $ do
     Args {..} <- getAnalyzerOptions
     logs <- parseFiles files
 
     case txFile of
         Nothing   -> pure ()
-        Just file -> giveStaticConsts $ analyzeVerifyTimes file confirmationParam logs
+        Just file -> analyzeVerifyTimes file confirmationParam logs
 
     let tpsLogs :: HM.HashMap FilePath [(UTCTime, Double)]
         tpsLogs = getTpsLog <$> logs

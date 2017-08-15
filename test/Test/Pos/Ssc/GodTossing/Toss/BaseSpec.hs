@@ -18,7 +18,7 @@ import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
 import           Pos.Constants         (genesisBlockVersionData)
-import           Pos.Core              (HasCoreConstants)
+import           Pos.Core              (HasCoreConstants, giveStaticConsts)
 import           Pos.Crypto            (PublicKey, SecretKey, Share,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
@@ -40,10 +40,8 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (.
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
 
-import           Test.Pos.Util         (giveTestsConsts)
-
 spec :: Spec
-spec = giveTestsConsts $ describe "Ssc.GodTossing.Base" $ do
+spec = giveStaticConsts $ describe "Ssc.GodTossing.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
         prop description_notVerifiesBadComm notVerifiesBadComm

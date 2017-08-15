@@ -12,13 +12,13 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
                                         (==>))
 
 import           Pos.Arbitrary.Core    (EoSToIntOverflow (..), UnreasonableEoS (..))
-import           Pos.Core              (HasCoreConstants)
+import           Pos.Core              (HasCoreConstants, giveStaticConsts)
 import           Pos.Types             (EpochOrSlot, SlotId (..), flattenSlotId,
                                         unflattenSlotId)
-import           Test.Pos.Util         (giveTestsConsts, shouldThrowException, (.=.))
+import           Test.Pos.Util         (shouldThrowException, (.=.))
 
 spec :: Spec
-spec = giveTestsConsts $ describe "Slotting" $ do
+spec = giveStaticConsts $ describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"

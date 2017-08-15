@@ -15,7 +15,8 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
                                         suchThat, vectorOf, (==>))
 
-import           Pos.Core.Context      (HasCoreConstants, slotSecurityParam)
+import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts,
+                                        slotSecurityParam)
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..),
                                         VssCertificate (..), delete, empty, expiryEoS,
@@ -26,10 +27,8 @@ import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotI
                                         SlotId (..))
 import           Pos.Util.Chrono       (NewestFirst (..))
 
-import           Test.Pos.Util         (giveTestsConsts)
-
 spec :: Spec
-spec = giveTestsConsts $ describe "Ssc.GodTossing.VssCertData" $ do
+spec = giveStaticConsts $ describe "Ssc.GodTossing.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $

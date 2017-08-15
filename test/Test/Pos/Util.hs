@@ -42,7 +42,8 @@ import           Prelude                  (read)
 import           Pos.Binary               (AsBinaryClass (..), Bi (..), deserialize,
                                            serialize, serialize')
 import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
-import           Pos.Core                 (HasCoreConstants, giveConsts)
+import           Pos.Core                 (CoreConstants (..), HasCoreConstants,
+                                           giveConsts)
 
 import           Test.Hspec               (Expectation, Selector, Spec, describe,
                                            shouldThrow)
@@ -56,7 +57,7 @@ import           Test.QuickCheck.Monadic  (PropertyM, pick, stop)
 import           Test.QuickCheck.Property (Result (..), failed)
 
 giveTestsConsts :: (HasCoreConstants => r) -> r
-giveTestsConsts = giveConsts (fromIntegral @Word32 35)
+giveTestsConsts = giveConsts $ CoreConstants (fromIntegral @Word32 35)
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary

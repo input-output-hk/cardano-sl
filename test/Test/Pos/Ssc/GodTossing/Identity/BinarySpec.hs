@@ -12,12 +12,12 @@ import           Test.Hspec              (Spec, describe)
 import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
 import qualified Pos.Communication.Relay as R
-import           Pos.Core                (StakeholderId)
+import           Pos.Core                (StakeholderId, giveStaticConsts)
 import qualified Pos.Ssc.GodTossing      as GT
-import           Test.Pos.Util           (binaryTest, giveTestsConsts, msgLenLimitedTest)
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
 
 spec :: Spec
-spec = giveTestsConsts $ describe "GodTossing" $ do
+spec = giveStaticConsts $ describe "GodTossing" $ do
     describe "Bi instances" $ do
         binaryTest @GT.Commitment
         binaryTest @GT.CommitmentsMap

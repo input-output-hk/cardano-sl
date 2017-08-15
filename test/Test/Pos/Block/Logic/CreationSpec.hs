@@ -25,7 +25,8 @@ import           Pos.Block.Logic            (RawPayload (..), createMainBlockPur
 import qualified Pos.Communication          ()
 import           Pos.Constants              (genesisMaxBlockSize)
 import           Pos.Core                   (HasCoreConstants, SlotId (..),
-                                             blkSecurityParam, unsafeMkLocalSlotIndex)
+                                             blkSecurityParam, giveStaticConsts,
+                                             unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
@@ -36,10 +37,8 @@ import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util                   (SmallGenerator (..), makeSmall)
 
-import           Test.Pos.Util              (giveTestsConsts)
-
 spec :: Spec
-spec = giveTestsConsts $ describe "Block.Logic.Creation" $ do
+spec = giveStaticConsts $ describe "Block.Logic.Creation" $ do
 
     -- Sampling the minimum empty block size
     (sk0,prevHeader0) <- runIO $ generate arbitrary

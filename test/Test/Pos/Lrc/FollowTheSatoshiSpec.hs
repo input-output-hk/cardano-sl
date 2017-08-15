@@ -17,16 +17,14 @@ import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, 
 
 import           Pos.Core              (Address (..), Coin, SharedSeed, StakeholderId, HasCoreConstants,
                                         mkCoin, sumCoins, unsafeAddCoin,
-                                        unsafeIntegerToCoin, blkSecurityParam, epochSlots)
+                                        unsafeIntegerToCoin, blkSecurityParam, epochSlots, giveStaticConsts)
 import           Pos.Crypto            (unsafeHash)
 import           Pos.Lrc               (followTheSatoshiUtxo)
 import           Pos.Txp               (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                                         txOutStake)
 
-import           Test.Pos.Util         (giveTestsConsts)
-
 spec :: Spec
-spec = giveTestsConsts $ do
+spec = giveStaticConsts $ do
     let smaller = modifyMaxSuccess (const 1)
     describe "FollowTheSatoshi" $ do
         describe "followTheSatoshiUtxo" $ do

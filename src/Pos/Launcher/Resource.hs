@@ -28,7 +28,7 @@ import           Data.Tagged                 (untag)
 import qualified Data.Time                  as Time
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Catch, Mockable, Production (..), Throw,
-                                             throw, Bracket, bracket, MonadMockable)
+                                             throw, Bracket, bracket)
 import           Network.QDisc.Fair         (fairQDisc)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Network.Transport.Concrete (concrete)
@@ -64,7 +64,7 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics, gtcUtxo,
+import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
@@ -74,7 +74,6 @@ import           Pos.Txp                    (txpGlobalSettings)
 
 import           Pos.Launcher.Mode          (InitMode, InitModeContext (..),
                                              newInitFuture, runInitMode)
-import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
 import           Pos.WorkMode               (TxpExtra_TMP)
@@ -115,10 +114,6 @@ hoistNodeResources nat nr =
 allocateNodeResources
     :: forall ssc m.
        ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , WithLogger m
-       , MonadIO m
-       , MonadMockable m
        )
     => Transport m
     -> NetworkConfig KademliaDHTInstance
@@ -135,7 +130,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            (npGenesisTxpCtx ^. gtcUtxo)
+            npGenesisCtx
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -181,7 +176,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
-       forall ssc m. (SscConstraint ssc, MonadIO m)
+       forall ssc m. ( )
     => NodeResources ssc m -> Production ()
 releaseNodeResources NodeResources {..} = do
     releaseAllHandlers
@@ -193,10 +188,7 @@ releaseNodeResources NodeResources {..} = do
 -- resources will be released eventually.
 bracketNodeResources :: forall ssc m a.
       ( SscConstraint ssc
-      , SecurityWorkersClass ssc
-      , WithLogger m
       , MonadIO m
-      , MonadMockable m
       )
     => NodeParams
     -> SscParams ssc
@@ -233,7 +225,7 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 allocateNodeContext
     :: forall ssc .
-      (SscConstraint ssc, SecurityWorkersClass ssc)
+      (SscConstraint ssc)
     => NodeParams
     -> SscParams ssc
     -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
@@ -335,7 +327,7 @@ bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
 
     TopologyRelay peers Nothing -> k $ TopologyRelay peers Nothing
     TopologyCore  peers Nothing -> k $ TopologyCore  peers Nothing
-    TopologyBehindNAT domains   -> k $ TopologyBehindNAT domains
+    TopologyBehindNAT v f doms  -> k $ TopologyBehindNAT v f doms
     TopologyLightWallet peers   -> k $ TopologyLightWallet peers
   where
     k topology = action (nc { ncTopology = topology })

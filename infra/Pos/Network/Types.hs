@@ -5,9 +5,7 @@ module Pos.Network.Types
     , Topology(..)
     , StaticPeers(..)
     , SubscriptionWorker(..)
-    , Valency
     , Bucket(..)
-    , Fallbacks
     , topologyNodeType
     , topologySubscriberNodeType
     , topologySubscriptionWorker
@@ -25,6 +23,9 @@ module Pos.Network.Types
     , NodeType (..)
     , MsgType (..)
     , Origin (..)
+      -- ** from .Yaml
+    , Valency
+    , Fallbacks
       -- ** other
     , NodeId (..)
     ) where
@@ -38,7 +39,8 @@ import qualified Network.DNS                           as DNS
 import           Node.Internal                         (NodeId (..))
 import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
-import           Pos.Network.Yaml                      (NodeName (..))
+import           Pos.Network.Yaml                      (NodeName (..),
+                                                        Valency, Fallbacks)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
 import           Universum                             hiding (show)
 import           GHC.Show                              (Show(..))
@@ -60,10 +62,6 @@ defaultNetworkConfig ncTopology = NetworkConfig {
     , ncSelfName    = Nothing
     , ..
     }
-
-type Valency = Int
-
-type Fallbacks = Int
 
 -- | Statically configured peers
 --
@@ -92,7 +90,7 @@ data Topology kademlia =
     -- | We discover our peers through DNS
     --
     -- This is used for behind-NAT nodes.
-  | TopologyBehindNAT !(DnsDomains DNS.Domain)
+  | TopologyBehindNAT !Valency !Fallbacks !(DnsDomains DNS.Domain)
 
     -- | We discover our peers through Kademlia
   | TopologyP2P !Valency !Fallbacks !kademlia
@@ -129,7 +127,7 @@ topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
 topologySubscriberNodeType TopologyLightWallet{} = Nothing
 
 data SubscriptionWorker kademlia =
-    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
+    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain) Valency Fallbacks
   | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
@@ -138,20 +136,22 @@ topologySubscriptionWorker = go
   where
     go TopologyCore{}                     = Nothing
     go TopologyRelay{}                    = Nothing
-    go (TopologyBehindNAT doms)           = Just $ SubscriptionWorkerBehindNAT doms
+    go (TopologyBehindNAT v f doms)       = Just $ SubscriptionWorkerBehindNAT doms v f
     go (TopologyP2P v f kademlia)         = Just $ SubscriptionWorkerKademlia kademlia NodeRelay v f
     go (TopologyTraditional v f kademlia) = Just $ SubscriptionWorkerKademlia kademlia NodeCore v f
     go TopologyLightWallet{}              = Nothing
 
--- | Should we register to the Kademlia network?
-topologyRunKademlia :: Topology kademlia -> Maybe kademlia
+-- | Should we register to the Kademlia network? If so, is it essential that we
+-- successfully join it (contact at least one existing peer)? Second component
+-- is 'True' if yes.
+topologyRunKademlia :: Topology kademlia -> Maybe (kademlia, Bool)
 topologyRunKademlia = go
   where
-    go (TopologyCore  _        mKademlia) = mKademlia
-    go (TopologyRelay _        mKademlia) = mKademlia
+    go (TopologyCore  _        mKademlia) = flip (,) False <$> mKademlia
+    go (TopologyRelay _        mKademlia) = flip (,) False <$> mKademlia
     go TopologyBehindNAT{}                = Nothing
-    go (TopologyP2P _ _         kademlia) = Just kademlia
-    go (TopologyTraditional _ _ kademlia) = Just kademlia
+    go (TopologyP2P _ _         kademlia) = Just (kademlia, True)
+    go (TopologyTraditional _ _ kademlia) = Just (kademlia, True)
     go TopologyLightWallet{}              = Nothing
 
 -- | Variation on resolveDnsDomains that returns node IDs
@@ -202,7 +202,7 @@ initQueue NetworkConfig{..} = do
       TopologyLightWallet peers -> do
         let peers' = simplePeers $ map (NodeRelay, ) peers
         OQ.updatePeersBucket oq BucketStatic (\_ -> peers')
-      TopologyBehindNAT _ ->
+      TopologyBehindNAT{} ->
         -- subscription worker is responsible for adding peers
         return ()
       TopologyP2P{} ->

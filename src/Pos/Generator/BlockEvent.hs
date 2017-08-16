@@ -5,8 +5,10 @@
 
 module Pos.Generator.BlockEvent
        (
+       -- * SSC defaulting
+         BlundDefault
        -- * Block apply
-         BlockApplyResult(..)
+       , BlockApplyResult(..)
        , BlockEventApply'(..)
        , BlockEventApply
        , beaInput

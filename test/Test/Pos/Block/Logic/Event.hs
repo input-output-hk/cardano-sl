@@ -6,6 +6,7 @@ module Test.Pos.Block.Logic.Event
        -- * Running events and scenarios
          runBlockEvent
        , runBlockScenario
+       , BlockScenarioErrorContext(..)
        , BlockScenarioResult(..)
 
        -- * Exceptions
@@ -20,11 +21,14 @@ import           Control.Monad.Catch       (catch, fromException)
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Map                  as Map
 import qualified Data.Text                 as T
+import qualified Data.Text.Buildable
+import           Formatting                (bprint, build, (%))
+import           Serokell.Util             (listJson)
 
 import           Pos.Block.Logic.VAR       (BlockLrcMode, rollbackBlocks,
                                             verifyAndApplyBlocks)
 import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (HeaderHash, getEpochOrSlot, unEpochOrSlot)
+import           Pos.Core                  (HeaderHash, headerHash, getEpochOrSlot, unEpochOrSlot, prevBlockL, EpochOrSlot)
 import           Pos.DB.Pure               (DBPureDiff, MonadPureDB, dbPureDiff,
                                             dbPureDump, dbPureReset)
 import           Pos.Exception             (CardanoFatalError (..))
@@ -139,11 +143,39 @@ runSnapshotOperation snapOp = do
         mSnap <- Map.lookup snapId <$> readIORef snapsRef
         maybe (throwM $ SnapshotMissingEx snapId) return mSnap
 
+data BlockScenarioErrorContext = BlockScenarioErrorContext
+    { _bsecExecuted  :: ![BlockEvent] -- newest-first
+    , _bsecFailed    :: !BlockEvent
+    , _bsecRemaining :: ![BlockEvent] -- oldest-first
+    }
+
+data BlockSummary = BlockSummary
+    { _bsEpochOrSlot    :: !EpochOrSlot
+    , _bsPrevHeaderHash :: !HeaderHash
+    , _bsHeaderHash     :: !HeaderHash
+    }
+
+instance Buildable BlockSummary where
+    build (BlockSummary eos prevHh hh) = bprint (build % ": " % build % "->" % build) eos prevHh hh
+
+instance Buildable BlockScenarioErrorContext where
+    build bsec =
+        bprint ("Executed: "%listJson%"\nRemaining: "%listJson%"\nFailed: "%build)
+        (map toBlkSm . reverse $ _bsecExecuted bsec)
+        (map toBlkSm $ _bsecRemaining bsec)
+        (toBlkSm $ _bsecFailed bsec)
+      where
+        toBlockSummary blk = BlockSummary
+            { _bsEpochOrSlot    = getEpochOrSlot blk
+            , _bsPrevHeaderHash = headerHash (blk ^. prevBlockL)
+            , _bsHeaderHash     = headerHash blk }
+        toBlkSm = fmap (toBlockSummary . fst)
+
 data BlockScenarioResult
     = BlockScenarioFinishedOk
-    | BlockScenarioUnexpectedSuccess
-    | BlockScenarioUnexpectedFailure SomeException
-    | BlockScenarioDbChanged DbNotEquivalentToSnapshot
+    | BlockScenarioUnexpectedSuccess BlockScenarioErrorContext
+    | BlockScenarioUnexpectedFailure BlockScenarioErrorContext SomeException
+    | BlockScenarioDbChanged BlockScenarioErrorContext DbNotEquivalentToSnapshot
 
 -- | Execute a block scenario: a sequence of block events that either ends with
 -- an expected failure or with a rollback to the initial state.
@@ -151,17 +183,29 @@ runBlockScenario ::
        (BlockLrcMode SscGodTossing ctx m, MonadPureDB ctx m, ctx ~ BlockTestContext)
     => BlockScenario
     -> m BlockScenarioResult
-runBlockScenario (BlockScenario []) =
+runBlockScenario (BlockScenario evs) = runBlockScenario' [] evs
+
+runBlockScenario' ::
+       (BlockLrcMode SscGodTossing ctx m, MonadPureDB ctx m, ctx ~ BlockTestContext)
+    => [BlockEvent] -- executed (newest-first)
+    -> [BlockEvent] -- remaining (oldest-first)
+    -> m BlockScenarioResult
+runBlockScenario' _ [] =
     return BlockScenarioFinishedOk
-runBlockScenario (BlockScenario (ev:evs)) = do
+runBlockScenario' prevEvs (ev:evs) = do
     runBlockEvent ev >>= \case
         BlockEventSuccess (IsExpected isExp) ->
             if isExp
-                then runBlockScenario (BlockScenario evs)
-                else return BlockScenarioUnexpectedSuccess
+                then runBlockScenario' (ev:prevEvs) evs
+                else return $ BlockScenarioUnexpectedSuccess bsec
         BlockEventFailure (IsExpected isExp) e ->
             return $ if isExp
                 then BlockScenarioFinishedOk
-                else BlockScenarioUnexpectedFailure e
+                else BlockScenarioUnexpectedFailure bsec e
         BlockEventDbChanged d ->
-            return $ BlockScenarioDbChanged d
+            return $ BlockScenarioDbChanged bsec d
+  where
+    bsec = BlockScenarioErrorContext
+        { _bsecExecuted  = prevEvs
+        , _bsecFailed    = ev
+        , _bsecRemaining = evs }

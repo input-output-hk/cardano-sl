@@ -288,17 +288,20 @@ runBlockScenarioAndVerify bs =
 verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
 verifyBlockScenarioResult = \case
     BlockScenarioFinishedOk -> return ()
-    BlockScenarioUnexpectedSuccess -> stopProperty $
-        "Block scenario unexpected success"
-    BlockScenarioUnexpectedFailure e -> stopProperty $
+    BlockScenarioUnexpectedSuccess bsec -> stopProperty $
+        "Block scenario unexpected success: " <>
+        pretty bsec
+    BlockScenarioUnexpectedFailure bsec e -> stopProperty $
         "Block scenario unexpected failure: " <>
-        pretty e
-    BlockScenarioDbChanged d ->
+        pretty e <> "\n" <>
+        pretty bsec
+    BlockScenarioDbChanged bsec d ->
         let DbNotEquivalentToSnapshot snapId dbDiff = d in
         stopProperty $
             "Block scenario resulted in a change to the blockchain" <>
             " relative to the " <> show snapId <> " snapshot:\n" <>
-            show dbDiff
+            show dbDiff <> "\n" <>
+            pretty bsec
 
 ----------------------------------------------------------------------------
 -- Forks
@@ -321,7 +324,7 @@ data ForkDepth = ForkShort | ForkMedium | ForkDeep
 
 genSingleFork :: forall g m. (RandomGen g, Monad m) => ForkDepth -> BlockEventGenT g m ()
 genSingleFork fd = do
-    let k = fromIntegral blkSecurityParam
+    let k = fromIntegral blkSecurityParam :: Int
     d <- getRandomR $ case fd of
         ForkShort  -> (1, k - 1)
         ForkMedium -> (max 1 (k-2), k+2)

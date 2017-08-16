@@ -69,7 +69,7 @@ dnsSubscriptionWorker networkCfg dnsDomains _valency _fallbacks sendActions =
           updatedRelays = updateKnownRelays now peers oldRelays
 
       -- Declare all active relays as a single list of alternative relays
-      updatePeersBucket BucketBehindNatWorker $ \_ ->
+      void $ updatePeersBucket BucketBehindNatWorker $ \_ ->
         peersFromList [(NodeRelay, activeRelays updatedRelays)]
 
       -- Subscribe only to a single relay (if we found one)

@@ -315,23 +315,29 @@ bracketKademlia
     -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a
 bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
-    TopologyP2P v f kp ->
+    -- cases that need Kademlia
+    TopologyP2P{topologyKademlia = kp, ..} ->
       bracketKademliaInstance bp kp $ \kinst ->
-        k $ TopologyP2P v f kinst
-    TopologyTraditional v f kp ->
+        k $ TopologyP2P{topologyKademlia = kinst, ..}
+    TopologyTraditional{topologyKademlia = kp, ..} ->
       bracketKademliaInstance bp kp $ \kinst ->
-        k $ TopologyTraditional v f kinst
-    TopologyRelay peers (Just kp) ->
+        k $ TopologyTraditional{topologyKademlia = kinst, ..}
+    TopologyRelay{topologyOptKademlia = Just kp, ..} ->
       bracketKademliaInstance bp kp $ \kinst ->
-        k $ TopologyRelay peers (Just kinst)
-    TopologyCore peers (Just kp) ->
+        k $ TopologyRelay{topologyOptKademlia = Just kinst, ..}
+    TopologyCore{topologyOptKademlia = Just kp, ..} ->
       bracketKademliaInstance bp kp $ \kinst ->
-        k $ TopologyCore peers (Just kinst)
+        k $ TopologyCore{topologyOptKademlia = Just kinst, ..}
 
-    TopologyRelay peers Nothing -> k $ TopologyRelay peers Nothing
-    TopologyCore  peers Nothing -> k $ TopologyCore  peers Nothing
-    TopologyBehindNAT v f doms  -> k $ TopologyBehindNAT v f doms
-    TopologyLightWallet peers   -> k $ TopologyLightWallet peers
+    -- cases that don't
+    TopologyRelay{topologyOptKademlia = Nothing, ..} ->
+        k $ TopologyRelay{topologyOptKademlia = Nothing, ..}
+    TopologyCore{topologyOptKademlia = Nothing, ..} ->
+        k $ TopologyCore{topologyOptKademlia = Nothing, ..}
+    TopologyBehindNAT{..} ->
+        k $ TopologyBehindNAT{..}
+    TopologyLightWallet{..} ->
+        k $ TopologyLightWallet{..}
   where
     k topology = action (nc { ncTopology = topology })
 

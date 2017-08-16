@@ -58,7 +58,6 @@ data CommonNodeArgs = CommonNodeArgs
     , bindAddress               :: !NetworkAddress
       -- ^ A node may have a bind address which differs from its external
       -- address.
-    , supporterNode             :: !Bool
     , nodeType                  :: !NodeType
     , peers                     :: ![(NodeId, NodeType)]
       -- ^ Known peers (addresses with classification).
@@ -113,9 +112,6 @@ commonNodeArgsParser = do
         externalNetworkAddressOption (Just ("0.0.0.0", 0))
     bindAddress <-
         listenNetworkAddressOption (Just ("0.0.0.0", 0))
-    supporterNode <- switch $
-        long "supporter" <>
-        help "Launch DHT supporter instead of full node"
     nodeType <- nodeTypeOption
     peers <- (++) <$> corePeersList <*> relayPeersList
     networkConfigOpts <- networkConfigOption

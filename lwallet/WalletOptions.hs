@@ -24,7 +24,6 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl             (version)
 import qualified Pos.Client.CLI               as CLI
 import           Pos.Communication            (NodeId)
-import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 
 data WalletOptions = WalletOptions
     { woDbPath      :: !FilePath
@@ -35,7 +34,6 @@ data WalletOptions = WalletOptions
     , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
     , woAction      :: !WalletAction
     , woPeers       :: ![NodeId]
-    , woSscAlgo     :: !SscAlgo
     }
 
 data WalletAction = Repl
@@ -96,8 +94,6 @@ argsParser = do
         actionParser
 
     woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
-
-    woSscAlgo <- CLI.sscAlgoOption
 
     pure WalletOptions{..}
 

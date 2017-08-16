@@ -71,7 +71,6 @@ import           Pos.Launcher                     (BaseParams (..), LoggingParam
                                                    bracketTransport, loggerBracket)
 import           Pos.Network.Types                (MsgType (..), Origin (..))
 import           Pos.Ssc.GodTossing               (SscGodTossing)
-import           Pos.Ssc.SscAlgo                  (SscAlgo (..))
 import           Pos.Txp                          (TxOut (..), TxOutAux (..), txaF,
                                                    unGenesisUtxo)
 import           Pos.Types                        (coinF, makePubKeyAddress)
@@ -469,13 +468,9 @@ main = do
                 -- Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                 --     walletServeWebLite sendActions webDaedalusDbPath False webPort
 
-        case woSscAlgo of
-            GodTossingAlgo -> do
-                logInfo "Using MPC coin tossing"
-                liftIO $ hFlush stdout
-                runWalletStaticPeers transport' (S.fromList allPeers) params plugins
-            NistBeaconAlgo ->
-                logError "Wallet does not support NIST beacon!"
+        logInfo "Using MPC coin tossing"
+        liftIO $ hFlush stdout
+        runWalletStaticPeers transport' (S.fromList allPeers) params plugins
 
 addLogging :: forall m. WithLogger m => SendActions m -> SendActions m
 addLogging SendActions{..} = SendActions{

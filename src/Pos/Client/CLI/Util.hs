@@ -52,7 +52,6 @@ printFlags = do
         else putText "[Attention] We are in PRODUCTION mode"
     inAssertMode $ putText "Asserts are ON"
 
-
 -- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo
 sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
@@ -63,16 +62,15 @@ attackTypeParser = P.string "No" >>
     AttackNoBlocks <$ (P.string "Blocks") <|>
     AttackNoCommitments <$ (P.string "Commitments")
 
-base58AddrParser :: P.Parser (AddressHash PublicKey)
-base58AddrParser = do
+stakeholderIdParser :: P.Parser StakeholderId
+stakeholderIdParser = do
     token <- some $ P.noneOf " "
-    case decodeTextAddress (toText token) of
-      Left _  -> fail "Incorrect address"
-      Right r -> return $ addrKeyHash r
+    eitherToFail $ decodeAbstractHash (toText token)
 
 attackTargetParser :: P.Parser AttackTarget
-attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
-                     (NetworkAddressTarget <$> addrParser)
+attackTargetParser =
+    (PubKeyAddressTarget <$> try stakeholderIdParser) <|>
+    (NetworkAddressTarget <$> addrParser)
 
 -- | Default logger config. Will be used if `--log-config` argument is
 -- not passed. Corresponds to next logger config:

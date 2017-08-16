@@ -42,12 +42,11 @@ import qualified Text.Parsec.String                   as P
 import           Pos.Binary.Core                      ()
 import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
-import           Pos.Core                             (Address (..), AddressHash,
-                                                       Timestamp (..), decodeTextAddress)
-import           Pos.Crypto                           (PublicKey)
+import           Pos.Core                             (StakeholderId, Timestamp (..))
+import           Pos.Crypto                           (decodeAbstractHash)
 import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Util                             ()
+import           Pos.Util                             (eitherToFail)
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
@@ -59,11 +58,11 @@ data CommonArgs = CommonArgs
     , reportServers      :: ![Text]
     , updateServers      :: ![Text]
     -- distributions, only used in dev mode
-    , flatDistr          :: !(Maybe (Int, Int))
-    , bitcoinDistr       :: !(Maybe (Int, Int))
-    , richPoorDistr      :: !(Maybe (Int, Int, Integer, Double))
-    , expDistr           :: !(Maybe Int)
-    , sysStart           :: !Timestamp
+    , flatDistr     :: !(Maybe (Int, Int))
+    , bitcoinDistr  :: !(Maybe (Int, Int))
+    , richPoorDistr :: !(Maybe (Int, Int, Integer, Double))
+    , expDistr      :: !(Maybe Int)
+    , sysStart      :: !Timestamp
       -- ^ The system start time.
     } deriving Show
 

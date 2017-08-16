@@ -1205,6 +1205,7 @@ flush OutQ{..} = liftIO $ do
 
 -- | Maximum size for a bucket (if limited)
 data MaxBucketSize = BucketSizeUnlimited | BucketSizeMax Int
+  deriving (Show, Eq)
 
 exceedsBucketSize :: Int -> MaxBucketSize -> Bool
 exceedsBucketSize _ BucketSizeUnlimited = False

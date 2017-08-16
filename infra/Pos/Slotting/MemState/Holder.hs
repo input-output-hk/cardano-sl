@@ -9,8 +9,7 @@ module Pos.Slotting.MemState.Holder
        , getSystemStartDefault
        , getAllEpochIndicesDefault
        , getCurrentNextEpochIndexDefault
-       , getCurrentEpochSlottingDataDefault
-       , getNextEpochSlottingDataDefault
+       , getCurrentNextEpochSlottingDataDefault
        , getEpochSlottingDataDefault
        , putEpochSlottingDataDefault
        , waitCurrentEpochEqualsDefault
@@ -84,17 +83,19 @@ getCurrentNextEpochIndexDefault =
     getCurrentNextIndex slottingData =
         (getCurrentEpochIndex slottingData, getNextEpochIndex slottingData)
 
-getCurrentEpochSlottingDataDefault
+-- | As with the function above, we don't want to get into a situation where we
+-- can have timing issues and recieve wrong results.
+getCurrentNextEpochSlottingDataDefault
     :: SlotsDefaultEnv ctx m
-    => m EpochSlottingData
-getCurrentEpochSlottingDataDefault =
-    withSlottingVar getCurrentEpochSlottingData
-
-getNextEpochSlottingDataDefault
-    :: SlotsDefaultEnv ctx m
-    => m EpochSlottingData
-getNextEpochSlottingDataDefault =
-    withSlottingVar getNextEpochSlottingData
+    => m (EpochSlottingData, EpochSlottingData)
+getCurrentNextEpochSlottingDataDefault =
+    withSlottingVar getCurrentNextEpochSlottingData
+  where
+    getCurrentNextEpochSlottingData
+        :: SlottingData
+        -> (EpochSlottingData, EpochSlottingData)
+    getCurrentNextEpochSlottingData sd =
+        (getCurrentEpochSlottingData sd, getNextEpochSlottingData sd)
 
 getEpochSlottingDataDefault
     :: SlotsDefaultEnv ctx m

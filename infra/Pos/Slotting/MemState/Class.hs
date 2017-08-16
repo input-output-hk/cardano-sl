@@ -22,9 +22,7 @@ class Monad m => MonadSlotsData m where
 
     getCurrentNextEpochIndexM :: m (EpochIndex, EpochIndex)
 
-    getCurrentEpochSlottingDataM :: m EpochSlottingData
-
-    getNextEpochSlottingDataM :: m EpochSlottingData
+    getCurrentNextEpochSlottingDataM :: m (EpochSlottingData, EpochSlottingData)
 
     getEpochSlottingDataM :: EpochIndex -> m (Maybe EpochSlottingData)
 
@@ -43,9 +41,7 @@ instance {-# OVERLAPPABLE #-}
 
     getCurrentNextEpochIndexM = lift getCurrentNextEpochIndexM
 
-    getCurrentEpochSlottingDataM = lift getCurrentEpochSlottingDataM
-
-    getNextEpochSlottingDataM = lift getNextEpochSlottingDataM
+    getCurrentNextEpochSlottingDataM = lift getCurrentNextEpochSlottingDataM
 
     getEpochSlottingDataM = lift . getEpochSlottingDataM
 

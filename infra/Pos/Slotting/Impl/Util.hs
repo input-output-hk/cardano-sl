@@ -27,14 +27,14 @@ approxSlotUsingOutdated
     -> m SlotId
 approxSlotUsingOutdated t = do
 
-    systemStart             <- getSystemStartM
-    (currentEpochIndex ,_)  <- getCurrentNextEpochIndexM
-    sdNext                  <- getNextEpochSlottingDataM
+    systemStart            <- getSystemStartM
+    (currentEpochIndex ,_) <- getCurrentNextEpochIndexM
+    (_, nextSlottingData)  <- getCurrentNextEpochSlottingDataM
 
-    let epochStart = esdStartDiff sdNext `addTimeDiffToTimestamp` systemStart
+    let epochStart = esdStartDiff nextSlottingData `addTimeDiffToTimestamp` systemStart
     pure $
         if | t < epochStart -> SlotId (currentEpochIndex + 1) minBound
-           | otherwise      -> outdatedEpoch systemStart t (currentEpochIndex + 1) sdNext
+           | otherwise      -> outdatedEpoch systemStart t (currentEpochIndex + 1) nextSlottingData
   where
     outdatedEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..} =
         let duration = convertUnit esdSlotDuration

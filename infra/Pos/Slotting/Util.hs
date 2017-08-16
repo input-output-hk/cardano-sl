@@ -85,7 +85,8 @@ getSlotStartEmpatically slot =
 getNextEpochSlotDuration
     :: (MonadSlotsData m)
     => m Millisecond
-getNextEpochSlotDuration = esdSlotDuration <$> getNextEpochSlottingDataM
+getNextEpochSlotDuration =
+    esdSlotDuration . snd <$> getCurrentNextEpochSlottingDataM
 
 -- | Type constraint for `onNewSlot*` workers
 type OnNewSlot ctx m =

@@ -53,13 +53,13 @@ import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
                                         getCurrentSlotBlockingSum,
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState (MonadSlotsData (..), getAllEpochIndicesDefault,
+import           Pos.Slotting.MemState (MonadSlotsData (..),
+                                        getAllEpochIndicesDefault,
                                         getCurrentNextEpochIndexDefault,
-                                        getCurrentEpochSlottingDataDefault,
-                                        getNextEpochSlottingDataDefault,
+                                        getCurrentNextEpochSlottingDataDefault,
                                         getEpochSlottingDataDefault,
-                                        getSystemStartDefault,
                                         putEpochSlottingDataDefault,
+                                        getSystemStartDefault,
                                         waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
@@ -157,8 +157,7 @@ instance MonadSlotsData (InitMode ssc) where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
     getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault
     waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault

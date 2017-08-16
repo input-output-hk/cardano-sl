@@ -108,21 +108,20 @@ instance MonadUpdates LightWalletMode where
 
 -- FIXME: Dummy instance for lite-wallet.
 instance MonadSlotsData LightWalletMode where
-    getSystemStartM              = error "notImplemented"
-    getAllEpochIndicesM          = error "notImplemented"
-    getCurrentNextEpochIndexM    = error "notImplemented"
-    getCurrentEpochSlottingDataM = error "notImplemented"
-    getNextEpochSlottingDataM    = error "notImplemented"
-    getEpochSlottingDataM        = error "notImplemented"
-    putEpochSlottingDataM        = error "notImplemented"
-    waitCurrentEpochEqualsM      = error "notImplemented"
+    getSystemStartM                  = error "notImplemented"
+    getAllEpochIndicesM              = error "notImplemented"
+    getCurrentNextEpochIndexM        = error "notImplemented"
+    getCurrentNextEpochSlottingDataM = error "notImplemented"
+    getEpochSlottingDataM            = error "notImplemented"
+    putEpochSlottingDataM            = error "notImplemented"
+    waitCurrentEpochEqualsM          = error "notImplemented"
 
 -- FIXME: Dummy instance for lite-wallet.
 instance MonadSlots LightWalletMode where
-    getCurrentSlot = Just <$> getCurrentSlotInaccurate
-    getCurrentSlotBlocking = getCurrentSlotInaccurate
+    getCurrentSlot           = Just <$> getCurrentSlotInaccurate
+    getCurrentSlotBlocking   = getCurrentSlotInaccurate
     getCurrentSlotInaccurate = pure (SlotId 0 minBound)
-    currentTimeSlotting = currentTimeSlottingSimple
+    currentTimeSlotting      = currentTimeSlottingSimple
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = gsAdoptedBVDataWallet

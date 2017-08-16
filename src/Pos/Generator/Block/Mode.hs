@@ -56,12 +56,11 @@ import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (.
                                               getCurrentNextEpochIndexDefault)
 import           Pos.Slotting.MemState       (MonadSlotsData (..),
                                               getAllEpochIndicesDefault,
-                                              getCurrentEpochSlottingDataDefault,
+                                              getCurrentNextEpochSlottingDataDefault,
                                               getCurrentNextEpochIndexM,
                                               getEpochSlottingDataDefault,
-                                              getNextEpochSlottingDataDefault,
-                                              getSystemStartDefault,
                                               putEpochSlottingDataDefault,
+                                              getSystemStartDefault,
                                               waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
@@ -227,8 +226,7 @@ instance MonadBlockGenBase m => MonadSlotsData (InitBlockGenMode m) where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
     getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault
     waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
@@ -325,8 +323,7 @@ instance MonadBlockGenBase m => MonadSlotsData (BlockGenMode m) where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
     getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault
     waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault

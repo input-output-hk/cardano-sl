@@ -170,7 +170,7 @@ ntpGetCurrentSlot var = ntpGetCurrentSlotImpl var >>= \case
   where
     -- Here we could print all the slotting data
     printSlottingData = do
-        sd  <- getCurrentEpochSlottingDataM
+        (sd, _)  <- getCurrentNextEpochSlottingDataM
         logWarning $ "Slotting data: " <> show sd
 
 ntpGetCurrentSlotInaccurate

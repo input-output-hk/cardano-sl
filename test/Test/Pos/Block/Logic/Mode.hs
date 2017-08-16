@@ -78,11 +78,10 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
 import           Pos.Slotting.MemState          (MonadSlotsData (..),
                                                  getAllEpochIndicesDefault,
                                                  getCurrentNextEpochIndexDefault,
-                                                 getCurrentEpochSlottingDataDefault,
+                                                 getCurrentNextEpochSlottingDataDefault,
                                                  getEpochSlottingDataDefault,
-                                                 getNextEpochSlottingDataDefault,
-                                                 getSystemStartDefault,
                                                  putEpochSlottingDataDefault,
+                                                 getSystemStartDefault,
                                                  waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
@@ -356,20 +355,19 @@ instance
     dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
 
 instance MonadSlotsData (TestInitMode ssc) where
-    getSystemStartM = getSystemStartDefault
-    getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
-    getEpochSlottingDataM = getEpochSlottingDataDefault
-    putEpochSlottingDataM = putEpochSlottingDataDefault
-    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
+    getSystemStartM                  = getSystemStartDefault
+    getAllEpochIndicesM              = getAllEpochIndicesDefault
+    getCurrentNextEpochIndexM        = getCurrentNextEpochIndexDefault
+    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
+    getEpochSlottingDataM            = getEpochSlottingDataDefault
+    putEpochSlottingDataM            = putEpochSlottingDataDefault
+    waitCurrentEpochEqualsM          = waitCurrentEpochEqualsDefault
 
 instance MonadSlots (TestInitMode ssc) where
-    getCurrentSlot = getCurrentSlotSimple =<< mkSimpleSlottingVar
-    getCurrentSlotBlocking = getCurrentSlotBlockingSimple =<< mkSimpleSlottingVar
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple =<< mkSimpleSlottingVar
-    currentTimeSlotting = currentTimeSlottingSimple
+  getCurrentSlot           = getCurrentSlotSimple           =<< mkSimpleSlottingVar
+  getCurrentSlotBlocking   = getCurrentSlotBlockingSimple   =<< mkSimpleSlottingVar
+  getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple =<< mkSimpleSlottingVar
+  currentTimeSlotting      = currentTimeSlottingSimple
 
 ----------------------------------------------------------------------------
 -- Boilerplate BlockTestContext instances
@@ -446,8 +444,7 @@ instance MonadSlotsData BlockTestMode where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
     getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault
     waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault

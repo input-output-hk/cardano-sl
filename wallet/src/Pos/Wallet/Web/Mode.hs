@@ -49,11 +49,10 @@ import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
 import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsData (..),
                                                 getAllEpochIndicesDefault,
                                                 getCurrentNextEpochIndexDefault,
-                                                getCurrentEpochSlottingDataDefault,
-                                                getNextEpochSlottingDataDefault,
+                                                getCurrentNextEpochSlottingDataDefault,
                                                 getEpochSlottingDataDefault,
-                                                getSystemStartDefault,
                                                 putEpochSlottingDataDefault,
+                                                getSystemStartDefault,
                                                 waitCurrentEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
 import           Pos.KnownPeers                (MonadKnownPeers (..), MonadFormatPeers (..))
@@ -147,8 +146,7 @@ instance MonadSlotsData WalletWebMode where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
     getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
+    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault
     waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault

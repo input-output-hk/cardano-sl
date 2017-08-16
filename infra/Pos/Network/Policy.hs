@@ -3,12 +3,10 @@ module Pos.Network.Policy
     , defaultEnqueuePolicyRelay
     , defaultEnqueuePolicyEdgeBehindNat
     , defaultEnqueuePolicyEdgeP2P
-    , defaultEnqueuePolicyEdgeExchange
     , defaultDequeuePolicyCore
     , defaultDequeuePolicyRelay
     , defaultDequeuePolicyEdgeBehindNat
     , defaultDequeuePolicyEdgeP2P
-    , defaultDequeuePolicyEdgeExchange
     , defaultFailurePolicy
 
     , fromStaticPolicies
@@ -131,32 +129,6 @@ defaultEnqueuePolicyEdgeBehindNat = go
         -- not relevant
       ]
 
--- | Default enqueue policy for exchange nodes
-defaultEnqueuePolicyEdgeExchange :: EnqueuePolicy nid
-defaultEnqueuePolicyEdgeExchange = go
-  where
-    -- Enqueue policy for edge nodes
-    go :: EnqueuePolicy nid
-    go (MsgTransaction OriginSender) = [
-        EnqueueAll NodeRelay (MaxAhead 6) PLow
-      ]
-    go (MsgTransaction (OriginForward _)) = [
-        -- don't forward transactions that weren't created at this node
-      ]
-    go (MsgAnnounceBlockHeader _) = [
-        -- not forwarded
-      ]
-    go MsgRequestBlockHeaders = [
-        EnqueueAll NodeRelay (MaxAhead 0) PHigh
-      ]
-    go (MsgRequestBlocks _) = [
-        -- Edge nodes can only talk to relay nodes
-        EnqueueOne [NodeRelay] (MaxAhead 0) PHigh
-      ]
-    go (MsgMPC _) = [
-        -- not relevant
-      ]
-
 -- | Default enqueue policy for edge nodes using P2P
 defaultEnqueuePolicyEdgeP2P :: EnqueuePolicy nid
 defaultEnqueuePolicyEdgeP2P = go
@@ -205,15 +177,6 @@ defaultDequeuePolicyEdgeBehindNat = go
     go :: DequeuePolicy
     go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
     go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
-    go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
-
--- | Dequeueing policy for exchange edge nodes
-defaultDequeuePolicyEdgeExchange :: DequeuePolicy
-defaultDequeuePolicyEdgeExchange = go
-  where
-    go :: DequeuePolicy
-    go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
-    go NodeRelay = Dequeue (MaxMsgPerSec 5) (MaxInFlight 3)
     go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
 
 -- | Dequeueing policy for P2P edge nodes

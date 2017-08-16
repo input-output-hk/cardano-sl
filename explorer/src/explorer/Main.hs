@@ -65,7 +65,6 @@ action args@Args {..} = do
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     nodeParams <- getNodeParams args systemStart
-    putText $ "Running using " <> show sscAlgo
     putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss

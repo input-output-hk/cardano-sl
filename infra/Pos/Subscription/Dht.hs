@@ -170,7 +170,7 @@ dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
         peers' <- atomically $ updateFromKademliaNoSubscribe peers
         logNotice $
             sformat ("Kademlia peer set changed to "%shown) peers'
-        updatePeersBucket BucketKademliaWorker (const peers')
+        void $ updatePeersBucket BucketKademliaWorker (const peers')
         updateForeverNoSubscribe peers'
 
     updateFromKademliaNoSubscribe

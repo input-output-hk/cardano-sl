@@ -7,10 +7,9 @@ module Pos.Wallet.Web.Util
     ( getWalletAccountIds
     , getAccountAddrsOrThrow
     , getWalletAddrMetas
+    , getWalletAddrs
     , rewrapTxError
-    , decodeCIdOrFail
-    , decodeCAccountIdOrFail
-    , decodeCCoinOrFail
+    , decodeCTypeOrFail
     , coinDistrToOutputs
     ) where
 
@@ -20,14 +19,12 @@ import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, stext, (%))
 
 import           Pos.Client.Txp.Util        (TxError (..))
+import           Pos.Core.Types             (Coin)
 import           Pos.Txp                    (TxOut (..), TxOutAux (..))
-import           Pos.Types                  (Address, Coin)
-import           Pos.Util                   (maybeThrow)
-import           Pos.Util.Servant           (decodeCType)
-
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountId, CCoin, CId,
-                                             CWAddressMeta, Wal, cIdToAddress,
-                                             coinFromCCoin)
+import           Pos.Util.Servant           (FromCType (..), OriginType)
+import           Pos.Util.Util              (maybeThrow)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
+                                             CWAddressMeta (..), Wal)
 import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.State       (AddressLookupMode, WebWalletModeDB,
                                              getAccountIds, getAccountWAddresses)
@@ -52,6 +49,11 @@ getWalletAddrMetas lookupMode cWalId =
     concatMapM (getAccountAddrsOrThrow lookupMode) =<<
     getWalletAccountIds cWalId
 
+getWalletAddrs
+    :: (WebWalletModeDB ctx m, MonadThrow m)
+    => AddressLookupMode -> CId Wal -> m [CId Addr]
+getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
+
 rewrapTxError
     :: forall m a. MonadCatch m
     => Text -> m a -> m a
@@ -61,29 +63,17 @@ rewrapTxError prefix =
   where
     sbuild = sformat (stext%": "%build) prefix
 
--- TODO: probably poor naming
-decodeCIdOrFail :: MonadThrow m => CId w -> m Address
-decodeCIdOrFail = either wrongAddress pure . cIdToAddress
+decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
+decodeCTypeOrFail = either wrongAddress pure . decodeCType
   where wrongAddress err = throwM . DecodeError $
             sformat ("Error while decoding CId: "%stext) err
-
--- TODO: these two could be removed if we decide to encode endpoint result
--- to CType automatically
-decodeCAccountIdOrFail :: MonadThrow m => CAccountId -> m AccountId
-decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
-  where wrongAddress err = throwM . DecodeError $
-            sformat ("Error while decoding CAccountId: "%stext) err
-
-decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
-decodeCCoinOrFail c =
-    coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
 
 coinDistrToOutputs
     :: MonadThrow m
     => NonEmpty (CId Addr, Coin)
     -> m (NonEmpty TxOutAux)
 coinDistrToOutputs distr = do
-    addrs <- mapM decodeCIdOrFail cAddrs
+    addrs <- mapM decodeCTypeOrFail cAddrs
     pure $ NE.zipWith mkTxOut addrs coins
   where
     (cAddrs, coins) = NE.unzip distr

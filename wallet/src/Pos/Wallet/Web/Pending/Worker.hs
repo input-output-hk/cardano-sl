@@ -58,12 +58,12 @@ canSubmitPtx curSlot ptxs = do
     -- to resubmit it failed.
     -- If number of 'ToilVerFailure' constructors will ever change, compiler
     -- will complain - for this purpose we consider all cases explicitly here.
-    processFailure ptx e = do
+    processFailure PendingTx{..} e = do
         let tryLater = pass
             discard  = do
-                setPtxCondition ptx (PtxWon'tApply $ sformat build e)
+                setPtxCondition ptxTxId (PtxWon'tApply $ sformat build e)
                 logInfo $ sformat ("Transaction "%build%" was canceled")
-                          (ptxTxId ptx)
+                          ptxTxId
 
         case e of
             ToilKnown                -> tryLater
@@ -92,7 +92,7 @@ processPtxs curSlot ptxs = do
          ptxSlotId + getSlotCount ptxAssuredDepth < flattenSlotId curSlot
      markPersistent ptx@PendingTx{..}
          | PtxInUpperBlocks slotId <- ptxCond, longAgo ptx slotId = do
-             setPtxCondition ptx PtxPersisted
+             setPtxCondition ptxTxId PtxPersisted
              logInfo $ sformat ("Transaction "%build%" got persistent") ptxTxId
          | otherwise = pass
 

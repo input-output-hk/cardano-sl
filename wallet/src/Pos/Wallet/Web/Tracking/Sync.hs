@@ -59,7 +59,7 @@ import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..
                                                    genesisUtxoM)
 import           Pos.Core                         (AddrPkAttrs (..), Address (..),
                                                    BlockHeaderStub, ChainDifficulty,
-                                                   HasDifficulty (..), HeaderHash,
+                                                   HasDifficulty (..), HeaderHash, SlotId,
                                                    Timestamp, headerHash, headerSlotL,
                                                    makePubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
@@ -87,6 +87,7 @@ import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..)
                                                    addressToCId, encToCId,
                                                    isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
+import           Pos.Wallet.Web.Pending.Types     (PtxCondition (PtxApplying, PtxInUpperBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
                                                    CustomAddressType (..), WalletTip (..),
                                                    WebWalletModeDB)
@@ -137,7 +138,8 @@ txMempoolToModifierWebWallet encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
         getDiff = const Nothing  -- no difficulty (mempool txs)
-        getTs = const Nothing  -- don't give any timestamp
+        getTs   = const Nothing  -- don't give any timestamp
+        getSlot = const Nothing  -- no slot of containing block
     (txs, undoMap) <- getLocalTxsNUndo
 
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
@@ -152,7 +154,7 @@ txMempoolToModifierWebWallet encSK = do
     case topsortTxs wHash txsWUndo of
         Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
-            trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs $
+            trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs getSlot $
             map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
 ----------------------------------------------------------------------------
@@ -243,6 +245,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         mainBlkHeaderTs mBlkH =
             getSlotStartPure systemStart True (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
+        blkSlot = either (const Nothing) (Just . view headerSlotL)
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
         rollbackBlock allAddresses (b, u) =
@@ -251,7 +254,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
         applyBlock :: [CWAddressMeta] -> Blund ssc -> m CAccModifier
         applyBlock allAddresses (b, u) = pure $
-            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs $
+            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs blkSlot $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         computeAccModifier :: BlockHeader ssc -> m CAccModifier
@@ -321,9 +324,10 @@ trackingApplyTxs
     -> [CWAddressMeta]                             -- ^ All addresses in wallet
     -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
     -> (BlockHeader ssc -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
+    -> (BlockHeader ssc -> Maybe SlotId)           -- ^ Function to determine tx timestamp in history
     -> [(TxAux, TxUndo, BlockHeader ssc)]          -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
-trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
+trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getSlot txs =
     foldl' applyTx mempty txs
   where
     snd3 (_, x, _) = x
@@ -358,6 +362,8 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
 
             usedAddrs = map cwamId ownOutAddrMetas
             changeAddrs = evalChange allAddresses (map cwamId ownInpAddrMetas) usedAddrs
+
+            mSlotId = getSlot blkHeader
         in CAccModifier
             (deleteAndInsertIMM [] ownOutAddrMetas camAddresses)
             (deleteAndInsertVM [] (zip usedAddrs hhs) camUsed)
@@ -365,6 +371,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             (deleteAndInsertMM ownTxIns ownTxOuts camUtxo)
             addedHistory
             camDeletedHistory
+            (MM.insert txId mSlotId mempty)
 
 -- Process transactions on block rollback.
 -- Like @trackingApplyTx@, but vise versa.
@@ -408,6 +415,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
             (deleteAndInsertMM ownTxOuts ownTxIns camUtxo)
             camAddedHistory
             deletedHistory
+            (MM.delete txid mempty)
 
 applyModifierToWallet
     :: WebWalletModeDB ctx m
@@ -423,7 +431,11 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
     WS.updateHistoryCache wid $ DL.toList camAddedHistory <> oldCachedHist
+    mapM_ (flip WS.setPtxCondition PtxApplying) (MM.deletions camTxsSlots)
+    mapM_ (uncurry WS.setPtxCondition . second newPtxCondition) (MM.insertions camTxsSlots)
     WS.setWalletSyncTip wid newTip
+  where
+    newPtxCondition = maybe PtxApplying PtxInUpperBlocks
 
 rollbackModifierFromWallet
     :: WebWalletModeDB ctx m

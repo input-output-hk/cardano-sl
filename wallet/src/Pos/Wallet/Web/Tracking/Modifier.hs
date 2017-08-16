@@ -28,7 +28,7 @@ import           Formatting                 (bprint, build, (%))
 import           Serokell.Util              (listJson, listJsonIndent)
 
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (HeaderHash)
+import           Pos.Core                   (HeaderHash, SlotId)
 import           Pos.Txp.Core               (TxId)
 import           Pos.Txp.Toil               (UtxoModifier)
 import           Pos.Util.Modifier          (MapModifier)
@@ -63,12 +63,13 @@ data CAccModifier = CAccModifier
     , camUtxo           :: !UtxoModifier
     , camAddedHistory   :: !(DList TxHistoryEntry)
     , camDeletedHistory :: !(DList TxId)
+    , camTxsSlots       :: !(MapModifier TxId (Maybe SlotId))
     }
 
 instance Monoid CAccModifier where
-    mempty = CAccModifier mempty mempty mempty mempty mempty mempty
-    (CAccModifier a b c d ah dh) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1) =
-        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1)
+    mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty
+    (CAccModifier a b c d ah dh p) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1 p1) =
+        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (p <> p1)
 
 instance Buildable CAccModifier where
     build CAccModifier{..} =

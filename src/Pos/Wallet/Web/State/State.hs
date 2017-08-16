@@ -74,7 +74,7 @@ import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Txp                      (Utxo)
+import           Pos.Txp                      (TxId, Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
@@ -255,8 +255,8 @@ updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache cWalId
 updatePendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 updatePendingTx = updateDisk ... A.UpdatePendingTx
 
-setPtxCondition :: WebWalletModeDB ctx m => PendingTx -> PtxCondition -> m ()
-setPtxCondition ptx cond = updatePendingTx ptx{ ptxCond = cond }
+setPtxCondition :: WebWalletModeDB ctx m => TxId -> PtxCondition -> m ()
+setPtxCondition = updateDisk ... A.SetPtxCondition
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx

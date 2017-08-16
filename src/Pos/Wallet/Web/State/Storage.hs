@@ -55,6 +55,7 @@ module Pos.Wallet.Web.State.Storage
        , testReset
        , updateHistoryCache
        , updatePendingTx
+       , setPtxCondition
        , addOnlyNewPendingTx
        ) where
 
@@ -365,8 +366,13 @@ updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId ?= cTxs
 
+-- This shouldn't be able to create new transaction
 updatePendingTx :: PendingTx -> Update ()
-updatePendingTx ptx = wsPendingTxs . at (ptxTxId ptx) ?= ptx
+updatePendingTx ptx = wsPendingTxs . ix (ptxTxId ptx) .= ptx
+
+-- This shouldn't be able to create new transaction
+setPtxCondition :: TxId -> PtxCondition -> Update ()
+setPtxCondition txId cond = wsPendingTxs . ix txId %= (\tx -> tx { ptxCond = cond })
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx = wsPendingTxs . at (ptxTxId ptx) %= (<|> Just ptx)

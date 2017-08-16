@@ -1,10 +1,10 @@
--- | Functions for operating with transactions
-
 {-# LANGUAGE RankNTypes #-}
+
+-- | Functions for operating with transactions
 
 module Pos.Communication.Tx
        ( TxMode
-       , submitAndSaveTx
+       , submitAndSave
        , submitTx
        , submitMTx
        , submitRedemptionTx
@@ -12,18 +12,17 @@ module Pos.Communication.Tx
        , sendTxOuts
        ) where
 
-import           Control.Monad.Except       (runExceptT)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
 import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary                 ()
+import           Pos.Client.Txp.Addresses   (MonadAddresses (..))
 import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxCreateMode, TxError (..), createMTx,
-                                             createRedemptionTx, createTx,
-                                             overrideTxDistrBoot)
+                                             createRedemptionTx, createTx)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (EnqueueMsg, OutSpecs)
 import           Pos.Communication.Specs    (createOutSpecs)
@@ -49,13 +48,14 @@ type TxMode ssc ctx m
       , TxCreateMode ctx m
       )
 
-submitAndSaveTx
+submitAndSave
     :: TxMode ssc ctx m
-    => EnqueueMsg m -> TxAux -> m ()
-submitAndSaveTx enqueue txAux@TxAux {..} = do
+    => EnqueueMsg m -> TxAux -> m TxAux
+submitAndSave enqueue txAux@TxAux {..} = do
     let txId = hash taTx
     submitTxRaw enqueue txAux
     saveTx (txId, txAux)
+    return txAux
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 submitMTx
@@ -63,14 +63,13 @@ submitMTx
     => EnqueueMsg m
     -> NonEmpty (SafeSigner, Address)
     -> NonEmpty TxOutAux
-    -> m TxAux
-submitMTx enqueue hdwSigner outputs = do
+    -> AddrData m
+    -> m (TxAux, NonEmpty TxOut)
+submitMTx enqueue hdwSigner outputs addrData = do
     let addrs = map snd $ toList hdwSigner
     utxo <- getOwnUtxos addrs
-    txAux <- eitherToThrow TxError $
-           createMTx utxo hdwSigner outputs
-    submitAndSaveTx enqueue txAux
-    return txAux
+    txWSpendings <- eitherToThrow =<< createMTx utxo hdwSigner outputs addrData
+    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
@@ -78,12 +77,12 @@ submitTx
     => EnqueueMsg m
     -> SafeSigner
     -> NonEmpty TxOutAux
-    -> m TxAux
-submitTx enqueue ss outputs = do
+    -> AddrData m
+    -> m (TxAux, NonEmpty TxOut)
+submitTx enqueue ss outputs addrData = do
     utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
-    createTx utxo ss outputs >>= \case
-        Left e -> throwM (TxError e)
-        Right txAux -> submitAndSaveTx enqueue txAux $> txAux
+    txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
+    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx
@@ -97,17 +96,16 @@ submitRedemptionTx enqueue rsk output = do
     utxo <- getOwnUtxo redeemAddress
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
-        txOuts0 = one $
+        txOuts = one $
             TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
     when (redeemBalance == mkCoin 0) $ throwM . TxError $ "Redeem balance is 0"
-    txOuts <- eitherToThrow TxError =<< runExceptT (overrideTxDistrBoot txOuts0)
-    txAux <- eitherToThrow TxError $ createRedemptionTx utxo rsk txOuts
-    submitAndSaveTx enqueue txAux
+    txw <- eitherToThrow =<< createRedemptionTx utxo rsk txOuts
+    txAux <- submitAndSave enqueue txw
     pure (txAux, redeemAddress, redeemBalance)
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m, MonadGState m, MonadThrow m)
+    :: (MinWorkMode m, MonadGState m)
     => EnqueueMsg m -> TxAux -> m ()
 submitTxRaw enqueue txAux@TxAux {..} = do
     let txId = hash taTx

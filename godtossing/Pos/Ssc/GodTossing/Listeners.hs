@@ -21,11 +21,10 @@ import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Communication.Limits.Types        (MessageLimited)
-import           Pos.Communication.MessagePart         (MessagePart)
 import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         InvReqDataParams (..),
                                                         MempoolParams (NoMempool),
-                                                        Relay (..), ReqMsg)
+                                                        Relay (..), ReqMsg, ReqOrRes)
 import           Pos.Core                              (StakeholderId, addressHash)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
@@ -97,8 +96,8 @@ sscRelay
        , Typeable contents
        , MessageLimited (DataMsg contents)
        , Bi (DataMsg contents)
-       , MessagePart contents
        , Message (InvOrData (Tagged contents StakeholderId) contents)
+       , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
        )
     => GtTag

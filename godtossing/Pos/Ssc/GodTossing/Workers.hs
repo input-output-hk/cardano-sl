@@ -29,13 +29,12 @@ import           System.Wlog                           (logDebug, logError, logI
 import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
-import           Pos.Communication.MessagePart         (MessagePart)
 import           Pos.Communication.Protocol            (Message, OutSpecs, EnqueueMsg,
                                                         Worker, WorkerSpec, SendActions (..),
                                                         onNewSlotWorker, MsgType (..),
                                                         Origin (..))
-import           Pos.Communication.Relay               (DataMsg, ReqMsg,
-                                                        invReqDataFlowNeighborsTK)
+import           Pos.Communication.Relay               (DataMsg, ReqOrRes,
+                                                        invReqDataFlowTK)
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
 import           Pos.Core                              (EpochIndex, SlotId (..),
@@ -144,7 +143,7 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage (sscProcessCertificate ourVssCertificate)
-            invReqDataFlowNeighborsTK "ssc" (enqueueMsg sendActions) (MsgMPC OriginSender) ourId contents
+            _ <- invReqDataFlowTK "ssc" (enqueueMsg sendActions) (MsgMPC OriginSender) ourId contents
             logDebug "Announced our VssCertificate."
 
     slMaybe <- getCurrentSlot
@@ -274,11 +273,10 @@ sscProcessOurMessage action =
 
 sendOurData ::
     ( SscMode SscGodTossing ctx m
-    , MessagePart contents
     , Bi (DataMsg contents)
     , Typeable contents
     , Message (InvOrData (Tagged contents StakeholderId) contents)
-    , Message (ReqMsg (Tagged contents StakeholderId))
+    , Message (ReqOrRes (Tagged contents StakeholderId))
     )
     => EnqueueMsg m
     -> GtTag
@@ -293,7 +291,7 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    invReqDataFlowNeighborsTK "ssc" enqueue (MsgMPC OriginSender) ourId dt
+    _ <- invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) ourId dt
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current

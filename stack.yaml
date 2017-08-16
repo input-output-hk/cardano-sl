@@ -18,13 +18,9 @@ packages:
 - godtossing
 - tools
 - txp
+- wallet
+- explorer
 
-- location:
-    git: https://github.com/arybczak/binary-serialise-cbor
-    commit: a1770a6ab0a6f457fe56269fb684a9f8dad0da17
-  subdirs:
-  - cborg
-  extra-dep: true
 - location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
@@ -39,7 +35,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: e2e2711e6978002279b4d7c49cab1aff47a2fd43
+    commit: eedf6b1f6f6b931fa578cf886e36b8a3a9fcda0d
   extra-dep: true
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519
@@ -52,7 +48,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: e1bc23f12c388301ceae4de53fe2d513057b62ec # master
+    commit: fb2b1b132809cd7dcc8ddcd5b26f17c9e39ad687 # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -85,12 +81,21 @@ packages:
     commit: c9b06eb77225c8bb2092f1169c093d7a04129e53 # 2.0.11
   extra-dep: true
 
+# Required for explorer
+- location:
+    git: https://github.com/serokell/engine.io.git
+    commit: a594e402fd450f11ad60d09ddbd93db500000632
+  extra-dep: true
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
+
 nix:
   shell-file: shell.nix
 
 extra-deps:
 - universum-0.4.3
-- time-units-1.0.0
 - serokell-util-0.3
 - pvss-0.1
 - active-0.2.0.13
@@ -114,6 +119,7 @@ extra-deps:
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
+- cborg-0.1.1.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
@@ -131,3 +137,5 @@ ghc-options:
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror
   cardano-sl-lwallet:    -Werror
+  cardano-sl-wallet:     -Werror
+  cardano-sl-explorer:   -Werror

@@ -1,0 +1,4 @@
+wallet:
+  relays: [[{"host": "domain1"},{"host": "domain2", "port": 1234}]]
+  valency: 3   # optional
+  fallbacks: 2 # optional

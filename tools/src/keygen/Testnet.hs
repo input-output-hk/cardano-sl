@@ -28,7 +28,7 @@ import           Pos.Types            (Address, coinPortionToDouble, unsafeInteg
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
                                        usPrimKey, usVss, usWalletSet,
                                        writeUserSecretRelease)
-import           Pos.Wallet           (mkGenesisWalletUserSecret)
+import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
 
 import           KeygenOptions        (TestStakeOptions (..))
 

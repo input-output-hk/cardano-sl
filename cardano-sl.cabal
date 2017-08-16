@@ -12,20 +12,14 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-Flag with-web
-  default:     True
-  manual:      True
-
-  description: Build with web part.
-
 Flag with-wallet
-  default:     True
+  default:     False
   manual:      True
 
-  description: Build with wallet.
+  description: Build with wallet
 
 Flag with-explorer
-  default:     False
+  default:     True
   manual:      True
 
   description: Build with explorer
@@ -63,12 +57,14 @@ library
                         Pos.Generator
                         Pos.Generator.Block
                         Pos.Generator.BlockEvent
+                        Pos.Generator.BlockEvent.DSL
 
                         -- Genesis data
                         Pos.Genesis
 
                         -- GState
                         Pos.GState
+                        Pos.GState.BlockExtra
 
                         -- LRC
                         Pos.Lrc
@@ -76,6 +72,8 @@ library
 
                         -- Something
                         Pos.Launcher
+                        Pos.Launcher.Resource
+                        Pos.Launcher.Runner
 
                         -- SafeCopy serialization (required in wallet)
                         Pos.SafeCopy
@@ -93,9 +91,15 @@ library
                         Pos.Statistics
 
                         -- Client
+                        Pos.Client.Txp.Addresses
                         Pos.Client.Txp.Balances
                         Pos.Client.Txp.History
                         Pos.Client.Txp.Util
+
+                        Pos.Client.CLI.NodeOptions
+                        Pos.Client.CLI.Params
+                        Pos.Client.CLI.Secrets
+                        Pos.Client.CLI.Util
 
                         -- Txp
                         Pos.Txp
@@ -115,8 +119,26 @@ library
                         Pos.Util.UserSecret
 
                         -- Wallets
+                        Pos.Wallet
                         Pos.Wallet.KeyStorage
+                        Pos.Wallet.SscType
+                        Pos.Wallet.WalletMode
+                        Pos.Wallet.Web.ClientTypes
+                        Pos.Wallet.Web.Error
+                        Pos.Wallet.Web.Error.Types
+                        Pos.Wallet.Web.Error.Util
                         Pos.Wallet.Web.Secret
+                        Pos.Wallet.Web.State
+                        Pos.Wallet.Web.State.Acidic
+                        Pos.Wallet.Web.State.State
+                        Pos.Wallet.Web.State.Storage
+                        Pos.Wallet.Web.Util
+
+                        Pos.Web
+                        Pos.Web.Api
+                        Pos.Web.Mode
+                        Pos.Web.Server
+                        Pos.Web.Types
 
                         -- Worker, work mode
                         Pos.Worker
@@ -140,15 +162,12 @@ library
 
                         -- Needed for testing
                         Pos.Arbitrary.Explorer
-  if flag(with-web)
-    exposed-modules:    Pos.Web
-  if flag(with-wallet)
-    exposed-modules:    Pos.Wallet
-  if flag(with-wallet) && flag(with-web)
-    exposed-modules:    Pos.Wallet.Web
-  if flag(with-web) || flag(with-explorer)
-    exposed-modules:    Pos.Util.Servant
+
+                        Pos.Util.Servant
+
   other-modules:        Pos.Aeson.CompileConfig
+                        Pos.Aeson.Types
+                        Pos.Aeson.Crypto
 
                         -- Binary serialization
                         Pos.Binary.Block
@@ -176,10 +195,10 @@ library
                         Pos.Block.Core.Union.Misc
                         Pos.Block.Core.Union.Types
                         Pos.Block.Error
+                        Pos.Block.Logic.Util
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
-                        Pos.Block.Logic.Util
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
@@ -228,7 +247,6 @@ library
                         Pos.Generator.Block.Mode
 
                         -- GState
-                        Pos.GState.BlockExtra
                         Pos.GState.Context
                         Pos.GState.GState
 
@@ -236,8 +254,6 @@ library
                         Pos.Launcher.Launcher
                         Pos.Launcher.Mode
                         Pos.Launcher.Param
-                        Pos.Launcher.Resource
-                        Pos.Launcher.Runner
                         Pos.Launcher.Scenario
 
                         -- Network
@@ -279,10 +295,6 @@ library
                         Pos.Update.Network.Listeners
                         Pos.Update.Worker
 
-                        -- Wallet (intentionally separated, not alphabetically)
-                        Pos.Wallet.Web.Error.Types
-                        Pos.Wallet.Web.Util
-
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
                         Pos.Explorer.Core
@@ -297,45 +309,12 @@ library
                         Pos.Explorer.DB
                         Pos.Explorer.BListener
 
-  if flag(with-web)
-    other-modules:      Pos.Aeson.Crypto
-                        Pos.Aeson.Types
-                        Pos.Web.Api
-                        Pos.Web.Mode
-                        Pos.Web.Server
-                        Pos.Web.Types
-  if flag(with-wallet)
-    exposed-modules:
-                        Pos.Wallet.Redirect
-                        Pos.Wallet.WalletMode
-                        Pos.Wallet.SscType
-  if (flag(with-wallet) && flag(with-web))
-    other-modules:      Pos.Aeson.ClientTypes
-                        Pos.Aeson.WalletBackup
-                        Pos.Wallet.Web.Account
-                        Pos.Wallet.Web.Api
-                        Pos.Wallet.Web.Backup
-                        Pos.Wallet.Web.BListener
-                        Pos.Wallet.Web.ClientTypes
-                        Pos.Wallet.Web.Error
-                        Pos.Wallet.Web.Error.Util
-                        Pos.Wallet.Web.Mode
-                        Pos.Wallet.Web.Pending
-                        Pos.Wallet.Web.Server
-                        Pos.Wallet.Web.Server.Methods
-                        Pos.Wallet.Web.Server.Full
-                        Pos.Wallet.Web.Server.Sockets
-                        Pos.Wallet.Web.State
-                        Pos.Wallet.Web.State.Acidic
-                        Pos.Wallet.Web.State.State
-                        Pos.Wallet.Web.State.Storage
-                        Pos.Wallet.Web.Tracking
-
   build-depends:        QuickCheck
                       , MonadRandom
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
+                      , ansi-wl-pprint
                       , async
                       , base
                       , base58-bytestring
@@ -355,6 +334,7 @@ library
                       , cereal
                       , conduit >= 1.2.8
                       , containers
+                      , cpphs
                       , cryptonite >= 0.23 && <= 0.23
                       , cryptonite-openssl >= 0.6
                       , data-default
@@ -381,6 +361,7 @@ library
                       , http-client
                       , http-client-tls
                       , http-conduit
+                      , http-types
                       , iproute
                       , kademlia
                       , lens
@@ -410,8 +391,12 @@ library
                       , rocksdb-haskell >= 1.0.0
                       , safecopy
                       , serokell-util >= 0.1.3.4
+                      , servant >= 0.8.1
+                      , servant-multipart >= 0.10
+                      , servant-server >= 0.8.1
                       , stm
                       , stm-containers
+                      , string-qq
                       , tagged
                       , template-haskell
                       , text
@@ -425,23 +410,17 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
-                      , wreq
-                      , yaml
-
-  if !os(windows)
-    build-depends:      unix
-
-  if flag(with-web)
-    build-depends:      http-types
-                      , servant >= 0.8.1
-                      , servant-multipart >= 0.10
-                      , servant-server >= 0.8.1
                       , wai
                       , wai-extra
                       , warp
                       , warp-tls
-                      , websockets
-                      , wai-websockets
+                      , yaml
+                      -- https://issues.serokell.io/issue/DEVOPS-230
+                      , cpphs
+
+  if !os(windows)
+    build-depends:      unix
+
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
@@ -449,8 +428,8 @@ library
                        -O2
 
   -- linker speed up for linux
-  -- for explorer linking see https://ghc.haskell.org/trac/ghc/ticket/13810
-  if os(linux) && !flag(with-explorer)
+  -- for explorer / wallet linking see https://ghc.haskell.org/trac/ghc/ticket/13810
+  if os(linux) && !flag(with-explorer) && !flag(with-wallet)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -479,21 +458,13 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
   if flag(with-explorer)
     cpp-options: -DWITH_EXPLORER
 
-executable cardano-node
+executable cardano-node-simple
   hs-source-dirs:      src/node
   main-is:             Main.hs
-  other-modules:       NodeOptions
-                     , Params
-                     , Secrets
   build-depends:       base
-                     , ansi-wl-pprint
                      , binary
                      , bytestring
                      , cardano-sl-core
@@ -511,6 +482,7 @@ executable cardano-node
                      , lens
                      , log-warper
                      , mtl
+                     , neat-interpolation
                      , network-transport
                      , node-sketch
                      , network-transport-tcp
@@ -518,7 +490,6 @@ executable cardano-node
                      , parsec
                      , serokell-util >= 0.1.3.4
                      , stm-containers
-                     , string-qq
                      , time
                      , time-units
                      , universum >= 0.1.11
@@ -557,11 +528,6 @@ executable cardano-node
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
-  if flag(with-wallet)
-    cpp-options: -DWITH_WALLET
 
 test-suite cardano-test
   main-is:             Test.hs

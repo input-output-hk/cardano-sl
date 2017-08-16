@@ -14,7 +14,7 @@ import           Node                          (Message)
 
 import           Pos.Binary.Class              (Bi)
 import           Pos.Communication.Types.Protocol (Msg)
-import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg)
+import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqOrRes)
 
 data RelayError = UnexpectedInv
                 | UnexpectedData
@@ -28,8 +28,8 @@ data PropagationMsg where
         , Bi (InvOrData key contents)
         , Buildable key
         , Eq key
-        , Message (ReqMsg key)
-        , Bi (ReqMsg key))
+        , Message (ReqOrRes key)
+        , Bi (ReqOrRes key))
         => !Msg
         -> !key
         -> !contents

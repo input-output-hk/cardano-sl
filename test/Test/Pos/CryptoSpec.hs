@@ -70,6 +70,11 @@ spec = describe "Crypto" $ do
                     --"12dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a60" -- Blake2b_256, before switching to different endianness
                     --"1dbd7d0b561a41d23c2a469ad42fbd70d5438bae826f6fd607413190c37c363b" -- Before switching to CBOR
                     "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25"
+        describe "decodeAbstractHash" $ do
+            it "decodes hash formatted using 'hashHexF'" $ do
+                let someHash = Crypto.hash (True, (), False, ())
+                Crypto.decodeAbstractHash (sformat Crypto.hashHexF someHash)
+                    == Right someHash
 
     describe "Signing" $ do
         describe "SafeSigning" $ do

@@ -7,6 +7,8 @@ module Command
        , parseCommand
        ) where
 
+import           Universum                  hiding (show)
+
 import           Data.ByteString.Base58     (bitcoinAlphabet, decodeBase58)
 import qualified Data.List.NonEmpty         as NE
 import           Prelude                    (read, show)
@@ -17,7 +19,6 @@ import           Text.Parsec.Char           (alphaNum, anyChar, digit, noneOf, o
                                              space, spaces, string)
 import           Text.Parsec.Combinator     (eof, manyTill)
 import           Text.Parsec.Text           (Parser)
-import           Universum                  hiding (show)
 
 import           Pos.Binary                 (deserialize')
 import           Pos.Core.Types             (ScriptVersion)
@@ -27,6 +28,7 @@ import           Pos.Txp                    (TxOut (..))
 import           Pos.Types                  (Address (..), BlockVersion, Coin, EpochIndex,
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
+import           Pos.Util.Util              (eitherToFail)
 
 -- | Specify how transactions are sent to the network during benchmarks using 'SendToAllGenesis'.
 data SendMode =
@@ -72,7 +74,7 @@ lexeme p = spaces *> p >>= \x -> spaces $> x
 text :: String -> Parser Text
 text = lexeme . fmap toText . string
 
-many1Till :: Show b => Parser a -> Parser b -> Parser [a]
+many1Till :: Parser a -> Parser b -> Parser [a]
 many1Till p end = (:) <$> p <*> manyTill p end
 
 anyText :: Parser Text
@@ -101,8 +103,8 @@ coin = mkCoin <$> num
 txout :: Parser TxOut
 txout = TxOut <$> address <*> coin
 
-hash :: Parser (Hash a)
-hash = decodeHash <$> anyText
+hash :: Typeable a => Parser (Hash a)
+hash = eitherToFail . decodeHash =<< anyText
 
 switch :: Parser Bool
 switch = lexeme $ positive $> True <|>

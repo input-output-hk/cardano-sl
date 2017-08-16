@@ -72,7 +72,7 @@ getOwnUtxosDefault addrs = do
 -- 1) It doesn't represent actual balances of addresses, but it represents _stakes_
 -- 2) Local utxo is now cached, and deriving balances from it is not
 --    so bad for performance now
-getBalanceDefault :: (BalancesEnv ext ctx m, MonadBalances m) => Address -> m Coin
+getBalanceDefault :: (MonadBalances m) => Address -> m Coin
 getBalanceDefault addr = getBalanceFromUtxo addr
 
 getOwnUtxo :: MonadBalances m => Address -> m Utxo

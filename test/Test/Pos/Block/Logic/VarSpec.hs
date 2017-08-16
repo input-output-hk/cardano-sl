@@ -1,37 +1,55 @@
+{-# LANGUAGE OverloadedLists     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Specification of 'Pos.Block.Logic.VAR'.
 
 module Test.Pos.Block.Logic.VarSpec
        ( spec
        ) where
 
-import           Universum
+import           Universum                    hiding ((<>))
 
-import           Control.Monad.Random.Strict (evalRandT)
-import           Data.List                   (span)
-import           Data.List.NonEmpty          (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty          as NE
-import           Test.Hspec                  (Spec, describe)
-import           Test.Hspec.QuickCheck       (modifyMaxSuccess, prop)
-import           Test.QuickCheck.Gen         (Gen (MkGen))
-import           Test.QuickCheck.Monadic     (assert, pick, pre)
+import           Control.Monad.Random.Strict  (MonadRandom (..), RandomGen, evalRandT,
+                                               uniform)
+import           Data.List                    (span)
+import           Data.List.NonEmpty           (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty           as NE
+import qualified Data.Ratio                   as Ratio
+import           Data.Semigroup               ((<>))
+import           Ether.Internal               (HasLens (..))
+import           Test.Hspec                   (Spec, describe)
+import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
+import           Test.QuickCheck.Gen          (Gen (MkGen))
+import           Test.QuickCheck.Monadic      (assert, pick, pre)
+import           Test.QuickCheck.Random       (QCGen)
 
-import           Pos.Block.Logic             (verifyAndApplyBlocks, verifyBlocksPrefix)
-import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (blkSecurityParam)
-import           Pos.DB.Pure                 (dbPureDump)
-import           Pos.Generator.BlockEvent    (BlockEventCount (..),
-                                              BlockEventGenParams (..), genBlockEvents)
-import qualified Pos.GState                  as GS
-import           Pos.Ssc.GodTossing          (SscGodTossing)
-import           Pos.Util.Chrono             (NE, OldestFirst (..))
+import           Pos.Block.Logic              (verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.Block.Types              (Blund)
+import           Pos.Core                     (blkSecurityParam, headerHash)
+import           Pos.DB.Pure                  (dbPureDump)
+import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
+                                               BlockRollbackResult (..), BlockScenario,
+                                               Path, byChance, emitBlockApply,
+                                               emitBlockRollback,
+                                               enrichWithSnapshotChecking, pathSequence,
+                                               runBlockEventGenT)
+import           Pos.Genesis                  (GenesisWStakeholders)
+import qualified Pos.GState                   as GS
+import           Pos.Ssc.GodTossing           (SscGodTossing)
+import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
+                                               nonEmptyNewestFirst, nonEmptyOldestFirst,
+                                               splitAtNewestFirst, toNewestFirst,
+                                               _NewestFirst)
 
-import           Test.Pos.Block.Logic.Event  (BlockScenarioResult (..), runBlockScenario)
-import           Test.Pos.Block.Logic.Mode   (BlockProperty, BlockTestMode)
-import           Test.Pos.Block.Logic.Util   (EnableTxPayload (..), InplaceDB (..),
-                                              bpGenBlock, bpGenBlocks,
-                                              bpGoToArbitraryState, getAllSecrets,
-                                              satisfySlotCheck)
-import           Test.Pos.Util               (splitIntoChunks, stopProperty)
+import           Test.Pos.Block.Logic.Event   (BlockScenarioResult (..),
+                                               DbNotEquivalentToSnapshot (..),
+                                               runBlockScenario)
+import           Test.Pos.Block.Logic.Mode    (BlockProperty, BlockTestMode)
+import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (..),
+                                               bpGenBlock, bpGenBlocks,
+                                               bpGoToArbitraryState, getAllSecrets,
+                                               satisfySlotCheck)
+import           Test.Pos.Util                (splitIntoChunks, stopProperty)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
@@ -168,22 +186,93 @@ blockEventSuccessSpec = do
         "a sequence of interleaved block applications and rollbacks " <>
         "results in the original state of the blockchain"
 
+{- | This generator is carefully designed to cover multitude of success
+   scenarios. Apply/rollback are interleaved in various ways, shown by diagrams below:
+
+   0 -----a----> 2
+   |             |        Synchronous apply/rollback
+   0 <----r----- 2
+
+   0 -a-> 1 -a-> 2
+   |             |        Multiple apply per rollback
+   0 <----r----- 2
+
+   0 -----a----> 2
+   |             |        Multiple rollback per apply
+   0 <-r- 1 <-r- 2
+
+   0 -a-> 3 -a-> 6 -a-> 9
+   |                    |        Desynchronous apply/rollback
+   0 <--r--- 4 <---r--- 9
+
+   Furthermore, it allows nested forks (forks of forks), generates both unique
+   and repeated forks, respects the 'blkSecurityParam', and can be used with
+   'enrichWithSnapshotChecking'. (I would draw diagrams for these features as
+   well, but they're barely readable in the ASCII format). Just trust me that
+   this generator gives diverse block event sequences -- I spent an entire night
+   and a few sheets of paper trying to figure out how to write it.
+-}
+
+genSuccessWithForks :: forall g m. (RandomGen g, Monad m) => BlockEventGenT g m ()
+genSuccessWithForks = do
+      emitBlockApply BlockApplySuccess $ pathSequence mempty ["0"]
+      generateFork "0" []
+      emitBlockApply BlockApplySuccess $ pathSequence "0" ["1", "2"]
+      generateFork ("0" <> "1" <> "2") []
+  where
+    generateFork ::
+           Path -- base path (from the main chain)
+        -> NewestFirst [] Path -- current fork state
+        -> BlockEventGenT g m ()
+    generateFork basePath rollbackFork = do
+        let
+            forkLen    = length rollbackFork
+            wiggleRoom = fromIntegral blkSecurityParam - forkLen
+        stopFork <- byChance (if forkLen > 0 then 0.1 else 0)
+        if stopFork
+            then whenJust (nonEmptyNewestFirst rollbackFork) $
+                 emitBlockRollback BlockRollbackSuccess
+            else do
+                needRollback <-
+                    -- forkLen=0                => needRollback 0%
+                    -- forkLen=blkSecurityParam => needRollback 100%
+                    byChance (realToFrac $ forkLen Ratio.% fromIntegral blkSecurityParam)
+                if needRollback
+                    then do
+                        retreat <- getRandomR (1, forkLen)
+                        whenJust (nonEmptyNewestFirst rollbackFork) $ \rollbackFork' -> do
+                            -- forkLen > 0, therefore retreat > 0
+                            let (over _NewestFirst NE.fromList -> before, after) = splitAtNewestFirst retreat rollbackFork'
+                            emitBlockRollback BlockRollbackSuccess before
+                            generateFork basePath after
+                    else do
+                        advance <- getRandomR (1, wiggleRoom)
+                        relPaths <- OldestFirst <$> replicateM advance generateRelativePath1
+                        whenJust (nonEmptyOldestFirst relPaths) $ \relPaths' -> do
+                            let
+                                curPath = maybe basePath NE.head $ nonEmpty (getNewestFirst rollbackFork)
+                                paths = pathSequence curPath relPaths'
+                            emitBlockApply BlockApplySuccess paths
+                            generateFork basePath (over _NewestFirst toList (toNewestFirst paths) <> rollbackFork)
+    generateRelativePath1 :: BlockEventGenT g m Path
+    generateRelativePath1 =
+        uniform (["rekt", "kek", "mems", "peka"] :: NE Path)
+
+blockPropertyScenarioGen :: BlockEventGenT QCGen BlockTestMode () -> BlockProperty BlockScenario
+blockPropertyScenarioGen m = do
+    allSecrets <- getAllSecrets
+    genStakeholders <- view (lensOf @GenesisWStakeholders)
+    g <- pick $ MkGen $ \qc _ -> qc
+    lift $ flip evalRandT g $ runBlockEventGenT allSecrets genStakeholders m
+
 blockEventSuccessProp :: BlockProperty ()
 blockEventSuccessProp = do
-    allSecrets <- getAllSecrets
-    let
-        eventCount = min (BlockEventCount 10) (fromIntegral blkSecurityParam)
-        blockEventGenParams = BlockEventGenParams
-            { _begpSecrets = allSecrets
-            , _begpBlockCountMax =
-                  blkSecurityParam `div` fromIntegral eventCount
-            , _begpBlockEventCount = eventCount
-            , _begpRollbackChance = 0.4
-            , _begpFailureChance = 0
-            }
-    g <- pick $ MkGen $ \qc _ -> qc
-    scenario <- lift $ evalRandT (genBlockEvents blockEventGenParams) g
-    verifyBlockScenarioResult =<< lift (runBlockScenario scenario)
+    scenario <- blockPropertyScenarioGen $ genSuccessWithForks
+    let (scenario', checkCount) = enrichWithSnapshotChecking scenario
+    when (checkCount <= 0) $ stopProperty $
+        "No checks were generated, this is a bug in the test suite: " <>
+        pretty (fmap (headerHash . fst) scenario')
+    verifyBlockScenarioResult =<< lift (runBlockScenario scenario')
 
 verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
 verifyBlockScenarioResult = \case
@@ -191,6 +280,9 @@ verifyBlockScenarioResult = \case
     BlockScenarioUnexpectedFailure e -> stopProperty $
         "Block scenario unexpected failure: " <>
         pretty e
-    BlockScenarioDbChanged dbDiff -> stopProperty $
-        "Block scenario resulted in a change to the blockchain:\n" <>
-        show dbDiff
+    BlockScenarioDbChanged d ->
+        let DbNotEquivalentToSnapshot snapId dbDiff = d in
+        stopProperty $
+            "Block scenario resulted in a change to the blockchain" <>
+            " relative to the " <> show snapId <> " snapshot:\n" <>
+            show dbDiff

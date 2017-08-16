@@ -11,16 +11,12 @@ import qualified Node                           as N
 import           System.Wlog                    (WithLogger)
 import           Universum
 
-import           Mockable.Class                 (Mockable)
-import           Mockable.Exception             (Throw)
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Infra               ()
-import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Protocol     (ConversationActions, HandlerSpec (..),
                                                  ListenerSpec (..), Message, NodeId,
                                                  OutSpecs, VerInfo, checkingInSpecs,
-                                                 messageName)
-import           Pos.DB.Class                   (MonadGState)
+                                                 messageCode)
 
 -- TODO automatically provide a 'recvLimited' here by using the
 -- 'MessageLimited'?
@@ -30,16 +26,13 @@ listenerConv
        , Bi rcv
        , Message snd
        , Message rcv
-       , MonadGState m
-       , MessageLimited rcv
        , WithLogger m
-       , Mockable Throw m
        )
     => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
     -> (ListenerSpec m, OutSpecs)
 listenerConv h = (lspec, mempty)
   where
-    spec = (rcvMsgName, ConvHandler sndMsgName)
+    spec = (rcvMsgCode, ConvHandler sndMsgCode)
     lspec =
       flip ListenerSpec spec $ \ourVerInfo ->
           N.Listener $ \peerVerInfo' nNodeId conv -> do
@@ -51,5 +44,5 @@ listenerConv h = (lspec, mempty)
     rcvProxy :: Proxy rcv
     rcvProxy = Proxy
 
-    sndMsgName = messageName sndProxy
-    rcvMsgName = messageName rcvProxy
+    sndMsgCode = messageCode sndProxy
+    rcvMsgCode = messageCode rcvProxy

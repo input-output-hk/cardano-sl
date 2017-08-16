@@ -29,17 +29,34 @@ library
                       Pos.Wallet.Web.Account
                       Pos.Wallet.Web.Api
                       Pos.Wallet.Web.Backup
-                      Pos.Wallet.Web.BListener
                       Pos.Wallet.Web.Mode
+                      Pos.Wallet.Web.Methods
+                      Pos.Wallet.Web.Methods.Backup
+                      Pos.Wallet.Web.Methods.History
+                      Pos.Wallet.Web.Methods.Logic
+                      Pos.Wallet.Web.Methods.Misc
+                      Pos.Wallet.Web.Methods.Payment
+                      Pos.Wallet.Web.Methods.Redeem
+                      Pos.Wallet.Web.Methods.Reporting
+                      Pos.Wallet.Web.Methods.Restore
                       Pos.Wallet.Web.Pending
+                      Pos.Wallet.Web.Pending.Util
                       Pos.Wallet.Web.Pending.Worker
                       Pos.Wallet.Web.Server
-                      Pos.Wallet.Web.Server.Methods
-                      Pos.Wallet.Web.Server.Full
-                      Pos.Wallet.Web.Server.Sockets
+                      Pos.Wallet.Web.Server.Handlers
+                      Pos.Wallet.Web.Server.Launcher
+                      Pos.Wallet.Web.Server.Runner
+                      Pos.Wallet.Web.Sockets
+                      Pos.Wallet.Web.Sockets.ConnSet
+                      Pos.Wallet.Web.Sockets.Connection
+                      Pos.Wallet.Web.Sockets.Notifier
+                      Pos.Wallet.Web.Sockets.Types
                       Pos.Wallet.Web.Tracking
+                      Pos.Wallet.Web.Tracking.BListener
+                      Pos.Wallet.Web.Tracking.Sync
+                      Pos.Wallet.Web.Tracking.Modifier
 
-  build-depends:      aeson >= 0.11.2.1
+  build-depends:        aeson >= 0.11.2.1
                       , ansi-wl-pprint
                       , base
                       , base58-bytestring
@@ -129,7 +146,7 @@ executable cardano-node
   main-is:            Main.hs
   other-modules:      NodeOptions
 
-  build-depends:      aeson >= 0.11.2.1
+  build-depends:        aeson >= 0.11.2.1
                       , ansi-wl-pprint
                       , base
                       , base58-bytestring
@@ -271,7 +288,7 @@ executable cardano-swagger
                        Instances.Schema
                        Instances.Swagger
   if !flag(for-installer)
-    build-depends:     aeson
+    build-depends:       aeson
                        , base
                        , bytestring
                        , cardano-sl

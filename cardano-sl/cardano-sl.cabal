@@ -3,13 +3,13 @@ version:             0.5.1
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
-license-file:        LICENSE
+license-file:        ../LICENSE
 author:              Serokell
 maintainer:          Serokell <hi@serokell.io>
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
-extra-source-files:  README.md
+extra-source-files:  ../README.md
 cabal-version:       >=1.10
 
 Flag with-wallet

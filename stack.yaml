@@ -7,7 +7,7 @@ flags:
 extra-package-dbs: []
 
 packages:
-- '.'
+- cardano-sl
 - core
 - update
 - infra

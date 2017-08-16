@@ -143,9 +143,9 @@ overrideTxOutDistrBoot c oldDistr = do
     epoch <- siEpoch <$> lift getCurrentSlotBlocking
     bootEra <- lift $ gsIsBootstrapEra epoch
     genStakeholders <- view (lensOf @GenesisWStakeholders)
-    if not bootEra
-      then pure oldDistr
-      else either throwTxError pure (genesisSplitBoot genStakeholders c)
+    pure $ if bootEra
+           then genesisSplitBoot genStakeholders c
+           else oldDistr
 
 -- | Same as 'overrideTxOutDistrBoot' but changes 'TxOutputs' all at once
 overrideTxDistrBoot

@@ -27,14 +27,16 @@ import           Control.Monad.Except       (MonadError (..))
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
 import qualified Data.List.NonEmpty         as NE
+import           Formatting                 (sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Text         (mapJson)
 import           System.Wlog                (WithLogger)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Core.Coin              (integerToCoin, mkCoin, unsafeGetCoin)
 import           Pos.Core.Constants         (memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
-import           Pos.Core.Genesis           (GenesisWStakeholders (..))
+import           Pos.Core.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import           Pos.Core.Slotting          (isBootstrapEra)
 import           Pos.Core.Types             (BlockVersionData (..), Coin, EpochIndex,
                                              StakeholderId)
@@ -180,14 +182,22 @@ verifyGState curEpoch txAux txFee = do
 -- stakeholders. Notice: it doesn't use actual txdistr type because
 -- it's defined in txp module above.
 bootRelatedDistr :: GenesisWStakeholders -> [(StakeholderId, Coin)] -> Bool
-bootRelatedDistr (GenesisWStakeholders bootHolders) txOutDistr =
-    -- All addresses in txDistr are from bootHolders and every boot
-    -- stakeholder is mentioned in txOutDistr
-    getKeys bootHolders == HS.fromList stakeholders &&
-    -- Every stakeholder gets his divisor. It's safe to use ! here
-    -- because we're already sure that bootHolders ~ addrs is
-    -- bijective.
-    all (\(a,c) -> c >= (minimumPerStakeholder HM.! a)) txOutDistr
+bootRelatedDistr g@(GenesisWStakeholders bootHolders) txOutDistr
+    | coinSum < unsafeGetCoin (bootDustThreshold g) =
+        -- We allow small outputs to attribute stake in any proportion
+        -- user wants because it's not likely they will shift overall
+        -- stake distribution much. Anyway we require that all
+        -- addresses in txDistr are keys of boot stakeholders.
+        let bootHoldersKeys = getKeys bootHolders
+        in all (`HS.member` bootHoldersKeys) stakeholders
+    | otherwise =
+        -- All addresses in txDistr are from bootHolders and every boot
+        -- stakeholder is mentioned in txOutDistr
+        getKeys bootHolders == HS.fromList stakeholders &&
+        -- Every stakeholder gets his divisor. It's safe to use ! here
+        -- because we're already sure that bootHolders ~ addrs is
+        -- bijective.
+        all (\(a,c) -> c >= (minimumPerStakeholder HM.! a)) txOutDistr
   where
     stakeholders = map fst txOutDistr
     coins = map snd txOutDistr
@@ -215,7 +225,9 @@ verifyBootEra curEpoch unlockEpoch txAux = do
     bootHolders <- view (lensOf' @GenesisWStakeholders)
     let bootRel = notBootRelated bootHolders
     when (bootEra && not (null bootRel)) $
-        throwError $ ToilBootDifferentStake $ unsafeHead bootRel
+        throwError $ ToilBootInappropriate $
+        sformat ("transaction has non-boot stake distr in boot era: "%mapJson)
+                (unsafeHead bootRel)
   where
     notBootRelated :: GenesisWStakeholders -> [TxOutDistribution]
     notBootRelated bootHolders =

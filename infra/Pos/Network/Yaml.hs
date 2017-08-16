@@ -7,7 +7,6 @@ module Pos.Network.Yaml (
   , KademliaId(..)
   , KademliaAddress(..)
   , NodeName(..)
-  , nodeNameToString
   , NodeRegion(..)
   , NodeRoutes(..)
   , NodeMetadata(..)
@@ -23,7 +22,6 @@ import qualified Data.Aeson.Types       as A
 import qualified Data.ByteString.Char8  as BS.C8
 import qualified Data.HashMap.Lazy      as HM
 import qualified Data.Map.Strict        as M
-import qualified Data.Text              as T
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS            as DNS
 import           Pos.Util.Config
@@ -79,8 +77,8 @@ data AllStaticallyKnownPeers = AllStaticallyKnownPeers {
 newtype NodeName = NodeName Text
     deriving (Show, Ord, Eq, IsString)
 
-nodeNameToString :: NodeName -> String
-nodeNameToString (NodeName txt) = T.unpack txt
+instance ToString NodeName where
+    toString (NodeName txt) = toString txt
 
 newtype NodeRegion = NodeRegion Text
     deriving (Show, Ord, Eq, IsString)

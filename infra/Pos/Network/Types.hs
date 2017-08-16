@@ -42,8 +42,7 @@ import           Node.Internal                         (NodeId (..))
 import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import           Pos.Network.Yaml                      (NodeName (..),
-                                                        Valency, Fallbacks,
-                                                        nodeNameToString)
+                                                        Valency, Fallbacks)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
 import qualified System.Metrics                        as Monitoring
 import           System.Wlog.CanLog                    (WithLogger)
@@ -281,7 +280,7 @@ initQueue :: (MonadIO m, WithLogger m, FormatMsg msg)
           -> Maybe Monitoring.Store -- ^ EKG store (if used)
           -> m (OutboundQ msg NodeId Bucket)
 initQueue NetworkConfig{..} mStore = do
-    oq <- OQ.new (maybe "self" nodeNameToString ncSelfName)
+    oq <- OQ.new (maybe "self" toString ncSelfName)
                  (topologyEnqueuePolicy   ncTopology)
                  (topologyDequeuePolicy   ncTopology)
                  (topologyFailurePolicy   ncTopology)

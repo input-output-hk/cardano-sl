@@ -19,7 +19,7 @@ import           Test.Hspec            (Expectation, Spec, describe, expectation
                                         it, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, arbitrary, counterexample, property,
-                                        (==>))
+                                        vector, (==>))
 import qualified Text.Regex.TDFA       as TDFA
 import qualified Text.Regex.TDFA.Text  as TDFA
 
@@ -43,7 +43,7 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         verifyTxUtxoPure)
 import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
                                         makeScriptAddress, mkCoin, sumCoins)
-import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
+import           Pos.Util              (SmallGenerator (..), runGen)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -315,7 +315,7 @@ scriptTxSpec = describe "script transactions" $ do
                 "input #0 isn't validated by its witness.*\
                     \reason: result of evaluation is 'failure'.*"]
 
-    let sks@[sk1, sk2, sk3,  sk4] = runGen $ nonrepeating 4
+    let sks@[sk1, sk2, sk3,  sk4] = runGen $ vector 4
     let     [pk1, pk2, pk3, _pk4] = map toPublic sks
     let shouldBeFailure res = res `errorsShouldMatch` [
             "input #0 isn't validated by its witness.*\

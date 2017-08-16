@@ -44,7 +44,6 @@ import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
-import           Pos.Util.Arbitrary                (nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
 ----------------------------------------------------------------------------
@@ -424,7 +423,7 @@ instance Arbitrary G.GenesisCoreData where
         let chop _ [] = []
             chop n l = taken : chop n dropped
               where (taken, dropped) = splitAt n l
-        allAddrs <- fmap makePubKeyAddress <$> nonrepeating (outerLen * innerLen)
+        allAddrs <- fmap makePubKeyAddress <$> vector (outerLen * innerLen)
         let listOfAddrList = chop innerLen allAddrs
         -- This may seem like boilerplate but it's necessary to pass the first check in
         -- 'mkGenesisCoreData'. Certain parameters in the generated 'StakeDistribution'

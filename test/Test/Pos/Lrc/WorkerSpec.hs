@@ -17,7 +17,7 @@ import           Formatting                (sformat, (%))
 import           Serokell.Util             (enumerate, subList)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
-import           Test.QuickCheck           (Gen, choose)
+import           Test.QuickCheck           (Gen, choose, vector)
 import           Test.QuickCheck.Monadic   (pick)
 
 import           Pos.Block.Core            (mainBlockTxPayload)
@@ -35,7 +35,6 @@ import           Pos.Genesis               (StakeDistribution (..),
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, mkTxPayload)
-import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
@@ -79,7 +78,7 @@ genTestParams :: Gen TestParams
 genTestParams = do
     let _tpStartTime = 0
     let stakeholdersNum = 4 * groupsNumber
-    secretKeys <- nonrepeating stakeholdersNum
+    secretKeys <- vector stakeholdersNum
     let invSecretsMap = mkInvSecretsMap secretKeys
     let _tpAllSecrets = AllSecrets invSecretsMap
     -- Single group stake multiplier.

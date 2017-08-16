@@ -17,7 +17,7 @@ let
   in {
     name = system;
     value = {
-      inherit (jobs) cardano-sl cardano-sl-static cardano-sl-tools cardano-sl-explorer-static stack2nix;
+      inherit (jobs) cardano-sl cardano-sl-static cardano-sl-tools cardano-sl-explorer-static stack2nix cardano-report-server-static;
     };
   };
   mkJobs = dconfig: systems: listToAttrs (map (mkJob dconfig) systems);

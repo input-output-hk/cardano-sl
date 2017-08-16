@@ -41,6 +41,7 @@ import qualified Network.DNS                           as DNS
 import           Node.Internal                         (NodeId (..))
 import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
+import qualified Pos.Network.Policy                    as Policy
 import           Pos.Network.Yaml                      (NodeName (..),
                                                         Valency, Fallbacks)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
@@ -76,7 +77,7 @@ data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
       --
       -- The handler will also be called on registration
       -- (with the current value).
-      staticPeersOnChange :: (Peers NodeId -> m ()) -> IO ()
+      staticPeersOnChange :: ((Map NodeId NodeType, [(NodeType, Alts NodeId)]) -> m ()) -> IO ()
     }
 
 instance Show StaticPeers where
@@ -152,12 +153,15 @@ topologySubscriberNodeType TopologyLightWallet{} = Nothing
 
 -- | Assumed type for unknown nodes
 topologyUnknownNodeType :: Topology kademlia -> OQ.UnknownNodeType NodeId
-topologyUnknownNodeType topology =
-    OQ.UnknownNodeType $ const $ go topology
+topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
   where
-    go :: Topology kademlia -> NodeType
-    go TopologyTraditional{} = NodeCore
-    go _otherwise            = NodeEdge
+    go :: Topology kademlia -> NodeId -> NodeType
+    go TopologyCore{..}      = const NodeEdge
+    go TopologyRelay{..}     = const NodeEdge
+    go TopologyTraditional{} = const NodeCore
+    go TopologyP2P{}         = const NodeEdge
+    go TopologyBehindNAT{}   = const NodeEdge
+    go TopologyLightWallet{} = const NodeEdge
 
 data SubscriptionWorker kademlia =
     SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain) Valency Fallbacks
@@ -202,33 +206,33 @@ topologyRunKademlia = go
 topologyEnqueuePolicy :: Topology kademia -> OQ.EnqueuePolicy NodeId
 topologyEnqueuePolicy = go
   where
-    go TopologyCore{}        = OQ.defaultEnqueuePolicyCore
-    go TopologyRelay{}       = OQ.defaultEnqueuePolicyRelay
-    go TopologyBehindNAT{}   = OQ.defaultEnqueuePolicyEdgeBehindNat
+    go TopologyCore{}        = Policy.defaultEnqueuePolicyCore
+    go TopologyRelay{}       = Policy.defaultEnqueuePolicyRelay
+    go TopologyBehindNAT{..} = Policy.defaultEnqueuePolicyEdgeBehindNat
                                     Nothing -- default max trans ahead
-    go TopologyP2P{}         = OQ.defaultEnqueuePolicyEdgeP2P
-    go TopologyTraditional{} = OQ.defaultEnqueuePolicyCore
-    go TopologyLightWallet{} = OQ.defaultEnqueuePolicyEdgeBehindNat
+    go TopologyP2P{}         = Policy.defaultEnqueuePolicyEdgeP2P
+    go TopologyTraditional{} = Policy.defaultEnqueuePolicyCore
+    go TopologyLightWallet{} = Policy.defaultEnqueuePolicyEdgeBehindNat
                                     Nothing -- default max trans ahead
 
 -- | Dequeue policy for the given topology
 topologyDequeuePolicy :: Topology kademia -> OQ.DequeuePolicy
 topologyDequeuePolicy = go
   where
-    go TopologyCore{}        = OQ.defaultDequeuePolicyCore
-    go TopologyRelay{}       = OQ.defaultDequeuePolicyRelay
-    go TopologyBehindNAT{}   = OQ.defaultDequeuePolicyEdgeBehindNat
+    go TopologyCore{}        = Policy.defaultDequeuePolicyCore
+    go TopologyRelay{}       = Policy.defaultDequeuePolicyRelay
+    go TopologyBehindNAT{..} = Policy.defaultDequeuePolicyEdgeBehindNat
                                    Nothing -- default rate limit
                                    Nothing -- default max in-flight
-    go TopologyP2P{}         = OQ.defaultDequeuePolicyEdgeP2P
-    go TopologyTraditional{} = OQ.defaultDequeuePolicyCore
-    go TopologyLightWallet{} = OQ.defaultDequeuePolicyEdgeBehindNat
+    go TopologyP2P{}         = Policy.defaultDequeuePolicyEdgeP2P
+    go TopologyTraditional{} = Policy.defaultDequeuePolicyCore
+    go TopologyLightWallet{} = Policy.defaultDequeuePolicyEdgeBehindNat
                                    Nothing -- default rate limit
                                    Nothing -- default max in-flight
 
 -- | Failure policy for the given topology
 topologyFailurePolicy :: Topology kademia -> OQ.FailurePolicy NodeId
-topologyFailurePolicy = OQ.defaultFailurePolicy . topologyNodeType
+topologyFailurePolicy = Policy.defaultFailurePolicy . topologyNodeType
 
 -- | Maximum bucket size
 --
@@ -305,13 +309,13 @@ initQueue NetworkConfig{..} mStore = do
         -- Kademlia worker is responsible for adding peers
         return ()
       TopologyCore StaticPeers{..} _ -> liftIO $
-        staticPeersOnChange $ \peers -> do
+        staticPeersOnChange $ \(directory, peers) -> do
           OQ.clearRecentFailures oq
-          void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
+          void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peersFromList directory peers)
       TopologyRelay StaticPeers{..} _ -> liftIO $
-        staticPeersOnChange $ \peers -> do
+        staticPeersOnChange $ \(directory, peers) -> do
           OQ.clearRecentFailures oq
-          void $ OQ.updatePeersBucket   oq BucketStatic (\_ -> peers)
+          void $ OQ.updatePeersBucket   oq BucketStatic (\_ -> peersFromList directory peers)
 
     return oq
 

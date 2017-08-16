@@ -186,7 +186,7 @@ dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
         return newPeers
 
     mkPeers :: [NodeId] -> Peers NodeId
-    mkPeers = peersFromList . fmap ((,) peerType) . transpose . take (1 + fallbacks) . mkGroupsOf valency
+    mkPeers = peersFromList mempty . fmap ((,) peerType) . transpose . take (1 + fallbacks) . mkGroupsOf valency
 
     mkGroupsOf :: Int -> [a] -> [[a]]
     mkGroupsOf _ [] = []

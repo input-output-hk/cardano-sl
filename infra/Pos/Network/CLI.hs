@@ -100,12 +100,9 @@ networkConfigOption = NetworkConfigOpts
 -- | The topology we assume when no topology file is specified
 defaultTopology :: Y.Topology
 defaultTopology = Y.TopologyBehindNAT {
-      topologyValency        = 1
-    , topologyFallbacks      = 1
-    , topologyDnsDomains     = defaultDnsDomains
-    , topologyOptMaxAhead    = Nothing
-    , topologyOptRateLimit   = Nothing
-    , topologyOptMaxInFlight = Nothing
+      topologyValency    = 1
+    , topologyFallbacks  = 1
+    , topologyDnsDomains = defaultDnsDomains
     }
 
 -- | The default DNS domains used for relay discovery

@@ -102,12 +102,9 @@ data Topology kademlia =
     --
     -- This is used for behind-NAT nodes.
   | TopologyBehindNAT {
-        topologyValency        :: !Valency
-      , topologyFallbacks      :: !Fallbacks
-      , topologyDnsDomains     :: !(DnsDomains DNS.Domain)
-      , topologyOptMaxAhead    :: !(Maybe OQ.MaxAhead)
-      , topologyOptRateLimit   :: !(Maybe OQ.RateLimit)
-      , topologyOptMaxInFlight :: !(Maybe OQ.MaxInFlight)
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyDnsDomains :: !(DnsDomains DNS.Domain)
       }
 
     -- | We discover our peers through Kademlia
@@ -155,12 +152,9 @@ topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
 topologySubscriberNodeType TopologyLightWallet{} = Nothing
 
 -- | Assumed type for unknown nodes
---
--- TODO: This needs to be updated to allow the static network to be
--- non-bidirectional.
 topologyUnknownNodeType :: Topology kademlia -> OQ.UnknownNodeType NodeId
 topologyUnknownNodeType topology =
-   OQ.UnknownNodeType $ const $ go topology
+    OQ.UnknownNodeType $ const $ go topology
   where
     go :: Topology kademlia -> NodeType
     go TopologyTraditional{} = NodeCore
@@ -198,12 +192,12 @@ topologySubscriptionWorker = go
 topologyRunKademlia :: Topology kademlia -> Maybe (kademlia, Bool)
 topologyRunKademlia = go
   where
-    go (TopologyCore  _        mKademlia) = flip (,) False <$> mKademlia
-    go (TopologyRelay _        mKademlia) = flip (,) False <$> mKademlia
-    go TopologyBehindNAT{}                = Nothing
-    go (TopologyP2P _ _         kademlia) = Just (kademlia, True)
-    go (TopologyTraditional _ _ kademlia) = Just (kademlia, True)
-    go TopologyLightWallet{}              = Nothing
+    go TopologyCore{..}        = flip (,) False <$> topologyOptKademlia
+    go TopologyRelay{..}       = flip (,) False <$> topologyOptKademlia
+    go TopologyBehindNAT{}     = Nothing
+    go TopologyP2P{..}         = Just (topologyKademlia, True)
+    go TopologyTraditional{..} = Just (topologyKademlia, True)
+    go TopologyLightWallet{}   = Nothing
 
 -- | Enqueue policy for the given topology
 topologyEnqueuePolicy :: Topology kademia -> OQ.EnqueuePolicy NodeId
@@ -211,8 +205,8 @@ topologyEnqueuePolicy = go
   where
     go TopologyCore{}        = OQ.defaultEnqueuePolicyCore
     go TopologyRelay{}       = OQ.defaultEnqueuePolicyRelay
-    go TopologyBehindNAT{..} = OQ.defaultEnqueuePolicyEdgeBehindNat
-                                    topologyOptMaxAhead
+    go TopologyBehindNAT{}   = OQ.defaultEnqueuePolicyEdgeBehindNat
+                                    Nothing -- default max trans ahead
     go TopologyP2P{}         = OQ.defaultEnqueuePolicyEdgeP2P
     go TopologyTraditional{} = OQ.defaultEnqueuePolicyCore
     go TopologyLightWallet{} = OQ.defaultEnqueuePolicyEdgeBehindNat
@@ -224,9 +218,9 @@ topologyDequeuePolicy = go
   where
     go TopologyCore{}        = OQ.defaultDequeuePolicyCore
     go TopologyRelay{}       = OQ.defaultDequeuePolicyRelay
-    go TopologyBehindNAT{..} = OQ.defaultDequeuePolicyEdgeBehindNat
-                                   topologyOptRateLimit
-                                   topologyOptMaxInFlight
+    go TopologyBehindNAT{}   = OQ.defaultDequeuePolicyEdgeBehindNat
+                                   Nothing -- default rate limit
+                                   Nothing -- default max in-flight
     go TopologyP2P{}         = OQ.defaultDequeuePolicyEdgeP2P
     go TopologyTraditional{} = OQ.defaultDequeuePolicyCore
     go TopologyLightWallet{} = OQ.defaultDequeuePolicyEdgeBehindNat

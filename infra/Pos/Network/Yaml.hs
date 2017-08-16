@@ -25,7 +25,6 @@ import qualified Data.HashMap.Lazy      as HM
 import qualified Data.Map.Strict        as M
 import qualified Data.Text              as T
 import           Network.Broadcast.OutboundQueue.Types
-import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS            as DNS
 import           Pos.Util.Config
 import           Universum
@@ -43,12 +42,9 @@ data Topology =
       }
 
   | TopologyBehindNAT {
-        topologyValency        :: !Valency
-      , topologyFallbacks      :: !Fallbacks
-      , topologyDnsDomains     :: !(DnsDomains (DNS.Domain))
-      , topologyOptMaxAhead    :: !(Maybe OQ.MaxAhead)
-      , topologyOptRateLimit   :: !(Maybe OQ.RateLimit)
-      , topologyOptMaxInFlight :: !(Maybe OQ.MaxInFlight)
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyDnsDomains :: !(DnsDomains (DNS.Domain))
       }
 
   | TopologyP2P {
@@ -257,12 +253,9 @@ instance FromJSON Topology where
         (Just nodes, Nothing, Nothing) ->
             TopologyStatic <$> parseJSON nodes
         (Nothing, Just wallet, Nothing) -> flip (A.withObject "wallet") wallet $ \walletObj -> do
-            topologyDnsDomains     <- walletObj .:  "relays"
-            topologyValency        <- walletObj .:? "valency"   .!= 1
-            topologyFallbacks      <- walletObj .:? "fallbacks" .!= 1
-            topologyOptMaxAhead    <- fmap OQ.MaxAhead     <$> walletObj .:? "maxAhead"
-            topologyOptRateLimit   <- fmap OQ.MaxMsgPerSec <$> walletObj .:? "rateLimit"
-            topologyOptMaxInFlight <- fmap OQ.MaxInFlight  <$> walletObj .:? "maxInFlight"
+            topologyDnsDomains <- walletObj .:  "relays"
+            topologyValency    <- walletObj .:? "valency"   .!= 1
+            topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
             return TopologyBehindNAT{..}
         (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
             variantTxt        <- p2pObj .: "variant"

@@ -56,13 +56,15 @@ data Topology =
       }
 
   | TopologyP2P {
-        topologyValency   :: !Valency
-      , topologyFallbacks :: !Fallbacks
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyMaxSubscrs :: !OQ.MaxBucketSize
       }
 
   | TopologyTraditional {
-        topologyValency   :: !Valency
-      , topologyFallbacks :: !Fallbacks
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyMaxSubscrs :: !OQ.MaxBucketSize
       }
   deriving (Show)
 
@@ -111,6 +113,9 @@ data NodeMetadata = NodeMetadata
 
       -- | Should the node register itself with the Kademlia network?
     , nmKademlia :: !RunKademlia
+
+      -- | Maximum number of subscribers (only relevant for relays)
+    , nmMaxSubscrs :: !OQ.MaxBucketSize
     }
     deriving (Show)
 
@@ -243,11 +248,12 @@ extractNodeAddr mkA obj = do
 
 instance FromJSON NodeMetadata where
   parseJSON = A.withObject "NodeMetadata" $ \obj -> do
-      nmType     <- obj .: "type"
-      nmRegion   <- obj .: "region"
-      nmRoutes   <- obj .: "static-routes"
-      nmAddress  <- extractNodeAddr return obj
-      nmKademlia <- obj .:? "kademlia" .!= defaultRunKademlia nmType
+      nmType       <- obj .: "type"
+      nmRegion     <- obj .: "region"
+      nmRoutes     <- obj .: "static-routes"
+      nmAddress    <- extractNodeAddr return obj
+      nmKademlia   <- obj .:? "kademlia" .!= defaultRunKademlia nmType
+      nmMaxSubscrs <- maybeBucketSize <$> obj .:? "maxSubscrs"
       return NodeMetadata{..}
    where
      defaultRunKademlia :: NodeType -> RunKademlia
@@ -276,15 +282,20 @@ instance FromJSON Topology where
             topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
             return TopologyBehindNAT{..}
         (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
-            variantTxt        <- p2pObj .: "variant"
-            topologyValency   <- p2pObj .:? "valency"   .!= 3
-            topologyFallbacks <- p2pObj .:? "fallbacks" .!= 1
+            variantTxt         <- p2pObj .: "variant"
+            topologyValency    <- p2pObj .:? "valency"   .!= 3
+            topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
+            topologyMaxSubscrs <- maybeBucketSize <$> p2pObj .:? "maxSubscrs"
             flip (A.withText "P2P variant") variantTxt $ \txt -> case txt of
               "traditional" -> return TopologyTraditional{..}
               "normal"      -> return TopologyP2P{..}
               _             -> fail "P2P variant: expected 'traditional' or 'normal'"
         _ ->
           fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
+
+maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
+maybeBucketSize Nothing  = OQ.BucketSizeUnlimited
+maybeBucketSize (Just n) = OQ.BucketSizeMax n
 
 instance IsConfig Topology where
   configPrefix = return Nothing

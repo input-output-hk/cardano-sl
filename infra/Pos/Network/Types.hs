@@ -7,7 +7,7 @@ module Pos.Network.Types
     , SubscriptionWorker(..)
     , Bucket(..)
     , topologyNodeType
-    , topologySubscriberNodeType
+    , topologySubscribers
     , topologyUnknownNodeType
     , topologySubscriptionWorker
     , topologyRunKademlia
@@ -120,6 +120,7 @@ data Topology kademlia =
   | TopologyRelay {
         topologyStaticPeers :: !StaticPeers
       , topologyOptKademlia :: !(Maybe kademlia)
+      , topologyMaxSubscrs  :: !OQ.MaxBucketSize
       }
 
     -- | We discover our peers through DNS
@@ -133,17 +134,19 @@ data Topology kademlia =
 
     -- | We discover our peers through Kademlia
   | TopologyP2P {
-        topologyValency   :: !Valency
-      , topologyFallbacks :: !Fallbacks
-      , topologyKademlia  :: !kademlia
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyKademlia   :: !kademlia
+      , topologyMaxSubscrs :: !OQ.MaxBucketSize
       }
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
   | TopologyTraditional {
-        topologyValency   :: !Valency
-      , topologyFallbacks :: !Fallbacks
-      , topologyKademlia  :: !kademlia
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyKademlia   :: !kademlia
+      , topologyMaxSubscrs :: !OQ.MaxBucketSize
       }
 
     -- | Light wallets simulate "real" edge nodes, but are configured with
@@ -162,18 +165,14 @@ topologyNodeType TopologyP2P{}         = NodeEdge
 topologyNodeType TopologyTraditional{} = NodeCore
 topologyNodeType TopologyLightWallet{} = NodeEdge
 
--- | The NodeType to assign to subscribers. Give Nothing if subscribtion
--- is not allowed for a node with this topology.
---
--- TODO: We allow corf nodes to run Kademlia, but we do not run the subscription
--- listener on them currently. We may wish to make that configurable.
-topologySubscriberNodeType :: Topology kademlia -> Maybe NodeType
-topologySubscriberNodeType TopologyCore{}        = Nothing
-topologySubscriberNodeType TopologyRelay{}       = Just NodeEdge
-topologySubscriberNodeType TopologyBehindNAT{}   = Nothing
-topologySubscriberNodeType TopologyP2P{}         = Just NodeRelay
-topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
-topologySubscriberNodeType TopologyLightWallet{} = Nothing
+-- | Assumed type and maximum number of subscribers (if subscription is allowed)
+topologySubscribers :: Topology kademlia -> Maybe (NodeType, OQ.MaxBucketSize)
+topologySubscribers TopologyCore{}          = Nothing
+topologySubscribers TopologyRelay{..}       = Just (NodeEdge, topologyMaxSubscrs)
+topologySubscribers TopologyBehindNAT{}     = Nothing
+topologySubscribers TopologyP2P{..}         = Just (NodeEdge, topologyMaxSubscrs)
+topologySubscribers TopologyTraditional{..} = Just (NodeCore, topologyMaxSubscrs)
+topologySubscribers TopologyLightWallet{}   = Nothing
 
 -- | Assumed type for unknown nodes
 topologyUnknownNodeType :: Topology kademlia -> OQ.UnknownNodeType NodeId
@@ -253,11 +252,15 @@ topologyFailurePolicy :: Topology kademia -> OQ.FailurePolicy NodeId
 topologyFailurePolicy = Policy.defaultFailurePolicy . topologyNodeType
 
 -- | Maximum bucket size
---
--- TODO: This is just a placeholder for now; we probably want to make this
--- value configurable in the @topology.yaml@ file?
 topologyMaxBucketSize :: Topology kademia -> Bucket -> OQ.MaxBucketSize
-topologyMaxBucketSize _ _ = OQ.BucketSizeUnlimited
+topologyMaxBucketSize topology bucket =
+    case bucket of
+      BucketSubscriptionListener ->
+        case topologySubscribers topology of
+          Just (_subscriberType, maxBucketSize) -> maxBucketSize
+          Nothing -> OQ.BucketSizeMax 0 -- subscription not allowed
+      _otherBucket ->
+        OQ.BucketSizeUnlimited
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia
@@ -326,11 +329,11 @@ initQueue NetworkConfig{..} mStore = do
       TopologyTraditional{} ->
         -- Kademlia worker is responsible for adding peers
         return ()
-      TopologyCore StaticPeers{..} _ -> liftIO $
+      TopologyCore{topologyStaticPeers = StaticPeers{..}} -> liftIO $
         staticPeersOnChange $ \peers -> do
           OQ.clearRecentFailures oq
           void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
-      TopologyRelay StaticPeers{..} _ -> liftIO $
+      TopologyRelay{topologyStaticPeers = StaticPeers{..}} -> liftIO $
         staticPeersOnChange $ \peers -> do
           OQ.clearRecentFailures oq
           void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)

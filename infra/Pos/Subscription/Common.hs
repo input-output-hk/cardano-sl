@@ -11,11 +11,11 @@ module Pos.Subscription.Common
     ) where
 
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
-import           Universum                             hiding (bracket_)
+import           Universum                             hiding (bracket)
 
 import           Formatting                            (sformat, shown, (%))
 import           Mockable                              (Bracket, Catch, Mockable, Throw,
-                                                        bracket_, try)
+                                                        bracket, try)
 import           Node.Message.Class                    (Message)
 import           System.Wlog                           (WithLogger, logNotice)
 
@@ -88,9 +88,12 @@ subscriptionListener nodeType = listenerConv @Void $ \__ourVerInfo nodeId conv -
     mbMsg <- recvLimited conv
     whenJust mbMsg $ \MsgSubscribe -> do
       let peers = simplePeers [(nodeType, nodeId)]
-      bracket_ (updatePeersBucket BucketSubscriptionListener (<> peers))
-               (updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
-               (void $ recvLimited conv)
+      bracket
+        (updatePeersBucket BucketSubscriptionListener (<> peers))
+        (\added -> when added $
+          void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
+        (\added -> when added $
+          void $ recvLimited conv) -- if not added, close the conversation
 
 subscriptionListeners
     :: forall m.

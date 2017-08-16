@@ -38,6 +38,7 @@ module Pos.Ssc.GodTossing.Core.Core
 
 import           Universum
 
+import qualified Crypto.Random                 as Rand
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.HashSet                  as HS
 import           Data.Ix                       (inRange)
@@ -58,7 +59,6 @@ import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
 import           Pos.Core.Address              (addressHash)
 import           Pos.Core.Context              (HasCoreConstants, slotSecurityParam)
 import           Pos.Crypto                    (EncShare, Secret, SecretKey,
-                                                SecureRandom (..),
                                                 SignTag (SignCommitment), Threshold,
                                                 VssPublicKey, checkSig, encShareId,
                                                 genSharedSecret, getDhSecret, hash,
@@ -81,15 +81,13 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 
 -- | Generate securely random SharedSeed.
 genCommitmentAndOpening
-    :: (MonadFail m, MonadIO m)
-    => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
+    :: Rand.MonadRandom m
+    => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
 genCommitmentAndOpening n pks
-    | n <= 0 = fail "genCommitmentAndOpening: threshold must be positive"
-    | otherwise = do
-        pks' <- traverse fromBinaryM pks
-        liftIO . runSecureRandom . fmap (convertRes pks) . genSharedSecret n $ pks'
+    | n <= 0    = error "genCommitmentAndOpening: threshold must be positive"
+    | otherwise = convertRes pks <$> genSharedSecret n pks
   where
-    convertRes (toList -> ps) (extra, secret, proof, shares) =
+    convertRes (map asBinary . toList -> ps) (extra, secret, proof, shares) =
         ( Commitment
           { commExtra = asBinary extra
           , commProof = asBinary proof

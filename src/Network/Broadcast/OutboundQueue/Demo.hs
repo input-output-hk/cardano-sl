@@ -165,9 +165,9 @@ data Node = Node {
 newNode :: MonadIO m => NodeId_ -> NodeType -> CommsDelay -> m Node
 newNode nodeId_ nodeType commsDelay = liftIO $ do
     nodeOutQ     <- OutQ.new (show nodeId_)
-                             (OutQ.defaultEnqueuePolicy nodeType)
-                             (OutQ.defaultDequeuePolicy nodeType)
-                             (OutQ.defaultFailurePolicy nodeType)
+                             demoEnqueuePolicy
+                             demoDequeuePolicy
+                             demoFailurePolicy
                              (const OutQ.BucketSizeUnlimited)
                              (OutQ.UnknownNodeType $ const NodeEdge)
     nodeId       <- NodeId nodeId_ commsDelay <$> newSyncVar
@@ -345,3 +345,19 @@ recvSyncVar (SyncVar v) (CommsDelay delay) = liftIO $ do
       threadDelay delay
       putMVar ack ()
     return a
+
+demoEnqueuePolicy :: OutQ.EnqueuePolicy nid
+demoEnqueuePolicy _ = [OutQ.EnqueueOne {
+    enqNodeTypes  = [NodeCore, NodeRelay, NodeEdge]
+  , enqMaxAhead   = OutQ.MaxAhead 1
+  , enqPrecedence = OutQ.PHigh
+  }]
+
+demoDequeuePolicy :: OutQ.DequeuePolicy
+demoDequeuePolicy _ = OutQ.Dequeue {
+    deqRateLimit   = OutQ.NoRateLimiting
+  , deqMaxInFlight = OutQ.MaxInFlight 1
+  }
+
+demoFailurePolicy :: OutQ.FailurePolicy nid
+demoFailurePolicy _ _ _ = OutQ.ReconsiderAfter 0

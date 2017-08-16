@@ -86,7 +86,7 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
     bracket openDB closeDB $ \db -> do
         keyData <- keyDataFromFile wpKeyFilePath
-        oq <- liftIO $ initQueue networkConfig
+        oq <- initQueue networkConfig Nothing
         flip Mtl.runReaderT
             ( LightWalletContext
                 keyData

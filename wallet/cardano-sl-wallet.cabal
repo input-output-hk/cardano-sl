@@ -28,6 +28,7 @@ library
                       Pos.Wallet.Web
                       Pos.Wallet.Web.Account
                       Pos.Wallet.Web.Api
+                      Pos.Wallet.Web.Assurance
                       Pos.Wallet.Web.Backup
                       Pos.Wallet.Web.BListener
                       Pos.Wallet.Web.Mode

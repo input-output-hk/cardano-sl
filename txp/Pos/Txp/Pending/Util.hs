@@ -11,7 +11,7 @@ import           Pos.Txp.Pending.Types (PtxCondition (..))
 
 isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = \case
-    PtxApplying      -> False
-    PtxInUpperBlocks -> True
-    PtxPersisted     -> True
-    PtxWon'tApply _  -> False
+    PtxApplying{}      -> False
+    PtxInUpperBlocks{} -> True
+    PtxPersisted{}     -> True
+    PtxWon'tApply{}    -> False

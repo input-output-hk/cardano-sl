@@ -19,7 +19,7 @@ import           System.Wlog                (logError, logInfo, modifyLoggerName
 import           Pos.Client.Txp.Addresses   (MonadAddresses)
 import           Pos.Communication          (submitAndSave)
 import           Pos.Communication.Protocol (SendActions (..))
-import           Pos.Core                   (SlotId (..), getSlotCount)
+import           Pos.Core                   (FlatSlotId, SlotId (..), getSlotCount)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Crypto                 (WithHash (..))
 import           Pos.Slotting               (getLastKnownSlotDuration, onNewSlot)
@@ -27,6 +27,8 @@ import           Pos.Txp                    (PendingTx (..), PtxCondition (..),
                                              ToilVerFailure (..), TxAux (..), getMemPool,
                                              processTx, runDBToil, runToilTLocal,
                                              topsortTxs)
+
+import           Pos.Wallet.Web.Assurance   (highAssurance)
 import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.State       (getPendingTxs, setPtxCondition)
 
@@ -88,22 +90,28 @@ processPtxs curSlot ptxs = do
     mapM_ markPersistent ptxs
     canSubmitPtx curSlot $ filter ((PtxApplying ==) . ptxCond) ptxs
    where
-     isPersistent ptx =
-         flattenSlotId (ptxCreationSlot ptx) + getSlotCount undefined
-             < flattenSlotId curSlot
-     markPersistent ptx@PendingTx{..} =
-         when (ptxCond == PtxInUpperBlocks && isPersistent ptx) $ do
+     longAgo (flattenSlotId -> ptxSlotId) =
+         ptxSlotId + getSlotCount highAssurance < flattenSlotId curSlot
+     markPersistent ptx@PendingTx{..}
+         | PtxInUpperBlocks slotId <- ptxCond, longAgo slotId = do
              setPtxCondition ptx PtxPersisted
              logInfo $ sformat ("Transaction "%build%" got persistent") ptxTxId
+         | otherwise = pass
 
 whetherCheckPtxOnSlot :: SlotId -> PendingTx -> Bool
-whetherCheckPtxOnSlot curSlot ptx =
-    -- TODO [CSM-256]: move 3 in constants?
-    flattenSlotId (ptxCreationSlot ptx) + 3 < flattenSlotId curSlot
+whetherCheckPtxOnSlot (flattenSlotId -> curSlot) ptx = do
+    let ptxSlot = flattenSlotId (ptxCreationSlot ptx)
+        checkStartSlot = ptxSlot + initialDelay
+    and [ curSlot > checkStartSlot
+        , ((curSlot - checkStartSlot) `mod` furtherDelay) == 0
+        ]
+  where
+    initialDelay = 3 :: FlatSlotId
+    furtherDelay = 1 :: FlatSlotId
 
 resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
 resubmitTx SendActions{..} PendingTx{..} = do
-    logInfo $ sformat ("Resubmitting "%build) ptxTxId
+    logInfo $ sformat ("Resubmitting tx "%build) ptxTxId
     -- FIXME [CSM-256] Doesn't it introduce a race condition?
     void (submitAndSave enqueueMsg ptxTxAux) `catchAll` handler
   where

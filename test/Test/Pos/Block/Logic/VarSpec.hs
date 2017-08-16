@@ -28,6 +28,7 @@ import           Pos.Block.Types              (Blund)
 import           Pos.Core                     (blkSecurityParam, headerHash)
 import           Pos.DB.Pure                  (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
+                                               BlockRollbackFailure (..),
                                                BlockRollbackResult (..), BlockScenario,
                                                Path, byChance, emitBlockApply,
                                                emitBlockRollback,
@@ -49,7 +50,7 @@ import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (
                                                bpGenBlock, bpGenBlocks,
                                                bpGoToArbitraryState, getAllSecrets,
                                                satisfySlotCheck)
-import           Test.Pos.Util                (splitIntoChunks, stopProperty)
+import           Test.Pos.Util                (splitIntoChunks, stopProperty, brokenDisabled)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
@@ -60,6 +61,9 @@ spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
     describe "applyBlocks" applyBlocksSpec
     describe "Block.Event" $ do
         describe "Successful sequence" $ blockEventSuccessSpec
+        describe "Fork - short" $ singleForkSpec ForkShort
+        brokenDisabled $ describe "Fork - medium" $ singleForkSpec ForkMedium
+        describe "Fork - deep" $ singleForkSpec ForkDeep
 
 ----------------------------------------------------------------------------
 -- verifyBlocksPrefix
@@ -265,18 +269,27 @@ blockPropertyScenarioGen m = do
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ flip evalRandT g $ runBlockEventGenT allSecrets genStakeholders m
 
+prettyScenario :: BlockScenario -> Text
+prettyScenario scenario = pretty (fmap (headerHash . fst) scenario)
+
 blockEventSuccessProp :: BlockProperty ()
 blockEventSuccessProp = do
     scenario <- blockPropertyScenarioGen $ genSuccessWithForks
     let (scenario', checkCount) = enrichWithSnapshotChecking scenario
     when (checkCount <= 0) $ stopProperty $
         "No checks were generated, this is a bug in the test suite: " <>
-        pretty (fmap (headerHash . fst) scenario')
-    verifyBlockScenarioResult =<< lift (runBlockScenario scenario')
+        prettyScenario scenario'
+    runBlockScenarioAndVerify scenario'
+
+runBlockScenarioAndVerify :: BlockScenario -> BlockProperty ()
+runBlockScenarioAndVerify bs =
+    verifyBlockScenarioResult =<< lift (runBlockScenario bs)
 
 verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
 verifyBlockScenarioResult = \case
     BlockScenarioFinishedOk -> return ()
+    BlockScenarioUnexpectedSuccess -> stopProperty $
+        "Block scenario unexpected success"
     BlockScenarioUnexpectedFailure e -> stopProperty $
         "Block scenario unexpected failure: " <>
         pretty e
@@ -286,3 +299,63 @@ verifyBlockScenarioResult = \case
             "Block scenario resulted in a change to the blockchain" <>
             " relative to the " <> show snapId <> " snapshot:\n" <>
             show dbDiff
+
+----------------------------------------------------------------------------
+-- Forks
+----------------------------------------------------------------------------
+
+singleForkSpec :: ForkDepth -> Spec
+singleForkSpec fd = do
+    prop singleForkDesc (singleForkProp fd)
+  where
+    singleForkDesc =
+      "a blockchain of length q=0..(9.5*k) blocks can switch to a fork " <>
+      "of length j>i with a common prefix i, d=q-i"
+
+singleForkProp :: ForkDepth -> BlockProperty ()
+singleForkProp fd = do
+    scenario <- blockPropertyScenarioGen $ genSingleFork fd
+    runBlockScenarioAndVerify scenario
+
+data ForkDepth = ForkShort | ForkMedium | ForkDeep
+
+genSingleFork :: forall g m. (RandomGen g, Monad m) => ForkDepth -> BlockEventGenT g m ()
+genSingleFork fd = do
+    let k = fromIntegral blkSecurityParam
+    d <- getRandomR $ case fd of
+        ForkShort  -> (1, k - 1)
+        ForkMedium -> (max 1 (k-2), k+2)
+        ForkDeep   -> (k+1, div (k*3) 2)
+    -- the depth must be <=k for a successful rollback.
+    let expectSuccess = d <= k
+    -- original blockchain max index q<(9.5*k)
+    q <- getRandomR (d+1, 9 * k + div k 2)
+    let
+        -- max index of the common prefix. i>0 because d<q
+        i = q-d
+    -- fork blockchain max index j>i. the upper bound is arbitrary.
+    -- dj=j-i
+    dj <- getRandomR (1, d*2)
+    -- now we can generate paths
+    --
+    -- B0 - B1 - B2 - B3 - B4 - B5 - B6 - B7
+    --              \
+    --                C3 - C4 - C5 - C6
+    let
+        nonEmptyCuz r [] = error ("Requirement failed: " <> r)
+        nonEmptyCuz _ xs = NE.fromList xs
+        commonPrefix = pathSequence mempty $
+            OldestFirst . nonEmptyCuz "i > 0" $ replicate i "B"
+        originalChain = pathSequence mempty $
+            OldestFirst . nonEmptyCuz "q > 0" $ replicate q "B"
+        rollbackChain = toNewestFirst . pathSequence (stimes i "B") $
+            OldestFirst . nonEmptyCuz "d > 0" $ replicate d "B"
+        forkChain = pathSequence (NE.last $ getOldestFirst commonPrefix) $
+            OldestFirst . nonEmptyCuz "dj > 0" $ replicate dj "C"
+    emitBlockApply BlockApplySuccess originalChain
+    if expectSuccess
+        then do
+            emitBlockRollback BlockRollbackSuccess rollbackChain
+            emitBlockApply BlockApplySuccess forkChain
+        else do
+            emitBlockRollback (BlockRollbackFailure BlkRbSecurityLimitExceeded) rollbackChain

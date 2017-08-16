@@ -629,6 +629,7 @@ test-suite cardano-test
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
+                     , text
                      , text-format
                      , time-units
                      , transformers-base

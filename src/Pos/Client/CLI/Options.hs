@@ -24,29 +24,16 @@ module Pos.Client.CLI.Options
 
 import           Universum
 
-import           Control.Lens                         (zoom, (?=))
-import           Data.Time.Clock.POSIX                (getPOSIXTime)
-import           Data.Time.Units                      (toMicroseconds)
 import qualified Options.Applicative                  as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
-import           System.Wlog                          (LoggerConfig (..),
-                                                       Severity (Info, Warning),
-                                                       fromScratch, lcTree, ltSeverity,
-                                                       parseLoggerConfig, zoomLogger)
-import           Text.Parsec                          (try)
-import qualified Text.Parsec.Char                     as P
-import qualified Text.Parsec.String                   as P
 
 import           Pos.Binary.Core                      ()
 import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
-import           Pos.Core                             (StakeholderId, Timestamp (..))
-import           Pos.Crypto                           (decodeAbstractHash)
-import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
+import           Pos.Core                             (Timestamp (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Util                             (eitherToFail)
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)

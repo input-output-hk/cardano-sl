@@ -9,20 +9,15 @@ module Pos.Client.CLI.Util
        , getNodeSystemStart
        , readLoggerConfig
        , sscAlgoParser
+       , stakeholderIdParser
        ) where
-
-import           Universum
-
 
 import           Universum
 
 import           Control.Lens                         (zoom, (?=))
 import           Data.Time.Clock.POSIX                (getPOSIXTime)
 import           Data.Time.Units                      (toMicroseconds)
-import qualified Options.Applicative                  as Opt
-import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import           Serokell.Util                        (sec)
-import           Serokell.Util.OptParse               (fromParsec)
 import           System.Wlog                          (LoggerConfig (..),
                                                        Severity (Info, Warning),
                                                        fromScratch, lcTree, ltSeverity,
@@ -32,18 +27,14 @@ import qualified Text.Parsec.Char                     as P
 import qualified Text.Parsec.String                   as P
 
 import           Pos.Binary.Core                      ()
-import           Pos.Communication                    (NodeId)
-import           Pos.Constants                        (isDevelopment, staticSysStart)
-import           Pos.Core                             (Address (..), AddressHash,
-                                                       Timestamp (..), decodeTextAddress)
-import           Pos.Crypto                           (PublicKey)
+import           Pos.Constants                        (isDevelopment)
+import           Pos.Core                             (StakeholderId, Timestamp (..))
+
+import           Pos.Crypto                           (decodeAbstractHash)
 import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Util                             (inAssertMode)
-import           Pos.Util                             ()
-import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
-                                                       addrParserNoWildcard,
-                                                       addressToNodeId)
+import           Pos.Util                             (inAssertMode, eitherToFail)
+import           Pos.Util.TimeWarp                    (addrParser)
 
 printFlags :: IO ()
 printFlags = do

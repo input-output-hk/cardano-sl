@@ -112,8 +112,15 @@ instance Buildable AddrAttributes where
 addressDetailedF :: Format r (Address -> r)
 addressDetailedF =
     later $ \Address {..} ->
-        bprint ("Address with root "%hashHexF%", attributes: "%build)
-            addrRoot addrAttributes
+        bprint (builder%" address with root "%hashHexF%", attributes: "%build)
+            (formattedType addrType) addrRoot addrAttributes
+  where
+    formattedType =
+        \case
+            ATPubKey      -> "PubKey"
+            ATScript      -> "Script"
+            ATRedeem      -> "Redeem"
+            ATUnknown tag -> "Unknown#" <> Buildable.build tag
 
 -- | Currently we gonna use Bitcoin alphabet for representing addresses in
 -- base58

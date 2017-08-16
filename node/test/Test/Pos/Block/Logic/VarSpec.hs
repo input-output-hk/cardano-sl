@@ -25,7 +25,7 @@ import           Test.QuickCheck.Random       (QCGen)
 import           Pos.Block.Logic              (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types              (Blund)
 import           Pos.Core                     (HasCoreConstants, blkSecurityParam,
-                                               headerHash)
+                                               epochSlots, headerHash)
 import           Pos.DB.Pure                  (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
                                                BlockRollbackFailure (..),
@@ -62,6 +62,8 @@ spec = giveTestsConsts $ describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) 
     describe "applyBlocks" applyBlocksSpec
     describe "Block.Event" $ do
         describe "Successful sequence" $ blockEventSuccessSpec
+        describe "Apply through epoch" $ applyThroughEpochSpec 0
+        describe "Apply through epoch" $ applyThroughEpochSpec 4
         describe "Fork - short" $ singleForkSpec ForkShort
         describe "Fork - medium" $ singleForkSpec ForkMedium
         describe "Fork - deep" $ singleForkSpec ForkDeep
@@ -301,6 +303,36 @@ verifyBlockScenarioResult = \case
             "Block scenario resulted in a change to the blockchain" <>
             " relative to the " <> show snapId <> " snapshot:\n" <>
             show dbDiff
+
+----------------------------------------------------------------------------
+-- Multi-epoch
+----------------------------------------------------------------------------
+
+-- Input: the amount of blocks after crossing.
+applyThroughEpochSpec :: HasCoreConstants => Int -> Spec
+applyThroughEpochSpec afterCross = do
+    prop applyThroughEpochDesc (applyThroughEpochProp afterCross)
+  where
+    applyThroughEpochDesc =
+      "apply a sequence of blocks that spans through epochs (additional blocks after crossing: " ++
+      show afterCross ++ ")"
+
+applyThroughEpochProp :: HasCoreConstants => Int -> BlockProperty ()
+applyThroughEpochProp afterCross = do
+    scenario <- blockPropertyScenarioGen $ do
+        let
+            approachEpochEdge =
+                pathSequence mempty . OldestFirst . NE.fromList $
+                replicate (fromIntegral epochSlots - 1) "a"
+            crossEpochEdge =
+                pathSequence (NE.last $ getOldestFirst approachEpochEdge) $
+                OldestFirst . NE.fromList $
+                -- 2 blocks to ensure that we cross,
+                -- then some additional blocks
+                replicate (afterCross + 2) "x"
+        emitBlockApply BlockApplySuccess approachEpochEdge
+        emitBlockApply BlockApplySuccess crossEpochEdge
+    runBlockScenarioAndVerify scenario
 
 ----------------------------------------------------------------------------
 -- Forks

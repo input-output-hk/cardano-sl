@@ -31,7 +31,7 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
 import           Universum
 
 import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
-                                         flattenSlotId, slotIdF)
+                                         LocalSlotIndex, flattenSlotId, slotIdF)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
@@ -52,20 +52,24 @@ getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
-getSlotStart si@(SlotId {..}) = do
+getSlotStart (SlotId {..}) = do
     systemStart        <- getSystemStartM
     mEpochSlottingData <- getEpochSlottingDataM siEpoch
     -- Maybe epoch slotting data.
     pure $ do
       epochSlottingData <- mEpochSlottingData
-      pure $ computeSlotStart systemStart si epochSlottingData
+      pure $ computeSlotStart systemStart siSlot epochSlottingData
 
 -- | Pure timestamp calculation for a given slot.
 getSlotStartPure :: Timestamp -> SlotId -> SlottingData -> Maybe Timestamp
-getSlotStartPure systemStart si sd =
-    computeSlotStart systemStart si <$> esd
+getSlotStartPure systemStart slotId slottingData =
+    computeSlotStart systemStart localSlotIndex <$> epochSlottingData
   where
-    esd = lookupEpochSlottingData (siEpoch si) sd
+    epochSlottingData :: Maybe EpochSlottingData
+    epochSlottingData = lookupEpochSlottingData (siEpoch slotId) slottingData
+
+    localSlotIndex :: LocalSlotIndex
+    localSlotIndex = siSlot slotId
 
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.

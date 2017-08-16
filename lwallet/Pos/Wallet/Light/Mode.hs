@@ -114,9 +114,8 @@ instance MonadUpdates LightWalletMode where
 instance MonadSlotsData LightWalletMode where
     getSystemStartM              = error "notImplemented"
     getAllEpochIndicesM          = error "notImplemented"
-    getCurrentEpochIndexM        = error "notImplemented"
+    getCurrentNextEpochIndexM    = error "notImplemented"
     getCurrentEpochSlottingDataM = error "notImplemented"
-    getNextEpochIndexM           = error "notImplemented"
     getNextEpochSlottingDataM    = error "notImplemented"
     getEpochSlottingDataM        = error "notImplemented"
     putEpochSlottingDataM        = error "notImplemented"

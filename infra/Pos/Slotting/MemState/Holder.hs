@@ -8,9 +8,8 @@ module Pos.Slotting.MemState.Holder
        , cloneSlottingVar
        , getSystemStartDefault
        , getAllEpochIndicesDefault
-       , getCurrentEpochIndexDefault
+       , getCurrentNextEpochIndexDefault
        , getCurrentEpochSlottingDataDefault
-       , getNextEpochIndexDefault
        , getNextEpochSlottingDataDefault
        , getEpochSlottingDataDefault
        , putEpochSlottingDataDefault
@@ -51,53 +50,58 @@ class HasSlottingVar ctx where
 type SlotsDefaultEnv ctx m =
     (MonadReader ctx m, HasSlottingVar ctx, MonadIO m)
 
+-- A common function we extracted. It executes a pure function that requires
+-- @SlottingData@ and returns the result in @STM@ monad.
+withSlottingVar
+    :: SlotsDefaultEnv ctx m
+    => (SlottingData -> b)
+    -> m b
+withSlottingVar f = do
+    var <- view slottingVar
+    atomically $ f <$> readTVar var
+
 getSystemStartDefault
     :: SlotsDefaultEnv ctx m
     => m Timestamp
-getSystemStartDefault = view slottingTimestamp
+getSystemStartDefault =
+    view slottingTimestamp
 
 getAllEpochIndicesDefault
     :: SlotsDefaultEnv ctx m
     => m [EpochIndex]
-getAllEpochIndicesDefault = do
-    var <- view slottingVar
-    atomically $ getAllEpochIndices <$> readTVar var
+getAllEpochIndicesDefault =
+    withSlottingVar getAllEpochIndices
 
-getCurrentEpochIndexDefault
+-- | We get the current and the next epoch index atomically since we don't want to
+-- allow a chance that a timing issue messes up the indexes - to return say (13,13).
+getCurrentNextEpochIndexDefault
     :: SlotsDefaultEnv ctx m
-    => m EpochIndex
-getCurrentEpochIndexDefault = do
-    var <- view slottingVar
-    atomically $ getCurrentEpochIndex <$> readTVar var
-
-getNextEpochIndexDefault
-    :: SlotsDefaultEnv ctx m
-    => m EpochIndex
-getNextEpochIndexDefault = do
-    var <- view slottingVar
-    atomically $ getNextEpochIndex <$> readTVar var
+    => m (EpochIndex, EpochIndex)
+getCurrentNextEpochIndexDefault =
+    withSlottingVar getCurrentNextIndex
+  where
+    getCurrentNextIndex :: SlottingData -> (EpochIndex, EpochIndex)
+    getCurrentNextIndex slottingData =
+        (getCurrentEpochIndex slottingData, getNextEpochIndex slottingData)
 
 getCurrentEpochSlottingDataDefault
     :: SlotsDefaultEnv ctx m
     => m EpochSlottingData
-getCurrentEpochSlottingDataDefault = do
-    var <- view slottingVar
-    atomically $ getCurrentEpochSlottingData <$> readTVar var
+getCurrentEpochSlottingDataDefault =
+    withSlottingVar getCurrentEpochSlottingData
 
 getNextEpochSlottingDataDefault
     :: SlotsDefaultEnv ctx m
     => m EpochSlottingData
-getNextEpochSlottingDataDefault = do
-    var <- view slottingVar
-    atomically $ getNextEpochSlottingData <$> readTVar var
+getNextEpochSlottingDataDefault =
+    withSlottingVar getNextEpochSlottingData
 
 getEpochSlottingDataDefault
     :: SlotsDefaultEnv ctx m
     => EpochIndex
     -> m (Maybe EpochSlottingData)
-getEpochSlottingDataDefault ei = do
-    var <- view slottingVar
-    atomically $ lookupEpochSlottingData ei <$> readTVar var
+getEpochSlottingDataDefault ei =
+    withSlottingVar $ lookupEpochSlottingData ei
 
 putEpochSlottingDataDefault
     :: SlotsDefaultEnv ctx m

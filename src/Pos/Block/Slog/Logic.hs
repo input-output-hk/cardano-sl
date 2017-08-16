@@ -314,6 +314,6 @@ slogCommon
 slogCommon newLastSlots = do
     sanityCheckDB
     slogPutLastSlots newLastSlots
-    -- TODO(ks): Again, we can use memory, and not break encapsulation.
+    -- TODO(ks): Maybe we can use reading from memory here.
     slotData <- M.toList . getSlottingDataMap <$> GS.getSlottingData
     forM_ slotData (uncurry putEpochSlottingDataM)

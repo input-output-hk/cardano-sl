@@ -55,13 +55,13 @@ import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
 import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
-                                              SlottingData, currentTimeSlottingSimple)
+                                              SlottingData, currentTimeSlottingSimple,
+                                              getCurrentNextEpochIndexDefault)
 import           Pos.Slotting.MemState       (MonadSlotsData (..),
                                               getAllEpochIndicesDefault,
-                                              getCurrentEpochIndexDefault,
                                               getCurrentEpochSlottingDataDefault,
+                                              getCurrentNextEpochIndexM,
                                               getEpochSlottingDataDefault,
-                                              getNextEpochIndexDefault,
                                               getNextEpochSlottingDataDefault,
                                               getSystemStartDefault,
                                               putEpochSlottingDataDefault,
@@ -74,7 +74,7 @@ import           Pos.Txp                     (GenericTxpLocalData, TxIn (..), Tx
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData, txpGlobalSettings)
 import           Pos.Txp.Toil.Types          (GenesisStakeholders (..), GenesisUtxo (..),
-                                              mkGenesisTxpContext, gtcStakeholders)
+                                              gtcStakeholders, mkGenesisTxpContext)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -244,9 +244,8 @@ instance MonadBlockGenBase m =>
 instance MonadBlockGenBase m => MonadSlotsData (InitBlockGenMode m) where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
     getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochIndexM = getNextEpochIndexDefault
     getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault
@@ -346,9 +345,8 @@ instance MonadBlockGenBase m =>
 instance MonadBlockGenBase m => MonadSlotsData (BlockGenMode m) where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
     getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochIndexM = getNextEpochIndexDefault
     getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault

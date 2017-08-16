@@ -13,7 +13,7 @@ import           Pos.Core.Types      (SlotId, slotIdF)
 import           Pos.Exception       (cardanoExceptionFromException,
                                       cardanoExceptionToException)
 
-
+-- | Type aggregating run-time errors related to Slotting.
 data SlottingError
     = SEUnknownSlotStart !SlotId
     | SEUnknownSlot

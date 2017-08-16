@@ -179,11 +179,9 @@ ntpGetCurrentSlotInaccurate
 ntpGetCurrentSlotInaccurate var = do
     res <- ntpGetCurrentSlotImpl var
     case res of
-        CurrentSlot slot -> pure slot
-        CantTrust _        -> do
-            _nssLastSlot <$> atomically (STM.readTVar var)
-        OutdatedSlottingData _ ->
-            ntpCurrentTime var >>= approxSlotUsingOutdated
+        CurrentSlot slot        -> pure slot
+        CantTrust _             -> _nssLastSlot <$> atomically (STM.readTVar var)
+        OutdatedSlottingData _  -> ntpCurrentTime var >>= approxSlotUsingOutdated
 
 ntpGetCurrentSlotImpl
     :: (NtpMode m)
@@ -194,7 +192,7 @@ ntpGetCurrentSlotImpl var = do
     t <- Timestamp . (+ _nssLastMargin) <$> currentTime
     case canWeTrustLocalTime _nssLastLocalTime t of
       Nothing -> do
-          currentEpochIndex <- getCurrentEpochIndexM
+          (currentEpochIndex, _) <- getCurrentNextEpochIndexM
           res <- fmap (max _nssLastSlot) <$> slotFromTimestamp t
           let setLastSlot s = atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
           whenJust res setLastSlot
@@ -216,7 +214,7 @@ ntpGetCurrentSlotImpl var = do
            | otherwise -> Nothing
 
 ntpGetCurrentSlotBlocking
-    :: (NtpMode m, MonadThrow m)
+    :: (NtpMode m)
     => NtpSlottingVar -> m SlotId
 ntpGetCurrentSlotBlocking var = ntpGetCurrentSlotImpl var >>= \case
     CantTrust _ -> do

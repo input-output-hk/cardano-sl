@@ -62,7 +62,7 @@ getCurrentSlotBlockingSimple
     => SimpleSlottingVar
     -> m SlotId
 getCurrentSlotBlockingSimple var = do
-    currentEpochIndex <- getCurrentEpochIndexM
+    (currentEpochIndex, _) <- getCurrentNextEpochIndexM
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing -> do
@@ -73,8 +73,7 @@ getCurrentSlotInaccurateSimple
     :: (SimpleSlottingMode m)
     => SimpleSlottingVar
     -> m SlotId
-getCurrentSlotInaccurateSimple var = do
-
+getCurrentSlotInaccurateSimple var =
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing   -> do

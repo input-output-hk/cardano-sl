@@ -596,6 +596,7 @@ test-suite cardano-test
                        Test.Pos.Explorer.Identity.BinarySpec
                        Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
+                       Test.Pos.Slotting.TypesSpec
                        Test.Pos.Ssc.GodTossing.ComputeSharesSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec

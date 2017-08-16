@@ -22,8 +22,8 @@ import           Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, convertUnit)
 
 import           Pos.Core        (EpochIndex, EpochIndex (..), LocalSlotIndex (..),
-                                  SlotId (..), TimeDiff (..), Timestamp (..),
-                                  addTimeDiffToTimestamp, getSlotIndex)
+                                  TimeDiff (..), Timestamp (..), addTimeDiffToTimestamp,
+                                  getSlotIndex)
 import           Pos.Util.Util   ()
 
 
@@ -55,10 +55,21 @@ instance NFData SlottingData
 -- | Unsafe constructor that can lead to unsafe crash!
 createSlottingDataUnsafe :: Map EpochIndex EpochSlottingData -> SlottingData
 createSlottingDataUnsafe epochSlottingDataMap =
-    if M.size epochSlottingDataMap < 2
+    if validSlottingDataMap
         then criticalError
         else SlottingData epochSlottingDataMap
   where
+    validSlottingDataMap = M.size epochSlottingDataMap < 2 && validEpochIndices
+      where
+        -- We validate if the epoch indices are sequential, it's invalid if they
+        -- start going [..,6,7,9,...].
+        validEpochIndices = correctEpochIndices == currentEpochIndices
+          where
+            currentEpochIndices = keys $ epochSlottingDataMap
+            correctEpochIndices = EpochIndex . fromIntegral <$> [0..zIMapLenght]
+              where
+                zIMapLenght = pred . length . keys $ epochSlottingDataMap
+
     criticalError = error "It's impossible to create slotting data without two epochs."
 
 -- | Restricted constructor function for the (initial) creation of @SlottingData@.
@@ -121,40 +132,29 @@ addEpochSlottingData epochIndex epochSlottingData slottingData =
 
 -- | Compute when the slot started. We give it @SlotId@, the @SlotId@
 -- @EpochSlottingData@ and find when did that @SlotId@ occur.
-computeSlotStart :: Timestamp -> SlotId -> EpochSlottingData -> Timestamp
-computeSlotStart systemStart slotId esd =
-      slotTimestamp systemStart siLocalSlotIndex esd
-    where
-      siLocalSlotIndex :: LocalSlotIndex
-      siLocalSlotIndex = siSlot slotId
+computeSlotStart :: Timestamp -> LocalSlotIndex -> EpochSlottingData -> Timestamp
+computeSlotStart systemStart slotIndex epochSlottingData =
+    epochStartTime + currentSlotTimestamp
+  where
+    -- We get the epoch start time by adding the epoch slotting data start diff
+    -- which is:
+    --   currentEpochStart - systemStart + systemStart = currentEpochStart
+    --
+    -- Seems kind of dubious.
+    epochStartTime :: Timestamp
+    epochStartTime = addTimeDiffToTimestamp epochStartTimeDiff systemStart
+      where
+        epochStartTimeDiff :: TimeDiff
+        epochStartTimeDiff = esdStartDiff epochSlottingData
 
-      slotTimestamp
-          :: Timestamp
-          -> LocalSlotIndex
-          -> EpochSlottingData
-          -> Timestamp
-      slotTimestamp systemStart' localSlotIndex' epochSlottingData =
-          epochStartTime + currentSlotTimestamp
-        where
-          intSlotIndex :: Word16
-          intSlotIndex = getSlotIndex localSlotIndex'
+    currentSlotTimestamp :: Timestamp
+    currentSlotTimestamp =
+        Timestamp (fromIntegral intSlotIndex * convertUnit epochSlotDuration)
+      where
+        epochSlotDuration :: Millisecond
+        epochSlotDuration = esdSlotDuration epochSlottingData
 
-          -- We get the epoch start time by adding the epoch slotting data start diff
-          -- which is:
-          --   currentEpochStart - systemStart + systemStart = currentEpochStart
-          --
-          -- Seems kind of dubious.
-          epochStartTime :: Timestamp
-          epochStartTime = addTimeDiffToTimestamp epochStartTimeDiff systemStart'
-            where
-              epochStartTimeDiff :: TimeDiff
-              epochStartTimeDiff = esdStartDiff epochSlottingData
-
-          currentSlotTimestamp :: Timestamp
-          currentSlotTimestamp =
-              Timestamp (fromIntegral intSlotIndex * convertUnit epochSlotDuration)
-            where
-              epochSlotDuration :: Millisecond
-              epochSlotDuration = esdSlotDuration epochSlottingData
+        intSlotIndex :: Word16
+        intSlotIndex = getSlotIndex slotIndex
 
 

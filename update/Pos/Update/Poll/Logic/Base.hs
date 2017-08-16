@@ -51,7 +51,7 @@ import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, H
 import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), addEpochSlottingData,
-                                          getNextEpochIndex, getNextEpochSlottingData)
+                                          getCurrentEpochSlottingData, getNextEpochIndex)
 import           Pos.Update.Core         (BlockVersionData (..),
                                           BlockVersionModifier (..), UpId,
                                           UpdateProposal (..), UpdateVote (..),
@@ -207,29 +207,33 @@ adoptBlockVersion winningBlk bv = do
     logFmt = "BlockVersion is adopted: "%build%"; winning block was "%shortHashF
 
 -- | Update slotting data stored in poll. First argument is epoch for
--- which currently adopted 'BlockVersion' can be applied.
+-- which currently adopted 'BlockVersion' can be applied. Here we update the
+-- @SlottingData@ from the update. We can recieve updated epoch @SlottingData@
+-- and from it, changed epoch/slot times, which is important to keep track of.
 updateSlottingData
     :: (MonadError PollVerFailure m, MonadPoll m)
     => EpochIndex
     -> m ()
 updateSlottingData epochIndex = do
     let errFmt =
-            ("can't update slotting data, stored penult epoch is "%int%
+            ("can't update slotting data, stored current epoch is "%int%
              ", while given epoch is "%int%
              ")")
 
-    slottingData      <- getSlottingData
-    let nextEpochIndex = getNextEpochIndex slottingData
-    let nextEpochSD    = getNextEpochSlottingData slottingData
+    slottingData         <- getSlottingData
+
+    --let currentEpochIndex = getCurrentEpochIndex slottingData
+    let nextEpochIndex    = getNextEpochIndex slottingData
+    let currentEpochSD    = getCurrentEpochSlottingData slottingData
 
     if | nextEpochIndex + 1 == epochIndex ->
-          updateSlottingDataDo epochIndex slottingData nextEpochSD
+          updateSlottingDataDo epochIndex slottingData currentEpochSD
        -- This can happen if there was rollback of genesis block.
        | nextEpochIndex == epochIndex -> pass
        | otherwise ->
            throwError $ PollInternalError $ sformat errFmt nextEpochIndex epochIndex
   where
-    updateSlottingDataDo nextEpochIndex slottingData esd = do
+    updateSlottingDataDo currentEpochIndex slottingData esd = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
 
         let epochDuration = fromIntegral epochSlots * convertUnit (esdSlotDuration esd)
@@ -239,7 +243,7 @@ updateSlottingData epochIndex = do
             , esdStartDiff    = newLastStartDiff
             }
 
-        let newSlottingData = addEpochSlottingData nextEpochIndex newLast slottingData
+        let newSlottingData = addEpochSlottingData currentEpochIndex newLast slottingData
 
         setSlottingData newSlottingData
 

@@ -74,10 +74,9 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
                                                  currentTimeSlottingSimple)
 import           Pos.Slotting.MemState          (MonadSlotsData (..),
                                                  getAllEpochIndicesDefault,
-                                                 getCurrentEpochIndexDefault,
+                                                 getCurrentNextEpochIndexDefault,
                                                  getCurrentEpochSlottingDataDefault,
                                                  getEpochSlottingDataDefault,
-                                                 getNextEpochIndexDefault,
                                                  getNextEpochSlottingDataDefault,
                                                  getSystemStartDefault,
                                                  putEpochSlottingDataDefault,
@@ -352,9 +351,8 @@ instance
 instance MonadSlotsData (TestInitMode ssc) where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
     getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochIndexM = getNextEpochIndexDefault
     getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault
@@ -440,9 +438,8 @@ instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
 instance MonadSlotsData BlockTestMode where
     getSystemStartM = getSystemStartDefault
     getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentEpochIndexM = getCurrentEpochIndexDefault
+    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
     getCurrentEpochSlottingDataM = getCurrentEpochSlottingDataDefault
-    getNextEpochIndexM = getNextEpochIndexDefault
     getNextEpochSlottingDataM = getNextEpochSlottingDataDefault
     getEpochSlottingDataM = getEpochSlottingDataDefault
     putEpochSlottingDataM = putEpochSlottingDataDefault

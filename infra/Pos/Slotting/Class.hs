@@ -43,5 +43,5 @@ instance {-# OVERLAPPABLE #-}
     getCurrentSlotBlocking = lift getCurrentSlotBlocking
 
     currentTimeSlotting = lift currentTimeSlotting
-    
+
     getCurrentSlotInaccurate = lift getCurrentSlotInaccurate

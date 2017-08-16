@@ -22,7 +22,7 @@ enqueue:
     send:
       - all:
           nodeType: 'relay'
-          maxAhead: 1
+          maxAhead: 6
           precedence: 'low'
     forward: []
 

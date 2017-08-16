@@ -7,7 +7,7 @@ enqueue:
         precedence: 'highest'
     - all:
         nodeType: 'relay'
-        maxAhead: 1
+        maxAhead: 0
         precedence: 'high'
 
   requestBlockHeaders:

@@ -3,8 +3,8 @@ enqueue:
   announceBlockHeader:
     - all:
         nodeType: 'relay'
-        maxAhead: 3
-        precedence: 'low'
+        maxAhead: 0
+        precedence: 'highest'
 
   requestBlockHeaders:
     - all:

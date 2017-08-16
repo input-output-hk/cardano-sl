@@ -77,7 +77,7 @@ data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
       --
       -- The handler will also be called on registration
       -- (with the current value).
-      staticPeersOnChange :: ((Map NodeId NodeType, [(NodeType, Alts NodeId)]) -> m ()) -> IO ()
+      staticPeersOnChange :: (Peers NodeId -> m ()) -> IO ()
     }
 
 instance Show StaticPeers where
@@ -309,13 +309,13 @@ initQueue NetworkConfig{..} mStore = do
         -- Kademlia worker is responsible for adding peers
         return ()
       TopologyCore StaticPeers{..} _ -> liftIO $
-        staticPeersOnChange $ \(directory, peers) -> do
+        staticPeersOnChange $ \peers -> do
           OQ.clearRecentFailures oq
-          void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peersFromList directory peers)
+          void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
       TopologyRelay StaticPeers{..} _ -> liftIO $
-        staticPeersOnChange $ \(directory, peers) -> do
+        staticPeersOnChange $ \peers -> do
           OQ.clearRecentFailures oq
-          void $ OQ.updatePeersBucket   oq BucketStatic (\_ -> peersFromList directory peers)
+          void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
 
     return oq
 

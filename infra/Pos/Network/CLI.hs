@@ -28,7 +28,7 @@ import qualified Data.Yaml                       as Yaml
 import           Formatting                      (sformat, shown, (%))
 import           Mockable                        (Mockable, Catch, fork, try)
 import           Mockable.Concurrent
-import           Network.Broadcast.OutboundQueue (Alts)
+import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS                     as DNS
 import qualified Options.Applicative             as Opt
 import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
@@ -118,7 +118,7 @@ defaultDnsDomains = DnsDomains [
 -------------------------------------------------------------------------------}
 
 data MonitorEvent m =
-    MonitorRegister ((Map NodeId T.NodeType, [(T.NodeType, Alts NodeId)]) -> m ())
+    MonitorRegister (Peers NodeId -> m ())
   | MonitorSIGHUP
 
 -- | Monitor for changes to the static config
@@ -131,33 +131,30 @@ monitorStaticConfig :: forall m. (
                     => NetworkConfigOpts
                     -> T.NodeType                  -- ^ Our node type
                     -> Y.RunKademlia               -- ^ Are we currently running kademlia?
-                    -> Map NodeId T.NodeType       -- ^ Initial directory
-                    -> [(T.NodeType, Alts NodeId)] -- ^ Initial routes
+                    -> Peers NodeId                -- ^ Initial peers
                     -> m T.StaticPeers
 monitorStaticConfig cfg@NetworkConfigOpts{..}
                     ourNodeType
                     runningKademlia
-                    initDirectory
-                    initRoutes
+                    initPeers
                   = do
     events :: Chan (MonitorEvent m) <- liftIO $ newChan
 
-    let loop :: Map NodeId T.NodeType
-             -> [(T.NodeType, Alts NodeId)]
-             -> [(Map NodeId T.NodeType, [(T.NodeType, Alts NodeId)]) -> m ()]
+    let loop :: Peers NodeId
+             -> [Peers NodeId -> m ()]
              -> m ()
-        loop directory routes handlers = do
+        loop peers handlers = do
           event <- liftIO $ readChan events
           case event of
             MonitorRegister handler -> do
-              runHandler (directory, routes) handler -- Call new handler with current value
-              loop directory routes (handler:handlers)
+              runHandler peers handler -- Call new handler with current value
+              loop peers (handler:handlers)
             MonitorSIGHUP -> do
               let fp = fromJust networkConfigOptsTopology
               mParsedTopology <- try $ liftIO $ readTopology fp
               case mParsedTopology of
                 Right (Y.TopologyStatic allPeers) -> do
-                  (nodeType, runKademlia, newDirectory, newRoutes) <-
+                  (nodeType, runKademlia, newPeers) <-
                     liftIO $ fromPovOf cfg allPeers
 
                   unless (nodeType == ourNodeType) $
@@ -165,21 +162,21 @@ monitorStaticConfig cfg@NetworkConfigOpts{..}
                   unless (runKademlia == runningKademlia) $
                     logError $ changedKademlia fp
 
-                  mapM_ (runHandler (newDirectory, newRoutes)) handlers
+                  mapM_ (runHandler newPeers) handlers
                   logNotice $ sformat "SIGHUP: Re-read topology"
-                  loop newDirectory newRoutes handlers
+                  loop newPeers handlers
                 Right _otherTopology -> do
                   logError $ changedFormat fp
-                  loop directory routes handlers
+                  loop peers handlers
                 Left ex -> do
                   logError $ readFailed fp ex
-                  loop directory routes handlers
+                  loop peers handlers
 
 #ifdef POSIX
     liftIO $ installHandler SigHUP $ writeChan events MonitorSIGHUP
 #endif
 
-    _tid <- fork $ loop initDirectory initRoutes []
+    _tid <- fork $ loop initPeers []
     return T.StaticPeers {
         T.staticPeersOnChange = writeChan events . MonitorRegister
       }
@@ -221,8 +218,8 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                         Just fp -> liftIO $ readTopology fp
     ourTopology <- case parsedTopology of
       Y.TopologyStatic{..} -> do
-        (nodeType, runKademlia, initDirectory, initRoutes) <- liftIO $ fromPovOf cfg topologyAllPeers
-        topologyStaticPeers <- monitorStaticConfig cfg nodeType runKademlia initDirectory initRoutes
+        (nodeType, runKademlia, initPeers) <- liftIO $ fromPovOf cfg topologyAllPeers
+        topologyStaticPeers <- monitorStaticConfig cfg nodeType runKademlia initPeers
         topologyOptKademlia <- if runKademlia
                                  then liftIO $ Just <$> getKademliaParams cfg
                                  else return Nothing
@@ -260,8 +257,7 @@ fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
           -> IO ( T.NodeType
                 , Y.RunKademlia
-                , Map NodeId T.NodeType -- Directory of all known peers.
-                , [(T.NodeType, Alts NodeId)] -- Routes to use.
+                , Peers NodeId
                 )
 fromPovOf cfg@NetworkConfigOpts{..} allPeers =
     case networkConfigOptsSelf of
@@ -274,8 +270,7 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers =
         return (
             Y.nmType      selfMetadata
           , Y.nmKademlia  selfMetadata
-          , directory
-          , routes
+          , peersFromList directory routes
           )
   where
 

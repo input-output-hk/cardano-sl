@@ -41,6 +41,8 @@ import           Universum
 
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- | Description of the network topology in a Yaml file
 --
 -- This differs from 'Pos.Network.Types.Topology' because for static nodes this

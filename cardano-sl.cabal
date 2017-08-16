@@ -123,10 +123,13 @@ library
                         Pos.Wallet.KeyStorage
                         Pos.Wallet.SscType
                         Pos.Wallet.WalletMode
+                        Pos.Wallet.Web.Assurance
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Error.Types
                         Pos.Wallet.Web.Error.Util
+                        Pos.Wallet.Web.Pending.Types
+                        Pos.Wallet.Web.Pending.Util
                         Pos.Wallet.Web.Secret
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic

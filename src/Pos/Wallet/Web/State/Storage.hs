@@ -60,25 +60,25 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens               (at, ix, makeClassy, makeLenses, non', (%=),
-                                             (+=), (.=), (<<.=), (?=), _Empty, _head)
-import           Control.Monad.State.Class  (put)
-import           Data.Default               (Default, def)
-import qualified Data.HashMap.Strict        as HM
-import           Data.SafeCopy              (base, deriveSafeCopySimple)
-import           Data.Time.Clock.POSIX      (POSIXTime)
+import           Control.Lens                 (at, ix, makeClassy, makeLenses, non', (%=),
+                                               (+=), (.=), (<<.=), (?=), _Empty, _head)
+import           Control.Monad.State.Class    (put)
+import           Data.Default                 (Default, def)
+import qualified Data.HashMap.Strict          as HM
+import           Data.SafeCopy                (base, deriveSafeCopySimple)
+import           Data.Time.Clock.POSIX        (POSIXTime)
 
-import           Pos.Client.Txp.History     (TxHistoryEntry)
-import           Pos.Core.Types             (Timestamp)
-import           Pos.Txp                    (TxAux, TxId, Utxo)
-import           Pos.Txp.Pending            (PendingTx (..), PtxCondition)
-import           Pos.Types                  (HeaderHash)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash,
-                                             CId, CProfile, CTxId, CTxMeta, CUpdateInfo,
-                                             CWAddressMeta (..), CWalletAssurance,
-                                             CWalletMeta, PassPhraseLU, Wal,
-                                             addrMetaToAccount)
+import           Pos.Client.Txp.History       (TxHistoryEntry)
+import           Pos.Core.Types               (Timestamp)
+import           Pos.Txp                      (TxAux, TxId, Utxo)
+import           Pos.Types                    (HeaderHash)
+import           Pos.Util.BackupPhrase        (BackupPhrase)
+import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CCoin,
+                                               CHash, CId, CProfile, CTxId, CTxMeta,
+                                               CUpdateInfo, CWAddressMeta (..),
+                                               CWalletAssurance, CWalletMeta,
+                                               PassPhraseLU, Wal, addrMetaToAccount)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 
 type AddressSortingKey = Int
 

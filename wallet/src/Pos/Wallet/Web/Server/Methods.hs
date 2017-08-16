@@ -83,10 +83,8 @@ import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Slotting                     (getCurrentSlotInaccurate)
-import           Pos.Txp                          (PendingTx (..),
-                                                   PtxCondition (PtxApplying), TxFee (..),
-                                                   Utxo)
-import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxOut (..))
+import           Pos.Txp                          (TxFee (..), Utxo)
+import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxOut (..))
 import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
@@ -108,6 +106,8 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    getSKByAccAddr, getSKById,
                                                    myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
+import           Pos.Wallet.Web.Assurance         (AssuranceLevel (HighAssurance),
+                                                   assuredBlockDepth)
 import           Pos.Wallet.Web.Backup            (AccountMetaBackup (..),
                                                    StateBackup (..), WalletBackup (..),
                                                    WalletMetaBackup (..), getStateBackup)
@@ -129,7 +129,9 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    toCUpdateInfo, txIdToCTxId)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Mode
-import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
+import           Pos.Wallet.Web.Pending           (PendingTx (..),
+                                                   PtxCondition (PtxApplying),
+                                                   startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
                                                    wusWalletName)
@@ -563,6 +565,19 @@ instance MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
         newAddress RandomSeed passphrase accId >>=
         decodeCIdOrFail . cadId
 
+rememberPendingTx :: WalletWebMode m => CId Wal -> TxId -> TxAux -> m ()
+rememberPendingTx wid ptxTxId ptxTxAux = do
+    ptxCreationSlot <- getCurrentSlotInaccurate
+    CWalletMeta{..} <- maybeThrow noWallet =<< getWalletMeta wid
+    addOnlyNewPendingTx PendingTx
+        { ptxCond = PtxApplying
+        , ptxAssuredDepth = assuredBlockDepth cwAssurance HighAssurance
+        , ..
+        }
+  where
+    noWallet =
+        RequestError $ sformat ("Failed to get meta of wallet "%build) wid
+
 sendMoney
     :: WalletWebMode m
     => SendActions m
@@ -597,9 +612,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
             (toList srcAddrs)
             dstAddrs
 
-        curSlot <- getCurrentSlotInaccurate
-        addOnlyNewPendingTx $ PendingTx txHash txAux curSlot PtxApplying
-
+        rememberPendingTx srcWallet txHash txAux
         ts <- Just <$> getCurrentTimestamp
         ctxs <- addHistoryTx srcWallet $
             THEntry txHash tx inpTxOuts Nothing inpAddrs dstAddrs ts
@@ -930,8 +943,8 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
         submitRedemptionTx enqueueMsg redeemSK dstAddr
     let txInputs = [TxOut redeemAddress redeemBalance]
     let txHash = hash taTx
-    curSlot <- getCurrentSlotInaccurate
-    addOnlyNewPendingTx $ PendingTx txHash txAux curSlot PtxApplying
+    let dstWallet = aiWId accId
+    rememberPendingTx dstWallet txHash txAux
     -- add redemption transaction to the history of wallet
     ts <- Just <$> getCurrentTimestamp
     ctxs <- addHistoryTx (aiWId accId) $

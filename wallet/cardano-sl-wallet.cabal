@@ -28,11 +28,11 @@ library
                       Pos.Wallet.Web
                       Pos.Wallet.Web.Account
                       Pos.Wallet.Web.Api
-                      Pos.Wallet.Web.Assurance
                       Pos.Wallet.Web.Backup
                       Pos.Wallet.Web.BListener
                       Pos.Wallet.Web.Mode
                       Pos.Wallet.Web.Pending
+                      Pos.Wallet.Web.Pending.Worker
                       Pos.Wallet.Web.Server
                       Pos.Wallet.Web.Server.Methods
                       Pos.Wallet.Web.Server.Full

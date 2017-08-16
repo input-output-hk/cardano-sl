@@ -1,12 +1,12 @@
 -- | Pending transactions processing.
 
-module Pos.Txp.Pending.Util
+module Pos.Wallet.Web.Pending.Util
     ( isPtxInBlocks
     ) where
 
 import           Universum
 
-import           Pos.Txp.Pending.Types (PtxCondition (..))
+import           Pos.Wallet.Web.Pending.Types (PtxCondition (..))
 
 
 isPtxInBlocks :: PtxCondition -> Bool

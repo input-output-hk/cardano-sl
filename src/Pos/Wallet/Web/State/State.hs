@@ -75,12 +75,12 @@ import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Txp                      (Utxo)
-import           Pos.Txp.Pending              (PendingTx (..), PtxCondition)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
                                                CWAddressMeta, CWalletMeta, PassPhraseLU,
                                                Wal)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A

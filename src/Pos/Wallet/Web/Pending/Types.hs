@@ -1,16 +1,16 @@
 -- | Types related to pending transactions.
 
-module Pos.Txp.Pending.Types
+module Pos.Wallet.Web.Pending.Types
     ( PendingTx (..)
     , PtxCondition (..)
     ) where
 
 import           Universum
 
-import           Pos.Core.Types     (SlotId)
+import           Pos.Core.Types     (SlotCount, SlotId)
 import           Pos.Txp.Core.Types (TxAux, TxId)
 
--- | Persistance assessment for given pending transaction.
+-- | Current state of pending transaction.
 data PtxCondition
     = PtxApplying              -- ^ Is waiting to be applyed
     | PtxInUpperBlocks SlotId  -- ^ Recently appeared in block of given slot
@@ -27,5 +27,5 @@ data PendingTx = PendingTx
     , ptxCreationSlot :: SlotId  -- when tx was formed, for scheduling purposes.
                                  -- this in NOT when tx appears into blockchain
     , ptxCond         :: PtxCondition
+    , ptxAssuredDepth :: SlotCount
     } deriving (Eq)
-

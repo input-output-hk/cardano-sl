@@ -17,6 +17,8 @@ module Pos.Block.Slog.Logic
        , MonadSlogApply
        , slogApplyBlocks
        , slogRollbackBlocks
+
+       , BypassSecurityCheck(..)
        ) where
 
 import           Universum
@@ -242,13 +244,16 @@ slogApplyBlocks blunds = do
     blockExtraBatch lastSlots =
         mconcat [knownSlotsBatch lastSlots, forwardLinksBatch, inMainBatch]
 
+newtype BypassSecurityCheck = BypassSecurityCheck Bool
+
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
 slogRollbackBlocks ::
        forall ssc ctx m. MonadSlogApply ssc ctx m
-    => NewestFirst NE (Blund ssc)
+    => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
+    -> NewestFirst NE (Blund ssc)
     -> m SomeBatchOp
-slogRollbackBlocks blunds = do
+slogRollbackBlocks (BypassSecurityCheck bypassSecurity) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
@@ -258,8 +263,8 @@ slogRollbackBlocks blunds = do
     resultingDifficulty <-
         maybe 0 (view difficultyL) <$>
         blkGetHeader @ssc (NE.head (getOldestFirst . toOldestFirst $ blunds) ^. prevBlockL)
-    when (maxSeenDifficulty >
-          fromIntegral blkSecurityParam + resultingDifficulty) $
+    let secure = maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
+    unless (secure || bypassSecurity) $
         reportFatalError "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."

@@ -50,7 +50,7 @@ import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (
                                                bpGenBlock, bpGenBlocks,
                                                bpGoToArbitraryState, getAllSecrets,
                                                satisfySlotCheck)
-import           Test.Pos.Util                (splitIntoChunks, stopProperty, brokenDisabled)
+import           Test.Pos.Util                (splitIntoChunks, stopProperty)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
@@ -62,7 +62,7 @@ spec = describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
     describe "Block.Event" $ do
         describe "Successful sequence" $ blockEventSuccessSpec
         describe "Fork - short" $ singleForkSpec ForkShort
-        brokenDisabled $ describe "Fork - medium" $ singleForkSpec ForkMedium
+        describe "Fork - medium" $ singleForkSpec ForkMedium
         describe "Fork - deep" $ singleForkSpec ForkDeep
 
 ----------------------------------------------------------------------------

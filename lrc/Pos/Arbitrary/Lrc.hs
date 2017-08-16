@@ -12,12 +12,13 @@ import           Universum
 
 import qualified Data.HashMap.Strict               as HM
 import           Data.Reflection                   (Reifies (..))
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 
 import           Pos.Arbitrary.Core                ()
-import           Pos.Core                          (Coin, CoinPortion, StakeholderId,
-                                                    mkCoin, unsafeGetCoin)
+import           Pos.Core                          (Coin, CoinPortion, mkCoin,
+                                                    unsafeAddCoin, unsafeGetCoin,
+                                                    unsafeSubCoin)
 import           Pos.Core.Coin                     (coinPortionToDouble)
 import           Pos.Core.Constants                (genesisMpcThd)
 import           Pos.Lrc.Types                     (RichmenStakes)
@@ -53,30 +54,23 @@ instance (Reifies thd CoinPortion) => Arbitrary (InvalidRichmenStakes thd) where
 genRichmenStakes
     :: CoinPortion -> Gen RichmenStakes
 genRichmenStakes thd = do
-    -- Total number of coins in the 'RichmenStakes' hashmap that will be
-    -- returned. May not be exactly accurate because of a possible early
-    -- return in 'fun' (see comment).
-    totalCoins <- mkCoin <$> choose (1, unsafeGetCoin maxBound)
-    let -- Minimum percentage of stake required to be a richmen.
-        threshold = coinPortionToDouble thd
-        -- Given the total number of coins in a 'RichmenStakes' hashmap,
-        -- 'threshold' dictates that there is a minimum percentage of stake
-        -- each holder must have so that 'computeSharesDistr' can be
-        -- successful. 'minStake' is that minimum value, but expressed as a
-        -- 'Word64'.
-        minStake :: Word64
+    let threshold = coinPortionToDouble thd
+    let maxN = floor (1 / threshold)
+    n <- choose (1, maxN)
+    let totalCoins = maxBound @Coin
+    let minStake :: Word64
         minStake = ceiling $ threshold * (fromIntegral $ unsafeGetCoin totalCoins)
-        -- Stops when presently available stake is below mpc threshold, in
-        -- which case it is discarded and the stakeholder list is returned as
-        -- is.
-        fun :: Word64 -> [(StakeholderId, Coin)] -> Gen RichmenStakes
-        fun coinAccum participants
-            | coinAccum < minStake = return $ HM.fromList participants
-            | otherwise = do
-                richman <- arbitrary
-                word <- choose (minStake, coinAccum)
-                fun (coinAccum - word) ((richman, mkCoin word) : participants)
-    fun (unsafeGetCoin totalCoins) []
+    let restCoins = unsafeGetCoin $ totalCoins `unsafeSubCoin` (mkCoin $ minStake * fromIntegral n)
+    delimiters <- replicateM (n - 1) (choose (0, restCoins))
+    let coins = map (unsafeAddCoin $ mkCoin minStake) $ generateCoins restCoins 0 $ sort delimiters
+    when (length coins /= n) $
+        error "Illegal length of coins"
+    stakeholders <- vector n
+    pure $ HM.fromList $ zip stakeholders coins
+  where
+    generateCoins :: Word64 -> Word64 -> [Word64] -> [Coin]
+    generateCoins restCoins prev [] = [mkCoin $ restCoins - prev]
+    generateCoins restCoins prev (x:xs) = mkCoin (x - prev) : generateCoins restCoins x xs
 
 -- | Utilities moved here to be imported from 'Spec' files needing valid
 -- richmen set generation

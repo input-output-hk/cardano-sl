@@ -26,6 +26,7 @@ import           Serokell.Util       (listJson, pairF)
 
 import           Pos.Core            (BlockCount, StakeholderId, addressHash)
 import           Pos.Crypto          (SecretKey, toPublic)
+import           Pos.Genesis         (GenesisWStakeholders)
 
 -- | This map stores effectively provides inverse of 'hash' and
 -- 'toPublic' functions. It's quite useful in tests and block
@@ -41,6 +42,7 @@ mkInvSecretsMap :: [SecretKey] -> InvSecretsMap
 mkInvSecretsMap =
     let toSecretPair sk = (addressHash (toPublic sk), sk)
     in InvSecretsMap . HM.fromList . map toSecretPair
+
 
 -- | All secrets in the system.
 --
@@ -92,18 +94,21 @@ instance Default TxGenParams where
 
 -- | Parameters for blockchain generation. Probably they come from the outside.
 data BlockGenParams = BlockGenParams
-    { _bgpSecrets     :: !AllSecrets
+    { _bgpSecrets         :: !AllSecrets
     -- ^ Secret keys of all stakeholders from genesis 'Utxo'.  They
     -- are stored in map (with 'StakeholderId' as key) to make it easy
     -- to find 'SecretKey' corresponding to given 'StakeholderId'.  In
     -- testing environment we often want to have inverse of 'hash' and
     -- 'toPublic'.
-    , _bgpBlockCount  :: !BlockCount
+    , _bgpBlockCount      :: !BlockCount
     -- ^ Number of blocks to generate.
-    , _bgpTxGenParams :: !TxGenParams
+    , _bgpTxGenParams     :: !TxGenParams
     -- ^ Transaction generation parameters.
-    , _bgpInplaceDB   :: !Bool
+    , _bgpInplaceDB       :: !Bool
     -- ^ Whether to extend existing DB.
+    , _bgpGenStakeholders :: !GenesisWStakeholders
+    -- ^ Set of genesis stakeholders. This is needed to properly
+    -- generate transaction payload.
     }
 
 makeClassy ''BlockGenParams

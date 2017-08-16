@@ -7,6 +7,7 @@ module Pos.CLI
        ( addrParser
        , attackTypeParser
        , attackTargetParser
+       , stakeholderIdParser
        , defaultLoggerConfig
        , readLoggerConfig
        , sscAlgoParser
@@ -28,7 +29,6 @@ module Pos.CLI
 
        , sysStartOption
        , nodeIdOption
-       , tlsParamsOption
        ) where
 
 import           Universum
@@ -51,18 +51,14 @@ import qualified Text.Parsec.String                   as P
 import           Pos.Binary.Core                      ()
 import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
-import           Pos.Core                             (Address (..), AddressHash,
-                                                       Timestamp (..), decodeTextAddress)
-import           Pos.Crypto                           (PublicKey)
+import           Pos.Core                             (StakeholderId, Timestamp (..))
+import           Pos.Crypto                           (decodeAbstractHash)
 import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Util                             ()
+import           Pos.Util                             (eitherToFail)
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
-#ifdef WITH_WEB
-import           Pos.Web.Types                        (TlsParams (..))
-#endif
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -78,16 +74,15 @@ attackTypeParser = P.string "No" >>
     AttackNoBlocks <$ (P.string "Blocks") <|>
     AttackNoCommitments <$ (P.string "Commitments")
 
-base58AddrParser :: P.Parser (AddressHash PublicKey)
-base58AddrParser = do
+stakeholderIdParser :: P.Parser StakeholderId
+stakeholderIdParser = do
     token <- some $ P.noneOf " "
-    case decodeTextAddress (toText token) of
-      Left _  -> fail "Incorrect address"
-      Right r -> return $ addrKeyHash r
+    eitherToFail $ decodeAbstractHash (toText token)
 
 attackTargetParser :: P.Parser AttackTarget
-attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
-                     (NetworkAddressTarget <$> addrParser)
+attackTargetParser =
+    (PubKeyAddressTarget <$> try stakeholderIdParser) <|>
+    (NetworkAddressTarget <$> addrParser)
 
 -- | Default logger config. Will be used if `--log-config` argument is
 -- not passed. Corresponds to next logger config:
@@ -134,17 +129,17 @@ getNodeSystemStart cliOrConfigSystemStart
 ----------------------------------------------------------------------------
 
 data CommonArgs = CommonArgs
-    { logConfig          :: !(Maybe FilePath)
-    , logPrefix          :: !(Maybe FilePath)
-    , sscAlgo            :: !SscAlgo
-    , reportServers      :: ![Text]
-    , updateServers      :: ![Text]
+    { logConfig     :: !(Maybe FilePath)
+    , logPrefix     :: !(Maybe FilePath)
+    , sscAlgo       :: !SscAlgo
+    , reportServers :: ![Text]
+    , updateServers :: ![Text]
     -- distributions, only used in dev mode
-    , flatDistr          :: !(Maybe (Int, Int))
-    , bitcoinDistr       :: !(Maybe (Int, Int))
-    , richPoorDistr      :: !(Maybe (Int, Int, Integer, Double))
-    , expDistr           :: !(Maybe Int)
-    , sysStart           :: !Timestamp
+    , flatDistr     :: !(Maybe (Int, Int))
+    , bitcoinDistr  :: !(Maybe (Int, Int))
+    , richPoorDistr :: !(Maybe (Int, Int, Integer, Double))
+    , expDistr      :: !(Maybe Int)
+    , sysStart      :: !Timestamp
       -- ^ The system start time.
     } deriving Show
 
@@ -337,30 +332,3 @@ sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.help    helpMsg
   where
     helpMsg = "System start time. Format - seconds since Unix Epoch."
-
-#ifdef WITH_WEB
-tlsParamsOption :: Opt.Parser TlsParams
-tlsParamsOption = do
-    tpCertPath <-
-        Opt.strOption $
-            templateParser
-                "tlscert"
-                "FILEPATH"
-                "Path to file with TLS certificate"
-                <> Opt.value "server.crt"
-    tpKeyPath <-
-        Opt.strOption $
-            templateParser
-                "tlskey"
-                "FILEPATH"
-                "Path to file with TLS key"
-                <> Opt.value "server.key"
-    tpCaPath <-
-        Opt.strOption $
-            templateParser
-                "tlsca"
-                "FILEPATH"
-                "Path to file with TLS certificate authority"
-                <> Opt.value "ca.crt"
-    return TlsParams{..}
-#endif

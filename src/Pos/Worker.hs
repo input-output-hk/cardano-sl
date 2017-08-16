@@ -63,8 +63,8 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 
     , wrap' "subscription" $ case topologySubscriptionWorker (ncTopology ncNetworkConfig) of
-        Just (SubscriptionWorkerBehindNAT dnsDomains) ->
-          subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains)
+        Just (SubscriptionWorkerBehindNAT dnsDomains valency fallbacks) ->
+          subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains valency fallbacks)
         Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
           subscriptionWorker (dhtSubscriptionWorker kinst nodeType valency fallbacks)
         Nothing ->
@@ -81,7 +81,7 @@ allWorkers NodeResources {..} = mconcatPair
       -- spawned when the DHT instance is created and killed when it's
       -- released.
     , case topologyRunKademlia (ncTopology ncNetworkConfig) of
-        Just kinst -> dhtWorkers kinst
+        Just (kinst, _) -> dhtWorkers kinst
         Nothing -> mempty
     ]
   where

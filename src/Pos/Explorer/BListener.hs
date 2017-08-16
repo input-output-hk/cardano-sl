@@ -22,7 +22,6 @@ import qualified Data.Map                     as M
 import qualified Ether
 import           System.Wlog                  (WithLogger)
 
-import           Mockable                     (MonadMockable)
 import           Pos.Block.BListener          (MonadBListener (..))
 import           Pos.Block.Core               (Block, MainBlock,
                                                mainBlockTxPayload)
@@ -63,7 +62,6 @@ type MonadBListenerT m ssc =
 
 -- Explorer implementation for usual node. Combines the operations.
 instance ( MonadDBRead m
-         , MonadMockable m
          , MonadCatch m
          , WithLogger m
          )
@@ -338,8 +336,7 @@ getExistingBlocks keys = do
     -- Get exisiting key blocks paired with the key. If there are no
     -- saved blocks on the key return an empty list.
     getExistingKeyBlocks
-        :: (MonadDBRead m)
-        => k
+        :: k
         -> m (M.Map k [HeaderHash])
     getExistingKeyBlocks key = do
         mKeyBlocks    <- getKeyBlocksF key

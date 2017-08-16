@@ -16,7 +16,7 @@ import           Pos.Binary.Class               (Bi)
 
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Types.Relay  (DataMsg, InvMsg, InvOrData, MempoolMsg,
-                                                 ReqMsg (..))
+                                                 ReqMsg, ReqOrRes)
 import           Pos.Communication.Types.Protocol (NodeId, Msg, EnqueueMsg)
 import           Pos.Network.Types              (Origin)
 
@@ -30,8 +30,10 @@ data Relay m where
       , Typeable key
       , Eq key
       , Bi (ReqMsg key)
+      , Bi (ReqOrRes key)
       , Bi (InvOrData key contents)
       , Message (ReqMsg key)
+      , Message (ReqOrRes key)
       , Message (InvOrData key contents)
       , MessageLimited (DataMsg contents)
       ) => MempoolParams m -> InvReqDataParams key contents m -> Relay m

@@ -99,7 +99,7 @@ networkConfigOption = NetworkConfigOpts
 
 -- | The topology we assume when no topology file is specified
 defaultTopology :: Y.Topology
-defaultTopology = Y.TopologyBehindNAT defaultDnsDomains
+defaultTopology = Y.TopologyBehindNAT 1 1 defaultDnsDomains
 
 -- | The default DNS domains used for relay discovery
 --
@@ -211,8 +211,8 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
           T.NodeCore  -> return $ T.TopologyCore staticPeers kparams
           T.NodeRelay -> return $ T.TopologyRelay staticPeers kparams
           T.NodeEdge  -> liftIO $ throwM NetworkConfigSelfEdge
-      Y.TopologyBehindNAT dnsDomains ->
-        return $ T.TopologyBehindNAT dnsDomains
+      Y.TopologyBehindNAT dnsDomains v f ->
+        return $ T.TopologyBehindNAT dnsDomains v f
       Y.TopologyP2P v f -> do
         kparams <- liftIO $ getKademliaParams cfg
         return (T.TopologyP2P v f kparams)

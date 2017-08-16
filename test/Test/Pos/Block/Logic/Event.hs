@@ -68,7 +68,7 @@ verifyAndApplyBlocks' ::
 verifyAndApplyBlocks' bs = do
     let mSlot = (unEpochOrSlot . getEpochOrSlot . fst . NE.last . getOldestFirst) bs ^? _Right
     maybe identity withCurrentSlot mSlot $ do
-        (_ :: HeaderHash) <- eitherToThrow identity =<<
+        (_ :: HeaderHash) <- eitherToThrow =<<
             verifyAndApplyBlocks True (fst <$> bs)
         return ()
 

@@ -42,6 +42,7 @@ import           Pos.Generator.BlockEvent    (BlockApplyResult (..), BlockDesc (
                                               SnapshotId, SnapshotOperation (..),
                                               byChance, enrichWithSnapshotChecking,
                                               genBlocksInStructure, pathSequence)
+import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
                                               toOldestFirst, _NewestFirst)
 
@@ -112,13 +113,14 @@ snapshotEq snapshotId = emitEvent $
     BlkEvSnap (SnapshotEq snapshotId)
 
 runBlockEventGenT ::
-    (RandomGen g, MonadBlockGen ctx m) =>
-    AllSecrets ->
-    BlockEventGenT g m () ->
-    RandT g m BlockScenario
-runBlockEventGenT secrets m = do
+       (RandomGen g, MonadBlockGen ctx m)
+    => AllSecrets
+    -> GenesisWStakeholders
+    -> BlockEventGenT g m ()
+    -> RandT g m BlockScenario
+runBlockEventGenT secrets genStakeholders m = do
     (annotations, preBlockScenario) <- runBlockEventGenT' m
-    genBlocksInStructure secrets annotations preBlockScenario
+    genBlocksInStructure secrets genStakeholders annotations preBlockScenario
 
 runBlockEventGenT' ::
     (RandomGen g, MonadBlockGen ctx m) =>

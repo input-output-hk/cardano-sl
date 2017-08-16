@@ -71,6 +71,12 @@ newtype StakeAndHolder = StakeAndHolder
     { getNoStake :: (PublicKey, Utxo)
     } deriving Show
 
+toTxOutAux :: PublicKey -> Coin -> TxOutAux
+toTxOutAux pk v = TxOutAux (TxOut addr v) distr
+  where
+    addr = makePubKeyAddress pk
+    distr = [(addressHash pk, v)]
+
 instance Arbitrary StakeAndHolder where
     arbitrary = StakeAndHolder <$> do
         pk1 <- arbitrary
@@ -85,7 +91,6 @@ instance Arbitrary StakeAndHolder where
             (myPk, setUtxo) = S.deleteFindMin setPks
             nAdr = S.size setUtxo
             values = scanl1 unsafeAddCoin $ replicate nAdr coins
-            toTxOutAux pk v = TxOutAux (TxOut (makePubKeyAddress pk) v) []
             utxoList =
                 (zipWith TxIn (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
                 (zipWith toTxOutAux (toList setUtxo) values)
@@ -113,7 +118,7 @@ ftsAllStake
     -> Coin
     -> Bool
 ftsAllStake fts input pk v =
-    let utxo = M.singleton input (TxOutAux (TxOut (makePubKeyAddress pk) v) [])
+    let utxo = M.singleton input (toTxOutAux pk v)
     in all (== addressHash pk) $ followTheSatoshiUtxo fts utxo
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
@@ -186,8 +191,7 @@ ftsReasonableStake
         newStake     = unsafeIntegerToCoin . round $
                            (stakeProbability * totalStake) /
                            (1 - stakeProbability)
-        txOut        = TxOut (makePubKeyAddress pk) newStake
-        newUtxo      = M.insert key (TxOutAux txOut []) utxo
+        newUtxo      = M.insert key (toTxOutAux pk newStake) utxo
         picks        = followTheSatoshiUtxo fts newUtxo
         pLen         = length picks
         newPresent   = present +

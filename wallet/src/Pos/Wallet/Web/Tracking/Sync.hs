@@ -59,7 +59,7 @@ import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..
                                                    genesisUtxoM)
 import           Pos.Core                         (AddrPkAttrs (..), Address (..),
                                                    BlockHeaderStub, ChainDifficulty,
-                                                   HasDifficulty (..), HeaderHash, SlotId,
+                                                   HasDifficulty (..), HeaderHash,
                                                    Timestamp, headerHash, headerSlotL,
                                                    makePubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
@@ -87,7 +87,7 @@ import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..)
                                                    addressToCId, encToCId,
                                                    isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
-import           Pos.Wallet.Web.Pending.Types     (PtxCondition (PtxApplying, PtxInUpperBlocks))
+import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInUpperBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
                                                    CustomAddressType (..), WalletTip (..),
                                                    WebWalletModeDB)
@@ -326,10 +326,10 @@ trackingApplyTxs
     -> [CWAddressMeta]                             -- ^ All addresses in wallet
     -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
     -> (BlockHeader ssc -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
-    -> (BlockHeader ssc -> Maybe SlotId)           -- ^ Function to determine slot of related block
+    -> (BlockHeader ssc -> Maybe PtxBlockInfo)     -- ^ Function to determine pending tx's block info
     -> [(TxAux, TxUndo, BlockHeader ssc)]          -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
-trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getSlot txs =
+trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInfo txs =
     foldl' applyTx mempty txs
   where
     snd3 (_, x, _) = x
@@ -365,7 +365,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getSlot txs 
             usedAddrs = map cwamId ownOutAddrMetas
             changeAddrs = evalChange allAddresses (map cwamId ownInpAddrMetas) usedAddrs
 
-            mSlotId = getSlot blkHeader
+            mSlotId = getPtxBlkInfo blkHeader
         in CAccModifier
             (deleteAndInsertIMM [] ownOutAddrMetas camAddresses)
             (deleteAndInsertVM [] (zip usedAddrs hhs) camUsed)
@@ -433,7 +433,8 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
     WS.updateHistoryCache wid $ DL.toList camAddedHistory <> oldCachedHist
-    mapM_ (flip WS.setPtxCondition PtxApplying) (MM.deletions camPtxCandidates)
+    -- tracker has priority over the resubmitting worker, thus not atomic modifications
+    mapM_ (`WS.setPtxCondition` PtxApplying) (MM.deletions camPtxCandidates)
     mapM_ (uncurry WS.setPtxCondition . second newPtxCondition) (MM.insertions camPtxCandidates)
     WS.setWalletSyncTip wid newTip
   where

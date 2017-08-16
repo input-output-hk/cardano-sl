@@ -62,8 +62,8 @@ module Pos.Wallet.Web.State.State
        , removeNextUpdate
        , updateHistoryCache
        , setWalletUtxo
-       , updatePendingTx
        , setPtxCondition
+       , casPtxCondition
        , addOnlyNewPendingTx
        ) where
 
@@ -252,11 +252,13 @@ testReset = updateDisk A.TestReset
 updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> [TxHistoryEntry] -> m ()
 updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache cWalId
 
-updatePendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
-updatePendingTx = updateDisk ... A.UpdatePendingTx
-
 setPtxCondition :: WebWalletModeDB ctx m => TxId -> PtxCondition -> m ()
 setPtxCondition = updateDisk ... A.SetPtxCondition
+
+casPtxCondition
+    :: WebWalletModeDB ctx m
+    => TxId -> PtxCondition -> PtxCondition -> m ()
+casPtxCondition = updateDisk ... A.CasPtxCondition
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx

@@ -54,8 +54,8 @@ module Pos.Wallet.Web.State.Storage
        , removeNextUpdate
        , testReset
        , updateHistoryCache
-       , updatePendingTx
        , setPtxCondition
+       , casPtxCondition
        , addOnlyNewPendingTx
        ) where
 
@@ -366,13 +366,17 @@ updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId ?= cTxs
 
--- This shouldn't be able to create new transaction
-updatePendingTx :: PendingTx -> Update ()
-updatePendingTx ptx = wsPendingTxs . ix (ptxTxId ptx) .= ptx
-
--- This shouldn't be able to create new transaction
+-- This shouldn't be able to create new transaction.
+-- NOTE: If you're going to use this function, make sure 'casPtxCondition'
+-- doesn't fit your purposes better
 setPtxCondition :: TxId -> PtxCondition -> Update ()
-setPtxCondition txId cond = wsPendingTxs . ix txId %= (\tx -> tx { ptxCond = cond })
+setPtxCondition txId cond =
+    wsPendingTxs . ix txId %= (\tx -> tx { ptxCond = cond })
+
+casPtxCondition :: TxId -> PtxCondition -> PtxCondition -> Update ()
+casPtxCondition txId oldCond newCond = do
+    oldCond' <- ptxCond <<$>> use (wsPendingTxs . at txId)
+    when (oldCond' == Just oldCond) $ setPtxCondition txId newCond
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx = wsPendingTxs . at (ptxTxId ptx) %= (<|> Just ptx)

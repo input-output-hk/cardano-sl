@@ -56,8 +56,8 @@ module Pos.Wallet.Web.State.Acidic
        , AddUpdate (..)
        , RemoveNextUpdate (..)
        , UpdateHistoryCache (..)
-       , UpdatePendingTx (..)
        , SetPtxCondition (..)
+       , CasPtxCondition (..)
        , AddOnlyNewPendingTx (..)
        ) where
 
@@ -144,7 +144,7 @@ makeAcidic ''WalletStorage
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache
-    , 'WS.updatePendingTx
     , 'WS.setPtxCondition
+    , 'WS.casPtxCondition
     , 'WS.addOnlyNewPendingTx
     ]

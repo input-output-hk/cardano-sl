@@ -28,7 +28,7 @@ import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
                                                runToilTLocal, topsortTxs)
 import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
-import           Pos.Wallet.Web.State         (getPendingTxs, setPtxCondition)
+import           Pos.Wallet.Web.State         (casPtxCondition, getPendingTxs)
 
 type MonadPendings m =
     ( m ~ Pos.Wallet.Web.Mode.WalletWebMode
@@ -61,9 +61,8 @@ canSubmitPtx curSlot ptxs = do
     processFailure PendingTx{..} e = do
         let tryLater = pass
             discard  = do
-                setPtxCondition ptxTxId (PtxWon'tApply $ sformat build e)
-                logInfo $ sformat ("Transaction "%build%" was canceled")
-                          ptxTxId
+                casPtxCondition ptxTxId PtxApplying (PtxWon'tApply $ sformat build e)
+                logInfo $ sformat ("Transaction "%build%" was canceled") ptxTxId
 
         case e of
             ToilKnown                -> tryLater
@@ -91,8 +90,8 @@ processPtxs curSlot ptxs = do
      longAgo PendingTx{..} (flattenSlotId -> ptxSlotId) = do
          ptxSlotId + getSlotCount ptxAssuredDepth < flattenSlotId curSlot
      markPersistent ptx@PendingTx{..}
-         | PtxInUpperBlocks slotId <- ptxCond, longAgo ptx slotId = do
-             setPtxCondition ptxTxId PtxPersisted
+         | PtxInUpperBlocks (slotId, _) <- ptxCond, longAgo ptx slotId = do
+             casPtxCondition ptxTxId ptxCond PtxPersisted
              logInfo $ sformat ("Transaction "%build%" got persistent") ptxTxId
          | otherwise = pass
 

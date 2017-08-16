@@ -344,8 +344,8 @@ singleForkSpec fd = do
     prop singleForkDesc (singleForkProp fd)
   where
     singleForkDesc =
-      "a blockchain of length q=0..(9.5*k) blocks can switch to a fork " <>
-      "of length j>i with a common prefix i, d=q-i"
+      "a blockchain of length q<=(9.5*k) blocks can switch to a fork " <>
+      "of length j>i with a common prefix i, rollback depth d=q-i"
 
 singleForkProp :: ForkDepth -> BlockProperty ()
 singleForkProp fd = do
@@ -357,10 +357,12 @@ data ForkDepth = ForkShort | ForkMedium | ForkDeep
 genSingleFork :: forall g m. (RandomGen g, Monad m) => ForkDepth -> BlockEventGenT g m ()
 genSingleFork fd = do
     let k = fromIntegral blkSecurityParam :: Int
+    -- 'd' is how deeply in the chain the fork starts. In other words, it's how many
+    -- blocks we're going to rollback (therefore must be >1).
     d <- getRandomR $ case fd of
-        ForkShort  -> (1, k - 1)
-        ForkMedium -> (max 1 (k-2), k+2)
-        ForkDeep   -> (k+1, div (k*3) 2)
+        ForkShort  -> (1, if k > 1 then k-1 else 1)
+        ForkMedium -> (if k > 2 then k - 2 else 1, k+2)
+        ForkDeep   -> (k+1, div (k*3) 2 + 1)
     -- the depth must be <=k for a successful rollback.
     let expectSuccess = d <= k
     -- original blockchain max index q<(9.5*k)
@@ -371,11 +373,13 @@ genSingleFork fd = do
     -- fork blockchain max index j>i. the upper bound is arbitrary.
     -- dj=j-i
     dj <- getRandomR (1, d*2)
-    -- now we can generate paths
+    -- now we can generate paths:
     --
     -- B0 - B1 - B2 - B3 - B4 - B5 - B6 - B7
     --              \
     --                C3 - C4 - C5 - C6
+    --
+    -- in this example, q=7, d=5, i=2, dj=4
     let
         nonEmptyCuz r [] = error ("Requirement failed: " <> r)
         nonEmptyCuz _ xs = NE.fromList xs

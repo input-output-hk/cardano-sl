@@ -112,8 +112,8 @@ runBlockEvent (BlkEvRollback ev) =
                 BlockEventFailure (IsExpected isExpected) e
 
 runBlockEvent (BlkEvSnap ev) =
-  (onSuccess <$ runSnapshotOperation ev)
-      `catch` (return . onFailure)
+    (onSuccess <$ runSnapshotOperation ev)
+        `catch` (return . onFailure)
   where
     onSuccess = BlockEventSuccess (IsExpected True)
     onFailure = BlockEventDbChanged

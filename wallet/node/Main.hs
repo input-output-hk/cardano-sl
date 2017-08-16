@@ -14,7 +14,7 @@ import           Universum           hiding (over)
 import           Data.Maybe          (fromJust)
 import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
-import           System.Wlog         (logError, logInfo)
+import           System.Wlog         (logInfo)
 
 import           Pos.Binary          ()
 import           Pos.Client.CLI      (CommonNodeArgs (..))
@@ -26,7 +26,6 @@ import           Pos.Launcher        (NodeParams (..), NodeResources (..),
                                       bracketNodeResources, runNode)
 import           Pos.Ssc.Class       (SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (WorkMode)
 import           Pos.Web             (serveWebGT)
@@ -79,11 +78,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = do
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = CLI.gtSscParams cArgs vssSK
 
-    let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
-        sscParams = bool (Left ()) (Right gtParams) False
-    case sscParams of
-        (Left _)     -> logError "Wallet does not support NIST beacon!"
-        (Right par)  -> actionWithWallet par currentParams wArgs
+    actionWithWallet gtParams currentParams wArgs
 
 main :: IO ()
 main = do

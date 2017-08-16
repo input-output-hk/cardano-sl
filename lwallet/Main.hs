@@ -426,7 +426,6 @@ main = giveStaticConsts $ do
     let devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr woCommonArgs)
-                (CLI.bitcoinDistr woCommonArgs)
                 (CLI.richPoorDistr woCommonArgs)
                 (CLI.expDistr woCommonArgs)
     let wpGenesisContext =

@@ -94,7 +94,6 @@ getNodeParams args@Args {..} systemStart = do
     let devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
-                (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
 

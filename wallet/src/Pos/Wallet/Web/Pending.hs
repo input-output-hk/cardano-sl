@@ -9,9 +9,12 @@ module Pos.Wallet.Web.Pending
 
 import           Universum
 
+import           Control.Monad.Catch        (handleAll)
 import           Data.Time.Units            (Second, convertUnit)
-import           Formatting                 (build, sformat)
+import           Formatting                 (build, sformat, shown, (%))
 import           Mockable                   (delay, fork)
+import           Serokell.Util.Text         (listJson)
+import           System.Wlog                (logError, logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses   (MonadAddresses)
 import           Pos.Communication          (submitAndSave)
@@ -54,15 +57,19 @@ canSubmitPtx curSlot ptxs = do
     -- | What should happen with pending transaction if attempt
     -- to resubmit it failed.
     -- If number of 'ToilVerFailure' constructors will ever change, compiler
-    -- will complain - for this purpose we consider all cases here.
+    -- will complain - for this purpose we consider all cases explicitly here.
     processFailure ptx e = do
-        let await   = return ()
-            discard = setPtxCondition ptx (PtxWon'tApply $ sformat build e)
+        let tryLater = pass
+            discard  = do
+                setPtxCondition ptx (PtxWon'tApply $ sformat build e)
+                logInfo $ sformat ("Transaction "%build%" was canceled")
+                          (ptxTxId ptx)
+
         case e of
-            ToilKnown                -> await
-            ToilTipsMismatch{}       -> await
-            ToilSlotUnknown          -> await
-            ToilOverwhelmed{}        -> await
+            ToilKnown                -> tryLater
+            ToilTipsMismatch{}       -> tryLater
+            ToilSlotUnknown          -> tryLater
+            ToilOverwhelmed{}        -> tryLater
             ToilNotUnspent{}         -> discard
             ToilOutGTIn{}            -> discard
             ToilInconsistentTxAux{}  -> discard
@@ -84,38 +91,45 @@ processPtxs curSlot ptxs = do
      isPersistent ptx =
          flattenSlotId (ptxCreationSlot ptx) + getSlotCount undefined
              < flattenSlotId curSlot
-     markPersistent ptx =
-         when (ptxCond ptx == PtxInUpperBlocks && isPersistent ptx) $
+     markPersistent ptx@PendingTx{..} =
+         when (ptxCond == PtxInUpperBlocks && isPersistent ptx) $ do
              setPtxCondition ptx PtxPersisted
+             logInfo $ sformat ("Transaction "%build%" got persistent") ptxTxId
 
 whetherCheckPtxOnSlot :: SlotId -> PendingTx -> Bool
 whetherCheckPtxOnSlot curSlot ptx =
     -- TODO [CSM-256]: move 3 in constants?
     flattenSlotId (ptxCreationSlot ptx) + 3 < flattenSlotId curSlot
 
--- | On each slot this takes several pending transactions (using
--- 'whetherToResubmitPtx' rule) and resubmits them if needed & possible.
--- It's not /worker/, because it requires some constraints, natural only for
--- wallet environment.
-startPendingTxsResubmitter
-    :: MonadPendings m
-    => SendActions m -> m ()
-startPendingTxsResubmitter SendActions{..} =
-    void . fork . onNewSlot False $ \curSlot -> do
-        ptxs <- getPendingTxs
-        let ptxsToCheck =
-                flip fromMaybe =<< topsortTxs wHash $
-                filter (whetherCheckPtxOnSlot curSlot) $
-                ptxs
-        -- FIXME [CSM-256]: add limit on number of resent transactions per slot or on speed?
-        toResubmit <- processPtxs curSlot ptxsToCheck
+resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
+resubmitTx SendActions{..} PendingTx{..} = do
+    logInfo $ sformat ("Resubmitting "%build) ptxTxId
+    -- FIXME [CSM-256] Doesn't it introduce a race condition?
+    void (submitAndSave enqueueMsg ptxTxAux) `catchAll` handler
+  where
+    handler e = do
+        -- TODO [CSM-256] consider errors
+        logInfo $ sformat ("Failed to resubmit tx "%build%": "%shown) ptxTxId e
 
-        -- distribute txs submition over current slot ~evenly
-        interval <- evalSubmitDelay (length toResubmit)
-        forM_ toResubmit $ \PendingTx{..} -> do
-            delay interval
-            -- FIXME [CSM-256] Doesn't it introduce a race condition?
-            fork . void $ submitAndSave enqueueMsg ptxTxAux
+startPendingTxsResubmitterDo
+    :: MonadPendings m
+    => SendActions m -> SlotId -> m ()
+startPendingTxsResubmitterDo sendActions curSlot = do
+    ptxs <- getPendingTxs
+    let ptxsToCheck =
+            flip fromMaybe =<< topsortTxs wHash $
+            filter (whetherCheckPtxOnSlot curSlot) $
+            ptxs
+    -- FIXME [CSM-256]: add limit on number of resent transactions per slot or on speed?
+    toResubmit <- processPtxs curSlot ptxsToCheck
+    logInfo $ sformat ("Transactions to resubmit on current slot: "%listJson)
+              (map ptxTxId toResubmit)
+
+    -- distribute txs submition over current slot ~evenly
+    interval <- evalSubmitDelay (length toResubmit)
+    forM_ toResubmit $ \ptx -> do
+        delay interval
+        fork $ resubmitTx sendActions ptx
   where
     wHash PendingTx{..} = WithHash (taTx ptxTxAux) ptxTxId
     submitionEta = 5 :: Second
@@ -124,3 +138,14 @@ startPendingTxsResubmitter SendActions{..} =
         let checkPeriod = max 0 $ slotDuration - convertUnit submitionEta
         return (checkPeriod `div` fromIntegral toResubmitNum)
 
+-- | On each slot this takes several pending transactions (using
+-- 'whetherToResubmitPtx' rule) and resubmits them if needed and possible.
+startPendingTxsResubmitter
+    :: MonadPendings m
+    => SendActions m -> m ()
+startPendingTxsResubmitter sa =
+    void . fork . setLogger . totalHandler $
+    onNewSlot False (startPendingTxsResubmitterDo sa)
+  where
+    setLogger = modifyLoggerName (<> "tx" <> "resubmitter")
+    totalHandler = handleAll $ logError . sformat ("Worker died: "%build)

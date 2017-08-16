@@ -22,19 +22,20 @@ module Pos.Wallet.Web.Tracking.Modifier
 
 import           Universum
 
-import           Data.DList                 (DList)
+import           Data.DList                   (DList)
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, build, (%))
-import           Serokell.Util              (listJson, listJsonIndent)
+import           Formatting                   (bprint, build, (%))
+import           Serokell.Util                (listJson, listJsonIndent)
 
-import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (HeaderHash, SlotId)
-import           Pos.Txp.Core               (TxId)
-import           Pos.Txp.Toil               (UtxoModifier)
-import           Pos.Util.Modifier          (MapModifier)
-import qualified Pos.Util.Modifier          as MM
+import           Pos.Client.Txp.History       (TxHistoryEntry (..))
+import           Pos.Core                     (HeaderHash)
+import           Pos.Txp.Core                 (TxId)
+import           Pos.Txp.Toil                 (UtxoModifier)
+import           Pos.Util.Modifier            (MapModifier)
+import qualified Pos.Util.Modifier            as MM
 
-import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta)
+import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CWAddressMeta)
+import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo)
 
 -- VoidModifier describes a difference between two states.
 -- It's (set of added k, set of deleted k) essentially.
@@ -63,7 +64,7 @@ data CAccModifier = CAccModifier
     , camUtxo           :: !UtxoModifier
     , camAddedHistory   :: !(DList TxHistoryEntry)
     , camDeletedHistory :: !(DList TxId)
-    , camTxsSlots       :: !(MapModifier TxId (Maybe SlotId))
+    , camPtxCandidates  :: !(MapModifier TxId (Maybe PtxBlockInfo))
     }
 
 instance Monoid CAccModifier where

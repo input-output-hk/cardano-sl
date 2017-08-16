@@ -3,6 +3,7 @@
 module Pos.Wallet.Web.Pending.Types
     ( PendingTx (..)
     , PtxCondition (..)
+    , PtxBlockInfo
     ) where
 
 import           Universum
@@ -29,3 +30,5 @@ data PendingTx = PendingTx
     , ptxCond         :: PtxCondition
     , ptxAssuredDepth :: SlotCount
     } deriving (Eq)
+
+type PtxBlockInfo = SlotId

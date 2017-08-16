@@ -245,7 +245,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         mainBlkHeaderTs mBlkH =
             getSlotStartPure systemStart True (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
-        blkSlot = either (const Nothing) (Just . view headerSlotL)
+
+        -- assuming that transactions are not created until syncing is complete
+        ptxBlkInfo = const Nothing
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
         rollbackBlock allAddresses (b, u) =
@@ -254,7 +256,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
         applyBlock :: [CWAddressMeta] -> Blund ssc -> m CAccModifier
         applyBlock allAddresses (b, u) = pure $
-            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs blkSlot $
+            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs ptxBlkInfo $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         computeAccModifier :: BlockHeader ssc -> m CAccModifier
@@ -324,7 +326,7 @@ trackingApplyTxs
     -> [CWAddressMeta]                             -- ^ All addresses in wallet
     -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
     -> (BlockHeader ssc -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
-    -> (BlockHeader ssc -> Maybe SlotId)           -- ^ Function to determine tx timestamp in history
+    -> (BlockHeader ssc -> Maybe SlotId)           -- ^ Function to determine slot of related block
     -> [(TxAux, TxUndo, BlockHeader ssc)]          -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
 trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getSlot txs =
@@ -431,8 +433,8 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
     WS.updateHistoryCache wid $ DL.toList camAddedHistory <> oldCachedHist
-    mapM_ (flip WS.setPtxCondition PtxApplying) (MM.deletions camTxsSlots)
-    mapM_ (uncurry WS.setPtxCondition . second newPtxCondition) (MM.insertions camTxsSlots)
+    mapM_ (flip WS.setPtxCondition PtxApplying) (MM.deletions camPtxCandidates)
+    mapM_ (uncurry WS.setPtxCondition . second newPtxCondition) (MM.insertions camPtxCandidates)
     WS.setWalletSyncTip wid newTip
   where
     newPtxCondition = maybe PtxApplying PtxInUpperBlocks

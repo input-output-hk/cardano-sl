@@ -95,7 +95,7 @@ onApplyTracking blunds = setLogger $ do
         allAddresses <- getWalletAddrMetas WS.Ever wAddr
         encSK <- getSKById wAddr
         let mapModifier =
-                trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs blkSlot blkTxsWUndo
+                trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
@@ -106,7 +106,7 @@ onApplyTracking blunds = setLogger $ do
              (undoTx undo)
              (repeat $ getBlockHeader blk)
     gbDiff = Just . view difficultyL
-    blkSlot = either (const Nothing) (Just . view headerSlotL)
+    ptxBlkInfo = either (const Nothing) (Just . view headerSlotL)
 
 -- Perform this action under block lock.
 onRollbackTracking

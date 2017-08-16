@@ -304,6 +304,11 @@ testAgainstFile name x expected =
 spec :: Spec
 spec = describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
+        describe "(Hash)Map and (Hash)Set instances are sound" $ do
+            prop "HashMap Int Int" (soundInstanceProperty @(HashMap Int Int) Proxy)
+            prop "HashSet Int" (soundInstanceProperty @(HashSet Int) Proxy)
+            prop "Map Int Int" (soundInstanceProperty @(Map Int Int) Proxy)
+            prop "Set Int" (soundInstanceProperty @(Set Int) Proxy)
         describe "Test instances are sound" $ do
             prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
             prop "MyScript" (soundInstanceProperty @MyScript Proxy)
@@ -396,7 +401,7 @@ spec = describe "Cbor.Bi instances" $ do
                 prop "DataMsg MCVssCertificate" (soundInstanceProperty @(DataMsg MCVssCertificate) Proxy)
                 prop "DHTKey" (soundInstanceProperty @DHTKey Proxy)
                 prop "DHTData" (soundInstanceProperty @DHTData Proxy)
-                prop "MessageName" (soundInstanceProperty @MessageName Proxy)
+                prop "MessageCode" (soundInstanceProperty @MessageCode Proxy)
                 prop "HandlerSpec" (soundInstanceProperty @HandlerSpec Proxy .&&. extensionProperty @HandlerSpec Proxy)
                 prop "VerInfo" (soundInstanceProperty @VerInfo Proxy)
                 prop "DlgPayload" (soundInstanceProperty @DlgPayload Proxy)

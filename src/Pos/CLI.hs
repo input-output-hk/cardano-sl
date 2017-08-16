@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
 
 -- | Module for command-line utilites, parsers and convenient handlers.
 
@@ -6,6 +7,7 @@ module Pos.CLI
        ( addrParser
        , attackTypeParser
        , attackTargetParser
+       , stakeholderIdParser
        , defaultLoggerConfig
        , readLoggerConfig
        , sscAlgoParser
@@ -34,8 +36,8 @@ import           Universum
 import           Control.Lens                         (zoom, (?=))
 import           Data.Time.Clock.POSIX                (getPOSIXTime)
 import           Data.Time.Units                      (toMicroseconds)
+import qualified Options.Applicative                  as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import qualified Options.Applicative.Simple           as Opt
 import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
 import           System.Wlog                          (LoggerConfig (..),
@@ -49,12 +51,11 @@ import qualified Text.Parsec.String                   as P
 import           Pos.Binary.Core                      ()
 import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
-import           Pos.Core                             (Address (..), AddressHash,
-                                                       Timestamp (..), decodeTextAddress)
-import           Pos.Crypto                           (PublicKey)
+import           Pos.Core                             (StakeholderId, Timestamp (..))
+import           Pos.Crypto                           (decodeAbstractHash)
 import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Util                             ()
+import           Pos.Util                             (eitherToFail)
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
@@ -73,16 +74,15 @@ attackTypeParser = P.string "No" >>
     AttackNoBlocks <$ (P.string "Blocks") <|>
     AttackNoCommitments <$ (P.string "Commitments")
 
-base58AddrParser :: P.Parser (AddressHash PublicKey)
-base58AddrParser = do
+stakeholderIdParser :: P.Parser StakeholderId
+stakeholderIdParser = do
     token <- some $ P.noneOf " "
-    case decodeTextAddress (toText token) of
-      Left _  -> fail "Incorrect address"
-      Right r -> return $ addrKeyHash r
+    eitherToFail $ decodeAbstractHash (toText token)
 
 attackTargetParser :: P.Parser AttackTarget
-attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
-                     (NetworkAddressTarget <$> addrParser)
+attackTargetParser =
+    (PubKeyAddressTarget <$> try stakeholderIdParser) <|>
+    (NetworkAddressTarget <$> addrParser)
 
 -- | Default logger config. Will be used if `--log-config` argument is
 -- not passed. Corresponds to next logger config:
@@ -129,18 +129,17 @@ getNodeSystemStart cliOrConfigSystemStart
 ----------------------------------------------------------------------------
 
 data CommonArgs = CommonArgs
-    { logConfig          :: !(Maybe FilePath)
-    , logPrefix          :: !(Maybe FilePath)
-    , sscAlgo            :: !SscAlgo
-    , disablePropagation :: !Bool
-    , reportServers      :: ![Text]
-    , updateServers      :: ![Text]
+    { logConfig     :: !(Maybe FilePath)
+    , logPrefix     :: !(Maybe FilePath)
+    , sscAlgo       :: !SscAlgo
+    , reportServers :: ![Text]
+    , updateServers :: ![Text]
     -- distributions, only used in dev mode
-    , flatDistr          :: !(Maybe (Int, Int))
-    , bitcoinDistr       :: !(Maybe (Int, Int))
-    , richPoorDistr      :: !(Maybe (Int, Int, Integer, Double))
-    , expDistr           :: !(Maybe Int)
-    , sysStart           :: !Timestamp
+    , flatDistr     :: !(Maybe (Int, Int))
+    , bitcoinDistr  :: !(Maybe (Int, Int))
+    , richPoorDistr :: !(Maybe (Int, Int, Integer, Double))
+    , expDistr      :: !(Maybe Int)
+    , sysStart      :: !Timestamp
       -- ^ The system start time.
     } deriving Show
 
@@ -150,8 +149,6 @@ commonArgsParser = do
     logPrefix <- optionalLogPrefix
     --
     sscAlgo <- sscAlgoOption
-    --
-    disablePropagation <- disablePropagationOption
     --
     reportServers <- reportServersOption
     updateServers <- updateServersOption
@@ -224,14 +221,6 @@ sscAlgoOption =
                        "Shared Seed Calculation algorithm which nodes will use."
         <> Opt.value GodTossingAlgo
         <> Opt.showDefault
-
-disablePropagationOption :: Opt.Parser Bool
-disablePropagationOption =
-    Opt.switch
-        (Opt.long "disable-propagation" <>
-         Opt.help "Disable network propagation (transactions, SSC data, blocks). I.e.\
-                  \ all data is to be sent only by entity who creates data and entity is\
-                  \ yosend it to all peers on his own.")
 
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =

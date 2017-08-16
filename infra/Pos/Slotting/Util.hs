@@ -22,18 +22,19 @@ module Pos.Slotting.Util
        , waitSystemStart
        ) where
 
+import           Universum
+
 import           Data.Time.Units        (Millisecond)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Mockable               (Delay, Fork, Mockable, delay, fork)
 import           Serokell.Util          (sec)
 import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
                                          logNotice, modifyLoggerName)
-import           Universum
 
-import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
-                                         LocalSlotIndex, flattenSlotId, slotIdF)
-import           Pos.Discovery.Class    (MonadDiscovery)
+import           Pos.Core               (FlatSlotId, LocalSlotIndex, SlotId (..),
+                                         Timestamp (..), flattenSlotId, slotIdF)
 import           Pos.Exception          (CardanoException)
+import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
 import           Pos.Reporting.MemState (HasReportingContext)
 import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
@@ -97,8 +98,8 @@ type OnNewSlot ctx m =
     , Mockable Delay m
     , HasReportingContext ctx
     , HasShutdownContext ctx
-    , MonadDiscovery m
     , MonadRecoveryInfo m
+    , MonadFormatPeers m
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to

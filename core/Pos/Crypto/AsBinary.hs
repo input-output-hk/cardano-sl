@@ -1,8 +1,14 @@
-{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE CPP #-}
 
 -- | AsBinary wrappers for Pos.Crypto.SecretSharing types.
 
-module Pos.Crypto.AsBinary () where
+module Pos.Crypto.AsBinary (
+      vssPublicKeyBytes
+    , secretBytes
+    , shareBytes
+    , encShareBytes
+    , secretProofBytes
+    ) where
 
 import           Universum
 
@@ -47,11 +53,19 @@ checkLenImpl action name expectedLen len
     asBinary = AsBinary . checkLen "asBinary" Name Bytes . serialize' ;\
     fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . getAsBinary }; \
 
-Ser(VssPublicKey, 35, "VssPublicKey") -- 33 data + 2 of CBOR overhead
-Ser(Secret, 35, "Secret")             -- 33 data + 2 of CBOR overhead
-Ser(Share, 103, "Share")              --4+33+64
-Ser(EncShare, 103, "EncShare")
-Ser(SecretProof, 66, "SecretProof")   -- 64 data + 2 of CBOR overhead
+
+vssPublicKeyBytes, secretBytes, shareBytes, encShareBytes, secretProofBytes :: Int
+vssPublicKeyBytes = 35   -- 33 data + 2 of CBOR overhead
+secretBytes       = 35   -- 33 data + 2 of CBOR overhead
+shareBytes        = 103  --4+33+64
+encShareBytes     = 103
+secretProofBytes  = 66   -- 64 data + 2 of CBOR overhead
+
+Ser(VssPublicKey, vssPublicKeyBytes, "VssPublicKey")
+Ser(Secret, secretBytes, "Secret")
+Ser(Share, shareBytes, "Share")
+Ser(EncShare, encShareBytes, "EncShare")
+Ser(SecretProof, secretProofBytes, "SecretProof")
 
 instance Buildable (AsBinary Secret) where
     build _ = "secret \\_(o.o)_/"

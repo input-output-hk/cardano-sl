@@ -27,7 +27,6 @@ import           System.Wlog           (WithLogger)
 
 import           Pos.Block.Core        (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types       (Blund)
-import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Context.Functions (genesisLeadersM)
 import           Pos.Core              (BlockCount, BlockVersionData, headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
@@ -36,6 +35,7 @@ import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
 import           Pos.DB.Class          (MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common  (getTip, getTipBlockGeneric, getTipHeaderGeneric)
 import           Pos.DB.Misc           (prepareMiscDB)
+import           Pos.Genesis           (GenesisUtxo)
 import           Pos.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB            (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
@@ -74,14 +74,14 @@ initNodeDBs = do
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadBlockDB ssc m, MonadDBRead m)
+    :: (MonadBlockDB ssc m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadBlockDB ssc m, MonadDBRead m)
+    :: (MonadBlockDB ssc m)
     => BlockCount -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 

@@ -4,6 +4,7 @@ module Pos.Crypto.SafeSigning
        ( EncryptedSecretKey (..)
        , PassPhrase
        , SafeSigner
+       , passphraseLength
        , emptyPassphrase
        , noPassEncrypt
        , checkPassMatches
@@ -53,6 +54,9 @@ instance B.Buildable EncryptedSecretKey where
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
     deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)
+
+passphraseLength :: Int
+passphraseLength = 32
 
 instance Show PassPhrase where
     show _ = "<passphrase>"

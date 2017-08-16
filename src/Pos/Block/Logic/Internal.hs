@@ -37,7 +37,7 @@ import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPa
 import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
                                           slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
-import           Pos.Core                (GenesisStakeholders, IsGenesisHeader,
+import           Pos.Core                (GenesisWStakeholders, IsGenesisHeader,
                                           IsMainHeader, epochIndexL, gbBody, gbHeader,
                                           headerHash)
 import           Pos.DB                  (MonadDB, MonadGState, SomeBatchOp (..))
@@ -45,9 +45,9 @@ import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
 import           Pos.Delegation.Class    (MonadDelegation)
 import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback,
                                           dlgRollbackBlocks)
-import           Pos.Discovery.Class     (MonadDiscovery)
 import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
+import           Pos.KnownPeers          (MonadFormatPeers)
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Reporting           (HasReportingContext, reportingFatal)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
@@ -86,7 +86,7 @@ type MonadBlockBase ssc ctx m
        , HasLens LrcContext ctx LrcContext
        , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , SscGStateClass ssc
-       , HasLens GenesisStakeholders ctx GenesisStakeholders
+       , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        , MonadDelegation ctx m
        , MonadReader ctx m
        )
@@ -107,8 +107,8 @@ type MonadBlockApply ssc ctx m
        , MonadBListener m
        -- Needed for error reporting.
        , HasReportingContext ctx
-       , MonadDiscovery m
        , MonadReader ctx m
+       , MonadFormatPeers m
        -- Needed for rollback
        , Mockable CurrentTime m
        )
@@ -120,21 +120,21 @@ type MonadMempoolNormalization ssc ctx m
       , MonadSscMem ssc ctx m
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateContext ctx UpdateContext
-      , HasLens GenesisStakeholders ctx GenesisStakeholders
+      , HasLens GenesisWStakeholders ctx GenesisWStakeholders
       -- Needed to load useful information from db
       , MonadBlockDB ssc m
       , MonadSscBlockDB ssc m
       , MonadGState m
       -- Needed for error reporting.
       , HasReportingContext ctx
-      , MonadDiscovery m
       , MonadMask m
       , MonadReader ctx m
+      , MonadFormatPeers m
       )
 
 -- | Normalize mempool.
 normalizeMempool
-    :: forall ssc ctx m . MonadMempoolNormalization ssc ctx m
+    :: forall ssc ctx m . (MonadMempoolNormalization ssc ctx m)
     => m ()
 normalizeMempool = reportingFatal $ do
     -- We normalize all mempools except the delegation one.

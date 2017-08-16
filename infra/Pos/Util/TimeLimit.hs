@@ -23,7 +23,7 @@ import           Universum         hiding (bracket, finally)
 
 import           Data.Time.Units   (Microsecond, Second, convertUnit)
 import           Formatting        (sformat, shown, stext, (%))
-import           Mockable          (Async, Async, Bracket, Delay, Mockable, delay, race,
+import           Mockable          (Async, Async, Delay, Mockable, delay, race,
                                     withAsync)
 import           System.Wlog       (WithLogger, logWarning)
 
@@ -108,7 +108,6 @@ logWarningWaitInf = logWarningLongAction False . (`WaitGeometric` 1.3) . convert
 execWithTimeLimit
     :: ( Mockable Async m
        , Mockable Delay m
-       , Mockable Bracket m
        )
     => Microsecond -> m a -> m (Maybe a)
 execWithTimeLimit timeout action = do

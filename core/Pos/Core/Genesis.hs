@@ -11,11 +11,9 @@ module Pos.Core.Genesis
        , genesisDevFlatDistr
 
        -- * /genesis-core.bin/
-       , StakeDistribution(..)
-       , GenesisCoreData(..)
-       , mkGenesisCoreData
-       , AddrDistribution
+       , module Pos.Core.Genesis.Types
        , compileGenCoreData
+
        -- ** Derived data
        , genesisProdAddresses
        , genesisProdAddrDistribution
@@ -24,7 +22,6 @@ module Pos.Core.Genesis
        -- * Utils
        , generateGenesisKeyPair
        , generateHdwGenesisSecretKey
-       , getTotalStake
        , genesisSplitBoot
        ) where
 
@@ -42,8 +39,9 @@ import           Pos.Core.Coin           (unsafeAddCoin, unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
-                                          StakeDistribution (..), getTotalStake,
-                                          mkGenesisCoreData)
+                                          GenesisWStakeholders (..),
+                                          StakeDistribution (..), bootDustThreshold,
+                                          getTotalStake, mkGenesisCoreData, safeExpStakes)
 import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
                                           unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
@@ -95,7 +93,7 @@ genesisProdAddrDistribution :: [AddrDistribution]
 genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
 
 -- | Bootstrap era stakeholders for production mode.
-genesisProdBootStakeholders :: HashMap StakeholderId Word16
+genesisProdBootStakeholders :: GenesisWStakeholders
 genesisProdBootStakeholders =
     gcdBootstrapStakeholders compileGenCoreData
 
@@ -116,34 +114,53 @@ generateHdwGenesisSecretKey =
     encodeUtf8 .
     T.take 32 . sformat ("My 32-byte hdw seed #" %int % "                  ")
 
--- TODO CSL-1351 It doesn't consider boot stakeholders weight
 -- | Returns a distribution sharing coins to given boot
--- stakeholders. If number of addresses @n@ is more than coins @c@, we
--- give 1 coin to every addr in the prefix of length @n@. Otherwise we
--- give quotient to every boot addr and assign remainder randomly
--- based on passed coin hash among addresses.
+-- stakeholders. Number of stakeholders must be less or equal to the
+-- related 'bootDustThreshold'. Function splits coin on chunks of
+-- @weightsSum@ and distributes it over boot stakeholder. Remainder is
+-- assigned randomly (among boot stakeholders) based on hash of the coin.
+--
+-- If coin is lower than 'bootDustThreshold' then this function
+-- distributes coins among first stakeholders in the list according to
+-- their weights.
 genesisSplitBoot ::
-       HashMap StakeholderId Word16 -> Coin -> [(StakeholderId, Coin)]
-genesisSplitBoot bootHolders0 c
-    | cval <= 0 =
-      error $ "sendMoney#splitBoot: cval <= 0: " <> show cval
-    | cval < addrsNum =
-      map (,mkCoin 1) $ take cval bootHolders
+       GenesisWStakeholders -> Coin -> [(StakeholderId, Coin)]
+genesisSplitBoot g@(GenesisWStakeholders bootWHolders) c
+    | c < bootDustThreshold g =
+          snd $ foldr foldrFunc (0::Word64,[]) (HM.toList bootWHolders)
     | otherwise =
-      let (d :: Word64, m :: Word64) =
-              bimap fromIntegral fromIntegral $
-              divMod cval addrsNum
-          stakeCoins =
-              replicate addrsNum (mkCoin d) &
-              ix remReceiver %~ unsafeAddCoin (mkCoin m)
-      in bootHolders `zip` stakeCoins
+          bootHolders `zip` stakeCoins
   where
+    foldrFunc (s,w) r@(totalSum, res) = case compare totalSum cval of
+        EQ -> r
+        GT -> error "genesisSplitBoot: totalSum > cval can't happen"
+        LT -> let w' = (fromIntegral w :: Word64)
+                  toInclude = bool w' (cval - totalSum) (totalSum + w' > cval)
+              in (totalSum + toInclude
+                 ,(s, mkCoin toInclude):res)
+
+    weights :: [Word64]
+    weights = map fromIntegral $ HM.elems bootWHolders
+
+    weightsSum :: Word64
+    weightsSum = sum weights
+
+    bootHolders :: [StakeholderId]
+    bootHolders = HM.keys bootWHolders
+
+    (d :: Word64, m :: Word64) = divMod cval weightsSum
+
     -- Person who will get the remainder in (2) case.
     remReceiver :: Int
     remReceiver = abs (hash c) `mod` addrsNum
-    cval :: Int
-    cval = fromIntegral $ unsafeGetCoin c
+
+    cval :: Word64
+    cval = unsafeGetCoin c
+
     addrsNum :: Int
     addrsNum = length bootHolders
-    bootHolders :: [StakeholderId]
-    bootHolders = toList $ HM.keys bootHolders0
+
+    stakeCoins :: [Coin]
+    stakeCoins =
+        map (\w -> mkCoin $ w * d) weights &
+        ix remReceiver %~ unsafeAddCoin (mkCoin m)

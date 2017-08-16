@@ -7,11 +7,11 @@ module Pos.Core.Types
        (
        -- * Address
          Address (..)
+       , _RedeemAddress
        , AddrPkAttrs (..)
        , AddressHash
        , StakeholderId
        , StakesMap
-       , GenesisStakeholders (..)
 
        , Timestamp (..)
        , TimeDiff (..)
@@ -55,6 +55,7 @@ module Pos.Core.Types
        , coinPortionDenominator
        , mkCoinPortion
        , unsafeCoinPortionFromDouble
+       , maxCoinVal
 
        -- * Slotting
        , EpochIndex (..)
@@ -81,7 +82,7 @@ module Pos.Core.Types
 
 import           Universum
 
-import           Control.Lens               (makeLensesFor)
+import           Control.Lens               (makeLensesFor, makePrisms)
 import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
@@ -143,10 +144,6 @@ instance Default AddrPkAttrs where
 -- | A mapping between stakeholders and they stakes.
 type StakesMap = HashMap StakeholderId Coin
 
--- | Newtype over 'StakesMap' to be used in genesis.
-newtype GenesisStakeholders =
-    GenesisStakeholders { unGenesisStakeholders :: HashSet StakeholderId }
-
 ----------------------------------------------------------------------------
 -- ChainDifficulty
 ----------------------------------------------------------------------------
@@ -195,8 +192,7 @@ data SoftwareVersion = SoftwareVersion
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =
-      bprint (stext % ":" % int)
-         (getApplicationName svAppName) svNumber
+        bprint (stext % ":" % int) (getApplicationName svAppName) svNumber
 
 instance Show SoftwareVersion where
     show = toString . pretty
@@ -324,10 +320,11 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
--- FIXME: This operation is unsafe because it doesn't check 'maxCoinVal'.
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin
-mkCoin = Coin
+mkCoin c
+    | c <= maxCoinVal = Coin c
+    | otherwise       = error $ "mkCoin: " <> show c <> " is too large"
 {-# INLINE mkCoin #-}
 
 -- | Coin formatter which restricts type.
@@ -521,3 +518,5 @@ newtype SlotCount = SlotCount {getSlotCount :: Word64}
 flip makeLensesFor ''SlotId [
     ("siEpoch", "siEpochL"),
     ("siSlot" , "siSlotL") ]
+
+makePrisms ''Address

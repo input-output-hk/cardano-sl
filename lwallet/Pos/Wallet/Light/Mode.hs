@@ -21,18 +21,18 @@ import           System.Wlog                      (HasLoggerName (..), LoggerNam
 
 import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
                                                    onRollbackBlocksStub)
+import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core                         (SlotId (..))
+import           Pos.Core                         (Address, SlotId (..))
 import           Pos.DB                           (MonadGState (..))
-import           Pos.Discovery                    (MonadDiscovery (..))
+import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Slotting                     (MonadSlots (..),
                                                    currentTimeSlottingSimple)
 import           Pos.Slotting.MemState            (MonadSlotsData (..))
 import           Pos.Ssc.GodTossing               (SscGodTossing)
-import           Pos.Txp                          (GenesisStakeholders)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), JsonLogConfig,
                                                    jsonLogDefault)
 import           Pos.Util.LoggerName              (HasLoggerName' (..),
@@ -61,7 +61,7 @@ data LightWalletContext = LightWalletContext
     , lwcDiscoveryPeers   :: !(Set NodeId)
     , lwcJsonLogConfig    :: !JsonLogConfig
     , lwcLoggerName       :: !LoggerName
-    , lwcGenStakeholders  :: !GenesisStakeholders
+    , lwcGenStakeholders  :: !GenesisWStakeholders
     }
 
 makeLensesWith postfixLFields ''LightWalletContext
@@ -71,7 +71,7 @@ type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 instance HasUserSecret LightWalletContext where
     userSecret = lwcKeyData_L
 
-instance HasLens GenesisStakeholders LightWalletContext GenesisStakeholders where
+instance HasLens GenesisWStakeholders LightWalletContext GenesisWStakeholders where
     lensOf = lwcGenStakeholders_L
 
 instance HasLens WalletState LightWalletContext WalletState where
@@ -89,10 +89,6 @@ instance {-# OVERLAPPING #-} HasLoggerName LightWalletMode where
 
 instance {-# OVERLAPPING #-} CanJsonLog LightWalletMode where
     jsonLog = jsonLogDefault
-
-instance MonadDiscovery LightWalletMode where
-    getPeers = view lwcDiscoveryPeers_L
-    findPeers = view lwcDiscoveryPeers_L
 
 instance MonadBListener LightWalletMode where
     onApplyBlocks = onApplyBlocksStub
@@ -139,3 +135,7 @@ instance MonadTxHistory LightWalletSscType LightWalletMode where
     getBlockHistory = getBlockHistoryWallet
     getLocalHistory = getLocalHistoryWallet
     saveTx = saveTxWallet
+
+instance MonadAddresses LightWalletMode where
+    type AddrData LightWalletMode = Address
+    getNewAddress = pure

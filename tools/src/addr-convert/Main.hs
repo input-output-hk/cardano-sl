@@ -5,13 +5,14 @@ module Main (main) where
 import           Universum
 
 import qualified Data.ByteString              as BS
-import           Data.String.QQ               (s)
 import qualified Data.Text                    as T
 import           Data.Version                 (showVersion)
+import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
                                                header, help, helper, info, infoOption,
-                                               long, metavar, optional, progDesc, short)
-import           Options.Applicative.Text     (textOption)
+                                               long, metavar, option, optional, progDesc,
+                                               short)
+import           Options.Applicative.Types    (readerAsk)
 import qualified Serokell.Util.Base64         as B64
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
@@ -31,6 +32,8 @@ optionsParser = do
         <> help    "Address to convert. It must be in base64(url) format."
         <> metavar "STRING"
     return AddrConvertOptions{..}
+    where
+      textOption = option (toText <$> readerAsk)
 
 getAddrConvertOptions :: IO AddrConvertOptions
 getAddrConvertOptions = execParser programInfo
@@ -45,7 +48,7 @@ getAddrConvertOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = Just [s|
+usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
   stack exec -- cardano-addr-convert -a 2HF83bvYCTzoCbVta6t64W8rFEnvnkJbIUFoT5tOyoU=

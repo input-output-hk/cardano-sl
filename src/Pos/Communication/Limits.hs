@@ -26,6 +26,7 @@ import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
                                                      MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
+import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
@@ -283,6 +284,12 @@ instance MessageLimited (MsgHeaders ssc) where
         return $
             MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
 
+-- TODO: Update once we move to CBOR.
+instance MessageLimitedPure MsgSubscribe where
+    msgLenLimit = 0
+
+instance MessageLimited MsgSubscribe
+
 ----------------------------------------------------------------------------
 -- Arbitrary
 ----------------------------------------------------------------------------
@@ -352,7 +359,7 @@ instance MessageLimited (MsgHeaders ssc) where
 --     in  fromList <$> T.vectorOf k pairs
 
 -- | Given a limit for a list item, generate limit for a list with N elements
-vectorOf :: IsList l => Int -> Limit (Item l) -> Limit l
+vectorOf :: Int -> Limit (Item l) -> Limit l
 vectorOf k (Limit x) =
     Limit $ encodedListLength + x * (fromIntegral k)
   where
@@ -360,12 +367,11 @@ vectorOf k (Limit x) =
     encodedListLength = 20
 
 -- | Generate limit for a list of messages with N elements
-vector :: (IsList l, MessageLimitedPure (Item l)) => Int -> Limit l
+vector :: (MessageLimitedPure (Item l)) => Int -> Limit l
 vector k = vectorOf k msgLenLimit
 
 multiMap
-    :: (IsList l, Item l ~ (k, l0), IsList l0,
-        MessageLimitedPure k, MessageLimitedPure (Item l0))
+    :: (Item l ~ (k, l0), MessageLimitedPure k, MessageLimitedPure (Item l0))
     => Int -> Limit l
 multiMap k =
     -- max message length is reached when each key has single value

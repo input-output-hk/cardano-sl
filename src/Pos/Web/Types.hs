@@ -2,7 +2,10 @@
 
 module Pos.Web.Types
        ( GodTossingStage (..)
+       , TlsParams (..)
        ) where
+
+import           Universum
 
 -- | Stages of GodTossing algorithm.
 data GodTossingStage
@@ -10,3 +13,9 @@ data GodTossingStage
     | OpeningStage
     | SharesStage
     | OrdinaryStage
+
+data TlsParams = TlsParams
+    { tpCertPath :: FilePath
+    , tpCaPath   :: FilePath
+    , tpKeyPath  :: FilePath
+    } deriving (Show)

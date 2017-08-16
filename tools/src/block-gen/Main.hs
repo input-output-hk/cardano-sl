@@ -9,18 +9,20 @@ import qualified Data.Map                    as M
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
 import           System.Directory            (doesDirectoryExist)
-import           System.Random               (newStdGen)
+import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
 import           Pos.Core                    (StakeDistribution (..),
                                               genesisDevSecretKeys,
-                                              genesisProdAddrDistribution, isDevelopment,
+                                              genesisProdAddrDistribution,
+                                              genesisProdBootStakeholders, isDevelopment,
                                               makePubKeyAddress, mkCoin)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (AllSecrets (..), BlockGenParams (..),
                                               genBlocks, mkInvSecretsMap, unInvSecretsMap)
-import           Pos.Genesis                 (devAddrDistr, genesisUtxo)
+import           Pos.Genesis                 (GenesisWStakeholders (..), devAddrDistr,
+                                              genesisUtxo)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo, _GenesisUtxo)
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
@@ -50,14 +52,17 @@ main = flip catch catchEx $ do
 
     let nodes = length invSecretsMap
     let flatDistr = FlatStakes (fromIntegral nodes) (mkCoin $ fromIntegral nodes)
-    let bootStakeholders = HM.fromList $
-            zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
+    let bootStakeholders
+            | isDevelopment =
+                GenesisWStakeholders $ HM.fromList $
+                zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
+            | otherwise = genesisProdBootStakeholders
+    let addrDistribution
+            | isDevelopment = fst $ devAddrDistr flatDistr
+            | otherwise = genesisProdAddrDistribution
     -- We need to select from utxo TxOut's corresponding to passed secrets
     -- to avoid error "Secret key of %hash% is required but isn't known"
-    let genUtxoUnfiltered
-            | isDevelopment = genesisUtxo Nothing (devAddrDistr flatDistr)
-            | otherwise =
-                 genesisUtxo (Just bootStakeholders) genesisProdAddrDistribution
+    let genUtxoUnfiltered = genesisUtxo bootStakeholders addrDistribution
     let genUtxo = genUtxoUnfiltered &
             _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
     when (M.null $ unGenesisUtxo genUtxo) $
@@ -69,19 +74,18 @@ main = flip catch catchEx $ do
                 (fromIntegral bgoBlockN)
                 def
                 True
-    --seed <- maybe randomIO pure bgoSeed
-    -- TODO use seed in the future
+                bootStakeholders
+    seed <- maybe randomIO pure bgoSeed
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
-        initTBlockGenMode db genUtxo $ do
-            g <- liftIO newStdGen
-            void $ evalRandT (genBlocks bgenParams) g
+        initTBlockGenMode db genUtxo $
+            void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
     if isDevelopment then
-        putText $ "Generated in DEV mode"
+        putText $ "Generated in DEV mode with seed " <> show seed
     else
-        putText $ "Generated in PROD mode"
+        putText $ "Generated in PROD mode with seed " <> show seed
   where
     catchEx :: TBlockGenError -> IO ()
     catchEx e = putText $ sformat ("Error: "%build) e

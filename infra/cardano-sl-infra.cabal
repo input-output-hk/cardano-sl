@@ -39,11 +39,6 @@ library
                         Pos.Slotting.Error
                         Pos.Slotting.Util
 
-                        Pos.Discovery
-                        Pos.Discovery.Broadcast
-                        Pos.Discovery.Class
-                        Pos.Discovery.Holders
-
                         -- Pos.DHT
                         Pos.DHT
                         Pos.DHT.Constants
@@ -64,7 +59,6 @@ library
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
                         Pos.Communication.Listener
-                        Pos.Communication.MessagePart
                         Pos.Communication.Protocol
                         Pos.Communication.Specs
                         Pos.Communication.Relay
@@ -74,6 +68,15 @@ library
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
 
+                        -- Known peers
+                        Pos.KnownPeers
+
+                        -- Network topology
+                        Pos.Network.DnsDomains
+                        Pos.Network.Types
+                        Pos.Network.Yaml
+                        Pos.Network.CLI
+
                         -- Recovery
                         Pos.Recovery.Info
 
@@ -82,6 +85,11 @@ library
                         Pos.Shutdown.Class
                         Pos.Shutdown.Logic
                         Pos.Shutdown.Types
+
+                        -- Subscription
+                        Pos.Subscription.Common
+                        Pos.Subscription.Dns
+                        Pos.Subscription.Dht
 
                         -- Pos.Binary
                         Pos.Binary.Infra
@@ -94,6 +102,9 @@ library
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
+  if os(windows)
+    exposed-modules:    Pos.Network.Windows.DnsDomains
+
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants
 
@@ -105,10 +116,11 @@ library
                       , bytestring
                       , cardano-sl-core
                       , cardano-sl-db
-                      , cardano-report-server >= 0.2.0
+                      , cardano-report-server >= 0.2.1
                       , containers
                       , data-default
                       , directory
+                      , dns
                       , either
                       , ether >= 0.5
                       , exceptions
@@ -116,6 +128,9 @@ library
                       , formatting
                       , generic-arbitrary
                       , hashable
+                      , http-client
+                      , http-client-tls
+                      , iproute
                       , kademlia
                       , lens
                       , list-t
@@ -126,15 +141,13 @@ library
                       , network-transport
                       , network-transport-tcp
                       , node-sketch
-                      , optparse-simple
+                      , optparse-applicative
                       , QuickCheck
                       , reflection
                       , serokell-util >= 0.1.3.4
                       , stm
-                      , stm-containers
                       , tagged
                       , text
-                      , temporary
                       , template-haskell
                       , text-format
                       , time
@@ -146,9 +159,16 @@ library
                       , network-transport
                       , universum
                       , unordered-containers
-                      , wreq
+                      , yaml
+
+  if !os(windows)
+    exposed-modules:   Pos.Util.SigHandler
+    build-depends:     unix
 
   default-language:    Haskell2010
+
+  if os(windows)
+    C-sources:         Pos/Network/Windows/defaultdns.c
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric

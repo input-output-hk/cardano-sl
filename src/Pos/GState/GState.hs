@@ -15,7 +15,6 @@ import qualified Database.RocksDB       as Rocks
 import           Ether.Internal         (HasLens (..))
 import           System.Wlog            (WithLogger)
 
-import           Pos.Context.Context    (GenesisUtxo (..))
 import           Pos.Context.Functions  (genesisUtxoM)
 import           Pos.Core               (HeaderHash)
 import           Pos.DB.Class           (MonadDB, MonadDBRead)
@@ -24,6 +23,7 @@ import           Pos.DB.GState.Common   (initGStateCommon, isInitialized, setIni
 import           Pos.DB.Rocks           (DB (..), MonadRealDB, NodeDBs (..),
                                          Snapshot (..), gStateDB, getNodeDBs,
                                          usingReadOptions, usingSnapshot)
+import           Pos.Genesis            (GenesisUtxo (..))
 import           Pos.GState.BlockExtra  (initGStateBlockExtra)
 import           Pos.Ssc.GodTossing.DB  (initGtDB)
 import           Pos.Txp.DB             (initGStateBalances, initGStateUtxo,

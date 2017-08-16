@@ -21,10 +21,12 @@ utxo_file=$scriptsDir/avvm-files/utxo-dump-last-new.json
 blacklisted=$scriptsDir/avvm-files/full_blacklist.js
 
 if [[ "$M" == "" ]]; then 
-  M=5 # rich keys amount
+    echo "You didn't set M (rich keys amount)";
+    exit 1
 fi
 if [[ "$N" == "" ]]; then 
-  N=12000 # poor keys amount
+    echo "You didn't set N (poor keys amount)";
+    exit 1
 fi
 
 F=100 # fake avvm keys

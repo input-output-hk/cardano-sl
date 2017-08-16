@@ -24,7 +24,7 @@ import           Pos.Core                  (Address (..), StakeholderId, coinF,
 import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress,
                                             checkRedeemAddress, checkScriptAddress,
                                             checkUnknownAddressType)
-import           Pos.Crypto                (SignTag (SignTxIn), WithHash (..), checkSig,
+import           Pos.Crypto                (SignTag (SignTx), WithHash (..), checkSig,
                                             hash, redeemCheckSig)
 import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
@@ -32,7 +32,7 @@ import           Pos.Script                (Script (..), isKnownScriptVersion,
 import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
                                             TxDistribution (..), TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
-                                            TxSigData (..), TxUndo, TxWitness, txOutputs)
+                                            TxSigData (..), TxUndo, TxWitness)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
@@ -170,13 +170,20 @@ verifyInputs :: VTxContext
              -> VerificationRes
 verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
     verifyGeneric . concat $
+    [allInputsDifferent] :
     zipWith3 inputPredicates [0 ..] (toList resolvedInputs) (toList witnesses)
   where
-    outs = taTx ^. txOutputs
     witnesses = taWitness
     distrs = taDistribution
-    outsHash  = hash outs
+    txHash = hash taTx
     distrHash = hash distrs
+
+    allInputsDifferent :: (Bool, Text)
+    allInputsDifferent =
+        ( allDistinct (toList (map fst resolvedInputs))
+        , "transaction tries to spent an unspent input more than once"
+        )
+
     inputPredicates
         :: Word32           -- ^ Input index
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
@@ -192,7 +199,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
                      "  witness: "%build)
                 i txIn txOut txOutAddress witness
           )
-        , case validateTxIn txIn toa witness of
+        , case validateTxIn toa witness of
               Right _ -> (True, error "can't happen")
               Left err -> (False, sformat
                   ("input #"%int%" isn't validated by its witness:\n"%
@@ -209,18 +216,17 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
         RedeemWitness{..}      -> checkRedeemAddress twRedeemKey addr
         UnknownWitnessType t _ -> checkUnknownAddressType t addr
 
-    -- the second argument here includes local context, can be used for scripts
-    validateTxIn :: TxIn -> TxOutAux -> TxInWitness -> Either String ()
-    validateTxIn txIn _txOutAux wit =
+    -- the first argument here includes local context, can be used for scripts
+    validateTxIn :: TxOutAux -> TxInWitness -> Either String ()
+    validateTxIn _txOutAux wit =
         let txSigData = TxSigData
-                { txSigInput     = txIn
-                , txSigOutsHash  = outsHash
-                , txSigDistrHash = distrHash
+                { txSigTxHash      = txHash
+                , txSigTxDistrHash = distrHash
                 }
         in
         case wit of
             PkWitness{..}
-                | checkSig SignTxIn twKey txSigData twSig ->
+                | checkSig SignTx twKey txSigData twSig ->
                       Right ()
                 | otherwise ->
                       Left "signature check failed"

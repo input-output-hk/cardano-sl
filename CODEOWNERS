@@ -2,51 +2,56 @@
 # for review when someone opens a pull request, because @gromakovsky
 # is the Head Vulture of this project.
 
-*                              @gromakovsky
+*                                     @gromakovsky
 
 # Order is important; the last matching pattern takes the most precedence.
-# When someone opens a pull request that only modifies .purs files, only
-# @akegalj will be requested for a review. Same for all other entries below.
 
-*.purs                         @akegalj
-daedalus/                      @akegalj
+# daedalus-bridge
+daedalus/                             @akegaljj
+
+# Explorer
+explorer/                             @akegaljj
+explorer/frontend/                    @sectore
+explorer/src/                         @ksaric
+explorer/src/Pos/Explorer/Socket/     @martoon
+explorer/test/                        @ksaric
 
 # CI, Nix
-*.nix                          @domenkozar
-.travis.yml                    @domenkozar
-appveyor.yml                   @domenkozar
-nixpkgs-src.json               @domenkozar
-pkgs/generate.sh               @domenkozar
+*.nix                                 @domenkozar
+.travis.yml                           @domenkozar
+appveyor.yml                          @domenkozar
+nixpkgs-src.json                      @domenkozar
+pkgs/generate.sh                      @domenkozar
 
 # Documentation
-*.md                           @denisshevchenko
+*.md                                  @denisshevchenko
 
-Delegation/                    @volhovm
+Delegation/                           @volhovm
 
-Wallet/                        @akegalj @flyingleafe
+Wallet/                               @akegalj @flyingleafe
 
-txp/                           @gromakovsky @pva701 @neongreen
-update/                        @gromakovsky @pva701
-lrc/                           @pva701
-godtossing/                    @neongreen
+txp/                                  @gromakovsky @pva701 @neongreen
+update/                               @gromakovsky @pva701
+lrc/                                  @pva701
+godtossing/                           @neongreen
 
-core/Pos/Binary/               @neongreen
-core/Pos/Crypto/               @neongreen
-core/Pos/Merkle.hs             @neongreen
+core/Pos/Binary/                      @neongreen
+core/Pos/Crypto/                      @neongreen
+core/Pos/Merkle.hs                    @neongreen
 
-core/Pos/Util/Config.hs        @neongreen
-core/Pos/Util/Config/          @neongreen
-src/Pos/CompileConfig/         @neongreen
+core/Pos/Util/Config.hs               @neongreen
+core/Pos/Util/Config/                 @neongreen
+src/Pos/CompileConfig/                @neongreen
 
-scripts/build/cardano-sl.sh    @neongreen
-HLint.hs                       @neongreen
+scripts/build/cardano-sl.sh           @neongreen
+HLint.hs                              @neongreen
 
-test/                          @rockbmb
-test/Test/Pos/Block/Logic/     @gromakovsky
+test/                                 @rockbmb
+test/Test/Pos/Block/Logic/            @gromakovsky
 
 # Networking
-infra/Pos/Network              @dcoutts @avieth
-infra/Pos/Subscription         @dcoutts @avieth
+infra/Pos/Network                     @dcoutts @avieth
+infra/Pos/Subscription                @dcoutts @avieth
 
 # Benchmarks
-scripts/bench                  @kantp @avieth
+scripts/bench                         @kantp @avieth

@@ -10,9 +10,8 @@ module Pos.Txp.Toil.Utxo.Functions
 import           Universum
 
 import           Control.Monad.Error.Class (MonadError (..))
-import           Data.List                 (zipWith3)
 import qualified Data.List.NonEmpty        as NE
-import           Formatting                (build, int, sformat, (%))
+import           Formatting                (build, int, sformat, stext, (%))
 import           Serokell.Util             (VerificationRes, allDistinct, enumerate,
                                             formatFirstError, verResToMonadError,
                                             verifyGeneric)
@@ -22,8 +21,8 @@ import           Pos.Core                  (AddrType (..), Address (..), Stakeho
                                             addressF, coinF, coinToInteger, integerToCoin,
                                             isRedeemAddress, isUnknownAddressType, mkCoin,
                                             sumCoins)
-import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress,
-                                            checkRedeemAddress, checkScriptAddress)
+import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
+                                            checkScriptAddress)
 import           Pos.Crypto                (SignTag (SignTx), WithHash (..), checkSig,
                                             hash, redeemCheckSig)
 import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
@@ -83,8 +82,7 @@ verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses _) = do
         verifyOutputs ctx ta
     resolvedInputs <- mapM resolveInput _txInputs
     txFee <- verifySums resolvedInputs _txOutputs
-    verResToMonadError ToilInvalidInputs $
-        verifyInputs ctx resolvedInputs ta
+    verifyInputs ctx resolvedInputs ta
     when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
     return (map snd resolvedInputs, txFee)
 
@@ -162,51 +160,45 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs) =
                     "assigns 0 coins to some addresses") i)
            ]
 
-verifyInputs :: VTxContext
-             -> NonEmpty (TxIn, TxOutAux)
-             -> TxAux
-             -> VerificationRes
-verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
-    verifyGeneric . concat $
-    [allInputsDifferent] :
-    zipWith3 inputPredicates [0 ..] (toList resolvedInputs) (toList witnesses)
+verifyInputs ::
+       MonadError ToilVerFailure m
+    => VTxContext
+    -> NonEmpty (TxIn, TxOutAux)
+    -> TxAux
+    -> m ()
+verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
+    unless allInputsDifferent $ throwError ToilRepeatedInput
+    mapM_ (uncurry3 inputPredicates) $
+        zip3 [0 ..] (toList resolvedInputs) (toList witnesses)
   where
+    uncurry3 f (a, b, c) = f a b c
     witnesses = taWitness
     distrs = taDistribution
     txHash = hash taTx
     distrHash = hash distrs
 
-    allInputsDifferent :: (Bool, Text)
-    allInputsDifferent =
-        ( allDistinct (toList (map fst resolvedInputs))
-        , "transaction tries to spent an unspent input more than once"
-        )
+    allInputsDifferent :: Bool
+    allInputsDifferent = allDistinct (toList (map fst resolvedInputs))
 
     inputPredicates
-        :: Word32           -- ^ Input index
+        :: MonadError ToilVerFailure m
+        => Word32           -- ^ Input index
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
-        -> [(Bool, Text)]
-    inputPredicates i (txIn@TxIn{..}, toa@(TxOutAux txOut@TxOut{..} _)) witness =
-        [ ( checkSpendingData txOutAddress witness
-          , sformat ("input #"%int%"'s witness doesn't match address "%
-                     "of corresponding output:\n"%
-                     "  input: "%build%"\n"%
-                     "  output spent by this input: "%build%"\n"%
-                     "  address details: "%addressDetailedF%"\n"%
-                     "  witness: "%build)
-                i txIn txOut txOutAddress witness
-          )
-        , case validateTxIn toa witness of
-              Right _ -> (True, error "can't happen")
-              Left err -> (False, sformat
+        -> m ()
+    inputPredicates i (txIn@TxIn{..}, toa@(TxOutAux txOut@TxOut{..} _)) witness = do
+        unless (checkSpendingData txOutAddress witness) $ throwError $
+            ToilWitnessDoesntMatch i txIn txOut witness
+        -- N.B. @neongreen promised to improve it
+        case validateTxIn toa witness of
+              Right _ -> pass
+              Left err -> throwError $ ToilInvalidInput i $ sformat
                   ("input #"%int%" isn't validated by its witness:\n"%
-                   "  reason: "%build%"\n"%
+                   "  reason: "%stext%"\n"%
                    "  input: "%build%"\n"%
                    "  output spent by this input: "%build%"\n"%
                    "  witness: "%build)
-                  i err txIn txOut witness)
-        ]
+                  i err txIn txOut witness
 
     checkSpendingData addr wit = case wit of
         PkWitness{..}            -> checkPubKeyAddress twKey addr
@@ -217,7 +209,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
             _                 -> False
 
     -- the first argument here includes local context, can be used for scripts
-    validateTxIn :: TxOutAux -> TxInWitness -> Either String ()
+    validateTxIn :: TxOutAux -> TxInWitness -> Either Text ()
     validateTxIn _txOutAux wit =
         let txSigData = TxSigData
                 { txSigTxHash      = txHash
@@ -238,7 +230,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
                       when vtcVerifyAllIsKnown $
                       Left ("unknown script version " <> show (scrVersion twValidator))
                 | otherwise ->
-                      txScriptCheck txSigData twValidator twRedeemer
+                      first toText (txScriptCheck txSigData twValidator twRedeemer)
 
             RedeemWitness{..}
                 | redeemCheckSig twRedeemKey txSigData twRedeemSig ->

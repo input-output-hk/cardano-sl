@@ -149,6 +149,19 @@ genTxPayload = do
         let resolveSecret :: MonadThrow n => StakeholderId -> n SecretKey
             resolveSecret stId =
                 maybeThrow (BGUnknownSecret stId) (HM.lookup stId secrets)
+
+        invAddrSpendingData <- unInvAddrSpendingData <$>
+            view (blockGenParams . asSpendingData)
+        let addrToSk :: MonadThrow n => Address -> n SecretKey
+            addrToSk addr = do
+                spendingData <- maybeThrow (BGUnknownAddress addr)
+                    (invAddrSpendingData ^. at addr)
+                case spendingData of
+                    PubKeyASD pk -> resolveSecret (addressHash pk)
+                    another -> error $
+                        sformat ("Found an address with non-pubkey spending data: "
+                                    %build) another
+
         let utxoAddresses = map (makePubKeyAddress . toPublic) $ HM.elems secrets
 
         ----- INPUTS
@@ -207,8 +220,15 @@ genTxPayload = do
                 coins <-
                     suchThat randomAttempts (all moreThanDust) $
                     splitCoins outputsN (unsafeIntegerToCoin outputsSum)
-                let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-                let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
+                let txOuts :: NonEmpty TxOut
+                    txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
+                let txOutToOutAux txOut@(TxOut addr coin) = do
+                        sk <- addrToSk addr
+                        let sId :: StakeholderId
+                            sId = addressHash (toPublic sk)
+                        let distr = one (sId, coin)
+                        return TxOutAux { toaOut = txOut, toaDistr = distr }
+                txOutAuxsPre <- mapM txOutToOutAux txOuts
                 either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
                     runExceptT (overrideTxDistrBoot txOutAuxsPre)
 
@@ -226,17 +246,6 @@ genTxPayload = do
                 (txIns, inputsResolved, inputsSum) <- generateInputs randomAttempts expectedFee
                 txOutAuxs <- generateOutputs inputsSum expectedFee
 
-                invAddrSpendingData <- unInvAddrSpendingData <$>
-                    view (blockGenParams . asSpendingData)
-                let addrToSk :: MonadThrow n => Address -> n SecretKey
-                    addrToSk addr = do
-                        spendingData <- maybeThrow (BGUnknownAddress addr)
-                            (invAddrSpendingData ^. at addr)
-                        case spendingData of
-                            PubKeyASD pk -> resolveSecret (addressHash pk)
-                            another -> error $
-                                sformat ("Found an address with non-pubkey spending data: "
-                                         %build) another
                 resolvedSks <- mapM (addrToSk . txOutAddress) inputsResolved
                 let txInsWithSks = NE.fromList $ resolvedSks `zip` txIns
                 let mkWit :: SecretKey -> TxSigData -> TxInWitness

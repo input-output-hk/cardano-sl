@@ -7,7 +7,6 @@ module Pos.Client.Txp.Util
        -- * Tx creation
          TxCreateMode
        , makeAbstractTx
-       , overrideTxOutDistrBoot
        , overrideTxDistrBoot
        , makePubKeyTx
        , makeMPubKeyTx
@@ -273,8 +272,10 @@ mkOutputsWithRem
 mkOutputsWithRem addrData TxRaw {..}
     | trRemaining == mkCoin 0 = pure trOutputs
     | otherwise = do
-          changeAddr <- getNewAddress addrData
-          pure $ (TxOutAux (TxOut changeAddr trRemaining) []) :| toList trOutputs
+        (changeAddr, changeStakeholder) <- getNewAddress addrData
+        let outDistr = maybe [] (one . (, trRemaining)) changeStakeholder
+        let txOut = TxOut changeAddr trRemaining
+        pure $ (TxOutAux txOut outDistr) :| toList trOutputs
 
 prepareInpsOuts
     :: TxCreateMode ctx m
@@ -441,6 +442,7 @@ createFakeTxFromRawTx TxRaw{..} =
     let fakeAddr = txOutAddress . toaOut . NE.head $ trOutputs
         fakeOutMB
             | trRemaining == mkCoin 0 = Nothing
+            -- FIXME [CSM-411] Use proper distribution, not empty one.
             | otherwise = Just $ TxOutAux (TxOut fakeAddr trRemaining) []
         txOutsWithRem = maybe trOutputs (\remTx -> remTx :| toList trOutputs) fakeOutMB
 

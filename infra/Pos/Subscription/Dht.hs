@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Subscription.Dht
     ( dhtSubscriptionWorker
@@ -16,7 +15,7 @@ import           Pos.DHT.Real.Real                     (kademliaGetKnownPeers)
 import           Pos.DHT.Real.Types                    (KademliaDHTInstance (..))
 import           Pos.DHT.Workers                       (DhtWorkMode)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (NodeType, Bucket(..))
+import           Pos.Network.Types                     (Bucket (..), NodeType)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
 
 

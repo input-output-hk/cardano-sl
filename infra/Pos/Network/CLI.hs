@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 
 -- following Pos.Util.UserSecret
 #if !defined(mingw32_HOST_OS)
@@ -27,7 +26,7 @@ import qualified Data.Map.Strict                 as M
 import           Data.Maybe                      (fromJust)
 import qualified Data.Yaml                       as Yaml
 import           Formatting                      (sformat, shown, (%))
-import           Mockable                        (Mockable, Catch, fork, try)
+import           Mockable                        (Catch, Mockable, fork, try)
 import           Mockable.Concurrent
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS                     as DNS
@@ -332,7 +331,7 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers =
     resolveName :: Map NodeName t -> NodeName -> IO t
     resolveName directory name = case M.lookup name directory of
       Nothing -> throwM $ UndefinedNodeName name
-      Just t -> return t
+      Just t  -> return t
 
 -- | Resolve node name to IP address
 --

@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Binary instances for transaction fee data.
 
@@ -8,8 +7,8 @@ import           Universum
 
 import           Data.Fixed       (Nano)
 
-import           Pos.Binary.Class (Bi (..), encode, decode, encodeListLen, deserialize', serialize'
-                                  , enforceSize)
+import           Pos.Binary.Class (Bi (..), decode, deserialize', encode, encodeListLen,
+                                   enforceSize, serialize')
 import           Pos.Core.Fee     (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance Bi Coeff where

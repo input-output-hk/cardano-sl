@@ -1,19 +1,18 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Communication.Message
        (
        ) where
 
-import           Universum
 import           Data.Tagged                      (Tagged)
+import           Universum
 
 import           Node.Message.Class               (Message (..))
 
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
+import           Pos.Communication.Types.Protocol (MsgSubscribe)
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                    ReqMsg, ReqOrRes)
-import           Pos.Communication.Types.Protocol (MsgSubscribe)
 import           Pos.Delegation.Types             (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Types.Message (MCCommitment, MCOpening, MCShares,
                                                    MCVssCertificate)

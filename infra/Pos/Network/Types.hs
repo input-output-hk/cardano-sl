@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 module Pos.Network.Types
@@ -37,6 +36,7 @@ module Pos.Network.Types
     ) where
 
 import           Data.IP                               (IPv4)
+import           GHC.Show                              (Show (..))
 import           Network.Broadcast.OutboundQueue       (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -46,13 +46,11 @@ import           Node.Internal                         (NodeId (..))
 import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import qualified Pos.Network.Policy                    as Policy
-import           Pos.Network.Yaml                      (NodeName (..),
-                                                        Valency, Fallbacks)
+import           Pos.Network.Yaml                      (Fallbacks, NodeName (..), Valency)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
 import qualified System.Metrics                        as Monitoring
 import           System.Wlog.CanLog                    (WithLogger)
 import           Universum                             hiding (show)
-import           GHC.Show                              (Show(..))
 
 -- | Information about the network in which a node participates.
 data NetworkConfig kademlia = NetworkConfig

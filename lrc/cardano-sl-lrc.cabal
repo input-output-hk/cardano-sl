@@ -67,6 +67,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   default-language:    Haskell2010
 

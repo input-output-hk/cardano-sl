@@ -76,6 +76,7 @@ executable cardano-analyzer
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -143,6 +144,7 @@ executable cardano-dht-keygen
                         UndecidableInstances
                         BangPatterns
                         ApplicativeDo
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -183,6 +185,7 @@ executable cardano-genupdate
                        BangPatterns
                        ApplicativeDo
                        RecordWildCards
+                       ScopedTypeVariables
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen
@@ -245,6 +248,7 @@ executable cardano-keygen
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        ScopedTypeVariables
 
   if flag(for-installer)
     buildable: False
@@ -286,6 +290,7 @@ executable cardano-launcher
                        TupleSections
                        TypeApplications
                        BangPatterns
+                       ScopedTypeVariables
 
   if os(windows)
     LD-Options:     -mwindows
@@ -338,6 +343,7 @@ executable cardano-addr-convert
                         ConstraintKinds
                         UndecidableInstances
                         ApplicativeDo
+                        ScopedTypeVariables
 
 executable cardano-cli-docs
   hs-source-dirs:      src/cli-docs
@@ -369,6 +375,7 @@ executable cardano-cli-docs
                         RecordWildCards
                         OverloadedStrings
                         ApplicativeDo
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -428,6 +435,7 @@ executable cardano-block-gen
                         OverloadedStrings
                         FlexibleContexts
                         TypeApplications
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -512,5 +520,6 @@ executable cardano-post-mortem
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        ScopedTypeVariables
                         ScopedTypeVariables
                         BangPatterns

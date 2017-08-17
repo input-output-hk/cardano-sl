@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Verify|apply|rollback logic.
 
 module Pos.Block.Logic.VAR

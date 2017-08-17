@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RankNTypes #-}
+
 -- | Announcements related to blocks.
 
 module Pos.Block.Network.Announce
@@ -23,8 +23,8 @@ import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..)
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             OutSpecs, EnqueueMsg, convH, NodeId,
-                                             toOutSpecs, MsgType (..), Origin (..))
+                                             EnqueueMsg, MsgType (..), NodeId,
+                                             Origin (..), OutSpecs, convH, toOutSpecs)
 import           Pos.Context                (recoveryInProgress)
 import           Pos.Core                   (headerHash, prevBlockL)
 import           Pos.Crypto                 (shortHashF)

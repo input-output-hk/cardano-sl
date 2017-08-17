@@ -24,17 +24,18 @@ module Pos.Launcher.Resource
 import           Universum                  hiding (bracket, finally)
 
 import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
-import           Data.Tagged                 (untag)
+import           Data.Tagged                (untag)
 import qualified Data.Time                  as Time
 import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (Catch, Mockable, Production (..), Throw,
-                                             throw, Bracket, bracket)
+import           Mockable                   (Bracket, Catch, Mockable, Production (..),
+                                             Throw, bracket, throw)
 import           Network.QDisc.Fair         (fairQDisc)
+import qualified Network.Transport          as NT (closeTransport)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
-import qualified Network.Transport          as NT (closeTransport)
-import           System.IO                  (Handle, hClose, hSetBuffering, BufferMode (..))
+import           System.IO                  (BufferMode (..), Handle, hClose,
+                                             hSetBuffering)
 import qualified System.Metrics             as Metrics
 import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
                                              getLoggerName, logError, productionB,
@@ -47,7 +48,7 @@ import           Pos.CLI                    (readLoggerConfig)
 import qualified Pos.Constants              as Const
 import           Pos.Context                (BlkSemaphore (..), ConnectedPeers (..),
                                              NodeContext (..), StartTime (..))
-import           Pos.Core                   (Timestamp)
+import           Pos.Core                   (HasCoreConstants, Timestamp)
 import           Pos.DB                     (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                  (initNodeDBs)
 import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
@@ -55,7 +56,7 @@ import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
-                                             TransportParams (..), NodeParams (..))
+                                             NodeParams (..), TransportParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
 import           Pos.Shutdown.Types         (ShutdownContext (..))
@@ -114,6 +115,7 @@ hoistNodeResources nat nr =
 allocateNodeResources
     :: forall ssc m.
        ( SscConstraint ssc
+       , HasCoreConstants
        )
     => Transport m
     -> NetworkConfig KademliaDHTInstance
@@ -189,10 +191,11 @@ releaseNodeResources NodeResources {..} = do
 bracketNodeResources :: forall ssc m a.
       ( SscConstraint ssc
       , MonadIO m
+      , HasCoreConstants
       )
     => NodeParams
     -> SscParams ssc
-    -> (NodeResources ssc m -> Production a)
+    -> (HasCoreConstants => NodeResources ssc m -> Production a)
     -> Production a
 bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
     bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
@@ -225,7 +228,7 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 allocateNodeContext
     :: forall ssc .
-      (SscConstraint ssc)
+      (HasCoreConstants, SscConstraint ssc)
     => NodeParams
     -> SscParams ssc
     -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())

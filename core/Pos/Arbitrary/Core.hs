@@ -38,9 +38,11 @@ import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makeAddress, makePubKeyAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Constants                (epochSlots, sharedSeedLength)
+import           Pos.Core.Constants                (sharedSeedLength)
+import           Pos.Core.Context                  (HasCoreConstants, epochSlots)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
+import qualified Pos.Core.Slotting                 as Types
 import qualified Pos.Core.Types                    as Types
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
@@ -94,17 +96,17 @@ instance Arbitrary Types.EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
     shrink = genericShrink
 
-instance Arbitrary Types.LocalSlotIndex where
+instance HasCoreConstants => Arbitrary Types.LocalSlotIndex where
     arbitrary =
         leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
         choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
     shrink = genericShrink
 
-instance Arbitrary Types.SlotId where
+instance HasCoreConstants => Arbitrary Types.SlotId where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary Types.EpochOrSlot where
+instance HasCoreConstants => Arbitrary Types.EpochOrSlot where
     arbitrary = oneof [
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
@@ -117,7 +119,7 @@ newtype EoSToIntOverflow = EoSToIntOverflow
     { getEoS :: Types.EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance Arbitrary EoSToIntOverflow where
+instance HasCoreConstants => Arbitrary EoSToIntOverflow where
     arbitrary = EoSToIntOverflow <$> do
         let maxIntAsInteger = toInteger (maxBound :: Int)
             maxW64 = toInteger (maxBound :: Word64)
@@ -144,7 +146,7 @@ newtype UnreasonableEoS = Unreasonable
     { getUnreasonable :: Types.EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance Arbitrary UnreasonableEoS where
+instance HasCoreConstants => Arbitrary UnreasonableEoS where
     arbitrary = Unreasonable . Types.EpochOrSlot <$> do
         let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
         localSlot <- arbitrary

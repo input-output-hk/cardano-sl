@@ -10,18 +10,20 @@ import           Universum
 import           Data.Time.Units             (Microsecond, convertUnit)
 import           NTP.Example                 ()
 
-import qualified Pos.Core.Constants          as C
-import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
+import qualified Pos.Core.Context            as C
+import           Pos.Core.Slotting           (flattenEpochIndex, mkLocalSlotIndex,
+                                              unflattenSlotId)
 import           Pos.Core.Timestamp          (addTimeDiffToTimestamp)
-import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..),
-                                              mkLocalSlotIndex)
+import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
 import           Pos.Util.Util               (leftToPanic)
 
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
 import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
 
 -- | Approximate current slot using outdated slotting data.
-approxSlotUsingOutdated :: MonadSlotsData m => EpochIndex -> Timestamp -> m SlotId
+approxSlotUsingOutdated
+    :: (MonadSlotsData m, C.HasCoreConstants)
+    => EpochIndex -> Timestamp -> m SlotId
 approxSlotUsingOutdated penult t = do
     SlottingData {..} <- getSlottingData
     systemStart <- getSystemStart
@@ -39,7 +41,7 @@ approxSlotUsingOutdated penult t = do
 -- | Compute current slot from current timestamp based on data
 -- provided by 'MonadSlotsData'.
 slotFromTimestamp
-    :: MonadSlotsData m
+    :: (MonadSlotsData m, C.HasCoreConstants)
     => Timestamp -> m (Maybe SlotId)
 slotFromTimestamp approxCurTime = do
     SlottingData {..} <- getSlottingData
@@ -50,7 +52,8 @@ slotFromTimestamp approxCurTime = do
     return $ penultRes <|> lastRes
 
 computeSlotUsingEpoch
-    :: Timestamp
+    :: C.HasCoreConstants
+    => Timestamp
     -> Timestamp
     -> EpochIndex
     -> EpochSlottingData

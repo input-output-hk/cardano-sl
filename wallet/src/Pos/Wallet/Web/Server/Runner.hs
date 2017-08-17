@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -24,6 +25,7 @@ import           System.Wlog                    (logInfo)
 
 import           Pos.Communication              (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol     (SendActions)
+import           Pos.Core                       (HasCoreConstants)
 import           Pos.Launcher.Resource          (NodeResources)
 import           Pos.Launcher.Runner            (runRealBasedMode)
 import           Pos.Wallet.SscType             (WalletSscType)
@@ -38,7 +40,8 @@ import           Pos.Web                        (TlsParams)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
-    :: WalletState
+    :: HasCoreConstants
+    => WalletState
     -> ConnectionsVar
     -> NodeResources WalletSscType WalletWebMode
     -> (ActionSpec WalletWebMode a, OutSpecs)
@@ -49,7 +52,8 @@ runWRealMode db conn =
         (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc))
 
 walletServeWebFull
-    :: SendActions WalletWebMode
+    :: HasCoreConstants
+    => SendActions WalletWebMode
     -> Bool      -- whether to include genesis keys
     -> Word16    -- ^ Port to listen
     -> Maybe TlsParams

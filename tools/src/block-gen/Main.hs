@@ -18,7 +18,8 @@ import           Pos.Core                    (AddrSpendingData (..),
                                               StakeDistribution (..),
                                               genesisDevSecretKeys,
                                               genesisProdAddrDistribution,
-                                              genesisProdBootStakeholders, isDevelopment,
+                                              genesisProdBootStakeholders,
+                                              giveStaticConsts, isDevelopment,
                                               makePubKeyAddress, mkCoin)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
@@ -34,7 +35,7 @@ import           Error                       (TBlockGenError (..))
 import           Options                     (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
-main = flip catch catchEx $ do
+main = flip catch catchEx $ giveStaticConsts $ do
     if isDevelopment then
         putText $ "Generating in DEV mode"
     else

@@ -16,7 +16,7 @@ import           Control.Lens            (makeLenses)
 import qualified Data.Text.Buildable     as Buildable
 import           Universum
 
-import           Pos.Core                (LocalSlotIndex, SlotId)
+import           Pos.Core                (LocalSlotIndex, SlotId, HasCoreConstants)
 import           Pos.Ssc.GodTossing.Core (CommitmentsMap, OpeningsMap, SharesMap,
                                           VssCertificatesMap, isCommitmentId,
                                           isCommitmentIdx, isOpeningId, isOpeningIdx,
@@ -36,13 +36,13 @@ instance Buildable GtTag where
     build SharesMsg         = "shares"
     build VssCertificateMsg = "VSS certificate"
 
-isGoodSlotForTag :: GtTag -> LocalSlotIndex -> Bool
+isGoodSlotForTag :: HasCoreConstants => GtTag -> LocalSlotIndex -> Bool
 isGoodSlotForTag CommitmentMsg     = isCommitmentIdx
 isGoodSlotForTag OpeningMsg        = isOpeningIdx
 isGoodSlotForTag SharesMsg         = isSharesIdx
 isGoodSlotForTag VssCertificateMsg = const True
 
-isGoodSlotIdForTag :: GtTag -> SlotId -> Bool
+isGoodSlotIdForTag :: HasCoreConstants => GtTag -> SlotId -> Bool
 isGoodSlotIdForTag CommitmentMsg     = isCommitmentId
 isGoodSlotIdForTag OpeningMsg        = isOpeningId
 isGoodSlotIdForTag SharesMsg         = isSharesId

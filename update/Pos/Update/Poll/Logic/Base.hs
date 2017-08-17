@@ -40,15 +40,15 @@ import           Formatting              (build, int, sformat, (%))
 import           System.Wlog             (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Update       ()
-import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
-                                          IsMainHeader (..), ScriptVersion, SlotId,
-                                          SoftforkRule (..), TimeDiff (..), addressHash,
-                                          applyCoinPortionUp, coinPortionDenominator,
-                                          coinToInteger, difficultyL, getCoinPortion,
+import           Pos.Core                (BlockVersion (..), Coin, EpochIndex,
+                                          HasCoreConstants, HeaderHash, IsMainHeader (..),
+                                          ScriptVersion, SlotId, SoftforkRule (..),
+                                          TimeDiff (..), addressHash, applyCoinPortionUp,
+                                          coinPortionDenominator, coinToInteger,
+                                          difficultyL, epochSlots, getCoinPortion,
                                           headerHashG, isBootstrapEra, mkCoinPortion,
                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                                           unsafeSubCoin)
-import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
 import           Pos.Update.Core         (BlockVersionData (..),
@@ -207,7 +207,7 @@ adoptBlockVersion winningBlk bv = do
 -- | Update slotting data stored in poll. First argument is epoch for
 -- which currently adopted 'BlockVersion' can be applied.
 updateSlottingData
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: (HasCoreConstants, MonadError PollVerFailure m, MonadPoll m)
     => EpochIndex -> m ()
 updateSlottingData epoch = do
     sd@SlottingData {..} <- getSlottingData

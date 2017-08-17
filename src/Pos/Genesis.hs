@@ -51,9 +51,9 @@ import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpend
                                              mkInvAddrSpendingData)
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (AddrSpendingData (PubKeyASD), Address (..),
-                                             Coin, SlotLeaders, addressHash,
-                                             applyCoinPortionUp, coinToInteger,
-                                             deriveLvl2KeyPair, divCoin,
+                                             Coin, HasCoreConstants, SlotLeaders,
+                                             addressHash, applyCoinPortionUp,
+                                             coinToInteger, deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, safeExpStakes,
                                              unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
@@ -215,7 +215,7 @@ generateWStakeholders (unInvAddrSpendingData -> addrToSpending) addrDistrs =
             _ -> identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: GenesisUtxo -> SlotLeaders
+genesisLeaders :: HasCoreConstants => GenesisUtxo -> SlotLeaders
 genesisLeaders (GenesisUtxo utxo) =
     followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
 

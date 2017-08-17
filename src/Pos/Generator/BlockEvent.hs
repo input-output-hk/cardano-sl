@@ -62,7 +62,7 @@ import           Serokell.Util               (listJson)
 
 import           Pos.AllSecrets              (AllSecrets)
 import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (HeaderHash, headerHash, prevBlockL)
+import           Pos.Core                    (HeaderHash, HasCoreConstants, headerHash, prevBlockL)
 import           Pos.Crypto.Hashing          (hashHexF)
 import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
                                               TxGenParams, genBlocks)
@@ -355,7 +355,7 @@ newtype CheckCount = CheckCount Word
     deriving (Eq, Ord, Show, Num)
 
 -- The tip after the block event. 'Nothing' when the event doesn't affect the tip.
-blkEvTip :: BlockEvent -> Maybe HeaderHash
+blkEvTip :: HasCoreConstants => BlockEvent -> Maybe HeaderHash
 blkEvTip = \case
     BlkEvApply bea -> Just $
         (headerHash . NE.head . getNewestFirst . toNewestFirst . view beaInput) bea
@@ -373,7 +373,7 @@ hhSnapshotId = SnapshotId . sformat hashHexF
 
 -- | Whenever the resulting tips of apply/rollback operations coincide,
 -- add a snapshot equivalence comparison.
-enrichWithSnapshotChecking :: BlockScenario -> (BlockScenario, CheckCount)
+enrichWithSnapshotChecking :: HasCoreConstants => BlockScenario -> (BlockScenario, CheckCount)
 enrichWithSnapshotChecking (BlockScenario bs) = (BlockScenario bs', checkCount)
   where
     checkCount = sum (hhStatusEnd :: HhStatusMap)

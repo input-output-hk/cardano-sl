@@ -35,8 +35,9 @@ import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 
 import           Pos.Binary.Class       (biSize)
-import           Pos.Core               (BlockVersionData (bvdMaxBlockSize), HeaderHash,
-                                         SlotId (..), slotIdF)
+import           Pos.Core               (BlockVersionData (bvdMaxBlockSize),
+                                         HasCoreConstants, HeaderHash, SlotId (..),
+                                         slotIdF)
 import           Pos.Core.Constants     (memPoolLimitRatio)
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDBRead)
@@ -65,6 +66,7 @@ type USLocalLogicMode ctx m =
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     , HasLens LrcContext ctx LrcContext
+    , HasCoreConstants
     )
 
 getMemPool
@@ -143,6 +145,7 @@ refreshMemPool
        , HasLens UpdateContext ctx UpdateContext
        , HasLens LrcContext ctx LrcContext
        , WithLogger m
+       , HasCoreConstants
        )
     => MemState -> m MemState
 refreshMemPool ms@MemState {..} = do

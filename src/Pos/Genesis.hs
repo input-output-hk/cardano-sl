@@ -48,7 +48,7 @@ import           Formatting                 (sformat)
 import           Serokell.Util              (enumerate, listJson, pairF)
 
 import qualified Pos.Constants              as Const
-import           Pos.Core                   (Address (..), Coin, SlotLeaders,
+import           Pos.Core                   (Address (..), Coin, SlotLeaders, HasCoreConstants,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, safeExpStakes,
@@ -208,7 +208,7 @@ generateWStakeholders addrDistrs =
     step _                            = identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: GenesisUtxo -> SlotLeaders
+genesisLeaders :: HasCoreConstants => GenesisUtxo -> SlotLeaders
 genesisLeaders (GenesisUtxo utxo) =
     followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
 

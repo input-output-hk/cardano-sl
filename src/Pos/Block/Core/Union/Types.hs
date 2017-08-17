@@ -33,7 +33,8 @@ import           Pos.Core.Block
 type BiSsc ssc =
     ( Ssc ssc
     , Bi (GenericBlockHeader (GenesisBlockchain ssc))
-    , Bi (GenericBlockHeader (MainBlockchain ssc)))
+    , Bi (GenericBlockHeader (MainBlockchain ssc))
+    )
 
 -- | Either header of ordinary main block or genesis block.
 type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)

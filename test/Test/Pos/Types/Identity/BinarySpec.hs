@@ -10,6 +10,7 @@ import           Universum
 import           Pos.Arbitrary.Core            ()
 import           Pos.Arbitrary.Infra           ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Core.Context              (giveStaticConsts)
 import qualified Pos.Core.Fee                  as Fee
 import           Pos.Data.Attributes           (Attributes (..))
 import qualified Pos.Types                     as T
@@ -17,7 +18,7 @@ import qualified Pos.Types                     as T
 import           Test.Pos.Util                 (binaryTest)
 
 spec :: Spec
-spec = describe "Types" $ do
+spec = giveStaticConsts $ describe "Types" $ do
     -- 100 is not enough to catch some bugs (e.g. there was a bug with
     -- addresses that only manifested when address's CRC started with 0x00)
     describe "Bi instances" $ do

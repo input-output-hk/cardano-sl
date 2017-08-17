@@ -23,16 +23,16 @@ import           Universum                       hiding (bracket)
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
 import           Formatting                      (build, sformat, (%))
-import           Mockable                        (MonadMockable, Production (..), bracket,
-                                                  killThread, Throw, throw, Mockable,
-                                                  async, cancel)
+import           Mockable                        (Mockable, MonadMockable,
+                                                  Production (..), Throw, async, bracket,
+                                                  cancel, killThread, throw)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node                            (Node, NodeAction (..), NodeEndPoint,
                                                   ReceiveDelay, Statistics,
-                                                  defaultNodeEnvironment,
-                                                  noReceiveDelay, node,
-                                                  simpleNodeEndPoint)
-import qualified Node.Conversation               as N (Converse, Conversation, converseWith)
+                                                  defaultNodeEnvironment, noReceiveDelay,
+                                                  node, simpleNodeEndPoint)
+import qualified Node.Conversation               as N (Conversation, Converse,
+                                                       converseWith)
 import           Node.Util.Monitor               (setupMonitor, stopMonitor)
 import qualified System.Metrics                  as Metrics
 import           System.Random                   (newStdGen)
@@ -41,15 +41,15 @@ import qualified System.Remote.Monitoring.Statsd as Monitoring
 import           System.Wlog                     (WithLogger, logInfo)
 
 import           Pos.Binary                      ()
-import           Pos.Communication               (ActionSpec (..), bipPacking, InSpecs (..),
-                                                  MkListeners (..), OutSpecs (..),
-                                                  VerInfo (..), allListeners, Msg,
-                                                  PeerData, PackingType,
-                                                  hoistSendActions, makeSendActions,
-                                                  SendActions,
-                                                  makeEnqueueMsg, EnqueueMsg)
+import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
+                                                  InSpecs (..), MkListeners (..), Msg,
+                                                  OutSpecs (..), PackingType, PeerData,
+                                                  SendActions, VerInfo (..), allListeners,
+                                                  bipPacking, hoistSendActions,
+                                                  makeEnqueueMsg, makeSendActions)
 import qualified Pos.Constants                   as Const
 import           Pos.Context                     (NodeContext (..))
+import           Pos.Core                        (HasCoreConstants)
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
@@ -58,9 +58,8 @@ import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
-import           Pos.WorkMode                    (RealMode, RealModeContext (..),
-                                                  WorkMode, EnqueuedConversation (..),
-                                                  OQ)
+import           Pos.WorkMode                    (EnqueuedConversation (..), OQ, RealMode,
+                                                  RealModeContext (..), WorkMode)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -69,7 +68,7 @@ import           Pos.WorkMode                    (RealMode, RealModeContext (..)
 -- | Run activity in 'RealMode'.
 runRealMode
     :: forall ssc a.
-       (SscConstraint ssc)
+       (HasCoreConstants, SscConstraint ssc)
     => NodeResources ssc (RealMode ssc)
     -> (ActionSpec (RealMode ssc) a, OutSpecs)
     -> Production a
@@ -92,7 +91,7 @@ runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs)
 -- | RealMode runner.
 runRealModeDo
     :: forall ssc a.
-       (SscConstraint ssc)
+       (HasCoreConstants, SscConstraint ssc)
     => NodeResources ssc (RealMode ssc)
     -> OutSpecs
     -> ActionSpec (RealMode ssc) a

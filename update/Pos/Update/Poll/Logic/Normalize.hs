@@ -17,9 +17,9 @@ import qualified Data.HashSet                as HS
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (logWarning)
 
-import           Pos.Core                    (Coin, EpochIndex, SlotId (siEpoch),
-                                              addressHash, applyCoinPortionUp, mkCoin,
-                                              unsafeAddCoin)
+import           Pos.Core                    (Coin, EpochIndex, HasCoreConstants,
+                                              SlotId (siEpoch), addressHash,
+                                              applyCoinPortionUp, mkCoin, unsafeAddCoin)
 import           Pos.Crypto                  (PublicKey, hash)
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposal,
                                               UpdateProposals, UpdateVote (..),
@@ -38,7 +38,7 @@ import           Pos.Util.Util               (getKeys, sortWithMDesc)
 -- function doesn't consider threshold which determines whether a
 -- proposal can be put into a block.
 normalizePoll
-    :: MonadPoll m
+    :: (MonadPoll m, HasCoreConstants)
     => SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -51,7 +51,7 @@ normalizePoll slot proposals votes =
 -- proposals and votes. It applies the most valuable data and discards
 -- everything else.
 refreshPoll
-    :: MonadPoll m
+    :: (MonadPoll m, HasCoreConstants)
     => SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -115,7 +115,7 @@ normalizeProposals slotId (toList -> proposals) =
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.
 normalizeVotes
-    :: forall m . (MonadPoll m)
+    :: forall m . (MonadPoll m, HasCoreConstants)
     => [(UpId, HashMap PublicKey UpdateVote)] -> m LocalVotes
 normalizeVotes votesGroups =
     HM.fromList . catMaybes <$> mapM verifyNApplyVotesGroup votesGroups

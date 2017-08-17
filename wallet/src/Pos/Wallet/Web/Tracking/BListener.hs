@@ -22,8 +22,9 @@ import           Pos.Block.BListener              (MonadBListener (..))
 import           Pos.Block.Core                   (BlockHeader, blockHeader,
                                                    getBlockHeader, mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
-import           Pos.Core                         (HeaderHash, difficultyL, headerHash,
-                                                   headerSlotL, prevBlockL)
+import           Pos.Core                         (HasCoreConstants, HeaderHash,
+                                                   difficultyL, headerHash, headerSlotL,
+                                                   prevBlockL)
 import           Pos.DB.BatchOp                   (SomeBatchOp)
 import           Pos.DB.Class                     (MonadDBRead)
 import qualified Pos.GState                       as GS
@@ -65,6 +66,7 @@ onApplyTracking
     , AccountMode ctx m
     , MonadSlotsData m
     , MonadDBRead m
+    , HasCoreConstants
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = setLogger $ do

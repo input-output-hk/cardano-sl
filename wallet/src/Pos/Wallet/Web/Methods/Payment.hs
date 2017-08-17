@@ -22,7 +22,8 @@ import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (computeTxFee)
 import           Pos.Communication              (SendActions (..), submitMTx)
-import           Pos.Core                       (Coin, addressF, getCurrentTimestamp)
+import           Pos.Core                       (Coin, HasCoreConstants, addressF,
+                                                 getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, hash, withSafeSigners)
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
@@ -107,7 +108,7 @@ getMoneySourceUtxo =
 -- [CSM-407] It should be moved to `Pos.Wallet.Web.Mode`, but
 -- to make it possible all this mess should be neatly separated
 -- to modules and refactored
-instance MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
+instance HasCoreConstants => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     getNewAddress (accId, passphrase) =
         L.newAddress RandomSeed passphrase accId >>=

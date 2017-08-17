@@ -24,10 +24,10 @@ import           Ether.Internal            (HasLens (..))
 import           System.Wlog               (WithLogger)
 
 import           Pos.Block.Core            (BlockHeader)
-import           Pos.Constants             (slotSecurityParam)
 import qualified Pos.Context               as PC
-import           Pos.Core                  (ChainDifficulty, difficultyL,
-                                            flattenEpochOrSlot, flattenSlotId)
+import           Pos.Core                  (ChainDifficulty, HasCoreConstants,
+                                            difficultyL, flattenEpochOrSlot,
+                                            flattenSlotId, slotSecurityParam)
 import           Pos.DB                    (MonadRealDB)
 import           Pos.DB.Block              (MonadBlockDB)
 import           Pos.DB.DB                 (getTipHeader)
@@ -56,6 +56,7 @@ type BlockchainInfoEnv ssc ctx m =
     , MonadIO m
     , MonadRealDB ctx m
     , MonadSlots m
+    , HasCoreConstants
     )
 
 networkChainDifficultyWebWallet

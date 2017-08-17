@@ -16,6 +16,7 @@ import           System.Wlog                     (WithLogger, logDebug, logInfo)
 
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
                                                   OutSpecs, WorkerSpec)
+import           Pos.Core                        (HasCoreConstants)
 import           Pos.Genesis                     (gtcUtxo, gtcWStakeholders)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..), OQ,
                                                   initQueue, runServer)
@@ -49,7 +50,8 @@ runLightWalletMode networkConfig transport peers wp@WalletParams {..} =
     runRawStaticPeersWallet networkConfig transport peers wp mempty
 
 runWalletStaticPeers
-    :: Transport LightWalletMode
+    :: HasCoreConstants
+    => Transport LightWalletMode
     -> Set NodeId
     -> WalletParams
     -> ([WorkerSpec LightWalletMode], OutSpecs)

@@ -54,6 +54,7 @@ module Network.Broadcast.OutboundQueue (
   , enqueueSync
   , enqueueCherished
   , clearRecentFailures
+  , clearFailureOf
     -- * Dequeuing
   , SendMsg
   , dequeueThread
@@ -189,14 +190,15 @@ data Dequeue = Dequeue {
       -- | Maximum number of in-flight messages (to this node node)
     , deqMaxInFlight :: MaxInFlight
     }
+  deriving (Show)
 
 -- | Rate limiting
 data RateLimit = NoRateLimiting | MaxMsgPerSec Int
-  deriving Show
+  deriving (Show)
 
 -- | Maximum number of in-flight messages (for latency hiding)
 newtype MaxInFlight = MaxInFlight Int
-  deriving Show
+  deriving (Show)
 
 -- | Dequeue policy
 --
@@ -978,6 +980,14 @@ isRecentFailure now (timeOfFailure, ReconsiderAfter n) =
 -- again, allowing the outbound queue to enqueue messages to those nodes.
 clearRecentFailures :: MonadIO m => OutboundQ msg nid buck -> m ()
 clearRecentFailures OutQ{..} = applyMVar_ qFailures $ const Map.empty
+
+-- | Clear recent failure status for a particular node
+--
+-- This is useful when we know for external reasons that this particular
+-- node is reachable again (for instance, because it sent us a message),
+-- allowing the outbound queue to enqueue messages to that node again.
+clearFailureOf :: MonadIO m => OutboundQ msg nid buck -> nid -> m ()
+clearFailureOf OutQ{..} nid = applyMVar_ qFailures $ Map.delete nid
 
 {-------------------------------------------------------------------------------
   Public interface to enqueing

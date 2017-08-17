@@ -52,6 +52,15 @@ let
           "-f-dev-mode"
           "--ghc-options=-DCONFIG=${dconfig}"
         ];
+      } // optionalAttrs (genesis != null) {
+        postUnpack = ''
+          echo dir is
+          pwd
+          echo root $sourceRoot
+          ls -ltrh $sourceRoot
+          rm -v $sourceRoot/genesis*bin
+          cp -vi ${genesis}/genesis-core.bin $sourceRoot/genesis-core-tns.bin
+        '';
       });
       cardano-sl-godtossing = overrideCabal super.cardano-sl-godtossing (drv: {
         src = cleanSource2 drv.src;
@@ -62,7 +71,8 @@ let
           echo root $sourceRoot
           echo todo
           ls -ltrh $sourceRoot
-          cp -vi ${genesis}/genesis-godtossing.bin $sourceRoot/genesis-godtossing-qa.bin
+          rm -v $sourceRoot/genesis*.bin
+          cp -vi ${genesis}/genesis-godtossing.bin $sourceRoot/genesis-godtossing-tns.bin
         '';
       });
       cardano-sl-tools = overrideCabal super.cardano-sl-tools (drv: {

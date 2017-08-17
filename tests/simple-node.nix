@@ -6,6 +6,7 @@ let
     rev = "88c2b0b05c993287988255d0f32c6e13aad74f1c";
     sha256 = "03vyxxb608nds10c0vhjr1a42dqvsm8mip12dcfin0jgnwxl5ssc";
   };
+  genesis = (import ../default.nix { inherit pkgs; }).make-genesis;
 in {
   name = "simple-node";
   nodes = {
@@ -24,6 +25,10 @@ in {
         nodeName = "node0";
         productionMode = true;
       };
+      systemd.services.cardano-node.preStart = ''
+        cp -vi ${genesis}/keys-testnet/rich/testnet1.key /var/lib/cardano-node/key0.sk
+        ls -ltrh /var/lib/cardano-node/
+      '';
     };
   };
   testScript = ''

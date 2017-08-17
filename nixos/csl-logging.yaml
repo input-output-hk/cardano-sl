@@ -1,0 +1,24 @@
+severity: Debug
+node:
+    severity: Debug
+    file: node.log
+    comm:
+        severity: Info
+    dht:
+        severity: Info
+smart-wallet:
+    severity: Debug
+    file: wallet.log
+    comm:
+        severity: Info
+    dht:
+        severity: Info
+time-slave:
+    severity: Info
+    file: time-slave.log
+    comm:
+        severity: Info
+    dht:
+        severity: Info
+kademlia:
+    severity: Info

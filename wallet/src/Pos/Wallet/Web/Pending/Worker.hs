@@ -9,9 +9,9 @@ module Pos.Wallet.Web.Pending.Worker
 
 import           Universum
 
-import           Control.Monad.Catch          (handleAll)
+import           Control.Monad.Catch          (Handler (..), catches, handleAll)
 import           Data.Time.Units              (Second, convertUnit)
-import           Formatting                   (build, sformat, shown, (%))
+import           Formatting                   (build, sformat, shown, stext, (%))
 import           Mockable                     (delay, fork)
 import           Serokell.Util.Text           (listJson)
 import           System.Wlog                  (logError, logInfo, modifyLoggerName)
@@ -26,14 +26,13 @@ import           Pos.Slotting                 (getLastKnownSlotDuration, onNewSl
 import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
                                                getMemPool, processTx, runDBToil,
                                                runToilTLocal, topsortTxs)
-import qualified Pos.Wallet.Web.Mode
+import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
 import           Pos.Wallet.Web.State         (casPtxCondition, getPendingTxs)
 
 type MonadPendings m =
-    ( m ~ Pos.Wallet.Web.Mode.WalletWebMode
-    , MonadAddresses m  -- TODO [CSM-407]: for now there is no way to know
-                        -- about this instance here
+    ( MonadWalletWebMode m
+    , MonadAddresses m
     )
 
 -- | What should happen with pending transaction if attempt
@@ -43,10 +42,10 @@ processPtxFailure PendingTx{..} e =
     -- If number of 'ToilVerFailure' constructors will ever change, compiler
     -- will complain - for this purpose we consider all cases explicitly here.
     case e of
-        ToilKnown                -> tryLater
-        ToilTipsMismatch{}       -> tryLater
-        ToilSlotUnknown          -> tryLater
-        ToilOverwhelmed{}        -> tryLater
+        ToilKnown                -> trackFurther
+        ToilTipsMismatch{}       -> trackFurther
+        ToilSlotUnknown          -> trackFurther
+        ToilOverwhelmed{}        -> trackFurther
         ToilNotUnspent{}         -> discard
         ToilOutGTIn{}            -> discard
         ToilInconsistentTxAux{}  -> discard
@@ -58,8 +57,8 @@ processPtxFailure PendingTx{..} e =
         ToilUnknownAttributes{}  -> discard
         ToilBootDifferentStake{} -> discard
   where
-    tryLater = pass
-    discard  = do
+    trackFurther = pass
+    discard = do
         casPtxCondition ptxTxId PtxApplying (PtxWon'tApply $ sformat build e)
         logInfo $ sformat ("Transaction "%build%" was canceled") ptxTxId
 
@@ -99,14 +98,23 @@ whetherCheckPtxOnSlot (flattenSlotId -> curSlot) ptx = do
     furtherDelay = 1 :: FlatSlotId
 
 resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
-resubmitTx SendActions{..} PendingTx{..} = do
+resubmitTx SendActions{..} ptx@PendingTx{..} = do
     logInfo $ sformat ("Resubmitting tx "%build) ptxTxId
     -- FIXME [CSM-256] Doesn't it introduce a race condition?
-    void (submitAndSave enqueueMsg ptxTxAux) `catchAll` handler
+    void (submitAndSave enqueueMsg ptxTxAux) `catches` handlers
   where
-    handler e = do
-        -- TODO [CSM-256] consider variants of error
-        logInfo $ sformat ("Failed to resubmit tx "%build%": "%shown) ptxTxId e
+    handlers =
+        [ Handler $ \e -> do
+            reportFail "Failed to resubmit tx" e
+            processPtxFailure ptx e
+
+        , Handler $ \(SomeException e) ->
+            -- these errors are likely caused by networking, we can try again later
+            reportFail "Failed to resubmit tx, ignoring" e
+        ]
+    reportFail :: MonadPendings m => Exception e => Text -> e -> m ()
+    reportFail desc =
+        logInfo . sformat (stext%" "%build%": "%shown) desc ptxTxId
 
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot

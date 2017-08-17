@@ -3,14 +3,11 @@ module Pos.Network.Policy
     , defaultEnqueuePolicyRelay
     , defaultEnqueuePolicyEdgeBehindNat
     , defaultEnqueuePolicyEdgeP2P
-    , defaultEnqueuePolicyEdgeExchange
     , defaultDequeuePolicyCore
     , defaultDequeuePolicyRelay
     , defaultDequeuePolicyEdgeBehindNat
     , defaultDequeuePolicyEdgeP2P
-    , defaultDequeuePolicyEdgeExchange
     , defaultFailurePolicy
-
     ) where
 
 import           Universum
@@ -72,41 +69,13 @@ defaultEnqueuePolicyRelay = go
       ]
 
 -- | Default enqueue policy for standard behind-NAT edge nodes
-defaultEnqueuePolicyEdgeBehindNat
-    :: Maybe MaxAhead -- ^ Maximum number of transactions ahead (default: 1)
-    -> EnqueuePolicy nid
-defaultEnqueuePolicyEdgeBehindNat mMaxTrans = go
+defaultEnqueuePolicyEdgeBehindNat :: EnqueuePolicy nid
+defaultEnqueuePolicyEdgeBehindNat = go
   where
     -- Enqueue policy for edge nodes
     go :: EnqueuePolicy nid
     go (MsgTransaction OriginSender) = [
-        EnqueueAll NodeRelay (fromMaybe (MaxAhead 1) mMaxTrans) PLow
-      ]
-    go (MsgTransaction (OriginForward _)) = [
-        -- don't forward transactions that weren't created at this node
-      ]
-    go (MsgAnnounceBlockHeader _) = [
-        -- not forwarded
-      ]
-    go MsgRequestBlockHeaders = [
-        EnqueueAll NodeRelay (MaxAhead 0) PHigh
-      ]
-    go (MsgRequestBlocks _) = [
-        -- Edge nodes can only talk to relay nodes
-        EnqueueOne [NodeRelay] (MaxAhead 0) PHigh
-      ]
-    go (MsgMPC _) = [
-        -- not relevant
-      ]
-
--- | Default enqueue policy for exchange nodes
-defaultEnqueuePolicyEdgeExchange :: EnqueuePolicy nid
-defaultEnqueuePolicyEdgeExchange = go
-  where
-    -- Enqueue policy for edge nodes
-    go :: EnqueuePolicy nid
-    go (MsgTransaction OriginSender) = [
-        EnqueueAll NodeRelay (MaxAhead 6) PLow
+        EnqueueAll NodeRelay (MaxAhead 1) PLow
       ]
     go (MsgTransaction (OriginForward _)) = [
         -- don't forward transactions that weren't created at this node
@@ -167,25 +136,12 @@ defaultDequeuePolicyRelay = go
     go NodeEdge  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
 
 -- | Dequeueing policy for standard behind-NAT edge nodes
-defaultDequeuePolicyEdgeBehindNat
-    :: Maybe RateLimit    -- ^ Max messages per second (per thread); default: 1
-    -> Maybe MaxInFlight  -- ^ Max number of convs to the relay; default: 2
-    -> DequeuePolicy
-defaultDequeuePolicyEdgeBehindNat mMaxMsgPerSec mMaxInFlight = go
+defaultDequeuePolicyEdgeBehindNat :: DequeuePolicy
+defaultDequeuePolicyEdgeBehindNat = go
   where
     go :: DequeuePolicy
     go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
-    go NodeRelay = Dequeue (fromMaybe (MaxMsgPerSec 1) mMaxMsgPerSec)
-                           (fromMaybe (MaxInFlight 2) mMaxInFlight)
-    go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
-
--- | Dequeueing policy for exchange edge nodes
-defaultDequeuePolicyEdgeExchange :: DequeuePolicy
-defaultDequeuePolicyEdgeExchange = go
-  where
-    go :: DequeuePolicy
-    go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
-    go NodeRelay = Dequeue (MaxMsgPerSec 5) (MaxInFlight 3)
+    go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
     go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
 
 -- | Dequeueing policy for P2P edge nodes

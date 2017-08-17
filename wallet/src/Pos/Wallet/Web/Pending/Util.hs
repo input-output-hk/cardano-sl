@@ -4,7 +4,7 @@
 
 module Pos.Wallet.Web.Pending.Util
     ( isPtxInBlocks
-    , rememberPendingTx
+    , mkPendingTx
     ) where
 
 import           Universum
@@ -19,7 +19,7 @@ import           Pos.Wallet.Web.ClientTypes   (CId, CWalletMeta (..), Wal, cwAss
 import           Pos.Wallet.Web.Error         (WalletError (RequestError))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
-import           Pos.Wallet.Web.State         (addOnlyNewPendingTx, getWalletMeta)
+import           Pos.Wallet.Web.State         (getWalletMeta)
 
 isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = \case
@@ -28,11 +28,11 @@ isPtxInBlocks = \case
     PtxPersisted{}     -> True
     PtxWon'tApply{}    -> False
 
-rememberPendingTx :: MonadWalletWebMode m => CId Wal -> TxId -> TxAux -> m ()
-rememberPendingTx wid ptxTxId ptxTxAux = do
+mkPendingTx :: MonadWalletWebMode m => CId Wal -> TxId -> TxAux -> m PendingTx
+mkPendingTx wid ptxTxId ptxTxAux = do
     ptxCreationSlot <- getCurrentSlotInaccurate
     CWalletMeta{..} <- maybeThrow noWallet =<< getWalletMeta wid
-    addOnlyNewPendingTx PendingTx
+    return PendingTx
         { ptxCond = PtxApplying
         , ptxAssuredDepth = assuredBlockDepth cwAssurance HighAssurance
         , ..
@@ -40,3 +40,4 @@ rememberPendingTx wid ptxTxId ptxTxAux = do
   where
     noWallet =
         RequestError $ sformat ("Failed to get meta of wallet "%build) wid
+

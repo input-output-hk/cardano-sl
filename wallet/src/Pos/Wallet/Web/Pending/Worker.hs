@@ -4,7 +4,9 @@
 -- | Pending transactions resubmition logic.
 
 module Pos.Wallet.Web.Pending.Worker
-    ( startPendingTxsResubmitter
+    ( MonadPendings
+    , processPtxFailure
+    , startPendingTxsResubmitter
     ) where
 
 import           Universum
@@ -17,7 +19,7 @@ import           Serokell.Util.Text           (listJson)
 import           System.Wlog                  (logError, logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses     (MonadAddresses)
-import           Pos.Communication            (submitAndSave)
+import           Pos.Communication            (submitAndSaveTx)
 import           Pos.Communication.Protocol   (SendActions (..))
 import           Pos.Core                     (FlatSlotId, SlotId (..), getSlotCount)
 import           Pos.Core.Slotting            (flattenSlotId)
@@ -28,7 +30,8 @@ import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
                                                runToilTLocal, topsortTxs)
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
-import           Pos.Wallet.Web.State         (casPtxCondition, getPendingTxs)
+import           Pos.Wallet.Web.State         (addOnlyNewPendingTx, casPtxCondition,
+                                               getPendingTxs)
 
 type MonadPendings m =
     ( MonadWalletWebMode m
@@ -37,8 +40,8 @@ type MonadPendings m =
 
 -- | What should happen with pending transaction if attempt
 -- to resubmit it failed.
-processPtxFailure :: MonadPendings m => PendingTx -> ToilVerFailure -> m ()
-processPtxFailure PendingTx{..} e =
+processPtxFailure :: MonadPendings m => Bool -> PendingTx -> ToilVerFailure -> m ()
+processPtxFailure existing ptx@PendingTx{..} e =
     -- If number of 'ToilVerFailure' constructors will ever change, compiler
     -- will complain - for this purpose we consider all cases explicitly here.
     case e of
@@ -57,10 +60,14 @@ processPtxFailure PendingTx{..} e =
         ToilUnknownAttributes{}  -> discard
         ToilBootDifferentStake{} -> discard
   where
-    trackFurther = pass
-    discard = do
-        casPtxCondition ptxTxId PtxApplying (PtxWon'tApply $ sformat build e)
-        logInfo $ sformat ("Transaction "%build%" was canceled") ptxTxId
+    trackFurther
+        | existing  = pass
+        | otherwise = addOnlyNewPendingTx ptx
+    discard
+        | existing  = do
+            casPtxCondition ptxTxId PtxApplying (PtxWon'tApply $ sformat build e)
+            logInfo $ sformat ("Transaction "%build%" was canceled") ptxTxId
+        | otherwise = pass
 
 filterApplicablePtxs
     :: MonadPendings m
@@ -71,7 +78,7 @@ filterApplicablePtxs curSlot ptxs = do
         concatForM ptxs $ \ptx@PendingTx{..} -> do
             res <- runExceptT $ processTx (siEpoch curSlot) (ptxTxId, ptxTxAux)
             case res of
-                Left e  -> lift . lift $ processPtxFailure ptx e $> []
+                Left e  -> lift . lift $ processPtxFailure True ptx e $> []
                 Right _ -> return [ptx]
 
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
@@ -101,12 +108,12 @@ resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
 resubmitTx SendActions{..} ptx@PendingTx{..} = do
     logInfo $ sformat ("Resubmitting tx "%build) ptxTxId
     -- FIXME [CSM-256] Doesn't it introduce a race condition?
-    void (submitAndSave enqueueMsg ptxTxAux) `catches` handlers
+    void (submitAndSaveTx enqueueMsg ptxTxAux) `catches` handlers
   where
     handlers =
         [ Handler $ \e -> do
             reportFail "Failed to resubmit tx" e
-            processPtxFailure ptx e
+            processPtxFailure True ptx e
 
         , Handler $ \(SomeException e) ->
             -- these errors are likely caused by networking, we can try again later

@@ -16,7 +16,7 @@ import           Pos.Aeson.ClientTypes          ()
 import           Pos.Aeson.WalletBackup         ()
 import           Pos.Client.Txp.Addresses       (MonadAddresses)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Communication              (SendActions (..), submitRedemptionTx)
+import           Pos.Communication              (SendActions, prepareRedemptionTx)
 import           Pos.Core                       (getCurrentTimestamp, makeRedeemAddress)
 import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
                                                  hash, redeemDeterministicKeyGen,
@@ -32,9 +32,9 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
-import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError)
+import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError,
+                                                 submitAndSaveTxWithPending)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending         (rememberPendingTx)
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail)
 
@@ -83,24 +83,25 @@ redeemAdaInternal
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
+redeemAdaInternal sendActions passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
     -- new redemption wallet
     _ <- fixingCachedAccModifier L.getAccount accId
 
-    let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
+    let dstWallet = aiWId accId
+        srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
-    (txAux@TxAux {..}, redeemAddress, redeemBalance) <-
-        rewrapTxError "Cannot send redemption transaction" $
-        submitRedemptionTx enqueueMsg redeemSK dstAddr
+
+    (TxAux {..}, redeemAddress, redeemBalance) <-
+        rewrapTxError "Cannot send redemption transaction" $ do
+            res@(txAux, _, _) <- prepareRedemptionTx redeemSK dstAddr
+            res <$ submitAndSaveTxWithPending sendActions dstWallet txAux
+
     -- add redemption transaction to the history of new wallet
     let txInputs = [TxOut redeemAddress redeemBalance]
-        txHash = hash taTx
-        dstWallet = aiWId accId
-    rememberPendingTx dstWallet txHash txAux
     ts <- Just <$> getCurrentTimestamp
     ctxs <- addHistoryTx (aiWId accId) $
         THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts

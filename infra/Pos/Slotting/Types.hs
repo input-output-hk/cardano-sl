@@ -11,6 +11,7 @@ module Pos.Slotting.Types
        , getCurrentEpochSlottingData
        , getNextEpochIndex
        , getNextEpochSlottingData
+       , insertEpochSlottingDataUnsafe
        , addEpochSlottingData
        , lookupEpochSlottingData
        , computeSlotStart
@@ -19,7 +20,7 @@ module Pos.Slotting.Types
 import           Universum
 
 import           Data.Map.Strict as M
-import           Data.Time.Units (Millisecond, convertUnit)
+import           Data.Time.Units (Millisecond, toSecondsInteger)
 
 import           Pos.Core        (EpochIndex, EpochIndex (..), LocalSlotIndex (..),
                                   TimeDiff (..), Timestamp (..), addTimeDiffToTimestamp,
@@ -27,6 +28,9 @@ import           Pos.Core        (EpochIndex, EpochIndex (..), LocalSlotIndex (.
 import           Pos.Util.Util   ()
 
 
+----------------------------------------------------------------------------
+-- Type declarations
+----------------------------------------------------------------------------
 
 -- | Data which is necessary for slotting and corresponds to a particular epoch.
 data EpochSlottingData = EpochSlottingData
@@ -52,6 +56,10 @@ newtype SlottingData = SlottingData
 
 instance NFData SlottingData
 
+----------------------------------------------------------------------------
+-- Functions
+----------------------------------------------------------------------------
+
 -- | Unsafe constructor that can lead to unsafe crash!
 createSlottingDataUnsafe :: Map EpochIndex EpochSlottingData -> SlottingData
 createSlottingDataUnsafe epochSlottingDataMap =
@@ -65,12 +73,13 @@ createSlottingDataUnsafe epochSlottingDataMap =
         -- start going [..,6,7,9,...].
         validEpochIndices = correctEpochIndices == currentEpochIndices
           where
-            currentEpochIndices = keys $ epochSlottingDataMap
+            currentEpochIndices = keys epochSlottingDataMap
             correctEpochIndices = EpochIndex . fromIntegral <$> [0..zIMapLenght]
               where
                 zIMapLenght = pred . length . keys $ epochSlottingDataMap
 
-    criticalError = error "It's impossible to create slotting data without two epochs."
+    criticalError = error "It's impossible to create slotting data without at least\
+    \ two epochs. Epochs need to be sequential."
 
 -- | Restricted constructor function for the (initial) creation of @SlottingData@.
 createInitSlottingData
@@ -122,39 +131,59 @@ lookupEpochSlottingData epochIndex slottingData = M.lookup epochIndex slottingDa
     slottingData' :: Map EpochIndex EpochSlottingData
     slottingData' = getSlottingDataMap slottingData
 
--- | Insert `EpochSlottingData`.
-addEpochSlottingData :: EpochIndex -> EpochSlottingData -> SlottingData -> SlottingData
-addEpochSlottingData epochIndex epochSlottingData slottingData =
+-- | Insert `EpochSlottingData`. This is not a really good idea, we would prefer
+-- @addEpochSlottingData@.
+insertEpochSlottingDataUnsafe
+    :: EpochIndex
+    -> EpochSlottingData
+    -> SlottingData
+    -> SlottingData
+insertEpochSlottingDataUnsafe epochIndex epochSlottingData slottingData =
     SlottingData $ M.insert epochIndex epochSlottingData slottingData'
   where
     slottingData' :: Map EpochIndex EpochSlottingData
     slottingData' = getSlottingDataMap slottingData
 
--- | Compute when the slot started. We give it @SlotId@, the @SlotId@
--- @EpochSlottingData@ and find when did that @SlotId@ occur.
+-- | Add `EpochSlottingData`.
+addEpochSlottingData :: SlottingData -> EpochSlottingData -> SlottingData
+addEpochSlottingData slottingData epochSlottingData =
+    SlottingData $ M.insert nextEpochIndex epochSlottingData slottingData'
+  where
+    -- We can calculate the index ourselves, no need to pass it around
+    nextEpochIndex :: EpochIndex
+    nextEpochIndex = EpochIndex . succ . getEpochIndex . getNextEpochIndex $ slottingData
+
+    slottingData' :: Map EpochIndex EpochSlottingData
+    slottingData' = getSlottingDataMap slottingData
+
+-- | Compute when the slot started. We give it @LocalSlotIndex@, the @LocalSlotIndex@
+-- @EpochSlottingData@ and find when did that @LocalSlotIndex@ occur.
+-- This is calculating times inside an @Epoch@.
 computeSlotStart :: Timestamp -> LocalSlotIndex -> EpochSlottingData -> Timestamp
 computeSlotStart systemStart slotIndex epochSlottingData =
     epochStartTime + currentSlotTimestamp
   where
-    -- We get the epoch start time by adding the epoch slotting data start diff
+    -- | We get the epoch start time by adding the epoch slotting data start diff
     -- which is:
     --   currentEpochStart - systemStart + systemStart = currentEpochStart
-    --
-    -- Seems kind of dubious.
     epochStartTime :: Timestamp
     epochStartTime = addTimeDiffToTimestamp epochStartTimeDiff systemStart
       where
         epochStartTimeDiff :: TimeDiff
         epochStartTimeDiff = esdStartDiff epochSlottingData
 
+    -- | We calculate the current slot @Timestamp@ - when did the current slot start.
     currentSlotTimestamp :: Timestamp
-    currentSlotTimestamp =
-        Timestamp (fromIntegral intSlotIndex * convertUnit epochSlotDuration)
+    currentSlotTimestamp = Timestamp $ fromIntegral slotStartTime
       where
-        epochSlotDuration :: Millisecond
-        epochSlotDuration = esdSlotDuration epochSlottingData
+        -- | Start time in seconds as @Timestamp@ is.
+        slotStartTime :: Integer
+        slotStartTime = fromIntegral intSlotIndex * toSecondsInteger epochSlotDuration
+          where
+            epochSlotDuration :: Millisecond
+            epochSlotDuration = esdSlotDuration $ epochSlottingData
 
-        intSlotIndex :: Word16
-        intSlotIndex = getSlotIndex slotIndex
+            intSlotIndex :: Word16
+            intSlotIndex = getSlotIndex slotIndex
 
 

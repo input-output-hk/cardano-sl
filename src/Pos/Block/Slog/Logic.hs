@@ -315,5 +315,8 @@ slogCommon newLastSlots = do
     sanityCheckDB
     slogPutLastSlots newLastSlots
     -- We read from the database and write in the memory.
+    -- TODO(ks): This is unsafe! We don't have control over sequentiality and
+    -- use explicit indexing. It would be better if we have sorted EpochSlotData and
+    -- pass it without the index.
     slotData <- M.toList . getSlottingDataMap <$> GS.getSlottingData
     forM_ slotData (uncurry putEpochSlottingDataM)

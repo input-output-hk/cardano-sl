@@ -21,9 +21,10 @@ import           Control.Monad.STM  (retry)
 
 import           Pos.Core.Types     (EpochIndex, Timestamp)
 import           Pos.Slotting.Types (EpochSlottingData, SlottingData,
-                                     addEpochSlottingData, getAllEpochIndices,
+                                     getAllEpochIndices,
                                      getCurrentEpochIndex, getCurrentEpochSlottingData,
                                      getNextEpochIndex, getNextEpochSlottingData,
+                                     insertEpochSlottingDataUnsafe,
                                      lookupEpochSlottingData)
 
 ----------------------------------------------------------------------------
@@ -104,6 +105,7 @@ getEpochSlottingDataDefault
 getEpochSlottingDataDefault ei =
     withSlottingVar $ lookupEpochSlottingData ei
 
+-- TODO(ks): This is also quite unsafe. We should switch to @addEpochSlottingDataDefault@.
 putEpochSlottingDataDefault
     :: SlotsDefaultEnv ctx m
     => EpochIndex
@@ -113,7 +115,7 @@ putEpochSlottingDataDefault ei esd = do
     var <- view slottingVar
     atomically $ do
         slottingData <- readTVar var
-        writeTVar var (addEpochSlottingData ei esd slottingData)
+        writeTVar var (insertEpochSlottingDataUnsafe ei esd slottingData)
 
 waitCurrentEpochEqualsDefault
     :: SlotsDefaultEnv ctx m

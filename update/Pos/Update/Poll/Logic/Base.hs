@@ -50,7 +50,8 @@ import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, H
                                           unsafeSubCoin)
 import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
-import           Pos.Slotting            (EpochSlottingData (..), addEpochSlottingData,
+import           Pos.Slotting            (EpochSlottingData (..), SlottingData,
+                                          addEpochSlottingData,
                                           getCurrentEpochSlottingData, getNextEpochIndex)
 import           Pos.Update.Core         (BlockVersionData (..),
                                           BlockVersionModifier (..), UpId,
@@ -227,23 +228,27 @@ updateSlottingData epochIndex = do
     let currentEpochSD    = getCurrentEpochSlottingData slottingData
 
     if | nextEpochIndex + 1 == epochIndex ->
-          updateSlottingDataDo epochIndex slottingData currentEpochSD
+          -- We don't need an epochIndex since it's always being added at the end.
+          updateSlottingDataDo slottingData currentEpochSD
        -- This can happen if there was rollback of genesis block.
        | nextEpochIndex == epochIndex -> pass
        | otherwise ->
            throwError $ PollInternalError $ sformat errFmt nextEpochIndex epochIndex
   where
-    updateSlottingDataDo currentEpochIndex slottingData esd = do
+    -- | Here we calculate the new @EpochSlottingData@ and add it in the
+    -- @MonadPoll@ memory @SlottingData@.
+    updateSlottingDataDo :: MonadPoll m => SlottingData -> EpochSlottingData -> m ()
+    updateSlottingDataDo slottingData esd = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
 
         let epochDuration = fromIntegral epochSlots * convertUnit (esdSlotDuration esd)
         let newLastStartDiff = esdStartDiff esd + TimeDiff epochDuration
-        let newLast = EpochSlottingData {
+        let newESD = EpochSlottingData {
               esdSlotDuration = latestSlotDuration
             , esdStartDiff    = newLastStartDiff
             }
 
-        let newSlottingData = addEpochSlottingData currentEpochIndex newLast slottingData
+        let newSlottingData = addEpochSlottingData slottingData newESD
 
         setSlottingData newSlottingData
 

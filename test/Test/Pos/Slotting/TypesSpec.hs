@@ -6,32 +6,133 @@ module Test.Pos.Slotting.TypesSpec
 
 import           Universum
 
-import           Data.Map
-import           Data.Time.Units    (Millisecond)
-import           Pos.Core           (EpochIndex (..), TimeDiff (..))
-import           Pos.Slotting.Types
-import           Test.Hspec         (Spec, describe, it, shouldBe)
+import           Test.Hspec         (Spec, describe, it, shouldBe, shouldSatisfy)
 
-testEpochSlottingData :: EpochSlottingData
-testEpochSlottingData = EpochSlottingData
+import           Data.Map
+import           Data.Maybe         (isJust, isNothing)
+import           Data.Time.Units    (Millisecond, Second, convertUnit)
+
+import           Pos.Core           (EpochIndex (..), TimeDiff (..), Timestamp (..),
+                                     mkLocalSlotIndex)
+import           Pos.Slotting.Types
+
+
+
+----------------------------------------------------------------------------
+-- Test data
+----------------------------------------------------------------------------
+
+testEpochSlottingData0 :: EpochSlottingData
+testEpochSlottingData0 = EpochSlottingData
+    { esdSlotDuration = convertUnit (10 :: Second)
+    , esdStartDiff    = 1000 :: TimeDiff
+    }
+
+testEpochSlottingData1 :: EpochSlottingData
+testEpochSlottingData1 = EpochSlottingData
     { esdSlotDuration = 1000 :: Millisecond
     , esdStartDiff    = 1000 :: TimeDiff
     }
 
--- stack test --test-arguments "-m "Test.Pos.Slotting.TypesSpec""
+testEpochISlottingData0 :: (EpochIndex, EpochSlottingData)
+testEpochISlottingData0 = (EpochIndex 0, testEpochSlottingData0)
+
+testEpochISlottingData1 :: (EpochIndex, EpochSlottingData)
+testEpochISlottingData1 = (EpochIndex 1, testEpochSlottingData1)
+
+testSlottingDataMap :: Map EpochIndex EpochSlottingData
+testSlottingDataMap = fromList [ testEpochISlottingData0
+                               , testEpochISlottingData1
+                               ]
+
+testSlottingData :: SlottingData
+testSlottingData = createInitSlottingData testEpochSlottingData0 testEpochSlottingData1
+
+----------------------------------------------------------------------------
+-- Unit tests
+----------------------------------------------------------------------------
+
+-- stack test --no-run-tests
+-- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Slotting.Types"
 spec :: Spec
 spec = describe "Types" $ do
-    it "should be valid SlottingData" $ do
-        let testSlottingDataMap     = fromList [ (EpochIndex 0, testEpochSlottingData)
-                                               , (EpochIndex 1, testEpochSlottingData)
-                                               ]
-        let testSlottingData        = createSlottingDataUnsafe testSlottingDataMap
-        let testSlottingDataLength  = length $ getAllEpochIndices $ testSlottingData
-        testSlottingDataLength `shouldBe` 2
-    -- TODO(KS): I don't know how to catch an `error`, seems we need a `Exception` if we
-    -- want observable effects.
-    -- it "should be invalid SlottingData" $ do
-    --     let testSlottingDataMap     = fromList [(EpochIndex 0, testEpochSlottingData)]
-    --     let testSlottingData        = createSlottingDataUnsafe testSlottingDataMap
-    --     let testSlottingDataLength  = length $ getAllEpochIndices $ testSlottingData
-    --     testSlottingDataLength `shouldThrow` anyErrorCall
+    describe "createSlottingDataUnsafe" $
+        it "should be valid" $ do
+            let sd = createSlottingDataUnsafe testSlottingDataMap
+            let testSlottingDataLength  = length . getAllEpochIndices $ sd
+            testSlottingDataLength `shouldBe` 2
+
+    describe "createInitSlottingData" $
+        it "should be valid" $ do
+            let testSlottingDataLength = length . getAllEpochIndices $ testSlottingData
+            testSlottingDataLength `shouldBe` 2
+
+    describe "getAllEpochIndices" $
+        it "should be valid" $ do
+            let testSlottingDataLength = length . getAllEpochIndices $ testSlottingData
+            testSlottingDataLength `shouldBe` 2
+
+    describe "getNextEpochIndex" $
+        it "should be valid" $ do
+            let testSlottingDataLength = getNextEpochIndex testSlottingData
+            testSlottingDataLength `shouldBe` 1
+
+    describe "getNextEpochSlottingData" $
+        it "should be valid" $ do
+            let nextEpochSlottingData = getNextEpochSlottingData testSlottingData
+            nextEpochSlottingData `shouldBe` testEpochSlottingData1
+
+    describe "getCurrentEpochIndex" $
+        it "should be valid" $ do
+            let currentEpochIndex = getCurrentEpochIndex testSlottingData
+            currentEpochIndex `shouldBe` EpochIndex 0
+
+    describe "getCurrentEpochSlottingData" $
+        it "should be valid" $ do
+            let currentEpochSlottingData = getCurrentEpochSlottingData testSlottingData
+            currentEpochSlottingData `shouldBe` testEpochSlottingData0
+
+    describe "getCurrentEpochSlottingData" $
+        it "should be valid" $ do
+            let currentEpochSlottingData = getCurrentEpochSlottingData testSlottingData
+            currentEpochSlottingData `shouldBe` testEpochSlottingData0
+
+    describe "lookupEpochSlottingData" $ do
+        it "should be found" $ do
+            let mEpochSlottingData0 = lookupEpochSlottingData 0 testSlottingData
+            let mEpochSlottingData1 = lookupEpochSlottingData 1 testSlottingData
+            mEpochSlottingData0 `shouldSatisfy` isJust
+            mEpochSlottingData1 `shouldSatisfy` isJust
+
+        it "should not be found" $ do
+            let mEpochSlottingData2 = lookupEpochSlottingData 2 testSlottingData
+            mEpochSlottingData2 `shouldSatisfy` isNothing
+
+    describe "insertEpochSlottingDataUnsafe" $
+        it "should be valid" $ do
+            let newSD = insertEpochSlottingDataUnsafe 2 testEpochSlottingData0 testSlottingData
+            let lengthNewSD = length . getAllEpochIndices $ newSD
+            lengthNewSD `shouldBe` 3
+
+    describe "addEpochSlottingData" $
+        it "should be valid" $ do
+            let newSD = addEpochSlottingData testSlottingData testEpochSlottingData0
+            let lengthNewSD = length . getAllEpochIndices $ newSD
+            lengthNewSD `shouldBe` 3
+
+    describe "computeSlotStart" $
+        it "should be correct" $ do
+            let systemStart = Timestamp 1500000000 -- Friday, July 14, 2017 2:40:00 AM
+            let localSlotIndex = case mkLocalSlotIndex 3 of
+                                        Right lsi -> lsi
+                                        Left _    -> error "Impossible."
+            let epochSlottingData = testEpochSlottingData0
+            let slotStart = computeSlotStart systemStart localSlotIndex epochSlottingData
+            -- Slot should start on:
+            -- system start + slotNumber * slotDuration (in secs)
+            -- epochStartTime = systemStart + esdStartDiff
+            --                = 1500000000  + 1000            = 1500001000
+            -- slotStartTime  = epochSlotDuration * slotIndex =
+            --                = 10                * 3         = 30
+            -- 1500000000 + 1000 + 30 = 1500001030
+            slotStart `shouldBe` (1500000000 + 1000 + (3 * 10))

@@ -7,7 +7,7 @@
 , ghc ? pkgs.haskell.compiler.ghc802
 }:
 
-with (import <nixpkgs/pkgs/development/haskell-modules/lib.nix> { inherit pkgs; });
+with (import <nixpkgs/pkgs/development/haskell-modules/lib.nix> { inherit pkgs; lib = pkgs.lib; });
 
 let
   stackPackages = { callPackage, pkgs, stdenv }:

@@ -909,23 +909,19 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
         logDebug $ debugSending p
         ta <- timed $ M.try $ unmask $
                 sendMsg (packetPayload p) (packetDestId p)
-        -- TODO: Do we want to acknowledge the send here? Or after we have
-        -- reduced qInFlight? The latter is safer (means the next enqueue is
-        -- less likely to be rejected because there are no peers available with
-        -- a small enough number of messages " ahead ") but it would mean we
-        -- can only acknowledge the send after the delay, which seems
-        -- undesirable.
+        -- Careful to reduce in-flight as soon as possible (and before the
+        -- rate-limiting delay), to make room in the queue.
+        applyMVar_ qInFlight $
+          inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n - 1)
         liftIO $ putMVar (packetSent p) (timedResult ta)
-        unmask $ applyRateLimit qDequeuePolicy (packetDestType p) (timedDuration ta)
         case timedResult ta of
           Left err -> do
             logFailure outQ FailedSend (Some p, err)
             intFailure outQ p (timedStart ta) err
           Right _  ->
             return ()
-        applyMVar_ qInFlight $
-          inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n - 1)
         logDebug $ debugSent p
+        unmask $ applyRateLimit qDequeuePolicy (packetDestType p) (timedDuration ta)
         liftIO $ poke qSignal
 
     debugSending :: Packet msg nid a -> Text

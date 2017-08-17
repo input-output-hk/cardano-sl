@@ -35,9 +35,9 @@ import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
                                                          fromYamlConfig)
 import           Pos.Network.DnsDomains          (DnsDomains (..), NodeAddr (..))
-import           Pos.Network.Types               (NodeId)
+import           Pos.Network.Types               (NodeId, NodeName(..))
 import qualified Pos.Network.Types               as T
-import           Pos.Network.Yaml                (NodeMetadata (..), NodeName (..))
+import           Pos.Network.Yaml                (NodeMetadata (..))
 import qualified Pos.Network.Yaml                as Y
 import           Pos.Util.TimeWarp               (addressToNodeId)
 import           System.Wlog.CanLog              (WithLogger, logError, logNotice)
@@ -136,15 +136,10 @@ monitorStaticConfig :: forall m. (
                        , Mockable Catch m
                        )
                     => NetworkConfigOpts
-                    -> T.NodeType                  -- ^ Our node type
-                    -> Y.RunKademlia               -- ^ Are we currently running kademlia?
-                    -> Peers NodeId                -- ^ Initial peers
+                    -> NodeMetadata    -- ^ Original metadata (at startup)
+                    -> Peers NodeId    -- ^ Initial value
                     -> m T.StaticPeers
-monitorStaticConfig cfg@NetworkConfigOpts{..}
-                    ourNodeType
-                    runningKademlia
-                    initPeers
-                  = do
+monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
     events :: Chan (MonitorEvent m) <- liftIO $ newChan
 
     let loop :: Peers NodeId
@@ -161,13 +156,15 @@ monitorStaticConfig cfg@NetworkConfigOpts{..}
               mParsedTopology <- try $ liftIO $ readTopology fp
               case mParsedTopology of
                 Right (Y.TopologyStatic allPeers) -> do
-                  (nodeType, runKademlia, newPeers) <-
+                  (newMetadata, newPeers) <-
                     liftIO $ fromPovOf cfg allPeers
 
-                  unless (nodeType == ourNodeType) $
+                  unless (nmType newMetadata == nmType origMetadata) $
                     logError $ changedType fp
-                  unless (runKademlia == runningKademlia) $
+                  unless (nmKademlia newMetadata == nmKademlia origMetadata) $
                     logError $ changedKademlia fp
+                  unless (nmMaxSubscrs newMetadata == nmMaxSubscrs origMetadata) $
+                    logError $ changedMaxSubscrs fp
 
                   mapM_ (runHandler newPeers) handlers
                   logNotice $ sformat "SIGHUP: Re-read topology"
@@ -196,9 +193,10 @@ monitorStaticConfig cfg@NetworkConfigOpts{..}
           Right () -> return ()
 
     changedFormat, changedType, changedKademlia :: FilePath -> Text
-    changedFormat   = sformat $ "SIGHUP (" % shown % "): Cannot dynamically change topology."
-    changedType     = sformat $ "SIGHUP (" % shown % "): Cannot dynamically change own node type."
-    changedKademlia = sformat $ "SIGHUP (" % shown % "): Cannot dynamically start/stop Kademlia."
+    changedFormat     = sformat $ "SIGHUP (" % shown % "): Cannot dynamically change topology."
+    changedType       = sformat $ "SIGHUP (" % shown % "): Cannot dynamically change own node type."
+    changedKademlia   = sformat $ "SIGHUP (" % shown % "): Cannot dynamically start/stop Kademlia."
+    changedMaxSubscrs = sformat $ "SIGHUP (" % shown % "): Cannot dynamically change maximum number of subscribers."
 
     readFailed :: FilePath -> SomeException -> Text
     readFailed = sformat $ "SIGHUP: Failed to read " % shown % ": " % shown % ". Ignored."
@@ -225,23 +223,24 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                         Just fp -> liftIO $ readTopology fp
     ourTopology <- case parsedTopology of
       Y.TopologyStatic{..} -> do
-        (nodeType, runKademlia, initPeers) <- liftIO $ fromPovOf cfg topologyAllPeers
-        topologyStaticPeers <- monitorStaticConfig cfg nodeType runKademlia initPeers
-        topologyOptKademlia <- if runKademlia
+        (md@NodeMetadata{..}, initPeers) <- liftIO $ fromPovOf cfg topologyAllPeers
+        topologyStaticPeers <- monitorStaticConfig cfg md initPeers
+        topologyOptKademlia <- if nmKademlia
                                  then liftIO $ Just <$> getKademliaParams cfg
                                  else return Nothing
-        case nodeType of
+        case nmType of
           T.NodeCore  -> return $ T.TopologyCore{..}
-          T.NodeRelay -> return $ T.TopologyRelay{..}
+          T.NodeRelay -> return $ T.TopologyRelay{topologyMaxSubscrs = nmMaxSubscrs, ..}
           T.NodeEdge  -> liftIO $ throwM NetworkConfigSelfEdge
       Y.TopologyBehindNAT{..} ->
         return T.TopologyBehindNAT{..}
-      Y.TopologyP2P v f -> do
+      Y.TopologyP2P{..} -> do
         kparams <- liftIO $ getKademliaParams cfg
-        return (T.TopologyP2P v f kparams)
-      Y.TopologyTraditional v f -> do
+        return T.TopologyP2P{topologyKademlia = kparams, ..}
+      Y.TopologyTraditional{..} -> do
         kparams <- liftIO $ getKademliaParams cfg
-        return (T.TopologyTraditional v f kparams)
+        return T.TopologyTraditional{topologyKademlia = kparams, ..}
+
     (enqueuePolicy, dequeuePolicy, failurePolicy) <- case networkConfigOptsPolicies of
         -- If no policy file is given we just use the default derived from the
         -- topology.
@@ -253,6 +252,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         -- A policy file is given: the topology-derived defaults are ignored
         -- and we take the complete policy description from the file.
         Just fp -> liftIO $ Y.fromStaticPolicies <$> readPolicies fp
+
     return T.NetworkConfig {
         ncTopology      = ourTopology
       , ncDefaultPort   = networkConfigOptsPort
@@ -276,10 +276,7 @@ getKademliaParams cfg = case networkConfigOptsKademlia cfg of
 -- a single node
 fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
-          -> IO ( T.NodeType
-                , Y.RunKademlia
-                , Peers NodeId
-                )
+          -> IO (NodeMetadata, Peers NodeId)
 fromPovOf cfg@NetworkConfigOpts{..} allPeers =
     case networkConfigOptsSelf of
       Nothing   -> throwM NetworkConfigSelfUnknown
@@ -288,11 +285,7 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers =
         resolved     <- resolvePeers resolve (Y.allStaticallyKnownPeers allPeers)
         let directory = M.fromList (map (\(a, b) -> (b, a)) (M.elems resolved))
         routes       <- mkRoutes resolved (Y.nmRoutes selfMetadata)
-        return (
-            Y.nmType      selfMetadata
-          , Y.nmKademlia  selfMetadata
-          , peersFromList directory routes
-          )
+        return (selfMetadata, peersFromList directory routes)
   where
 
     -- Use the name/metadata association to come up with types and

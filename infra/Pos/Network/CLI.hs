@@ -15,6 +15,7 @@ module Pos.Network.CLI (
   , intNetworkConfigOpts
     -- * Exported primilary for testing
   , readTopology
+  , readPolicies
   , fromPovOf
   ) where
 
@@ -35,7 +36,6 @@ import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
                                                          fromYamlConfig)
 import           Pos.Network.DnsDomains          (DnsDomains (..), NodeAddr (..))
-import qualified Pos.Network.Policy              as Policy
 import           Pos.Network.Types               (NodeId)
 import qualified Pos.Network.Types               as T
 import           Pos.Network.Yaml                (NodeMetadata (..), NodeName (..))
@@ -253,9 +253,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
             )
         -- A policy file is given: the topology-derived defaults are ignored
         -- and we take the complete policy description from the file.
-        Just fp -> do
-            staticPolicies <- liftIO $ readPolicies fp
-            return $ Policy.fromStaticPolicies staticPolicies
+        Just fp -> liftIO $ Y.fromStaticPolicies <$> readPolicies fp
     return T.NetworkConfig {
         ncTopology      = ourTopology
       , ncDefaultPort   = networkConfigOptsPort

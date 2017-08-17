@@ -18,12 +18,10 @@ module Pos.Network.Yaml (
   , Fallbacks
 
   , StaticPolicies(..)
-  , StaticEnqueuePolicy(..)
-  , StaticEnqueue(..)
-  , StaticDequeuePolicy(..)
-  , StaticDequeue(..)
-  , StaticFailurePolicy(..)
-  , StaticFailure(..)
+  , StaticEnqueuePolicy -- opaque
+  , StaticDequeuePolicy -- opaque
+  , StaticFailurePolicy -- opaque
+  , fromStaticPolicies
   ) where
 
 import           Data.Aeson             (FromJSON (..), ToJSON (..), (.!=),
@@ -34,14 +32,12 @@ import qualified Data.ByteString.Char8  as BS.C8
 import qualified Data.HashMap.Lazy      as HM
 import qualified Data.Map.Strict        as M
 import           Network.Broadcast.OutboundQueue.Types
-import           Network.Broadcast.OutboundQueue (Precedence (..))
+import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS            as DNS
 import           Pos.Util.Config
 import           Universum
 
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
-
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- | Description of the network topology in a Yaml file
 --
@@ -208,14 +204,14 @@ instance FromJSON NodeType where
         "relay"    -> return NodeRelay
         _otherwise -> fail $ "Invalid NodeType " ++ show typ
 
-instance FromJSON Precedence where
+instance FromJSON OQ.Precedence where
   parseJSON = A.withText "Precedence" $ \typ -> do
       case toString typ of
-        "lowest"  -> return PLowest
-        "low"     -> return PLow
-        "medium"  -> return PMedium
-        "high"    -> return PHigh
-        "highest" -> return PHighest
+        "lowest"  -> return OQ.PLowest
+        "low"     -> return OQ.PLow
+        "medium"  -> return OQ.PMedium
+        "high"    -> return OQ.PHigh
+        "highest" -> return OQ.PHighest
         _otherwise -> fail $ "Invalid Precedence" ++ show typ
 
 instance FromJSON (DnsDomains DNS.Domain) where
@@ -304,16 +300,55 @@ data StaticPolicies = StaticPolicies {
     , staticFailurePolicy :: StaticFailurePolicy
     }
 
-instance FromJSON StaticPolicies where
-    parseJSON = A.withObject "StaticPolicies" $ \obj -> do
-        staticEnqueuePolicy <- obj .: "enqueue"
-        staticDequeuePolicy <- obj .: "dequeue"
-        staticFailurePolicy <- obj .: "failure"
-        return StaticPolicies {..}
+-- | An enqueue policy which can be described by JSON/YAML.
+newtype StaticEnqueuePolicy = StaticEnqueuePolicy {
+      getStaticEnqueuePolicy :: forall nid . MsgType nid -> [OQ.Enqueue]
+    }
+
+-- | A dequeue policy which can be described by JSON/YAML.
+newtype StaticDequeuePolicy = StaticDequeuePolicy {
+      getStaticDequeuePolicy :: NodeType -> OQ.Dequeue
+    }
+
+newtype StaticFailurePolicy = StaticFailurePolicy {
+      getStaticFailurePolicy :: forall nid. NodeType -> MsgType nid -> OQ.ReconsiderAfter
+    }
+
+fromStaticPolicies :: StaticPolicies
+                   -> ( OQ.EnqueuePolicy nid
+                      , OQ.DequeuePolicy
+                      , OQ.FailurePolicy nid
+                      )
+fromStaticPolicies StaticPolicies{..} = (
+      fromStaticEnqueuePolicy staticEnqueuePolicy
+    , fromStaticDequeuePolicy staticDequeuePolicy
+    , fromStaticFailurePolicy staticFailurePolicy
+    )
+
+fromStaticEnqueuePolicy :: StaticEnqueuePolicy -> OQ.EnqueuePolicy nid
+fromStaticEnqueuePolicy = getStaticEnqueuePolicy
+
+fromStaticDequeuePolicy :: StaticDequeuePolicy -> OQ.DequeuePolicy
+fromStaticDequeuePolicy = getStaticDequeuePolicy
+
+fromStaticFailurePolicy :: StaticFailurePolicy -> OQ.FailurePolicy nid
+fromStaticFailurePolicy p nodeType = const . getStaticFailurePolicy p nodeType
+
+{-------------------------------------------------------------------------------
+  Common patterns in the .yaml file
+-------------------------------------------------------------------------------}
 
 data SendOrForward t = SendOrForward {
       send    :: !t
     , forward :: !t
+    }
+
+newtype ByMsgType t = ByMsgType {
+      byMsgType :: forall nid. MsgType nid -> t
+    }
+
+newtype ByNodeType t = ByNodeType {
+      byNodeType :: NodeType -> t
     }
 
 instance FromJSON t => FromJSON (SendOrForward t) where
@@ -322,19 +357,14 @@ instance FromJSON t => FromJSON (SendOrForward t) where
         forward <- obj .: "forward"
         return SendOrForward {..}
 
--- | An enqueue policy which can be described by JSON/YAML.
-newtype StaticEnqueuePolicy = StaticEnqueuePolicy {
-      getStaticEnqueuePolicy :: forall nid . MsgType nid -> [StaticEnqueue]
-    }
-
-instance FromJSON StaticEnqueuePolicy where
-    parseJSON = A.withObject "EnqueuePolicy" $ \obj -> do
+instance FromJSON t => FromJSON (ByMsgType t) where
+    parseJSON = A.withObject "ByMsgType" $ \obj -> do
         announceBlockHeader <- obj .: "announceBlockHeader"
         requestBlockHeaders <- obj .: "requestBlockHeaders"
         requestBlocks       <- obj .: "requestBlocks"
         transaction         <- obj .: "transaction"
         mpc                 <- obj .: "mpc"
-        return $ StaticEnqueuePolicy $ \msg -> case msg of
+        return $ ByMsgType $ \msg -> case msg of
             MsgAnnounceBlockHeader _                 -> announceBlockHeader
             MsgRequestBlockHeaders                   -> requestBlockHeaders
             MsgRequestBlocks       _                 -> requestBlocks
@@ -343,106 +373,94 @@ instance FromJSON StaticEnqueuePolicy where
             MsgMPC                 OriginSender      -> send mpc
             MsgMPC                 (OriginForward _) -> forward mpc
 
-data StaticEnqueue =
+instance FromJSON t => FromJSON (ByNodeType t) where
+    parseJSON = A.withObject "ByNodeType" $ \obj -> do
+        core  <- obj .: "core"
+        relay <- obj .: "relay"
+        edge  <- obj .: "edge"
+        return $ ByNodeType $ \nodeType -> case nodeType of
+            NodeCore  -> core
+            NodeRelay -> relay
+            NodeEdge  -> edge
 
-      StaticEnqueueAll {
-            senqNodeType   :: !NodeType
-          , senqMaxAhead   :: !Word32
-          , senqPrecedence :: !Precedence
-          }
+{-------------------------------------------------------------------------------
+  FromJSON instances
+-------------------------------------------------------------------------------}
 
-    | StaticEnqueueOne {
-            senqNodeTypes  :: ![NodeType]
-          , senqMaxAhead   :: !Word32
-          , senqPrecedence :: !Precedence
-          }
+instance FromJSON StaticPolicies where
+    parseJSON = A.withObject "StaticPolicies" $ \obj -> do
+        staticEnqueuePolicy <- obj .: "enqueue"
+        staticDequeuePolicy <- obj .: "dequeue"
+        staticFailurePolicy <- obj .: "failure"
+        return StaticPolicies {..}
 
-instance FromJSON StaticEnqueue where
+instance FromJSON StaticEnqueuePolicy where
+    parseJSON = fmap aux . parseJSON
+      where
+        aux :: ByMsgType [OQ.Enqueue] -> StaticEnqueuePolicy
+        aux f = StaticEnqueuePolicy (byMsgType f)
+
+instance FromJSON StaticDequeuePolicy where
+    parseJSON = fmap aux . parseJSON
+      where
+        aux :: ByNodeType OQ.Dequeue -> StaticDequeuePolicy
+        aux f = StaticDequeuePolicy (byNodeType f)
+
+instance FromJSON StaticFailurePolicy where
+    parseJSON = fmap aux . parseJSON
+      where
+        aux :: ByNodeType (ByMsgType OQ.ReconsiderAfter) -> StaticFailurePolicy
+        aux f = StaticFailurePolicy (byMsgType . byNodeType f)
+
+{-------------------------------------------------------------------------------
+  Orphans
+-------------------------------------------------------------------------------}
+
+instance FromJSON OQ.Enqueue where
     parseJSON = A.withObject "Enqueue" $ \obj -> do
         mAll <- obj .:? "all"
         mOne <- obj .:? "one"
         case (mAll, mOne) of
             (Just all_, Nothing) -> parseEnqueueAll all_
             (Nothing, Just one_) -> parseEnqueueOne one_
-            _                   -> fail "Enqueue: expected 'one' or 'all', and not both."
+            _ -> fail "Enqueue: expected 'one' or 'all', and not both."
       where
+        parseEnqueueAll :: A.Object -> A.Parser OQ.Enqueue
         parseEnqueueAll obj = do
             nodeType   <- obj .: "nodeType"
             maxAhead   <- obj .: "maxAhead"
             precedence <- obj .: "precedence"
-            return $ StaticEnqueueAll {
-                  senqNodeType   = nodeType
-                , senqMaxAhead   = maxAhead
-                , senqPrecedence = precedence
+            return $ OQ.EnqueueAll {
+                  enqNodeType   = nodeType
+                , enqMaxAhead   = maxAhead
+                , enqPrecedence = precedence
                 }
+
+        parseEnqueueOne :: A.Object -> A.Parser OQ.Enqueue
         parseEnqueueOne obj = do
             nodeTypes  <- obj .: "nodeTypes"
             maxAhead   <- obj .: "maxAhead"
             precedence <- obj .: "precedence"
-            return $ StaticEnqueueOne {
-                  senqNodeTypes  = nodeTypes
-                , senqMaxAhead   = maxAhead
-                , senqPrecedence = precedence
+            return $ OQ.EnqueueOne {
+                  enqNodeTypes  = nodeTypes
+                , enqMaxAhead   = maxAhead
+                , enqPrecedence = precedence
                 }
 
--- | A dequeue policy which can be described by JSON/YAML.
-newtype StaticDequeuePolicy = StaticDequeuePolicy {
-      getStaticDequeuePolicy :: NodeType -> StaticDequeue
-    }
-
-instance FromJSON StaticDequeuePolicy where
-    parseJSON = A.withObject "DequeuePolicy" $ \obj -> do
-        core  <- obj .: "core"
-        relay <- obj .: "relay"
-        edge  <- obj .: "edge"
-        return $ StaticDequeuePolicy $ \nodeType -> case nodeType of
-            NodeCore  -> core
-            NodeRelay -> relay
-            NodeEdge  -> edge
-
-data StaticDequeue = StaticDequeue {
-      sdeqRateLimit   :: !(Maybe Word32)
-      -- ^ max number of messages per second, or Nothing for no limit.
-    , sdeqMaxInFlight :: !Word32
-    }
-
-instance FromJSON StaticDequeue where
+instance FromJSON OQ.Dequeue where
     parseJSON = A.withObject "Dequeue" $ \obj -> do
-        sdeqRateLimit   <- obj .:? "rateLimit"
-        sdeqMaxInFlight <- obj .: "maxInFlight"
-        return StaticDequeue {..}
+        deqRateLimit   <- obj .:? "rateLimit"   .!= OQ.NoRateLimiting
+        deqMaxInFlight <- obj .:  "maxInFlight"
+        return OQ.Dequeue {..}
 
-newtype StaticFailurePolicy = StaticFailurePolicy {
-      getStaticFailurePolicy :: NodeType -> StaticFailure
-    }
+instance FromJSON OQ.MaxAhead where
+    parseJSON = fmap OQ.MaxAhead . parseJSON
 
-newtype StaticFailure = StaticFailure {
-      getStaticFailure :: forall nid . MsgType nid -> Word32
-      -- ^ Time in seconds after which to reconsider this node after a failure.
-    }
+instance FromJSON OQ.MaxInFlight where
+    parseJSON = fmap OQ.MaxInFlight . parseJSON
 
-instance FromJSON StaticFailurePolicy where
-    parseJSON = A.withObject "FailurePolicy" $ \obj -> do
-        core  <- obj .: "core"
-        relay <- obj .: "relay"
-        edge  <- obj .: "edge"
-        return $ StaticFailurePolicy $ \nodeType -> case nodeType of
-            NodeCore  -> core
-            NodeRelay -> relay
-            NodeEdge  -> edge
+instance FromJSON OQ.RateLimit where
+    parseJSON = fmap OQ.MaxMsgPerSec . parseJSON
 
-instance FromJSON StaticFailure where
-    parseJSON = A.withObject "Failure" $ \obj -> do
-        announceBlockHeader <- obj .: "announceBlockHeader"
-        requestBlockHeaders <- obj .: "requestBlockHeaders"
-        requestBlocks       <- obj .: "requestBlocks"
-        transaction         <- obj .: "transaction"
-        mpc                 <- obj .: "mpc"
-        return $ StaticFailure $ \msg -> case msg of
-            MsgAnnounceBlockHeader _                 -> announceBlockHeader
-            MsgRequestBlockHeaders                   -> requestBlockHeaders
-            MsgRequestBlocks       _                 -> requestBlocks
-            MsgTransaction         OriginSender      -> send transaction
-            MsgTransaction         (OriginForward _) -> forward transaction
-            MsgMPC                 OriginSender      -> send mpc
-            MsgMPC                 (OriginForward _) -> forward mpc
+instance FromJSON OQ.ReconsiderAfter where
+    parseJSON = fmap (OQ.ReconsiderAfter . fromInteger) . parseJSON

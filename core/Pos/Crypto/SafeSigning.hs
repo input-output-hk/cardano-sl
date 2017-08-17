@@ -15,6 +15,7 @@ module Pos.Crypto.SafeSigning
        , safeKeyGen
        , safeDeterministicKeyGen
        , withSafeSigner
+       , withSafeSigners
        , fakeSigner
        , safeCreateProxyCert
        , safeCreatePsk
@@ -153,16 +154,24 @@ safeToPublic (FakeSigner sk)   = toPublic sk
 -- | We can make SafeSigner only inside IO bracket, so
 -- we can manually cleanup all IO buffers we use to store passphrase
 -- (when we'll actually use them)
+withSafeSigners
+    :: (MonadIO m, Bi PassPhrase, Traversable t)
+    => t EncryptedSecretKey
+    -> m PassPhrase
+    -> (Maybe (t SafeSigner) -> m a) -> m a
+withSafeSigners sks ppGetter action = do
+    pp <- ppGetter
+    let mss = forM sks $ \sk -> checkPassMatches pp sk $> SafeSigner sk pp
+    action mss
+
 withSafeSigner
     :: (MonadIO m, Bi PassPhrase)
     => EncryptedSecretKey
     -> m PassPhrase
     -> (Maybe SafeSigner -> m a)
     -> m a
-withSafeSigner sk ppGetter action = do
-    pp <- ppGetter
-    let mss = checkPassMatches pp sk $> SafeSigner sk pp
-    action mss
+withSafeSigner sk ppGetter action =
+    withSafeSigners (Identity sk) ppGetter (action . fmap runIdentity)
 
 -- | We need this to be able to perform signing with unencrypted `SecretKey`s,
 -- where `SafeSigner` is required

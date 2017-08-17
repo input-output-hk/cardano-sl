@@ -16,7 +16,7 @@ import           Control.Concurrent.Lock    (Lock, new)
 import           Data.Default               (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core                   (HeaderHash, SlotId (..))
+import           Pos.Core                   (HasCoreConstants, HeaderHash, SlotId (..))
 import           Pos.DB.Class               (MonadDBRead)
 import           Pos.DB.GState.Common       (getTip)
 import           Pos.Slotting               (MonadSlots (getCurrentSlot))
@@ -56,7 +56,7 @@ data MemVar = MemVar
     }
 
 -- | Create new 'MemVar' using slotting and read-only access to DB.
-newMemVar :: (MonadIO m, MonadDBRead m, MonadSlots m) => m MemVar
+newMemVar :: (HasCoreConstants, MonadIO m, MonadDBRead m, MonadSlots m) => m MemVar
 newMemVar = do
     let slot0 = SlotId 0 minBound
     msSlot <- fromMaybe slot0 <$> getCurrentSlot

@@ -31,7 +31,7 @@ import           Control.Lens            (ix)
 import           Data.Hashable           (hash)
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.Text               as T
-import           Formatting              (build, int, sformat, (%))
+import           Formatting              (int, sformat, (%))
 
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Address        (makePubKeyAddress)
@@ -119,20 +119,26 @@ generateHdwGenesisSecretKey =
 -- related 'bootDustThreshold'. Function splits coin on chunks of
 -- @weightsSum@ and distributes it over boot stakeholder. Remainder is
 -- assigned randomly (among boot stakeholders) based on hash of the coin.
+--
+-- If coin is lower than 'bootDustThreshold' then this function
+-- distributes coins among first stakeholders in the list according to
+-- their weights.
 genesisSplitBoot ::
-       GenesisWStakeholders -> Coin -> Either Text [(StakeholderId, Coin)]
+       GenesisWStakeholders -> Coin -> [(StakeholderId, Coin)]
 genesisSplitBoot g@(GenesisWStakeholders bootWHolders) c
-    | cval <= 0 =
-      Left $ "sendMoney#splitBoot: cval <= 0: " <> show cval
     | c < bootDustThreshold g =
-      Left $
-      sformat ("Can't spend "%build%" coins: amount is too small for boot era, "%
-               "threshold is "%build%" in respect to boot stakeholders set "%build)
-              c
-              (bootDustThreshold g)
-              g
-    | otherwise = Right $ bootHolders `zip` stakeCoins
+          snd $ foldr foldrFunc (0::Word64,[]) (HM.toList bootWHolders)
+    | otherwise =
+          bootHolders `zip` stakeCoins
   where
+    foldrFunc (s,w) r@(totalSum, res) = case compare totalSum cval of
+        EQ -> r
+        GT -> error "genesisSplitBoot: totalSum > cval can't happen"
+        LT -> let w' = (fromIntegral w :: Word64)
+                  toInclude = bool w' (cval - totalSum) (totalSum + w' > cval)
+              in (totalSum + toInclude
+                 ,(s, mkCoin toInclude):res)
+
     weights :: [Word64]
     weights = map fromIntegral $ HM.elems bootWHolders
 

@@ -8,7 +8,8 @@ import           Universum
 
 import           Pos.Binary.Block      ()
 import           Pos.Block.Core        (Block, GenesisBlock, MainBlock, mbSscPayload)
-import           Pos.Core              (IsGenesisHeader, IsMainHeader, gbBody, gbHeader)
+import           Pos.Core              (HasCoreConstants, IsGenesisHeader, IsMainHeader,
+                                        gbBody, gbHeader)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock (..), SscPayload)
 import           Pos.Util              (Some (..))
@@ -16,7 +17,7 @@ import           Pos.Util              (Some (..))
 -- [CSL-1156] Totally need something more elegant
 toSscBlock
     :: forall ssc.
-       SscHelpersClass ssc
+       (HasCoreConstants, SscHelpersClass ssc)
     => Block ssc -> SscBlock ssc
 toSscBlock = SscBlock . bimap convertGenesis convertMain
   where

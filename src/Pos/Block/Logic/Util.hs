@@ -28,11 +28,11 @@ import           System.Wlog            (WithLogger)
 import           Pos.Block.Core         (BlockHeader)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogContext)
-import           Pos.Constants          (blkSecurityParam, slotSecurityParam)
-import           Pos.Context            (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Core               (BlockCount, FlatSlotId, HeaderHash,
-                                         diffEpochOrSlot, getEpochOrSlot, headerHash,
-                                         prevBlockL)
+import           Pos.Context            (BlkSemaphore, blkSecurityParam, putBlkSemaphore,
+                                         slotSecurityParam, takeBlkSemaphore)
+import           Pos.Core               (BlockCount, FlatSlotId, HasCoreConstants,
+                                         HeaderHash, diffEpochOrSlot, getEpochOrSlot,
+                                         headerHash, prevBlockL)
 import           Pos.DB                 (MonadDBRead)
 import           Pos.DB.Block           (MonadBlockDB)
 import qualified Pos.DB.DB              as DB
@@ -49,7 +49,7 @@ import           Pos.Util.Chrono        (NE, OldestFirst (..))
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (MonadDBRead m, SscHelpersClass ssc)
+    :: (HasCoreConstants, MonadDBRead m, SscHelpersClass ssc)
     => OldestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $
@@ -97,7 +97,7 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 --
 needRecovery ::
        forall ssc m.
-       (MonadSlots m, MonadBlockDB ssc m)
+       (HasCoreConstants, MonadSlots m, MonadBlockDB ssc m)
     => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
@@ -131,6 +131,7 @@ calcChainQualityM ::
        , MonadThrow m
        , WithLogger m
        , Fractional res
+       , HasCoreConstants
        )
     => FlatSlotId
     -> m res

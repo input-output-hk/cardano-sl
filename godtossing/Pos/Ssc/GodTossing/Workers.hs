@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -29,21 +29,21 @@ import           System.Wlog                           (logDebug, logError, logI
 import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
-import           Pos.Communication.Protocol            (Message, OutSpecs, EnqueueMsg,
-                                                        Worker, WorkerSpec, SendActions (..),
-                                                        onNewSlotWorker, MsgType (..),
-                                                        Origin (..))
+import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
+                                                        Origin (..), OutSpecs,
+                                                        SendActions (..), Worker,
+                                                        WorkerSpec, onNewSlotWorker)
 import           Pos.Communication.Relay               (DataMsg, ReqOrRes,
                                                         invReqDataFlowTK)
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
-import           Pos.Core                              (EpochIndex, SlotId (..),
-                                                        StakeholderId, Timestamp (..),
-                                                        addressHash, bvdMpcThd,
-                                                        getOurSecretKey,
+import           Pos.Core                              (EpochIndex, HasCoreConstants,
+                                                        SlotId (..), StakeholderId,
+                                                        Timestamp (..), addressHash,
+                                                        bvdMpcThd, getOurSecretKey,
                                                         getOurStakeholderId,
-                                                        mkLocalSlotIndex)
-import           Pos.Core.Constants                    (slotSecurityParam)
+                                                        mkLocalSlotIndex,
+                                                        slotSecurityParam)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
                                                         runSecureRandom)
@@ -302,7 +302,7 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
 -- synchronized).
 generateAndSetNewSecret
     :: forall ctx m.
-       (SscMode SscGodTossing ctx m, Bi Commitment)
+       (HasCoreConstants, SscMode SscGodTossing ctx m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)

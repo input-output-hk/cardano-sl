@@ -42,10 +42,11 @@ import           Pos.Constants               (memPoolLimitRatio)
 import           Pos.Context                 (lrcActionOnEpochReason)
 import           Pos.Core                    (HasPrimaryKey (..), ProxySKHeavy,
                                               ProxySKLight, ProxySigLight, addressHash,
-                                              bvdMaxBlockSize, epochIndexL)
+                                              bvdMaxBlockSize, epochIndexL,
+                                              getOurPublicKey)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
-                                              toPublic, verifyPsk)
+                                              verifyPsk)
 import           Pos.DB                      (MonadDB, MonadDBRead, MonadGState,
                                               MonadRealDB)
 import qualified Pos.DB                      as DB
@@ -240,13 +241,12 @@ processProxySKLight ::
     => ProxySKLight
     -> m PskLightVerdict
 processProxySKLight psk = do
-    sk <- view primaryKey
+    ourPk <- getOurPublicKey
     curTime <- microsecondsToUTC <$> currentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- RWL.withRead miscLock Misc.getProxySecretKeysLight
     res <- runDelegationStateAction $ do
-        let pk = toPublic sk
-            related = pk == pskDelegatePk psk || pk == pskIssuerPk psk
+        let related = ourPk == pskDelegatePk psk || ourPk == pskIssuerPk psk
             exists = psk `elem` psks
             msg = Left psk
             valid = verifyPsk psk

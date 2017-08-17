@@ -59,6 +59,7 @@ instance Bi User where
 
 module Pos.Binary.Class.TH
        ( deriveSimpleBi
+       , deriveSimpleBiCxt
        , Cons (..)
        , Field (Field)
        ) where
@@ -115,13 +116,20 @@ fieldToPair (Field ex)  = over _2 Just <$> expToNameAndType ex
 -- If some of these statements is violated,
 -- you will get compile error with the corresponding message.
 deriveSimpleBi :: Name -> [Cons] -> Q [Dec]
-deriveSimpleBi headTy constrs = do
+deriveSimpleBi = deriveSimpleBiInternal Nothing
+
+deriveSimpleBiCxt :: TypeQ -> Name -> [Cons] -> Q [Dec]
+deriveSimpleBiCxt = deriveSimpleBiInternal . Just
+
+deriveSimpleBiInternal :: Maybe TypeQ -> Name -> [Cons] -> Q [Dec]
+deriveSimpleBiInternal predsMB headTy constrs = do
     when (null constrs) $
         failText "You passed no constructors to deriveSimpleBi"
     when (length constrs > 255) $
         failText "You passed too many constructors to deriveSimpleBi"
     when (length (nubBy ((==) `on` cName) constrs) /= length constrs) $
         failText "You passed two constructors with the same name"
+    preds <- maybe (pure []) (fmap one) predsMB
     dt <- reifyDataType headTy
     case matchAllConstrs constrs (dtCons dt) of
         MissedCons cons ->
@@ -155,7 +163,7 @@ deriveSimpleBi headTy constrs = do
                                    field cName realType passedType
                     MatchedFields -> pass
     ty <- conT headTy
-    makeBiInstanceTH ty <$> biEncodeExpr <*> biDecodeExpr
+    makeBiInstanceTH preds ty <$> biEncodeExpr <*> biDecodeExpr
   where
     shortNameTy :: Text
     shortNameTy = toText $ nameBase headTy
@@ -261,17 +269,18 @@ deriveSimpleBi headTy constrs = do
         let recWildUsedVars = map (\(f, ex) -> (f,) <$> varE ex) $ zip fieldNames varNames
         -- The +1 is because we need to take into account the tag we used to discriminate on the
         -- different constructors in the encoding phase.
-        let lenCheck = noBindS [| Bi.matchSize (usedFieldsNum + tagsIfAny) ("biDecodeConstr@" <> prettyName) $expectedLen |]
+        let lenCheck =
+                noBindS [| Bi.matchSize (usedFieldsNum + tagsIfAny) ("biDecodeConstr@" <> prettyName) $expectedLen |]
         recordWildCardReturn <- noBindS $
                                 appE (varE 'pure) $
                                 recConE cName $
                                 recWildUsedVars
         doE $ lenCheck : (map pure bindExprs ++ [pure recordWildCardReturn])
 
-makeBiInstanceTH :: Type -> Exp -> Exp -> [Dec]
-makeBiInstanceTH ty encodeE decodeE = one $
+makeBiInstanceTH :: Cxt -> Type -> Exp -> Exp -> [Dec]
+makeBiInstanceTH preds ty encodeE decodeE = one $
   plainInstanceD
-        [] -- empty context
+        preds -- context
         (AppT (ConT ''Bi.Bi) ty)
         [ ValD (VarP 'Bi.encode) (NormalB encodeE) []
         , ValD (VarP 'Bi.decode) (NormalB decodeE) []

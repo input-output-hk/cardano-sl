@@ -74,7 +74,8 @@ import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core        as BC
 import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
 import           Pos.Constants         (genesisHash)
-import           Pos.Core              (BlockCount, HasDifficulty (difficultyL),
+import           Pos.Core              (BlockCount, HasCoreConstants,
+                                        HasDifficulty (difficultyL),
                                         HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
                                         headerHash)
 import           Pos.Crypto            (hashHexF, shortHashF)
@@ -103,26 +104,26 @@ import           Pos.Util.Chrono       (NewestFirst (..))
 -- strict constraint, consider using 'blkGetBlock'.
 
 getBlock
-    :: forall ssc ctx m. (SscHelpersClass ssc, MonadRealDB ctx m)
+    :: forall ssc ctx m. (HasCoreConstants, SscHelpersClass ssc, MonadRealDB ctx m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 
 -- | Returns header of block that was requested from Block DB.
 blkGetHeader
-    :: (SscHelpersClass ssc, MonadDBRead m)
+    :: (HasCoreConstants, SscHelpersClass ssc, MonadDBRead m)
     => HeaderHash -> m (Maybe (BlockHeader ssc))
 blkGetHeader = dbGetBi BlockIndexDB . blockIndexKey
 
 -- Get undo data for block with given hash from Block DB. This
 -- function has too strict constraint, consider using 'blkGetUndo'.
-getUndo :: (MonadRealDB ctx m) => HeaderHash -> m (Maybe Undo)
+getUndo :: (HasCoreConstants, MonadRealDB ctx m) => HeaderHash -> m (Maybe Undo)
 getUndo = undoDataPath >=> getData
 
 -- Put given block, its metadata and Undo data into Block DB. This
 -- function uses 'MonadRealDB' constraint which is too
 -- severe. Consider using 'dbPutBlund' instead.
 putBlundReal
-    :: (SscHelpersClass ssc, MonadRealDB ctx m)
+    :: (HasCoreConstants, SscHelpersClass ssc, MonadRealDB ctx m)
     => Blund ssc -> m ()
 putBlundReal (blk, undo) = do
     let h = headerHash blk
@@ -217,7 +218,7 @@ loadBlocksWhile = loadDataWhile getBlockThrow
 -- | Load headers starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadHeadersWhile
-    :: (SscHelpersClass ssc, MonadDBRead m)
+    :: (HasCoreConstants, SscHelpersClass ssc, MonadDBRead m)
     => (BlockHeader ssc -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] (BlockHeader ssc))
@@ -225,13 +226,13 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
-    :: (SscHelpersClass ssc, MonadDBRead m)
+    :: (SscHelpersClass ssc, MonadDBRead m, HasCoreConstants)
     => BlockCount -> HeaderHash -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
 -- | Load headers which have depth less than given and match some criterion.
 loadHeadersByDepthWhile
-    :: (SscHelpersClass ssc, MonadDBRead m)
+    :: (SscHelpersClass ssc, MonadDBRead m, HasCoreConstants)
     => (BlockHeader ssc -> Bool)
     -> BlockCount
     -> HeaderHash
@@ -287,11 +288,11 @@ type MonadBlockDBWrite ssc m
 -- Pure implementation
 ----------------------------------------------------------------------------
 
-decodeOrFailPureDB :: SscHelpersClass ssc => ByteString -> (Block ssc, Undo)
+decodeOrFailPureDB :: (HasCoreConstants, SscHelpersClass ssc) => ByteString -> (Block ssc, Undo)
 decodeOrFailPureDB = deserialize'
 
 dbGetBlundPure ::
-       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+       forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
     => HeaderHash
     -> m (Maybe (Block ssc, Undo))
 dbGetBlundPure h = do
@@ -300,25 +301,25 @@ dbGetBlundPure h = do
     pure $ decodeOrFailPureDB <$> blund
 
 dbGetBlockPureDefault ::
-       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+       forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
     => HeaderHash
     -> m (Maybe (Block ssc))
 dbGetBlockPureDefault h = fmap fst <$> dbGetBlundPure h
 
 dbGetUndoPureDefault ::
-       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+       forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
     => HeaderHash
     -> m (Maybe Undo)
 dbGetUndoPureDefault h = fmap snd <$> dbGetBlundPure @ssc @ctx @m h
 
 dbGetHeaderPureDefault ::
-       forall ssc m. (MonadDBRead m, SscHelpersClass ssc)
+       forall ssc m. (HasCoreConstants, MonadDBRead m, SscHelpersClass ssc)
     => HeaderHash
     -> m (Maybe (BlockHeader ssc))
 dbGetHeaderPureDefault = blkGetHeader
 
 dbPutBlundPureDefault ::
-       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+       forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
     => Blund ssc
     -> m ()
 dbPutBlundPureDefault (blk,undo) = do
@@ -329,19 +330,19 @@ dbPutBlundPureDefault (blk,undo) = do
         (pureBlockIndexDB . at (blockIndexKey h) .~ Just (serialize' $ BC.getBlockHeader blk))
 
 dbGetBlockSscPureDefault ::
-       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+       forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
     => HeaderHash
     -> m (Maybe (SscBlock ssc))
 dbGetBlockSscPureDefault = fmap (toSscBlock <$>) . dbGetBlockPureDefault
 
 dbGetUndoSscPureDefault ::
-       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+       forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
     => HeaderHash
     -> m (Maybe ())
 dbGetUndoSscPureDefault = fmap (const () <$>) . dbGetUndoPureDefault @ssc
 
 dbGetHeaderSscPureDefault ::
-       forall ssc m. (MonadDBRead m, SscHelpersClass ssc)
+       forall ssc m. (HasCoreConstants, MonadDBRead m, SscHelpersClass ssc)
     => HeaderHash
     -> m (Maybe (Some IsHeader))
 dbGetHeaderSscPureDefault = fmap (Some <$>) . dbGetHeaderPureDefault @ssc
@@ -353,7 +354,10 @@ dbGetHeaderSscPureDefault = fmap (Some <$>) . dbGetHeaderPureDefault @ssc
 -- instance MonadBlockDBGeneric (Block ssc)
 
 type BlockDBGenericDefaultEnv ssc ctx m =
-    (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc)
+    ( MonadDBRead m
+    , MonadRealDB ctx m
+    , SscHelpersClass ssc
+    , HasCoreConstants)
 
 dbGetBlockDefault ::
        forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
@@ -393,7 +397,7 @@ dbGetHeaderSscDefault = fmap (Some <$>) . blkGetHeader @ssc
 
 -- instance MonadBlockDBWrite
 
-dbPutBlundDefault :: (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc) => Blund ssc -> m ()
+dbPutBlundDefault :: (HasCoreConstants, MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc) => Blund ssc -> m ()
 dbPutBlundDefault = putBlundReal
 
 ----------------------------------------------------------------------------
@@ -404,6 +408,7 @@ type DBSumDefaultEnv ssc ctx m =
     ( MonadDBRead m
     , SscHelpersClass ssc
     , MonadDBSum ctx m
+    , HasCoreConstants
     )
 
 dbGetBlockSumDefault
@@ -535,7 +540,7 @@ getBlockThrow hash =
     errFmt = "getBlockThrow: no block with HeaderHash: "%shortHashF
 
 getHeaderThrow
-    :: (SscHelpersClass ssc, MonadDBRead m)
+    :: (SscHelpersClass ssc, MonadDBRead m, HasCoreConstants)
     => HeaderHash -> m (BlockHeader ssc)
 getHeaderThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<< blkGetHeader hash

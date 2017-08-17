@@ -11,10 +11,19 @@ module Test.Pos.CborSpec
        ( spec
        ) where
 
+import           Universum
+
+import qualified Data.ByteString                   as BS
+import           Test.Hspec                        (Arg, Expectation, Spec, SpecWith,
+                                                    describe, it, pendingWith, shouldBe)
+import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
+import           Test.QuickCheck
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import qualified Codec.CBOR.FlatTerm               as CBOR
 import           Crypto.Hash.Algorithms            (SHA256)
 import           Node.Message.Class
+
 import           Pos.Arbitrary.Block               ()
 import           Pos.Arbitrary.Core                ()
 import           Pos.Arbitrary.Delegation          ()
@@ -34,6 +43,7 @@ import           Pos.Binary.Relay                  ()
 import           Pos.Block.Core
 import           Pos.Communication.Protocol
 import           Pos.Communication.Types.Relay     (DataMsg)
+import           Pos.Core.Context                  (giveStaticConsts)
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
@@ -48,6 +58,7 @@ import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProo
 import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
                                                     PublicKey, SecretKey, Signature,
                                                     Signed)
+import           Pos.Data.Attributes
 import           Pos.Delegation.Types
 import           Pos.DHT.Model.Types
 import           Pos.Explorer
@@ -58,17 +69,6 @@ import           Pos.Update.Core
 import           Pos.Update.Poll
 import           Pos.Util.BackupPhrase
 import           Pos.Util.Chrono
-import           Test.Hspec                        (Arg, Expectation, Spec, SpecWith,
-                                                    describe, it, pendingWith, shouldBe)
-import           Test.QuickCheck
-import           Universum
-
-import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
-
-import           Pos.Data.Attributes
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
-
-import qualified Data.ByteString                   as BS
 
 ----------------------------------------
 
@@ -302,7 +302,7 @@ testAgainstFile name x expected =
               Right actual -> x `shouldBe` actual
 
 spec :: Spec
-spec = describe "Cbor.Bi instances" $ do
+spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
         describe "(Hash)Map and (Hash)Set instances are sound" $ do
             prop "HashMap Int Int" (soundInstanceProperty @(HashMap Int Int) Proxy)

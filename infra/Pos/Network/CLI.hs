@@ -129,9 +129,9 @@ monitorStaticConfig :: forall m. (
                        , Mockable Catch m
                        )
                     => NetworkConfigOpts
-                    -> T.NodeType     -- ^ Our node type
-                    -> Y.RunKademlia  -- ^ Are we currently running kademlia?
-                    -> Peers NodeId   -- ^ Initial value
+                    -> T.NodeType                  -- ^ Our node type
+                    -> Y.RunKademlia               -- ^ Are we currently running kademlia?
+                    -> Peers NodeId                -- ^ Initial peers
                     -> m T.StaticPeers
 monitorStaticConfig cfg@NetworkConfigOpts{..}
                     ourNodeType
@@ -140,7 +140,9 @@ monitorStaticConfig cfg@NetworkConfigOpts{..}
                   = do
     events :: Chan (MonitorEvent m) <- liftIO $ newChan
 
-    let loop :: Peers NodeId -> [Peers NodeId -> m ()] -> m ()
+    let loop :: Peers NodeId
+             -> [Peers NodeId -> m ()]
+             -> m ()
         loop peers handlers = do
           event <- liftIO $ readChan events
           case event of
@@ -179,9 +181,9 @@ monitorStaticConfig cfg@NetworkConfigOpts{..}
         T.staticPeersOnChange = writeChan events . MonitorRegister
       }
   where
-    runHandler :: Peers NodeId -> (Peers NodeId -> m ()) -> m ()
-    runHandler peers handler = do
-        mu <- try (handler peers)
+    runHandler :: forall t . t -> (t -> m ()) -> m ()
+    runHandler it handler = do
+        mu <- try (handler it)
         case mu of
           Left  ex -> logError $ handlerError ex
           Right () -> return ()
@@ -253,29 +255,62 @@ getKademliaParams cfg = case networkConfigOptsKademlia cfg of
 -- a single node
 fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
-          -> IO (T.NodeType, Y.RunKademlia, Peers NodeId)
+          -> IO ( T.NodeType
+                , Y.RunKademlia
+                , Peers NodeId
+                )
 fromPovOf cfg@NetworkConfigOpts{..} allPeers =
     case networkConfigOptsSelf of
       Nothing   -> throwM NetworkConfigSelfUnknown
       Just self -> T.initDnsOnUse $ \resolve -> do
         selfMetadata <- metadataFor allPeers self
-        selfPeers    <- mkPeers resolve (Y.nmRoutes selfMetadata)
+        resolved     <- resolvePeers resolve (Y.allStaticallyKnownPeers allPeers)
+        let directory = M.fromList (map (\(a, b) -> (b, a)) (M.elems resolved))
+        routes       <- mkRoutes resolved (Y.nmRoutes selfMetadata)
         return (
             Y.nmType      selfMetadata
           , Y.nmKademlia  selfMetadata
-          , peersFromList selfPeers
+          , peersFromList directory routes
           )
   where
-    mkPeers :: T.Resolver -> Y.NodeRoutes -> IO [(T.NodeType, Alts NodeId)]
-    mkPeers resolve (Y.NodeRoutes routes) = mapM (mkAlts resolve) routes
 
-    mkAlts :: T.Resolver -> Alts NodeName -> IO (T.NodeType, Alts NodeId)
-    mkAlts _       []    = throwM $ EmptyListOfAltsFor (fromJust networkConfigOptsSelf)
-    mkAlts resolve names = do
-      alts@(firstAlt:_) <- mapM (metadataFor allPeers) names
-      let altsType = nmType firstAlt -- assume all alts have same type
-      (altsType,) <$> mapM (resolveNodeAddr cfg resolve)
-                           (zip names $ map nmAddress alts)
+    -- Use the name/metadata association to come up with types and
+    -- addresses for each name.
+    resolvePeers :: T.Resolver -> Map NodeName Y.NodeMetadata -> IO (Map NodeName (T.NodeType, NodeId))
+    resolvePeers resolve = M.traverseWithKey (resolvePeer resolve)
+
+    resolvePeer :: T.Resolver -> NodeName -> Y.NodeMetadata -> IO (T.NodeType, NodeId)
+    resolvePeer resolve name metadata =
+      (typ,) <$> resolveNodeAddr cfg resolve (name, addr)
+      where
+        typ  = nmType metadata
+        addr = nmAddress metadata
+
+    -- Given a NodeName directory (see 'resolvePeers'), fill in the NodeRoutes
+    -- by looking up the relevant names.
+    -- It's assumed that each name in a list of alternatives has the same
+    -- type.
+    mkRoutes :: Map NodeName (T.NodeType, NodeId) -> Y.NodeRoutes -> IO [(T.NodeType, Alts NodeId)]
+    mkRoutes directory (Y.NodeRoutes routes) = mapM (mkAlts directory) routes
+
+    mkAlts :: Map NodeName (T.NodeType, NodeId) -> Alts NodeName -> IO (T.NodeType, Alts NodeId)
+    mkAlts _ [] = throwM $ EmptyListOfAltsFor (fromJust networkConfigOptsSelf)
+    mkAlts directory names@(name:_) = do
+      -- Use the type associated to the first name, and assume all alts have
+      -- same type.
+      -- TODO we could easily check that using
+      --
+      --   mapM (resolveName directory) names :: IO (NodeType, NodeId)
+      --
+      -- and throw an exception if there's a mismatch.
+      typ  <- fmap fst . resolveName directory $ name
+      nids <- mapM (fmap snd . resolveName directory) names
+      return (typ, nids)
+
+    resolveName :: Map NodeName t -> NodeName -> IO t
+    resolveName directory name = case M.lookup name directory of
+      Nothing -> throwM $ UndefinedNodeName name
+      Just t -> return t
 
 -- | Resolve node name to IP address
 --

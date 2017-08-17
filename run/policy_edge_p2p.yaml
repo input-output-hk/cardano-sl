@@ -15,7 +15,7 @@ enqueue:
   requestBlocks:
     - one:
         nodeTypes: ['relay']
-        maxAhead: 1
+        maxAhead: 2
         precedence: 'high'
 
   mpc:

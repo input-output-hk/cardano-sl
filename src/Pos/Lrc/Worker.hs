@@ -168,6 +168,23 @@ lrcDo epoch consumers tip = tip <$ do
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
     unless (null blundsUpToGenesis) $ throwM LrcAfterGenesis
+    -- We don't calculate the seed inside 'withBlocksRolledBack' because
+    -- there are shares in those ~2k blocks that 'withBlocksRolledBack'
+    -- rolls back.
+    seed <- sscCalculateSeed @ssc epoch >>= \case
+        Right s -> do
+            logInfo $ sformat
+                ("Calculated seed for epoch "%build%" successfully") epoch
+            return s
+        Left err -> do
+            logWarning $ sformat
+                ("SSC couldn't compute seed: "%build%" for epoch "%build%
+                 ", going to reuse seed for previous epoch")
+                err epoch
+            getSeed (epoch - 1) >>=
+                maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
+    putSeed epoch seed
+    -- Roll back to the crucial slot and calculate richmen, etc.
     NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
@@ -176,21 +193,6 @@ lrcDo epoch consumers tip = tip <$ do
                 issuersComputationDo epoch
                 richmenComputationDo epoch consumers
                 DB.sanityCheckDB
-                seed <- sscCalculateSeed @ssc epoch >>= \case
-                    Right s -> do
-                        logInfo $ sformat
-                            ("Calculated seed for epoch "%build%
-                             " successfully") epoch
-                        return s
-                    Left err -> do
-                        logWarning $ sformat
-                            ("SSC couldn't compute seed: "%build%
-                             " for epoch "%build%
-                             ", going to reuse seed for previous epoch")
-                            err epoch
-                        getSeed (epoch - 1) >>=
-                            maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
-                putSeed epoch seed
                 leadersComputationDo epoch seed
   where
     applyBack blunds = applyBlocksUnsafe blunds Nothing

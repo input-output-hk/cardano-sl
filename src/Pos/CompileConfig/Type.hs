@@ -40,4 +40,5 @@ data CompileConfig = CompileConfig
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
+    , ccPendingTxResubmitionPeriod    :: !Int
     } deriving (Show)

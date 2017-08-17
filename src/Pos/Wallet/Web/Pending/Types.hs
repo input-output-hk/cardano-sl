@@ -31,7 +31,7 @@ type PtxBlockInfo = (SlotId, HeaderHash)
 -- be moved to 'PtxPersisted' state.
 --
 -- If transaction is ever noticed to conflict with transactions existing in
--- blockchain / mempool, it is assigned 'PtxWon'tApply' state and is stopped
+-- blockchain / mempool, it is assigned 'PtxWontApply' state and is stopped
 -- being tracked further (effect can be canceled by BListener on rollback
 -- though).
 -- This behaviour is to be improved in CSM-390.
@@ -40,7 +40,7 @@ data PtxCondition
     | PtxInUpperBlocks PtxBlockInfo  -- ^ Recently appeared in block.
     | PtxPersisted                   -- ^ Transaction is ~guaranteed to remain in blockchain
                                      --   (with up to *high* assurance level)
-    | PtxWon'tApply Text             -- ^ Can't be applyed and requires user's
+    | PtxWontApply Text             -- ^ Can't be applyed and requires user's
                                      --   input to reform tx
     deriving (Eq, Show)
 

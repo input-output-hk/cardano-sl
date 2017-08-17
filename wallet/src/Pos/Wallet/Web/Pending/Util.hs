@@ -26,7 +26,7 @@ isPtxInBlocks = \case
     PtxApplying{}      -> False
     PtxInUpperBlocks{} -> True
     PtxPersisted{}     -> True
-    PtxWon'tApply{}    -> False
+    PtxWontApply{}    -> False
 
 mkPendingTx :: MonadWalletWebMode m => CId Wal -> TxId -> TxAux -> m PendingTx
 mkPendingTx wid ptxTxId ptxTxAux = do

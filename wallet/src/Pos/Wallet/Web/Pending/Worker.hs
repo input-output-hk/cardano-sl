@@ -21,6 +21,7 @@ import           System.Wlog                  (logError, logInfo, modifyLoggerNa
 import           Pos.Client.Txp.Addresses     (MonadAddresses)
 import           Pos.Communication            (submitAndSaveTx)
 import           Pos.Communication.Protocol   (SendActions (..))
+import           Pos.Constants                (pendingTxResubmitionPeriod)
 import           Pos.Core                     (FlatSlotId, SlotId (..), getSlotCount)
 import           Pos.Core.Slotting            (flattenSlotId)
 import           Pos.Crypto                   (WithHash (..))
@@ -65,7 +66,7 @@ processPtxFailure existing ptx@PendingTx{..} e =
         | otherwise = addOnlyNewPendingTx ptx
     discard
         | existing  = do
-            casPtxCondition ptxTxId PtxApplying (PtxWon'tApply $ sformat build e)
+            casPtxCondition ptxTxId PtxApplying (PtxWontApply $ sformat build e)
             logInfo $ sformat ("Transaction "%build%" was canceled") ptxTxId
         | otherwise = pass
 
@@ -149,7 +150,7 @@ processPtxs sendActions curSlot ptxs = do
     toResubmit <- filterApplicablePtxs curSlot $
                   filter ((PtxApplying ==) . ptxCond) ptxs
     logInfo $ sformat fmt (map ptxTxId toResubmit)
-    resubmitPtxsDuringSlot sendActions ptxs
+    resubmitPtxsDuringSlot sendActions toResubmit
   where
     fmt = "Transactions to resubmit on current slot: "%listJson
 
@@ -172,9 +173,7 @@ processPtxsOnSlot sendActions curSlot = do
     evalPtxsPerSlotLimit = do
         slotDuration <- getLastKnownSlotDuration
         return $ fromIntegral $
-            convertUnit slotDuration `div` ptxsResubmitionPeriod
-    -- FIXME [CSM-256]: move to constants?
-    ptxsResubmitionPeriod = 10 :: Second
+            convertUnit slotDuration `div` pendingTxResubmitionPeriod
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.

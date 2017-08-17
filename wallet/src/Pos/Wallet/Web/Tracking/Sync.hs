@@ -137,9 +137,9 @@ txMempoolToModifierWebWallet :: WalletTrackingEnv ext ctx m => EncryptedSecretKe
 txMempoolToModifierWebWallet encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
-        getDiff = const Nothing  -- no difficulty (mempool txs)
-        getTs   = const Nothing  -- don't give any timestamp
-        getSlot = const Nothing  -- no slot of containing block
+        getDiff       = const Nothing  -- no difficulty (mempool txs)
+        getTs         = const Nothing  -- don't give any timestamp
+        getPtxBlkInfo = const Nothing  -- no slot of containing block
     (txs, undoMap) <- getLocalTxsNUndo
 
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
@@ -154,7 +154,7 @@ txMempoolToModifierWebWallet encSK = do
     case topsortTxs wHash txsWUndo of
         Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
-            trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs getSlot $
+            trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs getPtxBlkInfo $
             map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
 ----------------------------------------------------------------------------
@@ -365,7 +365,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
             usedAddrs = map cwamId ownOutAddrMetas
             changeAddrs = evalChange allAddresses (map cwamId ownInpAddrMetas) usedAddrs
 
-            mSlotId = getPtxBlkInfo blkHeader
+            ptxBlkInfo = getPtxBlkInfo blkHeader
         in CAccModifier
             (deleteAndInsertIMM [] ownOutAddrMetas camAddresses)
             (deleteAndInsertVM [] (zip usedAddrs hhs) camUsed)
@@ -373,7 +373,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
             (deleteAndInsertMM ownTxIns ownTxOuts camUtxo)
             addedHistory
             camDeletedHistory
-            (MM.insert txId mSlotId mempty)
+            (MM.insert txId ptxBlkInfo mempty)
 
 -- Process transactions on block rollback.
 -- Like @trackingApplyTx@, but vise versa.

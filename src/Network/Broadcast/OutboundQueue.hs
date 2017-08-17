@@ -775,9 +775,10 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
 
 -- | Node ID with current stats needed to pick a node from a list of alts
 data NodeWithStats nid = NodeWithStats {
-      nstatsId      :: nid  -- ^ Node ID
-    , nstatsFailure :: Bool -- ^ Recent failure?
-    , nstatsAhead   :: Int  -- ^ Number of messages ahead
+      nstatsId       :: nid  -- ^ Node ID
+    , nstatsFailure  :: Bool -- ^ Recent failure?
+    , nstatsAhead    :: Int  -- ^ Number of messages ahead
+    , nstatsInFlight :: Int  -- ^ Number of messages in flight
     }
 
 -- | Compute current node statistics
@@ -787,8 +788,8 @@ nodeWithStats :: (MonadIO m, WithLogger m)
               -> nid
               -> m (NodeWithStats nid)
 nodeWithStats outQ prec nstatsId = do
-    nstatsAhead   <- countAhead outQ nstatsId prec
-    nstatsFailure <- hasRecentFailure outQ nstatsId
+    (nstatsAhead, nstatsInFlight) <- countAhead outQ nstatsId prec
+    nstatsFailure                 <- hasRecentFailure outQ nstatsId
     return NodeWithStats{..}
 
 -- | Choose an appropriate node from a list of alternatives
@@ -807,12 +808,12 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
         if | nstatsFailure -> do
                logDebug $ debugFailure nstatsId
                return Nothing
-           | nstatsAhead > maxAhead -> do
+           | (nstatsAhead + nstatsInFlight) > maxAhead -> do
                logDebug $ debugAhead nstatsId nstatsAhead maxAhead
                return Nothing
            | otherwise -> do
                return $ Just nstatsId
-      | NodeWithStats{..} <- sortBy (comparing nstatsAhead) alts'
+      | NodeWithStats{..} <- sortBy (comparing ((+) <$> nstatsAhead <*> nstatsInFlight)) alts'
       ]
   where
     debugFailure :: nid -> Text
@@ -828,11 +829,14 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
 
 -- | Check how many messages are currently ahead
 --
+-- First component is the total ahead in the queue.
+-- Second component is the total in-flight.
+--
 -- NOTE: This is of course a highly dynamic value; by the time we get to
 -- actually enqueue the message the value might be slightly different. Bounds
 -- are thus somewhat fuzzy.
 countAhead :: forall m msg nid buck. (MonadIO m, WithLogger m)
-           => OutboundQ msg nid buck -> nid -> Precedence -> m Int
+           => OutboundQ msg nid buck -> nid -> Precedence -> m (Int, Int)
 countAhead OutQ{..} nid prec = do
     logDebug . debugInFlight =<< liftIO (readMVar qInFlight)
     (inFlight, inQueue) <- liftIO $ (,)
@@ -840,7 +844,7 @@ countAhead OutQ{..} nid prec = do
             view (inFlightWithPrec nid prec') <$> readMVar qInFlight)
       <*> forM [prec .. maxBound] (\prec' ->
             MQ.sizeBy (KeyByDestPrec nid prec') qScheduled)
-    return $ sum inFlight + sum inQueue
+    return $ (sum inQueue, sum inFlight)
   where
     debugInFlight :: InFlight nid -> Text
     debugInFlight = sformat (string % ": inFlight = " % shown) qSelf

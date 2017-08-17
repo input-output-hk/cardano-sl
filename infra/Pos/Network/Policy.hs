@@ -29,7 +29,7 @@ defaultEnqueuePolicyCore = go
       ]
     go (MsgRequestBlocks _) = [
         -- We never ask for data from edge nodes
-        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 1) PHigh
+        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 2) PHigh
       ]
     go (MsgMPC _) = [
         EnqueueAll NodeCore (MaxAhead 1) PMedium
@@ -57,7 +57,7 @@ defaultEnqueuePolicyRelay = go
       ]
     go (MsgRequestBlocks _) = [
         -- We never ask for blocks from edge nodes
-        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 1) PHigh
+        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 2) PHigh
       ]
     go (MsgTransaction _) = [
         EnqueueAll NodeCore  (MaxAhead 20) PLow
@@ -88,7 +88,7 @@ defaultEnqueuePolicyEdgeBehindNat = go
       ]
     go (MsgRequestBlocks _) = [
         -- Edge nodes can only talk to relay nodes
-        EnqueueOne [NodeRelay] (MaxAhead 0) PHigh
+        EnqueueOne [NodeRelay] (MaxAhead 1) PHigh
       ]
     go (MsgMPC _) = [
         -- not relevant
@@ -111,7 +111,7 @@ defaultEnqueuePolicyEdgeP2P = go
       ]
     go (MsgRequestBlocks _) = [
         -- Edge nodes can only talk to relay nodes
-        EnqueueOne [NodeRelay] (MaxAhead 1) PHigh
+        EnqueueOne [NodeRelay] (MaxAhead 2) PHigh
       ]
     go (MsgMPC _) = [
         -- not relevant

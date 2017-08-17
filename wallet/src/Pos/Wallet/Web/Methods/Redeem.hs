@@ -32,10 +32,11 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
+import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending         (rememberPendingTx)
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, rewrapTxError)
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail)
 
 
 redeemAda

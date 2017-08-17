@@ -39,6 +39,7 @@ library
                       Pos.Wallet.Web.Methods.Redeem
                       Pos.Wallet.Web.Methods.Reporting
                       Pos.Wallet.Web.Methods.Restore
+                      Pos.Wallet.Web.Methods.Txp
                       Pos.Wallet.Web.Pending
                       Pos.Wallet.Web.Pending.Util
                       Pos.Wallet.Web.Pending.Worker

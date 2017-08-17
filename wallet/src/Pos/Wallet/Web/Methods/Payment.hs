@@ -35,12 +35,13 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress 
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
+import           Pos.Wallet.Web.Methods.Txp     (coinDistrToOutputs, rewrapTxError)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode, WalletWebMode)
 import           Pos.Wallet.Web.Pending         (rememberPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
-import           Pos.Wallet.Web.Util            (coinDistrToOutputs, decodeCTypeOrFail,
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
-                                                 getWalletAccountIds, rewrapTxError)
+                                                 getWalletAccountIds)
 
 
 newPayment

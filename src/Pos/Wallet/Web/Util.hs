@@ -8,24 +8,18 @@ module Pos.Wallet.Web.Util
     , getAccountAddrsOrThrow
     , getWalletAddrMetas
     , getWalletAddrs
-    , rewrapTxError
     , decodeCTypeOrFail
-    , coinDistrToOutputs
     ) where
 
 import           Universum
 
-import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, stext, (%))
+import           Formatting                 (build, sformat, (%))
 
-import           Pos.Client.Txp.Util        (TxError (..))
-import           Pos.Core.Types             (Coin)
-import           Pos.Txp                    (TxOut (..), TxOutAux (..))
 import           Pos.Util.Servant           (FromCType (..), OriginType)
 import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              CWAddressMeta (..), Wal)
-import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
+import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode, WebWalletModeDB,
                                              getAccountIds, getAccountWAddresses)
 
@@ -54,27 +48,6 @@ getWalletAddrs
     => AddressLookupMode -> CId Wal -> m [CId Addr]
 getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
 
-rewrapTxError
-    :: forall m a. MonadCatch m
-    => Text -> m a -> m a
-rewrapTxError prefix =
-    rewrapToWalletError (const True) (InternalError . sbuild) .
-    rewrapToWalletError (\TxError{} -> True) (RequestError . sbuild)
-  where
-    sbuild = sformat (stext%": "%build) prefix
 
 decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
-decodeCTypeOrFail = either wrongAddress pure . decodeCType
-  where wrongAddress err = throwM . DecodeError $
-            sformat ("Error while decoding CId: "%stext) err
-
-coinDistrToOutputs
-    :: MonadThrow m
-    => NonEmpty (CId Addr, Coin)
-    -> m (NonEmpty TxOutAux)
-coinDistrToOutputs distr = do
-    addrs <- mapM decodeCTypeOrFail cAddrs
-    pure $ NE.zipWith mkTxOut addrs coins
-  where
-    (cAddrs, coins) = NE.unzip distr
-    mkTxOut addr coin = TxOutAux (TxOut addr coin) []
+decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType

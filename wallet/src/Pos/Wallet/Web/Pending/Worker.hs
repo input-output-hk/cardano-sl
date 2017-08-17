@@ -82,8 +82,8 @@ processPtxInUpperBlocks curSlot PendingTx{..}
          logInfo $ sformat ("Transaction "%build%" got persistent") ptxTxId
     | otherwise = pass
   where
-     longAgo (flattenSlotId -> ptxSlotId) = do
-         ptxSlotId + getSlotCount ptxAssuredDepth < flattenSlotId curSlot
+     longAgo (flattenSlotId -> ptxSlot) =
+         ptxSlot + getSlotCount ptxAssuredDepth < flattenSlotId curSlot
 
 -- | 'True' for slots which are equal to
 -- @ptxCreationSlot + initialDelay + furtherDelay * k@ for some integer @k@
@@ -105,7 +105,7 @@ resubmitTx SendActions{..} PendingTx{..} = do
     void (submitAndSave enqueueMsg ptxTxAux) `catchAll` handler
   where
     handler e = do
-        -- TODO [CSM-256] consider errors
+        -- TODO [CSM-256] consider variants of error
         logInfo $ sformat ("Failed to resubmit tx "%build%": "%shown) ptxTxId e
 
 -- | Distributes pending txs submition over current slot ~evenly
@@ -144,14 +144,14 @@ processPtxsOnSlot
 processPtxsOnSlot sendActions curSlot = do
     ptxs <- getPendingTxs
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
-    let ptxsToProcess =
+    let selectedPtxs =
             take ptxsPerSlotLimit $
             sortWith ptxCreationSlot $
             flip fromMaybe =<< topsortTxs wHash $
             filter (whetherCheckPtxOnSlot curSlot) $
             ptxs
 
-    processPtxs sendActions curSlot ptxsToProcess
+    processPtxs sendActions curSlot selectedPtxs
   where
     wHash PendingTx{..} = WithHash (taTx ptxTxAux) ptxTxId
     evalPtxsPerSlotLimit = do

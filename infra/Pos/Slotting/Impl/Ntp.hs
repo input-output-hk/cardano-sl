@@ -44,6 +44,7 @@ import           System.Wlog                 (WithLogger, logDebug, logInfo, log
 
 import qualified Pos.Core.Constants          as C
 import           Pos.Core.Slotting           (unflattenSlotId)
+import           Pos.Core.Context            (HasCoreConstants)
 import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
 import qualified Pos.Slotting.Constants      as C
 import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
@@ -96,6 +97,7 @@ mkNtpSlottingVar
            [ CurrentTime
            , Delay
            ]
+       , HasCoreConstants
        )
     => m NtpSlottingVar
 mkNtpSlottingVar = do
@@ -125,6 +127,7 @@ type NtpMode m =
         [ CurrentTime
         , Delay
         ]
+    , HasCoreConstants
     )
 
 type NtpWorkerMode m = NtpMonad m
@@ -134,7 +137,7 @@ type NtpWorkerMode m = NtpMonad m
 ----------------------------------------------------------------------------
 
 ntpCurrentTime
-    :: (NtpMode m)
+    :: NtpMode m
     => NtpSlottingVar -> m Timestamp
 ntpCurrentTime var = do
     lastMargin <- view nssLastMargin <$> atomically (STM.readTVar var)

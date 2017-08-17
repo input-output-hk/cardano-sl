@@ -21,7 +21,7 @@ import           System.Wlog                    (CanLog, HasLoggerName (..), Log
                                                  launchNamedPureLog, runNamedPureLog)
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
-                                                 crucialSlot)
+                                                 HasCoreConstants, crucialSlot)
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStakes)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
@@ -48,10 +48,13 @@ newtype PureToss a = PureToss
 newtype PureTossWithEnv a = PureTossWithEnv
     { getPureTossWithEnv ::
           ReaderT (MultiRichmenStakes, BlockVersionData) PureToss a
-    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName,
-                MonadTossRead, MonadToss, Rand.MonadRandom)
+    } deriving (Functor, Applicative, Monad, Rand.MonadRandom,
+                CanLog, HasLoggerName)
 
-instance MonadTossRead PureToss where
+deriving instance HasCoreConstants => MonadTossRead PureTossWithEnv
+deriving instance HasCoreConstants => MonadToss PureTossWithEnv
+
+instance HasCoreConstants => MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
     getOpenings = PureToss $ use gsOpenings
     getShares = PureToss $ use gsShares
@@ -67,7 +70,7 @@ instance MonadTossEnv PureTossWithEnv where
     getRichmen epoch = PureTossWithEnv $ view (_1 . at epoch)
     getAdoptedBVData = PureTossWithEnv $ view _2
 
-instance MonadToss PureToss where
+instance HasCoreConstants => MonadToss PureToss where
     putCommitment signedComm =
         PureToss $ gsCommitments %= insertSignedCommitment signedComm
     putOpening id op = PureToss $ gsOpenings . at id .= Just op

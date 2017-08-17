@@ -25,11 +25,12 @@ import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
                                                      MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types.Relay      (DataMsg (..))
 import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
+import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
+import           Pos.Core.Context                   (HasCoreConstants, blkSecurityParam)
 import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
                                                      ProxyCert (..), ProxySecretKey (..),
                                                      ProxySignature (..), PublicKey,
@@ -284,13 +285,13 @@ instance MessageLimited (MsgBlock ssc) where
         blkLimit <- getMsgLenLimit (Proxy @(Block ssc))
         return $ MsgBlock <$> blkLimit
 
-instance MessageLimitedPure MsgGetHeaders where
+instance HasCoreConstants => MessageLimitedPure MsgGetHeaders where
     msgLenLimit = MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
       where
         maxGetHeadersNum = ceiling $
-            log (fromIntegral Const.blkSecurityParam) + (5 :: Double)
+            log (fromIntegral blkSecurityParam) + (5 :: Double)
 
-instance MessageLimited MsgGetHeaders
+instance HasCoreConstants => MessageLimited MsgGetHeaders
 
 instance MessageLimited (MsgHeaders ssc) where
     getMsgLenLimit _ = do

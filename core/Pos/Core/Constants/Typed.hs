@@ -4,10 +4,7 @@
 module Pos.Core.Constants.Typed
        (
          staticSysStart
-       , blkSecurityParam
-       , slotSecurityParam
-       , chainQualityThreshold
-       , epochSlots
+       , staticBlkSecurityParam
 
        -- * Genesis constants
        , genesisBlockVersionData
@@ -32,13 +29,13 @@ import           Data.Time.Units            (Millisecond, convertUnit)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (sec)
 
-import           Pos.Core.Constants.Raw     (CoreConstants (..), coreConstants,
+import           Pos.Core.Constants.Raw     (CoreConfig (..), coreConfig,
                                              staticSysStartRaw)
 import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Fee.Config        (ConfigOf (..))
 import           Pos.Core.Types             (BlockCount, BlockVersionData (..),
                                              CoinPortion, EpochIndex (..), ScriptVersion,
-                                             SlotCount, SoftforkRule (..), Timestamp (..),
+                                             SoftforkRule (..), Timestamp (..),
                                              unsafeCoinPortionFromDouble)
 
 ----------------------------------------------------------------------------
@@ -50,31 +47,11 @@ staticSysStart :: Timestamp
 staticSysStart = Timestamp staticSysStartRaw
 
 -- | Security parameter which is maximum number of blocks which can be
--- rolled back.
-blkSecurityParam :: BlockCount
-blkSecurityParam = fromIntegral $ ccK coreConstants
-
--- | Security parameter expressed in number of slots. It uses chain
--- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.
-slotSecurityParam :: SlotCount
-slotSecurityParam = fromIntegral $ 2 * ccK coreConstants
-
--- We don't have a special newtype for it, so it can be any
--- 'Fractional'. I think adding newtype here would be overkill
--- (@gromak). Also this value is not actually part of the protocol,
--- but rather implementation detail, so we don't need to ensure
--- conrete precision. Apart from that, in reality we know that it's
--- 0.5, so any fractional type should be fine ☺
---
--- | Minimal chain quality (number of blocks divided by number of
--- slots) necessary for security of the system.
-chainQualityThreshold :: Fractional fractional => fractional
-chainQualityThreshold =
-    realToFrac blkSecurityParam / realToFrac slotSecurityParam
-
--- | Number of slots inside one epoch.
-epochSlots :: SlotCount
-epochSlots = fromIntegral $ 10 * ccK coreConstants
+-- rolled back. This value is embedded into library and can be used
+-- only for initialization. The actual value should be fetched from
+-- runtime context (it can differ from this one).
+staticBlkSecurityParam :: BlockCount
+staticBlkSecurityParam = fromIntegral $ ccK coreConfig
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -107,65 +84,65 @@ genesisScriptVersion = 0
 -- | Initial length of slot.
 genesisSlotDuration :: Millisecond
 genesisSlotDuration = convertUnit . sec $
-    ccGenesisSlotDurationSec coreConstants
+    ccGenesisSlotDurationSec coreConfig
 
 -- | Initial block size limit.
 genesisMaxBlockSize :: Byte
-genesisMaxBlockSize = ccGenesisMaxBlockSize coreConstants
+genesisMaxBlockSize = ccGenesisMaxBlockSize coreConfig
 
 -- | Maximum size of a block header (in bytes)
 genesisMaxHeaderSize :: Byte
-genesisMaxHeaderSize = ccGenesisMaxHeaderSize coreConstants
+genesisMaxHeaderSize = ccGenesisMaxHeaderSize coreConfig
 
 -- | See 'Pos.CompileConfig.ccGenesisMaxTxSize'.
 genesisMaxTxSize :: Byte
-genesisMaxTxSize = ccGenesisMaxTxSize coreConstants
+genesisMaxTxSize = ccGenesisMaxTxSize coreConfig
 
 -- | See 'ccGenesisMaxUpdateProposalSize'.
 genesisMaxUpdateProposalSize :: Byte
 genesisMaxUpdateProposalSize =
-    ccGenesisMaxUpdateProposalSize coreConstants
+    ccGenesisMaxUpdateProposalSize coreConfig
 
 -- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
 genesisMpcThd :: CoinPortion
 genesisMpcThd = unsafeCoinPortionFromDouble $
-    ccGenesisMpcThd coreConstants
+    ccGenesisMpcThd coreConfig
 
 -- | See 'Pos.CompileConfig.ccGenesisHeavyDelThd'.
 genesisHeavyDelThd :: CoinPortion
 genesisHeavyDelThd = unsafeCoinPortionFromDouble $
-    ccGenesisHeavyDelThd coreConstants
+    ccGenesisHeavyDelThd coreConfig
 
 -- | See 'ccGenesisUpdateVoteThd'.
 genesisUpdateVoteThd :: CoinPortion
 genesisUpdateVoteThd = unsafeCoinPortionFromDouble $
-    ccGenesisUpdateVoteThd coreConstants
+    ccGenesisUpdateVoteThd coreConfig
 
 -- | See 'ccGenesisUpdateProposalThd'.
 genesisUpdateProposalThd :: CoinPortion
 genesisUpdateProposalThd = unsafeCoinPortionFromDouble $
-    ccGenesisUpdateProposalThd coreConstants
+    ccGenesisUpdateProposalThd coreConfig
 
 -- | See 'ccGenesisUpdateImplicit'.
 genesisUpdateImplicit :: Integral i => i
 genesisUpdateImplicit = fromIntegral $
-    ccGenesisUpdateImplicit coreConstants
+    ccGenesisUpdateImplicit coreConfig
 
 -- | Genesis softfork resolution rule.
 genesisSoftforkRule :: SoftforkRule
 genesisSoftforkRule =
     SoftforkRule
     { srMinThd =
-          unsafeCoinPortionFromDouble $ ccGenesisSoftforkMin coreConstants
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkMin coreConfig
     , srInitThd =
-          unsafeCoinPortionFromDouble $ ccGenesisSoftforkInit coreConstants
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkInit coreConfig
     , srThdDecrement =
-          unsafeCoinPortionFromDouble $ ccGenesisSoftforkDec coreConstants
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkDec coreConfig
     }
 
 genesisTxFeePolicy :: TxFeePolicy
-genesisTxFeePolicy = getConfigOf (ccGenesisTxFeePolicy coreConstants)
+genesisTxFeePolicy = getConfigOf (ccGenesisTxFeePolicy coreConfig)
 
 genesisUnlockStakeEpoch :: EpochIndex
 genesisUnlockStakeEpoch = EpochIndex $
-    ccGenesisUnlockStakeEpoch coreConstants
+    ccGenesisUnlockStakeEpoch coreConfig

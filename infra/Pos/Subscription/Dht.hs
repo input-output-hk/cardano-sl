@@ -170,7 +170,7 @@ dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
         peers' <- atomically $ updateFromKademliaNoSubscribe peers
         logNotice $
             sformat ("Kademlia peer set changed to "%shown) peers'
-        updatePeersBucket BucketKademliaWorker (const peers')
+        void $ updatePeersBucket BucketKademliaWorker (const peers')
         updateForeverNoSubscribe peers'
 
     updateFromKademliaNoSubscribe
@@ -186,7 +186,7 @@ dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
         return newPeers
 
     mkPeers :: [NodeId] -> Peers NodeId
-    mkPeers = peersFromList . fmap ((,) peerType) . transpose . take (1 + fallbacks) . mkGroupsOf valency
+    mkPeers = peersFromList mempty . fmap ((,) peerType) . transpose . take (1 + fallbacks) . mkGroupsOf valency
 
     mkGroupsOf :: Int -> [a] -> [[a]]
     mkGroupsOf _ [] = []

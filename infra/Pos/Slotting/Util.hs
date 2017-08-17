@@ -30,9 +30,10 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
                                          logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
-                                         addTimeDiffToTimestamp, flattenSlotId,
-                                         getSlotIndex, slotIdF, subTimeDiffSafe)
+import           Pos.Core               (FlatSlotId, HasCoreConstants, SlotId (..),
+                                         Timestamp (..), addTimeDiffToTimestamp,
+                                         flattenSlotId, getSlotIndex, slotIdF,
+                                         subTimeDiffSafe)
 import           Pos.Exception          (CardanoException)
 import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
@@ -46,7 +47,7 @@ import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (.
 import           Pos.Util.Util          (maybeThrow)
 
 -- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
+getCurrentSlotFlat :: (MonadSlots m, HasCoreConstants) => m (Maybe FlatSlotId)
 getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
@@ -107,6 +108,7 @@ type OnNewSlot ctx m =
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
+    , HasCoreConstants
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to

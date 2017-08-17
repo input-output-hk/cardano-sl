@@ -18,11 +18,12 @@ import           System.Wlog                     (logError)
 import           Universum
 
 import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
-                                                  IsMainHeader, LocalSlotIndex, SlotCount,
+                                                  HasCoreConstants, IsMainHeader,
+                                                  LocalSlotIndex, SlotCount,
                                                   SlotId (siSlot), StakeholderId,
                                                   epochIndexL, epochOrSlot,
-                                                  getEpochOrSlot, headerSlotL, mkCoin)
-import           Pos.Core.Constants              (slotSecurityParam)
+                                                  getEpochOrSlot, headerSlotL, mkCoin,
+                                                  slotSecurityParam)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
                                                   InnerSharesMap, Opening,
                                                   SignedCommitment, VssCertificate,
@@ -41,8 +42,8 @@ import           Pos.Util.Util                   (Some, inAssertMode, sortWithMD
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- TossVerFailure is thrown using 'MonadError' type class.
 verifyAndApplyGtPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,
-        MonadRandom m)
+    :: (HasCoreConstants, MonadToss m, MonadTossEnv m,
+        MonadError TossVerFailure m, MonadRandom m)
     => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call
@@ -94,7 +95,7 @@ applyGenesisBlock epoch = do
 
 -- | Rollback application of 'GtPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackGT :: MonadToss m => EpochOrSlot -> NewestFirst [] GtPayload -> m ()
+rollbackGT :: (HasCoreConstants, MonadToss m) => EpochOrSlot -> NewestFirst [] GtPayload -> m ()
 rollbackGT oldestEOS (NewestFirst payloads)
     | oldestEOS == toEnum 0 = do
         logError "rollbackGT: most genesis block is passed to rollback"
@@ -113,7 +114,7 @@ rollbackGT oldestEOS (NewestFirst payloads)
 
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
-    :: forall m . (MonadToss m, MonadTossEnv m, MonadRandom m)
+    :: (HasCoreConstants, MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifier -> m ()
 normalizeToss epoch TossModifier {..} =
     normalizeTossDo
@@ -126,7 +127,7 @@ normalizeToss epoch TossModifier {..} =
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
-    :: forall m . (MonadToss m, MonadTossEnv m, MonadRandom m)
+    :: (HasCoreConstants, MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifier -> m ()
 refreshToss epoch TossModifier {..} = do
     comms <-
@@ -155,7 +156,8 @@ type TossModifierLists
        , [(StakeholderId, VssCertificate)])
 
 normalizeTossDo
-    :: forall m . (MonadToss m, MonadTossEnv m, MonadRandom m)
+    :: forall m.
+       (HasCoreConstants, MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifierLists -> m ()
 normalizeTossDo epoch (comms, opens, shares, certs) = do
     putsUseful $

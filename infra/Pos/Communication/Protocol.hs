@@ -41,6 +41,7 @@ import           System.Wlog                      (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Communication.Types.Protocol
+import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Core.Types                   (SlotId)
 import           Pos.KnownPeers                   (MonadFormatPeers)
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
@@ -229,12 +230,14 @@ type LocalOnNewSlotComm ctx m =
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
+    , HasCoreConstants
     )
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , Mockable Throw m
     , Mockable SharedAtomic m
+    , HasCoreConstants
     )
 
 onNewSlot'

@@ -38,9 +38,9 @@ import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPa
 import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
                                           slogRollbackBlocks, BypassSecurityCheck(..))
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
-import           Pos.Core                (GenesisWStakeholders, IsGenesisHeader,
-                                          IsMainHeader, epochIndexL, gbBody, gbHeader,
-                                          headerHash)
+import           Pos.Core                (GenesisWStakeholders, HasCoreConstants,
+                                          IsGenesisHeader, IsMainHeader, epochIndexL,
+                                          gbBody, gbHeader, headerHash)
 import           Pos.DB                  (MonadDB, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
 import           Pos.Delegation.Class    (MonadDelegation)
@@ -243,7 +243,7 @@ rollbackBlocksUnsafe bsc toRollback = reportingFatal $ do
 -- [CSL-1156] Need something more elegant.
 toTxpBlock
     :: forall ssc.
-       SscHelpersClass ssc
+       (HasCoreConstants, SscHelpersClass ssc)
     => Block ssc -> TxpBlock
 toTxpBlock = bimap convertGenesis convertMain
   where
@@ -255,14 +255,14 @@ toTxpBlock = bimap convertGenesis convertMain
 -- [CSL-1156] Yes, definitely need something more elegant.
 toTxpBlund
     :: forall ssc.
-       SscHelpersClass ssc
+       (HasCoreConstants, SscHelpersClass ssc)
     => Blund ssc -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
 -- [CSL-1156] Sure, totally need something more elegant
 toUpdateBlock
     :: forall ssc.
-       SscHelpersClass ssc
+       (HasCoreConstants, SscHelpersClass ssc)
     => Block ssc -> UpdateBlock
 toUpdateBlock = bimap convertGenesis convertMain
   where

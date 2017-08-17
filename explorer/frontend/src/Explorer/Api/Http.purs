@@ -19,7 +19,7 @@ import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Core.Lenses.Types (_EpochIndex, _LocalSlotIndex, getEpochIndex, getSlotIndex)
+import Pos.Core.Lenses.Types (_EpochIndex, _UnsafeLocalSlotIndex, getEpochIndex, getSlotIndex)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CGenesisSummary, CHash(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
@@ -81,7 +81,7 @@ searchEpoch :: forall eff. EpochIndex -> Maybe LocalSlotIndex -> Aff (ajax::AJAX
 searchEpoch epoch mSlot = get $ "search/epoch/" <> show epochIndex <> slotQuery mSlot
   where
       slotQuery Nothing = ""
-      slotQuery (Just slot) = "?slot=" <> show (slot ^. (_LocalSlotIndex <<< getSlotIndex))
+      slotQuery (Just slot) = "?slot=" <> show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
 
       epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
 

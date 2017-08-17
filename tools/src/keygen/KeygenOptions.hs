@@ -12,6 +12,8 @@ module KeygenOptions
        , getKeygenOptions
        ) where
 
+import           Universum
+
 import           Data.Version           (showVersion)
 import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
                                          header, help, helper, info, infoOption, long,
@@ -20,10 +22,9 @@ import           Options.Applicative    (Parser, auto, command, execParser, full
 import           Serokell.Util.OptParse (fromParsec)
 import qualified Text.Parsec            as P
 import qualified Text.Parsec.String     as P
-import           Universum
 
-import           Pos.Core.Types         (Address (..), StakeholderId)
-import           Pos.Types              (decodeTextAddress)
+import           Pos.CLI                (stakeholderIdParser)
+import           Pos.Core               (StakeholderId)
 
 import           Paths_cardano_sl       (version)
 
@@ -34,6 +35,8 @@ data KeygenOptions = KeygenOptions
 data KeygenCommand
     = RearrangeMask FilePath
     | DumpDevGenKeys FilePath
+    | GenerateKey FilePath
+    | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
     | GenerateGenesis GenesisGenOptions
     deriving (Show)
@@ -82,6 +85,10 @@ keygenCommandParser =
     subparser $ mconcat $
     [ command "rearrange"
       (infoH rearrangeMask (progDesc "Rearrange keyfiles."))
+    , command "generate-key"
+      (infoH generateKey (progDesc "Generate keyfile."))
+    , command "read-key"
+      (infoH readKey (progDesc "Dump keyfile contents."))
     , command "dump-dev-keys"
       (infoH dumpKeys (progDesc "Dump CSL dev-mode keys."))
     , command "generate-avvm-seeds"
@@ -97,6 +104,14 @@ keygenCommandParser =
         long    "mask" <>
         metavar "PATTERN" <>
         help    "Secret keyfiles to rearrange."
+    generateKey = fmap GenerateKey . strOption $
+        long    "path" <>
+        metavar "PATH" <>
+        help    "Write the key to this path"
+    readKey = fmap ReadKey . strOption $
+        long "path" <>
+        metavar "PATH" <>
+        help "Dump the contents of this keyfile"
     dumpKeys = fmap DumpDevGenKeys . strOption $
         long    "pattern" <>
         metavar "PATTERN" <>
@@ -197,7 +212,7 @@ bootStakeholderParser =
   where
     pairParser :: P.Parser (StakeholderId, Word16)
     pairParser = do
-        st <- stakeholderId
+        st <- stakeholderIdParser
         void $ P.char ','
         d <- word16
         pure (st,d)
@@ -211,16 +226,6 @@ bootStakeholderParser =
         maybe (fail $ show val <> " is not a valid word16")
               (pure . fromInteger)
               val
-
-    stakeholderId :: P.Parser StakeholderId
-    stakeholderId = lexeme $ do
-        str <- P.many1 P.alphaNum
-        case decodeTextAddress (toText str) of
-            Left err                  -> fail (toString err)
-            Right (PubKeyAddress{..}) -> pure addrKeyHash
-            Right p                   ->
-                fail $ "Expected public key address, but it's " ++
-                       toString (pretty p)
 
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo

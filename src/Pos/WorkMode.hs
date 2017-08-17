@@ -33,7 +33,7 @@ import           Pos.Block.Slog.Types        (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Context                 (NodeContext, HasSscContext (..),
                                               HasPrimaryKey (..), HasNodeContext (..))
-import           Pos.Core                    (IsHeader)
+import           Pos.Core                    (IsHeader, HasCoreConstants)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
 import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDefault,
                                               dbGetHeaderDefault, dbGetHeaderSscDefault,
@@ -155,7 +155,7 @@ instance MonadSlotsData (RealMode ssc) where
     waitPenultEpochEquals = waitPenultEpochEqualsDefault
     putSlottingData = putSlottingDataDefault
 
-instance MonadSlots (RealMode ssc) where
+instance HasCoreConstants => MonadSlots (RealMode ssc) where
     getCurrentSlot = getCurrentSlotSum
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
@@ -178,7 +178,7 @@ instance MonadBListener (RealMode ssc) where
     onRollbackBlocks = onRollbackBlocksStub
 
 instance
-    SscHelpersClass ssc =>
+    (HasCoreConstants, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (RealMode ssc)
   where
     dbGetBlock  = dbGetBlockDefault @ssc
@@ -186,14 +186,14 @@ instance
     dbGetHeader = dbGetHeaderDefault @ssc
 
 instance
-    SscHelpersClass ssc =>
+    (HasCoreConstants, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (RealMode ssc)
   where
     dbGetBlock  = dbGetBlockSscDefault @ssc
     dbGetUndo   = dbGetUndoSscDefault @ssc
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
-instance SscHelpersClass ssc =>
+instance (HasCoreConstants, SscHelpersClass ssc) =>
          MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc) where
     dbPutBlund = dbPutBlundDefault
 

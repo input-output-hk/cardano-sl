@@ -22,9 +22,9 @@ import           Test.QuickCheck.Monadic   (pick)
 
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
-import qualified Pos.Constants             as Const
-import           Pos.Core                  (Address, Coin, EpochIndex, StakeholderId,
-                                            addressHash, applyCoinPortionUp, coinF,
+import           Pos.Core                  (Address, Coin, EpochIndex, HasCoreConstants,
+                                            StakeholderId, addressHash,
+                                            applyCoinPortionUp, blkSecurityParam, coinF,
                                             makePubKeyAddress, mkCoin, unsafeGetCoin,
                                             unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic)
@@ -41,13 +41,14 @@ import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
                                             blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..),
                                             bpGenBlock, bpGenBlocks)
-import           Test.Pos.Util             (maybeStopProperty, stopProperty)
+import           Test.Pos.Util             (giveTestsConsts, maybeStopProperty,
+                                            stopProperty)
 
 spec :: Spec
 -- Currently we want to run it only once, because there is no much
 -- randomization (its effect is likely negligible) and performance is
 -- the issue.
-spec = describe "Lrc.Worker" $ modifyMaxSuccess (const 1) $ do
+spec = giveTestsConsts $ describe "Lrc.Worker" $ modifyMaxSuccess (const 1) $ do
     describe "lrcSingleShotNoLock" $ do
         prop lrcCorrectnessDesc $
             blockPropertyToProperty genTestParams lrcCorrectnessProp
@@ -133,9 +134,9 @@ genTestParams = do
             True  -> return (addresses, CustomStakes stakes)
             False -> error "threshold is too big, tests are not ready for it"
 
-lrcCorrectnessProp :: BlockProperty ()
+lrcCorrectnessProp :: HasCoreConstants => BlockProperty ()
 lrcCorrectnessProp = do
-    let k = Const.blkSecurityParam
+    let k = blkSecurityParam
     -- This value is how many blocks we need to generate first. We
     -- want to generate blocks for all slots which will be considered
     -- in LRC except the last one, because we want to include some
@@ -242,7 +243,7 @@ checkRichmen = do
                  %coinF%", real total stake is "%coinF)
                 poorGuyStake totalStake
 
-genAndApplyBlockFixedTxs :: [TxAux] -> BlockProperty ()
+genAndApplyBlockFixedTxs :: HasCoreConstants => [TxAux] -> BlockProperty ()
 genAndApplyBlockFixedTxs txs =
     case mkTxPayload txs of
         Left err -> stopProperty err

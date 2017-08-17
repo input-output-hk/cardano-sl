@@ -15,6 +15,7 @@ import           Formatting                     (bprint, build, (%))
 
 import           Pos.Binary.Class               (serialize')
 import           Pos.Binary.GodTossing          ()
+import           Pos.Core                       (HasCoreConstants)
 import           Pos.DB                         (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DB.GState.Common           (gsGetBi, gsPutBi)
@@ -23,7 +24,7 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Util.Util                  (maybeThrow)
 
-getGtGlobalState :: MonadDBRead m => m GtGlobalState
+getGtGlobalState :: (HasCoreConstants, MonadDBRead m) => m GtGlobalState
 getGtGlobalState =
     maybeThrow (DBMalformed "GodTossing global state DB is not initialized") =<<
     gsGetBi gtKey
@@ -31,7 +32,7 @@ getGtGlobalState =
 gtGlobalStateToBatch :: GtGlobalState -> GtOp
 gtGlobalStateToBatch = PutGlobalState
 
-initGtDB :: MonadDB m => m ()
+initGtDB :: (HasCoreConstants, MonadDB m) => m ()
 initGtDB = gsPutBi gtKey (def {_gsVssCertificates = vcd})
   where
     vcd = VCD.fromList . toList $ genesisCertificates
@@ -46,7 +47,7 @@ data GtOp
 instance Buildable GtOp where
     build (PutGlobalState gs) = bprint ("GtOp ("%build%")") gs
 
-instance RocksBatchOp GtOp where
+instance HasCoreConstants => RocksBatchOp GtOp where
     toBatchOp (PutGlobalState gs) = [Rocks.Put gtKey (serialize' gs)]
 
 ----------------------------------------------------------------------------

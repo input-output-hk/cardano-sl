@@ -18,6 +18,7 @@ import           Servant.Server          (Handler)
 import           Servant.Utils.Enter     ((:~>) (..), enter)
 
 import           Pos.Communication       (OutSpecs, SendActions, WorkerSpec, worker)
+import           Pos.Core                (HasCoreConstants)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.WorkMode            (RealMode, RealModeContext (..))
 
@@ -32,19 +33,21 @@ import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
 
 type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
 
-notifierPlugin :: NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
+notifierPlugin :: HasCoreConstants => NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
     \settings _sa -> notifierApp @SscGodTossing settings
 
 explorerPlugin
-    :: Word16
+    :: HasCoreConstants
+    => Word16
     -> ([WorkerSpec ExplorerProd], OutSpecs)
 explorerPlugin port =
     first pure $ worker mempty $
     (\sa -> explorerServeWebReal sa port)
 
 explorerServeWebReal
-    :: SendActions ExplorerProd
+    :: HasCoreConstants
+    => SendActions ExplorerProd
     -> Word16
     -> ExplorerProd ()
 explorerServeWebReal sendActions = explorerServeImpl

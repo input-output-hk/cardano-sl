@@ -12,12 +12,13 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
                                         (==>))
 
 import           Pos.Arbitrary.Core    (EoSToIntOverflow (..), UnreasonableEoS (..))
+import           Pos.Core              (HasCoreConstants, giveStaticConsts)
 import           Pos.Types             (EpochOrSlot, SlotId (..), flattenSlotId,
                                         unflattenSlotId)
 import           Test.Pos.Util         (shouldThrowException, (.=.))
 
 spec :: Spec
-spec = describe "Slotting" $ do
+spec = giveStaticConsts $ describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"
@@ -43,40 +44,40 @@ spec = describe "Slotting" $ do
         prop "calling 'toEnum' with a negative number will raise an exception"
             toEnumNegative
 
-flattenOrdConsistency :: SlotId -> SlotId -> Property
+flattenOrdConsistency :: HasCoreConstants => SlotId -> SlotId -> Property
 flattenOrdConsistency a b = a `compare` b === flattenSlotId a `compare` flattenSlotId b
 
-flattenThenUnflatten :: SlotId -> Property
+flattenThenUnflatten :: HasCoreConstants => SlotId -> Property
 flattenThenUnflatten si = si === unflattenSlotId (flattenSlotId si)
 
-predThenSucc :: EpochOrSlot -> Property
+predThenSucc :: HasCoreConstants => EpochOrSlot -> Property
 predThenSucc eos = eos > minBound ==> succ (pred eos) === eos
 
-predToMinBound :: Expectation
+predToMinBound :: HasCoreConstants => Expectation
 predToMinBound =
     shouldThrowException pred anyErrorCall (minBound :: EpochOrSlot)
 
-succThenPred :: EpochOrSlot -> Property
+succThenPred :: HasCoreConstants => EpochOrSlot -> Property
 succThenPred eos = eos < maxBound ==> pred (succ eos) === eos
 
-succToMaxBound :: Expectation
+succToMaxBound :: HasCoreConstants => Expectation
 succToMaxBound = shouldThrowException succ anyErrorCall (maxBound :: EpochOrSlot)
 
 -- It is not necessary to check that 'int < fromEnum (maxBound :: EpochOrSlot)' because
 -- this is not possible with the current implementation of the type.
-toFromEnum :: NonNegative Int -> Property
+toFromEnum :: HasCoreConstants => NonNegative Int -> Property
 toFromEnum (getNonNegative -> int) = fromEnum (toEnum @EpochOrSlot int) === int
 
-fromToEnum :: EpochOrSlot -> Property
+fromToEnum :: HasCoreConstants => EpochOrSlot -> Property
 fromToEnum = toEnum . fromEnum .=. identity
 
-fromToEnumLargeEpoch :: UnreasonableEoS -> Property
+fromToEnumLargeEpoch :: HasCoreConstants => UnreasonableEoS -> Property
 fromToEnumLargeEpoch (getUnreasonable -> eos) = toEnum (fromEnum eos) === eos
 
-fromEnumOverflow :: EoSToIntOverflow-> Expectation
+fromEnumOverflow :: HasCoreConstants => EoSToIntOverflow-> Expectation
 fromEnumOverflow (getEoS -> eos) =
     shouldThrowException (fromEnum @EpochOrSlot) anyErrorCall eos
 
-toEnumNegative :: Positive Int -> Expectation
+toEnumNegative :: HasCoreConstants => Positive Int -> Expectation
 toEnumNegative (negate . getPositive -> int) =
     shouldThrowException (toEnum @EpochOrSlot) anyErrorCall int

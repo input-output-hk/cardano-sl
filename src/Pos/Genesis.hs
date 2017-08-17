@@ -48,7 +48,7 @@ import           Formatting                 (sformat)
 import           Serokell.Util              (enumerate, listJson, pairF)
 
 import qualified Pos.Constants              as Const
-import           Pos.Core                   (Address (..), Coin, SlotLeaders,
+import           Pos.Core                   (Address (..), Coin, SlotLeaders, HasCoreConstants,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, safeExpStakes,
@@ -167,12 +167,7 @@ genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
     utxoEntry (addr, coin) =
         ( TxIn (unsafeHash addr) 0
         , TxOutAux (TxOut addr coin) (outDistr coin))
-    genesisSplitBoot' x c =
-        either (\e -> error $ "genesisUtxo can't split: " <> show e <>
-                              ", genesis utxo " <> show ad)
-               identity
-               (genesisSplitBoot x c)
-    outDistr = genesisSplitBoot' gws
+    outDistr = genesisSplitBoot gws
 
 -- | Same as 'genesisUtxo' but generates 'GenesisWStakeholders' set
 -- using 'generateWStakeholders' inside and wraps it all in
@@ -213,7 +208,7 @@ generateWStakeholders addrDistrs =
     step _                            = identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: GenesisUtxo -> SlotLeaders
+genesisLeaders :: HasCoreConstants => GenesisUtxo -> SlotLeaders
 genesisLeaders (GenesisUtxo utxo) =
     followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
 

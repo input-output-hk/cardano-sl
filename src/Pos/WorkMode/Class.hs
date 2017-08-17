@@ -38,7 +38,7 @@ import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
-import           Pos.Core                    (HasPrimaryKey)
+import           Pos.Core                    (HasCoreConstants, HasPrimaryKey)
 import           Pos.KnownPeers              (MonadFormatPeers, MonadKnownPeers)
 import           Pos.Network.Types           (NetworkConfig)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
@@ -105,6 +105,7 @@ type WorkMode ssc ctx m
       , HasPrimaryKey ctx
       , HasShutdownContext ctx
       , HasSlogContext ctx
+      , HasCoreConstants
       )
 
 -- | More relaxed version of 'WorkMode'.

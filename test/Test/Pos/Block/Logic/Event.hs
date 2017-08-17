@@ -26,7 +26,7 @@ import           Serokell.Util             (listJson)
 import           Pos.Block.Logic.VAR       (BlockLrcMode, rollbackBlocks,
                                             verifyAndApplyBlocks)
 import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (HeaderHash, headerHash, getEpochOrSlot, prevBlockL, EpochOrSlot)
+import           Pos.Core                  (HeaderHash, headerHash, getEpochOrSlot, prevBlockL, EpochOrSlot, HasCoreConstants)
 import           Pos.DB.Pure               (DBPureDiff, MonadPureDB, dbPureDiff,
                                             dbPureDump, dbPureReset)
 import           Pos.Exception             (CardanoFatalError (..))
@@ -157,7 +157,7 @@ data BlockSummary = BlockSummary
 instance Buildable BlockSummary where
     build (BlockSummary eos prevHh hh) = bprint (build % ": " % build % "->" % build) eos prevHh hh
 
-instance Buildable BlockScenarioErrorContext where
+instance HasCoreConstants => Buildable BlockScenarioErrorContext where
     build bsec =
         bprint ("Executed: "%listJson%"\nRemaining: "%listJson%"\nFailed: "%build)
         (map toBlkSm . reverse $ _bsecExecuted bsec)

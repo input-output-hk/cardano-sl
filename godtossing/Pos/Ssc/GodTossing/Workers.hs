@@ -37,13 +37,13 @@ import           Pos.Communication.Relay               (DataMsg, ReqOrRes,
                                                         invReqDataFlowTK)
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
-import           Pos.Core                              (EpochIndex, SlotId (..),
-                                                        StakeholderId, Timestamp (..),
-                                                        addressHash, bvdMpcThd,
-                                                        getOurSecretKey,
+import           Pos.Core                              (EpochIndex, HasCoreConstants,
+                                                        SlotId (..), StakeholderId,
+                                                        Timestamp (..), addressHash,
+                                                        bvdMpcThd, getOurSecretKey,
                                                         getOurStakeholderId,
-                                                        mkLocalSlotIndex)
-import           Pos.Core.Constants                    (slotSecurityParam)
+                                                        mkLocalSlotIndex,
+                                                        slotSecurityParam)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
                                                         runSecureRandom)
@@ -302,7 +302,7 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
 -- synchronized).
 generateAndSetNewSecret
     :: forall ctx m.
-       (SscMode SscGodTossing ctx m, Bi Commitment)
+       (HasCoreConstants, SscMode SscGodTossing ctx m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)

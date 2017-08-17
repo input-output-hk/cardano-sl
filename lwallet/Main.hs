@@ -1,9 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes    #-}
+{-# LANGUAGE RankNTypes     #-}
 
 module Main
        ( main
@@ -53,6 +52,7 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
 import           Pos.Core.Coin                    (subCoin)
+import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types                   (Timestamp (..), mkCoin)
 import           Pos.Crypto                       (Hash, SecretKey, SignTag (SignUSVote),
                                                    emptyPassphrase, encToPublic,
@@ -149,7 +149,7 @@ addTxSubmit mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) 
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) -> return (TxCount submitted (failed + 1) sending, ()))
 
-runCmd :: SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
+runCmd :: HasCoreConstants => SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
 runCmd _ (Balance addr) _ =
     getBalance addr >>=
     putText . sformat ("Current balance: "%coinF)
@@ -359,18 +359,18 @@ updateDataElement ProposeUpdateSystem{..} = do
     pure (pusSystemTag, UpdateData diffHash installerHash dummyHash dummyHash)
 
 -- This solution is hacky, but will work for now
-runCmdOuts :: OutSpecs
+runCmdOuts :: HasCoreConstants => OutSpecs
 runCmdOuts = relayPropagateOut $ mconcat
                 [ usRelays @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 , delegationRelays @SscGodTossing @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 , txRelays @SscGodTossing @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 ]
 
-evalCmd :: SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
+evalCmd :: HasCoreConstants => SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
 evalCmd _ Quit _      = pure ()
 evalCmd sa cmd cmdCtx = runCmd sa cmd cmdCtx >> evalCommands sa cmdCtx
 
-evalCommands :: SendActions LightWalletMode -> CmdCtx -> LightWalletMode ()
+evalCommands :: HasCoreConstants => SendActions LightWalletMode -> CmdCtx -> LightWalletMode ()
 evalCommands sa cmdCtx = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -380,12 +380,12 @@ evalCommands sa cmdCtx = do
         Left err   -> putStrLn err >> evalCommands sa cmdCtx
         Right cmd_ -> evalCmd sa cmd_ cmdCtx
 
-runWalletRepl :: CmdCtx -> Worker LightWalletMode
+runWalletRepl :: HasCoreConstants => CmdCtx -> Worker LightWalletMode
 runWalletRepl cmdCtx sa = do
     putText "Welcome to Wallet CLI Node"
     evalCmd sa Help cmdCtx
 
-runWalletCmd :: CmdCtx -> Text -> Worker LightWalletMode
+runWalletCmd :: HasCoreConstants => CmdCtx -> Text -> Worker LightWalletMode
 runWalletCmd cmdCtx str sa = do
     let strs = T.splitOn "," str
     for_ strs $ \scmd -> do
@@ -402,7 +402,7 @@ runWalletCmd cmdCtx str sa = do
 #endif
 
 main :: IO ()
-main = do
+main = giveStaticConsts $ do
     WalletOptions {..} <- getWalletOptions
     --filePeers <- maybe (return []) CLI.readPeersFile
     --                   (CLI.dhtPeersFile woCommonArgs)
@@ -461,7 +461,7 @@ main = do
                       , genesisStakeDistr = devStakeDistr
                       }
 
-            plugins :: ([ WorkerSpec LightWalletMode ], OutSpecs)
+            plugins :: HasCoreConstants => ([WorkerSpec LightWalletMode], OutSpecs)
             plugins = first pure $ case woAction of
                 Repl    -> worker' runCmdOuts $ runWalletRepl cmdCtx
                 Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmdCtx cmd

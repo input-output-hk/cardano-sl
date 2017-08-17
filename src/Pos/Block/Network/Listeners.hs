@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Server which deals with blocks processing.
 
 module Pos.Block.Network.Listeners

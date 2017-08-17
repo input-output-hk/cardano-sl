@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP        #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- TODO Maybe move it somewhere else.
 -- | Block payload generation.
@@ -24,7 +23,7 @@ import           Formatting                 (build, sformat, (%))
 import           System.Random              (RandomGen (..))
 
 import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot,
-                                             txToLinearFee, unTxError)
+                                             runTxCreator, txToLinearFee, unTxError)
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
                                              TxFeePolicy (..), addressDetailedF,
                                              bvdTxFeePolicy, coinToInteger,
@@ -172,14 +171,10 @@ genTxPayload = do
                     utxoGet txIn
                 let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
                     minInputsSum = coinToInteger fee + 1
-                -- if we've just took inputs that have sum less than number
-                -- of stakeholders, it's dust case and we forbid these txs
-                -- in boot era
-                -- Also we need to ensure that sum of inputs is enough to pay expected fee
-                -- and leave some money for outputs
-                if (inputsSum < minInputsSum) || (bootEra && inputsSum < dustThd)
+                -- We need to ensure that sum of inputs is enough to
+                -- pay expected fee and leave some money for outputs
+                if inputsSum < minInputsSum
                     -- just retry
-                    -- should we also check here that there are inputs in utxo that we can take?
                     then generateInputs (attempts - 1) expectedFee
                     else pure (txIns, inputsResolved, inputsSum)
 
@@ -216,7 +211,7 @@ genTxPayload = do
                 let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
                 let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
                 either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
-                    runExceptT (overrideTxDistrBoot txOutAuxsPre)
+                    runTxCreator (overrideTxDistrBoot txOutAuxsPre)
 
         ----- TX
 

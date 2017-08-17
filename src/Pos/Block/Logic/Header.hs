@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Header processing logic.
 
@@ -29,10 +28,10 @@ import           Pos.Block.Core            (BlockHeader)
 import           Pos.Block.Logic.Util      (lcaWithMainChain)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
-import           Pos.Constants             (blkSecurityParam, genesisHash,
-                                            recoveryHeadersMessage)
-import           Pos.Core                  (BlockCount, EpochOrSlot (..), HeaderHash,
-                                            SlotId (..), difficultyL, epochOrSlotG,
+import           Pos.Constants             (genesisHash, recoveryHeadersMessage)
+import           Pos.Core                  (BlockCount, EpochOrSlot (..),
+                                            HasCoreConstants, HeaderHash, SlotId (..),
+                                            blkSecurityParam, difficultyL, epochOrSlotG,
                                             getChainDifficulty, getEpochOrSlot,
                                             headerHash, headerHashG, headerSlotL,
                                             prevBlockL)
@@ -71,7 +70,7 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- | Classify new header announced by some node. Result is represented
 -- as ClassifyHeaderRes type.
 classifyNewHeader
-    :: forall m ssc. (MonadSlots m, DB.MonadBlockDB ssc m)
+    :: forall m ssc. (HasCoreConstants, MonadSlots m, DB.MonadBlockDB ssc m)
     => BlockHeader ssc -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
@@ -152,6 +151,7 @@ classifyHeaders ::
        , MonadSlots m
        , MonadCatch m
        , WithLogger m
+       , HasCoreConstants
        )
     => Bool -- recovery in progress?
     -> NewestFirst NE (BlockHeader ssc)
@@ -221,7 +221,7 @@ classifyHeaders inRecovery headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (DB.MonadBlockDB ssc m, WithLogger m, MonadError Text m)
+       (DB.MonadBlockDB ssc m, WithLogger m, MonadError Text m, HasCoreConstants)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -275,7 +275,7 @@ getHeadersFromManyTo checkpoints startM = do
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: forall ssc m.
-       (MonadDBRead m, SscHelpersClass ssc)
+       (HasCoreConstants, MonadDBRead m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst NE HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -330,7 +330,7 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (MonadDBRead m, SscHelpersClass ssc)
+       (HasCoreConstants, MonadDBRead m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist

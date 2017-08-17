@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Everything related to /follow-the-satoshi/ procedure.
 
@@ -15,8 +14,9 @@ import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import           Formatting          (int, sformat, (%))
 
-import           Pos.Core            (Coin, SharedSeed (..), SlotLeaders, StakeholderId,
-                                      coinToInteger, mkCoin, sumCoins)
+import           Pos.Core            (Coin, HasCoreConstants, SharedSeed (..),
+                                      SlotLeaders, StakeholderId, coinToInteger, mkCoin,
+                                      sumCoins)
 import           Pos.Lrc.Fts         (followTheSatoshiM)
 import           Pos.Txp.Toil        (Utxo, utxoToStakes)
 
@@ -38,7 +38,7 @@ import           Pos.Txp.Toil        (Utxo, utxoToStakes)
 -- to them. Therefore, P2SH addresses can contain 'addrDestination' which
 -- specifies which addresses should count as “owning” funds for the purposes
 -- of follow-the-satoshi.
-followTheSatoshi :: SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
+followTheSatoshi :: HasCoreConstants => SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
 followTheSatoshi seed stakes
     | totalCoins > coinToInteger maxBound =
         error $ sformat
@@ -52,6 +52,6 @@ followTheSatoshi seed stakes
     totalCoins = sumCoins $ map snd stakes
     totalCoinsCoin = mkCoin $ fromInteger totalCoins
 
-followTheSatoshiUtxo :: SharedSeed -> Utxo -> SlotLeaders
+followTheSatoshiUtxo :: HasCoreConstants => SharedSeed -> Utxo -> SlotLeaders
 followTheSatoshiUtxo seed utxo =
     followTheSatoshi seed $ HM.toList $ utxoToStakes utxo

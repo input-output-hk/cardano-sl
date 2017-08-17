@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Former avvm-migration script. Parses rscoin-dump to create
 -- genesis block of CSL.

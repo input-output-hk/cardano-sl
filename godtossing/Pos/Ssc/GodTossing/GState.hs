@@ -22,7 +22,8 @@ import           Universum
 
 import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (BlockVersionData, EpochIndex (..),
-                                                 SlotId (..), epochIndexL, epochOrSlotG)
+                                                 HasCoreConstants, SlotId (..),
+                                                 epochIndexL, epochOrSlotG)
 import           Pos.DB                         (MonadDBRead, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStakes)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
@@ -64,7 +65,7 @@ getGlobalCerts sl =
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
-    :: (MonadSscMem SscGodTossing ctx m, MonadIO m)
+    :: (HasCoreConstants, MonadSscMem SscGodTossing ctx m, MonadIO m)
     => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
@@ -73,7 +74,7 @@ getStableCerts epoch =
 -- Methods from class
 ----------------------------------------------------------------------------
 
-instance SscGStateClass SscGodTossing where
+instance HasCoreConstants => SscGStateClass SscGodTossing where
     sscLoadGlobalState = loadGlobalState
     sscGlobalStateToBatch = Tagged . dumpGlobalState
     sscRollbackU = rollbackBlocks
@@ -85,18 +86,18 @@ instance SscGStateClass SscGodTossing where
         <*> view gsShares
         <*> pure richmen
 
-loadGlobalState :: (MonadDBRead m, WithLogger m) => m GtGlobalState
+loadGlobalState :: (HasCoreConstants, MonadDBRead m, WithLogger m) => m GtGlobalState
 loadGlobalState = do
     logDebug "Loading SSC global state"
     gs <- DB.getGtGlobalState
     gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
 
-dumpGlobalState :: GtGlobalState -> [SomeBatchOp]
+dumpGlobalState :: HasCoreConstants => GtGlobalState -> [SomeBatchOp]
 dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 
 type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
 
-rollbackBlocks :: NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
+rollbackBlocks :: HasCoreConstants => NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
 rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
@@ -104,7 +105,8 @@ rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads
                    blocks
 
 verifyAndApply
-    :: RichmenStakes
+    :: HasCoreConstants
+    => RichmenStakes
     -> BlockVersionData
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
@@ -115,7 +117,8 @@ verifyAndApply richmenStake bvd blocks =
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
-    :: Bool
+    :: HasCoreConstants
+    => Bool
     -> (MultiRichmenStakes, BlockVersionData)
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()

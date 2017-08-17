@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Miscellaneous instances, etc. Related to the main blockchain of course.
 
@@ -36,11 +35,12 @@ import           Pos.Block.Core.Union.Types  (BiHeader, BiSsc, BlockHeader,
 import qualified Pos.Constants               as Const
 import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..),
                                               GenericBlockHeader (..),
-                                              HasBlockVersion (..), HasDifficulty (..),
-                                              HasEpochIndex (..), HasEpochOrSlot (..),
-                                              HasHeaderHash (..), HasSoftwareVersion (..),
-                                              HeaderHash, IsHeader, IsMainHeader (..),
-                                              LocalSlotIndex, SlotId, mkGenericHeader,
+                                              HasBlockVersion (..), HasCoreConstants,
+                                              HasDifficulty (..), HasEpochIndex (..),
+                                              HasEpochOrSlot (..), HasHeaderHash (..),
+                                              HasSoftwareVersion (..), HeaderHash,
+                                              IsHeader, IsMainHeader (..), LocalSlotIndex,
+                                              SlotId, mkGenericHeader,
                                               recreateGenericBlock, slotIdF)
 import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
                                               SignTag (..), hash, hashHexF, proxySign,
@@ -160,6 +160,7 @@ type SanityConstraint ssc
        , SscHelpersClass ssc
        , HasDifficulty $ BlockHeader ssc
        , HasHeaderHash $ BlockHeader ssc
+       , HasCoreConstants
        )
 
 -- | Smart constructor for 'MainBlockHeader'.

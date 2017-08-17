@@ -20,9 +20,10 @@ import           Pos.Aeson.WalletBackup         ()
 import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
 import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util            (computeTxFee)
+import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
 import           Pos.Communication              (SendActions, prepareMTx)
-import           Pos.Core                       (Coin, addressF, getCurrentTimestamp)
+import           Pos.Core                       (Coin, HasCoreConstants, addressF,
+                                                 getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, hash, withSafeSigners)
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
@@ -68,7 +69,7 @@ getTxFee
 getTxFee srcAccount dstAccount coin = do
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
-    TxFee fee <- eitherToThrow =<< runExceptT (computeTxFee utxo outputs)
+    TxFee fee <- eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
     pure $ mkCCoin fee
 
 data MoneySource
@@ -109,7 +110,7 @@ getMoneySourceUtxo =
 -- [CSM-407] It should be moved to `Pos.Wallet.Web.Mode`, but
 -- to make it possible all this mess should be neatly separated
 -- to modules and refactored
-instance MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
+instance HasCoreConstants => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     getNewAddress (accId, passphrase) =
         L.newAddress RandomSeed passphrase accId >>=
@@ -142,7 +143,6 @@ sendMoney sendActions passphrase moneySource dstDistr = do
 
         let inpTxOuts = toList inpTxOuts'
             txHash    = hash tx
-            inpAddrs  = map txOutAddress inpTxOuts
             dstAddrs  = map txOutAddress . toList $
                         _txOutputs tx
         logInfo $
@@ -154,7 +154,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
 
         ts <- Just <$> getCurrentTimestamp
         ctxs <- addHistoryTx srcWallet $
-            THEntry txHash tx inpTxOuts Nothing inpAddrs dstAddrs ts
+            THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
      noOutgoingTx = InternalError "Can't report outgoing transaction"

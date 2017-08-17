@@ -23,6 +23,7 @@ import           Pos.Communication            (submitAndSaveTx)
 import           Pos.Communication.Protocol   (SendActions (..))
 import           Pos.Constants                (pendingTxResubmitionPeriod)
 import           Pos.Core                     (FlatSlotId, SlotId (..), getSlotCount)
+import           Pos.Core.Context             (HasCoreConstants)
 import           Pos.Core.Slotting            (flattenSlotId)
 import           Pos.Crypto                   (WithHash (..))
 import           Pos.Slotting                 (getLastKnownSlotDuration, onNewSlot)
@@ -37,6 +38,7 @@ import           Pos.Wallet.Web.State         (addOnlyNewPendingTx, casPtxCondit
 type MonadPendings m =
     ( MonadWalletWebMode m
     , MonadAddresses m
+    , HasCoreConstants
     )
 
 -- | What should happen with pending transaction if attempt
@@ -46,20 +48,20 @@ processPtxFailure existing ptx@PendingTx{..} e =
     -- If number of 'ToilVerFailure' constructors will ever change, compiler
     -- will complain - for this purpose we consider all cases explicitly here.
     case e of
-        ToilKnown                -> trackFurther
-        ToilTipsMismatch{}       -> trackFurther
-        ToilSlotUnknown          -> trackFurther
-        ToilOverwhelmed{}        -> trackFurther
-        ToilNotUnspent{}         -> discard
-        ToilOutGTIn{}            -> discard
-        ToilInconsistentTxAux{}  -> discard
-        ToilInvalidOutputs{}     -> discard
-        ToilInvalidInputs{}      -> discard
-        ToilTooLargeTx{}         -> discard
-        ToilInvalidMinFee{}      -> discard
-        ToilInsufficientFee{}    -> discard
-        ToilUnknownAttributes{}  -> discard
-        ToilBootDifferentStake{} -> discard
+        ToilKnown               -> trackFurther
+        ToilTipsMismatch{}      -> trackFurther
+        ToilSlotUnknown         -> trackFurther
+        ToilOverwhelmed{}       -> trackFurther
+        ToilNotUnspent{}        -> discard
+        ToilOutGTIn{}           -> discard
+        ToilInconsistentTxAux{} -> discard
+        ToilInvalidOutputs{}    -> discard
+        ToilInvalidInputs{}     -> discard
+        ToilTooLargeTx{}        -> discard
+        ToilInvalidMinFee{}     -> discard
+        ToilInsufficientFee{}   -> discard
+        ToilUnknownAttributes{} -> discard
+        ToilBootInappropriate{} -> discard
   where
     trackFurther
         | existing  = pass
@@ -94,7 +96,7 @@ processPtxInUpperBlocks curSlot PendingTx{..}
 
 -- | 'True' for slots which are equal to
 -- @ptxCreationSlot + initialDelay + furtherDelay * k@ for some integer @k@
-whetherCheckPtxOnSlot :: SlotId -> PendingTx -> Bool
+whetherCheckPtxOnSlot :: HasCoreConstants => SlotId -> PendingTx -> Bool
 whetherCheckPtxOnSlot (flattenSlotId -> curSlot) ptx = do
     let ptxSlot = flattenSlotId (ptxCreationSlot ptx)
         checkStartSlot = ptxSlot + initialDelay

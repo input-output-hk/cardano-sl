@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | This module tests Binary instances for Block types.
 
@@ -14,13 +13,14 @@ import           Pos.Arbitrary.Block ()
 import qualified Pos.Block.Core      as BT
 import qualified Pos.Block.Network   as BT
 import qualified Pos.Communication   ()
+import           Pos.Core            (giveStaticConsts)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 
 import           Test.Pos.Util       (binaryTest, networkBinaryTest)
 
 spec :: Spec
-spec = describe "Block types" $ do
+spec = giveStaticConsts $ describe "Block types" $ do
     describe "Bi instances" $ do
         describe "Block network types" $ do
             describe "MsgGetHeaders" $

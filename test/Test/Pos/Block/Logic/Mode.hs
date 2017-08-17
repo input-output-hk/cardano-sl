@@ -1,8 +1,7 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeOperators   #-}
 
 -- | Execution modes for block logic tests.
 
@@ -43,9 +42,9 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
 import           Pos.Block.Types                (Undo)
-import           Pos.Core                       (IsHeader, SlotId, StakeDistribution (..),
-                                                 Timestamp (..), makePubKeyAddress,
-                                                 mkCoin, unsafeGetCoin)
+import           Pos.Core                       (HasCoreConstants, IsHeader, SlotId,
+                                                 StakeDistribution (..), Timestamp (..),
+                                                 makePubKeyAddress, mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
                                                  MonadBlockDBGenericWrite (..),
@@ -231,8 +230,11 @@ instance HasAllSecrets BlockTestContext where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initBlockTestContext ::
-       TestParams -> (BlockTestContext -> Emulation a) -> Emulation a
+initBlockTestContext
+    :: HasCoreConstants
+    => TestParams
+    -> (BlockTestContext -> Emulation a)
+    -> Emulation a
 initBlockTestContext tp@TestParams {..} callback = do
     clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
@@ -281,7 +283,7 @@ instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
 
 type BlockTestMode = ReaderT BlockTestContext Emulation
 
-runBlockTestMode :: TestParams -> BlockTestMode a -> IO a
+runBlockTestMode :: HasCoreConstants => TestParams -> BlockTestMode a -> IO a
 runBlockTestMode tp action =
     runEmulation (tp ^. tpStartTime) $
     initBlockTestContext tp (runReaderT action)
@@ -294,7 +296,7 @@ type BlockProperty = PropertyM BlockTestMode
 
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
-blockPropertyToProperty :: Gen TestParams -> BlockProperty a -> Property
+blockPropertyToProperty :: HasCoreConstants => Gen TestParams -> BlockProperty a -> Property
 blockPropertyToProperty tpGen blockProperty =
     forAll tpGen $ \tp ->
         monadic (ioProperty . runBlockTestMode tp) blockProperty
@@ -303,7 +305,7 @@ blockPropertyToProperty tpGen blockProperty =
 -- do-notation and pass them directly to QuickCheck engine. It uses
 -- arbitrary 'TestParams'. For more fine-grained control over
 -- parameters use 'blockPropertyToProperty'.
-instance Testable (BlockProperty a) where
+instance HasCoreConstants => Testable (BlockProperty a) where
     property = blockPropertyToProperty arbitrary
 
 ----------------------------------------------------------------------------
@@ -333,19 +335,19 @@ instance MonadDB (TestInitMode ssc) where
     dbDelete = DB.dbDeletePureDefault
 
 instance
-    SscHelpersClass ssc =>
+    (HasCoreConstants, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (TestInitMode ssc)
   where
     dbGetBlock  = DB.dbGetBlockPureDefault @ssc
     dbGetUndo   = DB.dbGetUndoPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderPureDefault @ssc
 
-instance SscHelpersClass ssc =>
+instance (HasCoreConstants, SscHelpersClass ssc) =>
          MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (TestInitMode ssc) where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
-    SscHelpersClass ssc =>
+    (HasCoreConstants, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (TestInitMode ssc)
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
@@ -358,7 +360,7 @@ instance MonadSlotsData (TestInitMode ssc) where
     waitPenultEpochEquals = waitPenultEpochEqualsDefault
     putSlottingData = putSlottingDataDefault
 
-instance MonadSlots (TestInitMode ssc) where
+instance HasCoreConstants => MonadSlots (TestInitMode ssc) where
     getCurrentSlot = getCurrentSlotSimple =<< mkSimpleSlottingVar
     getCurrentSlotBlocking = getCurrentSlotBlockingSimple =<< mkSimpleSlottingVar
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple =<< mkSimpleSlottingVar
@@ -441,7 +443,7 @@ instance MonadSlotsData BlockTestMode where
     waitPenultEpochEquals = waitPenultEpochEqualsDefault
     putSlottingData = putSlottingDataDefault
 
-instance MonadSlots BlockTestMode where
+instance HasCoreConstants => MonadSlots BlockTestMode where
     getCurrentSlot = do
         view btcSlotId_L >>= \case
             Nothing -> getCurrentSlotSimple =<< view btcSSlottingVar_L
@@ -465,19 +467,21 @@ instance MonadDB BlockTestMode where
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
 
-instance MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
+instance HasCoreConstants =>
+         MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
   where
     dbGetBlock = DB.dbGetBlockPureDefault
     dbGetUndo = DB.dbGetUndoPureDefault @SscGodTossing
     dbGetHeader = DB.dbGetHeaderPureDefault @SscGodTossing
 
-instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestMode
+instance HasCoreConstants => MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestMode
   where
     dbGetBlock = DB.dbGetBlockSscPureDefault
     dbGetUndo = DB.dbGetUndoSscPureDefault @SscGodTossing
     dbGetHeader = DB.dbGetHeaderSscPureDefault @SscGodTossing
 
-instance MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
+instance HasCoreConstants =>
+         MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance MonadGState BlockTestMode where

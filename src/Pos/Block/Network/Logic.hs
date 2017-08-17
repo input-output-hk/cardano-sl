@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Network-related logic that's mostly methods and dialogs between
 -- nodes. Also see "Pos.Block.Network.Retrieval" for retrieval worker
@@ -60,8 +59,9 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              convH, toOutSpecs, waitForConversations)
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryCommGuard, recoveryInProgress)
-import           Pos.Core                   (HasHeaderHash (..), HeaderHash, gbHeader,
-                                             headerHashG, isMoreDifficult, prevBlockL)
+import           Pos.Core                   (HasCoreConstants, HasHeaderHash (..),
+                                             HeaderHash, gbHeader, headerHashG,
+                                             isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
@@ -230,7 +230,7 @@ data MatchReqHeadersRes
     deriving (Show)
 
 matchRequestedHeaders
-    :: (SscHelpersClass ssc)
+    :: (SscHelpersClass ssc, HasCoreConstants)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
     let newTip = headers ^. _Wrapped . _neHead

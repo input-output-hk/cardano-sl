@@ -1,6 +1,5 @@
-{-# LANGUAGE DeriveTraversable   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 -- | Chronological sequences.
 

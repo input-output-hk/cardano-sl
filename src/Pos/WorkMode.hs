@@ -1,7 +1,6 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE CPP           #-}
+{-# LANGUAGE TypeFamilies  #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 module Pos.WorkMode
@@ -20,62 +19,59 @@ module Pos.WorkMode
 
 import           Universum
 
-import           Control.Lens                (makeLensesWith)
-import qualified Control.Monad.Reader        as Mtl
-import           Ether.Internal              (HasLens (..))
-import           Mockable                    (Production)
-import           System.Wlog                 (HasLoggerName (..), LoggerName)
+import           Control.Lens           (makeLensesWith)
+import qualified Control.Monad.Reader   as Mtl
+import           Ether.Internal         (HasLens (..))
+import           Mockable               (Production)
+import           System.Wlog            (HasLoggerName (..), LoggerName)
 
-import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
-                                              onRollbackBlocksStub)
-import           Pos.Block.Core              (Block, BlockHeader)
-import           Pos.Block.Slog.Types        (HasSlogContext (..))
-import           Pos.Block.Types             (Undo)
-import           Pos.Context                 (NodeContext, HasSscContext (..),
-                                              HasPrimaryKey (..), HasNodeContext (..))
-import           Pos.Core                    (IsHeader)
-import           Pos.DB                      (MonadGState (..), NodeDBs)
-import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDefault,
-                                              dbGetHeaderDefault, dbGetHeaderSscDefault,
-                                              dbGetUndoDefault, dbGetUndoSscDefault,
-                                              dbPutBlundDefault)
-import           Pos.DB.Class                (MonadBlockDBGeneric (..),
-                                              MonadBlockDBGenericWrite (..), MonadDB (..),
-                                              MonadDBRead (..))
-import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
-import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
-                                              dbIterSourceDefault, dbPutDefault,
-                                              dbWriteBatchDefault)
-import           Pos.Delegation.Class        (DelegationVar)
-import           Pos.Reporting               (HasReportingContext (..))
-import           Pos.KnownPeers              (MonadKnownPeers (..), MonadFormatPeers (..))
-import           Pos.Shutdown                (HasShutdownContext (..))
-import           Pos.Slotting.Class          (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
-                                              getCurrentSlotBlockingSum,
-                                              getCurrentSlotInaccurateSum,
-                                              getCurrentSlotSum)
-import           Pos.Slotting.MemState       (HasSlottingVar (..), MonadSlotsData (..),
-                                              getSlottingDataDefault,
-                                              getSystemStartDefault,
-                                              putSlottingDataDefault,
-                                              waitPenultEpochEqualsDefault)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
-import           Pos.Ssc.Class.Types         (SscBlock)
-import           Pos.Ssc.Extra               (SscMemTag, SscState)
-import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag,
-                                              TxpMetrics)
-import           Pos.Util                    (Some (..))
-import           Pos.Util.JsonLog            (HasJsonLogConfig (..), JsonLogConfig,
-                                              jsonLogDefault)
-import           Pos.Util.LoggerName         (HasLoggerName' (..), getLoggerNameDefault,
-                                              modifyLoggerNameDefault)
-import           Pos.Util.OutboundQueue      (OQ, EnqueuedConversation (..))
-import qualified Pos.Util.OutboundQueue      as OQ.Reader
-import           Pos.Util.TimeWarp           (CanJsonLog (..))
-import           Pos.Util.UserSecret         (HasUserSecret (..))
-import           Pos.Util.Util               (postfixLFields)
-import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
+import           Pos.Block.BListener    (MonadBListener (..), onApplyBlocksStub,
+                                         onRollbackBlocksStub)
+import           Pos.Block.Core         (Block, BlockHeader)
+import           Pos.Block.Slog.Types   (HasSlogContext (..))
+import           Pos.Block.Types        (Undo)
+import           Pos.Context            (HasNodeContext (..), HasPrimaryKey (..),
+                                         HasSscContext (..), NodeContext)
+import           Pos.Core               (HasCoreConstants, IsHeader)
+import           Pos.DB                 (MonadGState (..), NodeDBs)
+import           Pos.DB.Block           (dbGetBlockDefault, dbGetBlockSscDefault,
+                                         dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                         dbGetUndoDefault, dbGetUndoSscDefault,
+                                         dbPutBlundDefault)
+import           Pos.DB.Class           (MonadBlockDBGeneric (..),
+                                         MonadBlockDBGenericWrite (..), MonadDB (..),
+                                         MonadDBRead (..))
+import           Pos.DB.DB              (gsAdoptedBVDataDefault)
+import           Pos.DB.Rocks           (dbDeleteDefault, dbGetDefault,
+                                         dbIterSourceDefault, dbPutDefault,
+                                         dbWriteBatchDefault)
+import           Pos.Delegation.Class   (DelegationVar)
+import           Pos.KnownPeers         (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.Reporting          (HasReportingContext (..))
+import           Pos.Shutdown           (HasShutdownContext (..))
+import           Pos.Slotting.Class     (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum  (currentTimeSlottingSum,
+                                         getCurrentSlotBlockingSum,
+                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
+import           Pos.Slotting.MemState  (HasSlottingVar (..), MonadSlotsData (..),
+                                         getSlottingDataDefault, getSystemStartDefault,
+                                         putSlottingDataDefault,
+                                         waitPenultEpochEqualsDefault)
+import           Pos.Ssc.Class.Helpers  (SscHelpersClass)
+import           Pos.Ssc.Class.Types    (SscBlock)
+import           Pos.Ssc.Extra          (SscMemTag, SscState)
+import           Pos.Txp.MemState       (GenericTxpLocalData, TxpHolderTag, TxpMetrics)
+import           Pos.Util               (Some (..))
+import           Pos.Util.JsonLog       (HasJsonLogConfig (..), JsonLogConfig,
+                                         jsonLogDefault)
+import           Pos.Util.LoggerName    (HasLoggerName' (..), getLoggerNameDefault,
+                                         modifyLoggerNameDefault)
+import           Pos.Util.OutboundQueue (EnqueuedConversation (..), OQ)
+import qualified Pos.Util.OutboundQueue as OQ.Reader
+import           Pos.Util.TimeWarp      (CanJsonLog (..))
+import           Pos.Util.UserSecret    (HasUserSecret (..))
+import           Pos.Util.Util          (postfixLFields)
+import           Pos.WorkMode.Class     (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -155,7 +151,7 @@ instance MonadSlotsData (RealMode ssc) where
     waitPenultEpochEquals = waitPenultEpochEqualsDefault
     putSlottingData = putSlottingDataDefault
 
-instance MonadSlots (RealMode ssc) where
+instance HasCoreConstants => MonadSlots (RealMode ssc) where
     getCurrentSlot = getCurrentSlotSum
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
@@ -178,7 +174,7 @@ instance MonadBListener (RealMode ssc) where
     onRollbackBlocks = onRollbackBlocksStub
 
 instance
-    SscHelpersClass ssc =>
+    (HasCoreConstants, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (RealMode ssc)
   where
     dbGetBlock  = dbGetBlockDefault @ssc
@@ -186,14 +182,14 @@ instance
     dbGetHeader = dbGetHeaderDefault @ssc
 
 instance
-    SscHelpersClass ssc =>
+    (HasCoreConstants, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (RealMode ssc)
   where
     dbGetBlock  = dbGetBlockSscDefault @ssc
     dbGetUndo   = dbGetUndoSscDefault @ssc
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
-instance SscHelpersClass ssc =>
+instance (HasCoreConstants, SscHelpersClass ssc) =>
          MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc) where
     dbPutBlund = dbPutBlundDefault
 

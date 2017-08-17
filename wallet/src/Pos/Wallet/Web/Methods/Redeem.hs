@@ -17,10 +17,9 @@ import           Pos.Aeson.WalletBackup         ()
 import           Pos.Client.Txp.Addresses       (MonadAddresses)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Communication              (SendActions, prepareRedemptionTx)
-import           Pos.Core                       (getCurrentTimestamp, makeRedeemAddress)
+import           Pos.Core                       (getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
-                                                 hash, redeemDeterministicKeyGen,
-                                                 redeemToPublic)
+                                                 hash, redeemDeterministicKeyGen)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.BackupPhrase          (toSeed)
@@ -91,7 +90,6 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     _ <- fixingCachedAccModifier L.getAccount accId
 
     let dstWallet = aiWId accId
-        srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
 
@@ -104,7 +102,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     let txInputs = [TxOut redeemAddress redeemBalance]
     ts <- Just <$> getCurrentTimestamp
     ctxs <- addHistoryTx (aiWId accId) $
-        THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts
+        THEntry (hash taTx) taTx Nothing txInputs [dstAddr] ts
     ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
     noIncomingTx = InternalError "Can't report incoming transaction"

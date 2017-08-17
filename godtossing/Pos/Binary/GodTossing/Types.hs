@@ -4,7 +4,8 @@ module Pos.Binary.GodTossing.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Class                 (Cons (..), Field (..), deriveSimpleBi, deriveSimpleBiCxt)
+import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Core.Types                   (EpochIndex, EpochOrSlot, StakeholderId)
 import           Pos.Ssc.GodTossing.Core          (CommitmentsMap, Opening, OpeningsMap,
                                                    SharesMap, SignedCommitment,
@@ -14,7 +15,7 @@ import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 
-deriveSimpleBi ''VssCertData [
+deriveSimpleBiCxt [t|HasCoreConstants|] ''VssCertData [
     Cons 'VssCertData [
         Field [| lastKnownEoS :: EpochOrSlot                       |],
         Field [| certs        :: VssCertificatesMap                |],
@@ -26,7 +27,7 @@ deriveSimpleBi ''VssCertData [
                                                       VssCertificate)) |]
     ]]
 
-deriveSimpleBi ''GtGlobalState [
+deriveSimpleBiCxt [t|HasCoreConstants|] ''GtGlobalState [
     Cons 'GtGlobalState [
         Field [| _gsCommitments     :: CommitmentsMap |],
         Field [| _gsOpenings        :: OpeningsMap    |],

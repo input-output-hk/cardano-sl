@@ -75,7 +75,7 @@ data EnqueueTo nid =
     -- | Enqueue to a specific set of peers. This must be a subset of the
     -- known peers.
   | EnqueueToSubset (Set nid)
-
+  deriving (Show)
 
 -- | Classification of a set of 'nid's¸ along with routes on a subset of that
 --   classification: every 'nid' in the 'Routes nid' is a key in the

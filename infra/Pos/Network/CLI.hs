@@ -35,9 +35,9 @@ import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
                                                          fromYamlConfig)
 import           Pos.Network.DnsDomains          (DnsDomains (..), NodeAddr (..))
-import           Pos.Network.Types               (NodeId)
+import           Pos.Network.Types               (NodeId, NodeName(..))
 import qualified Pos.Network.Types               as T
-import           Pos.Network.Yaml                (NodeMetadata (..), NodeName (..))
+import           Pos.Network.Yaml                (NodeMetadata (..))
 import qualified Pos.Network.Yaml                as Y
 import           Pos.Util.TimeWarp               (addressToNodeId)
 import           System.Wlog.CanLog              (WithLogger, logError, logNotice)

@@ -9,7 +9,6 @@ module Pos.Network.Yaml (
   , KademliaParams(..)
   , KademliaId(..)
   , KademliaAddress(..)
-  , NodeName(..)
   , NodeRegion(..)
   , NodeRoutes(..)
   , NodeMetadata(..)
@@ -34,6 +33,7 @@ import qualified Data.Map.Strict        as M
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS            as DNS
+import           Pos.Network.Types      (NodeName(..), Valency, Fallbacks)
 import           Pos.Util.Config
 import           Universum
 
@@ -68,29 +68,11 @@ data Topology =
       }
   deriving (Show)
 
--- | The number of peers we want to send to
---
--- In other words, this should correspond to the length of the outermost lists
--- in the OutboundQueue's 'Peers' data structure.
-type Valency = Int
-
--- | The number of fallbacks for each peer we want to send to
---
--- In other words, this should corresponding to one less than the length of the
--- innermost lists in the OutboundQueue's 'Peers' data structure.
-type Fallbacks = Int
-
 -- | All statically known peers in the newtork
 data AllStaticallyKnownPeers = AllStaticallyKnownPeers {
     allStaticallyKnownPeers :: !(Map NodeName NodeMetadata)
   }
   deriving (Show)
-
-newtype NodeName = NodeName Text
-    deriving (Show, Ord, Eq, IsString)
-
-instance ToString NodeName where
-    toString (NodeName txt) = toString txt
 
 newtype NodeRegion = NodeRegion Text
     deriving (Show, Ord, Eq, IsString)

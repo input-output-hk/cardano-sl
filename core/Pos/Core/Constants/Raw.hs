@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 
 -- | Raw constants which we want to have in 'core'. They have simpler
 -- types than constants from 'Typed' module. It's done to avoid cyclic

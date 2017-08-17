@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Explorer's global Txp (expressed as settings).
 

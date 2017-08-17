@@ -1,7 +1,6 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE CPP           #-}
+{-# LANGUAGE Rank2Types    #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Resources used by node and ways to deal with them.
 

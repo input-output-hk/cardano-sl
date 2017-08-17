@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.DHT.Real.Real
        ( kademliaJoinNetwork
@@ -22,10 +21,9 @@ import qualified Data.ByteString.Lazy      as BS
 import           Data.List                 (intersect, (\\))
 import           Data.Time.Units           (Second)
 import           Formatting                (build, int, sformat, shown, (%))
-import           Mockable                  (Catch, Mockable, MonadMockable,
-                                            Throw, catch, catchAll, throw, try,
-                                            waitAnyUnexceptional, withAsync,
-                                            Delay, delay)
+import           Mockable                  (Catch, Delay, Mockable, MonadMockable, Throw,
+                                            catch, catchAll, delay, throw, try,
+                                            waitAnyUnexceptional, withAsync)
 import qualified Network.Kademlia          as K
 import qualified Network.Kademlia.Instance as K (KademliaInstance (state),
                                                  KademliaState (sTree))

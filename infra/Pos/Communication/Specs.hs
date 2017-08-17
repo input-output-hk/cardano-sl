@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Communication.Specs
        ( createOutSpecs

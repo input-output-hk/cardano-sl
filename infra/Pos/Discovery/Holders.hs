@@ -1,6 +1,5 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Transformer that carries peer discovery capabilities.
 

@@ -1,9 +1,8 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE CPP           #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE Rank2Types    #-}
+{-# LANGUAGE TypeFamilies  #-}
 
 module Pos.Communication.Limits.Instances
        (
@@ -15,8 +14,8 @@ import qualified Pos.Communication.Constants    as Const
 import           Pos.Communication.Limits.Types (Limit (..), MessageLimited (..),
                                                  MessageLimitedPure (..))
 import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg, InvOrData,
-                                                 MempoolMsg (..), ReqMsg, ResMsg,
-                                                 ReqOrRes)
+                                                 MempoolMsg (..), ReqMsg, ReqOrRes,
+                                                 ResMsg)
 
 ----------------------------------------------------------------------------
 -- Instances of MessageLimited for the relay types.

@@ -1,9 +1,8 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE CPP           #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE Rank2Types    #-}
+{-# LANGUAGE TypeFamilies  #-}
 
 module Pos.Communication.Limits
        (

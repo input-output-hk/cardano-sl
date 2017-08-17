@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | High level workers.
 
@@ -13,24 +12,22 @@ import           Universum
 import           Data.Tagged             (untag)
 
 import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker,
-                                          wrapActionSpec, Relay,
-                                          relayPropagateOut)
+import           Pos.Communication       (OutSpecs, Relay, WorkerSpec, localWorker,
+                                          relayPropagateOut, wrapActionSpec)
 import           Pos.Context             (NodeContext (..), recoveryCommGuard)
 import           Pos.Delegation          (delegationRelays, dlgWorkers)
 import           Pos.DHT.Workers         (dhtWorkers)
-import           Pos.Launcher.Resource    (NodeResources (..))
+import           Pos.Launcher.Resource   (NodeResources (..))
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
-import           Pos.Network.Types       (NetworkConfig(..), SubscriptionWorker(..),
-                                          topologySubscriptionWorker,
-                                          topologyRunKademlia)
+import           Pos.Network.Types       (NetworkConfig (..), SubscriptionWorker (..),
+                                          topologyRunKademlia, topologySubscriptionWorker)
 import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting            (logNewSlotWorker, slottingWorkers)
 import           Pos.Ssc.Class           (SscListenersClass (sscRelays),
                                           SscWorkersClass (sscWorkers))
 import           Pos.Subscription.Common (subscriptionWorker)
-import           Pos.Subscription.Dns    (dnsSubscriptionWorker)
 import           Pos.Subscription.Dht    (dhtSubscriptionWorker)
+import           Pos.Subscription.Dns    (dnsSubscriptionWorker)
 import           Pos.Txp                 (txRelays)
 import           Pos.Txp.Worker          (txpWorkers)
 import           Pos.Update              (usRelays, usWorkers)
@@ -82,7 +79,7 @@ allWorkers NodeResources {..} = mconcatPair
       -- released.
     , case topologyRunKademlia (ncTopology ncNetworkConfig) of
         Just (kinst, _) -> dhtWorkers kinst
-        Nothing -> mempty
+        Nothing         -> mempty
     ]
   where
     NodeContext {..} = nrContext

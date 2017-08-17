@@ -1,5 +1,4 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Pos.DHT.Workers
        ( DhtWorkMode

@@ -193,7 +193,7 @@ topologySubscribers :: Topology kademlia -> Maybe (NodeType, OQ.MaxBucketSize)
 topologySubscribers TopologyCore{}          = Nothing
 topologySubscribers TopologyRelay{..}       = Just (NodeEdge, topologyMaxSubscrs)
 topologySubscribers TopologyBehindNAT{}     = Nothing
-topologySubscribers TopologyP2P{..}         = Just (NodeEdge, topologyMaxSubscrs)
+topologySubscribers TopologyP2P{..}         = Just (NodeRelay, topologyMaxSubscrs)
 topologySubscribers TopologyTraditional{..} = Just (NodeCore, topologyMaxSubscrs)
 topologySubscribers TopologyLightWallet{}   = Nothing
 

@@ -13,7 +13,7 @@ import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Monad.Error.Class (throwError)
 import Control.Promise (Promise, fromAff)
 import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString)
-import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
+import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn, updateHandlers)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Either (either)
@@ -22,7 +22,7 @@ import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, 
 import Data.Maybe (isJust, maybe, Maybe(..))
 import Data.String (length, stripSuffix, Pattern(..))
 
-import WebSocket (WEBSOCKET)
+import WebSocket (WEBSOCKET, Connection)
 
 import Daedalus.TLS (TLSOptions, FS, initTLS, getWSSOptions)
 import Node.HTTP (HTTP)
@@ -938,9 +938,13 @@ isValidMnemonic = mkEffFn2 \len -> pure <<< either (const false) (const true) <<
 -- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":4}}
 -- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":4}}
 -- | ```
-notify :: forall eff. EffFn3 (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) TLSOptions (NotifyCb eff) (ErrorCb eff) Unit
+notify :: forall eff. EffFn3 (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) TLSOptions (NotifyCb eff) (ErrorCb eff) Connection
 notify = mkEffFn3 \tls messageCb errorCb -> do
     -- TODO (akegalj) grab global (mutable) state of  here
     -- instead of creating newRef
     conn <- newRef WSNotConnected
     openConn $ mkWSState conn messageCb errorCb $ getWSSOptions tls
+
+notifyUpdateHandlers :: forall eff. EffFn3 (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) Connection (NotifyCb eff) (ErrorCb eff) Unit
+notifyUpdateHandlers = mkEffFn3 \conn messageCb errorCb -> do
+    updateHandlers conn messageCb errorCb

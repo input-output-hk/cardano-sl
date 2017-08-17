@@ -13,6 +13,7 @@ import           Unsafe                    (unsafeHead, unsafeTail)
 
 import           Control.Lens              (At (at), Index, _Right)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.Map.Strict           as M
 import           Formatting                (sformat, (%))
 import           Serokell.Util             (enumerate, subList)
 import           Test.Hspec                (Spec, describe)
@@ -22,19 +23,21 @@ import           Test.QuickCheck.Monadic   (pick)
 
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
-import           Pos.Core                  (Address, Coin, EpochIndex, HasCoreConstants,
-                                            StakeholderId, addressHash,
+import           Pos.Core                  (AddrDistribution, Address (..), Coin,
+                                            EpochIndex, GenesisWStakeholders (..),
+                                            HasCoreConstants, StakeholderId, addressHash,
                                             applyCoinPortionUp, blkSecurityParam, coinF,
                                             makePubKeyAddress, mkCoin, unsafeGetCoin,
                                             unsafeMulCoin, unsafeSubCoin)
-import           Pos.Crypto                (SecretKey, toPublic)
+import           Pos.Crypto                (SecretKey, toPublic, unsafeHash)
 import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
                                             mkInvSecretsMap)
-import           Pos.Genesis               (StakeDistribution (..),
-                                            genesisContextImplicit)
+import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..),
+                                            StakeDistribution (..), concatAddrDistrs)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
-import           Pos.Txp                   (TxAux, mkTxPayload)
+import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutAux (..),
+                                            mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys)
 
@@ -75,7 +78,7 @@ allRichmenComponents =
 -- | We need to generate some genesis with
 -- genesis stakeholders `RC × {A, B, C, D}` (where `RC` is the set of
 -- all richmen components and `{A, B, C, D}` is just a set of 4 items)
--- and make sure that there are `|RC| · 3` richmen (`RC × {A, B, C}`).
+-- and make sure that there are `|RC| · 3` richmen (`RC × {B, C, D}`).
 genTestParams :: Gen TestParams
 genTestParams = do
     let _tpStartTime = 0
@@ -95,9 +98,21 @@ genTestParams = do
         mapM (genAddressesAndDistrs r totalStakeGroup (toList invSecretsMap))
              (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
-    let _tpGenesisContext = genesisContextImplicit addressesAndDistrs
+    let _tpGenesisContext = genesisContextSimple addressesAndDistrs
     return TestParams {..}
   where
+    identityDistr (PubKeyAddress x _) coins = [(x, coins)]
+    identityDistr _ _                       = error "Unexpected address type"
+
+    genesisContextSimple :: [AddrDistribution] -> GenesisContext
+    genesisContextSimple addrDistr = do
+        let balances = concatAddrDistrs addrDistr
+        let utxoEntry (addr, coin) =
+                ( TxIn (unsafeHash addr) 0
+                , TxOutAux (TxOut addr coin) (identityDistr addr coin))
+        GenesisContext (GenesisUtxo $ M.fromList $ map utxoEntry balances)
+                       (GenesisWStakeholders mempty)
+
     -- All stakes are multiples of this constant.
     baseN :: Integral i => i
     baseN = 1000000
@@ -107,7 +122,7 @@ genTestParams = do
         -> Coin
         -> [SecretKey]
         -> (GroupId, Lrc.SomeRichmenComponent)
-        -> Gen ([Address], StakeDistribution)
+        -> Gen AddrDistribution
     genAddressesAndDistrs r totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
         let secretKeysRange = subList (4 * i, 4 * (i + 1)) allSecretKeys
         let skToAddr = makePubKeyAddress . toPublic
@@ -191,10 +206,12 @@ checkRichmen = do
     relevantStakeholders i =
         map (addressHash . toPublic) . subList (4 * i, 4 * (i + 1)) . toList <$>
         view asSecretKeys
+
     getRichmen ::
            (EpochIndex -> BlockProperty (Maybe richmen))
         -> BlockProperty richmen
     getRichmen getter = maybeStopProperty "No richmen for epoch#1!" =<< getter 1
+
     checkRichmenFull :: GroupId -> Lrc.FullRichmenData -> BlockProperty ()
     checkRichmenFull i (totalStake, richmenStakes) = do
         realTotalStake <- lift GS.getRealTotalStake
@@ -204,6 +221,7 @@ checkRichmen = do
              %coinF% ", real = " %coinF%")")
              totalStake realTotalStake
         checkRichmenStakes i richmenStakes
+
     checkRichmenStakes :: GroupId -> Lrc.RichmenStakes -> BlockProperty ()
     checkRichmenStakes i richmenStakes = do
         checkRichmenSet i (getKeys richmenStakes)
@@ -216,6 +234,7 @@ checkRichmen = do
                      lrcStake realStake
                 | otherwise = pass
         mapM_ checkRich =<< expectedRichmenStakes i
+
     checkRichmenSet :: GroupId -> Lrc.RichmenSet -> BlockProperty ()
     checkRichmenSet i richmenSet = do
         checkPoor i richmenSet
@@ -225,11 +244,13 @@ checkRichmen = do
                 ("Someone has stake "%coinF%", but wasn't considered richman")
                  realStake
         mapM_ checkRich =<< expectedRichmenStakes i
+
     expectedRichmenStakes :: GroupId -> BlockProperty [(StakeholderId, Coin)]
     expectedRichmenStakes i = do
         richmen <- unsafeTail <$> relevantStakeholders i
         let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
         lift $ mapM resolve richmen
+
     checkPoor ::
            (Index m ~ StakeholderId, At m) => GroupId -> m -> BlockProperty ()
     checkPoor i richmen = do

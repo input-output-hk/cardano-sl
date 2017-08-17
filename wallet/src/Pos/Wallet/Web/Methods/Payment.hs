@@ -149,6 +149,8 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
             (toList srcAddrs)
             dstAddrs
 
+        -- TODO [CSM-256] sometimes in presense of ^ error we want this anyway;
+        -- same for redeeming
         rememberPendingTx srcWallet txHash txAux
         ts <- Just <$> getCurrentTimestamp
         ctxs <- addHistoryTx srcWallet $

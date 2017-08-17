@@ -373,6 +373,7 @@ setPtxCondition :: TxId -> PtxCondition -> Update ()
 setPtxCondition txId cond =
     wsPendingTxs . ix txId %= (\tx -> tx { ptxCond = cond })
 
+-- | Compare-and-set version of 'setPtxCondition'.
 casPtxCondition :: TxId -> PtxCondition -> PtxCondition -> Update ()
 casPtxCondition txId oldCond newCond = do
     oldCond' <- ptxCond <<$>> use (wsPendingTxs . at txId)

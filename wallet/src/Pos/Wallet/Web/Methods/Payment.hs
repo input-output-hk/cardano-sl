@@ -138,7 +138,6 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
         let inpTxOuts = toList inpTxOuts'
             txHash    = hash tx
-            inpAddrs  = map txOutAddress inpTxOuts
             dstAddrs  = map txOutAddress . toList $
                         _txOutputs tx
             srcWallet = getMoneySourceWallet moneySource
@@ -151,7 +150,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
         ts <- Just <$> getCurrentTimestamp
         ctxs <- addHistoryTx srcWallet $
-            THEntry txHash tx inpTxOuts Nothing inpAddrs dstAddrs ts
+            THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
      noOutgoingTx = InternalError "Can't report outgoing transaction"

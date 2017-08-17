@@ -42,10 +42,10 @@ import           Universum
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core                 (AddressIgnoringAttributes (AddressIA),
-                                           TxFeePolicy (..), TxSizeLinear, addressF,
-                                           bvdTxFeePolicy, calculateTxSizeLinear,
-                                           integerToCoin, integerToCoin, siEpoch,
-                                           unsafeAddCoin, unsafeSubCoin, _RedeemAddress)
+                                           TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
+                                           calculateTxSizeLinear, integerToCoin,
+                                           integerToCoin, siEpoch, unsafeAddCoin,
+                                           unsafeSubCoin, _RedeemAddress)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SignTag (SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
                                            redeemSign, redeemToPublic, safeSign,
@@ -268,8 +268,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
     checkIsNotRedeemAddr outAddr =
         when (has _RedeemAddress outAddr) $
-            throwTxError $
-            sformat ("Destination address can't be redeem address: "%addressF) outAddr
+            throwTxError "Destination address can't be redeem address"
 
 -- | Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem

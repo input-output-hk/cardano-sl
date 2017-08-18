@@ -22,6 +22,7 @@ import           Pos.Block.Core
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
 import           Pos.Core.Types                  (AddrAttributes (..),
+                                                  AddrSpendingData (..),
                                                   AddrStakeDistribution (..),
                                                   AddrType (..), Address (..),
                                                   Address' (..), ApplicationName (..),
@@ -119,6 +120,7 @@ deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrType -- ☃
 deriveSafeCopySimple 0 'base ''AddrStakeDistribution
+deriveSafeCopySimple 0 'base ''AddrSpendingData
 deriveSafeCopySimple 0 'base ''AddrAttributes
 deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address

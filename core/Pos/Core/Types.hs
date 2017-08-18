@@ -173,7 +173,7 @@ data AddrAttributes = AddrAttributes
 -- | Hash of this data is stored in 'Address'. This type exists mostly
 -- for internal usage.
 newtype Address' = Address'
-    { unAddress' :: (AddressHash AddrSpendingData, Attributes AddrAttributes)
+    { unAddress' :: (AddrType, AddrSpendingData, Attributes AddrAttributes)
     } deriving (Eq, Show, Generic, Typeable)
 
 -- | 'Address' is where you can send coins.

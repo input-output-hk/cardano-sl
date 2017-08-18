@@ -157,11 +157,12 @@ makeAddress spendingData attributesUnwrapped =
     Address
     { addrRoot = addressHash address'
     , addrAttributes = attributes
-    , addrType = addrSpendingDataToType spendingData
+    , ..
     }
   where
+    addrType = addrSpendingDataToType spendingData
     attributes = mkAttributes attributesUnwrapped
-    address' = Address' (addressHash spendingData, attributes)
+    address' = Address' (addrType, spendingData, attributes)
 
 -- TODO [CSL-1489] Consider stake distribution.
 
@@ -233,7 +234,7 @@ checkAddrSpendingData :: AddrSpendingData -> Address -> Bool
 checkAddrSpendingData asd Address {..} =
     addrRoot == addressHash address' && addrType == addrSpendingDataToType asd
   where
-    address' = Address' (addressHash asd, addrAttributes)
+    address' = Address' (addrType, asd, addrAttributes)
 
 -- | Check if given 'Address' is created from given 'PublicKey'
 checkPubKeyAddress :: PublicKey -> Address -> Bool

@@ -37,8 +37,6 @@ servantHandlers sendActions =
     :<|>
      M.restoreWallet
     :<|>
-     M.renameWallet
-    :<|>
      M.deleteWallet
     :<|>
      M.importWallet

@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
@@ -468,6 +468,7 @@ instance HasCoreConstants => MonadSlots BlockTestMode where
         view btcSlotId_L >>= \case
             Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
             Just slot -> pure slot
+    -- FIXME: it is a workaround for CSE-203!
     currentTimeSlotting = pure $ Timestamp 0
 
 instance MonadDBRead BlockTestMode where

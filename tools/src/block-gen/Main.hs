@@ -25,6 +25,7 @@ import           Pos.Core                    (AddrSpendingData (..),
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
+import           Pos.Genesis                 (GenesisContext (..))
 import           Pos.Genesis                 (GenesisWStakeholders (..), devAddrDistr,
                                               genesisUtxo)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
@@ -69,9 +70,10 @@ main = flip catch catchEx $ giveStaticConsts $ do
             | otherwise = genesisProdAddrDistribution
     -- We need to select from utxo TxOut's corresponding to passed secrets
     -- to avoid error "Secret key of %hash% is required but isn't known"
-    let genUtxoUnfiltered = genesisUtxo bootStakeholders addrDistribution
+    let genUtxoUnfiltered = genesisUtxo addrDistribution
     let genUtxo = genUtxoUnfiltered &
             _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
+    let genCtx = GenesisContext genUtxo bootStakeholders
     when (null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 
@@ -88,7 +90,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
                 bootStakeholders
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
-        initTBlockGenMode db genUtxo $
+        initTBlockGenMode db genCtx $
             void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.

@@ -10,7 +10,7 @@ module Params
 
 import           Universum
 
-import           Mockable              (Fork, Mockable, Catch)
+import           Mockable              (Catch, Fork, Mockable)
 import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
@@ -101,7 +101,7 @@ getNodeParams args@Args {..} systemStart = do
     let npGenesisCtx
             | isDevelopment =
               let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo bootStakeholders aDistr)
+              in GenesisContext (genesisUtxo aDistr)
                                 bootStakeholders
             | otherwise = genesisContextProduction
 

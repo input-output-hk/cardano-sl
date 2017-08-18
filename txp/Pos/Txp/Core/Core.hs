@@ -12,13 +12,21 @@ module Pos.Txp.Core.Core
 
 import           Universum
 
+import           Control.Lens        (ix)
+import qualified Data.Hashable       as Hashable (hash)
 import qualified Data.HashSet        as HS
 import           Data.List           (zipWith3)
+import qualified Data.Map.Strict     as M
 
 import           Pos.Binary.Core     ()
 import           Pos.Binary.Crypto   ()
 import           Pos.Binary.Txp.Core ()
-import           Pos.Core            (Address (..))
+import           Pos.Core            (AddrStakeDistribution (..), Address (..), Coin,
+                                      CoinPortion, StakeholderId, aaStakeDistribution,
+                                      addrAttributesUnwrapped, applyCoinPortionDown,
+                                      coinToInteger, mkCoin, sumCoins, unsafeAddCoin,
+                                      unsafeGetCoin, unsafeIntegerToCoin)
+import           Pos.Core.Genesis    (GenesisWStakeholders (..), bootDustThreshold)
 import           Pos.Crypto          (hash)
 import           Pos.Merkle          (mtRoot)
 import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
@@ -42,11 +50,30 @@ txInToPair (TxIn h i) = (h, i)
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
---
--- [CSL-1489] TODO: we should get rid of 'TxOutAux' and take
--- distribution from 'Address'.
-txOutStake :: TxOutAux -> TxOutDistribution
-txOutStake TxOutAux {..} = toaDistr
+txOutStake :: GenesisWStakeholders -> TxOutAux -> TxOutDistribution
+txOutStake genStakeholders (toaOut -> TxOut {..}) =
+    case aaStakeDistribution (addrAttributesUnwrapped txOutAddress) of
+        BootstrapEraDistr            -> bootstrapEraDistr genStakeholders txOutValue
+        SingleKeyDistr sId           -> [(sId, txOutValue)]
+        UnsafeMultiKeyDistr distrMap -> computeMultiKeyDistr (M.toList distrMap)
+  where
+    outValueInteger = coinToInteger txOutValue
+    -- For all stakeholders in this list (which is 'Ord'-ered) except
+    -- the first one we use 'applyCoinPortionDown'. For the first one
+    -- we take the difference. It is safe because sum of portions must
+    -- be 1.
+    computeMultiKeyDistr :: [(StakeholderId, CoinPortion)] -> TxOutDistribution
+    computeMultiKeyDistr [] =
+        error $ "txOutStake: impossible happened, " <>
+        "multi key distribution is empty"
+    computeMultiKeyDistr ((headStakeholder, _):rest) =
+        let restDistr = computeMultiKeyDistrRest rest
+            restDistrSum = sumCoins $ map snd restDistr
+            headStake = outValueInteger - restDistrSum
+        -- 'unsafeIntegerToCoin' is safe by construction
+        in (headStakeholder, unsafeIntegerToCoin headStake) : restDistr
+    computeMultiKeyDistrRest :: [(StakeholderId, CoinPortion)] -> TxOutDistribution
+    computeMultiKeyDistrRest = map (second (`applyCoinPortionDown` txOutValue))
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.
 mkTxProof :: TxPayload -> TxProof
@@ -65,3 +92,60 @@ flattenTxPayload UnsafeTxPayload {..} =
 
 emptyTxPayload :: TxPayload
 emptyTxPayload = leftToPanic @Text "emptyTxPayload failed" $ mkTxPayload []
+
+----------------------------------------------------------------------------
+-- Details
+----------------------------------------------------------------------------
+
+-- Compute bootstrap era distribution.
+--
+-- This function splits coin into chunks of @weightsSum@ and
+-- distributes them between bootstrap era stakeholders. Remainder is
+-- assigned randomly (among bootstrap era stakeholders) based on hash of the
+-- coin.
+-- TODO CSL-1489 Don't use 'hash' which is used here!
+--
+-- If coin is lower than 'bootDustThreshold' then this function
+-- distributes coins among first stakeholders in the list according to
+-- their weights. The list is ordered by 'StakeholderId's.
+bootstrapEraDistr ::
+       GenesisWStakeholders -> Coin -> [(StakeholderId, Coin)]
+bootstrapEraDistr g@(GenesisWStakeholders bootWHolders) c
+    | c < bootDustThreshold g =
+          snd $ foldr foldrFunc (0::Word64,[]) (M.toList bootWHolders)
+    | otherwise =
+          bootHolders `zip` stakeCoins
+  where
+    foldrFunc (s,w) r@(totalSum, res) = case compare totalSum cval of
+        EQ -> r
+        GT -> error "genesisSplitBoot: totalSum > cval can't happen"
+        LT -> let w' = (fromIntegral w :: Word64)
+                  toInclude = bool w' (cval - totalSum) (totalSum + w' > cval)
+              in (totalSum + toInclude
+                 ,(s, mkCoin toInclude):res)
+
+    weights :: [Word64]
+    weights = map fromIntegral $ toList bootWHolders
+
+    weightsSum :: Word64
+    weightsSum = sum weights
+
+    bootHolders :: [StakeholderId]
+    bootHolders = M.keys bootWHolders
+
+    (d :: Word64, m :: Word64) = divMod cval weightsSum
+
+    -- Person who will get the remainder.
+    remReceiver :: Int
+    remReceiver = abs (Hashable.hash c) `mod` addrsNum
+
+    cval :: Word64
+    cval = unsafeGetCoin c
+
+    addrsNum :: Int
+    addrsNum = length bootHolders
+
+    stakeCoins :: [Coin]
+    stakeCoins =
+        map (\w -> mkCoin $ w * d) weights &
+        ix remReceiver %~ unsafeAddCoin (mkCoin m)

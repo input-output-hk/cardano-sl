@@ -433,7 +433,7 @@ main = giveStaticConsts $ do
     let wpGenesisContext =
             if isDevelopment
             then let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-                 in GenesisContext (genesisUtxo bootStakeholders aDistr)
+                 in GenesisContext (genesisUtxo aDistr)
                                    bootStakeholders
             else genesisContextProduction
     let params =

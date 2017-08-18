@@ -16,25 +16,33 @@ import           Formatting          (sformat, (%))
 import           Serokell.Util.Text  (listJson)
 import           System.Wlog         (WithLogger, logDebug)
 
-import           Pos.Core            (mkCoin)
-import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core            (GenesisWStakeholders, coinToInteger, mkCoin,
+                                      sumCoins, unsafeIntegerToCoin)
 import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..),
                                       TxOutDistribution, TxUndo, getTxDistribution,
                                       txOutStake)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..))
+import           Pos.Util.Util       (HasLens', lensOf')
 
-type BalancesMode m = (MonadBalances m, WithLogger m)
+type BalancesMode ctx m
+     = ( MonadBalances m
+       , WithLogger m
+       , MonadReader ctx m
+       , HasLens' ctx GenesisWStakeholders
+       )
 
 -- | Apply transactions to balances.
-applyTxsToBalances :: BalancesMode m => [(TxAux, TxUndo)] -> m ()
+applyTxsToBalances :: BalancesMode ctx m => [(TxAux, TxUndo)] -> m ()
 applyTxsToBalances txun = do
-    let (txOutPlus, txInMinus) = concatStakes txun
+    gws <- view lensOf'
+    let (txOutPlus, txInMinus) = concatStakes gws txun
     recomputeStakes txOutPlus txInMinus
 
 -- | Rollback application of transactions to balances.
-rollbackTxsBalances :: BalancesMode m => [(TxAux, TxUndo)] -> m ()
+rollbackTxsBalances :: BalancesMode ctx m => [(TxAux, TxUndo)] -> m ()
 rollbackTxsBalances txun = do
-    let (txOutMinus, txInPlus) = concatStakes txun
+    gws <- view lensOf'
+    let (txOutMinus, txInPlus) = concatStakes gws txun
     recomputeStakes txInPlus txOutMinus
 
 ----------------------------------------------------------------------------
@@ -43,7 +51,7 @@ rollbackTxsBalances txun = do
 
 -- Compute new stakeholder's stakes by lists of spent and received coins.
 recomputeStakes
-    :: BalancesMode m
+    :: BalancesMode ctx m
     => TxOutDistribution
     -> TxOutDistribution
     -> m ()
@@ -88,13 +96,14 @@ recomputeStakes plusDistr minusDistr = do
         err = error ("recomputeStakes: no stake for " <> show key)
 
 -- Concatenate stakes of the all passed transactions and undos.
-concatStakes
-    :: [(TxAux, TxUndo)]
+concatStakes ::
+       GenesisWStakeholders
+    -> [(TxAux, TxUndo)]
     -> (TxOutDistribution, TxOutDistribution)
-concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
+concatStakes gws (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap txOutStake (foldMap toList undo)
+    undoTxInDistr = concatMap (txOutStake gws) (foldMap toList undo)
     concatDistr (TxAux UnsafeTx {..} _ distr) =
-        concatMap txOutStake $
+        concatMap (txOutStake gws) $
         toList (NE.zipWith TxOutAux _txOutputs (getTxDistribution distr))

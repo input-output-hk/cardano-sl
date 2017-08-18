@@ -56,11 +56,14 @@ import qualified Pos.Txp.Toil.Utxo          as Utxo
 -- Global
 ----------------------------------------------------------------------------
 
-type GlobalApplyToilMode m =
+type GlobalApplyToilMode ctx m =
     ( MonadUtxo m
     , MonadBalances m
     , MonadGState m
-    , WithLogger m)
+    , WithLogger m
+    , MonadReader ctx m
+    , HasLens' ctx GenesisWStakeholders
+    )
 
 type GlobalVerifyToilMode ctx m =
     ( MonadUtxo m
@@ -89,7 +92,7 @@ verifyToil curEpoch verifyAllIsKnown =
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 applyToil
-    :: GlobalApplyToilMode m
+    :: GlobalApplyToilMode ctx m
     => [(TxAux, TxUndo)]
     -> m ()
 applyToil txun = do
@@ -97,7 +100,7 @@ applyToil txun = do
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
-rollbackToil :: GlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
+rollbackToil :: GlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
 rollbackToil txun = do
     rollbackTxsBalances txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun

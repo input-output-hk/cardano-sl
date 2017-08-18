@@ -40,7 +40,7 @@ import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutAux (..),
                                             TxOutDistribution, mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
-import           Pos.Util.Util             (getKeys)
+import           Pos.Util.Util             (getKeys, lensOf)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
                                             blockPropertyToProperty)
@@ -182,12 +182,13 @@ lrcCorrectnessProp = do
     lift $ Lrc.lrcSingleShotNoLock 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
+    gws <- view (lensOf @GenesisWStakeholders)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
     -- epoch) because we have a contract that if there is no ssc
     -- payload the previous seed must be reused (which is the case in
     -- this test).
     let expectedLeadersUtxo =
-            Lrc.followTheSatoshiUtxo Lrc.genesisSeed stableUtxo
+            Lrc.followTheSatoshiUtxo gws Lrc.genesisSeed stableUtxo
     let expectedLeadersStakes =
             Lrc.followTheSatoshi Lrc.genesisSeed (HM.toList stableStakes)
     unless (expectedLeadersUtxo /= leaders1) $

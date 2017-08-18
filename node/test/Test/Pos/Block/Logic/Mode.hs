@@ -63,7 +63,8 @@ import           Pos.Generator.BlockEvent       (SnapshotId)
 import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
                                                  GenesisWStakeholders (..),
                                                  genesisContextImplicit, gtcUtxo,
-                                                 gtcWStakeholders, safeExpStakes)
+                                                 gtcWStakeholders, gtcWStakeholders,
+                                                 safeExpStakes)
 import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
 import           Pos.Launcher                   (newInitFuture)
@@ -191,11 +192,12 @@ instance Arbitrary TestParams where
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data TestInitModeContext ssc = TestInitModeContext
-    { timcDBPureVar   :: DBPureVar
-    , timcGenesisUtxo :: GenesisUtxo
-    , timcSlottingVar :: TVar SlottingData
-    , timcSystemStart :: !Timestamp
-    , timcLrcContext  :: LrcContext
+    { timcDBPureVar           :: DBPureVar
+    , timcGenesisUtxo         :: GenesisUtxo
+    , timcGenesisStakeholders :: GenesisWStakeholders
+    , timcSlottingVar         :: TVar SlottingData
+    , timcSystemStart         :: !Timestamp
+    , timcLrcContext          :: LrcContext
     }
 
 makeLensesWith postfixLFields ''TestInitModeContext
@@ -258,6 +260,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             TestInitModeContext
                 dbPureVar
                 (_tpGenesisContext ^. gtcUtxo)
+                (_tpGenesisContext ^. gtcWStakeholders)
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -334,6 +337,9 @@ instance HasLens DBPureVar (TestInitModeContext ssc) DBPureVar where
 
 instance HasLens GenesisUtxo (TestInitModeContext ssc) GenesisUtxo where
     lensOf = timcGenesisUtxo_L
+
+instance HasLens GenesisWStakeholders (TestInitModeContext ssc) GenesisWStakeholders where
+    lensOf = timcGenesisStakeholders_L
 
 instance HasLens LrcContext (TestInitModeContext ssc) LrcContext where
     lensOf = timcLrcContext_L

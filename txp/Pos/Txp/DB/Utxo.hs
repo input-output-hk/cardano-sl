@@ -39,13 +39,13 @@ import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
 import           Formatting                   (bprint, build, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
-import           Serokell.Util.Text           (listJson, pairF)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Core              ()
-import           Pos.Core                     (Address, Coin, coinF, mkCoin, sumCoins,
-                                               unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core                     (Address, Coin, GenesisWStakeholders, coinF,
+                                               mkCoin, sumCoins, unsafeAddCoin,
+                                               unsafeIntegerToCoin)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), IterType, MonadDB,
                                                MonadDBRead, RocksBatchOp (..),
@@ -54,6 +54,7 @@ import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Txp.Core                 (TxIn (..), TxOutAux, addrBelongsToSet,
                                                txOutStake)
 import           Pos.Txp.Toil.Types           (GenesisUtxo (..), Utxo)
+import           Pos.Util.Util                (HasLens', lensOf)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -74,8 +75,8 @@ instance Buildable UtxoOp where
     build (DelTxIn txIn)           =
         bprint ("DelTxIn ("%build%")") txIn
     build (AddTxOut txIn txOutAux) =
-        bprint ("AddTxOut ("%build%", "%listJson%")")
-        txIn (map (bprint pairF) $ txOutStake txOutAux)
+        bprint ("AddTxOut ("%build%", "%build%")")
+        txIn txOutAux
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
@@ -132,10 +133,11 @@ getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadDBRead m, WithLogger m)
+    :: (MonadDBRead m, WithLogger m, MonadReader ctx m, HasLens' ctx GenesisWStakeholders)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
-    let stakesSource = mapOutput (map snd . txOutStake . snd) utxoSource
+    gws <- view (lensOf @GenesisWStakeholders)
+    let stakesSource = mapOutput (map snd . txOutStake gws . snd) utxoSource
     calculatedTotalStake <-
         runConduitRes $ stakesSource .| CL.fold foldAdd (mkCoin 0)
     let fmt =

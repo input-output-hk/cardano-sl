@@ -64,7 +64,7 @@ data ApplyBlocksSettings extra m = ApplyBlocksSettings
     }
 
 applyBlocksSettings
-    :: GlobalApplyToilMode m
+    :: GlobalApplyToilMode ctx m
     => ApplyBlocksSettings () m
 applyBlocksSettings =
     ApplyBlocksSettings

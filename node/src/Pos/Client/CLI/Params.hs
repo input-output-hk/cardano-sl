@@ -8,28 +8,30 @@ module Pos.Client.CLI.Params
 
 import           Universum
 
-import qualified Data.ByteString.Char8 as BS8 (unpack)
-import           Mockable              (Fork, Mockable, Catch)
-import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
-import           System.Wlog           (LoggerName, WithLogger)
+import qualified Data.ByteString.Char8      as BS8 (unpack)
+import           Mockable                   (Catch, Fork, Mockable)
+import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
+import           System.Wlog                (LoggerName, WithLogger)
 
-import qualified Pos.CLI               as CLI
-import           Pos.Constants         (isDevelopment)
-import           Pos.Core.Types        (Timestamp (..))
-import           Pos.Crypto            (VssKeyPair)
-import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
-                                        genesisContextProduction, genesisUtxo)
-import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
-                                        NodeParams (..), TransportParams (..))
-import           Pos.Network.CLI       (intNetworkConfigOpts)
-import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
-import           Pos.Security          (SecurityParams (..))
-import           Pos.Ssc.GodTossing    (GtParams (..))
-import           Pos.Update.Params     (UpdateParams (..))
-import           Pos.Util.UserSecret   (peekUserSecret)
+import qualified Pos.CLI                    as CLI
+import           Pos.Constants              (isDevelopment)
+import           Pos.Core.Types             (Timestamp (..))
+import           Pos.Crypto                 (VssKeyPair)
+import           Pos.Genesis                (GenesisContext (..), devAddrDistr,
+                                             devStakesDistr, genesisContextProduction,
+                                             genesisUtxo)
+import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
+                                             NodeParams (..), TransportParams (..))
+import           Pos.Network.CLI            (intNetworkConfigOpts)
+import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
+import           Pos.Security               (SecurityParams (..))
+import           Pos.Ssc.GodTossing         (GtParams (..))
+import           Pos.Update.Params          (UpdateParams (..))
+import           Pos.Util.UserSecret        (peekUserSecret)
 
-import           Pos.Client.CLI.NodeOptions           (SimpleNodeArgs (..))
-import           Pos.Client.CLI.Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
+import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..))
+import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
+                                             userSecretWithGenesisKey)
 
 
 loggingParams :: LoggerName -> SimpleNodeArgs -> LoggingParams
@@ -79,7 +81,7 @@ getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
     let npGenesisCtx
             | isDevelopment =
               let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo bootStakeholders aDistr)
+              in GenesisContext (genesisUtxo aDistr)
                                 bootStakeholders
             | otherwise = genesisContextProduction
     pure NodeParams

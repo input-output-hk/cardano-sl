@@ -20,27 +20,22 @@ module Pos.Core.Genesis
        -- * Utils
        , generateGenesisKeyPair
        , generateHdwGenesisSecretKey
-       , genesisSplitBoot
        ) where
 
 import           Universum
 
-import           Control.Lens            (ix)
-import           Data.Hashable           (hash)
-import qualified Data.Map.Strict         as M
 import qualified Data.Text               as T
 import           Formatting              (int, sformat, (%))
 
 import           Pos.Binary.Crypto       ()
-import           Pos.Core.Coin           (unsafeAddCoin, unsafeMulCoin)
+import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
                                           GenesisWStakeholders (..),
                                           StakeDistribution (..), bootDustThreshold,
                                           getTotalStake, mkGenesisCoreData, safeExpStakes)
-import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
-                                          unsafeGetCoin)
+import           Pos.Core.Types          (Address, mkCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
@@ -106,54 +101,3 @@ generateHdwGenesisSecretKey =
     flip safeDeterministicKeyGen emptyPassphrase .
     encodeUtf8 .
     T.take 32 . sformat ("My 32-byte hdw seed #" %int % "                  ")
-
--- | Returns a distribution sharing coins to given boot
--- stakeholders. Number of stakeholders must be less or equal to the
--- related 'bootDustThreshold'. Function splits coin on chunks of
--- @weightsSum@ and distributes it over boot stakeholder. Remainder is
--- assigned randomly (among boot stakeholders) based on hash of the coin.
---
--- If coin is lower than 'bootDustThreshold' then this function
--- distributes coins among first stakeholders in the list according to
--- their weights.
-genesisSplitBoot ::
-       GenesisWStakeholders -> Coin -> [(StakeholderId, Coin)]
-genesisSplitBoot g@(GenesisWStakeholders bootWHolders) c
-    | c < bootDustThreshold g =
-          snd $ foldr foldrFunc (0::Word64,[]) (M.toList bootWHolders)
-    | otherwise =
-          bootHolders `zip` stakeCoins
-  where
-    foldrFunc (s,w) r@(totalSum, res) = case compare totalSum cval of
-        EQ -> r
-        GT -> error "genesisSplitBoot: totalSum > cval can't happen"
-        LT -> let w' = (fromIntegral w :: Word64)
-                  toInclude = bool w' (cval - totalSum) (totalSum + w' > cval)
-              in (totalSum + toInclude
-                 ,(s, mkCoin toInclude):res)
-
-    weights :: [Word64]
-    weights = map fromIntegral $ toList bootWHolders
-
-    weightsSum :: Word64
-    weightsSum = sum weights
-
-    bootHolders :: [StakeholderId]
-    bootHolders = M.keys bootWHolders
-
-    (d :: Word64, m :: Word64) = divMod cval weightsSum
-
-    -- Person who will get the remainder in (2) case.
-    remReceiver :: Int
-    remReceiver = abs (hash c) `mod` addrsNum
-
-    cval :: Word64
-    cval = unsafeGetCoin c
-
-    addrsNum :: Int
-    addrsNum = length bootHolders
-
-    stakeCoins :: [Coin]
-    stakeCoins =
-        map (\w -> mkCoin $ w * d) weights &
-        ix remReceiver %~ unsafeAddCoin (mkCoin m)

@@ -19,7 +19,8 @@ import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Slog       (SlogContext, mkSlogContext)
 import           Pos.Block.Types      (Undo)
 import           Pos.Context          (GenesisUtxo (..))
-import           Pos.Core             (HasCoreConstants, Timestamp (..))
+import           Pos.Core             (GenesisWStakeholders, HasCoreConstants,
+                                       Timestamp (..))
 import           Pos.DB               (MonadBlockDBGeneric (..),
                                        MonadBlockDBGenericWrite (..), MonadDB (..),
                                        MonadDBRead (..))
@@ -27,6 +28,7 @@ import qualified Pos.DB               as DB
 import qualified Pos.DB.Block         as BDB
 import           Pos.DB.DB            (initNodeDBs)
 import           Pos.DB.Sum           (DBSum (..))
+import           Pos.Genesis          (GenesisContext (..))
 import           Pos.GState           (GStateContext (..))
 import qualified Pos.GState           as GS
 import           Pos.KnownPeers       (MonadFormatPeers (..))
@@ -39,9 +41,10 @@ import           Pos.Util.Util        (postfixLFields)
 -- | Enough context for generation of blocks.
 -- "T" means tool
 data TBlockGenContext = TBlockGenContext
-    { tbgcGState      :: GStateContext
-    , tbgcGenesisUtxo :: GenesisUtxo
-    , tbgcSystemStart :: Timestamp
+    { tbgcGState              :: GStateContext
+    , tbgcGenesisUtxo         :: GenesisUtxo
+    , tbgcGenesisStakeholders :: GenesisWStakeholders
+    , tbgcSystemStart         :: Timestamp
     }
 
 makeLensesWith postfixLFields ''TBlockGenContext
@@ -51,8 +54,13 @@ type TBlockGenMode = ReaderT TBlockGenContext Production
 runTBlockGenMode :: TBlockGenContext -> TBlockGenMode a -> Production a
 runTBlockGenMode = flip Mtl.runReaderT
 
-initTBlockGenMode :: HasCoreConstants => DB.NodeDBs -> GenesisUtxo -> TBlockGenMode a -> Production a
-initTBlockGenMode nodeDBs genUtxo action = do
+initTBlockGenMode ::
+       HasCoreConstants
+    => DB.NodeDBs
+    -> GenesisContext
+    -> TBlockGenMode a
+    -> Production a
+initTBlockGenMode nodeDBs (GenesisContext genUtxo genStakeholders) action = do
     let _gscDB = RealDB nodeDBs
     (_gscSlogContext, putSlogContext) <- newInitFuture
     (_gscLrcContext, putLrcCtx) <- newInitFuture
@@ -61,6 +69,7 @@ initTBlockGenMode nodeDBs genUtxo action = do
 
     tbgcSystemStart <- Timestamp <$> currentTime
     let tbgcGenesisUtxo = genUtxo
+    let tbgcGenesisStakeholders = genStakeholders
     let tblockCtx = TBlockGenContext {..}
     runTBlockGenMode tblockCtx $ do
         initNodeDBs @SscGodTossing
@@ -94,6 +103,9 @@ instance HasLens LrcContext TBlockGenContext LrcContext where
 
 instance HasLens GenesisUtxo TBlockGenContext GenesisUtxo where
     lensOf = tbgcGenesisUtxo_L
+
+instance HasLens GenesisWStakeholders TBlockGenContext GenesisWStakeholders where
+    lensOf = tbgcGenesisStakeholders_L
 
 instance HasSlottingVar TBlockGenContext where
     slottingTimestamp = tbgcSystemStart_L

@@ -52,7 +52,7 @@ import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SignTag 
                                            safeToPublic)
 import           Pos.Data.Attributes      (mkAttributes)
 import           Pos.DB                   (MonadGState, gsAdoptedBVData, gsIsBootstrapEra)
-import           Pos.Genesis              (GenesisWStakeholders, genesisSplitBoot)
+import           Pos.Genesis              (GenesisWStakeholders)
 import           Pos.Script               (Script)
 import           Pos.Script.Examples      (multisigRedeemer, multisigValidator)
 import           Pos.Slotting.Class       (MonadSlots (getCurrentSlotBlocking))
@@ -164,17 +164,24 @@ runTxCreator action = runExceptT $ do
 
 -- | Overrides 'txDistr' with correct ones (according to the boot era
 -- stake distribution) or leaves it as it is if in post-boot era.
+--
+-- TODO [CSL-1489] We need to decide what to do with it. It's
+-- impossible to change distribution without additional information.
 overrideTxOutDistrBoot
     :: Monad m
     => Coin
     -> TxOutDistribution
     -> TxCreator m TxOutDistribution
-overrideTxOutDistrBoot c oldDistr = do
-    bootEra <- view tcdBootEra
-    genStakeholders <- view tcdStakeholders
-    pure $ if bootEra
-           then genesisSplitBoot genStakeholders c
-           else oldDistr
+overrideTxOutDistrBoot _ oldDistr = do
+    _ <- view tcdBootEra
+    _ <- view tcdStakeholders
+    return oldDistr
+-- overrideTxOutDistrBoot c oldDistr = do
+--     bootEra <- view tcdBootEra
+--     genStakeholders <- view tcdStakeholders
+--     pure $ if bootEra
+--            then genesisSplitBoot genStakeholders c
+--            else oldDistr
 
 -- | Same as 'overrideTxOutDistrBoot' but changes 'TxOutputs' all at once
 overrideTxDistrBoot

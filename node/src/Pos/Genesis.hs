@@ -40,7 +40,6 @@ module Pos.Genesis
 import           Universum
 
 import           Control.Lens               (at, makeLenses)
-import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as Map
 import qualified Data.Map.Strict            as M
@@ -60,10 +59,10 @@ import           Pos.Core                   (AddrSpendingData (PubKeyASD), Addre
                                              unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
-import           Pos.Lrc.FtsPure            (followTheSatoshi)
+import           Pos.Lrc.FtsPure            (followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil               (GenesisUtxo (..), utxoToStakes)
+import           Pos.Txp.Toil               (GenesisUtxo (..))
 
 -- reexports
 import           Pos.Core.Genesis
@@ -161,18 +160,17 @@ concatAddrDistrs addrDistrs =
 -- | Generates genesis 'Utxo' given weighted boot stakeholders and
 -- address distributions. All the stake is distributed among genesis
 -- stakeholders (using 'genesisSplitBoot').
-genesisUtxo :: GenesisWStakeholders -> [AddrDistribution] -> GenesisUtxo
-genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
-    | null bootStakeholders =
-        error "genesisUtxo: no stakeholders for the bootstrap era"
-    | otherwise = GenesisUtxo . M.fromList $ map utxoEntry balances
+genesisUtxo :: [AddrDistribution] -> GenesisUtxo
+genesisUtxo ad = GenesisUtxo . M.fromList $ map utxoEntry balances
   where
     balances :: [(Address, Coin)]
     balances = concatAddrDistrs ad
     utxoEntry (addr, coin) =
         ( TxIn (unsafeHash addr) 0
-        , TxOutAux (TxOut addr coin) (outDistr coin))
-    outDistr = genesisSplitBoot gws
+        , TxOutAux
+              (TxOut addr coin)
+              [] -- note: distribution will be removed soon
+         )
 
 -- | Same as 'genesisUtxo' but generates 'GenesisWStakeholders' set
 -- using 'generateWStakeholders' inside and wraps it all in
@@ -182,7 +180,7 @@ genesisContextImplicit invAddrSpendingData addrDistr =
     GenesisContext utxo genStakeholders
   where
     genStakeholders = generateWStakeholders invAddrSpendingData addrDistr
-    utxo = genesisUtxo genStakeholders addrDistr
+    utxo = genesisUtxo addrDistr
 
 -- | Generate weighted stakeholders using passed address distribution.
 generateWStakeholders :: InvAddrSpendingData -> [AddrDistribution] -> GenesisWStakeholders
@@ -218,9 +216,10 @@ generateWStakeholders (unInvAddrSpendingData -> addrToSpending) addrDistrs =
             _ -> identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: HasCoreConstants => GenesisUtxo -> SlotLeaders
-genesisLeaders (GenesisUtxo utxo) =
-    followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
+genesisLeaders :: HasCoreConstants => GenesisContext -> SlotLeaders
+genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
+                              , _gtcWStakeholders = gws
+                              } = followTheSatoshiUtxo gws genesisSeed utxo
 
 ----------------------------------------------------------------------------
 -- Production mode genesis
@@ -229,7 +228,7 @@ genesisLeaders (GenesisUtxo utxo) =
 -- | 'GenesisUtxo' used in production.
 genesisUtxoProduction :: GenesisUtxo
 genesisUtxoProduction =
-    genesisUtxo genesisProdBootStakeholders genesisProdAddrDistribution
+    genesisUtxo genesisProdAddrDistribution
 
 -- | 'GenesisContext' that uses all the data for prod.
 genesisContextProduction :: GenesisContext

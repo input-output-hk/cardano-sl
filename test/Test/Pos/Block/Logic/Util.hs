@@ -19,11 +19,12 @@ import           Data.Default                (def)
 import           Test.QuickCheck.Gen         (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic     (pick)
 
+import           Pos.AllSecrets              (AllSecrets)
 import           Pos.Block.Core              (Block)
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (BlockCount, HasCoreConstants, SlotId (..),
                                               epochIndexL)
-import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..), genBlocks,
+import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
 import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.Ssc.GodTossing          (SscGodTossing)

@@ -12,7 +12,10 @@ import           System.Directory            (doesDirectoryExist)
 import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
-import           Pos.Core                    (StakeDistribution (..),
+import           Pos.AllSecrets              (AllSecrets (..), mkInvAddrSpendingData,
+                                              mkInvSecretsMap, unInvSecretsMap)
+import           Pos.Core                    (AddrSpendingData (..),
+                                              StakeDistribution (..),
                                               genesisDevSecretKeys,
                                               genesisProdAddrDistribution,
                                               genesisProdBootStakeholders,
@@ -20,8 +23,7 @@ import           Pos.Core                    (StakeDistribution (..),
                                               makePubKeyAddress, mkCoin)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
-import           Pos.Generator.Block         (AllSecrets (..), BlockGenParams (..),
-                                              genBlocks, mkInvSecretsMap, unInvSecretsMap)
+import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
 import           Pos.Genesis                 (GenesisWStakeholders (..), devAddrDistr,
                                               genesisUtxo)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
@@ -72,9 +74,13 @@ main = flip catch catchEx $ giveStaticConsts $ do
     when (M.null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 
+    let pks = toPublic <$> toList invSecretsMap
+    let addresses = map makePubKeyAddress pks
+    let spendingDataList = map PubKeyASD pks
+    let invAddrSpendingData = mkInvAddrSpendingData $ addresses `zip` spendingDataList
     let bgenParams =
             BlockGenParams
-                (AllSecrets invSecretsMap)
+                (AllSecrets invSecretsMap invAddrSpendingData)
                 (fromIntegral bgoBlockN)
                 def
                 True

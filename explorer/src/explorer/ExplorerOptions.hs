@@ -136,8 +136,6 @@ argsParser = do
         long "static-peers" <>
         help "Don't use Kademlia, use only static peers"
 
-    sscAlgo <- CLI.sscAlgoOption
-
     pure Args{..}
 
 addrNodeOption :: Parser NetworkAddress

@@ -16,7 +16,7 @@ import           Control.Lens        (makeLenses)
 import qualified Data.Text.Buildable
 import           Formatting          (bprint)
 
-import           Pos.Core            (FlatSlotId, slotIdF, unflattenSlotId)
+import           Pos.Core            (FlatSlotId, slotIdF, unflattenSlotId, HasCoreConstants)
 import           Pos.Util.Chrono     (OldestFirst (..))
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
@@ -57,7 +57,7 @@ newtype SlogUndo = SlogUndo
     { getSlogUndo :: Maybe FlatSlotId
     } deriving (NFData)
 
-instance Buildable SlogUndo where
+instance HasCoreConstants => Buildable SlogUndo where
     build (SlogUndo oldSlot) =
         "SlogUndo: " <>
         maybe "<nothing>" (bprint slotIdF . unflattenSlotId) oldSlot

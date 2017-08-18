@@ -40,15 +40,15 @@ import           Formatting              (build, int, sformat, (%))
 import           System.Wlog             (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Update       ()
-import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
-                                          IsMainHeader (..), ScriptVersion, SlotId,
-                                          SoftforkRule (..), TimeDiff (..), addressHash,
-                                          applyCoinPortionUp, coinPortionDenominator,
-                                          coinToInteger, difficultyL, getCoinPortion,
+import           Pos.Core                (BlockVersion (..), Coin, EpochIndex,
+                                          HasCoreConstants, HeaderHash, IsMainHeader (..),
+                                          ScriptVersion, SlotId, SoftforkRule (..),
+                                          TimeDiff (..), addressHash, applyCoinPortionUp,
+                                          coinPortionDenominator, coinToInteger,
+                                          difficultyL, epochSlots, getCoinPortion,
                                           headerHashG, isBootstrapEra, mkCoinPortion,
                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                                           unsafeSubCoin)
-import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), SlottingData,
                                           addEpochSlottingData,
@@ -212,7 +212,7 @@ adoptBlockVersion winningBlk bv = do
 -- @SlottingData@ from the update. We can recieve updated epoch @SlottingData@
 -- and from it, changed epoch/slot times, which is important to keep track of.
 updateSlottingData
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: (HasCoreConstants, MonadError PollVerFailure m, MonadPoll m)
     => EpochIndex
     -> m ()
 updateSlottingData epochIndex = do

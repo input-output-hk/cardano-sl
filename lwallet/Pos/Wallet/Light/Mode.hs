@@ -25,7 +25,7 @@ import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core                         (Address, SlotId (..))
+import           Pos.Core                         (Address, HasCoreConstants, SlotId (..))
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
@@ -117,7 +117,7 @@ instance MonadSlotsData LightWalletMode where
     waitCurrentEpochEqualsM          = error "notImplemented"
 
 -- FIXME: Dummy instance for lite-wallet.
-instance MonadSlots LightWalletMode where
+instance HasCoreConstants => MonadSlots LightWalletMode where
     getCurrentSlot           = Just <$> getCurrentSlotInaccurate
     getCurrentSlotBlocking   = getCurrentSlotInaccurate
     getCurrentSlotInaccurate = pure (SlotId 0 minBound)
@@ -130,7 +130,7 @@ instance MonadBalances LightWalletMode where
     getOwnUtxos = getOwnUtxosWallet
     getBalance = getBalanceWallet
 
-instance MonadTxHistory LightWalletSscType LightWalletMode where
+instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode where
     getBlockHistory = getBlockHistoryWallet
     getLocalHistory = getLocalHistoryWallet
     saveTx = saveTxWallet

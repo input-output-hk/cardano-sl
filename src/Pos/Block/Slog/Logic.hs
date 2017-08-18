@@ -38,11 +38,12 @@ import           Pos.Block.Pure         (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogContext, LastBlkSlots, SlogUndo (..))
 import           Pos.Block.Types        (Blund, Undo (..))
-import           Pos.Constants          (blkSecurityParam, lastKnownBlockVersion)
+import           Pos.Constants          (lastKnownBlockVersion)
 import           Pos.Context            (lrcActionOnEpochReason)
-import           Pos.Core               (BlockVersion (..), FlatSlotId, difficultyL,
-                                         epochIndexL, flattenSlotId, headerHash,
-                                         headerHashG, prevBlockL)
+import           Pos.Core               (BlockVersion (..), FlatSlotId, HasCoreConstants,
+                                         blkSecurityParam, difficultyL, epochIndexL,
+                                         flattenSlotId, headerHash, headerHashG,
+                                         prevBlockL)
 import           Pos.DB                 (SomeBatchOp (..))
 import           Pos.DB.Block           (MonadBlockDBWrite, blkGetHeader)
 import           Pos.DB.Class           (MonadDBRead, dbPutBlund)
@@ -107,6 +108,7 @@ type MonadSlogBase ssc m =
     , SscHelpersClass ssc
     , MonadDBRead m
     , WithLogger m
+    , HasCoreConstants
     )
 
 -- | Set of constraints needed for Slog verification.

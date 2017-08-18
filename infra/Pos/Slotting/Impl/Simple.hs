@@ -18,6 +18,7 @@ import           Universum
 import           Mockable                    (CurrentTime, Mockable, currentTime)
 import           NTP.Example                 ()
 
+import           Pos.Core.Context            (HasCoreConstants)
 import           Pos.Core.Slotting           (unflattenSlotId)
 import           Pos.Core.Types              (SlotId (..), Timestamp (..))
 import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
@@ -27,12 +28,11 @@ import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
 -- Mode
 ----------------------------------------------------------------------------
 
-type SimpleSlottingMode m =
-    ( Mockable CurrentTime m
-    , MonadSlotsData m
-    , MonadIO m
-    , MonadThrow m
-    )
+type SimpleSlottingMode m
+    = ( Mockable CurrentTime m
+      , MonadSlotsData m
+      , MonadIO m
+      , HasCoreConstants)
 
 ----------------------------------------------------------------------------
 -- State
@@ -44,7 +44,7 @@ data SimpleSlottingState = SimpleSlottingState
 
 type SimpleSlottingVar = TVar SimpleSlottingState
 
-mkSimpleSlottingVar :: MonadIO m => m SimpleSlottingVar
+mkSimpleSlottingVar :: (MonadIO m, HasCoreConstants) => m SimpleSlottingVar
 mkSimpleSlottingVar = atomically $ newTVar $ SimpleSlottingState $ unflattenSlotId 0
 
 ----------------------------------------------------------------------------

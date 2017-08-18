@@ -25,6 +25,7 @@ import qualified Prelude
 -- used in MonadSlots and its meaning is up to implementation of this
 -- type class. The only necessary knowledge is that difference between
 -- timestamps is microsecond. Hence underlying type is Microsecond.
+-- Amount of seconds since Jan 1, 1970 UTC.
 newtype Timestamp = Timestamp
     { getTimestamp :: Microsecond
     } deriving (Num, Eq, Ord, Enum, Real, Integral, Typeable, Generic)

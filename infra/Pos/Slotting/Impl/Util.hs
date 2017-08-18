@@ -10,11 +10,11 @@ import           Universum
 import           Data.Time.Units             (Microsecond, convertUnit)
 import           NTP.Example                 ()
 
-import qualified Pos.Core.Constants          as C
-import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Context            (HasCoreConstants, epochSlots)
+import           Pos.Core.Slotting           (flattenEpochIndex, mkLocalSlotIndex,
+                                              unflattenSlotId)
 import           Pos.Core.Timestamp          (addTimeDiffToTimestamp)
-import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..),
-                                              mkLocalSlotIndex)
+import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
 import           Pos.Util.Util               (leftToPanic)
 
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
@@ -22,7 +22,7 @@ import           Pos.Slotting.Types          (EpochSlottingData (..))
 
 -- | Approximate current slot using outdated slotting data.
 approxSlotUsingOutdated
-    :: (MonadSlotsData m)
+    :: (MonadSlotsData m, HasCoreConstants)
     => Timestamp
     -> m SlotId
 approxSlotUsingOutdated t = do
@@ -46,7 +46,7 @@ approxSlotUsingOutdated t = do
 -- | Compute current slot from current timestamp based on data
 -- provided by 'MonadSlotsData'.
 slotFromTimestamp
-    :: (MonadSlotsData m)
+    :: (MonadSlotsData m, HasCoreConstants)
     => Timestamp
     -> m (Maybe SlotId)
 slotFromTimestamp approxCurTime = do
@@ -116,4 +116,4 @@ slotFromTimestamp approxCurTime = do
         slotDuration = convertUnit esdSlotDuration
 
         epochDuration :: Microsecond
-        epochDuration = slotDuration * fromIntegral C.epochSlots
+        epochDuration = slotDuration * fromIntegral epochSlots

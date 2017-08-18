@@ -15,8 +15,9 @@ import           Test.QuickCheck                   (Arbitrary (..), Property, co
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Core                          (ApplicationName, BlockVersion,
+                                                    HasCoreConstants,
                                                     SoftwareVersion (..), StakeholderId,
-                                                    addressHash)
+                                                    addressHash, giveStaticConsts)
 import           Pos.Crypto                        (hash)
 import           Pos.Slotting.Types                (SlottingData)
 import           Pos.Update.Core                   (UpId, UpdateProposal (..), applyBVM)
@@ -26,7 +27,7 @@ import qualified Pos.Util.Modifier                 as MM
 import           Test.Pos.Util                     (formsMonoid)
 
 spec :: Spec
-spec = describe "Poll" $ do
+spec = giveStaticConsts $ describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop
@@ -74,7 +75,7 @@ data PollAction
     | SetEpochProposers (HashSet StakeholderId)
     deriving (Show, Eq, Generic)
 
-instance Arbitrary PollAction where
+instance HasCoreConstants => Arbitrary PollAction where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

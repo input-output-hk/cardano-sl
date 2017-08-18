@@ -7,13 +7,14 @@ module Test.Pos.Types.Identity.SafeCopySpec
 import           Test.Hspec    (Spec, describe)
 import           Universum
 
+import           Pos.Core      (giveStaticConsts)
 import qualified Pos.Txp       as T
 import qualified Pos.Types     as T
 
 import           Test.Pos.Util (safeCopyTest)
 
 spec :: Spec
-spec = describe "Types" $ do
+spec = giveStaticConsts $ describe "Types" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @T.EpochIndex
         safeCopyTest @T.LocalSlotIndex

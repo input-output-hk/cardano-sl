@@ -5,6 +5,7 @@ module Pos.Slotting.Types
        , SlottingData
        , getSlottingDataMap
        , createSlottingDataUnsafe
+       , isValidSlottingDataMap
        , createInitSlottingData
        , getAllEpochIndices
        , getCurrentEpochIndex
@@ -20,7 +21,7 @@ module Pos.Slotting.Types
 import           Universum
 
 import           Data.Map.Strict as M
-import           Data.Time.Units (Millisecond, toSecondsInteger)
+import           Data.Time.Units (Millisecond, toMicroseconds)
 
 import           Pos.Core        (EpochIndex, EpochIndex (..), LocalSlotIndex (..),
                                   TimeDiff (..), Timestamp (..), addTimeDiffToTimestamp,
@@ -63,23 +64,26 @@ instance NFData SlottingData
 -- | Unsafe constructor that can lead to unsafe crash!
 createSlottingDataUnsafe :: Map EpochIndex EpochSlottingData -> SlottingData
 createSlottingDataUnsafe epochSlottingDataMap =
-    if validSlottingDataMap
+    if isValidSlottingDataMap epochSlottingDataMap
         then criticalError
         else SlottingData epochSlottingDataMap
   where
-    validSlottingDataMap = M.size epochSlottingDataMap < 2 && validEpochIndices
-      where
-        -- We validate if the epoch indices are sequential, it's invalid if they
-        -- start going [..,6,7,9,...].
-        validEpochIndices = correctEpochIndices == currentEpochIndices
-          where
-            currentEpochIndices = keys epochSlottingDataMap
-            correctEpochIndices = EpochIndex . fromIntegral <$> [0..zIMapLenght]
-              where
-                zIMapLenght = pred . length . keys $ epochSlottingDataMap
-
     criticalError = error "It's impossible to create slotting data without at least\
     \ two epochs. Epochs need to be sequential."
+
+-- | The validation for the @SlottingData@. It's visible since it's needed externally.
+isValidSlottingDataMap :: Map EpochIndex EpochSlottingData -> Bool
+isValidSlottingDataMap epochSlottingDataMap =
+    M.size epochSlottingDataMap < 2 && validEpochIndices
+  where
+    -- We validate if the epoch indices are sequential, it's invalid if they
+    -- start having "holes" [..,6,7,9,...].
+    validEpochIndices = correctEpochIndices == currentEpochIndices
+      where
+        currentEpochIndices = keys epochSlottingDataMap
+        correctEpochIndices = EpochIndex . fromIntegral <$> [0..zIMapLenght]
+          where
+            zIMapLenght = pred . length . keys $ epochSlottingDataMap
 
 -- | Restricted constructor function for the (initial) creation of @SlottingData@.
 createInitSlottingData
@@ -159,6 +163,7 @@ addEpochSlottingData slottingData epochSlottingData =
 -- | Compute when the slot started. We give it @LocalSlotIndex@, the @LocalSlotIndex@
 -- @EpochSlottingData@ and find when did that @LocalSlotIndex@ occur.
 -- This is calculating times inside an @Epoch@.
+-- Note that the time here has to be in @Microseconds@.
 computeSlotStart :: Timestamp -> LocalSlotIndex -> EpochSlottingData -> Timestamp
 computeSlotStart systemStart slotIndex epochSlottingData =
     epochStartTime + currentSlotTimestamp
@@ -174,16 +179,16 @@ computeSlotStart systemStart slotIndex epochSlottingData =
 
     -- | We calculate the current slot @Timestamp@ - when did the current slot start.
     currentSlotTimestamp :: Timestamp
-    currentSlotTimestamp = Timestamp $ fromIntegral slotStartTime
+    currentSlotTimestamp = Timestamp . fromIntegral $ slotStartTime
       where
-        -- | Start time in seconds as @Timestamp@ is.
+        -- | Start time in microseconds as @Timestamp@ is.
         slotStartTime :: Integer
-        slotStartTime = fromIntegral intSlotIndex * toSecondsInteger epochSlotDuration
+        slotStartTime = fromIntegral intSlotIndex * epochSlotDuration
           where
-            epochSlotDuration :: Millisecond
-            epochSlotDuration = esdSlotDuration $ epochSlottingData
+            -- | In microseconds.
+            epochSlotDuration :: Integer
+            epochSlotDuration = toMicroseconds . esdSlotDuration $ epochSlottingData
 
+            -- | The slot index in an @Epoch@.
             intSlotIndex :: Word16
             intSlotIndex = getSlotIndex slotIndex
-
-

@@ -11,38 +11,43 @@ module Pos.Core.Slotting
        , isBootstrapEra
        , epochOrSlot
        , epochOrSlotToSlot
+       , mkLocalSlotIndex
+       , addLocalSlotIndex
        ) where
 
 import           Universum
 
-import           Control.Lens       (lens)
+import           Control.Lens         (lens)
+import           Control.Monad.Except (MonadError (throwError))
+import           System.Random        (Random (..))
 
-import           Pos.Core.Class     (HasEpochIndex (..), HasEpochOrSlot (..),
-                                     getEpochOrSlot)
-import           Pos.Core.Constants (epochSlots, slotSecurityParam)
-import           Pos.Core.Types     (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                     LocalSlotIndex, SlotCount, SlotId (..), getSlotIndex,
-                                     mkLocalSlotIndex)
-import           Pos.Util.Util      (leftToPanic)
+import           Pos.Core.Class       (HasEpochIndex (..), HasEpochOrSlot (..),
+                                       getEpochOrSlot)
+import           Pos.Core.Context     (HasCoreConstants, epochSlots, epochSlotsRaw,
+                                       slotSecurityParam)
+import           Pos.Core.Types       (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
+                                       LocalSlotIndex (..), SlotCount, SlotId (..),
+                                       getSlotIndex)
+import           Pos.Util.Util        (leftToPanic)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
-flattenSlotId :: SlotId -> FlatSlotId
+flattenSlotId :: HasCoreConstants => SlotId -> FlatSlotId
 flattenSlotId SlotId {..} = fromIntegral $
     fromIntegral siEpoch * epochSlots +
     fromIntegral (getSlotIndex siSlot)
 
 -- | Flattens 'EpochIndex' into a single number.
-flattenEpochIndex :: EpochIndex -> FlatSlotId
+flattenEpochIndex :: HasCoreConstants => EpochIndex -> FlatSlotId
 flattenEpochIndex (EpochIndex i) =
     fromIntegral (fromIntegral i * epochSlots)
 
 -- | Transforms some 'HasEpochOrSlot' to a single number.
-flattenEpochOrSlot :: (HasEpochOrSlot a) => a -> FlatSlotId
+flattenEpochOrSlot :: (HasCoreConstants, HasEpochOrSlot a) => a -> FlatSlotId
 flattenEpochOrSlot =
     epochOrSlot flattenEpochIndex flattenSlotId . getEpochOrSlot
 
 -- | Construct 'SlotId' from a flattened variant.
-unflattenSlotId :: FlatSlotId -> SlotId
+unflattenSlotId :: HasCoreConstants => FlatSlotId -> SlotId
 unflattenSlotId n =
     let (fromIntegral -> siEpoch, fromIntegral -> slot) =
             n `divMod` fromIntegral epochSlots
@@ -54,7 +59,7 @@ unflattenSlotId n =
 -- that epoch.
 --
 -- If the difference is negative, the result will be 'Nothing'.
-diffEpochOrSlot :: EpochOrSlot -> EpochOrSlot -> Maybe SlotCount
+diffEpochOrSlot :: HasCoreConstants => EpochOrSlot -> EpochOrSlot -> Maybe SlotCount
 diffEpochOrSlot a b
     | a' < b'   = Nothing
     | otherwise = Just (fromInteger (a' - b'))
@@ -62,7 +67,7 @@ diffEpochOrSlot a b
     a' = toInteger (flattenEpochOrSlot a)
     b' = toInteger (flattenEpochOrSlot b)
 
-instance Enum SlotId where
+instance HasCoreConstants => Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral
     fromEnum = fromIntegral . flattenSlotId
 
@@ -71,7 +76,7 @@ instance HasEpochIndex SlotId where
 
 -- | Slot such that at the beginning of epoch blocks with SlotId ≤- this slot
 -- are stable.
-crucialSlot :: EpochIndex -> SlotId
+crucialSlot :: HasCoreConstants => EpochIndex -> SlotId
 crucialSlot 0        = SlotId {siEpoch = 0, siSlot = minBound}
 crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
   where
@@ -87,7 +92,7 @@ instance HasEpochIndex EpochOrSlot where
         setter (EpochOrSlot (Right slot)) epoch =
             EpochOrSlot (Right $ set epochIndexL epoch slot)
 
-instance Enum EpochOrSlot where
+instance HasCoreConstants => Enum EpochOrSlot where
     succ (EpochOrSlot (Left e)) =
         EpochOrSlot (Right SlotId {siEpoch = e, siSlot = minBound})
     succ e@(EpochOrSlot (Right si@SlotId {..}))
@@ -125,12 +130,46 @@ instance Enum EpochOrSlot where
               | otherwise ->
                   EpochOrSlot (Right SlotId {siSlot = slotIdx, siEpoch = epoch})
 
-instance Bounded EpochOrSlot where
+instance HasCoreConstants => Bounded EpochOrSlot where
     maxBound = EpochOrSlot (Right SlotId {siSlot = maxBound, siEpoch = maxBound})
     minBound = EpochOrSlot (Left (EpochIndex 0))
 
+instance HasCoreConstants => Enum LocalSlotIndex where
+    toEnum i | i >= epochSlotsRaw = error "toEnum @LocalSlotIndex: greater than maxBound"
+             | i < 0 = error "toEnum @LocalSlotIndex: less than minBound"
+             | otherwise = UnsafeLocalSlotIndex (fromIntegral i)
+    fromEnum = fromIntegral . getSlotIndex
+
+instance HasCoreConstants => Random LocalSlotIndex where
+    random = randomR (minBound, maxBound)
+    randomR (UnsafeLocalSlotIndex lo, UnsafeLocalSlotIndex hi) g =
+        let (r, g') = randomR (lo, hi) g
+        in  (UnsafeLocalSlotIndex r, g')
+
+instance HasCoreConstants => Bounded LocalSlotIndex where
+    minBound = UnsafeLocalSlotIndex 0
+    maxBound = UnsafeLocalSlotIndex (epochSlotsRaw - 1)
+
+mkLocalSlotIndex :: (HasCoreConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
+mkLocalSlotIndex idx
+    | idx < epochSlotsRaw = pure (UnsafeLocalSlotIndex idx)
+    | otherwise =
+        throwError $
+        "local slot is greater than or equal to the number of slots in epoch: " <>
+        show idx
+
+-- | Shift slot index by given amount, and return 'Nothing' if it has
+-- overflowed past 'epochSlots'.
+addLocalSlotIndex :: HasCoreConstants => SlotCount -> LocalSlotIndex -> Maybe LocalSlotIndex
+addLocalSlotIndex x (UnsafeLocalSlotIndex i)
+    | s < epochSlotsRaw = Just (UnsafeLocalSlotIndex (fromIntegral s))
+    | otherwise         = Nothing
+  where
+    s :: Word64
+    s = fromIntegral x + fromIntegral i
+
 -- | Unsafe constructor of 'LocalSlotIndex'.
-unsafeMkLocalSlotIndex :: Word16 -> LocalSlotIndex
+unsafeMkLocalSlotIndex :: HasCoreConstants => Word16 -> LocalSlotIndex
 unsafeMkLocalSlotIndex =
     leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndex
 
@@ -160,5 +199,5 @@ epochOrSlot f g = either f g . unEpochOrSlot
 -- | Convert 'EpochOrSlot' to the corresponding slot. If slot is
 -- stored, it's returned, otherwise 0-th slot from the stored epoch is
 -- returned.
-epochOrSlotToSlot :: EpochOrSlot -> SlotId
+epochOrSlotToSlot :: HasCoreConstants => EpochOrSlot -> SlotId
 epochOrSlotToSlot = epochOrSlot (flip SlotId minBound) identity

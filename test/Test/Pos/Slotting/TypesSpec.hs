@@ -12,9 +12,10 @@ import           Data.Map
 import           Data.Maybe         (isJust, isNothing)
 import           Data.Time.Units    (Millisecond, Second, convertUnit)
 
-import           Pos.Core           (EpochIndex (..), TimeDiff (..), Timestamp (..),
-                                     mkLocalSlotIndex)
+import           Pos.Core           (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..),
+                                     Timestamp (..))
 import           Pos.Slotting.Types
+
 
 
 
@@ -25,13 +26,13 @@ import           Pos.Slotting.Types
 testEpochSlottingData0 :: EpochSlottingData
 testEpochSlottingData0 = EpochSlottingData
     { esdSlotDuration = convertUnit (10 :: Second)
-    , esdStartDiff    = 1000 :: TimeDiff
+    , esdStartDiff    = 1000 * 1000000 :: TimeDiff
     }
 
 testEpochSlottingData1 :: EpochSlottingData
 testEpochSlottingData1 = EpochSlottingData
     { esdSlotDuration = 1000 :: Millisecond
-    , esdStartDiff    = 1000 :: TimeDiff
+    , esdStartDiff    = 1000 * 1000000  :: TimeDiff
     }
 
 testEpochISlottingData0 :: (EpochIndex, EpochSlottingData)
@@ -122,10 +123,9 @@ spec = describe "Types" $ do
 
     describe "computeSlotStart" $
         it "should be correct" $ do
-            let systemStart = Timestamp 1500000000 -- Friday, July 14, 2017 2:40:00 AM
-            let localSlotIndex = case mkLocalSlotIndex 3 of
-                                        Right lsi -> lsi
-                                        Left _    -> error "Impossible."
+            -- Friday, July 14, 2017 2:40:00 AM = 1500000000 seconds
+            let systemStart = Timestamp $ 1500000000 * 1000000
+            let localSlotIndex = UnsafeLocalSlotIndex 3
             let epochSlottingData = testEpochSlottingData0
             let slotStart = computeSlotStart systemStart localSlotIndex epochSlottingData
             -- Slot should start on:
@@ -135,4 +135,5 @@ spec = describe "Types" $ do
             -- slotStartTime  = epochSlotDuration * slotIndex =
             --                = 10                * 3         = 30
             -- 1500000000 + 1000 + 30 = 1500001030
-            slotStart `shouldBe` (1500000000 + 1000 + (3 * 10))
+            -- In microseconds = 1500001030 * 10 ^ 6 = 1500001030000000
+            slotStart `shouldBe` 1500001030000000

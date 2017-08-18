@@ -1,8 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
-       ( binaryEncodeDecode
+       ( giveTestsConsts
+       , binaryEncodeDecode
        , networkBinaryEncodeDecode
        , binaryTest
        , formsCommutativeMonoid
@@ -26,23 +28,26 @@ module Test.Pos.Util
        , splitIntoChunks
        ) where
 
-import Universum
+import           Universum
 
-import qualified Data.ByteString       as BS
-import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
-import qualified Data.Semigroup        as Semigroup
-import           Data.Serialize        (runGet, runPut)
-import           Data.Tagged           (Tagged (..))
-import           Data.Typeable         (typeRep)
-import           Formatting            (formatToString, int, (%))
-import           Prelude               (read)
+import qualified Data.ByteString          as BS
+import           Data.SafeCopy            (SafeCopy, safeGet, safePut)
+import qualified Data.Semigroup           as Semigroup
+import           Data.Serialize           (runGet, runPut)
+import           Data.Tagged              (Tagged (..))
+import           Data.Typeable            (typeRep)
+import           Formatting               (formatToString, int, (%))
+import           Prelude                  (read)
 
-import           Pos.Binary            (AsBinaryClass (..), Bi (..), serialize', serialize, deserialize)
-import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
+import           Pos.Binary               (AsBinaryClass (..), Bi (..), deserialize,
+                                           serialize, serialize')
+import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
+import           Pos.Core                 (CoreConstants (..), HasCoreConstants,
+                                           giveConsts)
 
-import           Test.Hspec            (Expectation, Selector, Spec, describe,
-                                        shouldThrow)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.Hspec               (Expectation, Selector, Spec, describe,
+                                           shouldThrow)
+import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
 import           Test.QuickCheck          (Arbitrary (arbitrary), Property, conjoin,
                                            counterexample, forAll, property, resize,
                                            suchThat, vectorOf, (.&&.), (===))
@@ -50,6 +55,9 @@ import           Test.QuickCheck.Gen      (choose)
 import           Test.QuickCheck.Monadic  (PropertyM, pick, stop)
 
 import           Test.QuickCheck.Property (Result (..), failed)
+
+giveTestsConsts :: (HasCoreConstants => r) -> r
+giveTestsConsts = giveConsts $ CoreConstants (fromIntegral @Word32 35)
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary

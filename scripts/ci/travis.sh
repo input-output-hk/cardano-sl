@@ -74,9 +74,6 @@ pushd daedalus
   cp ../log-config-prod.yaml .
 popd
 
-# Generate explorer frontend
-EXPLORER_EXECUTABLE=$(pwd)/cardano-sl-explorer-static.root/bin/cardano-explorer-hs2purs ./explorer/frontend/scripts/build.sh
-
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
 export BUILD_UID="$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}"
 export XZ_OPT=-1
@@ -85,6 +82,12 @@ echo "Packing up daedalus-bridge ..."
 tar cJf s3/daedalus-bridge-$BUILD_UID.tar.xz daedalus/
 echo "Done"
 
-echo "Packing up explorer-frontend ..."
-tar cJf s3/explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
-echo "Done"
+# For now we dont have macOS developers on explorer
+if [[ ("$TRAVIS_OS_NAME" == "linux") ]]; then
+  # Generate explorer frontend
+  EXPLORER_EXECUTABLE=$(pwd)/cardano-sl-explorer-static.root/bin/cardano-explorer-hs2purs ./explorer/frontend/scripts/build.sh
+
+  echo "Packing up explorer-frontend ..."
+  tar cJf s3/explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
+  echo "Done"
+fi

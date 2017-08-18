@@ -23,10 +23,9 @@ import qualified Ether
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.BListener          (MonadBListener (..))
-import           Pos.Block.Core               (Block, MainBlock,
-                                               mainBlockTxPayload)
+import           Pos.Block.Core               (Block, MainBlock, mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (HeaderHash, difficultyL,
+import           Pos.Core                     (HasCoreConstants, HeaderHash, difficultyL,
                                                epochIndexL, getChainDifficulty,
                                                headerHash)
 import           Pos.Crypto                   (withHash)
@@ -36,8 +35,8 @@ import           Pos.Explorer.DB              (Epoch, Page, numOfLastTxs)
 import qualified Pos.Explorer.DB              as DB
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Txp                      (Tx, topsortTxs, txpTxs)
-import           Pos.Util.Chrono              (NE, NewestFirst (..),
-                                               OldestFirst (..), toNewestFirst)
+import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
+                                               toNewestFirst)
 
 ----------------------------------------------------------------------------
 -- Declarations
@@ -58,12 +57,14 @@ type MonadBListenerT m ssc =
     , WithLogger m
     , MonadCatch m
     , MonadDBRead m
+    , HasCoreConstants
     )
 
 -- Explorer implementation for usual node. Combines the operations.
 instance ( MonadDBRead m
          , MonadCatch m
          , WithLogger m
+         , HasCoreConstants
          )
          => MonadBListener (ExplorerBListener m) where
     onApplyBlocks     blunds = onApplyCallGeneral blunds
@@ -124,7 +125,7 @@ onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap
 onApplyLastTxsExplorer
     :: forall ssc m .
     MonadBListenerT m ssc
-    => OldestFirst NE (Blund ssc) 
+    => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
   where
@@ -139,8 +140,8 @@ onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
       where
         reversedCombined :: [Tx]
         reversedCombined = reverse $ getOldTxs oldTxs ++ getNewTxs newTxs
-    
-    blocksNE :: NE (Block ssc)  
+
+    blocksNE :: NE (Block ssc)
     blocksNE = fst <$> getOldestFirst blunds
 
 
@@ -181,7 +182,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
         -> [Tx]
     getTopTxsDiff oldTxs newTxs = getOldTxs oldTxs \\ getNewTxs newTxs
 
-    blocksNE :: NE (Block ssc)  
+    blocksNE :: NE (Block ssc)
     blocksNE = fst <$> getNewestFirst blunds
 
 
@@ -192,7 +193,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochBlocksMap
-    :: forall ssc. (SscHelpersClass ssc)
+    :: forall ssc. (HasCoreConstants, SscHelpersClass ssc)
     => NE (Block ssc)
     -> M.Map Epoch [HeaderHash]
 epochBlocksMap neBlocks = blocksEpochs
@@ -219,7 +220,7 @@ epochBlocksMap neBlocks = blocksEpochs
 
 -- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
 pageBlocksMap
-    :: forall ssc. (SscHelpersClass ssc)
+    :: forall ssc. (HasCoreConstants, SscHelpersClass ssc)
     => NE (Block ssc)
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages
@@ -374,10 +375,10 @@ onApplyKeyBlocksGeneral blunds newBlocksMapF = do
     newBlocks :: M.Map k [HeaderHash]
     newBlocks = newBlocksMapF blocksNE
 
-    blocksNE :: NE (Block ssc)  
+    blocksNE :: NE (Block ssc)
     blocksNE = fst <$> getNewestFirst blocksNewF
 
-    blocksNewF :: NewestFirst NE (Blund ssc) 
+    blocksNewF :: NewestFirst NE (Blund ssc)
     blocksNewF = toNewestFirst blunds
 
 
@@ -420,8 +421,8 @@ onRollbackGeneralBlocks blunds newBlocksMapF = do
 newtype OldTxs = OldTxs { getOldTxs :: [Tx] }
 newtype NewTxs = NewTxs { getNewTxs :: [Tx] }
 
--- If you give me non-empty blocks that contain transactions and a way to 
--- combine old and new transactions I will return you an 
+-- If you give me non-empty blocks that contain transactions and a way to
+-- combine old and new transactions I will return you an
 -- atomic database operation.
 generalLastTxsExplorer
     :: forall ssc m .
@@ -431,7 +432,7 @@ generalLastTxsExplorer
     -> m SomeBatchOp
 generalLastTxsExplorer blocksNE getTopTxsDiff = do
     let newTxs       = NewTxs mainBlocksTxs
-    
+
     mPrevTopTxs     <- DB.getLastTransactions
     let prevTopTxs   = OldTxs $ fromMaybe [] mPrevTopTxs
 

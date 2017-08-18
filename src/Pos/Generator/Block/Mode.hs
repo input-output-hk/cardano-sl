@@ -30,8 +30,8 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (GenesisWStakeholders (..),
-                                              HasPrimaryKey (..), IsHeader, SlotId (..),
+import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
+                                              HasCoreConstants, GenesisWStakeholders (..),
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
@@ -94,6 +94,7 @@ type MonadBlockGenBase m
            , Concurrently
            ]
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
+       , HasCoreConstants
        )
 
 -- | A set of constraints necessary for blockchain generation. All

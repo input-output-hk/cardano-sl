@@ -8,11 +8,11 @@ import           Data.Tagged             (Tagged)
 import           Test.Hspec              (Spec, describe)
 import           Universum
 
-import           Pos.Binary              ()
--- import qualified Pos.Communication        as C
 import           Pos.Arbitrary.Infra     ()
+import           Pos.Binary              ()
 import           Pos.Communication.Relay ()
 import qualified Pos.Communication.Relay as R
+import           Pos.Core                (giveStaticConsts)
 import qualified Pos.Update              as U
 
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
@@ -22,7 +22,7 @@ type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 spec :: Spec
-spec =
+spec = giveStaticConsts $
     describe "Update system" $ do
         describe "Bi instances" $ do
             describe "Core" $ do

@@ -50,12 +50,13 @@ import           Data.ByteString.Base58  (Alphabet (..), bitcoinAlphabet, decode
 import           Data.Hashable           (Hashable (..))
 import qualified Data.Text.Buildable     as Buildable
 import           Formatting              (Format, bprint, build, builder, int, later, (%))
-import           Serokell.Util           (listJson, pairBuilder)
+import           Serokell.Util           (mapJson)
 
 import           Pos.Binary.Class        (Bi)
 import qualified Pos.Binary.Class        as Bi
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Crypto       ()
+import           Pos.Core.Coin           ()
 import           Pos.Core.Types          (AddrAttributes (..), AddrSpendingData (..),
                                           AddrStakeDistribution (..), AddrType (..),
                                           Address (..), Address' (..), AddressHash,
@@ -90,10 +91,8 @@ instance Buildable AddrStakeDistribution where
             BootstrapEraDistr -> "Bootstrap era distribution"
             SingleKeyDistr id ->
                 bprint ("Single key distribution ("%shortHashF%")") id
-            MultiKeyDistr distr ->
-                bprint
-                    ("Multi key distribution: "%listJson)
-                    (map pairBuilder distr)
+            UnsafeMultiKeyDistr distr ->
+                bprint ("Multi key distribution: "%mapJson) distr
 
 instance Buildable AddrAttributes where
     build (AddrAttributes {..}) =

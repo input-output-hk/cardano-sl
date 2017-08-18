@@ -1092,7 +1092,7 @@ self: {
       mkDerivation {
           pname = "cardano-sl";
           version = "0.5.1";
-          src = ./../.;
+          src = ./../node;
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [

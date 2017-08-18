@@ -9,36 +9,46 @@ module Main
        ( main
        ) where
 
-import           Universum           hiding (over)
+import           Universum                  hiding (over)
 
-import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime, runProduction)
-import           System.Wlog         (logInfo)
+import           Data.Maybe                 (fromJust)
+import           Formatting                 (sformat, shown, (%))
+import           Mockable                   (Production, currentTime, runProduction)
+import           System.Wlog                (logError, logInfo)
 
-import           Pos.Binary          ()
-import           Pos.Client.CLI      (CommonNodeArgs (..))
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
-import           Pos.Context         (HasNodeContext)
-import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Launcher        (NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, runNode)
-import           Pos.Ssc.Class       (SscParams)
-import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode        (WorkMode)
-import           Pos.Web             (serveWebGT)
-import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
-                                      runWRealMode, walletServeWebFull, walletServerOuts)
+import           Pos.Binary                 ()
+import           Pos.Client.CLI             (CommonNodeArgs (..))
+import qualified Pos.Client.CLI             as CLI
+import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
+                                             worker)
+import           Pos.Context                (HasNodeContext)
+import           Pos.Core                   (HasCoreConstants, Timestamp (..),
+                                             giveStaticConsts)
+import           Pos.Launcher               (NodeParams (..), NodeResources (..),
+                                             bracketNodeResources, runNode)
+import           Pos.Ssc.Class              (SscParams)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Ssc.NistBeacon         (SscNistBeacon)
+import           Pos.Ssc.SscAlgo            (SscAlgo (..))
+import           Pos.Util.UserSecret        (usVss)
+import           Pos.Wallet.Web             (WalletWebMode, bracketWalletWS,
+                                             bracketWalletWebDB, runWRealMode,
+                                             walletServeWebFull, walletServerOuts)
+import           Pos.Web                    (serveWebGT)
+import           Pos.WorkMode               (WorkMode)
 
-import           NodeOptions (WalletNodeArgs(..), WalletArgs(..), getWalletNodeOptions)
-import           Params (getNodeParams)
+import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..))
+import           Pos.Client.CLI.Params      (getSimpleNodeParams, gtSscParams)
+import           Pos.Client.CLI.Util        (printFlags)
 
-actionWithWallet :: SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
+import           NodeOptions                (WalletArgs (..), WalletNodeArgs (..),
+                                             getWalletNodeOptions)
+import           Params                     (getNodeParams)
+
+actionWithWallet :: HasCoreConstants => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
-        bracketWalletWS $ \conn -> do
+        bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
                 runWRealMode
                     db
@@ -47,10 +57,10 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
                     (runNode @SscGodTossing nr plugins)
   where
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
-    plugins :: ([WorkerSpec WalletWebMode], OutSpecs)
+    plugins :: HasCoreConstants => ([WorkerSpec WalletWebMode], OutSpecs)
     plugins = convPlugins (pluginsGT wArgs) <> walletProd wArgs
 
-walletProd :: WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
+walletProd :: HasCoreConstants => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions
@@ -67,7 +77,7 @@ pluginsGT WalletArgs {..}
     | otherwise = []
 
 action :: WalletNodeArgs -> Production ()
-action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = do
+action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = giveStaticConsts $ do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime

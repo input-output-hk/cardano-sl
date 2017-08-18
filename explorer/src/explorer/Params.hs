@@ -10,7 +10,7 @@ module Params
 
 import           Universum
 
-import           Mockable              (Fork, Mockable)
+import           Mockable              (Fork, Mockable, Catch)
 import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
@@ -74,7 +74,13 @@ getTransportParams args networkConfig = TransportParams { tpTcpAddr = tcpAddr }
              in  TCP.Addressable $ TCP.TCPAddrInfo tcpHost tcpPort tcpMkExternal
 
 getNodeParams
-    :: (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
+    :: ( MonadIO        m
+       , MonadFail      m
+       , MonadThrow     m
+       , WithLogger     m
+       , Mockable Fork  m
+       , Mockable Catch m
+       )
     => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-

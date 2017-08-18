@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Workers responsible for Leaders and Richmen computation.
 
@@ -30,12 +29,12 @@ import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              rollbackBlocksUnsafe)
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
-import           Pos.Constants              (slotSecurityParam)
 import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              EpochOrSlot (..), HeaderHash, SharedSeed,
                                              SlotId (..), StakeholderId, crucialSlot,
-                                             epochIndexL, getEpochOrSlot, getSlotIndex)
+                                             epochIndexL, getEpochOrSlot, getSlotIndex,
+                                             slotSecurityParam)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.GState                 as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))

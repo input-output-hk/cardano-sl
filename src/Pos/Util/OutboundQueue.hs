@@ -16,6 +16,7 @@ import           Universum
 
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import qualified Network.Broadcast.OutboundQueue       as OQ
+import           System.Wlog.CanLog                    (WithLogger)
 import           Node.Conversation                     (Conversation)
 import           Pos.Network.Types                     (Bucket)
 import           Pos.Communication                     (NodeId, PeerData, PackingType,
@@ -32,11 +33,11 @@ instance OQ.FormatMsg (EnqueuedConversation m) where
     formatMsg = (\k (EnqueuedConversation (msg, _)) -> k msg) <$> shown
 
 updatePeersBucketReader
-    :: ( MonadReader r m, MonadIO m )
+    :: ( MonadReader r m, MonadIO m, WithLogger m )
     => (r -> OQ n)
     -> Bucket
     -> (OQ.Peers NodeId -> OQ.Peers NodeId)
-    -> m ()
+    -> m Bool
 updatePeersBucketReader pick buck f = asks pick >>= updateBucket
   where
     updateBucket oq = OQ.updatePeersBucket oq buck f

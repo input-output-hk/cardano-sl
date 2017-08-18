@@ -1,7 +1,6 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE Rank2Types      #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Framework for Inv\/Req\/Data message handling
 
@@ -32,11 +31,10 @@ import           Data.Proxy                         (asProxyTypeOf)
 import           Data.Tagged                        (Tagged, tagWith)
 import           Data.Typeable                      (typeRep)
 import           Formatting                         (build, sformat, shown, stext, (%))
-import           Mockable                           (MonadMockable, handleAll, throw,
-                                                     try)
+import           Mockable                           (MonadMockable, handleAll, throw, try)
 import           Node.Message.Class                 (Message)
-import           System.Wlog                        (WithLogger, logDebug,
-                                                     logWarning, logError)
+import           System.Wlog                        (WithLogger, logDebug, logError,
+                                                     logWarning)
 import           Universum
 
 import           Pos.Binary.Class                   (Bi (..))
@@ -44,21 +42,19 @@ import           Pos.Communication.Limits.Instances ()
 import           Pos.Communication.Limits.Types     (MessageLimited, recvLimited)
 import           Pos.Communication.Listener         (listenerConv)
 import           Pos.Communication.Protocol         (Conversation (..),
-                                                     ConversationActions (..),
-                                                     ListenerSpec, MkListeners, NodeId,
-                                                     OutSpecs, EnqueueMsg,
-                                                     constantListeners, convH,
-                                                     toOutSpecs, Msg, Origin (..),
+                                                     ConversationActions (..), EnqueueMsg,
+                                                     ListenerSpec, MkListeners, Msg,
+                                                     NodeId, Origin (..), OutSpecs,
+                                                     constantListeners, convH, toOutSpecs,
                                                      waitForConversations)
 import           Pos.Communication.Relay.Class      (DataParams (..),
                                                      InvReqDataParams (..),
-                                                     MempoolParams (..),
-                                                     Relay (..))
+                                                     MempoolParams (..), Relay (..))
 import           Pos.Communication.Relay.Types      (PropagationMsg (..))
 import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
                                                      MempoolMsg (..), ReqMsg (..),
-                                                     ResMsg (..), ReqOrRes)
+                                                     ReqOrRes, ResMsg (..))
 import           Pos.DB.Class                       (MonadGState)
 import           Pos.Util.TimeWarp                  (CanJsonLog (..))
 

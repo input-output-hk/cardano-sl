@@ -19,6 +19,7 @@ import           Pos.Binary          ()
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec, worker)
 import           Pos.Constants       (isDevelopment)
+import           Pos.Core            (HasCoreConstants, giveStaticConsts)
 import           Pos.Explorer        (runExplorerBListener)
 import           Pos.Explorer.Socket (NotifierSettings (..))
 import           Pos.Explorer.Web    (ExplorerProd, explorerPlugin, notifierPlugin)
@@ -59,7 +60,7 @@ main = do
     runProduction (action args)
 
 action :: Args -> Production ()
-action args@Args {..} = do
+action args@Args {..} = giveStaticConsts $ do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
@@ -70,7 +71,8 @@ action args@Args {..} = do
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let sscParams = gtSscParams args vssSK
 
-    let plugins = mconcatPair
+    let plugins :: HasCoreConstants => ([WorkerSpec ExplorerProd], OutSpecs)
+        plugins = mconcatPair
             [ explorerPlugin webPort
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
             , updateTriggerWorker
@@ -82,7 +84,8 @@ action args@Args {..} = do
             (runNode @SscGodTossing nr plugins)
   where
     runExplorerRealMode
-        :: NodeResources SscGodTossing ExplorerProd
+        :: HasCoreConstants
+        => NodeResources SscGodTossing ExplorerProd
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()
     runExplorerRealMode = runRealBasedMode runExplorerBListener lift

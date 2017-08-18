@@ -1,6 +1,5 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE Rank2Types    #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Wallet web error utilities.
 

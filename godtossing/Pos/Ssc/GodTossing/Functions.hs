@@ -22,8 +22,9 @@ import           Universum
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
-import           Pos.Core                        (EpochIndex (..), IsMainHeader,
-                                                  SlotId (..), StakeholderId, headerSlotL)
+import           Pos.Core                        (EpochIndex (..), HasCoreConstants,
+                                                  IsMainHeader, SlotId (..),
+                                                  StakeholderId, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Crypto                      (Threshold)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
@@ -71,7 +72,7 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --
 -- We also do some general sanity checks.
 sanityChecksGtPayload
-    :: MonadError TossVerFailure m
+    :: (HasCoreConstants, MonadError TossVerFailure m)
     => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 sanityChecksGtPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
@@ -140,7 +141,7 @@ sanityChecksGtPayload eoh payload = case payload of
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 
-getStableCertsPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStableCertsPure :: HasCoreConstants => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs
     | epoch == 0 = genesisCertificates
     | otherwise =

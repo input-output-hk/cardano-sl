@@ -12,7 +12,7 @@ module Pos.Client.CLI.Params
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
-import           Mockable              (Fork, Mockable)
+import           Mockable              (Fork, Mockable, Catch)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           System.Wlog           (LoggerName, WithLogger)
 
@@ -63,7 +63,7 @@ getKeyfilePath CommonNodeArgs {..}
     | otherwise = keyfilePath
 
 getNodeParams ::
-       (MonadIO m, WithLogger m, Mockable Fork m)
+       (MonadIO m, WithLogger m, Mockable Fork m, Mockable Catch m)
     => CommonNodeArgs
     -> NodeArgs
     -> Timestamp

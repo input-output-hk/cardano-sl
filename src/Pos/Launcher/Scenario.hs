@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | High-level scenarios which can be launched.
 
@@ -13,6 +12,7 @@ module Pos.Launcher.Scenario
 import           Universum
 
 import           Control.Lens          (views)
+import           Data.Time.Units       (Second)
 import           Development.GitRev    (gitBranch, gitHash)
 import           Ether.Internal        (HasLens (..))
 import           Formatting            (build, int, sformat, shown, (%))
@@ -27,8 +27,9 @@ import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
 import qualified Pos.Constants         as Const
 import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
                                         getOurPublicKey, ncNetworkConfig)
-import           Pos.DHT.Real          (KademliaDHTInstance (..), kademliaJoinNetwork,
-                                        kademliaJoinNetworkNoThrow)
+import           Pos.DHT.Real          (KademliaDHTInstance (..),
+                                        kademliaJoinNetworkNoThrow,
+                                        kademliaJoinNetworkRetry)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
 import           Pos.Launcher.Resource (NodeResources (..))
@@ -73,8 +74,10 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     -- iff it's essential that at least one of the initial peers is contacted.
     -- Otherwise, it's OK to not find any initial peers and the program can
     -- continue.
+    let retryInterval :: Second
+        retryInterval = 5
     case topologyRunKademlia (ncTopology (ncNetworkConfig nrContext)) of
-        Just (kInst, True)  -> kademliaJoinNetwork kInst (kdiInitialPeers kInst)
+        Just (kInst, True)  -> kademliaJoinNetworkRetry kInst (kdiInitialPeers kInst) retryInterval
         Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
         Nothing             -> return ()
 

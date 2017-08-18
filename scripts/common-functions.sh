@@ -138,6 +138,11 @@ function node_cmd {
   echo -n " --node-id node$i"
   echo -n " --topology $config_dir/topology$i.yaml"
   echo -n " --kademlia $config_dir/kademlia$i.yaml"
+  # Use the policies option if you want to change enqueue/dequeue/failure
+  # policies without re-compiling. See example files
+  #   run/policy_core.yaml
+  #   run/policy_relay.yaml
+  #echo -n " --policies $config_dir/policy$i.yaml"
   echo ''
   sleep 0.8
 }
@@ -153,10 +158,8 @@ function bench_cmd {
   ensure_run
 
   echo -n "$(find_binary cardano-wallet)"
-  for j in $(seq 0 $((i-1)))
-  do
-      echo -n " --peer 127.0.0.1:"`get_port $j`
-  done
+  # This assumes that the n-1 node is the relay
+  echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
   echo -n " $(logs node_lightwallet.log)"
   echo -n " --system-start $system_start"
   echo -n " $stake_distr"

@@ -19,5 +19,4 @@ instance Arbitrary SlottingData where
     -- Fixed instance since it's impossible to create and instance
     -- where one creates @SlottingData@ without at least two parameters.
     arbitrary = oneof [ createInitSlottingData <$> arbitrary <*> arbitrary ]
-    shrink = genericShrink
 

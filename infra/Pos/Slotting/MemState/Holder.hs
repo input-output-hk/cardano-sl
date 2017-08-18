@@ -125,5 +125,6 @@ waitCurrentEpochEqualsDefault target = do
     var <- view slottingVar
     atomically $ do
         currentEpoch <- getCurrentEpochIndex <$> readTVar var
-        when (currentEpoch /= target) retry
+        --  Wait until current epoch is >= target.
+        when (currentEpoch < target) retry
 

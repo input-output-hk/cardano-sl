@@ -7,12 +7,13 @@ module Pos.Binary.Infra.Slotting
 import           Universum
 
 import           Data.Time.Units    (Millisecond)
-import           Data.Map           as M
 
-import           Pos.Binary.Class   (Cons (..), Field (..), Bi (..), deriveSimpleBi)
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Core    ()
 import           Pos.Core.Timestamp (TimeDiff)
-import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, getSlottingDataMap, createSlottingDataUnsafe)
+import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData,
+                                     createSlottingDataUnsafe, getSlottingDataMap,
+                                     isValidSlottingDataMap)
 
 deriveSimpleBi ''EpochSlottingData [
     Cons 'EpochSlottingData [
@@ -28,7 +29,7 @@ instance Bi SlottingData where
         -- We don't want to throw a runtime error.
         checkIfSlottindDataValid slottingDataM = do
             slottingData <- slottingDataM
-            if M.size slottingData < 2
-                then fail "Invalid slotting data state!"
-                else pure $ createSlottingDataUnsafe slottingData
+            if isValidSlottingDataMap slottingData
+                then pure $ createSlottingDataUnsafe slottingData
+                else fail "Invalid slotting data state!"
 

@@ -26,7 +26,7 @@ module Pos.Client.Txp.Util
        , TxError (..)
        ) where
 
-import           Control.Lens             (makeLenses, (%=), (.=))
+import           Control.Lens             (has, makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Control.Monad.State      (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict      as HM
@@ -45,7 +45,7 @@ import           Pos.Core                 (AddressIgnoringAttributes (AddressIA)
                                            TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
                                            calculateTxSizeLinear, integerToCoin,
                                            integerToCoin, siEpoch, unsafeAddCoin,
-                                           unsafeSubCoin)
+                                           unsafeSubCoin, _RedeemAddress)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SignTag (SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
                                            redeemSign, redeemToPublic, safeSign,
@@ -251,6 +251,8 @@ prepareTxRaw
     -> TxFee
     -> TxCreator m TxRaw
 prepareTxRaw utxo outputs (TxFee fee) = do
+    mapM_ (checkIsNotRedeemAddr . txOutAddress . toaOut) outputs
+
     totalMoney <- sumTxOuts outputs
     when (totalMoney == mkCoin 0) $
         throwTxError "Attempted to send 0 money"
@@ -290,6 +292,10 @@ prepareTxRaw utxo outputs (TxFee fee) = do
                         pickInputs (inp : inps)
 
     formTxInputs (inp, TxOutAux txOut _) = (txOut, inp)
+
+    checkIsNotRedeemAddr outAddr =
+        when (has _RedeemAddress outAddr) $
+            throwTxError "Destination address can't be redeem address"
 
 -- | Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem

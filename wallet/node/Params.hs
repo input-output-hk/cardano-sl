@@ -6,7 +6,7 @@ module Params
 
 import           Universum
 
-import           Mockable              (Fork, Mockable)
+import           Mockable              (Fork, Mockable, Catch)
 import           System.Wlog           (WithLogger)
 
 import           Pos.Client.CLI        (CommonNodeArgs (..))
@@ -22,7 +22,13 @@ import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.UserSecret   (peekUserSecret)
 
 getNodeParams ::
-       (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
+       ( MonadIO m
+       , MonadFail m
+       , MonadThrow m
+       , WithLogger m
+       , Mockable Fork m
+       , Mockable Catch m
+       )
     => CommonNodeArgs
     -> Timestamp
     -> m NodeParams

@@ -37,10 +37,6 @@ import           Pos.Wallet.Web             (WalletWebMode, bracketWalletWS,
 import           Pos.Web                    (serveWebGT)
 import           Pos.WorkMode               (WorkMode)
 
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..))
-import           Pos.Client.CLI.Params      (getSimpleNodeParams, gtSscParams)
-import           Pos.Client.CLI.Util        (printFlags)
-
 import           NodeOptions                (WalletArgs (..), WalletNodeArgs (..),
                                              getWalletNodeOptions)
 import           Params                     (getNodeParams)

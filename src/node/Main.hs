@@ -35,10 +35,6 @@ import           Pos.Update.Context         (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util.UserSecret        (usVss)
 import           Pos.WorkMode               (RealMode)
 
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..), getSimpleNodeOptions)
-import           Pos.Client.CLI.Params      (getSimpleNodeParams, gtSscParams)
-import           Pos.Client.CLI.Util        (printFlags)
-
 actionWithoutWallet
     :: forall ssc.
        ( SscConstraint ssc

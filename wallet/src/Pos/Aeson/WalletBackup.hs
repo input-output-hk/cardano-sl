@@ -7,9 +7,11 @@ module Pos.Aeson.WalletBackup
 import           Universum
 
 import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value (..),
-                                             object, withArray, withObject, (.:), (.=))
+                                             object, withArray, withObject, withText,
+                                             (.:), (.=))
 import qualified Data.HashMap.Strict        as HM
-import           Formatting                 (formatToString, stext, (%))
+import qualified Data.SemVer                as V
+import           Formatting                 (build, formatToString, (%))
 import qualified Serokell.Util.Base64       as B64
 
 import qualified Pos.Binary                 as Bi
@@ -42,13 +44,17 @@ assuranceToStr :: CWalletAssurance -> Text
 assuranceToStr CWANormal = "normal"
 assuranceToStr CWAStrict = "strict"
 
-checkIfCurrentVersion :: MonadFail m => Text -> m ()
+checkIfCurrentVersion :: MonadFail m => V.Version -> m ()
 checkIfCurrentVersion version
     | version == currentBackupFormatVersion = pure ()
     | otherwise =
           fail $ formatToString
-          ("Unsupported backup format version "%stext%", expected "%stext)
-          version currentBackupFormatVersion
+          ("Unsupported backup format version "%build%", expected "%build)
+          (V.toBuilder version) (V.toBuilder currentBackupFormatVersion)
+
+
+instance FromJSON V.Version where
+    parseJSON = withText "Version" $ eitherToFail . V.fromText
 
 instance FromJSON AccountMetaBackup where
     parseJSON = withObject "AccountMetaBackup" $ \o -> do
@@ -92,6 +98,10 @@ instance FromJSON TotalBackup where
                 o .: "fileVersion" >>= checkIfCurrentVersion
                 TotalBackup <$> o .: "wallet"
             unknownType -> fail $ "Unknown type of backup file: " ++ toString unknownType
+
+
+instance ToJSON V.Version where
+    toJSON = String . V.toText
 
 instance ToJSON AccountMetaBackup where
     toJSON (AccountMetaBackup (CAccountMeta {..})) =

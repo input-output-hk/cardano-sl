@@ -62,12 +62,11 @@ import           Pos.Crypto                       (Hash, SecretKey, SignTag (Sig
                                                    safeToPublic, toPublic, unsafeHash,
                                                    withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
-import           Pos.Genesis                      (GenesisContext (..),
-                                                   StakeDistribution (..), devAddrDistr,
-                                                   devStakesDistr,
+import           Pos.Genesis                      (StakeDistribution (..), devAddrDistr,
+                                                   devStakesDistr, genesisContextImplicit,
                                                    genesisContextProduction,
-                                                   genesisDevSecretKeys, genesisUtxo,
-                                                   gtcUtxo, stakeDistribution)
+                                                   genesisDevSecretKeys, gtcUtxo,
+                                                   stakeDistribution)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    bracketTransport, loggerBracket)
 import           Pos.Network.Types                (MsgType (..), Origin (..))
@@ -430,9 +429,7 @@ main = giveStaticConsts $ do
                 (CLI.expDistr woCommonArgs)
     let wpGenesisContext =
             if isDevelopment
-            then let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-                 in GenesisContext (genesisUtxo bootStakeholders aDistr)
-                                   bootStakeholders
+            then genesisContextImplicit (devAddrDistr devStakeDistr)
             else genesisContextProduction
     let params =
             WalletParams

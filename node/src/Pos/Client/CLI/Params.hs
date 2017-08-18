@@ -19,9 +19,9 @@ import           System.Wlog                (LoggerName, WithLogger)
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (GenesisContext (..), devAddrDistr,
-                                             devStakesDistr, genesisContextProduction,
-                                             genesisUtxo)
+import           Pos.Genesis                (devAddrDistr, devStakesDistr,
+                                             genesisContextImplicit,
+                                             genesisContextProduction)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
@@ -85,9 +85,7 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
                 (expDistr commonArgs)
     let npGenesisCtx
             | isDevelopment =
-              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo bootStakeholders aDistr)
-                                bootStakeholders
+              genesisContextImplicit undefined (devAddrDistr devStakeDistr)
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath

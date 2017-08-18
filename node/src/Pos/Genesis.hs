@@ -288,8 +288,8 @@ genesisDevHdwAccountKeyDatas =
 -- | Address distribution for dev mode. It's supposed that you pass
 -- the distribution from 'devStakesDistr' here. This function will add
 -- dev genesis addresses and hd addrs/distr.
-devAddrDistr :: StakeDistribution -> ([AddrDistribution], GenesisWStakeholders)
-devAddrDistr distr = (aDistr, gws)
+devAddrDistr :: StakeDistribution -> [AddrDistribution]
+devAddrDistr distr = aDistr
   where
     distrSize = length $ stakeDistribution distr
     tailPks = map (fst . generateGenesisKeyPair) [Const.genesisKeysN ..]

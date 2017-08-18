@@ -10,7 +10,7 @@ module Params
 
 import           Universum
 
-import           Mockable              (Fork, Mockable, Catch)
+import           Mockable              (Catch, Fork, Mockable)
 import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
@@ -20,7 +20,8 @@ import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
 import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
-                                        genesisContextProduction, genesisUtxo)
+                                        genesisContextImplicit, genesisContextProduction,
+                                        genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
@@ -99,9 +100,7 @@ getNodeParams args@Args {..} systemStart = do
 
     let npGenesisCtx
             | isDevelopment =
-              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo bootStakeholders aDistr)
-                                bootStakeholders
+              genesisContextImplicit (devAddrDistr devStakeDistr)
             | otherwise = genesisContextProduction
 
     return NodeParams

@@ -11,7 +11,7 @@ import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, stext, (%))
 
 import           Pos.Block.Error     (VerifyBlocksException)
-import           Pos.Core            (StakeholderId)
+import           Pos.Core            (Address, StakeholderId, addressF)
 import           Pos.Crypto          (shortHashF)
 import           Pos.Exception       (cardanoExceptionFromException,
                                       cardanoExceptionToException)
@@ -20,6 +20,9 @@ import           Pos.Exception       (cardanoExceptionFromException,
 data BlockGenError
     = BGUnknownSecret !StakeholderId
     -- ^ Generator needs secret key of given stakeholder, but it can't
+    -- be found in the context.
+    | BGUnknownAddress !Address
+    -- ^ Generator needs spending data of given address, but it can't
     -- be found in the context.
     | BGFailedToCreate !Text
     -- ^ Block generator failed to create a block.
@@ -33,6 +36,9 @@ instance Buildable BlockGenError where
     build (BGUnknownSecret sId) =
         bprint
             ("Secret key of "%shortHashF%" is required but isn't known") sId
+    build (BGUnknownAddress addr) =
+        bprint
+            ("Spending data of "%addressF%" is required but isn't known") addr
     build (BGFailedToCreate reason) =
         bprint ("Failed to create a block: "%stext) reason
     build (BGCreatedInvalid reason) =

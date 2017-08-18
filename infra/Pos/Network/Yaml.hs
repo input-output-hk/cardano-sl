@@ -359,7 +359,7 @@ instance FromJSON t => FromJSON (ByMsgType t) where
         mpc                 <- obj .: "mpc"
         return $ ByMsgType $ \msg -> case msg of
             MsgAnnounceBlockHeader _                 -> announceBlockHeader
-            MsgRequestBlockHeaders                   -> requestBlockHeaders
+            MsgRequestBlockHeaders _                 -> requestBlockHeaders
             MsgRequestBlocks       _                 -> requestBlocks
             MsgTransaction         OriginSender      -> send transaction
             MsgTransaction         (OriginForward _) -> forward transaction

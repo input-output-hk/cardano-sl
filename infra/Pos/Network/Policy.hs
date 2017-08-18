@@ -23,7 +23,7 @@ defaultEnqueuePolicyCore = go
         EnqueueAll NodeCore  (MaxAhead 0) PHighest
       , EnqueueAll NodeRelay (MaxAhead 0) PHigh
       ]
-    go MsgRequestBlockHeaders = [
+    go (MsgRequestBlockHeaders _) = [
         EnqueueAll NodeCore  (MaxAhead 1) PHigh
       , EnqueueAll NodeRelay (MaxAhead 1) PHigh
       ]
@@ -51,7 +51,7 @@ defaultEnqueuePolicyRelay = go
       , EnqueueAll NodeCore  (MaxAhead 0) PHigh
       , EnqueueAll NodeEdge  (MaxAhead 0) PMedium
       ]
-    go MsgRequestBlockHeaders = [
+    go (MsgRequestBlockHeaders _) = [
         EnqueueAll NodeCore  (MaxAhead 1) PHigh
       , EnqueueAll NodeRelay (MaxAhead 1) PHigh
       ]
@@ -83,7 +83,7 @@ defaultEnqueuePolicyEdgeBehindNat = go
     go (MsgAnnounceBlockHeader _) = [
         -- not forwarded
       ]
-    go MsgRequestBlockHeaders = [
+    go (MsgRequestBlockHeaders _) = [
         EnqueueAll NodeRelay (MaxAhead 0) PHigh
       ]
     go (MsgRequestBlocks _) = [
@@ -106,7 +106,7 @@ defaultEnqueuePolicyEdgeP2P = go
     go (MsgAnnounceBlockHeader _) = [
         EnqueueAll NodeRelay (MaxAhead 0) PHighest
       ]
-    go MsgRequestBlockHeaders = [
+    go (MsgRequestBlockHeaders _) = [
         EnqueueAll NodeRelay (MaxAhead 1) PHigh
       ]
     go (MsgRequestBlocks _) = [

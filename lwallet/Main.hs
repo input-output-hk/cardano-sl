@@ -62,8 +62,8 @@ import           Pos.Crypto                       (Hash, SecretKey, SignTag (Sig
                                                    safeToPublic, toPublic, unsafeHash,
                                                    withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
-import           Pos.Genesis                      (StakeDistribution (..), devAddrDistr,
-                                                   devStakesDistr, genesisContextImplicit,
+import           Pos.Genesis                      (StakeDistribution (..),
+                                                   devGenesisContext, devStakesDistr,
                                                    genesisContextProduction,
                                                    genesisDevSecretKeys, gtcUtxo,
                                                    stakeDistribution)
@@ -427,10 +427,9 @@ main = giveStaticConsts $ do
                 (CLI.flatDistr woCommonArgs)
                 (CLI.richPoorDistr woCommonArgs)
                 (CLI.expDistr woCommonArgs)
-    let wpGenesisContext =
-            if isDevelopment
-            then genesisContextImplicit (devAddrDistr devStakeDistr)
-            else genesisContextProduction
+    let wpGenesisContext
+            | isDevelopment = devGenesisContext devStakeDistr
+            | otherwise = genesisContextProduction
     let params =
             WalletParams
             { wpDbPath      = Just woDbPath

@@ -19,9 +19,8 @@ import qualified Pos.Client.CLI        as CLI
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
-import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
-                                        genesisContextImplicit, genesisContextProduction,
-                                        genesisUtxo)
+import           Pos.Genesis           (devGenesisContext, devStakesDistr,
+                                        genesisContextProduction)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
@@ -99,8 +98,7 @@ getNodeParams args@Args {..} systemStart = do
                 (CLI.expDistr commonArgs)
 
     let npGenesisCtx
-            | isDevelopment =
-              genesisContextImplicit (devAddrDistr devStakeDistr)
+            | isDevelopment = devGenesisContext devStakeDistr
             | otherwise = genesisContextProduction
 
     return NodeParams

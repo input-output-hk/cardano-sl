@@ -18,21 +18,17 @@ module Pos.Genesis
 
        -- * Static state/functions/common
        , stakeDistribution
-       , genesisUtxo
-       , genesisSeed
        , genesisLeaders
-       , generateWStakeholders
        , genesisContextImplicit
 
        -- * Prod mode genesis
-       , genesisUtxoProduction
        , genesisContextProduction
 
        -- * Dev mode genesis
        , accountGenesisIndex
        , wAddressGenesisIndex
        , devStakesDistr
-       , devAddrDistr
+       , devGenesisContext
        , concatAddrDistrs
 
        ) where
@@ -217,15 +213,15 @@ genesisLeaders (GenesisUtxo utxo) =
 -- Production mode genesis
 ----------------------------------------------------------------------------
 
--- | 'GenesisUtxo' used in production.
-genesisUtxoProduction :: GenesisUtxo
-genesisUtxoProduction =
-    genesisUtxo genesisProdBootStakeholders genesisProdAddrDistribution
-
 -- | 'GenesisContext' that uses all the data for prod.
 genesisContextProduction :: GenesisContext
 genesisContextProduction =
     GenesisContext genesisUtxoProduction genesisProdBootStakeholders
+  where
+    -- 'GenesisUtxo' used in production.
+    genesisUtxoProduction :: GenesisUtxo
+    genesisUtxoProduction =
+        genesisUtxo genesisProdBootStakeholders genesisProdAddrDistribution
 
 ----------------------------------------------------------------------------
 -- Development mode genesis
@@ -285,11 +281,15 @@ genesisDevHdwAccountKeyDatas =
             accountGenesisIndex
             wAddressGenesisIndex
 
--- | Address distribution for dev mode. It's supposed that you pass
--- the distribution from 'devStakesDistr' here. This function will add
--- dev genesis addresses and hd addrs/distr.
-devAddrDistr :: StakeDistribution -> [AddrDistribution]
-devAddrDistr distr = aDistr
+-- | 'GenesisContext' for dev mode. It's supposed that you pass the
+-- distribution from 'devStakesDistr' here. This function will add dev
+-- genesis addresses and hd addrs/distr.
+--
+-- Related genesis stakeholders are computed using only related
+-- distribution passed, hd keys have no stake in boot era.
+devGenesisContext :: StakeDistribution -> GenesisContext
+devGenesisContext distr =
+    GenesisContext (genesisUtxo gws aDistr) gws
   where
     distrSize = length $ stakeDistribution distr
     tailPks = map (fst . generateGenesisKeyPair) [Const.genesisKeysN ..]
@@ -298,14 +298,15 @@ devAddrDistr distr = aDistr
     mainSpendingDataList = map PubKeyASD mainPks
     invAddrSpendingData =
         mkInvAddrSpendingData $ mainAddrs `zip` mainSpendingDataList
-    aDistr =
-        [ (mainAddrs, distr) -- Addresses from passed stake
-        , (hdwAddresses, hdwDistr) -- HDW addresses for testing
-        ]
+
+    mainADistr = (mainAddrs, distr) -- Addresses from passed stake
+    aDistr = [ mainADistr
+             , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
+             ]
 
     -- Genesis stakeholders
     gws :: GenesisWStakeholders
-    gws = generateWStakeholders invAddrSpendingData (mainAddrs, distr)
+    gws = generateWStakeholders invAddrSpendingData mainADistr
 
     -- HD wallets
     hdwSize = 2 -- should be positive

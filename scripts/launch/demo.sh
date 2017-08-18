@@ -25,9 +25,9 @@ if [[ "$n" == "" ]]; then
   n=$DEFAULT_NODES_N
 fi
 
-# CORE_NODES specifies how many nodes should be core nodes, i.e., have non-negligible stake in the rich_poor_distr
-if [[ "$CORE_NODES" == "" ]]; then
-  CORE_NODES == 3
+# RICH_NODES specifies how many nodes should be core nodes, i.e., have non-negligible stake in the rich_poor_distr
+if [[ "$RICH_NODES" == "" ]]; then
+  RICH_NODES == 3
 fi
 
 config_dir=$2
@@ -41,7 +41,7 @@ fi
 # Use "flat" for flat_distr. Anything else will use rich_poor_distr
 stake_distr_param=$3
 flat_distr=" --flat-distr \"($n, 100000)\" "
-rich_poor_distr=" --rich-poor-distr \"($CORE_NODES,50000,6000000000,0.99)\" "
+rich_poor_distr=" --rich-poor-distr \"($RICH_NODES,50000,6000000000,0.99)\" "
 
 # Stats are not mandatory either
 stats=$4

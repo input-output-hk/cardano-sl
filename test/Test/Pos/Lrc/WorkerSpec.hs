@@ -117,6 +117,10 @@ genTestParams = do
                 , TxOutAux (TxOut addr coin)
                            (identityDistr invAddrSpendingData addr coin)
                 )
+        -- We don't care about genesis stakeholders, because in this
+        -- test we don't make any txs.  If we add txs, we will need to
+        -- do it after bootstrap era, so these stakeholders will be
+        -- ignored.
         GenesisContext (GenesisUtxo $ M.fromList $ map utxoEntry balances)
                        (GenesisWStakeholders mempty)
 
@@ -133,7 +137,7 @@ genTestParams = do
         let totalStake = totalStakeGroup `unsafeMulCoin` groupsNumber
         let thresholdCoin =
                 Lrc.rcInitialThreshold proxy `applyCoinPortionUp` totalStake
-        -- Substract 1 to avoid corner case when poorStake == thresholdN
+        -- Poor guy gets one coin less than threshold.
         let poorStake = thresholdCoin `unsafeSubCoin` mkCoin 1
         -- Let's add small stake to two richmen just for fun.
         let genSmallRichStake =

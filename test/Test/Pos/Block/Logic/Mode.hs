@@ -466,7 +466,7 @@ instance MonadSlots BlockTestMode where
         view btcSlotId_L >>= \case
             Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
             Just slot -> pure slot
-    currentTimeSlotting = currentTimeSlottingSimple
+    currentTimeSlotting = pure $ Timestamp 0
 
 instance MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault

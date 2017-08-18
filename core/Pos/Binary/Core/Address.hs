@@ -158,7 +158,7 @@ An address is serialized as a tuple consisting of:
 1. 'addrRoot'.
 2. 'addrAttributes'.
 3. 'addrType'.
-3. CRC32 checksum.
+4. CRC32 checksum.
 -}
 
 instance CRC32 Address where

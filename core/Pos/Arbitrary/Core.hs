@@ -180,7 +180,9 @@ instance Arbitrary Types.AddrSpendingData where
             [ Types.PubKeyASD <$> arbitrary
             , Types.ScriptASD <$> arbitrary
             , Types.RedeemASD <$> arbitrary
-            , Types.UnknownASD <$> choose (3, 255) <*> scale (min 150) arbitrary
+            -- For unknown spending data payload will be at most 120
+            -- bytes long.
+            , Types.UnknownASD <$> choose (3, 255) <*> scale (min 120) arbitrary
             ]
 
 instance Arbitrary Types.AddrStakeDistribution where

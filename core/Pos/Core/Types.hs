@@ -183,6 +183,9 @@ data Address = Address
     , addrAttributes :: !(Attributes AddrAttributes)
     -- ^ Attributes associated with this address.
     , addrType       :: !AddrType
+    -- ^ The type of this address. Should correspond to
+    -- 'AddrSpendingData', but it can't be checked staticall, because
+    -- spending data in hashed.
     } deriving (Eq, Ord, Generic, Typeable, Show)
 
 instance NFData AddrType

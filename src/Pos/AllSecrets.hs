@@ -13,7 +13,6 @@ module Pos.AllSecrets
        , AllSecrets (..)
        , HasAllSecrets (..)
        , mkAllSecretsSimple
-
        ) where
 
 import           Universum

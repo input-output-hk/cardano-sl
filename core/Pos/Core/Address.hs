@@ -151,7 +151,7 @@ decodeTextAddress = first toText . decodeAddress . encodeUtf8
 -- Constructors
 ----------------------------------------------------------------------------
 
--- | Make 'Addres' from spending data and attributes.
+-- | Make an 'Address' from spending data and attributes.
 makeAddress :: AddrSpendingData -> AddrAttributes -> Address
 makeAddress spendingData attributesUnwrapped =
     Address

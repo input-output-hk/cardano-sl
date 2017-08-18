@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Pure functions related to blocks and headers.
 
@@ -33,11 +32,12 @@ import           Pos.Block.Core             (BiSsc, Block, BlockHeader, gebAttri
                                              getBlockHeader, mainHeaderLeaderKey,
                                              mebAttributes, mehAttributes)
 import           Pos.Core                   (BlockVersionData (..), ChainDifficulty,
-                                             EpochOrSlot, HasDifficulty (..),
-                                             HasEpochIndex (..), HasEpochOrSlot (..),
-                                             HasHeaderHash (..), HeaderHash, SlotId (..),
-                                             SlotLeaders, addressHash, gbExtra, gbhExtra,
-                                             getSlotIndex, headerSlotL, prevBlockL)
+                                             EpochOrSlot, HasCoreConstants,
+                                             HasDifficulty (..), HasEpochIndex (..),
+                                             HasEpochOrSlot (..), HasHeaderHash (..),
+                                             HeaderHash, SlotId (..), SlotLeaders,
+                                             addressHash, gbExtra, gbhExtra, getSlotIndex,
+                                             headerSlotL, prevBlockL)
 import           Pos.Data.Attributes        (areAttributesKnown)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 
@@ -215,7 +215,7 @@ data VerifyBlockParams ssc = VerifyBlockParams
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
 verifyBlock
-    :: forall ssc. (SscHelpersClass ssc, BiSsc ssc)
+    :: forall ssc. (SscHelpersClass ssc, BiSsc ssc, HasCoreConstants)
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
@@ -260,6 +260,7 @@ verifyBlocks
        , BiSsc ssc
        , t ~ OldestFirst f (Block ssc)
        , NontrivialContainer t
+       , HasCoreConstants
        )
     => Maybe SlotId
     -> Bool

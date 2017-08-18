@@ -10,30 +10,29 @@ module NodeOptions
        , getWalletNodeOptions
        ) where
 
-import           Data.Version                 (showVersion)
-import           Options.Applicative          (Parser, execParser, footerDoc,
-                                               fullDesc, header, help, helper, info,
-                                               infoOption, long, progDesc, strOption,
-                                               switch, value)
-import           Universum                    hiding (show)
-import qualified Options.Applicative          as Opt
+import           Data.Version               (showVersion)
+import           Options.Applicative        (Parser, execParser, footerDoc, fullDesc,
+                                             header, help, helper, info, infoOption, long,
+                                             progDesc, strOption, switch, value)
+import qualified Options.Applicative        as Opt
+import           Universum                  hiding (show)
 
-import           Paths_cardano_sl             (version)
-import qualified Pos.CLI                      as CLI
-import           Pos.Client.CLI.NodeOptions   (SimpleNodeArgs (..), simpleNodeArgsParser, usageExample)
-import           Pos.Web.Types                (TlsParams (..))
+import           Paths_cardano_sl           (version)
+import qualified Pos.CLI                    as CLI
+import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..), simpleNodeArgsParser,
+                                             usageExample)
+import           Pos.Web.Types              (TlsParams (..))
 
 data WalletNodeArgs = WalletNodeArgs SimpleNodeArgs WalletArgs
 
 data WalletArgs = WalletArgs
-    { enableWeb                 :: !Bool
-    , webPort                   :: !Word16
-    , walletTLSParams           :: !TlsParams
-    , enableWallet              :: !Bool
-    , walletPort                :: !Word16
-    , walletDbPath              :: !FilePath
-    , walletRebuildDb           :: !Bool
-    , walletDebug               :: !Bool
+    { enableWeb       :: !Bool
+    , webPort         :: !Word16
+    , walletTLSParams :: !TlsParams
+    , walletPort      :: !Word16
+    , walletDbPath    :: !FilePath
+    , walletRebuildDb :: !Bool
+    , walletDebug     :: !Bool
     } deriving Show
 
 walletArgsParser :: Parser WalletNodeArgs
@@ -45,9 +44,6 @@ walletArgsParser = do
     webPort <-
         CLI.webPortOption 8080 "Port for web API."
     walletTLSParams <- tlsParamsOption
-    enableWallet <- switch $
-        long "wallet" <>
-        help "Activate Wallet web API."
     walletPort <-
         CLI.walletPortOption 8090 "Port for Daedalus Wallet API."
     walletDbPath <- strOption $

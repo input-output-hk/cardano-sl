@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Extra information for blocks.
 --   * Forward links.
@@ -29,8 +28,8 @@ import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
 import           Pos.Constants        (genesisHash)
-import           Pos.Core             (FlatSlotId, HasHeaderHash, HeaderHash, headerHash,
-                                       slotIdF, unflattenSlotId)
+import           Pos.Core             (FlatSlotId, HasCoreConstants, HasHeaderHash,
+                                       HeaderHash, headerHash, slotIdF, unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
                                        RocksBatchOp (..))
@@ -80,7 +79,7 @@ data BlockExtraOp
       -- ^ Updates list of slots for last blocks.
     deriving (Show)
 
-instance Buildable BlockExtraOp where
+instance HasCoreConstants => Buildable BlockExtraOp where
     build (AddForwardLink from to) =
         bprint ("AddForwardLink from "%shortHashF%" to "%shortHashF) from to
     build (RemoveForwardLink from) =

@@ -9,7 +9,7 @@ module Pos.Client.CLI.Params
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
-import           Mockable              (Fork, Mockable)
+import           Mockable              (Fork, Mockable, Catch)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           System.Wlog           (LoggerName, WithLogger)
 
@@ -59,7 +59,7 @@ getKeyfilePath SimpleNodeArgs {..}
     | otherwise = keyfilePath
 
 getSimpleNodeParams ::
-       (MonadIO m, MonadFail m, MonadThrow m, WithLogger m, Mockable Fork m)
+       (MonadIO m, WithLogger m, Mockable Fork m, Mockable Catch m)
     => SimpleNodeArgs
     -> Timestamp
     -> m NodeParams
@@ -111,7 +111,7 @@ getTransportParams :: SimpleNodeArgs -> NetworkConfig kademlia -> TransportParam
 getTransportParams args networkConfig = TransportParams { tpTcpAddr = tcpAddr }
   where
     tcpAddr = case ncTopology networkConfig of
-        TopologyBehindNAT _ -> TCP.Unaddressable
+        TopologyBehindNAT{} -> TCP.Unaddressable
         _ -> let (bindHost, bindPort) = bindAddress args
                  (externalHost, externalPort) = externalAddress args
                  tcpHost = BS8.unpack bindHost

@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TypeFamilies  #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 {- |
@@ -34,7 +33,7 @@ import           System.IO.Unsafe      (unsafeInterleaveIO)
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Undo)
-import           Pos.Core              (IsHeader, Timestamp)
+import           Pos.Core              (HasCoreConstants, IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
                                         dbGetHeaderDefault, dbGetHeaderSscDefault,
@@ -126,19 +125,19 @@ instance MonadDB (InitMode ssc) where
     dbDelete = dbDeleteDefault
 
 instance
-    SscHelpersClass ssc =>
+    (HasCoreConstants, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (InitMode ssc)
   where
     dbGetBlock  = dbGetBlockDefault @ssc
     dbGetUndo   = dbGetUndoDefault @ssc
     dbGetHeader = dbGetHeaderDefault @ssc
 
-instance SscHelpersClass ssc =>
+instance (HasCoreConstants, SscHelpersClass ssc) =>
          MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (InitMode ssc) where
     dbPutBlund = dbPutBlundDefault
 
 instance
-    SscHelpersClass ssc =>
+    (HasCoreConstants, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (InitMode ssc)
   where
     dbGetBlock  = dbGetBlockSscDefault @ssc
@@ -151,7 +150,7 @@ instance MonadSlotsData (InitMode ssc) where
     waitPenultEpochEquals = waitPenultEpochEqualsDefault
     putSlottingData = putSlottingDataDefault
 
-instance MonadSlots (InitMode ssc) where
+instance HasCoreConstants => MonadSlots (InitMode ssc) where
     getCurrentSlot = getCurrentSlotSum
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum

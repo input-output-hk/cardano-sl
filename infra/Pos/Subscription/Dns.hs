@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Subscription.Dns
     ( dnsSubscriptionWorker
@@ -18,9 +17,10 @@ import           Network.Broadcast.OutboundQueue.Types (peersFromList)
 
 import           Pos.Communication.Protocol            (Worker)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (DnsDomains (..), Bucket(..),
-                                                        NetworkConfig (..), NodeId (..),
-                                                        NodeType (..), resolveDnsDomains)
+import           Pos.Network.Types                     (Bucket (..), DnsDomains (..),
+                                                        Fallbacks, NetworkConfig (..),
+                                                        NodeId (..), NodeType (..),
+                                                        Valency, resolveDnsDomains)
 import           Pos.Slotting                          (MonadSlotsData,
                                                         getLastKnownSlotDuration)
 import           Pos.Subscription.Common
@@ -44,10 +44,15 @@ type KnownRelays = Map NodeId KnownRelay
 activeRelays :: KnownRelays -> [NodeId]
 activeRelays = map fst . filter (relayActive . snd) . M.toList
 
+-- TODO: Use valency and fallbacks
 dnsSubscriptionWorker
     :: forall kademlia m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
-    => NetworkConfig kademlia -> DnsDomains DNS.Domain -> Worker m
-dnsSubscriptionWorker networkCfg dnsDomains sendActions =
+    => NetworkConfig kademlia
+    -> DnsDomains DNS.Domain
+    -> Valency
+    -> Fallbacks
+    -> Worker m
+dnsSubscriptionWorker networkCfg dnsDomains _valency _fallbacks sendActions =
     loop M.empty
   where
     loop :: KnownRelays -> m ()
@@ -63,8 +68,8 @@ dnsSubscriptionWorker networkCfg dnsDomains sendActions =
           updatedRelays = updateKnownRelays now peers oldRelays
 
       -- Declare all active relays as a single list of alternative relays
-      updatePeersBucket BucketBehindNatWorker $ \_ ->
-        peersFromList [(NodeRelay, activeRelays updatedRelays)]
+      void $ updatePeersBucket BucketBehindNatWorker $ \_ ->
+        peersFromList mempty [(NodeRelay, activeRelays updatedRelays)]
 
       -- Subscribe only to a single relay (if we found one)
       --

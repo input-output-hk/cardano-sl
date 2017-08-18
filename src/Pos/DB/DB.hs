@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Higher-level DB functionality.
@@ -28,7 +27,8 @@ import           System.Wlog           (WithLogger)
 import           Pos.Block.Core        (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types       (Blund)
 import           Pos.Context.Functions (genesisLeadersM)
-import           Pos.Core              (BlockCount, BlockVersionData, headerHash)
+import           Pos.Core              (BlockCount, BlockVersionData, HasCoreConstants,
+                                        headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
                                         loadBlundsByDepth, loadBlundsWhile,
                                         prepareBlockDB)
@@ -56,6 +56,7 @@ initNodeDBs
        , MonadBlockDBWrite ssc m
        , SscHelpersClass ssc
        , MonadDB m
+       , HasCoreConstants
        )
     => m ()
 initNodeDBs = do
@@ -74,14 +75,14 @@ initNodeDBs = do
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadBlockDB ssc m, MonadDBRead m)
+    :: (MonadBlockDB ssc m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadBlockDB ssc m, MonadDBRead m)
+    :: (MonadBlockDB ssc m)
     => BlockCount -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 

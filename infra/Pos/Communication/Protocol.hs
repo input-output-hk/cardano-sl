@@ -1,6 +1,5 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds  #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Protocol/versioning related communication helpers.
 
@@ -41,6 +40,7 @@ import           System.Wlog                      (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Communication.Types.Protocol
+import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Core.Types                   (SlotId)
 import           Pos.KnownPeers                   (MonadFormatPeers)
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
@@ -97,8 +97,7 @@ hoistSendActions nat rnat SendActions {..} = SendActions withConnectionTo' enque
             in  map convert convs
 
 hoistMkListeners
-    :: ( Monad n, Functor m )
-    => (forall a. m a -> n a)
+    :: (forall a. m a -> n a)
     -> (forall a. n a -> m a)
     -> MkListeners m
     -> MkListeners n
@@ -110,7 +109,6 @@ makeEnqueueMsg
     :: forall m .
        ( WithLogger m
        , Mockable Throw m
-       , Mockable SharedAtomic m
        )
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
@@ -155,8 +153,8 @@ alternativeConversations nid ourVerInfo theirVerInfo convs =
     fstArg :: (a -> b) -> Proxy a
     fstArg _ = Proxy
 
-    logOSNR (Right e@(OutSpecNotReported _)) = logWarning $ sformat build e
-    logOSNR _                                = pure ()
+    logOSNR (Right e@(OutSpecNotReported _ _)) = logWarning $ sformat build e
+    logOSNR _                                  = pure ()
 
     checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
         checkingOutSpecs (sndMsgCode, ConvHandler rcvMsgCode) nodeId peerInSpecs conv
@@ -168,16 +166,15 @@ alternativeConversations nid ourVerInfo theirVerInfo convs =
     --    to be supported by external peer on higher level
     checkingOutSpecs spec nodeId peerInSpecs action =
         if | spec `notInSpecs` ourOutSpecs ->
-                  Right $ OutSpecNotReported spec
+                  Right $ OutSpecNotReported ourOutSpecs spec
            | spec `notInSpecs` peerInSpecs ->
-                  Right $ PeerInSpecNotReported nodeId spec
+                  Right $ PeerInSpecNotReported peerInSpecs nodeId spec
            | otherwise -> Left action
 
 makeSendActions
     :: forall m .
        ( WithLogger m
        , Mockable Throw m
-       , Mockable SharedAtomic m
        )
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
@@ -190,45 +187,33 @@ makeSendActions ourVerInfo enqueue converse = SendActions
     }
 
 data SpecError
-    = OutSpecNotReported (MessageCode, HandlerSpec)
-    | PeerInSpecNotReported NodeId (MessageCode, HandlerSpec)
+    = OutSpecNotReported HandlerSpecs (MessageCode, HandlerSpec)
+    | PeerInSpecNotReported HandlerSpecs NodeId (MessageCode, HandlerSpec)
     deriving (Generic, Show)
 
 instance Exception SpecError
 
 instance Buildable SpecError where
-    build (OutSpecNotReported spec) =
+    build (OutSpecNotReported outSpecs spec) =
         bprint
-          ("Sending "%build%": endpoint not reported to be used for sending")
-          spec
-    build (PeerInSpecNotReported nodeId spec) =
+          ("Sending "%build%": endpoint not reported to be used for sending. Our out specs: "%build)
+          spec outSpecs
+    build (PeerInSpecNotReported inSpecs nodeId spec) =
         bprint
-          ("Attempting to send to "%build%": endpoint unsupported by peer "%build)
-          spec nodeId
-
-type WorkerConstr m =
-    ( WithLogger m
-    , Mockable Throw m
-    )
+          ("Attempting to send to "%build%": endpoint unsupported by peer "%build%". In specs: "%build)
+          spec nodeId inSpecs
 
 toAction
-    :: WorkerConstr m
-    => (SendActions m -> m a) -> ActionSpec m a
+    :: (SendActions m -> m a) -> ActionSpec m a
 toAction h = ActionSpec $ const h
 
-worker
-    :: WorkerConstr m
-    => OutSpecs -> Worker m -> (WorkerSpec m, OutSpecs)
+worker :: OutSpecs -> Worker m -> (WorkerSpec m, OutSpecs)
 worker outSpecs = (,outSpecs) . toAction
 
-workerHelper
-    :: WorkerConstr m
-    => OutSpecs -> (arg -> Worker m) -> (arg -> WorkerSpec m, OutSpecs)
+workerHelper :: OutSpecs -> (arg -> Worker m) -> (arg -> WorkerSpec m, OutSpecs)
 workerHelper outSpecs h = (,outSpecs) $ toAction . h
 
-worker'
-    :: WorkerConstr m
-    => OutSpecs -> (VerInfo -> Worker m) -> (WorkerSpec m, OutSpecs)
+worker' :: OutSpecs -> (VerInfo -> Worker m) -> (WorkerSpec m, OutSpecs)
 worker' outSpecs h =
     (,outSpecs) $ ActionSpec $ h
 
@@ -244,12 +229,14 @@ type LocalOnNewSlotComm ctx m =
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
+    , HasCoreConstants
     )
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , Mockable Throw m
     , Mockable SharedAtomic m
+    , HasCoreConstants
     )
 
 onNewSlot'
@@ -306,17 +293,17 @@ sndProxy :: Proxy (ConversationActions snd rcv m) -> Proxy snd
 sndProxy _ = Proxy
 
 -- Provides set of listeners which doesn't depend on PeerData
-constantListeners :: Monad m => [(ListenerSpec m, OutSpecs)] -> MkListeners m
+constantListeners :: [(ListenerSpec m, OutSpecs)] -> MkListeners m
 constantListeners = toMkL . unpackLSpecs . second mconcat . unzip
   where
     toMkL (lGet, ins, outs) = MkListeners (\vI _ -> lGet vI) ins outs
 
-unpackLSpecs :: Monad m => ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
+unpackLSpecs :: ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
 unpackLSpecs =
     over _1 (\ls verInfo -> fmap ($ verInfo) ls) .
     over _2 (InSpecs . HM.fromList) .
     convert . first (map lsToPair)
   where
     lsToPair (ListenerSpec h spec) = (h, spec)
-    convert :: Monoid out => ([(l, i)], out) -> ([l], [i], out)
+    convert :: ([(l, i)], out) -> ([l], [i], out)
     convert (xs, out) = (map fst xs, map snd xs, out)

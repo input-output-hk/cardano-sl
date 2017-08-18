@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Server which deals with blocks processing.
 
@@ -126,7 +125,7 @@ retrievalWorkerImpl SendActions {..} =
                 let firstHeader = headers ^. _Wrapped . _neLast
                 in handleCHsValid enqueueMsg endedRecoveryVar nodeId
                                   firstHeader (headerHash header)
-        void $ enqueueMsg (MsgRequestBlock (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $ \conv ->
+        void $ enqueueMsg (MsgRequestBlocks (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $ \conv ->
             requestHeaders cont mgh nodeId conv
                 `finally` void (tryPutMVar endedRecoveryVar False)
         -- Block until the conversation has ended.
@@ -283,7 +282,7 @@ handleCHsValid
 handleCHsValid enqueue endedRecoveryVar nodeId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
-    its <- enqueue (MsgRequestBlock (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $
+    its <- enqueue (MsgRequestBlocks (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $
       \(conv :: ConversationActions MsgGetBlocks (MsgBlock ssc) m) -> do
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)

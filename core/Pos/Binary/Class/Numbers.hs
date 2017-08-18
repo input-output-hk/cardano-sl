@@ -4,8 +4,6 @@
 {-# LANGUAGE DeriveFunctor  #-}
 {-# LANGUAGE TypeOperators  #-}
 
-#include "MachDeps.h"
-
 -- | Primitives and convenient wrappers for serialisation/deserialisation of numbers.
 
 

@@ -818,7 +818,7 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
                logDebug $ debugFailure nstatsId
                return Nothing
            | (nstatsAhead + nstatsInFlight) > maxAhead -> do
-               logDebug $ debugAhead nstatsId nstatsAhead maxAhead
+               logDebug $ debugAhead nstatsId nstatsAhead nstatsInFlight maxAhead
                return Nothing
            | otherwise -> do
                return $ Just nstatsId
@@ -830,11 +830,12 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
           "Rejected alternative " % shown
         % " as it has a recent failure"
 
-    debugAhead :: nid -> Int -> Int -> Text
+    debugAhead :: nid -> Int -> Int -> Int -> Text
     debugAhead = sformat $
           "Rejected alternative " % shown
         % " as it has " % shown
-        % " messages ahead, which is more than the maximum " % shown
+        % " messages ahead and " %shown
+        % " messages in flight, which total more than the maximum " % shown
 
 -- | Check how many messages are currently ahead
 --

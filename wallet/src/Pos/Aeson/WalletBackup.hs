@@ -15,7 +15,7 @@ import qualified Serokell.Util.Base64       as B64
 import qualified Pos.Binary                 as Bi
 import           Pos.Crypto                 (EncryptedSecretKey (..))
 import           Pos.Util.Util              (eitherToFail)
-import           Pos.Wallet.Web.Backup      (AccountMetaBackup (..), StateBackup (..),
+import           Pos.Wallet.Web.Backup      (AccountMetaBackup (..), TotalBackup (..),
                                              WalletBackup (..), WalletMetaBackup (..),
                                              currentBackupFormatVersion)
 import           Pos.Wallet.Web.ClientTypes (CAccountMeta (..), CWalletAssurance (..),
@@ -84,13 +84,13 @@ instance FromJSON WalletBackup where
         let encKey = EncryptedSecretKey prvKey passPhraseHash
         return $ WalletBackup encKey walletMeta walletAccounts
 
-instance FromJSON StateBackup where
+instance FromJSON TotalBackup where
     parseJSON = withObject "StateBackup" $ \o -> do
         fileType :: Text <- o .: "fileType"
         case fileType of
             "WALLETS_EXPORT" -> do
                 o .: "fileVersion" >>= checkIfCurrentVersion
-                FullStateBackup <$> o .: "wallets"
+                TotalBackup <$> o .: "wallet"
             unknownType -> fail $ "Unknown type of backup file: " ++ toString unknownType
 
 instance ToJSON AccountMetaBackup where
@@ -121,9 +121,9 @@ instance ToJSON WalletBackup where
         EncryptedSecretKey prvKey passPhraseHash = skey
         encodeAccMap = toJSON . map (uncurry IndexedAccountMeta) . HM.toList
 
-instance ToJSON StateBackup where
-    toJSON (FullStateBackup wallets) = object
+instance ToJSON TotalBackup where
+    toJSON (TotalBackup wallet) = object
         [ "fileType" .= ("WALLETS_EXPORT" :: Text)
         , "fileVersion" .= currentBackupFormatVersion
-        , "wallets" .= wallets
+        , "wallet" .= wallet
         ]

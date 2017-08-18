@@ -2,10 +2,9 @@ module Pos.Wallet.Web.Backup
        ( WalletMetaBackup (..)
        , AccountMetaBackup (..)
        , WalletBackup (..)
-       , StateBackup (..)
+       , TotalBackup (..)
        , currentBackupFormatVersion
        , getWalletBackup
-       , getStateBackup
        ) where
 
 import           Universum
@@ -18,8 +17,7 @@ import           Pos.Wallet.Web.Account     (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
                                              CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (getAccountMeta, getWalletAddresses,
-                                             getWalletMeta)
+import           Pos.Wallet.Web.State       (getAccountMeta, getWalletMeta)
 import           Pos.Wallet.Web.Util        (getWalletAccountIds)
 
 -- TODO: use `Data.Versions.SemVer` datatype for
@@ -36,7 +34,7 @@ data WalletBackup = WalletBackup
     , wbAccounts  :: !(HashMap Int AccountMetaBackup)
     }
 
-data StateBackup = FullStateBackup [WalletBackup]
+data TotalBackup = TotalBackup WalletBackup
 
 getWalletBackup :: AccountMode ctx m => CId Wal -> m WalletBackup
 getWalletBackup wId = do
@@ -57,6 +55,3 @@ getWalletBackup wId = do
         , wbMeta = WalletMetaBackup meta
         , wbAccounts = accountsMap
         }
-
-getStateBackup :: AccountMode ctx m => m StateBackup
-getStateBackup = getWalletAddresses >>= fmap FullStateBackup . mapM getWalletBackup

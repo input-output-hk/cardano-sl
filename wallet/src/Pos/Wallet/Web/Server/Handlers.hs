@@ -98,6 +98,6 @@ servantHandlers sendActions =
     :<|>
      M.syncProgress
     :<|>
-     M.importStateJSON
+     M.importWalletJSON
     :<|>
-     M.exportStateJSON
+     M.exportWalletJSON

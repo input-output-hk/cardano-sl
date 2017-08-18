@@ -348,11 +348,12 @@ type ImportBackupJSON =
        "backup"
     :> "import"
     :> ReqBody '[JSON] Text
-    :> WRes Post [CWallet]
+    :> WRes Post CWallet
 
 type ExportBackupJSON =
        "backup"
     :> "export"
+    :> Capture "walletId" (CId Wal)
     :> ReqBody '[JSON] Text
     :> WRes Post ()
 

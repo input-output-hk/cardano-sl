@@ -28,8 +28,7 @@ import           Pos.Core.Slotting            (flattenSlotId)
 import           Pos.Crypto                   (WithHash (..))
 import           Pos.Slotting                 (getLastKnownSlotDuration, onNewSlot)
 import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
-                                               getMemPool, processTx, runDBToil,
-                                               runToilTLocal, topsortTxs)
+                                               topsortTxs)
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
 import           Pos.Wallet.Web.State         (addOnlyNewPendingTx, casPtxCondition,
@@ -72,18 +71,6 @@ processPtxFailure existing ptx@PendingTx{..} e =
             void $ casPtxCondition ptxTxId PtxApplying newCond
             logInfo $ sformat ("Transaction "%build%" was canceled") ptxTxId
         | otherwise = pass
-
-filterApplicablePtxs
-    :: MonadPendings m
-    => SlotId -> [PendingTx] -> m [PendingTx]
-filterApplicablePtxs curSlot ptxs = do
-    mp <- getMemPool
-    runDBToil . fmap fst . runToilTLocal mempty mp mempty $
-        concatForM ptxs $ \ptx@PendingTx{..} -> do
-            res <- runExceptT $ processTx (siEpoch curSlot) (ptxTxId, ptxTxAux)
-            case res of
-                Left e  -> lift . lift $ processPtxFailure True ptx e $> []
-                Right _ -> return [ptx]
 
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
 processPtxInUpperBlocks curSlot PendingTx{..}
@@ -150,8 +137,7 @@ processPtxs
     => SendActions m -> SlotId -> [PendingTx] -> m ()
 processPtxs sendActions curSlot ptxs = do
     mapM_ (processPtxInUpperBlocks curSlot) ptxs
-    toResubmit <- filterApplicablePtxs curSlot $
-                  filter ((PtxApplying ==) . ptxCond) ptxs
+    let toResubmit = filter ((PtxApplying ==) . ptxCond) ptxs
     logInfo $ sformat fmt (map ptxTxId toResubmit)
     resubmitPtxsDuringSlot sendActions toResubmit
   where

@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Specification of 'Pos.Block.Logic.Creation' module.
 

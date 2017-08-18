@@ -111,6 +111,7 @@ executable cardano-wallet
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

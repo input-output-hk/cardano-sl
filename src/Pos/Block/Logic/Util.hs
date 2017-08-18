@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Some utility functions necessary to implement block processing logic.
 

@@ -1,7 +1,6 @@
-{-# LANGUAGE DeriveFoldable      #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor  #-}
+{-# LANGUAGE RankNTypes     #-}
 
 module Pos.Generator.BlockEvent
        (
@@ -62,7 +61,8 @@ import           Serokell.Util               (listJson)
 
 import           Pos.AllSecrets              (AllSecrets)
 import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (HeaderHash, HasCoreConstants, headerHash, prevBlockL)
+import           Pos.Core                    (HasCoreConstants, HeaderHash, headerHash,
+                                              prevBlockL)
 import           Pos.Crypto.Hashing          (hashHexF)
 import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
                                               TxGenParams, genBlocks)

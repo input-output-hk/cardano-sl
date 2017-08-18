@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Heavy/lightweight PSK processing, in-mem state and
 -- mempool-related functions.

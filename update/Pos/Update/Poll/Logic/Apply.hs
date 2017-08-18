@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Logic of application and verification of data in Poll.
 
@@ -25,7 +24,7 @@ import           Pos.Core                      (ChainDifficulty (..), Coin, Epoc
                                                 epochIndexL, flattenSlotId, headerHashG,
                                                 headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Core.Context              (blkSecurityParam, HasCoreConstants)
+import           Pos.Core.Context              (HasCoreConstants, blkSecurityParam)
 import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Data.Attributes           (areAttributesKnown)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,

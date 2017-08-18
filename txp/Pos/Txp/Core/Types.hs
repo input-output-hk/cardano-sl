@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Core types of Txp component, i. e. types which actually form
 -- block or are used by other components.
 

@@ -1,9 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes    #-}
+{-# LANGUAGE RankNTypes     #-}
 
 module Main
        ( main

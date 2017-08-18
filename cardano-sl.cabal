@@ -459,6 +459,7 @@ library
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -530,6 +531,7 @@ executable cardano-node-simple
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -673,6 +675,7 @@ test-suite cardano-test
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -731,6 +734,7 @@ benchmark cardano-bench-criterion
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

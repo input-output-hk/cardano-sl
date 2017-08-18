@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP        #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Block processing related workers.
 

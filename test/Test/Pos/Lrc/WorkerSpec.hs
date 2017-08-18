@@ -50,10 +50,10 @@ import           Test.Pos.Util             (giveTestsConsts, maybeStopProperty,
                                             stopProperty)
 
 spec :: Spec
--- Currently we want to run it only once, because there is no much
--- randomization (its effect is likely negligible) and performance is
--- the issue.
-spec = giveTestsConsts $ describe "Lrc.Worker" $ modifyMaxSuccess (const 1) $ do
+-- Currently we want to run it only 4 times, because there is no
+-- much randomization (its effect is likely negligible) and
+-- performance matters (but not very much, so we can run more than once).
+spec = giveTestsConsts $ describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
     describe "lrcSingleShotNoLock" $ do
         prop lrcCorrectnessDesc $
             blockPropertyToProperty genTestParams lrcCorrectnessProp

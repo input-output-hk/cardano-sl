@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Transaction related functions.
 
 module Pos.Txp.Core.Tx

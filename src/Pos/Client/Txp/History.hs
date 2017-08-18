@@ -2,7 +2,6 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -12,9 +11,9 @@ module Pos.Client.Txp.History
        , thTx
        , thInputs
        , thDifficulty
-       , thInputAddrs
        , thOutputAddrs
        , thTimestamp
+       , _thInputAddrs
 
        , MonadTxHistory(..)
 
@@ -93,12 +92,15 @@ getSenders UnsafeTx {..} = do
 data TxHistoryEntry = THEntry
     { _thTxId        :: !TxId
     , _thTx          :: !Tx
-    , _thInputs      :: ![TxOut]
     , _thDifficulty  :: !(Maybe ChainDifficulty)
-    , _thInputAddrs  :: ![Address]  -- TODO: remove in favor of _thInputs
+    , _thInputs      :: ![TxOut]
     , _thOutputAddrs :: ![Address]
     , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic)
+
+-- | Remained for compatibility
+_thInputAddrs :: TxHistoryEntry -> [Address]
+_thInputAddrs = map txOutAddress . _thInputs
 
 makeLenses ''TxHistoryEntry
 
@@ -127,12 +129,12 @@ getTxsByPredicate pr mDiff mTs txs = go txs []
     go ((wh@(WithHash tx txId), _wit, dist) : rest) acc = do
         inputs <- getSenders tx
         let outgoings = toList $ txOutAddress <$> _txOutputs tx
-        let incomings = ordNub $ map txOutAddress inputs
+        let incomings = map txOutAddress inputs
 
         applyTxToUtxo wh dist
 
         let acc' = if pr (incomings ++ outgoings)
-                   then (THEntry txId tx inputs mDiff incomings outgoings mTs : acc)
+                   then (THEntry txId tx mDiff inputs outgoings mTs : acc)
                    else acc
         go rest acc'
 

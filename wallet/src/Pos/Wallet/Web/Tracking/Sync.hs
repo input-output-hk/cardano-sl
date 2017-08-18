@@ -53,17 +53,18 @@ import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Constants                    (genesisHash)
 import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..),
-                                                   genesisUtxoM, blkSecurityParam)
-import           Pos.Core                         (HasCoreConstants, AddrPkAttrs (..), Address (..),
-                                                   BlockHeaderStub, ChainDifficulty,
+                                                   genesisUtxoM)
+import           Pos.Core                         (Address (..), BlockHeaderStub,
+                                                   ChainDifficulty, HasCoreConstants,
                                                    HasDifficulty (..), HeaderHash,
-                                                   Timestamp, headerHash, headerSlotL,
-                                                   makePubKeyAddress)
+                                                   Timestamp, aaPkDerivationPath,
+                                                   addrAttributesUnwrapped,
+                                                   blkSecurityParam, headerHash,
+                                                   headerSlotL, makePubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
                                                    unpackHDAddressAttr)
-import           Pos.Data.Attributes              (Attributes (..))
 import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
 import           Pos.DB.Rocks                     (MonadRealDB)
@@ -328,7 +329,6 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             resolvedInputs = zip inps $ NE.toList undo
             txOutgoings = map txOutAddress outs
             txInputs = map (toaOut . snd) resolvedInputs
-            txIncomings = map txOutAddress txInputs
 
             ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
             ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
@@ -340,7 +340,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
 
             addedHistory =
                 if (not $ null ownOutputs) || (not $ null ownInputs)
-                then DL.cons (THEntry txId tx txInputs mDiff txIncomings txOutgoings mTs)
+                then DL.cons (THEntry txId tx mDiff txInputs txOutgoings mTs)
                      camAddedHistory
                 else camAddedHistory
 
@@ -469,11 +469,11 @@ setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "sync")
 
 decryptAccount :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
-decryptAccount (hdPass, wCId) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do
+decryptAccount (hdPass, wCId) addr = do
+    hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
     pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (addressToCId addr)
-decryptAccount _ _ = Nothing
 
 ----------------------------------------------------------------------------
 -- Cached modifier
@@ -495,4 +495,3 @@ fixCachedAccModifierFor
     -> m a
 fixCachedAccModifierFor key action =
     fixingCachedAccModifier (const . action) key
-

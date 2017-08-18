@@ -1,7 +1,6 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeOperators   #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 -- | Stack of monads used by light wallet.
@@ -25,7 +24,9 @@ import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core                         (Address, HasCoreConstants, SlotId (..))
+import           Pos.Core                         (HasCoreConstants, SlotId (..),
+                                                   addressHash, makePubKeyAddress)
+import           Pos.Crypto                       (PublicKey)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
@@ -133,5 +134,5 @@ instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode w
     saveTx = saveTxWallet
 
 instance MonadAddresses LightWalletMode where
-    type AddrData LightWalletMode = Address
-    getNewAddress = pure
+    type AddrData LightWalletMode = PublicKey
+    getNewAddress pk = pure (makePubKeyAddress pk, Just $ addressHash pk)

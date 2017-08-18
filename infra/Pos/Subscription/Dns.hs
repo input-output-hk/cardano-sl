@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Subscription.Dns
     ( dnsSubscriptionWorker
@@ -18,10 +17,10 @@ import           Network.Broadcast.OutboundQueue.Types (peersFromList)
 
 import           Pos.Communication.Protocol            (Worker)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (DnsDomains (..), Bucket(..),
-                                                        NetworkConfig (..), NodeId (..),
-                                                        NodeType (..), resolveDnsDomains,
-                                                        Valency, Fallbacks)
+import           Pos.Network.Types                     (Bucket (..), DnsDomains (..),
+                                                        Fallbacks, NetworkConfig (..),
+                                                        NodeId (..), NodeType (..),
+                                                        Valency, resolveDnsDomains)
 import           Pos.Slotting                          (MonadSlotsData,
                                                         getLastKnownSlotDuration)
 import           Pos.Subscription.Common
@@ -70,7 +69,7 @@ dnsSubscriptionWorker networkCfg dnsDomains _valency _fallbacks sendActions =
 
       -- Declare all active relays as a single list of alternative relays
       void $ updatePeersBucket BucketBehindNatWorker $ \_ ->
-        peersFromList [(NodeRelay, activeRelays updatedRelays)]
+        peersFromList mempty [(NodeRelay, activeRelays updatedRelays)]
 
       -- Subscribe only to a single relay (if we found one)
       --

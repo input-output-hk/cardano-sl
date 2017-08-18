@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | High-level scenarios which can be launched.
 
@@ -28,8 +27,9 @@ import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
 import qualified Pos.Constants         as Const
 import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
                                         getOurPublicKey, ncNetworkConfig)
-import           Pos.DHT.Real          (KademliaDHTInstance (..), kademliaJoinNetworkRetry,
-                                        kademliaJoinNetworkNoThrow)
+import           Pos.DHT.Real          (KademliaDHTInstance (..),
+                                        kademliaJoinNetworkNoThrow,
+                                        kademliaJoinNetworkRetry)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
 import           Pos.Launcher.Resource (NodeResources (..))

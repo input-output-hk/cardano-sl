@@ -20,7 +20,7 @@ import           Pos.Aeson.WalletBackup         ()
 import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
 import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util            (computeTxFee)
+import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
 import           Pos.Communication              (SendActions (..), submitMTx)
 import           Pos.Core                       (Coin, HasCoreConstants, addressF,
                                                  getCurrentTimestamp)
@@ -67,7 +67,7 @@ getTxFee
 getTxFee srcAccount dstAccount coin = do
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
-    TxFee fee <- eitherToThrow =<< runExceptT (computeTxFee utxo outputs)
+    TxFee fee <- eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
     pure $ mkCCoin fee
 
 data MoneySource
@@ -110,9 +110,9 @@ getMoneySourceUtxo =
 -- to modules and refactored
 instance HasCoreConstants => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
-    getNewAddress (accId, passphrase) =
-        L.newAddress RandomSeed passphrase accId >>=
-        decodeCTypeOrFail . cadId
+    getNewAddress (accId, passphrase) = do
+        clientAddress <- L.newAddress RandomSeed passphrase accId
+        (, Nothing) <$> decodeCTypeOrFail (cadId clientAddress)
 
 sendMoney
     :: MonadWalletWebMode m
@@ -138,7 +138,6 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
         let inpTxOuts = toList inpTxOuts'
             txHash    = hash tx
-            inpAddrs  = map txOutAddress inpTxOuts
             dstAddrs  = map txOutAddress . toList $
                         _txOutputs tx
             srcWallet = getMoneySourceWallet moneySource
@@ -151,7 +150,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
         ts <- Just <$> getCurrentTimestamp
         ctxs <- addHistoryTx srcWallet $
-            THEntry txHash tx inpTxOuts Nothing inpAddrs dstAddrs ts
+            THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
      noOutgoingTx = InternalError "Can't report outgoing transaction"

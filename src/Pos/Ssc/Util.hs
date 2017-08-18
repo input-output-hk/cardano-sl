@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Pos.Ssc.Util
        ( toSscBlock
        ) where

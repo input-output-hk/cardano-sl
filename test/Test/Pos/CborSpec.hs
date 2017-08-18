@@ -1,10 +1,10 @@
 
 -- | Test.Pos.CborSpec specification
 
+{-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TemplateHaskell           #-}
 
 module Test.Pos.CborSpec
@@ -223,8 +223,8 @@ roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === in
 -- without breaking anything. This should work with every time which adopted
 -- the schema of having at least one constructor of the form:
 -- .... | Unknown Word8 ByteString
-extensionProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
-extensionProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
+extensionProperty :: forall a. (Arbitrary a, Eq a, Show a, Bi a) => Property
+extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
     let serialized      = serialize input -- We now have a BS blob
         (u :: U)        = deserialize serialized
         (encoded :: a)  = deserialize (serialize u)
@@ -233,10 +233,8 @@ extensionProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
 soundSerializationAttributesOfAsProperty
     :: forall a b aa ab. (aa ~ Attributes a, ab ~ Attributes b,
                           Bi aa, Bi ab, Eq aa, Arbitrary a, Show aa)
-    => Proxy a
-    -> Proxy b
-    -> Property
-soundSerializationAttributesOfAsProperty _ _ = forAll arbitraryAttrs $ \input ->
+    => Property
+soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
     let serialized      = serialize input
         (middle  :: ab) = deserialize serialized
         (encoded :: aa) = deserialize $ serialize middle
@@ -245,14 +243,16 @@ soundSerializationAttributesOfAsProperty _ _ = forAll arbitraryAttrs $ \input ->
     arbitraryAttrs :: Gen aa
     arbitraryAttrs = Attributes <$> arbitrary <*> arbitrary
 
-soundInstanceProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
-soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
+soundInstanceProperty :: forall a. (Arbitrary a, Eq a, Show a, Bi a) => Property
+soundInstanceProperty = forAll (arbitrary :: Gen a) $ \input ->
     let itRoundtrips = roundtripProperty input
         isFlat       = hasValidFlatTerm input === True
     in itRoundtrips .&&. isFlat
 
-asBinaryIdempotencyProperty :: (Arbitrary a, AsBinaryClass a, Eq a, Show a) => Proxy a -> Property
-asBinaryIdempotencyProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
+asBinaryIdempotencyProperty ::
+       forall a. (Arbitrary a, AsBinaryClass a, Eq a, Show a)
+    => Property
+asBinaryIdempotencyProperty = forAll (arbitrary :: Gen a) $ \input ->
     (fromBinary . asBinary $ input) === Right input
 
 testANewtype :: SpecWith ()
@@ -305,164 +305,169 @@ spec :: Spec
 spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
         describe "(Hash)Map and (Hash)Set instances are sound" $ do
-            prop "HashMap Int Int" (soundInstanceProperty @(HashMap Int Int) Proxy)
-            prop "HashSet Int" (soundInstanceProperty @(HashSet Int) Proxy)
-            prop "Map Int Int" (soundInstanceProperty @(Map Int Int) Proxy)
-            prop "Set Int" (soundInstanceProperty @(Set Int) Proxy)
+            prop "HashMap Int Int" (soundInstanceProperty @(HashMap Int Int))
+            prop "HashSet Int" (soundInstanceProperty @(HashSet Int))
+            prop "Map Int Int" (soundInstanceProperty @(Map Int Int))
+            prop "Set Int" (soundInstanceProperty @(Set Int))
         describe "Test instances are sound" $ do
             prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
-            prop "MyScript" (soundInstanceProperty @MyScript Proxy)
-            prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1 Proxy Proxy)
+            prop "MyScript" (soundInstanceProperty @MyScript)
+            prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
             describe "Generic deriving is sound" $ do
                 testARecord
                 testAUnit
                 testANewtype
-                prop "ARecord"  (soundInstanceProperty @ARecord Proxy)
-                prop "AUnit"    (soundInstanceProperty @AUnit Proxy)
-                prop "ANewtype" (soundInstanceProperty @ANewtype Proxy)
+                prop "ARecord"  (soundInstanceProperty @ARecord)
+                prop "AUnit"    (soundInstanceProperty @AUnit)
+                prop "ANewtype" (soundInstanceProperty @ANewtype)
             modifyMaxSuccess (const 20000) $ do
                 describe "Primitive instances are sound" $ do
-                    prop "Int64" (soundInstanceProperty @Int64 Proxy)
-                    prop "IntMap" (soundInstanceProperty @(Map Int Int) Proxy)
-                    prop "IntHashMap" (soundInstanceProperty @(HashMap Int Int) Proxy)
-                    prop "IntSet" (soundInstanceProperty @(Set Int) Proxy)
-                    prop "IntHashSet" (soundInstanceProperty @(HashSet Int) Proxy)
+                    prop "Int64" (soundInstanceProperty @Int64)
+                    prop "IntMap" (soundInstanceProperty @(Map Int Int))
+                    prop "IntHashMap" (soundInstanceProperty @(HashMap Int Int))
+                    prop "IntSet" (soundInstanceProperty @(Set Int))
+                    prop "IntHashSet" (soundInstanceProperty @(HashSet Int))
             describe "Plutus Types' instances are sound" $ do
-                prop "Script" (soundInstanceProperty @Script Proxy)
+                prop "Script" (soundInstanceProperty @Script)
             describe "Core instances are sound" $ do
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int) Proxy)
-                prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int) Proxy)
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int) Proxy)
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int64) Proxy)
-                prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int64) Proxy)
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int64) Proxy)
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word) Proxy)
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Word) Proxy)
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word16) Proxy)
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word32) Proxy)
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word64) Proxy)
-                prop "TinyVarInt" (soundInstanceProperty @TinyVarInt Proxy)
-                prop "Coeff" (soundInstanceProperty @Coeff Proxy)
-                prop "TxSizeLinear" (soundInstanceProperty @TxSizeLinear Proxy)
-                prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy Proxy .&&. extensionProperty @TxFeePolicy Proxy)
-                prop "Timestamp" (soundInstanceProperty @Timestamp Proxy)
-                prop "TimeDiff"  (soundInstanceProperty @TimeDiff Proxy)
-                prop "EpochIndex" (soundInstanceProperty @EpochIndex Proxy)
-                prop "Attributes" (soundInstanceProperty @(Attributes ()) Proxy)
-                prop "Address" (soundInstanceProperty @Address Proxy)
-                prop "Coin" (soundInstanceProperty @Coin Proxy)
-                prop "CoinPortion" (soundInstanceProperty @CoinPortion Proxy)
-                prop "LocalSlotIndex" (soundInstanceProperty @LocalSlotIndex Proxy)
-                prop "SlotId" (soundInstanceProperty @SlotId Proxy)
-                prop "EpochOrSlot" (soundInstanceProperty @EpochOrSlot Proxy)
-                prop "SharedSeed" (soundInstanceProperty @SharedSeed Proxy)
-                prop "ChainDifficulty" (soundInstanceProperty @ChainDifficulty Proxy)
-                prop "StakeDistribution" (soundInstanceProperty @StakeDistribution Proxy)
-                prop "GenesisCoreData" (soundInstanceProperty @GenesisCoreData Proxy)
-                prop "ApplicationName" (soundInstanceProperty @ApplicationName Proxy)
-                prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion Proxy)
-                prop "BlockVersion" (soundInstanceProperty @BlockVersion Proxy)
-                prop "Attributes X1" (soundInstanceProperty @(Attributes X1) Proxy)
-                prop "Attributes X2" (soundInstanceProperty @(Attributes X2) Proxy)
-                prop "AbstractHash " (soundInstanceProperty @(Attributes X2) Proxy)
-                prop "VssPublicKey" (soundInstanceProperty @VssPublicKey Proxy)
-                prop "VssKeyPair" (soundInstanceProperty @VssKeyPair Proxy)
-                prop "Secret" (soundInstanceProperty @Secret Proxy)
-                prop "Share" (soundInstanceProperty @Share Proxy)
-                prop "EncShare" (soundInstanceProperty @EncShare Proxy)
-                prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra Proxy)
-                prop "SecretProof" (soundInstanceProperty @SecretProof Proxy)
-                prop "AsBinary VssPublicKey" (    soundInstanceProperty @(AsBinary VssPublicKey) Proxy
-                                                 .&&. asBinaryIdempotencyProperty @VssPublicKey Proxy
+                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int))
+                prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int))
+                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int))
+                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int64))
+                prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int64))
+                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int64))
+                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word))
+                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Word))
+                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word16))
+                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word32))
+                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word64))
+                prop "TinyVarInt" (soundInstanceProperty @TinyVarInt)
+                prop "Coeff" (soundInstanceProperty @Coeff)
+                prop "TxSizeLinear" (soundInstanceProperty @TxSizeLinear)
+                prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy .&&. extensionProperty @TxFeePolicy)
+                prop "Timestamp" (soundInstanceProperty @Timestamp)
+                prop "TimeDiff"  (soundInstanceProperty @TimeDiff)
+                prop "EpochIndex" (soundInstanceProperty @EpochIndex)
+                prop "Attributes" (soundInstanceProperty @(Attributes ()))
+                prop "AddrType" (soundInstanceProperty @AddrType)
+                prop "AddrStakeDistribution" (soundInstanceProperty @AddrStakeDistribution)
+                prop "AddrSpendingData" (soundInstanceProperty @AddrSpendingData)
+                prop "Attributes AddrAttributes" (soundInstanceProperty @(Attributes AddrAttributes))
+                prop "Address'" (soundInstanceProperty @Address')
+                prop "Address" (soundInstanceProperty @Address)
+                prop "Coin" (soundInstanceProperty @Coin)
+                prop "CoinPortion" (soundInstanceProperty @CoinPortion)
+                prop "LocalSlotIndex" (soundInstanceProperty @LocalSlotIndex)
+                prop "SlotId" (soundInstanceProperty @SlotId)
+                prop "EpochOrSlot" (soundInstanceProperty @EpochOrSlot)
+                prop "SharedSeed" (soundInstanceProperty @SharedSeed)
+                prop "ChainDifficulty" (soundInstanceProperty @ChainDifficulty)
+                prop "StakeDistribution" (soundInstanceProperty @StakeDistribution)
+                prop "GenesisCoreData" (soundInstanceProperty @GenesisCoreData)
+                prop "ApplicationName" (soundInstanceProperty @ApplicationName)
+                prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion)
+                prop "BlockVersion" (soundInstanceProperty @BlockVersion)
+                prop "Attributes X1" (soundInstanceProperty @(Attributes X1))
+                prop "Attributes X2" (soundInstanceProperty @(Attributes X2))
+                prop "AbstractHash " (soundInstanceProperty @(Attributes X2))
+                prop "VssPublicKey" (soundInstanceProperty @VssPublicKey)
+                prop "VssKeyPair" (soundInstanceProperty @VssKeyPair)
+                prop "Secret" (soundInstanceProperty @Secret)
+                prop "Share" (soundInstanceProperty @Share)
+                prop "EncShare" (soundInstanceProperty @EncShare)
+                prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra)
+                prop "SecretProof" (soundInstanceProperty @SecretProof)
+                prop "AsBinary VssPublicKey" (    soundInstanceProperty @(AsBinary VssPublicKey)
+                                                 .&&. asBinaryIdempotencyProperty @VssPublicKey
                                              )
-                prop "AsBinary Secret" (    soundInstanceProperty @Secret Proxy
-                                           .&&. asBinaryIdempotencyProperty @Secret Proxy
+                prop "AsBinary Secret" (    soundInstanceProperty @Secret
+                                           .&&. asBinaryIdempotencyProperty @Secret
                                        )
-                prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share) Proxy)
-                prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare) Proxy)
-                prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
-                prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra Proxy)
-                prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof) Proxy)
-                prop "PublicKey" (soundInstanceProperty @PublicKey Proxy)
-                prop "SecretKey" (soundInstanceProperty @SecretKey Proxy)
-                prop "PassPhrase" (soundInstanceProperty @PassPhrase Proxy)
-                prop "HDAddressPayload" (soundInstanceProperty @HDAddressPayload Proxy)
-                prop "RedeemPublicKey" (soundInstanceProperty @RedeemPublicKey Proxy)
-                prop "RedeemSecretKey" (soundInstanceProperty @RedeemSecretKey Proxy)
-                prop "Commitment" (soundInstanceProperty @Commitment Proxy)
-                prop "CommitmentsMap" (soundInstanceProperty @CommitmentsMap Proxy)
-                prop "VssCertificate" (soundInstanceProperty @VssCertificate Proxy)
-                prop "Opening" (soundInstanceProperty @Opening Proxy)
-                prop "GtPayload" (soundInstanceProperty @GtPayload Proxy)
-                prop "GtProof" (soundInstanceProperty @GtProof Proxy)
-                prop "DataMsg MCCommitment" (soundInstanceProperty @(DataMsg MCCommitment) Proxy)
-                prop "DataMsg MCOpening" (soundInstanceProperty @(DataMsg MCOpening) Proxy)
-                modifyMaxSuccess (const 50) $ prop "DataMsg MCShares" (soundInstanceProperty @(DataMsg MCShares) Proxy)
-                prop "DataMsg MCVssCertificate" (soundInstanceProperty @(DataMsg MCVssCertificate) Proxy)
-                prop "DHTKey" (soundInstanceProperty @DHTKey Proxy)
-                prop "DHTData" (soundInstanceProperty @DHTData Proxy)
-                prop "MessageCode" (soundInstanceProperty @MessageCode Proxy)
-                prop "HandlerSpec" (soundInstanceProperty @HandlerSpec Proxy .&&. extensionProperty @HandlerSpec Proxy)
-                prop "VerInfo" (soundInstanceProperty @VerInfo Proxy)
-                prop "DlgPayload" (soundInstanceProperty @DlgPayload Proxy)
-                prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData Proxy)
-                prop "SlottingData" (soundInstanceProperty @SlottingData Proxy)
-                prop "SystemTag" (soundInstanceProperty @SystemTag Proxy)
-                prop "UpdateVote" (soundInstanceProperty @UpdateVote Proxy)
-                prop "UpdateData" (soundInstanceProperty @UpdateData Proxy)
-                prop "BlockVersionModifier" (soundInstanceProperty @BlockVersionModifier Proxy)
-                prop "UpdateProposal" (soundInstanceProperty @UpdateProposal Proxy)
-                prop "UpdateProposalToSign" (soundInstanceProperty @UpdateProposalToSign Proxy)
-                prop "UpdatePayload" (soundInstanceProperty @UpdatePayload Proxy)
-                prop "VoteState" (soundInstanceProperty @VoteState Proxy)
-                modifyMaxSuccess (const 50) $ prop "USUndo" (soundInstanceProperty @USUndo Proxy)
-                prop "UpsExtra" (soundInstanceProperty @UpsExtra Proxy)
-                prop "DpsExtra" (soundInstanceProperty @DpsExtra Proxy)
-                prop "UndecidedProposalState" (soundInstanceProperty @UndecidedProposalState Proxy)
-                prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState Proxy)
-                prop "ProposalState" (soundInstanceProperty @ProposalState Proxy)
-                prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState Proxy)
-                prop "TxIn" (soundInstanceProperty @TxIn Proxy)
+                prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share))
+                prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare))
+                prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof))
+                prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra)
+                prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof))
+                prop "PublicKey" (soundInstanceProperty @PublicKey)
+                prop "SecretKey" (soundInstanceProperty @SecretKey)
+                prop "PassPhrase" (soundInstanceProperty @PassPhrase)
+                prop "HDAddressPayload" (soundInstanceProperty @HDAddressPayload)
+                prop "RedeemPublicKey" (soundInstanceProperty @RedeemPublicKey)
+                prop "RedeemSecretKey" (soundInstanceProperty @RedeemSecretKey)
+                prop "Commitment" (soundInstanceProperty @Commitment)
+                prop "CommitmentsMap" (soundInstanceProperty @CommitmentsMap)
+                prop "VssCertificate" (soundInstanceProperty @VssCertificate)
+                prop "Opening" (soundInstanceProperty @Opening)
+                prop "GtPayload" (soundInstanceProperty @GtPayload)
+                prop "GtProof" (soundInstanceProperty @GtProof)
+                prop "DataMsg MCCommitment" (soundInstanceProperty @(DataMsg MCCommitment))
+                prop "DataMsg MCOpening" (soundInstanceProperty @(DataMsg MCOpening))
+                modifyMaxSuccess (const 50) $ prop "DataMsg MCShares" (soundInstanceProperty @(DataMsg MCShares))
+                prop "DataMsg MCVssCertificate" (soundInstanceProperty @(DataMsg MCVssCertificate))
+                prop "DHTKey" (soundInstanceProperty @DHTKey)
+                prop "DHTData" (soundInstanceProperty @DHTData)
+                prop "MessageCode" (soundInstanceProperty @MessageCode)
+                prop "HandlerSpec" (soundInstanceProperty @HandlerSpec .&&. extensionProperty @HandlerSpec)
+                prop "VerInfo" (soundInstanceProperty @VerInfo)
+                prop "DlgPayload" (soundInstanceProperty @DlgPayload)
+                prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData)
+                prop "SlottingData" (soundInstanceProperty @SlottingData)
+                prop "SystemTag" (soundInstanceProperty @SystemTag)
+                prop "UpdateVote" (soundInstanceProperty @UpdateVote)
+                prop "UpdateData" (soundInstanceProperty @UpdateData)
+                prop "BlockVersionModifier" (soundInstanceProperty @BlockVersionModifier)
+                prop "UpdateProposal" (soundInstanceProperty @UpdateProposal)
+                prop "UpdateProposalToSign" (soundInstanceProperty @UpdateProposalToSign)
+                prop "UpdatePayload" (soundInstanceProperty @UpdatePayload)
+                prop "VoteState" (soundInstanceProperty @VoteState)
+                modifyMaxSuccess (const 50) $ prop "USUndo" (soundInstanceProperty @USUndo)
+                prop "UpsExtra" (soundInstanceProperty @UpsExtra)
+                prop "DpsExtra" (soundInstanceProperty @DpsExtra)
+                prop "UndecidedProposalState" (soundInstanceProperty @UndecidedProposalState)
+                prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState)
+                prop "ProposalState" (soundInstanceProperty @ProposalState)
+                prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState)
+                prop "TxIn" (soundInstanceProperty @TxIn)
                 modifyMaxSuccess (const 100) $
-                    prop "TxDistribution" (soundInstanceProperty @TxDistribution Proxy)
-                prop "TxSigData" (soundInstanceProperty @TxSigData Proxy)
-                prop "TxProof" (soundInstanceProperty @TxProof Proxy)
-                prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData Proxy)
-                prop "MainExtraBodyData" (soundInstanceProperty @MainExtraBodyData Proxy)
-                prop "GenesisExtraHeaderData" (soundInstanceProperty @GenesisExtraHeaderData Proxy)
-                prop "GenesisExtraBodyData" (soundInstanceProperty @GenesisExtraBodyData Proxy)
-                prop "GtTag" (soundInstanceProperty @GtTag Proxy)
-                prop "TossModifier" (soundInstanceProperty @TossModifier Proxy)
-                prop "VssCertData" (soundInstanceProperty @VssCertData Proxy)
-                prop "GtGlobalState" (soundInstanceProperty @GtGlobalState Proxy)
-                prop "GtSecretStorage" (soundInstanceProperty @GtSecretStorage Proxy)
-                prop "GenesisGtData" (soundInstanceProperty @GenesisGtData Proxy)
-                prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U) Proxy)
-                prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U) Proxy)
+                    prop "TxDistribution" (soundInstanceProperty @TxDistribution)
+                prop "TxSigData" (soundInstanceProperty @TxSigData)
+                prop "TxProof" (soundInstanceProperty @TxProof)
+                prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData)
+                prop "MainExtraBodyData" (soundInstanceProperty @MainExtraBodyData)
+                prop "GenesisExtraHeaderData" (soundInstanceProperty @GenesisExtraHeaderData)
+                prop "GenesisExtraBodyData" (soundInstanceProperty @GenesisExtraBodyData)
+                prop "GtTag" (soundInstanceProperty @GtTag)
+                prop "TossModifier" (soundInstanceProperty @TossModifier)
+                prop "VssCertData" (soundInstanceProperty @VssCertData)
+                prop "GtGlobalState" (soundInstanceProperty @GtGlobalState)
+                prop "GtSecretStorage" (soundInstanceProperty @GtSecretStorage)
+                prop "GenesisGtData" (soundInstanceProperty @GenesisGtData)
+                prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U))
+                prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U))
                 modifyMaxSuccess (const 100) $
-                    prop "TxExtra" (soundInstanceProperty @TxExtra Proxy)
+                    prop "TxExtra" (soundInstanceProperty @TxExtra)
                 -- This runs extremely slow. For now the quickest course of action is to decrease the number of tests performed.
                 modifyMaxSuccess (const 10) $
-                    prop "TxPayload" (soundInstanceProperty @TxPayload Proxy)
+                    prop "TxPayload" (soundInstanceProperty @TxPayload)
                 modifyMaxSuccess (const 100) $
-                    prop "TxAux" (soundInstanceProperty @TxAux Proxy)
-                prop "Tx" (soundInstanceProperty @Tx Proxy)
-                prop "TxOutAux" (soundInstanceProperty @TxOutAux Proxy)
-                prop "TxOut" (soundInstanceProperty @TxOut Proxy)
+                    prop "TxAux" (soundInstanceProperty @TxAux)
+                prop "Tx" (soundInstanceProperty @Tx)
+                prop "TxOutAux" (soundInstanceProperty @TxOutAux)
+                prop "TxOut" (soundInstanceProperty @TxOut)
                 modifyMaxSuccess (const 100) $
-                    prop "DataMsg TxMsgContents" (soundInstanceProperty @(DataMsg TxMsgContents) Proxy)
-                prop "TxInWitness" (soundInstanceProperty @TxInWitness Proxy .&&. extensionProperty @TxInWitness Proxy)
-                prop "Signature a" (soundInstanceProperty @(Signature U) Proxy)
-                prop "Signed a"    (soundInstanceProperty @(Signed U) Proxy)
-                prop "RedeemSignature a"    (soundInstanceProperty @(RedeemSignature U) Proxy)
-                prop "ProxySecretKey w"     (soundInstanceProperty @(ProxySecretKey U) Proxy)
-                prop "ProxySignature w a"   (soundInstanceProperty @(ProxySignature U U) Proxy)
-                prop "AbstractHash SHA256"  (soundInstanceProperty @(AbstractHash SHA256 U) Proxy)
-                prop "DataMsg ProxySKLight" (soundInstanceProperty @(DataMsg ProxySKLight) Proxy)
-                prop "DataMsg ProxySKHeavy" (soundInstanceProperty @(DataMsg ProxySKHeavy) Proxy)
-                prop "DataMsg ProxySKLightConfirmation" (soundInstanceProperty @(DataMsg ProxySKLightConfirmation) Proxy)
-                prop "BackupPhrase" (soundInstanceProperty @BackupPhrase Proxy)
-                prop "PrevValue a"  (soundInstanceProperty @(PrevValue U) Proxy)
+                    prop "DataMsg TxMsgContents" (soundInstanceProperty @(DataMsg TxMsgContents))
+                prop "TxInWitness" (soundInstanceProperty @TxInWitness .&&. extensionProperty @TxInWitness)
+                prop "Signature a" (soundInstanceProperty @(Signature U))
+                prop "Signed a"    (soundInstanceProperty @(Signed U))
+                prop "RedeemSignature a"    (soundInstanceProperty @(RedeemSignature U))
+                prop "ProxySecretKey w"     (soundInstanceProperty @(ProxySecretKey U))
+                prop "ProxySignature w a"   (soundInstanceProperty @(ProxySignature U U))
+                prop "AbstractHash SHA256"  (soundInstanceProperty @(AbstractHash SHA256 U))
+                prop "DataMsgSKLight" (soundInstanceProperty @(DataMsg ProxySKLight))
+                prop "DataMsgSKHeavy" (soundInstanceProperty @(DataMsg ProxySKHeavy))
+                prop "DataMsgSKLightConfirmation" (soundInstanceProperty @(DataMsg ProxySKLightConfirmation))
+                prop "BackupPhrase" (soundInstanceProperty @BackupPhrase)
+                prop "PrevValue a"  (soundInstanceProperty @(PrevValue U))
                 -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
                 it "UserSecret" $ pendingWith "No Eq instance defined"
                 it "WalletUserSecret" $ pendingWith "No Eq instance defined"

@@ -25,13 +25,8 @@ module.exports = {
     publicPath: '/',
     filename: `${libName}.js` ,
     library: libName,
-    libraryTarget: "umd",
-    umdNamedDefine: true,
+    libraryTarget: "commonjs2",
     pathinfo: isDev,
-  },
-  node: {
-    // see https://github.com/webpack-contrib/css-loader/issues/447
-    fs: "empty"
   },
   plugins: [
     new ProgressPlugin(),
@@ -55,6 +50,7 @@ module.exports = {
   resolve: {
     extensions: [ '.js', '.purs']
   },
+  target: 'node',
   module: {
     rules: [
       {
@@ -76,7 +72,7 @@ module.exports = {
             path.join('bower_components', 'purescript-*', 'src', '**', '*.purs')
           ],
           watch: isDev,
-          bundle: !isDev,
+          bundle: false // !isDev,
         }
       }
     ]

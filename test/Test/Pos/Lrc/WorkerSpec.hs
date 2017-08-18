@@ -21,23 +21,24 @@ import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck           (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic   (pick)
 
+import           Pos.AllSecrets            (HasAllSecrets (..), InvAddrSpendingData,
+                                            mkAllSecretsSimple, unInvAddrSpendingData)
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
-import           Pos.Core                  (AddrDistribution, Address (..), Coin,
-                                            EpochIndex, GenesisWStakeholders (..),
-                                            HasCoreConstants, StakeholderId, addressHash,
+import           Pos.Core                  (AddrDistribution, AddrSpendingData (..),
+                                            Address (..), Coin, EpochIndex,
+                                            GenesisWStakeholders (..), HasCoreConstants,
+                                            StakeholderId, addressHash,
                                             applyCoinPortionUp, blkSecurityParam, coinF,
                                             divCoin, makePubKeyAddress, mkCoin,
                                             unsafeAddCoin, unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic, unsafeHash)
-import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
-                                            mkInvSecretsMap)
 import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..),
                                             StakeDistribution (..), concatAddrDistrs)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutAux (..),
-                                            mkTxPayload)
+                                            TxOutDistribution, mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys)
 
@@ -84,8 +85,9 @@ genTestParams = do
     let _tpStartTime = 0
     let stakeholdersNum = 4 * groupsNumber
     secretKeys <- nonrepeating stakeholdersNum
-    let invSecretsMap = mkInvSecretsMap secretKeys
-    let _tpAllSecrets = AllSecrets invSecretsMap
+    let _tpAllSecrets = mkAllSecretsSimple secretKeys
+    let invSecretsMap = _tpAllSecrets ^. asSecretKeys
+    let invAddrSD = _tpAllSecrets ^. asSpendingData
     let minTotalStake = mkCoin 100000
     -- Total stake inside one group.
     totalStakeGroup <-
@@ -98,18 +100,23 @@ genTestParams = do
         mapM (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
              (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
-    let _tpGenesisContext = genesisContextSimple addressesAndDistrs
+    let _tpGenesisContext = genesisContextSimple invAddrSD addressesAndDistrs
     return TestParams {..}
   where
-    identityDistr (PubKeyAddress x _) coins = [(x, coins)]
-    identityDistr _ _                       = error "Unexpected address type"
+    identityDistr :: InvAddrSpendingData -> Address -> Coin -> TxOutDistribution
+    identityDistr (unInvAddrSpendingData -> addrToSpending) addr coin =
+        case addrToSpending ^. at addr of
+            Just (PubKeyASD (addressHash -> sId)) -> [(sId, coin)]
+            _ -> error $ "identityDistr failed for address " <> pretty addr
 
-    genesisContextSimple :: [AddrDistribution] -> GenesisContext
-    genesisContextSimple addrDistr = do
+    genesisContextSimple :: InvAddrSpendingData -> [AddrDistribution] -> GenesisContext
+    genesisContextSimple invAddrSpendingData addrDistr = do
         let balances = concatAddrDistrs addrDistr
         let utxoEntry (addr, coin) =
                 ( TxIn (unsafeHash addr) 0
-                , TxOutAux (TxOut addr coin) (identityDistr addr coin))
+                , TxOutAux (TxOut addr coin)
+                           (identityDistr invAddrSpendingData addr coin)
+                )
         GenesisContext (GenesisUtxo $ M.fromList $ map utxoEntry balances)
                        (GenesisWStakeholders mempty)
 

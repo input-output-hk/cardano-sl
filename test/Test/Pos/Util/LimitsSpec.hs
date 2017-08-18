@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Test on functions trimming data to given limit.
 
 module Test.Pos.Util.LimitsSpec

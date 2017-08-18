@@ -1,10 +1,9 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes     #-}
+{-# LANGUAGE TypeFamilies   #-}
+{-# LANGUAGE TypeOperators  #-}
 
 module Pos.Util.Config
        (

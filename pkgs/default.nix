@@ -4809,8 +4809,8 @@ self: {
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "0r73r12ja6qydficbiimm1xl93dhgm26f9crnssfjzqpyn174gaw";
-            rev = "00f9911afa62ff6af5d53d4c9bb2d5c8aa72ec57";
+            sha256 = "0xm6f35r68icqaamcfh6y4wf90xm1941b1dx2z5ssv9n7mr2m9mq";
+            rev = "7ec342c59823d9890836038122ebad7eb3f187ca";
           };
           isLibrary = true;
           isExecutable = true;
@@ -5650,8 +5650,8 @@ self: {
       serokell-util = callPackage ({ QuickCheck, acid-state, aeson, ansi-terminal, base, base16-bytestring, base64-bytestring, bytestring, clock, containers, deepseq, directory, exceptions, extra, filepath, formatting, hashable, lens, log-warper, mkDerivation, monad-control, mtl, optparse-applicative, parsec, quickcheck-instances, safecopy, scientific, semigroups, stdenv, stm, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "serokell-util";
-          version = "0.3";
-          sha256 = "1crcc9vsg713cnsrpha54rki4a9pnls8sw4m9hz3pikmyqg01jsh";
+          version = "0.4.0";
+          sha256 = "1hql9cmw43cq9dsrkd0qwy1ycj6srsc2sr32grcfvh2j350k2m0p";
           libraryHaskellDepends = [
             acid-state
             aeson

@@ -6,15 +6,16 @@ module Daedalus.WS where
 import Prelude
 import WebSocket as WS
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (EXCEPTION)
+import Control.Monad.Eff.Exception (EXCEPTION, try)
 import Control.Monad.Eff.Ref (writeRef, REF, readRef, Ref)
 import Control.Monad.Eff.Var (($=))
-import Control.Monad.Aff (later', launchAff, liftEff')
+import Control.Monad.Aff (delay, launchAff, liftEff')
 import DOM.Event.Types (Event)
 import DOM.Websocket.Event.Types (MessageEvent)
 import Data.Maybe (Maybe(Just, Nothing), maybe')
+import Data.Time.Duration (Milliseconds(..))
 import WebSocket (runMessage, runMessageEvent)
-import Data.Function.Eff (EffFn1, runEffFn1)
+import Control.Monad.Eff.Uncurried (EffFn1, runEffFn1)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Daedalus.TLS (WSSOptions, getWSUrl)
 import Unsafe.Coerce (unsafeCoerce)
@@ -96,8 +97,12 @@ onClose st@(WSState state) = do
             -- mkConn more then once, there will be two mkConn trying to reconnect and they will interfer with each
             -- other.
             notConnected <- map not $ isConnected st
-            when notConnected $
-                void $ launchAff $ later' 5000 $ liftEff' $ mkConn st
+            -- when notConnected $
+            -- -- --     -- FIXME (jk):
+            -- -- --     -- BEFORE:
+            -- -- --     -- void $ launchAff $ later' 5000 $ liftEff' $ mkConn st
+            -- -- --     -- NOW:
+            --     void $ launchAff $ delay (Milliseconds 5000.0) *> liftEff' (mkConn st)
 
             -- FIXME: don't hardcode the message. Create new event!
             unsafeCoerceEff $ runEffFn1 cb "{\"tag\":\"ConnectionClosedReconnecting\",\"contents\":[]}"

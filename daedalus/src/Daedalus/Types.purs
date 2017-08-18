@@ -44,10 +44,9 @@ import Data.Argonaut.Core (fromString)
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Array (length, filter)
 import Data.Either (either, Either(..))
-import Data.Foreign (F, Foreign, isNull, readString)
-import Data.Foreign.Null (readNull, unNull, Null)
+import Data.Foreign (F, Foreign, isNull, readString, readNull)
 import Data.Int53 (fromInt)
-import Data.Maybe (Maybe(Nothing))
+import Data.Maybe (Maybe(..))
 import Data.String (split, null, trim, joinWith, Pattern(..))
 import Data.Types (mkTime)
 import Pos.Util.BackupPhrase (BackupPhrase(..))
@@ -117,12 +116,17 @@ optionalString :: forall eff. Foreign -> String -> Eff (err :: EXCEPTION | eff) 
 optionalString string paramName =
     if (isNull string)
     then pure Nothing
-    else either (const raiseError) pure runForeignRead
+    else pure $ Just "FIXME"
+    -- else either (const raiseError) pure runForeignRead
   where
-    runForeignRead = runExcept $ unNull <$> theReadString
+    -- FIXME:
+    -- BEFORE
+    -- runForeignRead = runExcept $ unNull <$> theReadString
+    -- AFTER
+    runForeignRead = runExcept $ readString string
     -- type F (Maybe String) = ExceptT (NonEmptyList ForeignError) Identity (Maybe String)
-    theReadString :: F (Null String)
-    theReadString = readNull readString string
+    -- theReadString :: F (Null String)
+    -- theReadString = readNull readString string
 
     raiseError = throw ("Error with converting parameter '" <> paramName <> "' to string.")
 

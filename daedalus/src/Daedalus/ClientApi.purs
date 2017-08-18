@@ -9,7 +9,6 @@ import Data.String.Base64 as B64
 
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Monad.Error.Class (throwError)
 import Control.Promise (Promise, fromAff)
 import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString)
@@ -18,13 +17,11 @@ import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Either (either)
 import Data.Foreign (Foreign)
-import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6)
+import Control.Monad.Eff.Uncurried (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6)
 import Data.Maybe (isJust, maybe, Maybe(..))
 import Data.String (length, stripSuffix, Pattern(..))
 
-import WebSocket (WEBSOCKET)
-
-import Daedalus.TLS (TLSOptions, FS, initTLS, getWSSOptions)
+import Daedalus.TLS (TLSOptions, FS, initTLS)
 import Node.HTTP (HTTP)
 import Node.Buffer (Buffer)
 
@@ -49,7 +46,7 @@ tlsInit = mkEffFn1 initTLS
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-testReset :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Unit)
+testReset :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Unit)
 testReset = mkEffFn1 $ fromAff <<< B.testReset
 
 --------------------------------------------------------------------------------
@@ -68,7 +65,7 @@ testReset = mkEffFn1 $ fromAff <<< B.testReset
 -- |   cwHasPassphrase: true,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
 -- | ```
-getWallet :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Json)
+getWallet :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Json)
 getWallet = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.getWallet tls <<< mkCId
 
 -- | Gets all wallet sets
@@ -94,7 +91,7 @@ getWallet = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.getWallet tls <<
 -- |     cwHasPassphrase: false,
 -- |     cwAmount: { getCCoin: '50000' } } ]
 -- | ```
-getWallets :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Json)
+getWallets :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Json)
 getWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets
 
 -- | Creates a new wallet set.
@@ -112,7 +109,7 @@ getWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets
 -- | ```
 newWallet
     :: forall eff.
-    EffFn6 (http :: HTTP, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
+    EffFn6 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
     TLSOptions
     String
     String
@@ -129,7 +126,7 @@ newWallet = mkEffFn6 cNewWallet
         -> Int
         -> String
         -> Foreign
-        -> Eff (http :: HTTP, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
+        -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
     cNewWallet tls wSetName wsAssurance wsUnit mnemonic spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
         let cWalletInit    = mkCWalletInit wSetName wsAssurance wsUnit mnemonic
@@ -150,7 +147,7 @@ newWallet = mkEffFn6 cNewWallet
 -- |   cwHasPassphrase: true,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
 -- | ```
-updateWallet :: forall eff. EffFn5 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String String String Int (Promise Json)
+updateWallet :: forall eff. EffFn5 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String String String Int (Promise Json)
 updateWallet = mkEffFn5 \tls wId wName wAssurance wUnit -> fromAff <<< map encodeJson <<<
     B.updateWallet tls (mkCId wId) $ mkCWalletMeta wName wAssurance wUnit
 
@@ -187,7 +184,7 @@ updateWallet = mkEffFn5 \tls wId wName wAssurance wUnit -> fromAff <<< map encod
 
 restoreWallet
     :: forall eff.
-    EffFn6 (http :: HTTP, err :: EXCEPTION | eff)
+    EffFn6 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff)
     TLSOptions
     String
     String
@@ -204,7 +201,7 @@ restoreWallet = mkEffFn6 cRestoreWallet
         -> Int
         -> String
         -> Foreign
-        -> Eff (http :: HTTP, err :: EXCEPTION | eff) (Promise Json)
+        -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff) (Promise Json)
     cRestoreWallet tls wSetName wsAssurance wsUnit mnemonic spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
         let cWalletInit    = mkCWalletInit wSetName wsAssurance wsUnit mnemonic
@@ -235,7 +232,7 @@ restoreWallet = mkEffFn6 cRestoreWallet
 -- |   cwHasPassphrase: true,
 -- |   cwAmount: { getCCoin: '0' } }
 -- | ```
-renameWalletSet :: forall eff. EffFn3 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String String (Promise Json)
+renameWalletSet :: forall eff. EffFn3 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String String (Promise Json)
 renameWalletSet = mkEffFn3 \tls wSetId name -> fromAff <<< map encodeJson $ B.renameWalletSet tls (mkCId wSetId) name
 
 -- | Import a wallet set.
@@ -257,7 +254,7 @@ renameWalletSet = mkEffFn3 \tls wSetId name -> fromAff <<< map encodeJson $ B.re
 -- | ```
 importWallet
     :: forall eff.
-    EffFn3 (http :: HTTP, err :: EXCEPTION | eff)
+    EffFn3 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff)
     TLSOptions
     String
     Foreign
@@ -268,7 +265,7 @@ importWallet = mkEffFn3 cImportWallet
         :: TLSOptions
         -> String
         -> Foreign
-        -> Eff (http :: HTTP, err :: EXCEPTION | eff) (Promise Json)
+        -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff) (Promise Json)
     cImportWallet tls filePath spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
         let importedWallet = B.importWallet tls pass filePath
@@ -285,7 +282,7 @@ importWallet = mkEffFn3 cImportWallet
 -- | ```
 changeWalletPass
     :: forall eff.
-    EffFn4  (http :: HTTP, err :: EXCEPTION | eff)
+    EffFn4  (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff)
     TLSOptions
     String
     Foreign
@@ -298,7 +295,7 @@ changeWalletPass = mkEffFn4 cChangeWalletPass
         -> String
         -> Foreign
         -> Foreign
-        -> Eff (http :: HTTP, err :: EXCEPTION | eff) (Promise Unit)
+        -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff) (Promise Unit)
     cChangeWalletPass tls wSetId oldPass newPass = do
         oldPass' <- mkCPassPhrase oldPass
         newPass' <- mkCPassPhrase newPass
@@ -314,7 +311,7 @@ changeWalletPass = mkEffFn4 cChangeWalletPass
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-deleteWallet :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Unit)
+deleteWallet :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Unit)
 deleteWallet = mkEffFn2 $ \tls -> fromAff <<< B.deleteWallet tls <<< mkCId
 
 --------------------------------------------------------------------------------
@@ -334,7 +331,7 @@ deleteWallet = mkEffFn2 $ \tls -> fromAff <<< B.deleteWallet tls <<< mkCId
 -- |    [ { cadId: '19FLnEFfkaLsZqBqYHjPmCypZNHNZ7SBfMsntKgspqA96F18s6eeDy5GYjHmwXSECG6jRqWh9qqEAicpEXrNhpb8PuRNVL',
 -- |        cadAmount: [Object] } ] }
 -- | ```
-getAccount :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Json)
+getAccount :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Json)
 getAccount = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.getAccount tls <<< mkCAccountId
 
 -- | Get all wallets.
@@ -353,7 +350,7 @@ getAccount = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.getAccount tls 
 -- |     caAmount: { getCCoin: '50000' },
 -- |     cwAddresses: [ [Object] ] } ]
 -- | ```
-getAccounts :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Json)
+getAccounts :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Json)
 getAccounts = mkEffFn1 $ fromAff <<< map encodeJson <<< flip B.getAccounts Nothing
 
 -- | Get wallets from specific wallet set.
@@ -368,7 +365,7 @@ getAccounts = mkEffFn1 $ fromAff <<< map encodeJson <<< flip B.getAccounts Nothi
 -- |     caAmount: { getCCoin: '50000' },
 -- |     cwAddresses: [ [Object] ] } ]
 -- | ```
-getWalletAccounts :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Json)
+getWalletAccounts :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Json)
 getWalletAccounts = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.getAccounts tls <<< Just <<< mkCId
 
 -- | Get meta information from given account
@@ -385,7 +382,7 @@ getWalletAccounts = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.getAccou
 -- |    [ { cadId: '19Fv6JWbdLXRXqew721u2GEarEwc8rcfpAqsriRFPameyCkQLHsNDKQRpwsM7W1M587CiswPuY27cj7RUvNXcZWgTbPByq',
 -- |        cadAmount: [Object] } ] }
 -- | ```
-updateAccount :: forall eff. EffFn3 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String String (Promise Json)
+updateAccount :: forall eff. EffFn3 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String String (Promise Json)
 updateAccount = mkEffFn3 \tls wId wName -> fromAff <<< map encodeJson <<<
     B.updateAccount tls (mkCAccountId wId) $ mkCAccountMeta wName
 
@@ -405,7 +402,7 @@ updateAccount = mkEffFn3 \tls wId wName -> fromAff <<< map encodeJson <<<
 -- | ```
 newAccount
     :: forall eff.
-    EffFn4 (http :: HTTP, err :: EXCEPTION | eff)
+    EffFn4 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff)
     TLSOptions
     String
     String
@@ -418,7 +415,7 @@ newAccount = mkEffFn4 cNewAccount
         -> String
         -> String
         -> Foreign
-        -> Eff (http :: HTTP, err :: EXCEPTION | eff) (Promise Json)
+        -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff) (Promise Json)
     cNewAccount tls wSetId wName spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
         let accountInit = mkCAccountInit wName (mkCId wSetId)
@@ -434,7 +431,7 @@ newAccount = mkEffFn4 cNewAccount
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-deleteAccount :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Unit)
+deleteAccount :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Unit)
 deleteAccount = mkEffFn2 $ \tls -> fromAff <<< B.deleteAccount tls <<< mkCAccountId
 
 --------------------------------------------------------------------------------
@@ -452,7 +449,7 @@ deleteAccount = mkEffFn2 $ \tls -> fromAff <<< B.deleteAccount tls <<< mkCAccoun
 -- | ```
 newWAddress
     :: forall eff.
-    EffFn3 (http :: HTTP, err :: EXCEPTION | eff)
+    EffFn3 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff)
     TLSOptions
     String
     Foreign
@@ -463,7 +460,7 @@ newWAddress = mkEffFn3 cNewWAddress
         :: TLSOptions
         -> String
         -> Foreign
-        -> Eff (http :: HTTP, err :: EXCEPTION | eff) (Promise Json)
+        -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff) (Promise Json)
     cNewWAddress tls wId spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
         let cAccountId  = mkCAccountId wId
@@ -493,7 +490,7 @@ newWAddress = mkEffFn3 cNewWAddress
 -- | > api.isValidAddress('1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs9').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > false
-isValidAddress :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Boolean)
+isValidAddress :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Boolean)
 isValidAddress = mkEffFn2 $ \tls -> fromAff <<< B.isValidAddress tls
 
 --------------------------------------------------------------------------------
@@ -508,7 +505,7 @@ isValidAddress = mkEffFn2 $ \tls -> fromAff <<< B.isValidAddress tls
 -- | Promise { <pending> }
 -- | > en-US
 -- | ```
-getLocale :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise String)
+getLocale :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise String)
 getLocale = mkEffFn1 $ \tls -> fromAff $ getProfileLocale <$> B.getProfile tls
 
 -- | Sets user locale.
@@ -520,7 +517,7 @@ getLocale = mkEffFn1 $ \tls -> fromAff $ getProfileLocale <$> B.getProfile tls
 -- | Promise { <pending> }
 -- | > en-US
 -- | ```
-updateLocale :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise String)
+updateLocale :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise String)
 updateLocale = mkEffFn2 \tls locale -> fromAff <<< map getProfileLocale <<< B.updateProfile tls $ mkCProfile locale
 
 --------------------------------------------------------------------------------
@@ -548,7 +545,7 @@ updateLocale = mkEffFn2 \tls locale -> fromAff <<< map getProfileLocale <<< B.up
 -- | ```
 newPayment
     :: forall eff.
-    EffFn5 (http :: HTTP, err :: EXCEPTION | eff)
+    EffFn5 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff)
     TLSOptions
     String
     String
@@ -563,7 +560,7 @@ newPayment = mkEffFn5 cNewPayment
         -> String
         -> String
         -> Foreign
-        -> Eff  (http :: HTTP, err :: EXCEPTION | eff) (Promise Json)
+        -> Eff  (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff) (Promise Json)
     cNewPayment tls wFrom addrTo amount spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
         let accountId   = mkCAccountId wFrom
@@ -577,7 +574,7 @@ newPayment = mkEffFn5 cNewPayment
 -- This is similar to newPayment, except it returns how much fees would the payment take
 txFee
     :: forall eff.
-    EffFn4 (http :: HTTP, err :: EXCEPTION | eff)
+    EffFn4 (http :: HTTP, exception :: EXCEPTION | eff)
     TLSOptions
     String
     String
@@ -590,7 +587,7 @@ txFee = mkEffFn4 cTxFee
         -> String
         -> String
         -> String
-        -> Eff  (http :: HTTP, err :: EXCEPTION | eff) (Promise Json)
+        -> Eff  (http :: HTTP, exception :: EXCEPTION | eff) (Promise Json)
     cTxFee tls wFrom addrTo amount = do
         let accountId   = mkCAccountId wFrom
         let cId         = mkCId addrTo
@@ -609,7 +606,7 @@ txFee = mkEffFn4 cTxFee
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-updateTransaction :: forall eff. EffFn4 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String String Number (Promise Unit)
+updateTransaction :: forall eff. EffFn4 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String String Number (Promise Unit)
 updateTransaction = mkEffFn4 \tls wId ctxId ctmDate -> fromAff $
     B.updateTransaction
     tls
@@ -639,7 +636,7 @@ updateTransaction = mkEffFn4 \tls wId ctxId ctmDate -> fromAff $
 -- |   2 ]
 -- | ```
 
-getHistory :: forall eff. EffFn6 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions Foreign Foreign Foreign Int Int (Promise Json)
+getHistory :: forall eff. EffFn6 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff) TLSOptions Foreign Foreign Foreign Int Int (Promise Json)
 getHistory = mkEffFn6 \tls wIdF acIdF addressIdF skip limit -> do
     wId <- optionalString wIdF "walletId"
     acId <- optionalString acIdF "accountId"
@@ -653,7 +650,7 @@ getHistory = mkEffFn6 \tls wIdF acIdF addressIdF skip limit -> do
             (Just skip)
             (Just limit)
 
-getHistoryByAccount :: forall eff. EffFn4 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String Int Int (Promise Json)
+getHistoryByAccount :: forall eff. EffFn4 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String Int Int (Promise Json)
 getHistoryByAccount = mkEffFn4 \tls acId skip limit -> fromAff <<< map encodeJson $
     B.getHistory
     tls
@@ -664,7 +661,7 @@ getHistoryByAccount = mkEffFn4 \tls acId skip limit -> fromAff <<< map encodeJso
     (Just limit)
 
 -- TODO: this is a workaround https://issues.serokell.io/issue/CSM-300
-getHistoryByWallet :: forall eff. EffFn4 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String Int Int (Promise Json)
+getHistoryByWallet :: forall eff. EffFn4 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String Int Int (Promise Json)
 getHistoryByWallet = mkEffFn4 \tls wId skip limit -> fromAff <<< map encodeJson $
     B.getHistory
     tls
@@ -695,7 +692,7 @@ getHistoryByWallet = mkEffFn4 \tls wId skip limit -> fromAff <<< map encodeJson 
 -- |       ctAmount: [Object] } ],
 -- |   2 ]
 -- | ```
-getAddressHistory :: forall eff. EffFn5 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String String Int Int (Promise Json)
+getAddressHistory :: forall eff. EffFn5 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String String Int Int (Promise Json)
 getAddressHistory = mkEffFn5 \tls acId address skip limit -> fromAff <<< map encodeJson $
     B.getHistory
     tls
@@ -725,7 +722,7 @@ getAddressHistory = mkEffFn5 \tls acId address skip limit -> fromAff <<< map enc
 -- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Aff/foreign.js:176:17
 -- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Aff/foreign.js:182:25
 -- | ```
-nextUpdate :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Json)
+nextUpdate :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Json)
 nextUpdate = mkEffFn1 $ fromAff <<< map encodeJson <<< B.nextUpdate
 
 -- Example in nodejs:
@@ -734,7 +731,7 @@ nextUpdate = mkEffFn1 $ fromAff <<< map encodeJson <<< B.nextUpdate
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-applyUpdate :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Unit)
+applyUpdate :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Unit)
 applyUpdate = mkEffFn1 $ fromAff <<< B.applyUpdate
 
 --------------------------------------------------------------------------------
@@ -759,7 +756,7 @@ applyUpdate = mkEffFn1 $ fromAff <<< B.applyUpdate
 -- | ```
 redeemAda
     :: forall eff.
-    EffFn4 (http :: HTTP, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
+    EffFn4 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
     TLSOptions
     String
     String
@@ -772,7 +769,7 @@ redeemAda = mkEffFn4 cRedeemAda
         -> String
         -> String
         -> Foreign
-        -> Eff (http :: HTTP, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
+        -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
     cRedeemAda tls seed wId spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
         let accountId    = mkCAccountId wId
@@ -801,7 +798,7 @@ redeemAda = mkEffFn4 cRedeemAda
 -- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
 redeemAdaPaperVend
     :: forall eff.
-    EffFn5 (http :: HTTP, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
+    EffFn5 (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
     TLSOptions
     String
     String
@@ -816,7 +813,7 @@ redeemAdaPaperVend = mkEffFn5 cRedeemAdaPaperVend
         -> String
         -> String
         -> Foreign
-        -> Eff (http :: HTTP, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
+        -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
     cRedeemAdaPaperVend tls seed mnemonic wId spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
         let accountId    = mkCAccountId wId
@@ -856,7 +853,7 @@ isValidPaperVendRedemptionKey code = maybe false ((==) 32 <<< A.length) $ B58.de
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-reportInit :: forall eff. EffFn3 (http :: HTTP, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) TLSOptions Int Int (Promise Unit)
+reportInit :: forall eff. EffFn3 (http :: HTTP, exception :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) TLSOptions Int Int (Promise Unit)
 reportInit = mkEffFn3 \tls total -> fromAff <<< B.reportInit tls <<< mkCInitialized total
 
 --------------------------------------------------------------------------------
@@ -868,7 +865,7 @@ reportInit = mkEffFn3 \tls total -> fromAff <<< B.reportInit tls <<< mkCInitiali
 -- | Promise { <pending> }
 -- | > 7000
 -- | ```
-blockchainSlotDuration :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Int)
+blockchainSlotDuration :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Int)
 blockchainSlotDuration = mkEffFn1 $ fromAff <<< B.blockchainSlotDuration
 
 -- Example in nodejs:
@@ -877,7 +874,7 @@ blockchainSlotDuration = mkEffFn1 $ fromAff <<< B.blockchainSlotDuration
 -- | Promise { <pending> }
 -- | > { svNumber: 0, svAppName: { getApplicationName: 'cardano-sl' } }
 -- | ```
-systemVersion :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Json)
+systemVersion :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Json)
 systemVersion = mkEffFn1 $ fromAff <<< map encodeJson <<< B.systemVersion
 
 -- Example in nodejs:
@@ -888,15 +885,15 @@ systemVersion = mkEffFn1 $ fromAff <<< map encodeJson <<< B.systemVersion
 -- |   _spNetworkCD: null,
 -- |   _spLocalCD: { getChainDifficulty: 4 } }
 -- | ```
-syncProgress :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Json)
+syncProgress :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Json)
 syncProgress = mkEffFn1 $ fromAff <<< map encodeJson <<< B.syncProgress
 
 --------------------------------------------------------------------------------
 -- JSON backup -----------------------------------------------------------------
-importBackupJSON :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Json)
+importBackupJSON :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Json)
 importBackupJSON = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.importBackupJSON tls
 
-exportBackupJSON :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Unit)
+exportBackupJSON :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Unit)
 exportBackupJSON = mkEffFn2 $ \tls -> fromAff <<< B.exportBackupJSON tls
 
 --------------------------------------------------------------------------------

@@ -22,34 +22,36 @@
     "tests"
   ],
   "devDependencies": {
-    "purescript-psci-support": "^2.0.0",
-    "purescript-debug": "2.0.0"
+    "purescript-psci-support": "^3.0.0",
+    "purescript-debug": "3.0.0"
   },
   "dependencies": {
-    "purescript-console": "^2.0.0",
-    "purescript-eff-functions": "^2.0.0",
-    "purescript-eff": "^2.0.0",
-    "purescript-argonaut": "^2.0.0",
-    "purescript-argonaut-generic-codecs": "^5.0.0",
-    "purescript-aff": "^2.0.3",
-    "purescript-now": "^2.0.0",
-    "purescript-datetime": "^2.1.0",
-    "purescript-aff-promise": "0.4.0",
-    "purescript-media-types": "2.0.0",
-    "purescript-functions": "2.0.0",
-    "purescript-websocket-simple": "1.0.1",
-    "purescript-refs": "2.0.0",
-    "purescript-b64": "^0.0.2",
+    "purescript-console": "^3.0.0",
+    "purescript-eff": "^3.1.0",
+    "purescript-argonaut": "^3.0.0",
+    "purescript-argonaut-generic-codecs": "^6.0.4",
+    "purescript-aff": "^3.1.0",
+    "purescript-now": "^3.0.0",
+    "purescript-datetime": "^3.3.0",
+    "purescript-aff-promise": "0.7.0",
+    "purescript-media-types": "3.0.0",
+    "purescript-functions": "3.0.0",
+    "purescript-websocket-simple": "2.0.0",
+    "purescript-refs": "3.0.0",
+    "purescript-b64": "^0.0.3",
     "purescript-base58": "https://github.com/input-output-hk/purescript-base58.git",
-    "purescript-arraybuffer-types": "^0.2.0",
-    "purescript-node-http": "3.0.1",
-    "purescript-options": "v2.0.0",
-    "purescript-node-fs": "v3.0.0",
-    "purescript-node-buffer": "v2.0.0",
-    "purescript-http-methods": "v2.0.0",
-    "purescript-maps": "v2.0.0",
-    "purescript-int-53": "^2.1.1",
-    "purescript-foreign": "^3.2.0",
-    "purescript-form-urlencoded": "^2.0.0"
+    "purescript-arraybuffer-types": "^2.0.0",
+    "purescript-node-http": "4.1.0",
+    "purescript-options": "v3.0.0",
+    "purescript-node-fs": "v4.0.0",
+    "purescript-node-buffer": "v3.0.1",
+    "purescript-http-methods": "v3.0.0",
+    "purescript-maps": "v3.5.1",
+    "purescript-int-53": "^3.0.0",
+    "purescript-foreign": "^4.0.1",
+    "purescript-form-urlencoded": "^3.0.0"
+  },
+  "resolutions": {
+    "purescript-arraybuffer-types": "^2.0.0"
   }
 }

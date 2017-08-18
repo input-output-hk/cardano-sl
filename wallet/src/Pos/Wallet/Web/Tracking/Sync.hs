@@ -53,12 +53,12 @@ import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Constants                    (genesisHash)
 import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..),
-                                                   genesisUtxoM, blkSecurityParam)
-import           Pos.Core                         (HasCoreConstants, AddrPkAttrs (..), Address (..),
+                                                   blkSecurityParam, genesisUtxoM)
+import           Pos.Core                         (AddrPkAttrs (..), Address (..),
                                                    BlockHeaderStub, ChainDifficulty,
-                                                   HasDifficulty (..), HeaderHash,
-                                                   Timestamp, headerHash, headerSlotL,
-                                                   makePubKeyAddress)
+                                                   HasCoreConstants, HasDifficulty (..),
+                                                   HeaderHash, Timestamp, headerHash,
+                                                   headerSlotL, makePubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -420,7 +420,8 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
     WS.updateHistoryCache wid $ DL.toList camAddedHistory <> oldCachedHist
-    -- tracker has priority over the resubmitting worker, thus not atomic modifications
+    -- resubmitting worker can change ptx in db nonatomically, but
+    -- tracker has priority over the resubmiter, thus do not use CAS here
     mapM_ (`WS.setPtxCondition` PtxApplying) (MM.deletions camPtxCandidates)
     mapM_ (uncurry WS.setPtxCondition . second newPtxCondition) (MM.insertions camPtxCandidates)
     WS.setWalletSyncTip wid newTip

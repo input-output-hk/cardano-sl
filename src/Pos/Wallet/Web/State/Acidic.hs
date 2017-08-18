@@ -32,6 +32,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetCustomAddresses (..)
        , GetCustomAddress (..)
        , GetPendingTxs (..)
+       , GetPtxAttemptsRem (..)
        , AddCustomAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
@@ -59,6 +60,7 @@ module Pos.Wallet.Web.State.Acidic
        , SetPtxCondition (..)
        , CasPtxCondition (..)
        , AddOnlyNewPendingTx (..)
+       , CountDownPtxAttempts (..)
        ) where
 
 import           Universum
@@ -120,6 +122,7 @@ makeAcidic ''WalletStorage
     , 'WS.getCustomAddresses
     , 'WS.getCustomAddress
     , 'WS.getPendingTxs
+    , 'WS.getPtxAttemptsRem
     , 'WS.addCustomAddress
     , 'WS.removeCustomAddress
     , 'WS.createAccount
@@ -147,4 +150,5 @@ makeAcidic ''WalletStorage
     , 'WS.setPtxCondition
     , 'WS.casPtxCondition
     , 'WS.addOnlyNewPendingTx
+    , 'WS.countDownPtxAttempts
     ]

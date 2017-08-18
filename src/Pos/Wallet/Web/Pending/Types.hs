@@ -2,12 +2,20 @@
 
 module Pos.Wallet.Web.Pending.Types
     ( PendingTx (..)
+    , ptxTxId
+    , ptxTxAux
+    , ptxCond
+    , ptxCreationSlot
+    , ptxAssuredDepth
+    , ptxAttemptsRem
+
     , PtxCondition (..)
     , PtxBlockInfo
     ) where
 
 import           Universum
 
+import           Control.Lens       (makeLenses)
 import           Pos.Core.Types     (HeaderHash, SlotCount, SlotId)
 import           Pos.Txp.Core.Types (TxAux, TxId)
 
@@ -40,17 +48,19 @@ data PtxCondition
     | PtxInUpperBlocks PtxBlockInfo  -- ^ Recently appeared in block.
     | PtxPersisted                   -- ^ Transaction is ~guaranteed to remain in blockchain
                                      --   (with up to *high* assurance level)
-    | PtxWontApply Text             -- ^ Can't be applyed and requires user's
+    | PtxWontApply Text              -- ^ Can't be applyed and requires user's
                                      --   input to reform tx
     deriving (Eq, Show)
 
 -- | All info kept about pending transaction
 data PendingTx = PendingTx
-    { ptxTxId         :: TxId  -- for the sake of optimization
-    , ptxTxAux        :: TxAux
-    , ptxCreationSlot :: SlotId  -- when tx was formed, for scheduling purposes.
-                                 -- this in NOT when tx appeared in blockchain
-    , ptxCond         :: PtxCondition
-    , ptxAssuredDepth :: SlotCount
+    { _ptxTxId         :: TxId  -- for the sake of optimization
+    , _ptxTxAux        :: TxAux
+    , _ptxCreationSlot :: SlotId  -- when tx was formed, for scheduling purposes.
+                                  -- this in NOT when tx appeared in blockchain
+    , _ptxCond         :: PtxCondition
+    , _ptxAssuredDepth :: SlotCount  -- ^ at which depth tx is considered persistent
+    , _ptxAttemptsRem  :: Int  -- ^ remaining number of resubmission attempts
     } deriving (Eq)
 
+makeLenses ''PendingTx

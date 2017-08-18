@@ -10,6 +10,8 @@ module Pos.Wallet.Web.Pending.Util
 import           Universum
 
 import           Formatting                   (build, sformat, (%))
+
+import qualified Pos.Constants                as C
 import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
 import           Pos.Txp                      (TxAux, TxId)
 import           Pos.Util.Util                (maybeThrow)
@@ -29,12 +31,13 @@ isPtxInBlocks = \case
     PtxWontApply{}    -> False
 
 mkPendingTx :: MonadWalletWebMode m => CId Wal -> TxId -> TxAux -> m PendingTx
-mkPendingTx wid ptxTxId ptxTxAux = do
-    ptxCreationSlot <- getCurrentSlotInaccurate
+mkPendingTx wid _ptxTxId _ptxTxAux = do
+    _ptxCreationSlot <- getCurrentSlotInaccurate
     CWalletMeta{..} <- maybeThrow noWallet =<< getWalletMeta wid
     return PendingTx
-        { ptxCond = PtxApplying
-        , ptxAssuredDepth = assuredBlockDepth cwAssurance HighAssurance
+        { _ptxCond = PtxApplying
+        , _ptxAssuredDepth = assuredBlockDepth cwAssurance HighAssurance
+        , _ptxAttemptsRem = C.pendingTxAttemptsLimit
         , ..
         }
   where

@@ -35,6 +35,7 @@ module Pos.Wallet.Web.State.State
        , isCustomAddress
        , getWalletUtxo
        , getPendingTxs
+       , getPtxAttemptsRem
 
        -- * Setters
        , testReset
@@ -65,6 +66,7 @@ module Pos.Wallet.Web.State.State
        , setPtxCondition
        , casPtxCondition
        , addOnlyNewPendingTx
+       , countDownPtxAttempts
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -171,6 +173,8 @@ isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
 getPendingTxs :: WebWalletModeDB ctx m => m [PendingTx]
 getPendingTxs = queryDisk ... A.GetPendingTxs
 
+getPtxAttemptsRem :: WebWalletModeDB ctx m => TxId -> m (Maybe Int)
+getPtxAttemptsRem = queryDisk ... A.GetPtxAttemptsRem
 
 createAccount :: WebWalletModeDB ctx m => AccountId -> CAccountMeta -> m ()
 createAccount accId = updateDisk . A.CreateAccount accId
@@ -262,3 +266,6 @@ casPtxCondition = updateDisk ... A.CasPtxCondition
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
+
+countDownPtxAttempts :: WebWalletModeDB ctx m => TxId -> m ()
+countDownPtxAttempts = updateDisk ... A.CountDownPtxAttempts

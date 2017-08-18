@@ -39,6 +39,7 @@ module Pos.Constants
 
        -- * Transaction resubmition constants
        , pendingTxResubmitionPeriod
+       , pendingTxAttemptsLimit
        ) where
 
 import           Universum                    hiding (lift)
@@ -157,4 +158,7 @@ appSystemTag = $(do
 ----------------------------------------------------------------------------
 
 pendingTxResubmitionPeriod :: Second
-pendingTxResubmitionPeriod = fromIntegral . ccPendingTxResubmitionPeriod $ compileConfig
+pendingTxResubmitionPeriod = fromIntegral . ccPendingTxResubmissionPeriod $ compileConfig
+
+pendingTxAttemptsLimit :: Int
+pendingTxAttemptsLimit = fromIntegral . ccPendingTxAttemptsLimit $ compileConfig

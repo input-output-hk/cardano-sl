@@ -32,7 +32,8 @@ import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
 import           Pos.Wallet.Web.State         (addOnlyNewPendingTx, casPtxCondition,
-                                               getPendingTxs)
+                                               countDownPtxAttempts, getPendingTxs,
+                                               getPtxAttemptsRem, setPtxCondition)
 
 type MonadPendings m =
     ( MonadWalletWebMode m
@@ -63,30 +64,30 @@ processPtxFailure existing ptx@PendingTx{..} e =
         ToilBootInappropriate{} -> discard
   where
     trackFurther
-        | existing  = pass
+        | existing  = countDownPtxAttempts _ptxTxId
         | otherwise = addOnlyNewPendingTx ptx
     discard
         | existing  = do
             let newCond = PtxWontApply (sformat build e)
-            void $ casPtxCondition ptxTxId PtxApplying newCond
-            logInfo $ sformat ("Transaction "%build%" was canceled") ptxTxId
+            void $ casPtxCondition _ptxTxId PtxApplying newCond
+            logInfo $ sformat ("Transaction "%build%" was canceled") _ptxTxId
         | otherwise = pass
 
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
 processPtxInUpperBlocks curSlot PendingTx{..}
-    | PtxInUpperBlocks (slotId, _) <- ptxCond, longAgo slotId = do
-         void $ casPtxCondition ptxTxId ptxCond PtxPersisted
-         logInfo $ sformat ("Transaction "%build%" got persistent") ptxTxId
+    | PtxInUpperBlocks (slotId, _) <- _ptxCond, longAgo slotId = do
+         void $ casPtxCondition _ptxTxId _ptxCond PtxPersisted
+         logInfo $ sformat ("Transaction "%build%" got persistent") _ptxTxId
     | otherwise = pass
   where
      longAgo (flattenSlotId -> ptxSlot) =
-         ptxSlot + getSlotCount ptxAssuredDepth < flattenSlotId curSlot
+         ptxSlot + getSlotCount _ptxAssuredDepth < flattenSlotId curSlot
 
 -- | 'True' for slots which are equal to
 -- @ptxCreationSlot + initialDelay + furtherDelay * k@ for some integer @k@
 whetherCheckPtxOnSlot :: HasCoreConstants => SlotId -> PendingTx -> Bool
 whetherCheckPtxOnSlot (flattenSlotId -> curSlot) ptx = do
-    let ptxSlot = flattenSlotId (ptxCreationSlot ptx)
+    let ptxSlot = flattenSlotId (_ptxCreationSlot ptx)
         checkStartSlot = ptxSlot + initialDelay
     and [ curSlot > checkStartSlot
         , ((curSlot - checkStartSlot) `mod` furtherDelay) == 0
@@ -97,9 +98,9 @@ whetherCheckPtxOnSlot (flattenSlotId -> curSlot) ptx = do
 
 resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
 resubmitTx SendActions{..} ptx@PendingTx{..} = do
-    logInfo $ sformat ("Resubmitting tx "%build) ptxTxId
+    logInfo $ sformat ("Resubmitting tx "%build) _ptxTxId
     -- FIXME [CSM-256] Doesn't it introduce a race condition?
-    void (submitAndSaveTx enqueueMsg ptxTxAux) `catches` handlers
+    void (submitAndSaveTx enqueueMsg _ptxTxAux) `catches` handlers
   where
     handlers =
         [ Handler $ \e -> do
@@ -112,7 +113,7 @@ resubmitTx SendActions{..} ptx@PendingTx{..} = do
         ]
     reportFail :: MonadPendings m => Exception e => Text -> e -> m ()
     reportFail desc =
-        logInfo . sformat (stext%" "%build%": "%shown) desc ptxTxId
+        logInfo . sformat (stext%" "%build%": "%shown) desc _ptxTxId
 
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot
@@ -130,6 +131,17 @@ resubmitPtxsDuringSlot sendActions ptxs = do
         let checkPeriod = max 0 $ slotDuration - convertUnit submitionEta
         return (checkPeriod `div` fromIntegral toResubmitNum)
 
+-- | Checks number of remaining resubmision attempts.
+-- Returns 'True' for still living transaction.
+processPtxRemAttempts :: MonadPendings m => PendingTx -> m Bool
+processPtxRemAttempts PendingTx{..} = do
+    attempts <- getPtxAttemptsRem _ptxTxId
+    let expired = maybe False (<= 0) attempts
+    when expired $ do
+        logInfo $ sformat ("Pending transaction "%build%" has expired") _ptxTxId
+        setPtxCondition _ptxTxId (PtxWontApply "Exceeded resubmission attempts limit")
+    return (not expired)
+
 -- | Checks and updates state of given pending transactions, resubmitting them
 -- if needed.
 processPtxs
@@ -137,8 +149,11 @@ processPtxs
     => SendActions m -> SlotId -> [PendingTx] -> m ()
 processPtxs sendActions curSlot ptxs = do
     mapM_ (processPtxInUpperBlocks curSlot) ptxs
-    let toResubmit = filter ((PtxApplying ==) . ptxCond) ptxs
-    logInfo $ sformat fmt (map ptxTxId toResubmit)
+
+    livingPtxs <- filterM processPtxRemAttempts ptxs
+
+    let toResubmit = filter ((PtxApplying ==) . _ptxCond) livingPtxs
+    logInfo $ sformat fmt (map _ptxTxId toResubmit)
     resubmitPtxsDuringSlot sendActions toResubmit
   where
     fmt = "Transactions to resubmit on current slot: "%listJson
@@ -151,14 +166,14 @@ processPtxsOnSlot sendActions curSlot = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let selectedPtxs =
             take ptxsPerSlotLimit $
-            sortWith ptxCreationSlot $
+            sortWith _ptxCreationSlot $
             flip fromMaybe =<< topsortTxs wHash $
             filter (whetherCheckPtxOnSlot curSlot) $
             ptxs
 
     processPtxs sendActions curSlot selectedPtxs
   where
-    wHash PendingTx{..} = WithHash (taTx ptxTxAux) ptxTxId
+    wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
     evalPtxsPerSlotLimit = do
         slotDuration <- getLastKnownSlotDuration
         return $ fromIntegral $

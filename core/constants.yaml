@@ -56,6 +56,7 @@ dev: &dev
 
   # Transaction resubmition
   pendingTxResubmitionPeriod: 10 # seconds
+  pendingTxAttemptsLimit: 5
 
   # This value parameterizes size of dlg cache. There are two types of
   # messages: normal messages and confirmation messages. Both of them are

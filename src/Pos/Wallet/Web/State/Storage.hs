@@ -28,6 +28,7 @@ module Pos.Wallet.Web.State.Storage
        , getCustomAddresses
        , getCustomAddress
        , getPendingTxs
+       , getPtxAttemptsRem
        , addCustomAddress
        , removeCustomAddress
        , createAccount
@@ -57,12 +58,14 @@ module Pos.Wallet.Web.State.Storage
        , setPtxCondition
        , casPtxCondition
        , addOnlyNewPendingTx
+       , countDownPtxAttempts
        ) where
 
 import           Universum
 
 import           Control.Lens                 (at, ix, makeClassy, makeLenses, non', (%=),
-                                               (+=), (.=), (<<.=), (?=), _Empty, _head)
+                                               (+=), (-=), (.=), (<<-=), (<<.=), (?=),
+                                               _Empty, _head)
 import           Control.Monad.State.Class    (put)
 import           Data.Default                 (Default, def)
 import qualified Data.HashMap.Strict          as HM
@@ -79,7 +82,8 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CC
                                                CUpdateInfo, CWAddressMeta (..),
                                                CWalletAssurance, CWalletMeta,
                                                PassPhraseLU, Wal, addrMetaToAccount)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
+                                               ptxAttemptsRem, ptxCond)
 
 type AddressSortingKey = Int
 
@@ -256,6 +260,9 @@ getCustomAddress t addr = view $ customAddressL t . at addr
 getPendingTxs :: Query [PendingTx]
 getPendingTxs = toList <$> view wsPendingTxs
 
+getPtxAttemptsRem :: TxId -> Query (Maybe Int)
+getPtxAttemptsRem txId = preview $ wsPendingTxs . ix txId . ptxAttemptsRem
+
 addCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
 addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
@@ -371,19 +378,24 @@ updateHistoryCache cWalId cTxs =
 -- doesn't fit your purposes better
 setPtxCondition :: TxId -> PtxCondition -> Update ()
 setPtxCondition txId cond =
-    wsPendingTxs . ix txId %= (\tx -> tx { ptxCond = cond })
+    wsPendingTxs . ix txId . ptxCond .= cond
 
 -- | Compare-and-set version of 'setPtxCondition'.
 -- Returns 'True' if transaction existed and modification was applied.
 casPtxCondition :: TxId -> PtxCondition -> PtxCondition -> Update Bool
 casPtxCondition txId expectedCond newCond = do
-    oldCond <- ptxCond <<$>> use (wsPendingTxs . at txId)
+    oldCond <- preuse (wsPendingTxs . ix txId . ptxCond)
     let success = oldCond == Just expectedCond
     when success $ setPtxCondition txId newCond
     return success
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
-addOnlyNewPendingTx ptx = wsPendingTxs . at (ptxTxId ptx) %= (<|> Just ptx)
+addOnlyNewPendingTx ptx = wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
+
+-- | Decreases attempts counter, returns new value
+countDownPtxAttempts :: TxId -> Update ()
+countDownPtxAttempts txId =
+    wsPendingTxs . ix txId . ptxAttemptsRem -= 1
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile

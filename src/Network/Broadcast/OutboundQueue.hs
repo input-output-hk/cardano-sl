@@ -85,6 +85,7 @@ import Data.Map.Strict (Map)
 import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
 import Data.Ord (comparing)
+import Data.Set (Set)
 import Data.Text (Text)
 import Data.Time
 import Data.Typeable (typeOf)
@@ -202,8 +203,8 @@ newtype MaxInFlight = MaxInFlight Int
 
 -- | Dequeue policy
 --
--- The dequeue policy epends only on the type of the node we're sending to,
--- not the same of the message we're sending.
+-- The dequeue policy depends only on the type of the node we're sending to,
+-- not the type of the message we're sending.
 type DequeuePolicy = NodeType -> Dequeue
 
 {-------------------------------------------------------------------------------
@@ -316,6 +317,9 @@ inFlightTo nid = at nid . anon Map.empty Map.null
 inFlightWithPrec :: Ord nid => nid -> Precedence -> Lens' (InFlight nid) Int
 inFlightWithPrec nid prec = inFlightTo nid . at prec . anon 0 (== 0)
 
+inFlightFor :: Ord nid => Packet msg nid a -> Lens' (InFlight nid) Int
+inFlightFor Packet{..} = inFlightWithPrec packetDestId packetPrec
+
 -- | The outbound queue (opaque data structure)
 --
 -- NOTE: The 'Ord' instance on the type of the buckets @buck@ determines the
@@ -346,6 +350,10 @@ data OutboundQ msg nid buck = ( FormatMsg msg
 
       -- | Messages sent but not yet acknowledged
     , qInFlight :: MVar (InFlight nid)
+
+      -- | Nodes that we should not send any messages to right now because
+      -- of rate limiting
+    , qRateLimited :: MVar (Set nid)
 
       -- | Messages scheduled but not yet sent
     , qScheduled :: MQ msg nid
@@ -420,12 +428,13 @@ new qSelf
     qMaxBucketSize
     (UnknownNodeType qUnknownNodeType)
   = liftIO $ do
-    qInFlight  <- newMVar Map.empty
-    qScheduled <- MQ.new
-    qBuckets   <- newMVar Map.empty
-    qCtrlMsg   <- newEmptyMVar
-    qFailures  <- newMVar Map.empty
-    qHealth    <- newQHealth
+    qInFlight    <- newMVar Map.empty
+    qScheduled   <- MQ.new
+    qBuckets     <- newMVar Map.empty
+    qCtrlMsg     <- newEmptyMVar
+    qFailures    <- newMVar Map.empty
+    qRateLimited <- newMVar Set.empty
+    qHealth      <- newQHealth
 
     -- Only look for control messages when the queue is empty
     let checkCtrlMsg :: IO (Maybe CtrlMsg)
@@ -775,9 +784,10 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
 
 -- | Node ID with current stats needed to pick a node from a list of alts
 data NodeWithStats nid = NodeWithStats {
-      nstatsId      :: nid  -- ^ Node ID
-    , nstatsFailure :: Bool -- ^ Recent failure?
-    , nstatsAhead   :: Int  -- ^ Number of messages ahead
+      nstatsId       :: nid  -- ^ Node ID
+    , nstatsFailure  :: Bool -- ^ Recent failure?
+    , nstatsAhead    :: Int  -- ^ Number of messages ahead
+    , nstatsInFlight :: Int  -- ^ Number of messages in flight
     }
 
 -- | Compute current node statistics
@@ -787,8 +797,8 @@ nodeWithStats :: (MonadIO m, WithLogger m)
               -> nid
               -> m (NodeWithStats nid)
 nodeWithStats outQ prec nstatsId = do
-    nstatsAhead   <- countAhead outQ nstatsId prec
-    nstatsFailure <- hasRecentFailure outQ nstatsId
+    (nstatsAhead, nstatsInFlight) <- countAhead outQ nstatsId prec
+    nstatsFailure                 <- hasRecentFailure outQ nstatsId
     return NodeWithStats{..}
 
 -- | Choose an appropriate node from a list of alternatives
@@ -807,12 +817,12 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
         if | nstatsFailure -> do
                logDebug $ debugFailure nstatsId
                return Nothing
-           | nstatsAhead > maxAhead -> do
+           | (nstatsAhead + nstatsInFlight) > maxAhead -> do
                logDebug $ debugAhead nstatsId nstatsAhead maxAhead
                return Nothing
            | otherwise -> do
                return $ Just nstatsId
-      | NodeWithStats{..} <- sortBy (comparing nstatsAhead) alts'
+      | NodeWithStats{..} <- sortBy (comparing ((+) <$> nstatsAhead <*> nstatsInFlight)) alts'
       ]
   where
     debugFailure :: nid -> Text
@@ -828,11 +838,14 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
 
 -- | Check how many messages are currently ahead
 --
+-- First component is the total ahead in the queue.
+-- Second component is the total in-flight.
+--
 -- NOTE: This is of course a highly dynamic value; by the time we get to
 -- actually enqueue the message the value might be slightly different. Bounds
 -- are thus somewhat fuzzy.
 countAhead :: forall m msg nid buck. (MonadIO m, WithLogger m)
-           => OutboundQ msg nid buck -> nid -> Precedence -> m Int
+           => OutboundQ msg nid buck -> nid -> Precedence -> m (Int, Int)
 countAhead OutQ{..} nid prec = do
     logDebug . debugInFlight =<< liftIO (readMVar qInFlight)
     (inFlight, inQueue) <- liftIO $ (,)
@@ -840,7 +853,7 @@ countAhead OutQ{..} nid prec = do
             view (inFlightWithPrec nid prec') <$> readMVar qInFlight)
       <*> forM [prec .. maxBound] (\prec' ->
             MQ.sizeBy (KeyByDestPrec nid prec') qScheduled)
-    return $ sum inFlight + sum inQueue
+    return $ (sum inQueue, sum inFlight)
   where
     debugInFlight :: InFlight nid -> Text
     debugInFlight = sformat (string % ": inFlight = " % shown) qSelf
@@ -855,16 +868,6 @@ checkMaxInFlight dequeuePolicy inFlight nodeType nid =
   where
     MaxInFlight n = deqMaxInFlight (dequeuePolicy nodeType)
 
-applyRateLimit :: MonadIO m
-               => DequeuePolicy
-               -> NodeType
-               -> ExecutionTime -- ^ Time of the send
-               -> m ()
-applyRateLimit dequeuePolicy nodeType sendExecTime = liftIO $
-    case deqRateLimit (dequeuePolicy nodeType) of
-      NoRateLimiting -> return ()
-      MaxMsgPerSec n -> threadDelay (1000000 `div` n - sendExecTime)
-
 intDequeue :: forall m msg nid buck. WithLogger m
            => OutboundQ msg nid buck
            -> ThreadRegistry m
@@ -878,8 +881,16 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
   where
     getPacket :: m (Either CtrlMsg (EnqPacket msg nid))
     getPacket = retryIfNothing qSignal $ do
-      inFlight <- liftIO $ readMVar qInFlight
-      mqDequeue qScheduled (checkMaxInFlight qDequeuePolicy inFlight)
+      inFlight    <- liftIO $ readMVar qInFlight
+      rateLimited <- liftIO $ readMVar qRateLimited
+
+      let notBusy :: NotBusy nid
+          notBusy nodeType nid = and [
+              not $ nid `Set.member` rateLimited
+            , checkMaxInFlight qDequeuePolicy inFlight nodeType nid
+            ]
+
+      mqDequeue qScheduled notBusy
 
     -- Send the packet we just dequeued
     --
@@ -903,30 +914,48 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
     -- and use the RINA network architecture instead.
     sendPacket :: EnqPacket msg nid -> m ()
     sendPacket (EnqPacket p) = do
-      applyMVar_ qInFlight $
-        inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n + 1)
+      sendStartTime <- liftIO $ getCurrentTime
+
+      -- Mark the message as in-flight, limiting both enqueues and dequeues
+      applyMVar_ qInFlight $ inFlightFor p %~ (\n -> n + 1)
+
+      -- We mark the node as rate limited, making it unavailable for any
+      -- additional dequeues until the timer expires and we mark it as
+      -- available again. We start the timer /before/ the send so that the
+      -- duration of the send does not affect when the next dequeue can take
+      -- places (apart from max-in-flight, of course).
+      case deqRateLimit $ qDequeuePolicy (packetDestType p) of
+        NoRateLimiting -> return ()
+        MaxMsgPerSec n -> do
+          let delay = 1000000 `div` n
+          applyMVar_ qRateLimited $ Set.insert (packetDestId p)
+          forkThread threadRegistry $ \unmask -> unmask $
+            (liftIO $ threadDelay delay) `M.finally` (liftIO $ do
+              applyMVar_ qRateLimited $ Set.delete (packetDestId p)
+              poke qSignal)
+
       forkThread threadRegistry $ \unmask -> do
         logDebug $ debugSending p
-        ta <- timed $ M.try $ unmask $
-                sendMsg (packetPayload p) (packetDestId p)
-        -- TODO: Do we want to acknowledge the send here? Or after we have
-        -- reduced qInFlight? The latter is safer (means the next enqueue is
-        -- less likely to be rejected because there are no peers available with
-        -- a small enough number of messages " ahead ") but it would mean we
-        -- can only acknowledge the send after the delay, which seems
-        -- undesirable.
-        liftIO $ putMVar (packetSent p) (timedResult ta)
-        unmask $ applyRateLimit qDequeuePolicy (packetDestType p) (timedDuration ta)
-        case timedResult ta of
+
+        ma <- M.try $ unmask $ sendMsg (packetPayload p) (packetDestId p)
+
+        -- Reduce the in-flight count ..
+        applyMVar_ qInFlight $ inFlightFor p %~ (\n -> n - 1)
+        liftIO $ poke qSignal
+
+        -- .. /before/ notifying the sender that the send is complete.
+        -- If we did this the other way around a subsequent enqueue might fail
+        -- because of policy restrictions on the max in-flight.
+        liftIO $ putMVar (packetSent p) ma
+
+        case ma of
           Left err -> do
             logFailure outQ FailedSend (Some p, err)
-            intFailure outQ p (timedStart ta) err
+            intFailure outQ p sendStartTime err
           Right _  ->
             return ()
-        applyMVar_ qInFlight $
-          inFlightWithPrec (packetDestId p) (packetPrec p) %~ (\n -> n - 1)
+
         logDebug $ debugSent p
-        liftIO $ poke qSignal
 
     debugSending :: Packet msg nid a -> Text
     debugSending Packet{..} =
@@ -1257,8 +1286,9 @@ updatePeersBucket outQ@OutQ{..} buck f = do
         then return (buckets, False)
         else do
           forM_ removed $ \nid -> do
-            applyMVar_ qInFlight $ at nid .~ Nothing
-            applyMVar_ qFailures $ Map.delete nid
+            applyMVar_ qInFlight    $ at nid .~ Nothing
+            applyMVar_ qFailures    $ Map.delete nid
+            applyMVar_ qRateLimited $ Set.delete nid
             MQ.removeAllIn (KeyByDest nid) qScheduled
           return (buckets', True)
 
@@ -1393,29 +1423,6 @@ applyMVar mv f = liftIO $ modifyMVar mv $ \a -> return $! f a
 
 applyMVar_ :: MonadIO m => MVar a -> (a -> a) -> m ()
 applyMVar_ mv f = liftIO $ modifyMVar_ mv $ \a -> return $! f a
-
--- | Execution time of an action in microseconds
-type ExecutionTime = Int
-
-data Timed a = Timed {
-      timedResult   :: a
-    , timedStart    :: UTCTime
-    , timedDuration :: ExecutionTime
-    }
-
-timed :: MonadIO m => m a -> m (Timed a)
-timed act = do
-    before <- liftIO $ getCurrentTime
-    a      <- act
-    after  <- liftIO $ getCurrentTime
-    return Timed{
-        timedResult   = a
-      , timedStart    = before
-      , timedDuration = conv (after `diffUTCTime` before)
-      }
-  where
-    conv :: NominalDiffTime -> ExecutionTime
-    conv t = round (realToFrac t * 1000000 :: Double)
 
 -- | Existential
 data Some (f :: k -> *) where

@@ -199,7 +199,7 @@ nodeForwardListener node = forever $ do
           forwardMsgType = case msgType msgData of
             MsgAnnounceBlockHeader _ -> Just (MsgAnnounceBlockHeader (OriginForward sender))
             MsgRequestBlocks _ -> Nothing
-            MsgRequestBlockHeaders -> Nothing
+            MsgRequestBlockHeaders _ -> Nothing
             MsgTransaction _ -> Just (MsgTransaction (OriginForward sender))
             MsgMPC _ -> Just (MsgMPC (OriginForward sender))
       case forwardMsgType of

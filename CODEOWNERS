@@ -55,3 +55,8 @@ infra/Pos/Subscription                @dcoutts @avieth
 
 # Benchmarks
 scripts/bench                         @kantp @avieth
+
+# Wallet
+wallet/src                            @martoon @flyingleafe @akegalj
+wallet/purescript                     @akegalj
+wallet/web-api-swagger                @martoon

@@ -59,12 +59,13 @@ import           Formatting                  (bprint, build, sformat, shown, (%)
 import qualified Prelude
 import           Serokell.Util               (listJson)
 
+import           Pos.AllSecrets              (AllSecrets)
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (HasCoreConstants, HeaderHash, headerHash,
                                               prevBlockL)
 import           Pos.Crypto.Hashing          (hashHexF)
-import           Pos.Generator.Block         (AllSecrets, BlockGenParams (..),
-                                              MonadBlockGen, TxGenParams, genBlocks)
+import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
+                                              TxGenParams, genBlocks)
 import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.GState.Context          (withClonedGState)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)

@@ -7,7 +7,6 @@ module Pos.Client.Txp.Util
          TxCreateMode
        , makeAbstractTx
        , runTxCreator
-       , overrideTxOutDistrBoot
        , overrideTxDistrBoot
        , makePubKeyTx
        , makeMPubKeyTx
@@ -26,6 +25,8 @@ module Pos.Client.Txp.Util
        , TxError (..)
        ) where
 
+import           Universum
+
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Control.Monad.State      (StateT (..), evalStateT)
@@ -37,14 +38,13 @@ import qualified Data.Text.Buildable
 import qualified Data.Vector              as V
 import           Ether.Internal           (HasLens (..))
 import           Formatting               (bprint, build, sformat, stext, (%))
-import           Universum
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core                 (AddressIgnoringAttributes (AddressIA),
-                                           TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
+import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
                                            calculateTxSizeLinear, integerToCoin,
-                                           integerToCoin, siEpoch, unsafeAddCoin,
+                                           integerToCoin, isRedeemAddress, siEpoch,
+                                           unsafeAddCoin, unsafeAddressHash,
                                            unsafeSubCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SignTag (SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
@@ -69,14 +69,18 @@ type TxWithSpendings = (TxAux, NonEmpty TxOut)
 
 -- This datatype corresponds to raw transaction.
 data TxRaw = TxRaw
-    { trInputs         :: !(TxOwnedInputs TxOut)
+    { trInputs             :: !(TxOwnedInputs TxOut)
     -- ^ Selected inputs from Utxo
-    , trOutputs        :: !TxOutputs
+    , trOutputs            :: !TxOutputs
     -- ^ Output addresses of tx (without remaing output)
-    , trRemainingMoney :: !Coin
+    , trRemainingMoney     :: !Coin
     -- ^ Remaining money
-    , trRemainingDistr :: !TxOutDistribution
-    -- ^ Proper distribution for remaining money
+    , trRemainingFakeDistr :: !TxOutDistribution
+    -- ^ Fake distribution for remaining money. It's fake because it
+    -- doesn't necessary use correct stakeholders. However, its size
+    -- is correct. It's primarily needed to compute tx fees correctly.
+    -- Note that it will removed after CSL-1489, because
+    -- 'TxOutDistribution' will be removed altogether.
     }
 
 data TxError
@@ -205,10 +209,10 @@ makeMPubKeyTxAddrs
 makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
   where
     signers = HM.fromList . toList $
-        map (swap . second AddressIA) hdwSigners
+        map swap hdwSigners
     getSigner (TxOut addr _) =
         fromMaybe (error "Requested signer for unknown address") $
-        HM.lookup (AddressIA addr) signers
+        HM.lookup addr signers
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: SafeSigner -> TxInputs -> TxOutputs -> TxAux
@@ -251,6 +255,8 @@ prepareTxRaw
     -> TxFee
     -> TxCreator m TxRaw
 prepareTxRaw utxo outputs (TxFee fee) = do
+    mapM_ (checkIsNotRedeemAddr . txOutAddress . toaOut) outputs
+
     totalMoney <- sumTxOuts outputs
     when (totalMoney == mkCoin 0) $
         throwTxError "Attempted to send 0 money"
@@ -265,7 +271,12 @@ prepareTxRaw utxo outputs (TxFee fee) = do
             let trInputs = map formTxInputs inputsNE
                 trRemainingMoney = totalTxAmount `unsafeSubCoin` totalMoneyWithFee
             trOutputs <- overrideTxDistrBoot outputs
-            trRemainingDistr <- overrideTxOutDistrBoot trRemainingMoney []
+            -- Note: in benchmarks we have a custom distribution with
+            -- 1 element.  In other cases we don't have custom
+            -- distribution, but we have bootstrap era, so this fake
+            -- distribution will be overridden.
+            let fakeDistr = [(unsafeAddressHash (), trRemainingMoney)]
+            trRemainingFakeDistr <- overrideTxOutDistrBoot trRemainingMoney fakeDistr
             pure TxRaw {..}
   where
     sumTxOuts = either throwTxError pure .
@@ -291,19 +302,25 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
     formTxInputs (inp, TxOutAux txOut _) = (txOut, inp)
 
--- | Returns set of tx outputs including change output (if it's necessary)
+    checkIsNotRedeemAddr outAddr =
+        when (isRedeemAddress outAddr) $
+            throwTxError "Destination address can't be redeem address"
+
+-- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
-    :: MonadAddresses m
+    :: TxCreateMode ctx m
     => AddrData m
     -> TxRaw
-    -> m TxOutputs
+    -> TxCreator m TxOutputs
 mkOutputsWithRem addrData TxRaw {..}
     | trRemainingMoney == mkCoin 0 = pure trOutputs
     | otherwise = do
-          changeAddr <- getNewAddress addrData
-          pure $
-              (TxOutAux (TxOut changeAddr trRemainingMoney) trRemainingDistr) :|
-              toList trOutputs
+        (changeAddr, changeStakeholder) <- lift . lift $ getNewAddress addrData
+        let outDistrPre =
+                maybe [] (one . (, trRemainingMoney)) changeStakeholder
+        outDistr <- overrideTxOutDistrBoot trRemainingMoney outDistrPre
+        let txOut = TxOut changeAddr trRemainingMoney
+        pure $ (TxOutAux txOut outDistr) :| toList trOutputs
 
 prepareInpsOuts
     :: TxCreateMode ctx m
@@ -313,7 +330,7 @@ prepareInpsOuts
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
 prepareInpsOuts utxo outputs addrData = do
     txRaw@TxRaw {..} <- prepareTxWithFee utxo outputs
-    outputsWithRem <- lift . lift $ mkOutputsWithRem addrData txRaw
+    outputsWithRem <- mkOutputsWithRem addrData txRaw
     pure (trInputs, outputsWithRem)
 
 createGenericTx
@@ -381,7 +398,7 @@ createMOfNTx utxo keys outputs addrData = runTxCreator $
 
 -- | Make a transaction for retrieving money from redemption address
 createRedemptionTx
-    :: TxDistrMode ctx m
+    :: TxCreateMode ctx m
     => Utxo
     -> RedeemSecretKey
     -> TxOutputs
@@ -468,7 +485,9 @@ createFakeTxFromRawTx TxRaw{..} =
     let fakeAddr = txOutAddress . toaOut . NE.head $ trOutputs
         fakeOutMB
             | trRemainingMoney == mkCoin 0 = Nothing
-            | otherwise = Just $ TxOutAux (TxOut fakeAddr trRemainingMoney) trRemainingDistr
+            | otherwise =
+                Just $
+                TxOutAux (TxOut fakeAddr trRemainingMoney) trRemainingFakeDistr
         txOutsWithRem = maybe trOutputs (\remTx -> remTx :| toList trOutputs) fakeOutMB
 
         -- We create fake signers instead of safe signers,
@@ -480,17 +499,3 @@ createFakeTxFromRawTx TxRaw{..} =
         (_, fakeSK) = deterministicKeyGen "patakbardaqskovoroda228pva1488kk"
         hdwSigners = NE.zip (NE.repeat $ fakeSigner fakeSK) srcAddrs
     in makeMPubKeyTxAddrs hdwSigners trInputs txOutsWithRem
-
-    -- buildDistribution :: TxRaw -> Text
-    -- buildDistribution TxRaw{..} =
-    --     let entries =
-    --             trSpendings <&> \(CWAddressMeta {..}, c) ->
-    --                 F.bprint (build % ": " %build) c cwamId
-    --         remains = F.bprint ("Remaining: " %build) (fst trRemaining)
-    --     in sformat
-    --            ("Transaction input distribution:\n" %listF "\n" build %
-    --             "\n" %build)
-    --            (toList entries)
-    --            remains
-    -- listF separator formatter =
-    --     F.later $ fold . intersperse separator . fmap (F.bprint formatter)

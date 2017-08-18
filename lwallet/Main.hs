@@ -51,6 +51,7 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    submitVote, txRelays, usRelays, worker)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
+import           Pos.Core                         (addressHash, coinF, makePubKeyAddress)
 import           Pos.Core.Coin                    (subCoin)
 import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types                   (Timestamp (..), mkCoin)
@@ -73,7 +74,6 @@ import           Pos.Network.Types                (MsgType (..), Origin (..))
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Txp                          (TxOut (..), TxOutAux (..), txaF,
                                                    unGenesisUtxo)
-import           Pos.Types                        (coinF, makePubKeyAddress)
 import           Pos.Update                       (BlockVersionData (..),
                                                    BlockVersionModifier (..),
                                                    SystemTag (..), UpdateData (..),
@@ -155,14 +155,16 @@ runCmd _ (Balance addr) _ =
 runCmd sendActions (Send idx outputs) CmdCtx{na} = do
     skeys <- getSecretKeys
     let skey = skeys !! idx
-        curAddr = makePubKeyAddress $ encToPublic skey
+        curPk = encToPublic skey
     etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runEitherT $ do
         ss <- mss `whenNothing` throwError "Invalid passphrase"
+        -- N.B. Empty output is not valid, but we have bootstrap
+        -- era anyway and it won't be needed after CSL-1489.
         lift $ submitTx
             (immediateConcurrentConversations sendActions na)
             ss
             (map (flip TxOutAux []) outputs)
-            curAddr
+            curPk
     case etx of
         Left err      -> putText $ sformat ("Error: "%stext) err
         Right (tx, _) -> putText $ sformat ("Submitted transaction: "%txaF) tx
@@ -184,17 +186,21 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         forM_ (zip keysToSend [0..]) $ \((key, balance), n) -> do
-            let txOut1 = TxOut {
+            let val1 = mkCoin 1
+                txOut1 = TxOut {
                     txOutAddress = makePubKeyAddress (toPublic key),
-                    txOutValue = mkCoin 1
+                    txOutValue = val1
                     }
+                val2 = fromMaybe (error $ "zero balance for key #" <> show n) $
+                    balance `subCoin` mkCoin 1
                 txOut2 = TxOut {
                     txOutAddress = makePubKeyAddress (toPublic key),
-                    txOutValue =
-                        fromMaybe (error $ "zero balance for key #" <> show n) $
-                          balance `subCoin` mkCoin 1
+                    txOutValue = val2
                     }
-                txOuts = TxOutAux txOut1 [] :| [TxOutAux txOut2 []]
+                stakeholderId = addressHash (toPublic key)
+                toDistr val = [(stakeholderId, val)]
+                txOuts = TxOutAux txOut1 (toDistr val1)
+                    :| [TxOutAux txOut2 (toDistr val2)]
             neighbours <- case sendMode of
                     SendNeighbours -> return na
                     SendRoundRobin -> return [na !! (n `mod` nNeighbours)]
@@ -228,7 +234,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just (key, txOuts, neighbours) -> do
                           utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic (fakeSigner key)
-                          etx <- createTx utxo (fakeSigner key) txOuts (makePubKeyAddress $ toPublic key)
+                          etx <- createTx utxo (fakeSigner key) txOuts (toPublic key)
                           case etx of
                               Left (TxError err) -> do
                                   addTxFailed tpsMVar

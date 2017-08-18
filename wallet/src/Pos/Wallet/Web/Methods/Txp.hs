@@ -1,31 +1,30 @@
+{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
 
 -- | Utils for payments and redeeming.
 
 module Pos.Wallet.Web.Methods.Txp
     ( rewrapTxError
     , coinDistrToOutputs
-    , submitAndSaveTxWithPending
+    , submitAndSaveReclaimableTx
     ) where
 
 import           Universum
 
-import           Control.Monad.Catch        (Handler (..), catches)
-import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, stext, (%))
+import           Control.Monad.Catch         (Handler (..), catches)
+import qualified Data.List.NonEmpty          as NE
+import           Formatting                  (build, sformat, shown, stext, (%))
+import           Pos.Communication           (EnqueueMsg, TxMode, submitAndSaveTx)
+import           System.Wlog                 (logInfo)
 
-import           Pos.Client.Txp.Util        (TxError (..))
-import           Pos.Communication          (SendActions (..), submitAndSaveTx)
-import           Pos.Core.Types             (Coin)
-import           Pos.Crypto                 (hash)
-import           Pos.Txp                    (TxAux (..), TxOut (..), TxOutAux (..))
-import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal)
-import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
-import           Pos.Wallet.Web.Pending     (MonadPendings, mkPendingTx,
-                                             processPtxFailure)
-import           Pos.Wallet.Web.State       (addOnlyNewPendingTx)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail)
+import           Pos.Client.Txp.Util         (TxError (..))
+import           Pos.Core.Types              (Coin)
+import           Pos.Txp                     (TxAux, TxOut (..), TxOutAux (..))
+import           Pos.Wallet.Web.ClientTypes  (Addr, CId)
+import           Pos.Wallet.Web.Error        (WalletError (..), rewrapToWalletError)
+import           Pos.Wallet.Web.Pending.Util (isReclaimableFailure)
+import           Pos.Wallet.Web.Util         (decodeCTypeOrFail)
+
 
 rewrapTxError
     :: forall m a. MonadCatch m
@@ -47,28 +46,25 @@ coinDistrToOutputs distr = do
     (cAddrs, coins) = NE.unzip distr
     mkTxOut addr coin = TxOutAux (TxOut addr coin) []
 
--- | Like 'submitAndSaveTx', but also remembers given transaction as pending
--- in case when submition succeeded, or failed with reclaimable error.
-submitAndSaveTxWithPending
-    :: MonadPendings m
-    => SendActions m -> CId Wal -> TxAux -> m ()
-submitAndSaveTxWithPending SendActions{..} wid txAux = do
-    let txHash = hash (taTx txAux)
-    ptx <- mkPendingTx wid txHash txAux
-    (submitAndSaveTx enqueueMsg txAux >> addOnlyNewPendingTx ptx)
-        `catches` handlers ptx
-  where
-    handlers ptx =
-        [ Handler $ \e -> do
-            processPtxFailure False ptx e
-            throwM e
-
-        , Handler $ \e@TxError{} ->
-            throwM e
-
-        , Handler $ \(SomeException e) -> do
+-- | Like 'submitAndSaveTx', but suppresses errors which can gone
+-- to the time of resubmission.
+submitAndSaveReclaimableTx
+    :: (TxMode ssc ctx m, MonadCatch m)
+    => EnqueueMsg m -> TxAux -> m ()
+submitAndSaveReclaimableTx enqueue txAux =
+    void (submitAndSaveTx enqueue txAux)
+        `catches`
+        [ Handler $ \e ->
+            if isReclaimableFailure e
+                then ignore "reclaimable" e
+                else throwM e
+        , Handler $ \(SomeException e) ->
             -- it is likely networking problem, let's give transaction a chance
-            addOnlyNewPendingTx ptx
-            throwM e
+            ignore "other error" e
         ]
+  where
+    ignore desc e =
+        logInfo $
+        sformat ("Transaction creation failed ("%shown%" - "%stext%
+                 "), but was given second chance") e desc
 

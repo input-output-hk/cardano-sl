@@ -5,6 +5,7 @@
 module Pos.Wallet.Web.Pending.Util
     ( isPtxInBlocks
     , mkPendingTx
+    , isReclaimableFailure
     ) where
 
 import           Universum
@@ -14,6 +15,7 @@ import           Formatting                   (build, sformat, (%))
 import qualified Pos.Constants                as C
 import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
 import           Pos.Txp                      (TxAux, TxId)
+import           Pos.Txp                      (ToilVerFailure (..))
 import           Pos.Util.Util                (maybeThrow)
 import           Pos.Wallet.Web.Assurance     (AssuranceLevel (HighAssurance),
                                                assuredBlockDepth)
@@ -43,4 +45,23 @@ mkPendingTx wid _ptxTxId _ptxTxAux = do
   where
     noWallet =
         RequestError $ sformat ("Failed to get meta of wallet "%build) wid
+
+isReclaimableFailure :: ToilVerFailure -> Bool
+isReclaimableFailure = \case
+    -- If number of 'ToilVerFailure' constructors will ever change, compiler
+    -- will complain - for this purpose we consider all cases explicitly here.
+    ToilKnown               -> True
+    ToilTipsMismatch{}      -> True
+    ToilSlotUnknown         -> True
+    ToilOverwhelmed{}       -> True
+    ToilNotUnspent{}        -> False
+    ToilOutGTIn{}           -> False
+    ToilInconsistentTxAux{} -> False
+    ToilInvalidOutputs{}    -> False
+    ToilInvalidInputs{}     -> False
+    ToilTooLargeTx{}        -> False
+    ToilInvalidMinFee{}     -> False
+    ToilInsufficientFee{}   -> False
+    ToilUnknownAttributes{} -> False
+    ToilBootInappropriate{} -> False
 

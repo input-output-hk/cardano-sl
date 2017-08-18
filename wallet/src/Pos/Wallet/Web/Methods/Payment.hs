@@ -21,7 +21,7 @@ import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
 import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
-import           Pos.Communication              (SendActions, prepareMTx)
+import           Pos.Communication              (SendActions (..), prepareMTx)
 import           Pos.Core                       (Coin, HasCoreConstants, addressF,
                                                  getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, hash, withSafeSigners)
@@ -37,9 +37,11 @@ import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (coinDistrToOutputs, rewrapTxError,
-                                                 submitAndSaveTxWithPending)
+                                                 submitAndSaveReclaimableTx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode, WalletWebMode)
-import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
+import           Pos.Wallet.Web.Pending         (mkPendingTx)
+import           Pos.Wallet.Web.State           (AddressLookupMode (Existing),
+                                                 addOnlyNewPendingTx)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
                                                  getWalletAccountIds)
@@ -123,7 +125,7 @@ sendMoney
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
-sendMoney sendActions passphrase moneySource dstDistr = do
+sendMoney SendActions{..} passphrase moneySource dstDistr = do
     addrMetas' <- getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
@@ -133,18 +135,18 @@ sendMoney sendActions passphrase moneySource dstDistr = do
     withSafeSigners sks (pure passphrase) $ \mss -> do
         ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
         let hdwSigner = NE.zip ss srcAddrs
-            srcWallet = getMoneySourceWallet moneySource
         relatedAccount <- getSomeMoneySourceAccount moneySource
         outputs <- coinDistrToOutputs dstDistr
-        (TxAux {taTx = tx}, inpTxOuts') <-
-            rewrapTxError "Cannot send transaction" $ do
-                res@(txAux, _) <- prepareMTx hdwSigner outputs (relatedAccount, passphrase)
-                res <$ submitAndSaveTxWithPending sendActions srcWallet txAux
+        (txAux@TxAux {taTx = tx}, inpTxOuts') <- do
+            res@(txAux, _) <- rewrapTxError "Cannot send transaction" $
+                prepareMTx hdwSigner outputs (relatedAccount, passphrase)
+            res <$ submitAndSaveReclaimableTx enqueueMsg txAux
 
         let inpTxOuts = toList inpTxOuts'
             txHash    = hash tx
             dstAddrs  = map txOutAddress . toList $
                         _txOutputs tx
+            srcWallet = getMoneySourceWallet moneySource
         logInfo $
             sformat ("Successfully spent money from "%
                      listF ", " addressF % " addresses on " %
@@ -152,6 +154,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
             (toList srcAddrs)
             dstAddrs
 
+        addOnlyNewPendingTx =<< mkPendingTx srcWallet txHash txAux
         ts <- Just <$> getCurrentTimestamp
         ctxs <- addHistoryTx srcWallet $
             THEntry txHash tx Nothing inpTxOuts dstAddrs ts

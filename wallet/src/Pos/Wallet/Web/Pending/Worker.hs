@@ -4,9 +4,7 @@
 -- | Pending transactions resubmition logic.
 
 module Pos.Wallet.Web.Pending.Worker
-    ( MonadPendings
-    , processPtxFailure
-    , startPendingTxsResubmitter
+    ( startPendingTxsResubmitter
     ) where
 
 import           Universum
@@ -31,9 +29,10 @@ import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
                                                topsortTxs)
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
-import           Pos.Wallet.Web.State         (addOnlyNewPendingTx, casPtxCondition,
-                                               countDownPtxAttempts, getPendingTxs,
-                                               getPtxAttemptsRem, setPtxCondition)
+import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
+import           Pos.Wallet.Web.State         (casPtxCondition, countDownPtxAttempts,
+                                               getPendingTxs, getPtxAttemptsRem,
+                                               setPtxCondition)
 
 type MonadPendings m =
     ( MonadWalletWebMode m
@@ -41,37 +40,16 @@ type MonadPendings m =
     , HasCoreConstants
     )
 
--- | What should happen with pending transaction if attempt
+-- | What should happen with existing pending transaction if attempt
 -- to resubmit it failed.
-processPtxFailure :: MonadPendings m => Bool -> PendingTx -> ToilVerFailure -> m ()
-processPtxFailure existing ptx@PendingTx{..} e =
-    -- If number of 'ToilVerFailure' constructors will ever change, compiler
-    -- will complain - for this purpose we consider all cases explicitly here.
-    case e of
-        ToilKnown               -> trackFurther
-        ToilTipsMismatch{}      -> trackFurther
-        ToilSlotUnknown         -> trackFurther
-        ToilOverwhelmed{}       -> trackFurther
-        ToilNotUnspent{}        -> discard
-        ToilOutGTIn{}           -> discard
-        ToilInconsistentTxAux{} -> discard
-        ToilInvalidOutputs{}    -> discard
-        ToilInvalidInputs{}     -> discard
-        ToilTooLargeTx{}        -> discard
-        ToilInvalidMinFee{}     -> discard
-        ToilInsufficientFee{}   -> discard
-        ToilUnknownAttributes{} -> discard
-        ToilBootInappropriate{} -> discard
-  where
-    trackFurther
-        | existing  = countDownPtxAttempts _ptxTxId
-        | otherwise = addOnlyNewPendingTx ptx
-    discard
-        | existing  = do
+processPtxFailure :: MonadPendings m => PendingTx -> ToilVerFailure -> m ()
+processPtxFailure PendingTx{..} e =
+    if isReclaimableFailure e
+        then countDownPtxAttempts _ptxTxId
+        else do
             let newCond = PtxWontApply (sformat build e)
             void $ casPtxCondition _ptxTxId PtxApplying newCond
             logInfo $ sformat ("Transaction "%build%" was canceled") _ptxTxId
-        | otherwise = pass
 
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
 processPtxInUpperBlocks curSlot PendingTx{..}
@@ -105,7 +83,7 @@ resubmitTx SendActions{..} ptx@PendingTx{..} = do
     handlers =
         [ Handler $ \e -> do
             reportFail "Failed to resubmit tx" e
-            processPtxFailure True ptx e
+            processPtxFailure ptx e
 
         , Handler $ \(SomeException e) ->
             -- these errors are likely caused by networking

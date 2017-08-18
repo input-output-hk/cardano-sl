@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Subscription.Dns
     ( dnsSubscriptionWorker

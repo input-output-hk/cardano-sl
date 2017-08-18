@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main
        ( main
@@ -27,8 +26,8 @@ import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, red
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
                                         GenesisGtData (..), StakeDistribution (..),
-                                        genesisDevHdwSecretKeys, genesisDevHdwSecretKeys,
-                                        genesisDevSecretKeys, mkGenesisCoreData)
+                                        genesisDevHdwSecretKeys, genesisDevSecretKeys,
+                                        mkGenesisCoreData)
 import           Pos.Types             (addressDetailedF, addressHash, makePubKeyAddress,
                                         makeRedeemAddress)
 import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,

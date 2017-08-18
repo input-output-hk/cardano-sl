@@ -1,5 +1,4 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Rank2Types #-}
 
 -- | Protocol/versioning related communication helpers.
 
@@ -7,16 +6,15 @@ module Pos.Communication.Listener
        ( listenerConv
        ) where
 
-import qualified Node                           as N
-import           System.Wlog                    (WithLogger)
+import qualified Node                       as N
+import           System.Wlog                (WithLogger)
 import           Universum
 
-import           Pos.Binary.Class               (Bi)
-import           Pos.Binary.Infra               ()
-import           Pos.Communication.Protocol     (ConversationActions, HandlerSpec (..),
-                                                 ListenerSpec (..), Message, NodeId,
-                                                 OutSpecs, VerInfo, checkingInSpecs,
-                                                 messageCode)
+import           Pos.Binary.Class           (Bi)
+import           Pos.Binary.Infra           ()
+import           Pos.Communication.Protocol (ConversationActions, HandlerSpec (..),
+                                             ListenerSpec (..), Message, NodeId, OutSpecs,
+                                             VerInfo, checkingInSpecs, messageCode)
 
 -- TODO automatically provide a 'recvLimited' here by using the
 -- 'MessageLimited'?

@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Applications of runners to scenarios.
 
 module Pos.Launcher.Launcher

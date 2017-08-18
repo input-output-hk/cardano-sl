@@ -193,6 +193,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   ghc-options:         -Wall
                        -fno-warn-orphans

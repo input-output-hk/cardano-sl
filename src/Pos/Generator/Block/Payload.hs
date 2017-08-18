@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP        #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- TODO Maybe move it somewhere else.
 -- | Block payload generation.
@@ -24,7 +23,7 @@ import           Formatting                 (build, sformat, (%))
 import           System.Random              (RandomGen (..))
 
 import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot,
-                                             txToLinearFee, unTxError)
+                                             runTxCreator, txToLinearFee, unTxError)
 import           Pos.Core                   (Address (..), Coin, SlotId (..),
                                              TxFeePolicy (..), addressDetailedF,
                                              bvdTxFeePolicy, coinToInteger,
@@ -212,7 +211,7 @@ genTxPayload = do
                 let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
                 let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
                 either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
-                    runExceptT (overrideTxDistrBoot txOutAuxsPre)
+                    runTxCreator (overrideTxDistrBoot txOutAuxsPre)
 
         ----- TX
 

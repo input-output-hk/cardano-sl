@@ -20,7 +20,7 @@ import           Pos.Aeson.WalletBackup         ()
 import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
 import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util            (computeTxFee)
+import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
 import           Pos.Communication              (SendActions (..), submitMTx)
 import           Pos.Core                       (Coin, HasCoreConstants, addressF,
                                                  getCurrentTimestamp)
@@ -67,7 +67,7 @@ getTxFee
 getTxFee srcAccount dstAccount coin = do
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
-    TxFee fee <- eitherToThrow =<< runExceptT (computeTxFee utxo outputs)
+    TxFee fee <- eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
     pure $ mkCCoin fee
 
 data MoneySource

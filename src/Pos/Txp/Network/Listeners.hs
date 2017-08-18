@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP        #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Server which handles transactions.
 
@@ -17,11 +16,11 @@ import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Binary.Relay          ()
-import           Pos.Communication.Types   (MsgType (..))
 import           Pos.Communication.Limits  ()
 import           Pos.Communication.Message ()
 import           Pos.Communication.Relay   (InvReqDataParams (..), MempoolParams (..),
                                             Relay (..))
+import           Pos.Communication.Types   (MsgType (..))
 import           Pos.Crypto                (hash)
 import           Pos.Txp.Core.Types        (TxAux (..), TxId)
 #ifdef WITH_EXPLORER

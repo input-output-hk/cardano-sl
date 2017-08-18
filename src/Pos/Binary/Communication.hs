@@ -1,5 +1,4 @@
-{-# LANGUAGE BinaryLiterals      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BinaryLiterals #-}
 
 -- | Communication-related serialization -- messages mostly.
 
@@ -15,7 +14,8 @@ import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), VerInfo (..))
-import           Pos.Core                         (BlockVersion, HeaderHash, HasCoreConstants)
+import           Pos.Core                         (BlockVersion, HasCoreConstants,
+                                                   HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 
 -- TODO: move into each component

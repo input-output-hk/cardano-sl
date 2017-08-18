@@ -63,6 +63,25 @@ spec = describe "Types" $ do
             let testSlottingDataLength  = length . getAllEpochIndices $ sd
             testSlottingDataLength `shouldBe` 2
 
+    describe "isValidSlottingDataMap" $ do
+        it "should be valid" $ do
+            let sdMap = fromList [ testEpochISlottingData0
+                                 , testEpochISlottingData1
+                                 ]
+            let isValid = isValidSlottingDataMap sdMap
+            isValid `shouldBe` True
+        it "should be invalid because < 2 EpochSlottingData" $ do
+            let sdMap = fromList [ testEpochISlottingData0
+                                 ]
+            let isValid = isValidSlottingDataMap sdMap
+            isValid `shouldBe` False
+        it "should be invalid because EpochIndex non-sequential" $ do
+            let sdMap = fromList [ testEpochISlottingData0
+                                 , testEpochISlottingData0
+                                 ]
+            let isValid = isValidSlottingDataMap sdMap
+            isValid `shouldBe` False
+
     describe "createInitSlottingData" $
         it "should be valid" $ do
             let testSlottingDataLength = length . getAllEpochIndices $ testSlottingData

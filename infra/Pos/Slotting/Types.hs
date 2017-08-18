@@ -65,8 +65,8 @@ instance NFData SlottingData
 createSlottingDataUnsafe :: Map EpochIndex EpochSlottingData -> SlottingData
 createSlottingDataUnsafe epochSlottingDataMap =
     if isValidSlottingDataMap epochSlottingDataMap
-        then criticalError
-        else SlottingData epochSlottingDataMap
+        then SlottingData epochSlottingDataMap
+        else criticalError
   where
     criticalError = error "It's impossible to create slotting data without at least\
     \ two epochs. Epochs need to be sequential."
@@ -74,7 +74,7 @@ createSlottingDataUnsafe epochSlottingDataMap =
 -- | The validation for the @SlottingData@. It's visible since it's needed externally.
 isValidSlottingDataMap :: Map EpochIndex EpochSlottingData -> Bool
 isValidSlottingDataMap epochSlottingDataMap =
-    M.size epochSlottingDataMap < 2 && validEpochIndices
+    M.size epochSlottingDataMap >= 2 && validEpochIndices
   where
     -- We validate if the epoch indices are sequential, it's invalid if they
     -- start having "holes" [..,6,7,9,...].

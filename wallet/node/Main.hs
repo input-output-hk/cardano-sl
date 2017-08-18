@@ -14,7 +14,7 @@ import           Universum                  hiding (over)
 import           Data.Maybe                 (fromJust)
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Production, currentTime, runProduction)
-import           System.Wlog                (logError, logInfo)
+import           System.Wlog                (logInfo)
 
 import           Pos.Binary                 ()
 import           Pos.Client.CLI             (CommonNodeArgs (..))
@@ -28,8 +28,6 @@ import           Pos.Launcher               (NodeParams (..), NodeResources (..)
                                              bracketNodeResources, runNode)
 import           Pos.Ssc.Class              (SscParams)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
-import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Util.UserSecret        (usVss)
 import           Pos.Wallet.Web             (WalletWebMode, bracketWalletWS,
                                              bracketWalletWebDB, runWRealMode,

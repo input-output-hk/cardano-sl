@@ -245,7 +245,8 @@ data MsgType nid =
     MsgAnnounceBlockHeader (Origin nid)
 
     -- | Request block headers (either specific range or the tip)
-  | MsgRequestBlockHeaders
+    -- Opitionally give a set of targets.
+  | MsgRequestBlockHeaders (Maybe (Set nid))
 
     -- | Request for a specific block from these peers.
   | MsgRequestBlocks (Set nid)
@@ -260,13 +261,14 @@ data MsgType nid =
 msgOrigin :: MsgType nid -> Origin nid
 msgOrigin msg = case msg of
   MsgAnnounceBlockHeader origin -> origin
-  MsgRequestBlockHeaders -> OriginSender
+  MsgRequestBlockHeaders _ -> OriginSender
   MsgRequestBlocks _ -> OriginSender
   MsgTransaction origin -> origin
   MsgMPC origin -> origin
 
 msgEnqueueTo :: MsgType nid -> EnqueueTo nid
 msgEnqueueTo msg = case msg of
+  MsgRequestBlockHeaders (Just peers) -> EnqueueToSubset peers
   MsgRequestBlocks peers -> EnqueueToSubset peers
   _ -> EnqueueToAll
 

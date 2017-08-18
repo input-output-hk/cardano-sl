@@ -42,6 +42,7 @@ import           Universum
 import           Control.Lens               (at, makeLenses)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericLength, genericReplicate)
+import qualified Data.Map.Strict            as Map
 import qualified Data.Map.Strict            as M
 import qualified Data.Ratio                 as Ratio
 import           Ether.Internal             (HasLens (..))
@@ -186,9 +187,10 @@ genesisContextImplicit invAddrSpendingData addrDistr =
 -- | Generate weighted stakeholders using passed address distribution.
 generateWStakeholders :: InvAddrSpendingData -> [AddrDistribution] -> GenesisWStakeholders
 generateWStakeholders (unInvAddrSpendingData -> addrToSpending) addrDistrs =
+    GenesisWStakeholders $
     if null withCoins
-        then GenesisWStakeholders mempty
-        else GenesisWStakeholders $ foldr step mempty withCoins
+        then mempty
+        else foldr step mempty withCoins
   where
     withCoins = concatAddrDistrs addrDistrs
     coins = map snd withCoins
@@ -212,7 +214,7 @@ generateWStakeholders (unInvAddrSpendingData -> addrToSpending) addrDistrs =
     step (addr, balance) =
         case addrToSpending ^. at addr of
             Just (PubKeyASD (addressHash -> sId)) ->
-                HM.insertWith (+) sId (calcWeight balance)
+                Map.insertWith (+) sId (calcWeight balance)
             _ -> identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.

@@ -6,6 +6,7 @@ import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default                (def)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
+import qualified Data.Map.Strict             as MapStrict
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
 import           System.Directory            (doesDirectoryExist)
@@ -58,7 +59,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
     let nodes = length invSecretsMap
     let bootStakeholders
             | isDevelopment =
-                GenesisWStakeholders $ HM.fromList $
+                GenesisWStakeholders $ MapStrict.fromList $
                 zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
             | otherwise = genesisProdBootStakeholders
     let flatDistr = FlatStakes (fromIntegral nodes)
@@ -71,7 +72,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
     let genUtxoUnfiltered = genesisUtxo bootStakeholders addrDistribution
     let genUtxo = genUtxoUnfiltered &
             _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
-    when (M.null $ unGenesisUtxo genUtxo) $
+    when (null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 
     let pks = toPublic <$> toList invSecretsMap

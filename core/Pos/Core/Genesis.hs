@@ -27,7 +27,7 @@ import           Universum
 
 import           Control.Lens            (ix)
 import           Data.Hashable           (hash)
-import qualified Data.HashMap.Strict     as HM
+import qualified Data.Map.Strict         as M
 import qualified Data.Text               as T
 import           Formatting              (int, sformat, (%))
 
@@ -120,7 +120,7 @@ genesisSplitBoot ::
        GenesisWStakeholders -> Coin -> [(StakeholderId, Coin)]
 genesisSplitBoot g@(GenesisWStakeholders bootWHolders) c
     | c < bootDustThreshold g =
-          snd $ foldr foldrFunc (0::Word64,[]) (HM.toList bootWHolders)
+          snd $ foldr foldrFunc (0::Word64,[]) (M.toList bootWHolders)
     | otherwise =
           bootHolders `zip` stakeCoins
   where
@@ -133,13 +133,13 @@ genesisSplitBoot g@(GenesisWStakeholders bootWHolders) c
                  ,(s, mkCoin toInclude):res)
 
     weights :: [Word64]
-    weights = map fromIntegral $ HM.elems bootWHolders
+    weights = map fromIntegral $ toList bootWHolders
 
     weightsSum :: Word64
     weightsSum = sum weights
 
     bootHolders :: [StakeholderId]
-    bootHolders = HM.keys bootWHolders
+    bootHolders = M.keys bootWHolders
 
     (d :: Word64, m :: Word64) = divMod cval weightsSum
 

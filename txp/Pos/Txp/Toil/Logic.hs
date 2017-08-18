@@ -23,9 +23,9 @@ import           Universum
 import           Unsafe                     (unsafeHead)
 
 import           Control.Monad.Except       (MonadError (..))
-import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
 import qualified Data.List.NonEmpty         as NE
+import qualified Data.Map.Strict            as Map
 import           Formatting                 (sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (mapJson)
@@ -41,7 +41,7 @@ import           Pos.Core.Types             (BlockVersionData (..), Coin, EpochI
                                              StakeholderId)
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.DB.Class               (MonadGState (..))
-import           Pos.Util.Util              (HasLens', getKeys, lensOf')
+import           Pos.Util.Util              (HasLens', lensOf')
 
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOutDistribution, TxUndo,
                                              TxpUndo, getTxDistribution, topsortTxs)
@@ -187,31 +187,31 @@ bootRelatedDistr g@(GenesisWStakeholders bootHolders) txOutDistr
         -- user wants because it's not likely they will shift overall
         -- stake distribution much. Anyway we require that all
         -- addresses in txDistr are keys of boot stakeholders.
-        let bootHoldersKeys = getKeys bootHolders
-        in all (`HS.member` bootHoldersKeys) stakeholders
+        all (`HS.member` bootHoldersKeys) stakeholders
     | otherwise =
         -- All addresses in txDistr are from bootHolders and every boot
         -- stakeholder is mentioned in txOutDistr
-        getKeys bootHolders == HS.fromList stakeholders &&
+        bootHoldersKeys == HS.fromList stakeholders &&
         -- Every stakeholder gets his divisor. It's safe to use ! here
         -- because we're already sure that bootHolders ~ addrs is
         -- bijective.
-        all (\(a,c) -> c >= (minimumPerStakeholder HM.! a)) txOutDistr
+        all (\(a,c) -> c >= (minimumPerStakeholder Map.! a)) txOutDistr
   where
+    bootHoldersKeys = HS.fromList $ Map.keys bootHolders
     stakeholders = map fst txOutDistr
     coins = map snd txOutDistr
     -- It's safe to sum here since txOutDistr is a distribution of
     -- coins such that their sum is a coin itself.
     coinSum = sum $ map unsafeGetCoin coins
     weightSum :: Word64
-    weightSum = sum $ map fromIntegral $ HM.elems bootHolders
+    weightSum = sum $ map fromIntegral $ toList bootHolders
     coinItem = coinSum `div` weightSum
     -- For each stakeholder the minimum amount of coins the tx should
     -- send to him (weighted). The multiplication can't overflow
     -- Word64 because sum of values of minimumPerStakeholder is less
     -- than coinSum.
-    minimumPerStakeholder :: HashMap StakeholderId Coin
-    minimumPerStakeholder = HM.map (mkCoin . (* coinItem) . fromIntegral) bootHolders
+    minimumPerStakeholder :: Map StakeholderId Coin
+    minimumPerStakeholder = map (mkCoin . (* coinItem) . fromIntegral) bootHolders
 
 verifyBootEra
     :: forall ctx m .

@@ -19,15 +19,18 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
 import           Pos.Core                   (getTimestamp)
+import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
                                              CTxMeta (..), CTxs, CWAddressMeta (..), Wal,
-                                             mkCTxs, txIdToCTxId)
+                                             mkCTxs)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending     (PendingTx (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                             getHistoryCache, getTxMeta, setWalletTxMeta)
+                                             getHistoryCache, getPendingTx, getTxMeta,
+                                             setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                              getWalletAccountIds, getWalletAddrMetas,
                                              getWalletAddrs)
@@ -113,11 +116,13 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     meta <- CTxMeta <$> case _thTimestamp of
       Nothing -> liftIO $ getPOSIXTime
       Just ts -> return $ fromIntegral (getTimestamp ts) / 1000000
-    let cId = txIdToCTxId _thTxId
+    let cId = encodeCType _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
+    ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx _thTxId
     walAddrMetas <- getWalletAddrMetas Ever cWalId
-    mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
+    either (throwM . InternalError) pure $
+        mkCTxs diff wtx meta' ptxCond walAddrMetas
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do

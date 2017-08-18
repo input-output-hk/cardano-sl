@@ -35,7 +35,7 @@ module Pos.Wallet.Web.State.State
        , isCustomAddress
        , getWalletUtxo
        , getPendingTxs
-       , getPtxAttemptsRem
+       , getPendingTx
 
        -- * Setters
        , testReset
@@ -173,8 +173,8 @@ isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
 getPendingTxs :: WebWalletModeDB ctx m => m [PendingTx]
 getPendingTxs = queryDisk ... A.GetPendingTxs
 
-getPtxAttemptsRem :: WebWalletModeDB ctx m => TxId -> m (Maybe Int)
-getPtxAttemptsRem = queryDisk ... A.GetPtxAttemptsRem
+getPendingTx :: WebWalletModeDB ctx m => TxId -> m (Maybe PendingTx)
+getPendingTx = queryDisk ... A.GetPendingTx
 
 createAccount :: WebWalletModeDB ctx m => AccountId -> CAccountMeta -> m ()
 createAccount accId = updateDisk . A.CreateAccount accId

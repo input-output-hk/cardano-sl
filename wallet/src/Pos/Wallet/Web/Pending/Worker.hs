@@ -31,8 +31,7 @@ import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
 import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
 import           Pos.Wallet.Web.State         (casPtxCondition, countDownPtxAttempts,
-                                               getPendingTxs, getPtxAttemptsRem,
-                                               setPtxCondition)
+                                               getPendingTxs, setPtxCondition)
 
 type MonadPendings m =
     ( MonadWalletWebMode m
@@ -113,8 +112,7 @@ resubmitPtxsDuringSlot sendActions ptxs = do
 -- Returns 'True' for still living transaction.
 processPtxRemAttempts :: MonadPendings m => PendingTx -> m Bool
 processPtxRemAttempts PendingTx{..} = do
-    attempts <- getPtxAttemptsRem _ptxTxId
-    let expired = maybe False (<= 0) attempts
+    let expired = _ptxAttemptsRem <= 0
     when expired $ do
         logInfo $ sformat ("Pending transaction "%build%" has expired") _ptxTxId
         setPtxCondition _ptxTxId (PtxWontApply "Exceeded resubmission attempts limit")

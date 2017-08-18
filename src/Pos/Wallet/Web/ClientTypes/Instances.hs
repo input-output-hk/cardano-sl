@@ -18,14 +18,21 @@ import           Servant.Multipart                    (FromMultipart (..), looku
 import           Pos.Core                             (Address, Coin, decodeTextAddress,
                                                        mkCoin)
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
+import           Pos.Txp.Core.Types                   (TxId)
 import           Pos.Util.Servant                     (FromCType (..), OriginType,
                                                        ToCType (..))
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
-                                                       mkCCoin, mkCTxId)
+                                                       mkCCoin, mkCTxId,
+                                                       ptxCondToCPtxCond, txIdToCTxId)
 import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccountId (..),
                                                        CCoin (..),
                                                        CElectronCrashReport (..),
-                                                       CId (..), CPassPhrase (..), CTxId)
+                                                       CId (..), CPassPhrase (..),
+                                                       CPtxCondition, CTxId)
+import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
+
+-- TODO [CSM-407] Maybe revert dependency between Functions and Instances modules?
+-- This would allow to get tid of functions like 'ptxCondToCPtxCond' :/
 
 ----------------------------------------------------------------------------
 -- Convertions
@@ -85,6 +92,18 @@ instance FromCType (CId w) where
 
 instance ToCType (CId w) where
     encodeCType = addressToCId
+
+
+type instance OriginType CTxId = TxId
+
+instance ToCType CTxId where
+    encodeCType = txIdToCTxId
+
+
+type instance OriginType CPtxCondition = Maybe PtxCondition
+
+instance ToCType CPtxCondition where
+    encodeCType = ptxCondToCPtxCond
 
 ----------------------------------------------------------------------------
 -- Servant

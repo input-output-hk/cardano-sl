@@ -28,7 +28,7 @@ module Pos.Wallet.Web.State.Storage
        , getCustomAddresses
        , getCustomAddress
        , getPendingTxs
-       , getPtxAttemptsRem
+       , getPendingTx
        , addCustomAddress
        , removeCustomAddress
        , createAccount
@@ -64,8 +64,8 @@ module Pos.Wallet.Web.State.Storage
 import           Universum
 
 import           Control.Lens                 (at, ix, makeClassy, makeLenses, non', (%=),
-                                               (+=), (-=), (.=), (<<-=), (<<.=), (?=),
-                                               _Empty, _head)
+                                               (+=), (-=), (.=), (<<.=), (?=), _Empty,
+                                               _head)
 import           Control.Monad.State.Class    (put)
 import           Data.Default                 (Default, def)
 import qualified Data.HashMap.Strict          as HM
@@ -260,8 +260,8 @@ getCustomAddress t addr = view $ customAddressL t . at addr
 getPendingTxs :: Query [PendingTx]
 getPendingTxs = toList <$> view wsPendingTxs
 
-getPtxAttemptsRem :: TxId -> Query (Maybe Int)
-getPtxAttemptsRem txId = preview $ wsPendingTxs . ix txId . ptxAttemptsRem
+getPendingTx :: TxId -> Query (Maybe PendingTx)
+getPendingTx txId = view $ wsPendingTxs . at txId
 
 addCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
 addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh

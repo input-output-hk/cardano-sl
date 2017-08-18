@@ -374,10 +374,13 @@ setPtxCondition txId cond =
     wsPendingTxs . ix txId %= (\tx -> tx { ptxCond = cond })
 
 -- | Compare-and-set version of 'setPtxCondition'.
-casPtxCondition :: TxId -> PtxCondition -> PtxCondition -> Update ()
-casPtxCondition txId oldCond newCond = do
-    oldCond' <- ptxCond <<$>> use (wsPendingTxs . at txId)
-    when (oldCond' == Just oldCond) $ setPtxCondition txId newCond
+-- Returns 'True' if transaction existed and modification was applied.
+casPtxCondition :: TxId -> PtxCondition -> PtxCondition -> Update Bool
+casPtxCondition txId expectedCond newCond = do
+    oldCond <- ptxCond <<$>> use (wsPendingTxs . at txId)
+    let success = oldCond == Just expectedCond
+    when success $ setPtxCondition txId newCond
+    return success
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx = wsPendingTxs . at (ptxTxId ptx) %= (<|> Just ptx)

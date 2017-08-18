@@ -67,6 +67,7 @@ submitAndSaveTxWithPending SendActions{..} wid txAux = do
             throwM e
 
         , Handler $ \(SomeException e) -> do
+            -- it is likely networking problem, let's give transaction a chance
             addOnlyNewPendingTx ptx
             throwM e
         ]

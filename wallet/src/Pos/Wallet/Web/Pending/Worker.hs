@@ -68,7 +68,8 @@ processPtxFailure existing ptx@PendingTx{..} e =
         | otherwise = addOnlyNewPendingTx ptx
     discard
         | existing  = do
-            casPtxCondition ptxTxId PtxApplying (PtxWontApply $ sformat build e)
+            let newCond = PtxWontApply (sformat build e)
+            void $ casPtxCondition ptxTxId PtxApplying newCond
             logInfo $ sformat ("Transaction "%build%" was canceled") ptxTxId
         | otherwise = pass
 
@@ -87,7 +88,7 @@ filterApplicablePtxs curSlot ptxs = do
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
 processPtxInUpperBlocks curSlot PendingTx{..}
     | PtxInUpperBlocks (slotId, _) <- ptxCond, longAgo slotId = do
-         casPtxCondition ptxTxId ptxCond PtxPersisted
+         void $ casPtxCondition ptxTxId ptxCond PtxPersisted
          logInfo $ sformat ("Transaction "%build%" got persistent") ptxTxId
     | otherwise = pass
   where
@@ -119,8 +120,8 @@ resubmitTx SendActions{..} ptx@PendingTx{..} = do
             processPtxFailure True ptx e
 
         , Handler $ \(SomeException e) ->
-            -- these errors are likely caused by networking, we can try again later
-            reportFail "Failed to resubmit tx, ignoring" e
+            -- these errors are likely caused by networking
+            reportFail "Failed to resubmit tx, will try again later" e
         ]
     reportFail :: MonadPendings m => Exception e => Text -> e -> m ()
     reportFail desc =

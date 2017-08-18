@@ -257,7 +257,7 @@ setPtxCondition = updateDisk ... A.SetPtxCondition
 
 casPtxCondition
     :: WebWalletModeDB ctx m
-    => TxId -> PtxCondition -> PtxCondition -> m ()
+    => TxId -> PtxCondition -> PtxCondition -> m Bool
 casPtxCondition = updateDisk ... A.CasPtxCondition
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()

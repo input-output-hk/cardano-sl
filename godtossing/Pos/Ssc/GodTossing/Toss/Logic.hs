@@ -1,7 +1,5 @@
 -- | Main Toss logic.
 
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Pos.Ssc.GodTossing.Toss.Logic
        ( verifyAndApplyGtPayload
        , applyGenesisBlock

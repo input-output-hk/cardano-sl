@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Specification of Pos.Ssc.GodTossing.Toss.Base.computeSharesdistr
 

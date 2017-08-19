@@ -1,6 +1,5 @@
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
 -- | Pure database implementation using 'Data.Map'. More efficient

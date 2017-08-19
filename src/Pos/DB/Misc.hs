@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Interface for the Misc DB
 
 module Pos.DB.Misc

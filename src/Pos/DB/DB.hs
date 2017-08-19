@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Higher-level DB functionality.

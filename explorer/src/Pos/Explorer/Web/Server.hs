@@ -44,6 +44,13 @@ import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
 import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
+import           Pos.Core                       (AddrType (..), Address (..), Coin,
+                                                 EpochIndex, HeaderHash, Timestamp,
+                                                 difficultyL, gbHeader, gbhConsensus,
+                                                 getChainDifficulty, isRedeemAddress,
+                                                 isUnknownAddressType, makeRedeemAddress,
+                                                 mkCoin, siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
@@ -52,12 +59,6 @@ import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, Tx
                                                  getMemPool, mpLocalTxs, taTx, topsortTxs,
                                                  txOutValue, txpTxs,
                                                  utxoToAddressCoinPairs, _txOutputs)
-import           Pos.Types                      (Address (..), Coin, EpochIndex,
-                                                 HeaderHash, Timestamp, difficultyL,
-                                                 gbHeader, gbhConsensus,
-                                                 getChainDifficulty, makeRedeemAddress,
-                                                 mkCoin, siEpoch, siSlot, sumCoins,
-                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImplNoTLS)
@@ -353,7 +354,7 @@ getAddressSummary
 getAddressSummary cAddr = do
     addr <- cAddrToAddr cAddr
 
-    when (isAddressUnknown addr) $
+    when (isUnknownAddressType addr) $
         throwM $ Internal "Unknown address type"
 
     balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
@@ -370,16 +371,13 @@ getAddressSummary cAddr = do
         caTxList = transactions
     }
   where
-    isAddressUnknown = \case
-        UnknownAddressType _ _ -> True
-        _ -> False
     getAddressType :: Address -> CAddressType
-    getAddressType = \case
-        PubKeyAddress _ _ -> CPubKeyAddress
-        ScriptAddress _ -> CScriptAddress
-        RedeemAddress _ -> CRedeemAddress
-        UnknownAddressType _ _ -> CUnknownAddress
-
+    getAddressType Address {..} =
+        case addrType of
+            ATPubKey     -> CPubKeyAddress
+            ATScript     -> CScriptAddress
+            ATRedeem     -> CRedeemAddress
+            ATUnknown {} -> CUnknownAddress
 
 -- | Get transaction summary from transaction id. Looks at both the database
 -- and the memory (mempool) for the transaction. What we have at the mempool
@@ -509,10 +507,6 @@ getRedeemAddressCoinPairs = do
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
 
     pure redeemOnly
-  where
-    isRedeemAddress :: Address -> Bool
-    isRedeemAddress (RedeemAddress _) = True
-    isRedeemAddress _                 = False
 
 isAddressRedeemed :: MonadDBRead m => Address -> Coin -> m Bool
 isAddressRedeemed address initialBalance = do

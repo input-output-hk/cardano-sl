@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Server listeners for delegation logic
 
@@ -9,31 +8,30 @@ module Pos.Delegation.Listeners
 
 import           Universum
 
-import           Control.Lens                  (views)
+import           Control.Lens               (views)
 import qualified Data.Text.Buildable
-import           Ether.Internal                (HasLens (..))
-import           Formatting                    (build, sformat, shown, (%))
-import           Serokell.Util.Text            (pairBuilder)
-import           System.Wlog                   (logDebug, logInfo)
+import           Ether.Internal             (HasLens (..))
+import           Formatting                 (build, sformat, shown, (%))
+import           Serokell.Util.Text         (pairBuilder)
+import           System.Wlog                (logDebug, logInfo)
 
-import           Pos.Binary                    ()
-import           Pos.Communication.Limits      ()
-import           Pos.Communication.Message     ()
-import           Pos.Communication.Protocol    (MsgType (..), Origin (..))
-import           Pos.Communication.Relay       (DataParams (..), PropagationMsg (..),
-                                                Relay (..), propagateData)
-import           Pos.Context                   (BlkSemaphore (..))
-import           Pos.Core                      (getOurKeys)
-import           Pos.Crypto                    (SignTag (SignProxySK), proxySign,
-                                                pskDelegatePk)
-import           Pos.Delegation.Logic          (ConfirmPskLightVerdict (..),
-                                                PskHeavyVerdict (..),
-                                                PskLightVerdict (..),
-                                                processConfirmProxySk,
-                                                processProxySKHeavy, processProxySKLight)
-import           Pos.Delegation.Types          (ProxySKLightConfirmation)
-import           Pos.Types                     (ProxySKHeavy)
-import           Pos.WorkMode.Class            (WorkMode)
+import           Pos.Binary                 ()
+import           Pos.Communication.Limits   ()
+import           Pos.Communication.Message  ()
+import           Pos.Communication.Protocol (MsgType (..), Origin (..))
+import           Pos.Communication.Relay    (DataParams (..), PropagationMsg (..),
+                                             Relay (..), propagateData)
+import           Pos.Context                (BlkSemaphore (..))
+import           Pos.Core                   (getOurKeys)
+import           Pos.Crypto                 (SignTag (SignProxySK), proxySign,
+                                             pskDelegatePk)
+import           Pos.Delegation.Logic       (ConfirmPskLightVerdict (..),
+                                             PskHeavyVerdict (..), PskLightVerdict (..),
+                                             processConfirmProxySk, processProxySKHeavy,
+                                             processProxySKLight)
+import           Pos.Delegation.Types       (ProxySKLightConfirmation)
+import           Pos.Types                  (ProxySKHeavy)
+import           Pos.WorkMode.Class         (WorkMode)
 
 instance Buildable ProxySKLightConfirmation where
     build = pairBuilder

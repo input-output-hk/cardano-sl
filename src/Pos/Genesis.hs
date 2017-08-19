@@ -38,7 +38,7 @@ module Pos.Genesis
 
 import           Universum
 
-import           Control.Lens               (makeLenses)
+import           Control.Lens               (at, makeLenses)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
@@ -47,10 +47,13 @@ import           Ether.Internal             (HasLens (..))
 import           Formatting                 (sformat)
 import           Serokell.Util              (enumerate, listJson, pairF)
 
+import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpendingData),
+                                             mkInvAddrSpendingData)
 import qualified Pos.Constants              as Const
-import           Pos.Core                   (Address (..), Coin, SlotLeaders, HasCoreConstants,
-                                             applyCoinPortionUp, coinToInteger,
-                                             deriveLvl2KeyPair, divCoin,
+import           Pos.Core                   (AddrSpendingData (PubKeyASD), Address (..),
+                                             Coin, HasCoreConstants, SlotLeaders,
+                                             addressHash, applyCoinPortionUp,
+                                             coinToInteger, deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, safeExpStakes,
                                              unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
@@ -172,19 +175,19 @@ genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
 -- | Same as 'genesisUtxo' but generates 'GenesisWStakeholders' set
 -- using 'generateWStakeholders' inside and wraps it all in
 -- 'GenesisContext'.
-genesisContextImplicit :: [AddrDistribution] -> GenesisContext
-genesisContextImplicit addrDistr =
+genesisContextImplicit :: InvAddrSpendingData -> [AddrDistribution] -> GenesisContext
+genesisContextImplicit invAddrSpendingData addrDistr =
     GenesisContext utxo genStakeholders
   where
-    genStakeholders = generateWStakeholders addrDistr
+    genStakeholders = generateWStakeholders invAddrSpendingData addrDistr
     utxo = genesisUtxo genStakeholders addrDistr
 
 -- | Generate weighted stakeholders using passed address distribution.
-generateWStakeholders :: [AddrDistribution] -> GenesisWStakeholders
-generateWStakeholders addrDistrs =
+generateWStakeholders :: InvAddrSpendingData -> [AddrDistribution] -> GenesisWStakeholders
+generateWStakeholders (unInvAddrSpendingData -> addrToSpending) addrDistrs =
     if null withCoins
-    then GenesisWStakeholders mempty
-    else GenesisWStakeholders $ foldr step mempty withCoins
+        then GenesisWStakeholders mempty
+        else GenesisWStakeholders $ foldr step mempty withCoins
   where
     withCoins = concatAddrDistrs addrDistrs
     coins = map snd withCoins
@@ -194,18 +197,22 @@ generateWStakeholders addrDistrs =
     safeConvert :: Integer -> Word16
     safeConvert i
         | i <= 0 =
-          error $ "generateWStakeholders can't convert: non-positive coin " <> show i
+            error $
+            "generateWStakeholders can't convert: non-positive coin " <> show i
         | i > fromIntegral targetTotalWeight =
-          error $ "generateWStakeholders can't convert: too big " <> show i <>
-                  ", withCoins: " <> sformat listJson (map (sformat pairF) withCoins)
+            error $
+            "generateWStakeholders can't convert: too big " <> show i <>
+            ", withCoins: " <>
+            sformat listJson (map (sformat pairF) withCoins)
         | otherwise = fromIntegral i
     calcWeight :: Coin -> Word16
     calcWeight balance =
-        safeConvert $ floor $
-        (coinToInteger balance) Ratio.%
-        (commonGcd)
-    step (PubKeyAddress x _, balance) = HM.insertWith (+) x (calcWeight balance)
-    step _                            = identity
+        safeConvert $ floor $ (coinToInteger balance) Ratio.% (commonGcd)
+    step (addr, balance) =
+        case addrToSpending ^. at addr of
+            Just (PubKeyASD (addressHash -> sId)) ->
+                HM.insertWith (+) sId (calcWeight balance)
+            _ -> identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
 genesisLeaders :: HasCoreConstants => GenesisUtxo -> SlotLeaders
@@ -293,22 +300,28 @@ genesisDevHdwAccountKeyDatas =
 devAddrDistr :: StakeDistribution -> ([AddrDistribution], GenesisWStakeholders)
 devAddrDistr distr = (aDistr, gws)
   where
-    gws = generateWStakeholders [(mainAddrs, distr)]
-    aDistr = [ (mainAddrs, distr)        -- Addresses from passed stake
-             , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
-             ]
     distrSize = length $ stakeDistribution distr
-    mainAddrs =
-        take distrSize $ genesisDevAddresses <> tailAddresses
-    tailAddresses =
-        map (makePubKeyAddress . fst . generateGenesisKeyPair)
-            [Const.genesisKeysN ..]
+    tailPks = map (fst . generateGenesisKeyPair) [Const.genesisKeysN ..]
+    mainPks = genesisDevPublicKeys <> tailPks
+    mainAddrs = take distrSize $ map makePubKeyAddress mainPks
+    mainSpendingDataList = map PubKeyASD mainPks
+    invAddrSpendingData =
+        mkInvAddrSpendingData $ mainAddrs `zip` mainSpendingDataList
+    aDistr =
+        [ (mainAddrs, distr) -- Addresses from passed stake
+        , (hdwAddresses, hdwDistr) -- HDW addresses for testing
+        ]
+
+    -- Genesis stakeholders
+    gws :: GenesisWStakeholders
+    gws = generateWStakeholders invAddrSpendingData [(mainAddrs, distr)]
+
+    -- HD wallets
     hdwSize = 2 -- should be positive
     -- 200 coins split among hdwSize users. Should be small sum enough
     -- to avoid making wallets slot leaders.
     hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 200)
     -- should be enough for testing.
     hdwAddresses = take hdwSize genesisDevHdwAccountAddresses
-
     genesisDevHdwAccountAddresses :: [Address]
     genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas

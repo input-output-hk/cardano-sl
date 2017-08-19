@@ -1,5 +1,4 @@
-{-# LANGUAGE OverloadedLists     #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedLists #-}
 
 -- | Specification of 'Pos.Block.Logic.VAR'.
 

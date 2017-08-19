@@ -1,7 +1,6 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Pos.Core.Coin
        ( coinF

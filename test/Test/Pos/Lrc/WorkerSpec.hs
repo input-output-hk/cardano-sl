@@ -20,6 +20,7 @@ import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck           (Gen, choose, vector)
 import           Test.QuickCheck.Monadic   (pick)
 
+import           Pos.AllSecrets            (HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
 import           Pos.Core                  (Address, Coin, EpochIndex, HasCoreConstants,
@@ -28,8 +29,6 @@ import           Pos.Core                  (Address, Coin, EpochIndex, HasCoreCo
                                             makePubKeyAddress, mkCoin, unsafeGetCoin,
                                             unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic)
-import           Pos.Generator.Block       (AllSecrets (..), HasAllSecrets (asSecretKeys),
-                                            mkInvSecretsMap)
 import           Pos.Genesis               (StakeDistribution (..),
                                             genesisContextImplicit)
 import qualified Pos.GState                as GS
@@ -80,8 +79,9 @@ genTestParams = do
     let _tpStartTime = 0
     let stakeholdersNum = 4 * groupsNumber
     secretKeys <- vector stakeholdersNum
-    let invSecretsMap = mkInvSecretsMap secretKeys
-    let _tpAllSecrets = AllSecrets invSecretsMap
+    let _tpAllSecrets = mkAllSecretsSimple secretKeys
+    let invSecretsMap = _tpAllSecrets ^. asSecretKeys
+    let invAddrSD = _tpAllSecrets ^. asSpendingData
     -- Single group stake multiplier.
     r <- choose (1000::Word64, 10000)
     -- Total stake inside one group.
@@ -94,7 +94,7 @@ genTestParams = do
         mapM (genAddressesAndDistrs r totalStakeGroup (toList invSecretsMap))
              (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
-    let _tpGenesisContext = genesisContextImplicit addressesAndDistrs
+    let _tpGenesisContext = genesisContextImplicit invAddrSD addressesAndDistrs
     return TestParams {..}
   where
     -- All stakes are multiples of this constant.

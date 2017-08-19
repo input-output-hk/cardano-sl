@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Header processing logic.
 

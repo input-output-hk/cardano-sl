@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Functions related to rocksdb implementation of database
 -- interface.

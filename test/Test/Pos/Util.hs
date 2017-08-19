@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
        ( giveTestsConsts

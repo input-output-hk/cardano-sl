@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Delegation-related verify/apply/rollback part.
@@ -32,9 +31,10 @@ import           Pos.Block.Core               (Block, BlockSignature (..),
                                                mcdSignature)
 import           Pos.Block.Types              (Blund, Undo (undoDlg))
 import           Pos.Context                  (lrcActionOnEpochReason)
-import           Pos.Core                     (HasCoreConstants, EpochIndex (..), StakeholderId,
-                                               addressHash, epochIndexL, gbHeader,
-                                               gbhConsensus, headerHash, prevBlockL)
+import           Pos.Core                     (EpochIndex (..), HasCoreConstants,
+                                               StakeholderId, addressHash, epochIndexL,
+                                               gbHeader, gbhConsensus, headerHash,
+                                               prevBlockL)
 import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
                                                psigPsk, shortHashF)
 import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,

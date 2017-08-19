@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Settings used for global transactions data processing.
 
 module Pos.Txp.Logic.Global
@@ -29,7 +27,7 @@ import qualified Pos.Txp.DB              as DB
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
-import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), DBToil,
+import           Pos.Txp.Toil            (BalancesView (..), DBToil,
                                           GenericToilModifier (..), GlobalApplyToilMode,
                                           ToilModifier, ToilT, applyToil, rollbackToil,
                                           runDBToil, runToilTGlobal, verifyToil)

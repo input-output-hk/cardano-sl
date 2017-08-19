@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Base part of /follow-the-satoshi/ procedure.
 

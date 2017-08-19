@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TypeFamilies  #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 {- |
@@ -34,7 +33,7 @@ import           System.IO.Unsafe      (unsafeInterleaveIO)
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Undo)
-import           Pos.Core              (IsHeader, Timestamp, HasCoreConstants)
+import           Pos.Core              (HasCoreConstants, IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
                                         dbGetHeaderDefault, dbGetHeaderSscDefault,

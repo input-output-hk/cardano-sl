@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Network.DnsDomains (
     DnsDomains(..)
@@ -6,10 +5,10 @@ module Pos.Network.DnsDomains (
   , resolveDnsDomains
   ) where
 
+import qualified Data.ByteString.Char8                 as BS.C8
+import           Data.IP                               (IPv4)
+import           Network.Broadcast.OutboundQueue.Types (AllOf, Alts)
 import           Universum
-import qualified Data.ByteString.Char8 as BS.C8
-import           Data.IP               (IPv4)
-import           Network.Broadcast.OutboundQueue.Types (Alts, AllOf)
 
 -- | DNS domains for relay discovery
 --

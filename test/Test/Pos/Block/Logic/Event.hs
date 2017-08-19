@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Test.Pos.Block.Logic.Event
        (

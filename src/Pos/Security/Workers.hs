@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Pos.Security.Workers
        ( SecurityWorkersClass (..)
        ) where

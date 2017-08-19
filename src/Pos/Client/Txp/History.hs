@@ -2,7 +2,6 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 

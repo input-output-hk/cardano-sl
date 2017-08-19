@@ -1,4 +1,9 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE CPP #-}
+
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
 
 module Pos.Network.Types
     ( -- * Network configuration
@@ -56,6 +61,10 @@ import           Pos.Util.TimeWarp                     (addressToNodeId)
 import qualified System.Metrics                        as Monitoring
 import           System.Wlog.CanLog                    (WithLogger)
 import           Universum                             hiding (show)
+
+#if !defined(POSIX)
+import qualified Pos.Network.Windows.DnsDomains as Win
+#endif
 
 {-------------------------------------------------------------------------------
   Network configuration
@@ -408,10 +417,15 @@ resolveDnsDomains NetworkConfig{..} dnsDomains =
 -- This isn't great for performance but it means that we do not initialize it
 -- when we need it; initializing it once only on demand is possible but requires
 -- jumping through too many hoops.
---
--- TODO: Make it possible to change DNS config (esp for use on Windows).
 initDnsOnUse :: (Resolver -> IO a) -> IO a
 initDnsOnUse k = k $ \dom -> do
-    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
+#if POSIX
+    let conf = DNS.defaultResolvConf
+#else
+    let googlePublicDNS = "8.8.8.8"
+    dns <- fromMaybe googlePublicDNS <$> Win.getWindowsDefaultDnsServer
+    let conf = DNS.defaultResolvConf { DNS.resolvInfo = DNS.RCHostName dns }
+#endif
+    resolvSeed <- DNS.makeResolvSeed conf
     DNS.withResolver resolvSeed $ \resolver ->
       DNS.lookupA resolver dom

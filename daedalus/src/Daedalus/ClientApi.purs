@@ -12,7 +12,6 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Error.Class (throwError)
 import Control.Promise (Promise, fromAff)
 import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString)
--- import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Either (either)
@@ -916,29 +915,3 @@ generateMnemonic = Crypto.generateMnemonic
 -- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
 isValidMnemonic :: forall eff. EffFn2 (crypto :: Crypto.CRYPTO | eff) Int String Boolean
 isValidMnemonic = mkEffFn2 \len -> pure <<< either (const false) (const true) <<< mkBackupPhrase len
-
---------------------------------------------------------------------------------
--- Websockets ---------------------------------------------------------------------
-
--- Example for testing
--- | > wscat -c ws://127.0.0.1:8090
--- |
--- | connected (press CTRL+C to quit)
--- |
--- | < {"tag":"ConnectionOpened"}
--- |
--- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":1}}
--- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":1}}
--- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":2}}
--- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":2}}
--- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":3}}
--- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":3}}
--- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":4}}
--- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":4}}
--- | ```
--- notify :: forall eff. EffFn3 (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) TLSOptions (NotifyCb eff) (ErrorCb eff) Unit
--- notify = mkEffFn3 \tls messageCb errorCb -> do
---     -- TODO (akegalj) grab global (mutable) state of  here
---     -- instead of creating newRef
---     conn <- newRef WSNotConnected
---     openConn $ mkWSState conn messageCb errorCb $ getWSSOptions tls

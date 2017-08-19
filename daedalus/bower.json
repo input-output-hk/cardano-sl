@@ -36,7 +36,6 @@
     "purescript-aff-promise": "0.7.0",
     "purescript-media-types": "3.0.0",
     "purescript-functions": "3.0.0",
-    "purescript-websocket-simple": "2.0.0",
     "purescript-refs": "3.0.0",
     "purescript-b64": "^0.0.3",
     "purescript-base58": "https://github.com/input-output-hk/purescript-base58.git",

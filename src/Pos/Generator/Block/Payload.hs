@@ -211,8 +211,15 @@ genTxPayload = do
                 -- We operate small coins values so any input sum mush be less
                 -- than coin maxbound.
                 coins <- splitCoins outputsN (unsafeIntegerToCoin outputsSum)
-                let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-                let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
+                let txOuts :: NonEmpty TxOut
+                    txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
+                let txOutToOutAux txOut@(TxOut addr coin) = do
+                        sk <- addrToSk addr
+                        let sId :: StakeholderId
+                            sId = addressHash (toPublic sk)
+                        let distr = one (sId, coin)
+                        return TxOutAux { toaOut = txOut, toaDistr = distr }
+                txOutAuxsPre <- mapM txOutToOutAux txOuts
                 either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
                     runTxCreator (overrideTxDistrBoot txOutAuxsPre)
 

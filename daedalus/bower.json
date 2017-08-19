@@ -41,7 +41,7 @@
     "purescript-websocket-simple": "1.0.1",
     "purescript-refs": "2.0.0",
     "purescript-b64": "^0.0.2",
-    "purescript-base58": "https://github.com/input-output-hk/purescript-base58.git",
+    "purescript-base58": "https://github.com/input-output-hk/purescript-base58.git#2353d0891051b9b44e2ea5df5495e1d33fe45b69",
     "purescript-arraybuffer-types": "^0.2.0",
     "purescript-int-53": "^2.1.1",
     "purescript-foreign": "^3.2.0",

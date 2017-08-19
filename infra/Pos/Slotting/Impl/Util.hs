@@ -96,6 +96,8 @@ slotFromTimestamp approxCurTime = do
     iterateIndicesUntilJust reversedEpochIndices
   where
 
+    -- TODO (ks): Again, we can run into concurrency issues. The result of which will
+    -- not return a slot from timestamp.
     -- Find a slot using timestamps. If no @EpochSlottingData@ is found return
     -- @Nothing@.
     findSlot

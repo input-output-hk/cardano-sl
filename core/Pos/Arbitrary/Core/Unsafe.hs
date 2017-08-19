@@ -4,12 +4,12 @@ module Pos.Arbitrary.Core.Unsafe () where
 
 import           Universum
 
-import           Data.Default                (def)
-
 import           Pos.Arbitrary.Core          ()
 import           Pos.Arbitrary.Crypto.Unsafe ()
 import           Pos.Binary.Crypto           ()
-import           Pos.Core                    (Address (..), Coin, EpochIndex (..),
+import           Pos.Core                    (AddrAttributes (..),
+                                              AddrStakeDistribution (..), AddrType (..),
+                                              Address (..), Coin, EpochIndex (..),
                                               HasCoreConstants, LocalSlotIndex,
                                               SharedSeed (..), SlotId (..), mkCoin)
 import           Pos.Data.Attributes         (mkAttributes)
@@ -24,8 +24,16 @@ instance ArbitraryUnsafe Coin where
     arbitraryUnsafe = mkCoin <$> arbitraryUnsafe
 
 instance ArbitraryUnsafe Address where
-    arbitraryUnsafe = PubKeyAddress <$> arbitraryUnsafe
-                                    <*> pure (mkAttributes def)
+    arbitraryUnsafe = do
+        addrRoot <- arbitraryUnsafe
+        let addrAttributes =
+                mkAttributes $
+                AddrAttributes
+                { aaPkDerivationPath = Nothing
+                , aaStakeDistribution = BootstrapEraDistr
+                }
+        let addrType = ATPubKey
+        return Address {..}
 
 instance HasCoreConstants => ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe

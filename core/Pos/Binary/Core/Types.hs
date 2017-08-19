@@ -9,11 +9,11 @@ import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..),
                                              deriveSimpleBi, deriveSimpleBiCxt)
 import           Pos.Binary.Core.Coin       ()
 import           Pos.Binary.Core.Fee        ()
-import           Pos.Core.Context           (HasCoreConstants)
 import           Pos.Binary.Core.Script     ()
 import           Pos.Binary.Core.Version    ()
-import qualified Pos.Core.Slotting          as T
+import           Pos.Core.Context.Const     (HasCoreConstants)
 import qualified Pos.Core.Fee               as T
+import qualified Pos.Core.Slotting          as T
 import qualified Pos.Core.Types             as T
 import qualified Pos.Data.Attributes        as A
 

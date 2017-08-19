@@ -13,27 +13,32 @@ import           Unsafe                    (unsafeHead, unsafeTail)
 
 import           Control.Lens              (At (at), Index, _Right)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.Map.Strict           as M
 import           Formatting                (sformat, (%))
 import           Serokell.Util             (enumerate, subList)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
-import           Test.QuickCheck           (Gen, choose)
+import           Test.QuickCheck           (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic   (pick)
 
-import           Pos.AllSecrets            (HasAllSecrets (..), mkAllSecretsSimple)
+import           Pos.AllSecrets            (HasAllSecrets (..), InvAddrSpendingData,
+                                            mkAllSecretsSimple, unInvAddrSpendingData)
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
-import           Pos.Core                  (Address, Coin, EpochIndex, HasCoreConstants,
+import           Pos.Core                  (AddrDistribution, AddrSpendingData (..),
+                                            Address (..), Coin, EpochIndex,
+                                            GenesisWStakeholders (..), HasCoreConstants,
                                             StakeholderId, addressHash,
                                             applyCoinPortionUp, blkSecurityParam, coinF,
-                                            makePubKeyAddress, mkCoin, unsafeGetCoin,
-                                            unsafeMulCoin, unsafeSubCoin)
-import           Pos.Crypto                (SecretKey, toPublic)
-import           Pos.Genesis               (StakeDistribution (..),
-                                            genesisContextImplicit)
+                                            divCoin, makePubKeyAddress, mkCoin,
+                                            unsafeAddCoin, unsafeMulCoin, unsafeSubCoin)
+import           Pos.Crypto                (SecretKey, toPublic, unsafeHash)
+import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..),
+                                            StakeDistribution (..), concatAddrDistrs)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
-import           Pos.Txp                   (TxAux, mkTxPayload)
+import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutAux (..),
+                                            TxOutDistribution, mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys)
 
@@ -45,10 +50,10 @@ import           Test.Pos.Util             (giveTestsConsts, maybeStopProperty,
                                             stopProperty)
 
 spec :: Spec
--- Currently we want to run it only once, because there is no much
--- randomization (its effect is likely negligible) and performance is
--- the issue.
-spec = giveTestsConsts $ describe "Lrc.Worker" $ modifyMaxSuccess (const 1) $ do
+-- Currently we want to run it only 4 times, because there is no
+-- much randomization (its effect is likely negligible) and
+-- performance matters (but not very much, so we can run more than once).
+spec = giveTestsConsts $ describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
     describe "lrcSingleShotNoLock" $ do
         prop lrcCorrectnessDesc $
             blockPropertyToProperty genTestParams lrcCorrectnessProp
@@ -74,7 +79,7 @@ allRichmenComponents =
 -- | We need to generate some genesis with
 -- genesis stakeholders `RC × {A, B, C, D}` (where `RC` is the set of
 -- all richmen components and `{A, B, C, D}` is just a set of 4 items)
--- and make sure that there are `|RC| · 3` richmen (`RC × {A, B, C}`).
+-- and make sure that there are `|RC| · 3` richmen (`RC × {B, C, D}`).
 genTestParams :: Gen TestParams
 genTestParams = do
     let _tpStartTime = 0
@@ -83,53 +88,67 @@ genTestParams = do
     let _tpAllSecrets = mkAllSecretsSimple secretKeys
     let invSecretsMap = _tpAllSecrets ^. asSecretKeys
     let invAddrSD = _tpAllSecrets ^. asSpendingData
-    -- Single group stake multiplier.
-    r <- choose (1000::Word64, 10000)
+    let minTotalStake = mkCoin 100000
     -- Total stake inside one group.
-    let totalStakeGroup = mkCoin r `unsafeMulCoin` (baseN::Integer)
+    totalStakeGroup <-
+        (`divCoin` groupsNumber) . max minTotalStake <$> arbitrary
 
     -- It's essential to use 'toList invSecretsMap' instead of
     -- 'secretKeys' here, because we rely on the order further. Later
     -- we can add ability to extend 'TestParams' or context.
     addressesAndDistrs <-
-        mapM (genAddressesAndDistrs r totalStakeGroup (toList invSecretsMap))
+        mapM (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
              (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
-    let _tpGenesisContext = genesisContextImplicit invAddrSD addressesAndDistrs
+    let _tpGenesisContext = genesisContextSimple invAddrSD addressesAndDistrs
     return TestParams {..}
   where
-    -- All stakes are multiples of this constant.
-    baseN :: Integral i => i
-    baseN = 1000000
+    identityDistr :: InvAddrSpendingData -> Address -> Coin -> TxOutDistribution
+    identityDistr (unInvAddrSpendingData -> addrToSpending) addr coin =
+        case addrToSpending ^. at addr of
+            Just (PubKeyASD (addressHash -> sId)) -> [(sId, coin)]
+            _ -> error $ "identityDistr failed for address " <> pretty addr
+
+    genesisContextSimple :: InvAddrSpendingData -> [AddrDistribution] -> GenesisContext
+    genesisContextSimple invAddrSpendingData addrDistr = do
+        let balances = concatAddrDistrs addrDistr
+        let utxoEntry (addr, coin) =
+                ( TxIn (unsafeHash addr) 0
+                , TxOutAux (TxOut addr coin)
+                           (identityDistr invAddrSpendingData addr coin)
+                )
+        -- We don't care about genesis stakeholders, because in this
+        -- test we don't make any txs.  If we add txs, we will need to
+        -- do it after bootstrap era, so these stakeholders will be
+        -- ignored.
+        GenesisContext (GenesisUtxo $ M.fromList $ map utxoEntry balances)
+                       (GenesisWStakeholders mempty)
+
     groupsNumber = length allRichmenComponents
-    genAddressesAndDistrs ::
-           Word64
-        -> Coin
+    genAddressesAndDistrs
+        :: Coin
         -> [SecretKey]
         -> (GroupId, Lrc.SomeRichmenComponent)
-        -> Gen ([Address], StakeDistribution)
-    genAddressesAndDistrs r totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
+        -> Gen AddrDistribution
+    genAddressesAndDistrs totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
         let secretKeysRange = subList (4 * i, 4 * (i + 1)) allSecretKeys
         let skToAddr = makePubKeyAddress . toPublic
         let addresses = map skToAddr secretKeysRange
         let totalStake = totalStakeGroup `unsafeMulCoin` groupsNumber
         let thresholdCoin =
                 Lrc.rcInitialThreshold proxy `applyCoinPortionUp` totalStake
-        let thresholdN = unsafeGetCoin thresholdCoin
-        let poorStakeN = thresholdN `div` baseN
-        let poorStake = mkCoin baseN `unsafeMulCoin` poorStakeN
-        let k1 = (r - poorStakeN) `div` 3
-        -- This ensures that no rich stake is less than threshold and
-        -- no more than k1, which is the remained stake (w/o poor)
-        -- divided by three.
-        [richStake1,richStake2] <-
-            replicateM 2 $
-            (`unsafeMulCoin` (baseN :: Int)) . mkCoin <$>
-            choose (poorStakeN, k1)
+        -- Poor guy gets one coin less than threshold.
+        let poorStake = thresholdCoin `unsafeSubCoin` mkCoin 1
+        -- Let's add small stake to two richmen just for fun.
+        let genSmallRichStake =
+                unsafeAddCoin thresholdCoin . mkCoin <$> choose (0, 10)
+        richStake1 <- genSmallRichStake
+        richStake2 <- genSmallRichStake
         let richStake3 =
-                foldl' unsafeSubCoin
-                       totalStakeGroup
-                       [poorStake, richStake1, richStake2]
+                foldl'
+                    unsafeSubCoin
+                    totalStakeGroup
+                    [poorStake, richStake1, richStake2]
         let stakes = [poorStake, richStake1, richStake2, richStake3]
         case richStake3 >= thresholdCoin of
             True  -> return (addresses, CustomStakes stakes)
@@ -191,10 +210,12 @@ checkRichmen = do
     relevantStakeholders i =
         map (addressHash . toPublic) . subList (4 * i, 4 * (i + 1)) . toList <$>
         view asSecretKeys
+
     getRichmen ::
            (EpochIndex -> BlockProperty (Maybe richmen))
         -> BlockProperty richmen
     getRichmen getter = maybeStopProperty "No richmen for epoch#1!" =<< getter 1
+
     checkRichmenFull :: GroupId -> Lrc.FullRichmenData -> BlockProperty ()
     checkRichmenFull i (totalStake, richmenStakes) = do
         realTotalStake <- lift GS.getRealTotalStake
@@ -204,6 +225,7 @@ checkRichmen = do
              %coinF% ", real = " %coinF%")")
              totalStake realTotalStake
         checkRichmenStakes i richmenStakes
+
     checkRichmenStakes :: GroupId -> Lrc.RichmenStakes -> BlockProperty ()
     checkRichmenStakes i richmenStakes = do
         checkRichmenSet i (getKeys richmenStakes)
@@ -216,6 +238,7 @@ checkRichmen = do
                      lrcStake realStake
                 | otherwise = pass
         mapM_ checkRich =<< expectedRichmenStakes i
+
     checkRichmenSet :: GroupId -> Lrc.RichmenSet -> BlockProperty ()
     checkRichmenSet i richmenSet = do
         checkPoor i richmenSet
@@ -225,11 +248,13 @@ checkRichmen = do
                 ("Someone has stake "%coinF%", but wasn't considered richman")
                  realStake
         mapM_ checkRich =<< expectedRichmenStakes i
+
     expectedRichmenStakes :: GroupId -> BlockProperty [(StakeholderId, Coin)]
     expectedRichmenStakes i = do
         richmen <- unsafeTail <$> relevantStakeholders i
         let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
         lift $ mapM resolve richmen
+
     checkPoor ::
            (Index m ~ StakeholderId, At m) => GroupId -> m -> BlockProperty ()
     checkPoor i richmen = do

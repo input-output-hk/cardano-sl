@@ -10,19 +10,17 @@ module Pos.Client.Txp.Balances
 
 import           Universum
 
-import           Control.Lens         (has)
 import           Control.Monad.Trans  (MonadTrans)
 import qualified Data.HashSet         as HS
 import           Data.List            (partition)
 import qualified Data.Map             as M
 
-import           Pos.Core             (AddressIgnoringAttributes (AddressIA))
-import           Pos.Core.Types       (_RedeemAddress)
+import           Pos.Core             (Address (..), Coin, isRedeemAddress, sumCoins,
+                                       unsafeIntegerToCoin)
 import           Pos.DB               (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.Txp              (MonadTxpMem, TxOutAux (..), Utxo, addrBelongsToSet,
                                        getUtxoModifier, txOutValue)
 import qualified Pos.Txp.DB           as DB
-import           Pos.Types            (Address (..), Coin, sumCoins, unsafeIntegerToCoin)
 import qualified Pos.Util.Modifier    as MM
 import           Pos.Wallet.Web.State (WebWalletModeDB)
 import qualified Pos.Wallet.Web.State as WS
@@ -56,7 +54,7 @@ type BalancesEnv ext ctx m =
 
 getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
 getOwnUtxosDefault addrs = do
-    let (redeemAddrs, commonAddrs) = partition (has _RedeemAddress) addrs
+    let (redeemAddrs, commonAddrs) = partition isRedeemAddress addrs
 
     updates <- getUtxoModifier
     commonUtxo <- if null commonAddrs then pure mempty
@@ -65,7 +63,7 @@ getOwnUtxosDefault addrs = do
                     else DB.getFilteredUtxo redeemAddrs
 
     let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
-        addrsSet = HS.fromList $ AddressIA <$> addrs
+        addrsSet = HS.fromList addrs
     pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
 
 -- | `BalanceDB` isn't used here anymore, because

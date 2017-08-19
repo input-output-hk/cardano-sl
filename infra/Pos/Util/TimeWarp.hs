@@ -14,15 +14,16 @@ module Pos.Util.TimeWarp
        , module JsonLog
        ) where
 
+import           Universum
+
 import qualified Data.ByteString.Char8          as BS8
 import           Formatting                     (build, formatToString, shown, (%))
 import           JsonLog
 import qualified Network.Transport.TCP.Internal as TCP
 import           Node                           (NodeId (..))
 import qualified Serokell.Util.Parse            as P
-import           Text.Parsec                    as P
-import qualified Text.Parsec.String             as P
-import           Universum
+import qualified Text.Parsec                    as P
+import qualified Text.Parsec.Text               as P
 
 -- | @"127.0.0.1"@.
 localhost :: ByteString
@@ -52,7 +53,7 @@ addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port) <* P.eof
 readAddrFile :: FilePath -> IO [NetworkAddress]
 readAddrFile path = do
     xs <- lines <$> readFile path
-    let parseLine x = case P.parse (addrParser <* P.eof) "" (toString x) of
+    let parseLine x = case P.parse (addrParser <* P.eof) "" x of
             Left err -> fail $ formatToString
                 ("error when parsing network address "%shown%
                  " from file "%build%": "%shown) x path err

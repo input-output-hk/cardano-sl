@@ -114,9 +114,9 @@ getMoneySourceUtxo =
 -- to modules and refactored
 instance HasCoreConstants => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
-    getNewAddress (accId, passphrase) =
-        L.newAddress RandomSeed passphrase accId >>=
-        decodeCTypeOrFail . cadId
+    getNewAddress (accId, passphrase) = do
+        clientAddress <- L.newAddress RandomSeed passphrase accId
+        (, Nothing) <$> decodeCTypeOrFail (cadId clientAddress)
 
 sendMoney
     :: MonadWalletWebMode m

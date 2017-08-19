@@ -53,17 +53,18 @@ import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Constants                    (genesisHash)
 import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..),
-                                                   blkSecurityParam, genesisUtxoM)
-import           Pos.Core                         (AddrPkAttrs (..), Address (..),
-                                                   BlockHeaderStub, ChainDifficulty,
-                                                   HasCoreConstants, HasDifficulty (..),
-                                                   HeaderHash, Timestamp, headerHash,
+                                                   genesisUtxoM)
+import           Pos.Core                         (Address (..), BlockHeaderStub,
+                                                   ChainDifficulty, HasCoreConstants,
+                                                   HasDifficulty (..), HeaderHash,
+                                                   Timestamp, aaPkDerivationPath,
+                                                   addrAttributesUnwrapped,
+                                                   blkSecurityParam, headerHash,
                                                    headerSlotL, makePubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
                                                    unpackHDAddressAttr)
-import           Pos.Data.Attributes              (Attributes (..))
 import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
 import           Pos.DB.Rocks                     (MonadRealDB)
@@ -484,11 +485,11 @@ setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "sync")
 
 decryptAccount :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
-decryptAccount (hdPass, wCId) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do
+decryptAccount (hdPass, wCId) addr = do
+    hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
     pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (addressToCId addr)
-decryptAccount _ _ = Nothing
 
 ----------------------------------------------------------------------------
 -- Cached modifier
@@ -510,4 +511,3 @@ fixCachedAccModifierFor
     -> m a
 fixCachedAccModifierFor key action =
     fixingCachedAccModifier (const . action) key
-

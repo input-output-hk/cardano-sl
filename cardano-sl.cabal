@@ -27,6 +27,8 @@ Flag with-explorer
 library
   exposed-modules:      Paths_cardano_sl
 
+                        Pos.AllSecrets
+
                         -- Arbitrary instances
                         Pos.Arbitrary.Block
                         Pos.Arbitrary.Delegation

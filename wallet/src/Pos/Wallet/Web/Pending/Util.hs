@@ -50,18 +50,20 @@ isReclaimableFailure :: ToilVerFailure -> Bool
 isReclaimableFailure = \case
     -- If number of 'ToilVerFailure' constructors will ever change, compiler
     -- will complain - for this purpose we consider all cases explicitly here.
-    ToilKnown               -> True
-    ToilTipsMismatch{}      -> True
-    ToilSlotUnknown         -> True
-    ToilOverwhelmed{}       -> True
-    ToilNotUnspent{}        -> False
-    ToilOutGTIn{}           -> False
-    ToilInconsistentTxAux{} -> False
-    ToilInvalidOutputs{}    -> False
-    ToilInvalidInputs{}     -> False
-    ToilTooLargeTx{}        -> False
-    ToilInvalidMinFee{}     -> False
-    ToilInsufficientFee{}   -> False
-    ToilUnknownAttributes{} -> False
-    ToilBootInappropriate{} -> False
+    ToilKnown                -> True
+    ToilTipsMismatch{}       -> True
+    ToilSlotUnknown          -> True
+    ToilOverwhelmed{}        -> True
+    ToilNotUnspent{}         -> False
+    ToilOutGTIn{}            -> False
+    ToilInconsistentTxAux{}  -> False
+    ToilInvalidOutputs{}     -> False
+    ToilInvalidInput{}       -> False
+    ToilWitnessDoesntMatch{} -> False
+    ToilTooLargeTx{}         -> False
+    ToilInvalidMinFee{}      -> False
+    ToilInsufficientFee{}    -> False
+    ToilUnknownAttributes{}  -> False
+    ToilBootInappropriate{}  -> False
+    ToilRepeatedInput{}      -> False
 

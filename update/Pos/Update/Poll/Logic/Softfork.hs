@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Softfork resolution logic.
 

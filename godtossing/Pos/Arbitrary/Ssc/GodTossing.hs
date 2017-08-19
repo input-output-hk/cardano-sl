@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Arbitrary instances and generators for GodTossing types.
 
 module Pos.Arbitrary.Ssc.GodTossing
@@ -25,7 +23,7 @@ import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
-                                                    SlotId (..), addressHash, addressHash)
+                                                    SlotId (..), addressHash)
 import           Pos.Crypto                        (SecretKey, deterministicVssKeyGen,
                                                     secureRandomBS, toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)

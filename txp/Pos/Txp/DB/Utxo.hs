@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Part of GState DB which stores unspent transaction outputs.
@@ -44,7 +43,6 @@ import           Pos.Binary.Class     (serialize')
 import           Pos.Binary.Core      ()
 import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Core.Address     (AddressIgnoringAttributes (..))
 import           Pos.DB               (DBError (..), DBIteratorClass (..),
                                        DBTag (GStateDB), IterType, MonadDB, MonadDBRead,
                                        RocksBatchOp (..), dbIterSource,
@@ -114,7 +112,7 @@ getFilteredUtxo addrs =
     CL.filter (\(_,out) -> out `addrBelongsToSet` addrsSet) .|
     utxoSink
   where
-    addrsSet = HS.fromList $ map AddressIA addrs
+    addrsSet = HS.fromList addrs
 
 -- | Get full utxo. Use with care – the utxo can be very big (hundreds of
 -- megabytes).

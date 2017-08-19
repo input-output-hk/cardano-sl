@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP        #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- TODO Maybe move it somewhere else.
 -- | Block payload generation.
@@ -23,11 +22,13 @@ import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (RandomGen (..))
 
+import           Pos.AllSecrets             (asSecretKeys, asSpendingData,
+                                             unInvAddrSpendingData, unInvSecretsMap)
 import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot,
-                                             txToLinearFee, unTxError)
-import           Pos.Core                   (Address (..), Coin, SlotId (..),
-                                             TxFeePolicy (..), addressDetailedF,
-                                             bvdTxFeePolicy, coinToInteger,
+                                             runTxCreator, txToLinearFee, unTxError)
+import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
+                                             SlotId (..), StakeholderId, TxFeePolicy (..),
+                                             addressHash, bvdTxFeePolicy, coinToInteger,
                                              makePubKeyAddress, mkCoin, sumCoins,
                                              unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Crypto                 (SecretKey, SignTag (SignTx), WithHash (..),
@@ -35,8 +36,7 @@ import           Pos.Crypto                 (SecretKey, SignTag (SignTx), WithHa
 import           Pos.DB                     (gsIsBootstrapEra)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
-import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..),
-                                             asSecretKeys, unInvSecretsMap)
+import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..))
 import           Pos.Genesis                (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState                 as DB
 import           Pos.Slotting.Class         (MonadSlots (getCurrentSlotBlocking))
@@ -50,7 +50,7 @@ import           Pos.Txp.Logic              (txProcessTransaction)
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types         (TxFee (..), Utxo)
 import qualified Pos.Txp.Toil.Utxo          as Utxo
-import           Pos.Util.Util              (eitherToThrow)
+import           Pos.Util.Util              (eitherToThrow, maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Tx payload generation
@@ -145,12 +145,22 @@ genTxPayload = do
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
 
         secrets <- unInvSecretsMap . view asSecretKeys <$> view blockGenParams
-        -- Unsafe hashmap resolving is used here because we suppose
-        -- utxo contains only related to these secret keys only.
-        let resolveSecret stId =
-                fromMaybe (error $ "can't find stakeholderId " <>
-                           pretty stId <> " in secrets map")
-                          (HM.lookup stId secrets)
+        let resolveSecret :: MonadThrow n => StakeholderId -> n SecretKey
+            resolveSecret stId =
+                maybeThrow (BGUnknownSecret stId) (HM.lookup stId secrets)
+
+        invAddrSpendingData <- unInvAddrSpendingData <$>
+            view (blockGenParams . asSpendingData)
+        let addrToSk :: MonadThrow n => Address -> n SecretKey
+            addrToSk addr = do
+                spendingData <- maybeThrow (BGUnknownAddress addr)
+                    (invAddrSpendingData ^. at addr)
+                case spendingData of
+                    PubKeyASD pk -> resolveSecret (addressHash pk)
+                    another -> error $
+                        sformat ("Found an address with non-pubkey spending data: "
+                                    %build) another
+
         let utxoAddresses = map (makePubKeyAddress . toPublic) $ HM.elems secrets
 
         ----- INPUTS
@@ -198,21 +208,20 @@ genTxPayload = do
                         outputsN
                         (0, max outputsN (length utxoAddresses - 1))
                 let outputAddrs = map ((cycle utxoAddresses) !!) outputsIxs
-                let suchThat attempt cond x = do
-                        when (attempt <= 0) $
-                            throwM . BGFailedToCreate $ "suchThat: too many attepts!"
-                        y <- x
-                        if cond y then pure y else suchThat (attempt - 1) cond x
-                let moreThanDust (coinToInteger -> c) = not bootEra || c >= dustThd
                 -- We operate small coins values so any input sum mush be less
                 -- than coin maxbound.
-                coins <-
-                    suchThat randomAttempts (all moreThanDust) $
-                    splitCoins outputsN (unsafeIntegerToCoin outputsSum)
-                let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-                let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
+                coins <- splitCoins outputsN (unsafeIntegerToCoin outputsSum)
+                let txOuts :: NonEmpty TxOut
+                    txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
+                let txOutToOutAux txOut@(TxOut addr coin) = do
+                        sk <- addrToSk addr
+                        let sId :: StakeholderId
+                            sId = addressHash (toPublic sk)
+                        let distr = one (sId, coin)
+                        return TxOutAux { toaOut = txOut, toaDistr = distr }
+                txOutAuxsPre <- mapM txOutToOutAux txOuts
                 either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
-                    runExceptT (overrideTxDistrBoot txOutAuxsPre)
+                    runTxCreator (overrideTxDistrBoot txOutAuxsPre)
 
         ----- TX
 
@@ -228,12 +237,7 @@ genTxPayload = do
                 (txIns, inputsResolved, inputsSum) <- generateInputs randomAttempts expectedFee
                 txOutAuxs <- generateOutputs inputsSum expectedFee
 
-                let resolveSk :: Address -> SecretKey
-                    resolveSk = \case
-                        PubKeyAddress stId _ -> resolveSecret stId
-                        other -> error $
-                            sformat ("Found non-pubkey address: "%addressDetailedF) other
-                let resolvedSks = map (resolveSk . txOutAddress) inputsResolved
+                resolvedSks <- mapM (addrToSk . txOutAddress) inputsResolved
                 let txInsWithSks = NE.fromList $ resolvedSks `zip` txIns
                 let mkWit :: SecretKey -> TxSigData -> TxInWitness
                     mkWit sk txSigData = PkWitness (toPublic sk) (sign SignTx sk txSigData)

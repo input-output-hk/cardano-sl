@@ -22,7 +22,7 @@ import           Pos.Communication.Protocol  (MkListeners (..), EnqueueMsg)
 import           Pos.Communication.Relay     (relayListeners)
 import           Pos.Communication.Util      (wrapListener)
 import           Pos.Delegation.Listeners    (delegationRelays)
-import           Pos.Network.Types           (Topology, topologySubscriberNodeType)
+import           Pos.Network.Types           (Topology, topologySubscribers)
 import           Pos.Ssc.Class               (SscListenersClass (..), SscWorkersClass)
 import           Pos.Subscription.Common     (subscriptionListeners)
 import           Pos.Txp                     (txRelays)
@@ -43,7 +43,7 @@ allListeners topology enqueue = mconcat $
         , modifier "update"       $ relayListeners enqueue usRelays
         ] ++ [
           modifier "subscription" $ subscriptionListeners subscriberNodeType
-        | Just subscriberNodeType <- [topologySubscriberNodeType topology]
+        | Just (subscriberNodeType, _) <- [topologySubscribers topology]
         ]
   where
     modifier lname mkL = mkL { mkListeners = mkListeners' }

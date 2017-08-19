@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE CPP          #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | Serializable instances for Pos.Crypto.*
 

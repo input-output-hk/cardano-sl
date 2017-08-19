@@ -1,5 +1,4 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Rank2Types #-}
 
 -- | Different utils for wallets
 

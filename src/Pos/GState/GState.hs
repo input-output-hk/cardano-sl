@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Higher-level functions working with GState DB.
 

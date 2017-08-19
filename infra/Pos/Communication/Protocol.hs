@@ -1,6 +1,5 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds  #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Protocol/versioning related communication helpers.
 
@@ -155,7 +154,7 @@ alternativeConversations nid ourVerInfo theirVerInfo convs =
     fstArg _ = Proxy
 
     logOSNR (Right e@(OutSpecNotReported _ _)) = logWarning $ sformat build e
-    logOSNR _                                = pure ()
+    logOSNR _                                  = pure ()
 
     checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
         checkingOutSpecs (sndMsgCode, ConvHandler rcvMsgCode) nodeId peerInSpecs conv

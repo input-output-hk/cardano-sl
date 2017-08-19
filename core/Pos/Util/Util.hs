@@ -1,10 +1,9 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE PolyKinds       #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Util.Util
        (

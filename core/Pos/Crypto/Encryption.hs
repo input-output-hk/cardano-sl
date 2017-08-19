@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 -- | Wrapper over AES. `encode` and `decode` use AES256 CTR mode with
 -- IV = 0.
 module Pos.Crypto.Encryption

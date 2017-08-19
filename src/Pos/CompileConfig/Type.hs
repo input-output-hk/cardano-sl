@@ -16,7 +16,7 @@ data CompileConfig = CompileConfig
     {
       ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccDefaultPeers                  :: ![String]
+    , ccDefaultPeers                  :: ![Text]
       -- ^ List of default peers
     , ccMdNoBlocksSlotThreshold       :: !Int
       -- ^ Threshold of slots for malicious activity detection

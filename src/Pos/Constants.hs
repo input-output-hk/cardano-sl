@@ -88,7 +88,7 @@ propagationQueueSize =
 defaultPeers :: [NetworkAddress]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
-    parsePeer :: String -> NetworkAddress
+    parsePeer :: Text -> NetworkAddress
     parsePeer =
         either (error . show) identity .
         P.parse addrParser "Compile time config"

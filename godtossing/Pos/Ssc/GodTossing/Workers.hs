@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- Don't complain about deprecated ErrorT
 {-# OPTIONS -Wno-deprecations #-}

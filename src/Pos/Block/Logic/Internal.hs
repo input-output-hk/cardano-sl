@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
 -- lrc requires to apply and rollback blocks, but applying many blocks

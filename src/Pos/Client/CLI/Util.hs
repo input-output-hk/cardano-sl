@@ -24,7 +24,7 @@ import           System.Wlog                          (LoggerConfig (..),
                                                        parseLoggerConfig, zoomLogger)
 import           Text.Parsec                          (try)
 import qualified Text.Parsec.Char                     as P
-import qualified Text.Parsec.String                   as P
+import qualified Text.Parsec.Text                     as P
 
 import           Pos.Binary.Core                      ()
 import           Pos.Constants                        (isDevelopment)

@@ -32,9 +32,9 @@ import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, get
 import           Pos.Txp.Toil                (GenericToilModifier (..),
                                               MonadUtxoRead (..), ToilModifier, ToilT,
                                               ToilVerFailure (..), ToilVerFailure (..),
-                                              Utxo, evalUtxoStateT, execToilTLocal,
-                                              normalizeToil, processTx, runDBToil,
-                                              runToilTLocal, utxoGetReader)
+                                              Utxo, execToilTLocal, normalizeToil,
+                                              processTx, runDBToil, runToilTLocal,
+                                              utxoGetReader)
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m

@@ -17,8 +17,6 @@ import           Test.Hspec            (Expectation, Spec, describe, expectation
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, arbitrary, counterexample, property,
                                         vector, (==>))
-import qualified Text.Regex.TDFA       as TDFA
-import qualified Text.Regex.TDFA.Text  as TDFA
 
 import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
 import           Pos.Core              (addressHash)

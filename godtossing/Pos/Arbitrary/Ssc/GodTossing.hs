@@ -22,8 +22,7 @@ import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
                                                     SlotId (..), addressHash)
-import           Pos.Crypto                        (SecretKey, deterministicVssKeyGen,
-                                                    toVssPublicKey)
+import           Pos.Crypto                        (SecretKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),

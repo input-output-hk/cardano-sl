@@ -62,8 +62,9 @@ spec = giveTestsConsts $ describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) 
     describe "applyBlocks" applyBlocksSpec
     describe "Block.Event" $ do
         describe "Successful sequence" $ blockEventSuccessSpec
-        describe "Apply through epoch" $ applyThroughEpochSpec 0
-        describe "Apply through epoch" $ applyThroughEpochSpec 4
+        modifyMaxSuccess (min 2) $ do
+            describe "Apply through epoch" $ applyThroughEpochSpec 0
+            describe "Apply through epoch" $ applyThroughEpochSpec 4
         describe "Fork - short" $ singleForkSpec ForkShort
         describe "Fork - medium" $ singleForkSpec ForkMedium
         describe "Fork - deep" $ singleForkSpec ForkDeep

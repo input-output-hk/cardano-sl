@@ -208,26 +208,11 @@ genTxPayload = do
                         outputsN
                         (0, max outputsN (length utxoAddresses - 1))
                 let outputAddrs = map ((cycle utxoAddresses) !!) outputsIxs
-                let suchThat attempt cond x = do
-                        when (attempt <= 0) $
-                            throwM . BGFailedToCreate $ "suchThat: too many attepts!"
-                        y <- x
-                        if cond y then pure y else suchThat (attempt - 1) cond x
-                let moreThanDust (coinToInteger -> c) = not bootEra || c >= dustThd
                 -- We operate small coins values so any input sum mush be less
                 -- than coin maxbound.
-                coins <-
-                    suchThat randomAttempts (all moreThanDust) $
-                    splitCoins outputsN (unsafeIntegerToCoin outputsSum)
-                let txOuts :: NonEmpty TxOut
-                    txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-                let txOutToOutAux txOut@(TxOut addr coin) = do
-                        sk <- addrToSk addr
-                        let sId :: StakeholderId
-                            sId = addressHash (toPublic sk)
-                        let distr = one (sId, coin)
-                        return TxOutAux { toaOut = txOut, toaDistr = distr }
-                txOutAuxsPre <- mapM txOutToOutAux txOuts
+                coins <- splitCoins outputsN (unsafeIntegerToCoin outputsSum)
+                let txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
+                let txOutAuxsPre = map (\o -> TxOutAux o []) txOuts
                 either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
                     runTxCreator (overrideTxDistrBoot txOutAuxsPre)
 

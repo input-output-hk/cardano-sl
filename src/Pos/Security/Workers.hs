@@ -106,7 +106,7 @@ checkForReceivedBlocksWorkerImpl
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal . recoveryCommGuard $
-        whenM (needRecovery @ssc) $ triggerRecovery enqueueMsg
+        whenM (needRecovery @ctx @ssc) $ triggerRecovery enqueueMsg
     repeatOnInterval (min (sec' 20)) . reportingFatal . recoveryCommGuard $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do

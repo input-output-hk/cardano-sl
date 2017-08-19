@@ -43,12 +43,14 @@ import           Serokell.Util               (sec)
 import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 
 import qualified Pos.Core.Constants          as C
-import           Pos.Core.Slotting           (unflattenSlotId)
 import           Pos.Core.Context            (HasCoreConstants)
+import           Pos.Core.Slotting           (unflattenSlotId)
 import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
 import qualified Pos.Slotting.Constants      as C
 import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
-import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
+import           Pos.Slotting.MemState       (MonadSlotsData, getCurrentNextEpochIndexM,
+                                              getCurrentNextEpochSlottingDataM,
+                                              waitCurrentEpochEqualsM)
 
 ----------------------------------------------------------------------------
 -- TODO
@@ -118,11 +120,11 @@ mkNtpSlottingVar = do
 -- Mode
 ----------------------------------------------------------------------------
 
-type NtpMode m =
+type NtpMode ctx m =
     ( MonadIO m
     , MonadThrow m
     , WithLogger m
-    , MonadSlotsData m
+    , MonadSlotsData ctx m
     , Mockables m
         [ CurrentTime
         , Delay
@@ -137,7 +139,7 @@ type NtpWorkerMode m = NtpMonad m
 ----------------------------------------------------------------------------
 
 ntpCurrentTime
-    :: NtpMode m
+    :: (NtpMode ctx m)
     => NtpSlottingVar -> m Timestamp
 ntpCurrentTime var = do
     lastMargin <- view nssLastMargin <$> atomically (STM.readTVar var)
@@ -155,7 +157,7 @@ data SlotStatus
     | CurrentSlot !SlotId               -- ^ Slot is calculated successfully.
 
 ntpGetCurrentSlot
-    :: (NtpMode m)
+    :: (NtpMode ctx m)
     => NtpSlottingVar
     -> m (Maybe SlotId)
 ntpGetCurrentSlot var = ntpGetCurrentSlotImpl var >>= \case
@@ -177,17 +179,17 @@ ntpGetCurrentSlot var = ntpGetCurrentSlotImpl var >>= \case
         logWarning $ "Slotting data: " <> show sd
 
 ntpGetCurrentSlotInaccurate
-    :: (NtpMode m)
+    :: (NtpMode ctx m)
     => NtpSlottingVar -> m SlotId
 ntpGetCurrentSlotInaccurate var = do
     res <- ntpGetCurrentSlotImpl var
     case res of
-        CurrentSlot slot        -> pure slot
-        CantTrust _             -> _nssLastSlot <$> atomically (STM.readTVar var)
-        OutdatedSlottingData _  -> ntpCurrentTime var >>= approxSlotUsingOutdated
+        CurrentSlot slot       -> pure slot
+        CantTrust _            -> _nssLastSlot <$> atomically (STM.readTVar var)
+        OutdatedSlottingData _ -> ntpCurrentTime var >>= approxSlotUsingOutdated
 
 ntpGetCurrentSlotImpl
-    :: (NtpMode m)
+    :: (NtpMode ctx m)
     => NtpSlottingVar
     -> m SlotStatus
 ntpGetCurrentSlotImpl var = do
@@ -217,7 +219,7 @@ ntpGetCurrentSlotImpl var = do
            | otherwise -> Nothing
 
 ntpGetCurrentSlotBlocking
-    :: (NtpMode m)
+    :: (NtpMode ctx m)
     => NtpSlottingVar -> m SlotId
 ntpGetCurrentSlotBlocking var = ntpGetCurrentSlotImpl var >>= \case
     CantTrust _ -> do

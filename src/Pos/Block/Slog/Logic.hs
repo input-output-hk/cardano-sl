@@ -101,8 +101,8 @@ mustDataBeKnown adoptedBV =
 ----------------------------------------------------------------------------
 
 -- | Set of basic constraints needed by Slog.
-type MonadSlogBase ssc m =
-    ( MonadSlots m
+type MonadSlogBase ssc ctx m =
+    ( MonadSlots ctx m
     , MonadIO m
     , SscHelpersClass ssc
     , MonadDBRead m
@@ -112,7 +112,7 @@ type MonadSlogBase ssc m =
 
 -- | Set of constraints needed for Slog verification.
 type MonadSlogVerify ssc ctx m =
-    ( MonadSlogBase ssc m
+    ( MonadSlogBase ssc ctx m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
     )
@@ -121,7 +121,10 @@ type MonadSlogVerify ssc ctx m =
 -- All blocks must be from the same epoch.
 slogVerifyBlocks
     :: forall ssc ctx m.
-       (MonadSlogVerify ssc ctx m, MonadError Text m)
+    ( MonadSlogVerify ssc ctx m
+    , MonadError Text m
+    , SscHelpersClass ssc
+    )
     => OldestFirst NE (Block ssc)
     -> m (OldestFirst NE SlogUndo)
 slogVerifyBlocks blocks = do
@@ -178,7 +181,7 @@ slogVerifyBlocks blocks = do
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type MonadSlogApply ssc ctx m =
-    ( MonadSlogBase ssc m
+    ( MonadSlogBase ssc ctx m
     , MonadBlockDBWrite ssc m
     , MonadBListener m
     , MonadMask m
@@ -196,8 +199,8 @@ type MonadSlogApply ssc ctx m =
 
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
-slogApplyBlocks ::
-       forall ssc ctx m. MonadSlogApply ssc ctx m
+slogApplyBlocks
+    :: forall ssc ctx m. (MonadSlogApply ssc ctx m)
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogApplyBlocks blunds = do

@@ -53,12 +53,12 @@ import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Constants                    (genesisHash)
 import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..),
-                                                   genesisUtxoM, blkSecurityParam)
-import           Pos.Core                         (HasCoreConstants, AddrPkAttrs (..), Address (..),
+                                                   blkSecurityParam, genesisUtxoM)
+import           Pos.Core                         (AddrPkAttrs (..), Address (..),
                                                    BlockHeaderStub, ChainDifficulty,
-                                                   HasDifficulty (..), HeaderHash,
-                                                   Timestamp, headerHash, headerSlotL,
-                                                   makePubKeyAddress)
+                                                   HasCoreConstants, HasDifficulty (..),
+                                                   HeaderHash, Timestamp, headerHash,
+                                                   headerSlotL, makePubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -66,10 +66,11 @@ import           Pos.Crypto                       (EncryptedSecretKey, HDPassphr
 import           Pos.Data.Attributes              (Attributes (..))
 import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
-import qualified Pos.GState                       as GS
 import           Pos.DB.Rocks                     (MonadRealDB)
+import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
-import           Pos.Slotting                     (MonadSlotsData (..), getSlotStartPure)
+import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
+                                                   getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
                                                    flattenTxPayload, getTxDistribution,
@@ -111,7 +112,7 @@ type WalletTrackingEnv ext ctx m =
      , MonadTxpMem ext ctx m
      , HasLens GenesisUtxo ctx GenesisUtxo
      , WS.MonadWalletWebDB ctx m
-     , MonadSlotsData m
+     , MonadSlotsData ctx m
      , WithLogger m
      , HasCoreConstants
      )
@@ -148,12 +149,13 @@ txMempoolToModifier encSK = do
 
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGState
-    :: forall ssc ctx m . (
-      WebWalletModeDB ctx m
+    :: forall ssc ctx m.
+    ( WebWalletModeDB ctx m
     , BlockLockMode ssc ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
-    , MonadSlotsData m
-    , HasCoreConstants)
+    , MonadSlotsData ctx m
+    , HasCoreConstants
+    )
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
     let wAddr = encToCId encSK
@@ -209,7 +211,7 @@ syncWalletWithGStateUnsafe
     , DB.MonadBlockDB ssc m
     , WithLogger m
     , HasLens GenesisUtxo ctx GenesisUtxo
-    , MonadSlotsData m
+    , MonadSlotsData ctx m
     , HasCoreConstants
     )
     => EncryptedSecretKey      -- ^ Secret key for decoding our addresses

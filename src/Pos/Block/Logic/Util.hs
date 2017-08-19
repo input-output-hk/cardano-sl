@@ -94,9 +94,12 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 -- This function checks for #1. Note that even if we're doing recovery right
 -- now, 'needRecovery' will still return 'True'.
 --
-needRecovery ::
-       forall ssc m.
-       (HasCoreConstants, MonadSlots m, MonadBlockDB ssc m)
+needRecovery
+    :: forall ctx ssc m.
+    ( HasCoreConstants
+    , MonadSlots ctx m
+    , MonadBlockDB ssc m
+    )
     => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where

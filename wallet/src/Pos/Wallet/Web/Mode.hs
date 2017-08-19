@@ -50,14 +50,7 @@ import           Pos.Slotting.Impl.Sum          (currentTimeSlottingSum,
                                                  getCurrentSlotBlockingSum,
                                                  getCurrentSlotInaccurateSum,
                                                  getCurrentSlotSum)
-import           Pos.Slotting.MemState          (HasSlottingVar (..), MonadSlotsData (..),
-                                                 getAllEpochIndicesDefault,
-                                                 getCurrentNextEpochIndexDefault,
-                                                 getCurrentNextEpochSlottingDataDefault,
-                                                 getEpochSlottingDataDefault,
-                                                 getSystemStartDefault,
-                                                 putEpochSlottingDataDefault,
-                                                 waitCurrentEpochEqualsDefault)
+import           Pos.Slotting.MemState          (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class.Types            (HasSscContext (..), SscBlock)
 import           Pos.Util                       (Some (..))
 import           Pos.Util.JsonLog               (HasJsonLogConfig (..), jsonLogDefault)
@@ -148,16 +141,9 @@ type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 -- concrete monad is quite likely more performant.
 type MonadWalletWebMode m = (HasCoreConstants, m ~ WalletWebMode)
 
-instance MonadSlotsData WalletWebMode where
-    getSystemStartM = getSystemStartDefault
-    getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
-    getEpochSlottingDataM = getEpochSlottingDataDefault
-    putEpochSlottingDataM = putEpochSlottingDataDefault
-    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
-
-instance HasCoreConstants => MonadSlots WalletWebMode where
+instance (HasCoreConstants, MonadSlotsData ctx WalletWebMode)
+      => MonadSlots ctx WalletWebMode
+  where
     getCurrentSlot = getCurrentSlotSum
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum

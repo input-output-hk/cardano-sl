@@ -28,7 +28,8 @@ import           Pos.Core                         (HasCoreConstants, HeaderHash,
 import           Pos.DB.BatchOp                   (SomeBatchOp)
 import           Pos.DB.Class                     (MonadDBRead)
 import qualified Pos.GState                       as GS
-import           Pos.Slotting                     (MonadSlotsData (..), getSlotStartPure)
+import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
+                                                   getSystemStartM)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
@@ -64,7 +65,7 @@ onApplyTracking
     :: forall ssc ctx m .
     ( SscHelpersClass ssc
     , AccountMode ctx m
-    , MonadSlotsData m
+    , MonadSlotsData ctx m
     , MonadDBRead m
     , HasCoreConstants
     )

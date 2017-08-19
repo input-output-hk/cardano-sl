@@ -55,7 +55,7 @@ type BlockchainInfoEnv ssc ctx m =
     , HasLens PC.ConnectedPeers ctx PC.ConnectedPeers
     , MonadIO m
     , MonadRealDB ctx m
-    , MonadSlots m
+    , MonadSlots ctx m
     , HasCoreConstants
     )
 

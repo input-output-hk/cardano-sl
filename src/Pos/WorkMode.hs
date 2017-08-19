@@ -53,14 +53,7 @@ import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum  (currentTimeSlottingSum,
                                          getCurrentSlotBlockingSum,
                                          getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState       (HasSlottingVar (..), MonadSlotsData (..),
-                                              getAllEpochIndicesDefault,
-                                              getCurrentNextEpochIndexDefault,
-                                              getCurrentNextEpochSlottingDataDefault,
-                                              getEpochSlottingDataDefault,
-                                              putEpochSlottingDataDefault,
-                                              getSystemStartDefault,
-                                              waitCurrentEpochEqualsDefault)
+import           Pos.Slotting.MemState  (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass)
 import           Pos.Ssc.Class.Types    (SscBlock)
 import           Pos.Ssc.Extra          (SscMemTag, SscState)
@@ -150,16 +143,9 @@ instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
     jsonLog = jsonLogDefault
 
-instance MonadSlotsData (RealMode ssc) where
-    getSystemStartM = getSystemStartDefault
-    getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
-    getEpochSlottingDataM = getEpochSlottingDataDefault
-    putEpochSlottingDataM = putEpochSlottingDataDefault
-    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
-
-instance HasCoreConstants => MonadSlots (RealMode ssc) where
+instance (HasCoreConstants, MonadSlotsData ctx (RealMode ssc))
+      => MonadSlots ctx (RealMode ssc)
+  where
     getCurrentSlot = getCurrentSlotSum
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum

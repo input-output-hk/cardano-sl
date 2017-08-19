@@ -56,7 +56,9 @@ data MemVar = MemVar
     }
 
 -- | Create new 'MemVar' using slotting and read-only access to DB.
-newMemVar :: (HasCoreConstants, MonadIO m, MonadDBRead m, MonadSlots m) => m MemVar
+newMemVar
+    :: (HasCoreConstants, MonadIO m, MonadDBRead m, MonadSlots ctx m)
+    => m MemVar
 newMemVar = do
     let slot0 = SlotId 0 minBound
     msSlot <- fromMaybe slot0 <$> getCurrentSlot

@@ -52,14 +52,7 @@ import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
                                         getCurrentSlotBlockingSum,
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState (MonadSlotsData (..),
-                                        getAllEpochIndicesDefault,
-                                        getCurrentNextEpochIndexDefault,
-                                        getCurrentNextEpochSlottingDataDefault,
-                                        getEpochSlottingDataDefault,
-                                        putEpochSlottingDataDefault,
-                                        getSystemStartDefault,
-                                        waitCurrentEpochEqualsDefault)
+import           Pos.Slotting.MemState (MonadSlotsData)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Util              (Some (..))
@@ -152,17 +145,20 @@ instance
     dbGetUndo   = dbGetUndoSscDefault @ssc
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
-instance MonadSlotsData (InitMode ssc) where
-    getSystemStartM = getSystemStartDefault
-    getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
-    getEpochSlottingDataM = getEpochSlottingDataDefault
-    putEpochSlottingDataM = putEpochSlottingDataDefault
-    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
+--instance MonadSlotsData (InitMode ssc) where
+--    getSystemStartM                  = getSystemStartM
+--    getAllEpochIndicesM              = getAllEpochIndicesM
+--    getCurrentNextEpochIndexM        = getCurrentNextEpochIndexM
+--    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataM
+--    getEpochSlottingDataM            = getEpochSlottingDataM
+--    putEpochSlottingDataM            = putEpochSlottingDataM
+--    waitCurrentEpochEqualsM          = waitCurrentEpochEqualsM
 
-instance HasCoreConstants => MonadSlots (InitMode ssc) where
-    getCurrentSlot = getCurrentSlotSum
-    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+instance (HasCoreConstants, MonadSlotsData ctx (InitMode ssc)) =>
+         MonadSlots ctx (InitMode ssc)
+  where
+    getCurrentSlot           = getCurrentSlotSum
+    getCurrentSlotBlocking   = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-    currentTimeSlotting = currentTimeSlottingSum
+    currentTimeSlotting      = currentTimeSlottingSum
+

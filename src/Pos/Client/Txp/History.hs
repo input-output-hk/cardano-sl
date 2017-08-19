@@ -228,7 +228,7 @@ type TxHistoryEnv ctx m =
     , MonadGState m
     , MonadThrow m
     , WithLogger m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadReader ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders

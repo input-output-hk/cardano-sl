@@ -7,29 +7,34 @@ module Pos.Slotting.Impl.Util
 
 import           Universum
 
-import           Data.Time.Units             (Microsecond, convertUnit)
-import           NTP.Example                 ()
+import           Data.Time.Units       (Microsecond, convertUnit)
+import           NTP.Example           ()
 
-import           Pos.Core.Context            (HasCoreConstants, epochSlots)
-import           Pos.Core.Slotting           (flattenEpochIndex, mkLocalSlotIndex,
-                                              unflattenSlotId)
-import           Pos.Core.Timestamp          (addTimeDiffToTimestamp)
-import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
-import           Pos.Util.Util               (leftToPanic)
+import           Pos.Core.Context      (HasCoreConstants, epochSlots)
+import           Pos.Core.Slotting     (flattenEpochIndex, mkLocalSlotIndex,
+                                        unflattenSlotId)
+import           Pos.Core.Timestamp    (addTimeDiffToTimestamp)
+import           Pos.Core.Types        (EpochIndex, SlotId (..), Timestamp (..))
+import           Pos.Util.Util         (leftToPanic)
 
-import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (EpochSlottingData (..))
+import           Pos.Slotting.MemState (MonadSlotsData, getAllEpochIndicesM,
+                                        getEpochSlottingDataM, getSystemStartM,
+                                        withSlottingVarAtomM)
+import           Pos.Slotting.Types    (EpochSlottingData (..), SlottingData,
+                                        getCurrentEpochIndex, getNextEpochSlottingData)
 
 -- | Approximate current slot using outdated slotting data.
 approxSlotUsingOutdated
-    :: (MonadSlotsData m, HasCoreConstants)
+    :: (MonadSlotsData ctx m, HasCoreConstants)
     => Timestamp
     -> m SlotId
 approxSlotUsingOutdated t = do
 
-    systemStart            <- getSystemStartM
-    (currentEpochIndex ,_) <- getCurrentNextEpochIndexM
-    (_, nextSlottingData)  <- getCurrentNextEpochSlottingDataM
+    -- This is a constant and doesn't need to be fetched atomically
+    systemStart <- getSystemStartM
+
+    -- This is here to ensure we don't have any timing issues
+    (currentEpochIndex, nextSlottingData) <- withSlottingVarAtomM slottingDataAtomically
 
     let epochStart = esdStartDiff nextSlottingData `addTimeDiffToTimestamp` systemStart
     pure $
@@ -43,10 +48,20 @@ approxSlotUsingOutdated t = do
         unflattenSlotId $
         flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
 
+    -- | Get both values we need in a single fetch, so we don't end up with
+    -- invalid data.
+    slottingDataAtomically
+        :: SlottingData
+        -> (EpochIndex, EpochSlottingData)
+    slottingDataAtomically slottingData =
+        ( getCurrentEpochIndex slottingData
+        , getNextEpochSlottingData slottingData
+        )
+
 -- | Compute current slot from current timestamp based on data
 -- provided by 'MonadSlotsData'.
 slotFromTimestamp
-    :: (MonadSlotsData m, HasCoreConstants)
+    :: (MonadSlotsData ctx m, HasCoreConstants)
     => Timestamp
     -> m (Maybe SlotId)
 slotFromTimestamp approxCurTime = do
@@ -59,7 +74,7 @@ slotFromTimestamp approxCurTime = do
     let reversedEpochIndices = reverse allEpochIndex
 
     let iterateIndicesUntilJust
-            :: (MonadSlotsData m)
+            :: (MonadSlotsData ctx m)
             => [EpochIndex]
             -> m (Maybe SlotId)
         iterateIndicesUntilJust []      = pure Nothing
@@ -84,7 +99,7 @@ slotFromTimestamp approxCurTime = do
     -- Find a slot using timestamps. If no @EpochSlottingData@ is found return
     -- @Nothing@.
     findSlot
-        :: (MonadSlotsData m)
+        :: (MonadSlotsData ctx m)
         => Timestamp
         -> EpochIndex
         -> m (Maybe SlotId)

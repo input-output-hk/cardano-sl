@@ -39,7 +39,7 @@ type TxpLocalWorkMode ctx m =
     , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadTxpMem () ctx m
     , WithLogger m
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
@@ -109,7 +109,7 @@ txProcessTransaction itw@(txId, txAux) = do
 -- | 3. Set new tip to txp local data
 txNormalize
     :: ( TxpLocalWorkMode ctx m
-       , MonadSlots m)
+       , MonadSlots ctx m)
     => m ()
 txNormalize = getCurrentSlot >>= \case
     Nothing -> do

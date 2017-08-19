@@ -46,7 +46,8 @@ activeRelays = map fst . filter (relayActive . snd) . M.toList
 
 -- TODO: Use valency and fallbacks
 dnsSubscriptionWorker
-    :: forall kademlia m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
+    :: forall kademlia ctx m.
+     ( SubscriptionMode m, Mockable Delay m, MonadSlotsData ctx m)
     => NetworkConfig kademlia
     -> DnsDomains DNS.Domain
     -> Valency

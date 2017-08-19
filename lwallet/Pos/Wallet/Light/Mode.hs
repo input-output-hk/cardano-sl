@@ -28,9 +28,9 @@ import           Pos.Core                         (Address, HasCoreConstants, Sl
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
-import           Pos.Slotting                     (MonadSlots (..),
+import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    currentTimeSlottingSimple)
-import           Pos.Slotting.MemState            (MonadSlotsData (..))
+import           Pos.Slotting.MemState            (MonadSlotsData)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), JsonLogConfig,
                                                    jsonLogDefault)
@@ -94,29 +94,26 @@ instance MonadBListener LightWalletMode where
     onRollbackBlocks = onRollbackBlocksStub
 
 -- FIXME: Dummy instance for lite-wallet.
+instance HasSlottingVar LightWalletContext where
+    slottingTimestamp = error "notImplemented"
+    slottingVar       = error "notImplemented"
+
+-- FIXME: Dummy instance for lite-wallet.
 instance MonadBlockchainInfo LightWalletMode where
     networkChainDifficulty = error "notImplemented"
-    localChainDifficulty = error "notImplemented"
+    localChainDifficulty   = error "notImplemented"
     blockchainSlotDuration = error "notImplemented"
-    connectedPeers = error "notImplemented"
+    connectedPeers         = error "notImplemented"
 
 -- FIXME: Dummy instance for lite-wallet.
 instance MonadUpdates LightWalletMode where
-    waitForUpdate = error "notImplemented"
+    waitForUpdate   = error "notImplemented"
     applyLastUpdate = pure ()
 
 -- FIXME: Dummy instance for lite-wallet.
-instance MonadSlotsData LightWalletMode where
-    getSystemStartM                  = error "notImplemented"
-    getAllEpochIndicesM              = error "notImplemented"
-    getCurrentNextEpochIndexM        = error "notImplemented"
-    getCurrentNextEpochSlottingDataM = error "notImplemented"
-    getEpochSlottingDataM            = error "notImplemented"
-    putEpochSlottingDataM            = error "notImplemented"
-    waitCurrentEpochEqualsM          = error "notImplemented"
-
--- FIXME: Dummy instance for lite-wallet.
-instance HasCoreConstants => MonadSlots LightWalletMode where
+instance (HasCoreConstants, MonadSlotsData ctx LightWalletMode)
+      => MonadSlots ctx LightWalletMode
+  where
     getCurrentSlot           = Just <$> getCurrentSlotInaccurate
     getCurrentSlotBlocking   = getCurrentSlotInaccurate
     getCurrentSlotInaccurate = pure (SlotId 0 minBound)

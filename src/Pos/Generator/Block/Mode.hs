@@ -51,17 +51,8 @@ import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
-import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
-                                              SlottingData, currentTimeSlottingSimple,
-                                              getCurrentNextEpochIndexDefault)
-import           Pos.Slotting.MemState       (MonadSlotsData (..),
-                                              getAllEpochIndicesDefault,
-                                              getCurrentNextEpochSlottingDataDefault,
-                                              getCurrentNextEpochIndexM,
-                                              getEpochSlottingDataDefault,
-                                              putEpochSlottingDataDefault,
-                                              getSystemStartDefault,
-                                              waitCurrentEpochEqualsDefault)
+import           Pos.Slotting                (HasSlottingVar (..), MonadSlots(..), MonadSlotsData,
+                                              SlottingData, currentTimeSlottingSimple)
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
@@ -155,7 +146,11 @@ instance MonadThrow m => MonadThrow (RandT g m) where
 -- | Make new 'BlockGenContext' using data provided by 'MonadBlockGen'
 -- context. Persistent data (DB) is cloned. Other mutable data is
 -- recreated.
-mkBlockGenContext :: MonadBlockGen ctx m => BlockGenParams -> m BlockGenContext
+mkBlockGenContext
+    :: forall ctx m.
+    MonadBlockGen ctx m
+    => BlockGenParams
+    -> m BlockGenContext
 mkBlockGenContext bgcParams@BlockGenParams{..} = do
     let bgcPrimaryKey = error "bgcPrimaryKey was forced before being set"
     bgcGState <- if _bgpInplaceDB
@@ -223,20 +218,13 @@ instance MonadBlockGenBase m =>
     dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
     dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
-instance MonadBlockGenBase m => MonadSlotsData (InitBlockGenMode m) where
-    getSystemStartM = getSystemStartDefault
-    getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
-    getEpochSlottingDataM = getEpochSlottingDataDefault
-    putEpochSlottingDataM = putEpochSlottingDataDefault
-    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
-
-instance MonadBlockGenBase m => MonadSlots (InitBlockGenMode m) where
-    getCurrentSlot = Just <$> view ibgcSlot_L
-    getCurrentSlotBlocking = view ibgcSlot_L
+instance (MonadBlockGenBase m, MonadSlotsData ctx (InitBlockGenMode m))
+      => MonadSlots ctx (InitBlockGenMode m)
+  where
+    getCurrentSlot           = Just <$> view ibgcSlot_L
+    getCurrentSlotBlocking   = view ibgcSlot_L
     getCurrentSlotInaccurate = view ibgcSlot_L
-    currentTimeSlotting = do
+    currentTimeSlotting      = do
         logWarning "currentTimeSlotting is used in initialization"
         currentTimeSlottingSimple
 
@@ -320,16 +308,9 @@ instance MonadBlockGenBase m =>
          MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode m) where
     dbPutBlund = BDB.dbPutBlundSumDefault
 
-instance MonadBlockGenBase m => MonadSlotsData (BlockGenMode m) where
-    getSystemStartM = getSystemStartDefault
-    getAllEpochIndicesM = getAllEpochIndicesDefault
-    getCurrentNextEpochIndexM = getCurrentNextEpochIndexDefault
-    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataDefault
-    getEpochSlottingDataM = getEpochSlottingDataDefault
-    putEpochSlottingDataM = putEpochSlottingDataDefault
-    waitCurrentEpochEqualsM = waitCurrentEpochEqualsDefault
-
-instance MonadBlockGenBase m => MonadSlots (BlockGenMode m) where
+instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode m))
+      => MonadSlots ctx (BlockGenMode m)
+  where
     getCurrentSlot = view bgcSlotId_L
     getCurrentSlotBlocking =
         view bgcSlotId_L >>= \case

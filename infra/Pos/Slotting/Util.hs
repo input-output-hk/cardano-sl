@@ -1,4 +1,3 @@
-
 -- | Slotting utilities.
 
 module Pos.Slotting.Util
@@ -39,9 +38,12 @@ import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
 import           Pos.Reporting.MemState (HasReportingContext)
 import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
+import           Pos.Slotting.MemState  (MonadSlotsData,
+
+                                         getCurrentNextEpochSlottingDataM,
+                                         getEpochSlottingDataM, getSystemStartM)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
-import           Pos.Slotting.MemState  (MonadSlotsData (..))
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData,
                                          computeSlotStart, lookupEpochSlottingData)
 import           Pos.Util.Util          (maybeThrow)
@@ -49,11 +51,11 @@ import           Pos.Util.Util          (maybeThrow)
 
 
 -- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: (MonadSlots m, HasCoreConstants) => m (Maybe FlatSlotId)
+getCurrentSlotFlat :: (MonadSlots ctx m, HasCoreConstants) => m (Maybe FlatSlotId)
 getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
-getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
+getSlotStart :: MonadSlotsData ctx m => SlotId -> m (Maybe Timestamp)
 getSlotStart (SlotId {..}) = do
     systemStart        <- getSystemStartM
     mEpochSlottingData <- getEpochSlottingDataM siEpoch
@@ -76,7 +78,7 @@ getSlotStartPure systemStart slotId slottingData =
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.
 getSlotStartEmpatically
-    :: (MonadSlotsData m, MonadThrow m)
+    :: (MonadSlotsData ctx m, MonadThrow m)
     => SlotId
     -> m Timestamp
 getSlotStartEmpatically slot =
@@ -84,7 +86,7 @@ getSlotStartEmpatically slot =
 
 -- | Get last known slot duration.
 getNextEpochSlotDuration
-    :: (MonadSlotsData m)
+    :: (MonadSlotsData ctx m)
     => m Millisecond
 getNextEpochSlotDuration =
     esdSlotDuration . snd <$> getCurrentNextEpochSlottingDataM
@@ -93,7 +95,7 @@ getNextEpochSlotDuration =
 type OnNewSlot ctx m =
     ( MonadIO m
     , MonadReader ctx m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
     , Mockable Fork m
@@ -190,10 +192,10 @@ logNewSlotWorker =
 -- | Wait until system starts. This function is useful if node is
 -- launched before 0-th epoch starts.
 waitSystemStart
-    :: ( MonadSlotsData m
+    :: ( MonadSlotsData ctx m
        , Mockable Delay m
        , WithLogger m
-       , MonadSlots m)
+       , MonadSlots ctx m)
     => m ()
 waitSystemStart = do
     start <- getSystemStartM

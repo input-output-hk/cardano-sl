@@ -160,7 +160,7 @@ addEpochSlottingData slottingData epochSlottingData =
     slottingData' :: Map EpochIndex EpochSlottingData
     slottingData' = getSlottingDataMap slottingData
 
--- | Compute when the slot started. We give it @LocalSlotIndex@, the @LocalSlotIndex@
+-- | Compute when the slot started. We give it @LocalSlotIndex@,
 -- @EpochSlottingData@ and find when did that @LocalSlotIndex@ occur.
 -- This is calculating times inside an @Epoch@.
 -- Note that the time here has to be in @Microseconds@.

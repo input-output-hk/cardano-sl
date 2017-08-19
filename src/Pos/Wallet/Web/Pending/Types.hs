@@ -6,7 +6,7 @@ module Pos.Wallet.Web.Pending.Types
     , ptxTxAux
     , ptxCond
     , ptxCreationSlot
-    , ptxAssuredDepth
+    , ptxWallet
     , ptxAttemptsRem
 
     , PtxCondition (..)
@@ -15,9 +15,10 @@ module Pos.Wallet.Web.Pending.Types
 
 import           Universum
 
-import           Control.Lens       (makeLenses)
-import           Pos.Core.Types     (HeaderHash, SlotCount, SlotId)
-import           Pos.Txp.Core.Types (TxAux, TxId)
+import           Control.Lens                     (makeLenses)
+import           Pos.Core.Types                   (HeaderHash, SlotId)
+import           Pos.Txp.Core.Types               (TxAux, TxId)
+import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
 -- | Information about block where given pending transaction is sited
 type PtxBlockInfo = (SlotId, HeaderHash)
@@ -59,7 +60,7 @@ data PendingTx = PendingTx
     , _ptxCreationSlot :: SlotId  -- when tx was formed, for scheduling purposes.
                                   -- this in NOT when tx appeared in blockchain
     , _ptxCond         :: PtxCondition
-    , _ptxAssuredDepth :: SlotCount  -- ^ at which depth tx is considered persistent
+    , _ptxWallet       :: CId Wal
     , _ptxAttemptsRem  :: Int  -- ^ remaining number of resubmission attempts
     } deriving (Eq)
 

@@ -173,7 +173,7 @@ isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
 getPendingTxs :: WebWalletModeDB ctx m => m [PendingTx]
 getPendingTxs = queryDisk ... A.GetPendingTxs
 
-getPendingTx :: WebWalletModeDB ctx m => TxId -> m (Maybe PendingTx)
+getPendingTx :: WebWalletModeDB ctx m => CId Wal -> TxId -> m (Maybe PendingTx)
 getPendingTx = queryDisk ... A.GetPendingTx
 
 createAccount :: WebWalletModeDB ctx m => AccountId -> CAccountMeta -> m ()
@@ -256,16 +256,18 @@ testReset = updateDisk A.TestReset
 updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> [TxHistoryEntry] -> m ()
 updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache cWalId
 
-setPtxCondition :: WebWalletModeDB ctx m => TxId -> PtxCondition -> m ()
+setPtxCondition
+    :: WebWalletModeDB ctx m
+    => CId Wal -> TxId -> PtxCondition -> m ()
 setPtxCondition = updateDisk ... A.SetPtxCondition
 
 casPtxCondition
     :: WebWalletModeDB ctx m
-    => TxId -> PtxCondition -> PtxCondition -> m Bool
+    => CId Wal -> TxId -> PtxCondition -> PtxCondition -> m Bool
 casPtxCondition = updateDisk ... A.CasPtxCondition
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
 
-countDownPtxAttempts :: WebWalletModeDB ctx m => TxId -> m ()
+countDownPtxAttempts :: WebWalletModeDB ctx m => CId Wal -> TxId -> m ()
 countDownPtxAttempts = updateDisk ... A.CountDownPtxAttempts

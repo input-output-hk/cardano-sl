@@ -119,7 +119,7 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     let cId = encodeCType _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
-    ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx _thTxId
+    ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
     walAddrMetas <- getWalletAddrMetas Ever cWalId
     either (throwM . InternalError) pure $
         mkCTxs diff wtx meta' ptxCond walAddrMetas

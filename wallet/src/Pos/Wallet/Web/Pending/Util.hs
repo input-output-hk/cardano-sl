@@ -17,8 +17,6 @@ import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
 import           Pos.Txp                      (TxAux, TxId)
 import           Pos.Txp                      (ToilVerFailure (..))
 import           Pos.Util.Util                (maybeThrow)
-import           Pos.Wallet.Web.Assurance     (AssuranceLevel (HighAssurance),
-                                               assuredBlockDepth)
 import           Pos.Wallet.Web.ClientTypes   (CId, CWalletMeta (..), Wal, cwAssurance)
 import           Pos.Wallet.Web.Error         (WalletError (RequestError))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
@@ -30,7 +28,7 @@ isPtxInBlocks = \case
     PtxApplying{}      -> False
     PtxInUpperBlocks{} -> True
     PtxPersisted{}     -> True
-    PtxWontApply{}    -> False
+    PtxWontApply{}     -> False
 
 mkPendingTx :: MonadWalletWebMode m => CId Wal -> TxId -> TxAux -> m PendingTx
 mkPendingTx wid _ptxTxId _ptxTxAux = do
@@ -38,7 +36,7 @@ mkPendingTx wid _ptxTxId _ptxTxAux = do
     CWalletMeta{..} <- maybeThrow noWallet =<< getWalletMeta wid
     return PendingTx
         { _ptxCond = PtxApplying
-        , _ptxAssuredDepth = assuredBlockDepth cwAssurance HighAssurance
+        , _ptxWallet = wid
         , _ptxAttemptsRem = C.pendingTxAttemptsLimit
         , ..
         }

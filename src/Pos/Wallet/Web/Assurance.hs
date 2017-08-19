@@ -5,7 +5,7 @@ module Pos.Wallet.Web.Assurance
     , assuredBlockDepth
     ) where
 
-import           Pos.Core.Types             (SlotCount)
+import           Pos.Core.Types             (BlockCount)
 import           Pos.Wallet.Web.ClientTypes (CWalletAssurance (..))
 
 data AssuranceLevel
@@ -16,6 +16,6 @@ data AssuranceLevel
 --
 -- Values are taken from this table:
 -- https://cardanodocs.com/cardano/transaction-assurance/
-assuredBlockDepth :: CWalletAssurance -> AssuranceLevel -> SlotCount
-assuredBlockDepth CWANormal HighAssurance = 9
-assuredBlockDepth CWAStrict HighAssurance = 15
+assuredBlockDepth :: AssuranceLevel -> CWalletAssurance -> BlockCount
+assuredBlockDepth HighAssurance CWANormal = 9
+assuredBlockDepth HighAssurance CWAStrict = 15

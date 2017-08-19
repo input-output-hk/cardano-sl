@@ -354,6 +354,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
             changeAddrs = evalChange allAddresses (map cwamId ownInpAddrMetas) usedAddrs
 
             ptxBlkInfo = getPtxBlkInfo blkHeader
+            ptxCandidates = MM.insert txId ptxBlkInfo camPtxCandidates
         in CAccModifier
             (deleteAndInsertIMM [] ownOutAddrMetas camAddresses)
             (deleteAndInsertVM [] (zip usedAddrs hhs) camUsed)
@@ -361,7 +362,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
             (deleteAndInsertMM ownTxIns ownTxOuts camUtxo)
             addedHistory
             camDeletedHistory
-            (MM.insert txId ptxBlkInfo mempty)
+            ptxCandidates
 
 -- Process transactions on block rollback.
 -- Like @trackingApplyTx@, but vise versa.
@@ -394,6 +395,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
                 then DL.snoc camDeletedHistory $ hash taTx
                 else camDeletedHistory
 
+            deletedPtxCandidates = MM.delete txid camPtxCandidates
+
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
         let usedAddrs = map cwamId ownOutputMetas
@@ -405,7 +408,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
             (deleteAndInsertMM ownTxOuts ownTxIns camUtxo)
             camAddedHistory
             deletedHistory
-            (MM.delete txid mempty)
+            deletedPtxCandidates
 
 applyModifierToWallet
     :: WebWalletModeDB ctx m
@@ -423,8 +426,10 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.updateHistoryCache wid $ DL.toList camAddedHistory <> oldCachedHist
     -- resubmitting worker can change ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
-    mapM_ (`WS.setPtxCondition` PtxApplying) (MM.deletions camPtxCandidates)
-    mapM_ (uncurry WS.setPtxCondition . second newPtxCondition) (MM.insertions camPtxCandidates)
+    forM_ (MM.deletions camPtxCandidates) $ \txid ->
+        WS.setPtxCondition wid txid PtxApplying
+    forM_ (MM.insertions camPtxCandidates) $ \(txid, cond) ->
+        WS.setPtxCondition wid txid (newPtxCondition cond)
     WS.setWalletSyncTip wid newTip
   where
     newPtxCondition = maybe PtxApplying PtxInUpperBlocks

@@ -9,18 +9,18 @@ module Pos.Wallet.Web.Pending.Worker
 
 import           Universum
 
-import           Control.Monad.Catch          (Handler (..), catches, handleAll)
+import           Control.Monad.Catch          (Handler (..), catches)
 import           Data.Time.Units              (Second, convertUnit)
 import           Formatting                   (build, sformat, shown, stext, (%))
 import           Mockable                     (delay, fork)
 import           Serokell.Util.Text           (listJson)
-import           System.Wlog                  (logError, logInfo, modifyLoggerName)
+import           System.Wlog                  (logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses     (MonadAddresses)
 import           Pos.Communication            (submitAndSaveTx)
 import           Pos.Communication.Protocol   (SendActions (..))
 import           Pos.Constants                (pendingTxResubmitionPeriod)
-import           Pos.Core                     (FlatSlotId, SlotId (..), getSlotCount)
+import           Pos.Core                     (FlatSlotId, SlotId (..), getBlockCount)
 import           Pos.Core.Context             (HasCoreConstants)
 import           Pos.Core.Slotting            (flattenSlotId)
 import           Pos.Crypto                   (WithHash (..))
@@ -32,6 +32,7 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..)
 import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
 import           Pos.Wallet.Web.State         (casPtxCondition, countDownPtxAttempts,
                                                getPendingTxs, setPtxCondition)
+import           Pos.Wallet.Web.Util          (getWalletAssuredDepth)
 
 type MonadPendings m =
     ( MonadWalletWebMode m
@@ -44,21 +45,23 @@ type MonadPendings m =
 processPtxFailure :: MonadPendings m => PendingTx -> ToilVerFailure -> m ()
 processPtxFailure PendingTx{..} e =
     if isReclaimableFailure e
-        then countDownPtxAttempts _ptxTxId
+        then countDownPtxAttempts _ptxWallet _ptxTxId
         else do
             let newCond = PtxWontApply (sformat build e)
-            void $ casPtxCondition _ptxTxId PtxApplying newCond
+            void $ casPtxCondition _ptxWallet _ptxTxId PtxApplying newCond
             logInfo $ sformat ("Transaction "%build%" was canceled") _ptxTxId
 
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
-processPtxInUpperBlocks curSlot PendingTx{..}
-    | PtxInUpperBlocks (slotId, _) <- _ptxCond, longAgo slotId = do
-         void $ casPtxCondition _ptxTxId _ptxCond PtxPersisted
-         logInfo $ sformat ("Transaction "%build%" got persistent") _ptxTxId
-    | otherwise = pass
+processPtxInUpperBlocks curSlot PendingTx{..} = do
+    mdepth <- getWalletAssuredDepth _ptxWallet
+    if | PtxInUpperBlocks (slotId, _) <- _ptxCond,
+         Just depth <- mdepth,
+         longAgo depth slotId -> do
+             void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond PtxPersisted
+             logInfo $ sformat ("Transaction "%build%" got persistent") _ptxTxId
   where
-     longAgo (flattenSlotId -> ptxSlot) =
-         ptxSlot + getSlotCount _ptxAssuredDepth < flattenSlotId curSlot
+     longAgo depth (flattenSlotId -> ptxSlot) =
+         ptxSlot + getBlockCount depth < flattenSlotId curSlot
 
 -- | 'True' for slots which are equal to
 -- @ptxCreationSlot + initialDelay + furtherDelay * k@ for some integer @k@
@@ -115,7 +118,7 @@ processPtxRemAttempts PendingTx{..} = do
     let expired = _ptxAttemptsRem <= 0
     when expired $ do
         logInfo $ sformat ("Pending transaction "%build%" has expired") _ptxTxId
-        setPtxCondition _ptxTxId (PtxWontApply "Exceeded resubmission attempts limit")
+        setPtxCondition _ptxWallet _ptxTxId (PtxWontApply "Exceeded resubmission attempts limit")
     return (not expired)
 
 -- | Checks and updates state of given pending transactions, resubmitting them
@@ -161,8 +164,7 @@ startPendingTxsResubmitter
     :: MonadPendings m
     => SendActions m -> m ()
 startPendingTxsResubmitter sa =
-    void . fork . setLogger . totalHandler $
+    void . fork . setLogger $
     onNewSlot False (processPtxsOnSlot sa)
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")
-    totalHandler = handleAll $ logError . sformat ("Worker died: "%build)

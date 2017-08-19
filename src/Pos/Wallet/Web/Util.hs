@@ -8,19 +8,24 @@ module Pos.Wallet.Web.Util
     , getWalletAddrMetas
     , getWalletAddrs
     , decodeCTypeOrFail
+    , getWalletAssuredDepth
     ) where
 
 import           Universum
 
 import           Formatting                 (build, sformat, (%))
 
+import           Pos.Core.Types             (BlockCount)
 import           Pos.Util.Servant           (FromCType (..), OriginType)
 import           Pos.Util.Util              (maybeThrow)
+import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
+                                             assuredBlockDepth)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal)
+                                             CWAddressMeta (..), Wal, cwAssurance)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode, WebWalletModeDB,
-                                             getAccountIds, getAccountWAddresses)
+                                             getAccountIds, getAccountWAddresses,
+                                             getWalletMeta)
 
 getWalletAccountIds :: WebWalletModeDB ctx m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
@@ -47,6 +52,13 @@ getWalletAddrs
     => AddressLookupMode -> CId Wal -> m [CId Addr]
 getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
 
-
 decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
 decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType
+
+getWalletAssuredDepth
+    :: (WebWalletModeDB ctx m)
+    => CId Wal -> m (Maybe BlockCount)
+getWalletAssuredDepth wid =
+    assuredBlockDepth HighAssurance . cwAssurance <<$>>
+    getWalletMeta wid
+

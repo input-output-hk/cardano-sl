@@ -81,7 +81,9 @@ instance Buildable CAccModifier where
             %",\n    change addresses: "%listJson
             %",\n    local utxo (difference): "%build
             %",\n    added history entries: "%listJsonIndent 8
-            %",\n    deleted history entries: "%listJsonIndent 8)
+            %",\n    deleted history entries: "%listJsonIndent 8
+            %",\n    added pending candidates: "%listJson
+            %",\n    deleted pending candidates: "%listJson)
         (sortedInsertions camAddresses)
         (indexedDeletions camAddresses)
         (map (fst . fst) $ MM.insertions camUsed)
@@ -89,6 +91,8 @@ instance Buildable CAccModifier where
         camUtxo
         camAddedHistory
         camDeletedHistory
+        (map fst $ MM.insertions camPtxCandidates)
+        (MM.deletions camPtxCandidates)
 
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.

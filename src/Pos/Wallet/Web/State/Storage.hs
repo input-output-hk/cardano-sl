@@ -63,9 +63,9 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens                 (at, ix, makeClassy, makeLenses, non', (%=),
-                                               (+=), (-=), (.=), (<<.=), (?=), _Empty,
-                                               _head)
+import           Control.Lens                 (at, ix, makeClassy, makeLenses, non',
+                                               toListOf, traversed, (%=), (+=), (-=),
+                                               (.=), (<<.=), (?=), _Empty, _head)
 import           Control.Monad.State.Class    (put)
 import           Data.Default                 (Default, def)
 import qualified Data.HashMap.Strict          as HM
@@ -112,6 +112,7 @@ data WalletInfo = WalletInfo
     , _wiPassphraseLU :: !PassPhraseLU
     , _wiCreationTime :: !POSIXTime
     , _wiSyncTip      :: !WalletTip
+    , _wsPendingTxs   :: !(HashMap TxId PendingTx)
     }
 
 makeLenses ''WalletInfo
@@ -131,7 +132,6 @@ data WalletStorage = WalletStorage
     , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
-    , _wsPendingTxs      :: !(HashMap TxId PendingTx)
     }
 
 makeClassy ''WalletStorage
@@ -148,7 +148,6 @@ instance Default WalletStorage where
         , _wsUsedAddresses   = mempty
         , _wsChangeAddresses = mempty
         , _wsUtxo            = mempty
-        , _wsPendingTxs      = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -258,10 +257,10 @@ getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
 getCustomAddress t addr = view $ customAddressL t . at addr
 
 getPendingTxs :: Query [PendingTx]
-getPendingTxs = toList <$> view wsPendingTxs
+getPendingTxs = asks $ toListOf (wsWalletInfos . traversed . wsPendingTxs . traversed)
 
-getPendingTx :: TxId -> Query (Maybe PendingTx)
-getPendingTx txId = view $ wsPendingTxs . at txId
+getPendingTx :: CId Wal -> TxId -> Query (Maybe PendingTx)
+getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txId
 
 addCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
 addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
@@ -280,7 +279,7 @@ createAccount accId cAccMeta =
 
 createWallet :: CId Wal -> CWalletMeta -> POSIXTime -> Update ()
 createWallet cWalId cWalMeta curTime = do
-    let info = WalletInfo cWalMeta curTime curTime NotSynced
+    let info = WalletInfo cWalMeta curTime curTime NotSynced mempty
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 addWAddress :: CWAddressMeta -> Update ()
@@ -376,26 +375,28 @@ updateHistoryCache cWalId cTxs =
 -- This shouldn't be able to create new transaction.
 -- NOTE: If you're going to use this function, make sure 'casPtxCondition'
 -- doesn't fit your purposes better
-setPtxCondition :: TxId -> PtxCondition -> Update ()
-setPtxCondition txId cond =
-    wsPendingTxs . ix txId . ptxCond .= cond
+setPtxCondition :: CId Wal -> TxId -> PtxCondition -> Update ()
+setPtxCondition wid txId cond =
+    wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond .= cond
 
 -- | Compare-and-set version of 'setPtxCondition'.
 -- Returns 'True' if transaction existed and modification was applied.
-casPtxCondition :: TxId -> PtxCondition -> PtxCondition -> Update Bool
-casPtxCondition txId expectedCond newCond = do
-    oldCond <- preuse (wsPendingTxs . ix txId . ptxCond)
+casPtxCondition :: CId Wal -> TxId -> PtxCondition -> PtxCondition -> Update Bool
+casPtxCondition wid txId expectedCond newCond = do
+    oldCond <- preuse $ wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond
     let success = oldCond == Just expectedCond
-    when success $ setPtxCondition txId newCond
+    when success $ setPtxCondition wid txId newCond
     return success
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
-addOnlyNewPendingTx ptx = wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
+addOnlyNewPendingTx ptx =
+    wsWalletInfos . ix (_ptxWallet ptx) .
+    wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
 
 -- | Decreases attempts counter, returns new value
-countDownPtxAttempts :: TxId -> Update ()
-countDownPtxAttempts txId =
-    wsPendingTxs . ix txId . ptxAttemptsRem -= 1
+countDownPtxAttempts :: CId Wal -> TxId -> Update ()
+countDownPtxAttempts wid txId =
+    wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxAttemptsRem -= 1
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile

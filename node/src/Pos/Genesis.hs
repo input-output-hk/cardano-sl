@@ -33,6 +33,7 @@ module Pos.Genesis
        , wAddressGenesisIndex
        , devStakesDistr
        , devAddrDistr
+       , concatAddrDistrs
 
        ) where
 

@@ -7,7 +7,7 @@ flags:
 extra-package-dbs: []
 
 packages:
-- '.'
+- node
 - core
 - update
 - infra

@@ -36,11 +36,13 @@ import           Options                     (BlockGenOptions (..), getBlockGenO
 
 main :: IO ()
 main = flip catch catchEx $ giveStaticConsts $ do
-    if isDevelopment then
-        putText $ "Generating in DEV mode"
-    else
-        putText $ "Generating in PROD mode"
     BlockGenOptions{..} <- getBlockGenOptions
+    seed <- maybe randomIO pure bgoSeed
+    if isDevelopment then
+        putText $ "Generating in DEV mode with seed " <> show seed
+    else
+        putText $ "Generating in PROD mode with seed " <> show seed
+
     when bgoAppend $ checkExistence bgoPath
     invSecretsMap <- mkInvSecretsMap <$> case bgoNodes of
         Left bgoNodesN -> do
@@ -54,12 +56,13 @@ main = flip catch catchEx $ giveStaticConsts $ do
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
     let nodes = length invSecretsMap
-    let flatDistr = FlatStakes (fromIntegral nodes) (mkCoin $ fromIntegral nodes)
     let bootStakeholders
             | isDevelopment =
                 GenesisWStakeholders $ HM.fromList $
                 zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
             | otherwise = genesisProdBootStakeholders
+    let flatDistr = FlatStakes (fromIntegral nodes)
+                               (mkCoin $ fromIntegral $ length (getGenesisWStakeholders bootStakeholders) * nodes)
     let addrDistribution
             | isDevelopment = fst $ devAddrDistr flatDistr
             | otherwise = genesisProdAddrDistribution
@@ -82,7 +85,6 @@ main = flip catch catchEx $ giveStaticConsts $ do
                 def
                 True
                 bootStakeholders
-    seed <- maybe randomIO pure bgoSeed
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
         initTBlockGenMode db genUtxo $

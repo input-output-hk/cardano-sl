@@ -18,7 +18,7 @@ import           Formatting                (sformat, (%))
 import           Serokell.Util             (enumerate, subList)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
-import           Test.QuickCheck           (Gen, choose, vector, arbitrary)
+import           Test.QuickCheck           (Gen, arbitrary, choose, vector)
 import           Test.QuickCheck.Monadic   (pick)
 
 import           Pos.AllSecrets            (HasAllSecrets (..), InvAddrSpendingData,

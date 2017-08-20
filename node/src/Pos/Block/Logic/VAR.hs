@@ -26,10 +26,11 @@ import           Pos.Block.Core           (Block)
 import           Pos.Block.Error          (ApplyBlocksException (..),
                                            RollbackException (..),
                                            VerifyBlocksException (..))
-import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
-                                           MonadMempoolNormalization, applyBlocksUnsafe,
-                                           normalizeMempool, rollbackBlocksUnsafe,
-                                           toTxpBlock, toUpdateBlock, BypassSecurityCheck(..))
+import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
+                                           MonadBlockVerify, MonadMempoolNormalization,
+                                           applyBlocksUnsafe, normalizeMempool,
+                                           rollbackBlocksUnsafe, toTxpBlock,
+                                           toUpdateBlock)
 import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,

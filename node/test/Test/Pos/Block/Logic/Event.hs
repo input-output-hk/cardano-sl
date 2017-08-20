@@ -25,7 +25,8 @@ import           Serokell.Util             (listJson)
 import           Pos.Block.Logic.VAR       (BlockLrcMode, rollbackBlocks,
                                             verifyAndApplyBlocks)
 import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (HeaderHash, headerHash, getEpochOrSlot, prevBlockL, EpochOrSlot, HasCoreConstants)
+import           Pos.Core                  (EpochOrSlot, HasCoreConstants, HeaderHash,
+                                            getEpochOrSlot, headerHash, prevBlockL)
 import           Pos.DB.Pure               (DBPureDiff, MonadPureDB, dbPureDiff,
                                             dbPureDump, dbPureReset)
 import           Pos.Exception             (CardanoFatalError (..))

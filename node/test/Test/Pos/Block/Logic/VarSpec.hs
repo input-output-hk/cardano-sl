@@ -24,8 +24,9 @@ import           Test.QuickCheck.Random       (QCGen)
 
 import           Pos.Block.Logic              (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (HasCoreConstants, blkSecurityParam,
-                                               headerHash, epochSlots)
+import           Pos.Core                     (CoreConstants (..), HasCoreConstants,
+                                               blkSecurityParam, epochSlots, giveConsts,
+                                               headerHash)
 import           Pos.DB.Pure                  (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
                                                BlockRollbackFailure (..),
@@ -50,22 +51,20 @@ import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (
                                                bpGenBlock, bpGenBlocks,
                                                bpGoToArbitraryState, getAllSecrets,
                                                satisfySlotCheck)
-import           Test.Pos.Util                (giveTestsConsts, splitIntoChunks,
-                                               stopProperty)
+import           Test.Pos.Util                (splitIntoChunks, stopProperty)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.
-spec = giveTestsConsts $ describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
-    describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
-    describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
-    describe "applyBlocks" applyBlocksSpec
-    describe "Block.Event" $ do
-        describe "Successful sequence" $ blockEventSuccessSpec
-        modifyMaxSuccess (min 2) $ do
+spec = giveConsts CoreConstants{_ccBlkSecurityParam=5} $
+    describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
+        describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
+        describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
+        describe "applyBlocks" applyBlocksSpec
+        modifyMaxSuccess (min 2) $ describe "Block.Event" $ do
+            describe "Successful sequence" $ blockEventSuccessSpec
             describe "Apply through epoch" $ applyThroughEpochSpec 0
             describe "Apply through epoch" $ applyThroughEpochSpec 4
-        modifyMaxSuccess (min 2) $ do
             describe "Fork - short" $ singleForkSpec ForkShort
             describe "Fork - medium" $ singleForkSpec ForkMedium
             describe "Fork - deep" $ singleForkSpec ForkDeep

@@ -34,8 +34,9 @@ import           Serokell.Util.Text      (listJson)
 import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
                                           mbUpdatePayload)
-import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
-                                          slogRollbackBlocks, BypassSecurityCheck(..))
+import           Pos.Block.Slog          (BypassSecurityCheck (..), MonadSlogApply,
+                                          MonadSlogBase, slogApplyBlocks,
+                                          slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (GenesisWStakeholders, HasCoreConstants,
                                           IsGenesisHeader, IsMainHeader, epochIndexL,

@@ -124,7 +124,7 @@ instance MonadBalances LightWalletMode where
 instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode where
     getBlockHistory = error "getBlockHistory is not implemented for light wallet"
     getLocalHistory = error "getLocalHistory is not implemented for light wallet"
-    saveTx = error "saveTx is not implemented for light wallet"
+    saveTx _ = pass
 
 instance MonadAddresses LightWalletMode where
     type AddrData LightWalletMode = PublicKey

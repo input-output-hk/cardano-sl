@@ -471,9 +471,6 @@ main = giveStaticConsts $ do
             plugins = first pure $ case woAction of
                 Repl    -> worker' runCmdOuts $ runWalletRepl cmdCtx
                 Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmdCtx cmd
-                Serve __webPort __webDaedalusDbPath -> error "light wallet server is disabled"
-                -- Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                --     walletServeWebLite sendActions webDaedalusDbPath False webPort
 
         case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> do

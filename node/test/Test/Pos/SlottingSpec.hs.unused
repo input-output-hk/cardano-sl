@@ -1,0 +1,75 @@
+-- | Pos.Slotting specification
+
+module Test.Pos.SlottingSpec
+       ( spec
+       ) where
+
+import           Data.Time.Units         (fromMicroseconds, toMicroseconds)
+import           Mockable                (Production, currentTime, delay, runProduction)
+import           Test.Hspec              (Spec, describe, it, shouldBe)
+import           Test.Hspec.QuickCheck   (prop)
+import           Test.QuickCheck         (Property, choose, ioProperty)
+import           Test.QuickCheck.Monadic (PropertyM, assert, monadic, pick, run)
+import           Universum
+
+import           Pos.Constants           (epochDuration, slotDuration)
+import           Pos.Slotting            (MonadSlots (..), getCurrentSlot)
+import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..),
+                                          Timestamp (..), unflattenSlotId)
+
+-- | These tests are not included into .cabal
+
+-- Once they were based on emulation mode.
+-- New time-warp doesn't support emulation yet, and being rewriten on real mode
+-- they just hang :(
+
+spec :: Spec
+spec = describe "Slotting" $ do
+    describe "getCurrentSlot" $ do
+        it "returns `SlotId 0 0` at the very beginning" $ do
+            runProduction getCurrentSlot >>= (`shouldBe` SlotId 0 0)
+
+        it "returns `SlotId 1 0` after epochDuration" $ do
+            slId <- runProduction (delay epochDuration *> getCurrentSlot)
+            slId `shouldBe` SlotId 1 0
+
+        it "returns `SlotId 1 0` after epochDuration \
+           \and then `SlotId 1 1` after slotDuration" $ do
+            slIds <- runProduction (
+                (,) <$>
+                (delay epochDuration *> getCurrentSlot) <*>
+                (delay slotDuration *> getCurrentSlot))
+            slIds `shouldBe` (SlotId 1 0, SlotId 1 1)
+
+        prop (mconcat ["for any (a, b) if one waits for "
+                      , "`a * epochDuration + b * slotDuration + k`, "
+                      , "where k is less than slotDuration, "
+                      , "getCurrentSlot will return `SlotId a b`"
+                      ])
+            waitForSlot
+
+waitForSlot :: EpochIndex -> LocalSlotIndex -> Property
+waitForSlot epoch = monadic (ioProperty . runProduction) . waitForSlotScenario epoch
+
+type EmulationMode = Production
+type EmulationProperty = PropertyM EmulationMode
+
+instance MonadSlots EmulationMode where
+    getSystemStartTime = pure 0
+    getCurrentTime = Timestamp <$> currentTime
+    getCurrentSlot =
+        f . getTimestamp <$> ((-) <$> getCurrentTime <*> getSystemStartTime)
+      where
+        f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
+
+waitForSlotScenario :: EpochIndex -> LocalSlotIndex -> EmulationProperty ()
+waitForSlotScenario epoch slot = do
+    k <- fromMicroseconds <$> pick (choose (0, toMicroseconds slotDuration - 1))
+    let period =
+            (fromIntegral epoch) * epochDuration +
+            (fromIntegral slot) * slotDuration +
+            k
+    run $ delay period
+    si <- run getCurrentSlot
+    let expectedSi = SlotId {siEpoch = epoch, siSlot = slot}
+    assert (si == expectedSi)

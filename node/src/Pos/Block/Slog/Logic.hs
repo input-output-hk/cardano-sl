@@ -45,7 +45,6 @@ import           Pos.Core               (BlockVersion (..), FlatSlotId, HasCoreC
 import           Pos.DB                 (SomeBatchOp (..))
 import           Pos.DB.Block           (MonadBlockDBWrite, blkGetHeader)
 import           Pos.DB.Class           (MonadDBRead, dbPutBlund)
-import           Pos.DB.DB              (sanityCheckDB)
 import           Pos.Exception          (assertionFailed, reportFatalError)
 import qualified Pos.GState             as GS
 import           Pos.Lrc.Context        (LrcContext)
@@ -306,6 +305,5 @@ slogRollbackBlocks blunds = do
 -- Common actions for rollback and apply.
 slogCommon :: MonadSlogApply ssc ctx m => LastBlkSlots -> m ()
 slogCommon newLastSlots = do
-    sanityCheckDB
     slogPutLastSlots newLastSlots
     putSlottingData =<< GS.getSlottingData

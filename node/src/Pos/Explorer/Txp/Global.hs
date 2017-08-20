@@ -52,6 +52,7 @@ extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
     map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
     map GS.DelAddrBalance (MM.deletions balances)
 
+-- CSE-203 FIXME Current time is used as timestamp, are you serious?
 applyBlund :: (MonadSlots m, EGlobalApplyToilMode m) => TxpBlund -> m ()
 applyBlund blund = do
     curTime <- currentTimeSlotting

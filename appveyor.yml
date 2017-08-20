@@ -65,6 +65,10 @@ before_test:
 - ps: Start-FileDownload 'https://ci.appveyor.com/api/buildjobs/kbpteb8j55p6sa2m/artifacts/rocksdb%2Fbuild%2FRocksdb.zip' -FileName rocksdb.zip
 - 7z x rocksdb.zip
 
+# CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('node/'), the 'cardano-text.exe' executable fails on AppVeyor CI.
+# After some investigation, it was discovered that this was because 'rocksdb.dll' has to be located in this folder as well, or else the test executable doesn't work.
+- copy rocksdb.dll node
+
 test_script:
   - cd "%WORK_DIR%"
   - stack setup --no-reinstall

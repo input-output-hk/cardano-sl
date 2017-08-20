@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
@@ -82,16 +83,23 @@ import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
                                                  TxpHolderTag, TxpMetrics,
-                                                 ignoreTxpMetrics, mkTxpLocalData,
-                                                 txpGlobalSettings, utxoF)
+                                                 ignoreTxpMetrics, mkTxpLocalData, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
                                                  modifyLoggerNameDefault)
 import           Pos.Util.Util                  (Some, postfixLFields)
 import           Pos.WorkMode.Class             (TxpExtra_TMP)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                   (explorerTxpGlobalSettings)
+#else
+import           Pos.Txp                        (txpGlobalSettings)
+#endif
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
+
+-- Remove this once there's no #ifdef-ed Pos.Txp import
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -261,7 +269,11 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState @SscGodTossing
             _gscSlogContext <- mkSlogContext
             btcTxpMem <- (, ignoreTxpMetrics) <$> mkTxpLocalData
+#ifdef WITH_EXPLORER
+            let btcTxpGlobalSettings = explorerTxpGlobalSettings
+#else
             let btcTxpGlobalSettings = txpGlobalSettings
+#endif
             let btcReportingContext = emptyReportingContext
             let btcSlotId = Nothing
             let btcParams = tp
@@ -448,7 +460,8 @@ instance (HasCoreConstants, MonadSlotsData ctx BlockTestMode)
         view btcSlotId_L >>= \case
             Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
             Just slot -> pure slot
-    currentTimeSlotting = currentTimeSlottingSimple
+    -- FIXME: it is a workaround for CSE-203!
+    currentTimeSlotting = pure $ Timestamp 0
 
 instance MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault

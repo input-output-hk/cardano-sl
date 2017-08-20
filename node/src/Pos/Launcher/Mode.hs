@@ -145,15 +145,6 @@ instance
     dbGetUndo   = dbGetUndoSscDefault @ssc
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
---instance MonadSlotsData (InitMode ssc) where
---    getSystemStartM                  = getSystemStartM
---    getAllEpochIndicesM              = getAllEpochIndicesM
---    getCurrentNextEpochIndexM        = getCurrentNextEpochIndexM
---    getCurrentNextEpochSlottingDataM = getCurrentNextEpochSlottingDataM
---    getEpochSlottingDataM            = getEpochSlottingDataM
---    putEpochSlottingDataM            = putEpochSlottingDataM
---    waitCurrentEpochEqualsM          = waitCurrentEpochEqualsM
-
 instance (HasCoreConstants, MonadSlotsData ctx (InitMode ssc)) =>
          MonadSlots ctx (InitMode ssc)
   where

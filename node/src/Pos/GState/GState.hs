@@ -22,6 +22,7 @@ import           Pos.DB.GState.Common   (initGStateCommon, isInitialized, setIni
 import           Pos.DB.Rocks           (DB (..), MonadRealDB, NodeDBs (..),
                                          Snapshot (..), gStateDB, getNodeDBs,
                                          usingReadOptions, usingSnapshot)
+import qualified Pos.Explorer.DB        as ExplorerDB
 import           Pos.Genesis            (GenesisUtxo (..))
 import           Pos.GState.BlockExtra  (initGStateBlockExtra)
 import           Pos.Ssc.GodTossing.DB  (initGtDB)
@@ -58,6 +59,7 @@ sanityCheckGStateDB
 sanityCheckGStateDB = do
     sanityCheckBalances
     sanityCheckUtxo =<< getRealTotalStake
+    ExplorerDB.sanityCheckBalances
 
 usingGStateSnapshot :: (MonadRealDB ctx m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do

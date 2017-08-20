@@ -37,11 +37,8 @@ instance {-# OVERLAPPABLE #-}
     (MonadSlots ctx m, MonadTrans t, MonadReader ctx (t m), MonadIO (t m), Monad (t m)) =>
       MonadSlots ctx (t m)
   where
+    getCurrentSlot           = lift getCurrentSlot
+    getCurrentSlotBlocking   = lift getCurrentSlotBlocking
+    currentTimeSlotting      = lift currentTimeSlotting
+    getCurrentSlotInaccurate = lift getCurrentSlotInaccurate
 
-  getCurrentSlot           = lift getCurrentSlot
-
-  getCurrentSlotBlocking   = lift getCurrentSlotBlocking
-
-  currentTimeSlotting      = lift currentTimeSlotting
-
-  getCurrentSlotInaccurate = lift getCurrentSlotInaccurate

@@ -15,7 +15,7 @@ else
   hlint -h HLint.hs \
   -X TypeApplications \
   --cpp-include=$incpath --cpp-define=CONFIG=dev \
-  src test bench $projects
+  node/src node/test node/bench $projects
 fi
 
 ex=$?

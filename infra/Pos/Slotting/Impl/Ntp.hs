@@ -198,7 +198,7 @@ ntpGetCurrentSlotImpl var = do
     case canWeTrustLocalTime _nssLastLocalTime t of
       Nothing -> do
           (currentEpochIndex, _) <- getCurrentNextEpochIndexM
-          res <- fmap (max _nssLastSlot) <$> slotFromTimestamp t
+          res <- max _nssLastSlot <<$>> slotFromTimestamp t
           let setLastSlot s = atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
           whenJust res setLastSlot
           pure $ maybe (OutdatedSlottingData currentEpochIndex) CurrentSlot res

@@ -20,8 +20,8 @@ import           Pos.Core.Types                   (HeaderHash, SlotId)
 import           Pos.Txp.Core.Types               (TxAux, TxId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
--- | Information about block where given pending transaction is sited
-type PtxBlockInfo = (SlotId, HeaderHash)
+-- | Required information about block where given pending transaction is sited
+type PtxBlockInfo = SlotId
 
 -- | Current state of pending transaction.
 --
@@ -30,9 +30,6 @@ type PtxBlockInfo = (SlotId, HeaderHash)
 --
 -- When wallet tracker notices a block with given transaction, it switches
 -- condition to 'PtxInUpperBlocks' providing needed information about that block.
--- 'HeaderHash' is required for atomic modifications of db by resubmitter
--- (i.e. not to accidentially overwrite possible changes made by tracker),
--- see 'Pos.Wallet.Web.State.State.casPtxCondition' function.
 -- Transactions in this state are periodically checked by resubmitter for
 -- the possibility (and need) to submit them again.
 --

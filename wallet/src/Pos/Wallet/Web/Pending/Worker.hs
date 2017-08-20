@@ -54,7 +54,7 @@ processPtxFailure PendingTx{..} e =
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
 processPtxInUpperBlocks curSlot PendingTx{..} = do
     mdepth <- getWalletAssuredDepth _ptxWallet
-    if | PtxInUpperBlocks (slotId, _) <- _ptxCond,
+    if | PtxInUpperBlocks slotId <- _ptxCond,
          Just depth <- mdepth,
          longAgo depth slotId -> do
              void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond PtxPersisted

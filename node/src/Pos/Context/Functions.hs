@@ -7,6 +7,7 @@ module Pos.Context.Functions
        , genesisUtxoM
        , genesisStakesM
        , genesisLeadersM
+       , genesisBlock0M
 
          -- * Block semaphore.
        , putBlkSemaphore
@@ -29,11 +30,13 @@ import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import           Ether.Internal      (HasLens (..))
 
+import           Pos.Block.Core      (GenesisBlock, mkGenesisBlock)
 import           Pos.Context.Context (BlkSemaphore (..), StartTime (..))
 import           Pos.Core            (HasCoreConstants, HeaderHash, SlotLeaders,
                                       StakesMap)
 import           Pos.Genesis         (GenesisUtxo (..), genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
+import           Pos.Ssc.Class       (SscHelpersClass)
 import           Pos.Txp.Toil        (utxoToStakes)
 
 ----------------------------------------------------------------------------
@@ -54,6 +57,12 @@ genesisLeadersM ::
        (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, HasCoreConstants)
     => m SlotLeaders
 genesisLeadersM = genesisLeaders <$> genesisUtxoM
+
+genesisBlock0M ::
+    forall ssc ctx m. ( Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo
+                      , HasCoreConstants, SscHelpersClass ssc)
+    => m (GenesisBlock ssc)
+genesisBlock0M = mkGenesisBlock @ssc Nothing 0 <$> genesisLeadersM
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic

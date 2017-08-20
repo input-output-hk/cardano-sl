@@ -166,7 +166,7 @@ isRedeemTx :: MonadUtxoRead m => TxAux -> m Bool
 isRedeemTx txAux = do
     resolvedOuts <- traverse utxoGet $ (view txInputs . taTx) txAux
     let inputAddresses = fmap (txOutAddress . toaOut) . catMaybes . toList $ resolvedOuts
-    return $ any isRedeemAddress inputAddresses
+    return $ all isRedeemAddress inputAddresses
 
 verifyGState
     :: forall ctx m .

@@ -12,8 +12,7 @@ import           Data.List.NonEmpty                (fromList)
 import           System.IO.Unsafe                  (unsafePerformIO)
 import           Test.QuickCheck                   (Arbitrary (..), choose, elements,
                                                     generate, oneof, vector)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
-                                                    genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe       ()
 import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)
@@ -125,7 +124,7 @@ instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
     arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
-    arbitrary = redeemSign <$> arbitrary <*> arbitrary
+    arbitrary = redeemSign <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary

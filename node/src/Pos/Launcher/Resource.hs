@@ -289,21 +289,24 @@ createKademliaInstance ::
        (MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
     => BaseParams
     -> KademliaParams
+    -> Word16 -- ^ Default port to bind to.
     -> m KademliaDHTInstance
-createKademliaInstance BaseParams {..} kp =
-    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig)
+createKademliaInstance BaseParams {..} kp defaultPort =
+    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig defaultBindAddress)
   where
     instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ Const.defaultPeers}
+    defaultBindAddress = ("0.0.0.0", defaultPort)
 
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
     :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
     => BaseParams
     -> KademliaParams
+    -> Word16 -- ^ Default port to bind to.
     -> (KademliaDHTInstance -> m a)
     -> m a
-bracketKademliaInstance bp kp action =
-    bracket (createKademliaInstance bp kp) stopDHTInstance action
+bracketKademliaInstance bp kp defaultPort action =
+    bracket (createKademliaInstance bp kp defaultPort) stopDHTInstance action
 
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
@@ -316,16 +319,16 @@ bracketKademlia
 bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
     -- cases that need Kademlia
     TopologyP2P{topologyKademlia = kp, ..} ->
-      bracketKademliaInstance bp kp $ \kinst ->
+      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
         k $ TopologyP2P{topologyKademlia = kinst, ..}
     TopologyTraditional{topologyKademlia = kp, ..} ->
-      bracketKademliaInstance bp kp $ \kinst ->
+      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
         k $ TopologyTraditional{topologyKademlia = kinst, ..}
     TopologyRelay{topologyOptKademlia = Just kp, ..} ->
-      bracketKademliaInstance bp kp $ \kinst ->
+      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
         k $ TopologyRelay{topologyOptKademlia = Just kinst, ..}
     TopologyCore{topologyOptKademlia = Just kp, ..} ->
-      bracketKademliaInstance bp kp $ \kinst ->
+      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
         k $ TopologyCore{topologyOptKademlia = Just kinst, ..}
 
     -- cases that don't

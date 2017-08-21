@@ -14,7 +14,7 @@ import           Universum
 
 -- | Parameters for the Kademlia DHT subsystem.
 data KademliaParams = KademliaParams
-    { kpNetworkAddress  :: !(NetworkAddress)
+    { kpNetworkAddress  :: !(Maybe NetworkAddress)
     , kpPeers           :: ![NetworkAddress]
     -- ^ Peers passed from CLI
     , kpKey             :: !(Maybe DHTKey)
@@ -34,11 +34,11 @@ fromYamlConfig yamlParams = do
         Just key -> Just <$> kademliaIdToDHTKey key
     return $ KademliaParams
         { kpKey             = parsedKey
-        , kpNetworkAddress  = kademliaAddressToNetworkAddress (Y.kpBind yamlParams)
+        , kpNetworkAddress  = kademliaAddressToNetworkAddress <$> Y.kpBind yamlParams
         , kpExternalAddress = kademliaAddressToNetworkAddress <$> Y.kpAddress yamlParams
         , kpPeers           = kademliaAddressToNetworkAddress <$> Y.kpPeers yamlParams
         , kpDumpFile        = Y.kpDumpFile yamlParams
-        , kpExplicitInitial = Y.kpExplicitInitial yamlParams
+        , kpExplicitInitial = maybe False identity (Y.kpExplicitInitial yamlParams)
         }
 
 kademliaAddressToNetworkAddress :: Y.KademliaAddress -> NetworkAddress

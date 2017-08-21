@@ -154,12 +154,13 @@ toPosixTime = (/ 1e6) . fromIntegral
 
 toBlockEntry
     :: forall ctx m .
-      ( MonadBlockDB SscGodTossing m
-       , MonadDBRead m
-       , MonadRealDB ctx m
-       , MonadSlots m
-       , MonadThrow m
-       , HasCoreConstants)
+    ( MonadBlockDB SscGodTossing m
+    , MonadDBRead m
+    , MonadRealDB ctx m
+    , MonadSlots ctx m
+    , MonadThrow m
+    , HasCoreConstants
+    )
     => (MainBlock SscGodTossing, Undo)
     -> m CBlockEntry
 toBlockEntry (blk, Undo{..}) = do
@@ -242,12 +243,14 @@ data CBlockSummary = CBlockSummary
     } deriving (Show, Generic)
 
 toBlockSummary
-    :: ( MonadBlockDB SscGodTossing m
-       , MonadDBRead m
-       , MonadRealDB ctx m
-       , MonadSlots m
-       , MonadThrow m
-       , HasCoreConstants)
+    :: forall ctx m.
+    ( MonadBlockDB SscGodTossing m
+    , MonadDBRead m
+    , MonadRealDB ctx m
+    , MonadSlots ctx m
+    , MonadThrow m
+    , HasCoreConstants
+    )
     => (MainBlock SscGodTossing, Undo)
     -> m CBlockSummary
 toBlockSummary blund@(blk, _) = do

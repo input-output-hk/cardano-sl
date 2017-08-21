@@ -68,8 +68,10 @@ import           Pos.Crypto                       (EncryptedSecretKey, HDPassphr
 import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
 import           Pos.DB.Rocks                     (MonadRealDB)
+import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
-import           Pos.Slotting                     (MonadSlotsData (..), getSlotStartPure)
+import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
+                                                   getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
                                                    flattenTxPayload, getTxDistribution,
@@ -111,7 +113,7 @@ type WalletTrackingEnv ext ctx m =
      , MonadTxpMem ext ctx m
      , HasLens GenesisUtxo ctx GenesisUtxo
      , WS.MonadWalletWebDB ctx m
-     , MonadSlotsData m
+     , MonadSlotsData ctx m
      , WithLogger m
      , HasCoreConstants
      )
@@ -148,12 +150,13 @@ txMempoolToModifier encSK = do
 
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGState
-    :: forall ssc ctx m . (
-      WebWalletModeDB ctx m
+    :: forall ssc ctx m.
+    ( WebWalletModeDB ctx m
     , BlockLockMode ssc ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
-    , MonadSlotsData m
-    , HasCoreConstants)
+    , MonadSlotsData ctx m
+    , HasCoreConstants
+    )
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
     let wAddr = encToCId encSK
@@ -209,7 +212,7 @@ syncWalletWithGStateUnsafe
     , DB.MonadBlockDB ssc m
     , WithLogger m
     , HasLens GenesisUtxo ctx GenesisUtxo
-    , MonadSlotsData m
+    , MonadSlotsData ctx m
     , HasCoreConstants
     )
     => EncryptedSecretKey      -- ^ Secret key for decoding our addresses
@@ -218,8 +221,8 @@ syncWalletWithGStateUnsafe
     -> BlockHeader ssc         -- ^ GState header hash
     -> m ()
 syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
-    systemStart <- getSystemStart
-    slottingData <- getSlottingData
+    systemStart  <- getSystemStartM
+    slottingData <- GS.getSlottingData
 
     let gstateHHash = headerHash gstateH
         loadCond (b, _) _ = b ^. difficultyL <= gstateH ^. difficultyL
@@ -230,7 +233,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
         mainBlkHeaderTs mBlkH =
-            getSlotStartPure systemStart True (mBlkH ^. headerSlotL) slottingData
+          getSlotStartPure systemStart (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier

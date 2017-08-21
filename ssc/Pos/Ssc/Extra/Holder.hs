@@ -31,7 +31,7 @@ mkSscState
        , SscLocalDataClass ssc
        , MonadDBRead m
        , MonadIO m
-       , MonadSlots m
+       , MonadSlots ctx m
        )
     => m (SscState ssc)
 mkSscState = do

@@ -221,7 +221,7 @@ worker' outSpecs h =
 type LocalOnNewSlotComm ctx m =
     ( MonadIO m
     , MonadReader ctx m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
     , Mockables m [Fork, Delay]

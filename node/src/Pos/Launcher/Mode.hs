@@ -52,13 +52,14 @@ import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
                                         getCurrentSlotBlockingSum,
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState (MonadSlotsData (..), getSlottingDataDefault,
-                                        getSystemStartDefault, putSlottingDataDefault,
-                                        waitPenultEpochEqualsDefault)
+import           Pos.Slotting.MemState (MonadSlotsData)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Util              (Some (..))
 import           Pos.Util.Util         (postfixLFields)
+
+
+
 
 -- | 'newInitFuture' creates a thunk and a procedure to fill it. This can be
 -- used to create a data structure and initialize it gradually while doing some
@@ -144,14 +145,11 @@ instance
     dbGetUndo   = dbGetUndoSscDefault @ssc
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
-instance MonadSlotsData (InitMode ssc) where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
-
-instance HasCoreConstants => MonadSlots (InitMode ssc) where
-    getCurrentSlot = getCurrentSlotSum
-    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+instance (HasCoreConstants, MonadSlotsData ctx (InitMode ssc)) =>
+         MonadSlots ctx (InitMode ssc)
+  where
+    getCurrentSlot           = getCurrentSlotSum
+    getCurrentSlotBlocking   = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-    currentTimeSlotting = currentTimeSlottingSum
+    currentTimeSlotting      = currentTimeSlottingSum
+

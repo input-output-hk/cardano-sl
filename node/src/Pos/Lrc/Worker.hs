@@ -84,7 +84,7 @@ type LrcModeFullNoSemaphore ssc ctx m =
     , SscWorkersClass ssc
     , SscHelpersClass ssc
     , MonadSscMem ssc ctx m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadBlockApply ssc ctx m
     , MonadReader ctx m
     )

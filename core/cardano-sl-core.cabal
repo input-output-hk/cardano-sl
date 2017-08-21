@@ -112,6 +112,8 @@ library
   other-modules:
                        Pos.Core.Constants.Raw
                        Pos.Core.Constants.Typed
+                       Pos.Core.Context.Const
+                       Pos.Core.Context.PrimaryKey
                        Pos.Util.Config.Path
                        Pos.Util.Config.Contents
                        Pos.Util.Config.Get
@@ -202,6 +204,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   ghc-options:         -Wall
                        -fno-warn-orphans

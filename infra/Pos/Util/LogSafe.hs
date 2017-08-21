@@ -34,7 +34,7 @@ instance (MonadIO m) => CanLog (SecureLogWrapped m) where
           acceptable _                   = True
       in liftIO $ logMCond name severity msg acceptable
 
-instance (Monad m, HasLoggerName m) => HasLoggerName (SecureLogWrapped m) where
+instance (HasLoggerName m) => HasLoggerName (SecureLogWrapped m) where
     getLoggerName = SecureLogWrapped getLoggerName
     modifyLoggerName foo (SecureLogWrapped m) =
         SecureLogWrapped (modifyLoggerName foo m)

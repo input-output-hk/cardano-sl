@@ -7,7 +7,7 @@ flags:
 extra-package-dbs: []
 
 packages:
-- '.'
+- node
 - core
 - update
 - infra
@@ -18,6 +18,8 @@ packages:
 - godtossing
 - tools
 - txp
+- wallet
+- explorer
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -46,7 +48,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: d56751de03fb7561a731b31a39ce0073966b102e # master
+    commit: 39fd29a944efdfd19270a5866ec4ee81ac80fe01 # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -79,12 +81,22 @@ packages:
     commit: c9b06eb77225c8bb2092f1169c093d7a04129e53 # 2.0.11
   extra-dep: true
 
+# Required for explorer
+- location:
+    git: https://github.com/serokell/engine.io.git
+    commit: a594e402fd450f11ad60d09ddbd93db500000632
+  extra-dep: true
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
+
 nix:
   shell-file: shell.nix
 
 extra-deps:
 - universum-0.4.3
-- serokell-util-0.3
+- serokell-util-0.4.0
 - pvss-0.1
 - active-0.2.0.13
 - base58-bytestring-0.1.0
@@ -126,3 +138,5 @@ ghc-options:
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror
   cardano-sl-lwallet:    -Werror
+  cardano-sl-wallet:     -Werror
+  cardano-sl-explorer:   -Werror

@@ -17,15 +17,15 @@ let
       f1 = cleanSourceFilter name type;
       baseName = baseNameOf (toString name);
       f2 = ! (type == "symlink" && hasSuffix ".root" baseName);
-      f3 = ! (hasSuffix ".swp" baseName);
+      f3 = ! (hasSuffix ".root" baseName);
       f4 = ! (baseName == ".stack-work");
       f5 = ! (hasSuffix ".nix" baseName);
-    in f1 && f2 && f3 && f4 && f5);
+      f6 = ! (hasSuffix ".swp" baseName);
+    in f1 && f2 && f3 && f4 && f5 && f6);
 in ((import ./pkgs { inherit pkgs; }).override {
   overrides = self: super: {
     cardano-sl = overrideCabal super.cardano-sl (drv: {
       src = cleanSource2 drv.src;
-      doHaddock = false;
       patchPhase = ''
        export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
       '';
@@ -33,8 +33,6 @@ in ((import ./pkgs { inherit pkgs; }).override {
       configureFlags = [
         "-f-asserts"
         "-f-dev-mode"
-        # TODO: "-fwith-explorer"
-        # https://github.com/NixOS/nixpkgs/pull/24692#issuecomment-306509337
         "--ghc-option=-optl-lm"
       ];
       # waiting on load-command size fix in dyld
@@ -65,6 +63,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
     cardano-sl-lwallet = overrideCabal super.cardano-sl-lwallet (drv: { src = cleanSource2 drv.src; });
 
     cardano-sl-static = justStaticExecutables self.cardano-sl;
+    cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
 
     # Gold linker fixes
     cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;

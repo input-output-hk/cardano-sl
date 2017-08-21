@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Softfork resolution logic.
 
@@ -18,10 +17,10 @@ import           Formatting                 (build, sformat, (%))
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logInfo)
 
-import           Pos.Core                   (BlockVersion, Coin, EpochIndex, HeaderHash,
-                                             SlotId (..), SoftforkRule (..),
-                                             StakeholderId, crucialSlot, sumCoins,
-                                             unsafeIntegerToCoin)
+import           Pos.Core                   (BlockVersion, Coin, EpochIndex,
+                                             HasCoreConstants, HeaderHash, SlotId (..),
+                                             SoftforkRule (..), StakeholderId,
+                                             crucialSlot, sumCoins, unsafeIntegerToCoin)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure    (PollVerFailure (..))
@@ -34,7 +33,7 @@ import           Pos.Util.Util              (inAssertMode)
 -- | Record the fact that main block with given version and leader has
 -- been issued by for the given slot.
 recordBlockIssuance
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: (HasCoreConstants, MonadError PollVerFailure m, MonadPoll m)
     => StakeholderId -> BlockVersion -> SlotId -> HeaderHash -> m ()
 recordBlockIssuance id bv slot h = do
     -- Issuance is stable if it happens before crucial slot for next epoch.
@@ -73,7 +72,7 @@ recordBlockIssuance id bv slot h = do
 
 -- | Process creation of genesis block for given epoch.
 processGenesisBlock
-    :: forall m. (MonadError PollVerFailure m, MonadPoll m)
+    :: forall m. (HasCoreConstants, MonadError PollVerFailure m, MonadPoll m)
     => EpochIndex -> m ()
 processGenesisBlock epoch = do
     -- First thing to do is to obtain values threshold for softfork

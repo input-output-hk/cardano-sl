@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main
   ( main
@@ -19,7 +18,8 @@ import           Data.Time.Units            (Millisecond)
 import           Formatting                 (fixed, int, sformat, shown, string, (%))
 
 import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
-import           Pos.Core                   (BlockCount)
+import           Pos.Core                   (BlockCount, HasCoreConstants,
+                                             giveStaticConsts)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util                   (mapEither)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
@@ -30,7 +30,7 @@ type TxId = Text
 type BlockId = Text
 
 main :: IO ()
-main = do
+main = giveStaticConsts $ do
     Args {..} <- getAnalyzerOptions
     logs <- parseFiles files
 
@@ -46,10 +46,12 @@ main = do
         putText $ sformat ("Writing TPS stats to file: "%string) csvFile
         writeFile csvFile $ tpsToCsv ds
 
-analyzeVerifyTimes :: FilePath
-                   -> BlockCount
-                   -> HM.HashMap FilePath [JLTimed JLEvent]
-                   -> IO ()
+analyzeVerifyTimes
+    :: HasCoreConstants
+    => FilePath
+    -> BlockCount
+    -> HM.HashMap FilePath [JLTimed JLEvent]
+    -> IO ()
 analyzeVerifyTimes txFile cParam logs = do
     (txSenderMap :: HashMap TxId Integer) <-
         HM.fromList . fromMaybe (error "failed to read txSenderMap") . decode <$>
@@ -68,9 +70,11 @@ analyzeVerifyTimes txFile cParam logs = do
         length common
     print averageMsec
 
-getTxAcceptTimeAvgs :: BlockCount
-                    -> HM.HashMap FilePath [JLTimed JLEvent]
-                    -> HM.HashMap TxId Integer
+getTxAcceptTimeAvgs
+    :: HasCoreConstants
+    => BlockCount
+    -> HM.HashMap FilePath [JLTimed JLEvent]
+    -> HM.HashMap TxId Integer
 getTxAcceptTimeAvgs confirmations fileEvsMap = result
   where
     n = HM.size fileEvsMap

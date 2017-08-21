@@ -16,7 +16,7 @@ module Pos.Wallet.Web.Pending.Types
 import           Universum
 
 import           Control.Lens                     (makeLenses)
-import           Pos.Core.Types                   (HeaderHash, SlotId)
+import           Pos.Core.Types                   (SlotId)
 import           Pos.Txp.Core.Types               (TxAux, TxId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 

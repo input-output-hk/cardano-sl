@@ -18,6 +18,7 @@ module Pos.Txp.Core.Types
        , _TxOut
        , TxOutAux (..)
        , TxAttributes
+       , isTxInUnknown
 
        -- * Tx
        , Tx (..)
@@ -160,6 +161,10 @@ instance Buildable TxIn where
     build (TxInUnknown tag bs) = bprint ("TxInUnknown "%build%" "%base16F) tag bs
 
 instance NFData TxIn
+
+isTxInUnknown :: TxIn -> Bool
+isTxInUnknown (TxInUnknown _ _) = True
+isTxInUnknown _ = False
 
 -- | Transaction output.
 data TxOut = TxOut
@@ -342,7 +347,7 @@ mkTxPayload txws = do
 ----------------------------------------------------------------------------
 
 -- | Particular undo needed for transactions
-type TxUndo = NonEmpty TxOutAux
+type TxUndo = NonEmpty (Maybe TxOutAux)
 
 type TxpUndo = [TxUndo]
 

@@ -10,6 +10,7 @@ module Pos.Txp.Toil.Utxo.Functions
 import           Universum
 
 import           Control.Monad.Error.Class (MonadError (..))
+import           Data.List                 (findIndex)
 import qualified Data.List.NonEmpty        as NE
 import           Formatting                (build, int, sformat, stext, (%))
 import           Serokell.Util             (VerificationRes, allDistinct, enumerate,
@@ -32,7 +33,7 @@ import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
                                             TxDistribution (..), TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
                                             TxOutDistribution, TxSigData (..), TxUndo,
-                                            TxWitness)
+                                            TxWitness, isTxInUnknown)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
@@ -75,16 +76,30 @@ verifyTxUtxo
     :: (MonadUtxoRead m, MonadError ToilVerFailure m)
     => VTxContext
     -> TxAux
-    -> m (TxUndo, TxFee)
+    -> m (TxUndo, Maybe TxFee)
 verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses _) = do
-    verifyConsistency _txInputs witnesses
-    verResToMonadError (ToilInvalidOutputs . formatFirstError) $
-        verifyOutputs ctx ta
-    resolvedInputs <- mapM resolveInput _txInputs
-    txFee <- verifySums resolvedInputs _txOutputs
-    verifyInputs ctx resolvedInputs ta
-    when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
-    return (map snd resolvedInputs, txFee)
+    let unknownTxInIdMB = findIndex isTxInUnknown (toList _txInputs)
+    case (vtcVerifyAllIsKnown, unknownTxInIdMB) of
+        (True, Just (fromIntegral -> inpId)) -> throwError $
+            ToilInvalidInput inpId "vtcVerifyAllIsKnown is True, but the input is unknown"
+        (False, Just _) -> do
+            -- Case when at least one input isn't known
+            minimalReasonableChecks
+            resolvedInputs <- mapM (runMaybeT . resolveInput) _txInputs
+            pure (map (fmap snd) resolvedInputs, Nothing)
+        _               -> do
+            -- Case when all inputs are known
+            minimalReasonableChecks
+            resolvedInputs <- mapM resolveInput _txInputs
+            txFee <- verifySums resolvedInputs _txOutputs
+            verifyInputs ctx resolvedInputs ta
+            when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
+            pure (map (Just . snd) resolvedInputs, Just txFee)
+  where
+    minimalReasonableChecks = do
+        verifyConsistency _txInputs witnesses
+        verResToMonadError (ToilInvalidOutputs . formatFirstError) $
+            verifyOutputs ctx ta
 
 resolveInput
     :: (MonadUtxoRead m, MonadError ToilVerFailure m)
@@ -189,6 +204,8 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
     inputPredicates i (txIn, toa@(TxOutAux txOut@TxOut{..} _)) witness = do
         unless (checkSpendingData txOutAddress witness) $ throwError $
             ToilWitnessDoesntMatch i txIn txOut witness
+        when (isTxInUnknown txIn && vtcVerifyAllIsKnown) $ throwError $
+            ToilInvalidInput i "vtcVerifyAllIsKnown is True, but the input is unknown"
         -- N.B. @neongreen promised to improve it
         case validateTxIn toa witness of
               Right _ -> pass
@@ -255,7 +272,7 @@ verifyAttributesAreKnown attrs =
 -- outputs.
 applyTxToUtxo :: MonadUtxo m => WithHash Tx -> TxDistribution -> m ()
 applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
-    mapM_ utxoDel _txInputs
+    mapM_ utxoDel $ filter (not . isTxInUnknown) (toList _txInputs)
     mapM_ applyOutput . zip [0 ..] . toList . NE.zipWith TxOutAux _txOutputs $
         getTxDistribution distr
   where
@@ -271,4 +288,8 @@ rollbackTxUtxo (txAux, undo) = do
     let tx@UnsafeTx {..} = taTx txAux
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ map (TxInUtxo txid) [0..]
-    mapM_ (uncurry utxoPut) $ NE.zip _txInputs undo
+    mapM_ (uncurry utxoPut) $ concatMap knownInputAndUndo $ toList $ NE.zip _txInputs undo
+  where
+    knownInputAndUndo (_, Nothing)         = []
+    knownInputAndUndo (TxInUnknown _ _, _) = []
+    knownInputAndUndo (inp, Just u)        = [(inp, u)]

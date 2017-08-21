@@ -160,7 +160,7 @@ genTxPayload = do
                         sformat ("Found an address with non-pubkey spending data: "
                                     %build) another
 
-        let utxoAddresses = map (makePubKeyAddress . toPublic) $ HM.elems secrets
+        let utxoAddresses = map (makePubKeyAddress undefined . toPublic) $ HM.elems secrets
 
         ----- INPUTS
 

@@ -22,7 +22,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core                ()
 import           Pos.Binary.Class                  (Raw)
 import           Pos.Binary.Txp.Core               ()
-import           Pos.Core.Address                  (makePubKeyAddress)
+import           Pos.Core.Address                  (IsBootstrapEraAddr (..),
+                                                    makePubKeyAddress)
 import           Pos.Core.Types                    (Coin)
 import           Pos.Crypto                        (Hash, SecretKey, SignTag (SignTx),
                                                     hash, sign, toPublic)
@@ -131,7 +132,8 @@ buildProperTx inputList (inCoin, outCoin) =
         { twKey = toPublic fromSk
         , twSig = sign SignTx fromSk TxSigData {
                       txSigTxHash = newTxHash } }
-    makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
+    makeTxOutput s c =
+        TxOut (makePubKeyAddress (IsBootstrapEraAddr True) $ toPublic s) c
 
 -- | Well-formed transaction 'Tx'.
 --

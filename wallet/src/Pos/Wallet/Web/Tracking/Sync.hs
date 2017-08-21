@@ -457,7 +457,7 @@ getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CId Wal)
 getEncInfo encSK = do
     let pubKey = encToPublic encSK
     let hdPass = deriveHDPassphrase pubKey
-    let wCId = addressToCId $ makePubKeyAddress pubKey
+    let wCId = addressToCId $ makePubKeyAddress undefined pubKey
     (hdPass, wCId)
 
 selectOwnAccounts

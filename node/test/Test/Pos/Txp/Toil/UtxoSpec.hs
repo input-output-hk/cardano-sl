@@ -20,7 +20,7 @@ import           Test.QuickCheck       (Property, arbitrary, counterexample, pro
 
 import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
 import           Pos.Core              (addressHash, checkPubKeyAddress,
-                                        makePubKeyAddress, makeScriptAddress, mkCoin,
+                                        makePubKeyAddressBoot, makeScriptAddress, mkCoin,
                                         sumCoins)
 import           Pos.Crypto            (SignTag (SignTx), checkSig, fakeSigner, hash,
                                         toPublic, unsafeHash, withHash)
@@ -384,7 +384,7 @@ scriptTxSpec = describe "script transactions" $ do
     -- Some random stuff we're going to use when building transactions
     randomPkOutput = runGen $ do
         key <- arbitrary
-        return (TxOut (makePubKeyAddress key) (mkCoin 1))
+        return (TxOut (makePubKeyAddressBoot key) (mkCoin 1))
     randomPkWitness = runGen $
         PkWitness <$> arbitrary <*> arbitrary
     -- Make utxo with a single output; return utxo, the output, and an
@@ -409,7 +409,8 @@ scriptTxSpec = describe "script transactions" $ do
                   -> (TxSigData -> TxInWitness)
                   -> Either ToilVerFailure ()
     checkScriptTx val mkWit =
-        let (inp, _, utxo) = mkUtxo $ TxOut (makeScriptAddress val) (mkCoin 1)
+        let (inp, _, utxo) = mkUtxo $
+                TxOut (makeScriptAddress Nothing val) (mkCoin 1)
             tx = UnsafeTx (one inp) (one randomPkOutput) $ mkAttributes ()
             txSigData = TxSigData { txSigTxHash = hash tx }
             txAux = TxAux tx (one (mkWit txSigData))

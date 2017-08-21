@@ -52,10 +52,11 @@ import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpend
                                              mkInvAddrSpendingData)
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (AddrSpendingData (PubKeyASD), Address (..),
-                                             Coin, HasCoreConstants, SlotLeaders,
+                                             Coin, HasCoreConstants,
+                                             IsBootstrapEraAddr (..), SlotLeaders,
                                              addressHash, applyCoinPortionUp,
                                              coinToInteger, deriveLvl2KeyPair, divCoin,
-                                             makePubKeyAddress, mkCoin, safeExpStakes,
+                                             makePubKeyAddressBoot, mkCoin, safeExpStakes,
                                              unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
@@ -289,6 +290,7 @@ genesisDevHdwAccountKeyDatas =
     genesisDevHdwSecretKeys <&> \key ->
         fromMaybe (error "Passphrase doesn't match in Genesis") $
         deriveLvl2KeyPair
+            (IsBootstrapEraAddr True)
             emptyPassphrase
             key
             accountGenesisIndex
@@ -303,7 +305,7 @@ devAddrDistr distr = (aDistr, gws)
     distrSize = length $ stakeDistribution distr
     tailPks = map (fst . generateGenesisKeyPair) [Const.genesisKeysN ..]
     mainPks = genesisDevPublicKeys <> tailPks
-    mainAddrs = take distrSize $ map makePubKeyAddress mainPks
+    mainAddrs = take distrSize $ map makePubKeyAddressBoot mainPks
     mainSpendingDataList = map PubKeyASD mainPks
     invAddrSpendingData =
         mkInvAddrSpendingData $ mainAddrs `zip` mainSpendingDataList

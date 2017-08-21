@@ -157,7 +157,7 @@ deriveAccountSK
 deriveAccountSK passphrase AccountId{..} accIndex = do
     key <- getSKById aiWId
     maybeThrow badPass $
-        deriveLvl2KeyPair passphrase key aiIndex accIndex
+        deriveLvl2KeyPair undefined passphrase key aiIndex accIndex
   where
     badPass = RequestError "Passphrase doesn't match"
 
@@ -186,4 +186,3 @@ instance AccountMode ctx m => MonadKeySearch AccountId m where
 
 instance AccountMode ctx m => MonadKeySearch CWAddressMeta m where
     findKey = findKey . cwamWId
-

@@ -5,32 +5,32 @@ module Testnet
        , rearrangeKeyfile
        ) where
 
-import           Control.Lens         ((?~))
-import qualified Serokell.Util.Base64 as B64
-import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
-                                       verifyGeneric)
-import           System.Random        (randomRIO)
-import           System.Wlog          (WithLogger)
+import           Control.Lens          ((?~))
+import qualified Serokell.Util.Base64  as B64
+import           Serokell.Util.Verify  (VerificationRes (..), formatAllErrors,
+                                        verifyGeneric)
+import           System.Random         (randomRIO)
+import           System.Wlog           (WithLogger)
 import           Universum
 
-import           Pos.Binary           (asBinary)
-import qualified Pos.Constants        as Const
-import           Pos.Core             (deriveLvl2KeyPair)
-import           Pos.Crypto           (EncryptedSecretKey, PublicKey, RedeemPublicKey,
-                                       SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
-                                       redeemDeterministicKeyGen, safeKeyGen,
-                                       secureRandomBS, toPublic, toVssPublicKey,
-                                       vssKeyGen)
-import           Pos.Genesis          (StakeDistribution (..), accountGenesisIndex,
-                                       wAddressGenesisIndex)
-import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
-import           Pos.Types            (Address, coinPortionToDouble, unsafeIntegerToCoin)
-import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
-                                       usPrimKey, usVss, usWalletSet,
-                                       writeUserSecretRelease)
+import           Pos.Binary            (asBinary)
+import qualified Pos.Constants         as Const
+import           Pos.Core              (deriveLvl2KeyPair)
+import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPublicKey,
+                                        SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
+                                        redeemDeterministicKeyGen, safeKeyGen,
+                                        secureRandomBS, toPublic, toVssPublicKey,
+                                        vssKeyGen)
+import           Pos.Genesis           (StakeDistribution (..), accountGenesisIndex,
+                                        wAddressGenesisIndex)
+import           Pos.Ssc.GodTossing    (VssCertificate, mkVssCertificate)
+import           Pos.Types             (Address, coinPortionToDouble, unsafeIntegerToCoin)
+import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
+                                        usPrimKey, usVss, usWalletSet,
+                                        writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
 
-import           KeygenOptions        (TestStakeOptions (..))
+import           KeygenOptions         (TestStakeOptions (..))
 
 rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
@@ -67,7 +67,7 @@ generateKeyfile isPrim mbSk fp = do
         vssCert = mkVssCertificate sk vssPk expiry
         hdwAccountPk =
             fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
-            deriveLvl2KeyPair emptyPassphrase hdwSk
+            deriveLvl2KeyPair undefined emptyPassphrase hdwSk
                 accountGenesisIndex wAddressGenesisIndex
     return (toPublic sk, vssCert, hdwAccountPk)
 

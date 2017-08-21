@@ -79,7 +79,7 @@ submitTx
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
 submitTx enqueue ss outputs addrData = do
-    utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
+    utxo <- getOwnUtxos . one $ makePubKeyAddress undefined (safeToPublic ss)
     txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
     txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
 

@@ -21,7 +21,8 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
 import           Universum
 
 import           Pos.Binary            (asBinary, decodeFull, serialize')
-import           Pos.Core              (StakeholderId, mkCoin)
+import           Pos.Core              (StakeholderId, addressDetailedF, addressHash,
+                                        makePubKeyAddressBoot, makeRedeemAddress, mkCoin)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, redeemPkB64F,
                                         toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
@@ -29,8 +30,6 @@ import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
                                         GenesisGtData (..), StakeDistribution (..),
                                         genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                         mkGenesisCoreData)
-import           Pos.Types             (addressDetailedF, addressHash, makePubKeyAddress,
-                                        makeRedeemAddress)
 import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
                                         usWalletSet)
 import           Pos.Wallet.Web.Secret (wusRootKey)
@@ -95,7 +94,7 @@ getTestnetData dir tso@TestStakeOptions{..} = do
             RichPoorStakes {..} ->
                 Map.fromList $ map ((,1) . addressHash . fst) genesisListRich
             _ -> error "cardano-keygen: impossible type of generated testnet stake"
-        genesisAddrs = map (makePubKeyAddress . fst) genesisList
+        genesisAddrs = map (makePubKeyAddressBoot . fst) genesisList
                     <> map (view _3) poorsList
         genesisAddrDistr = [(genesisAddrs, distr)]
         genGtData = GenesisGtData

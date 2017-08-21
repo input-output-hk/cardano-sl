@@ -54,7 +54,7 @@ cIdToAddress :: CId w -> Either Text Address
 cIdToAddress (CId (CHash h)) = decodeTextAddress h
 
 encToCId :: EncryptedSecretKey -> CId w
-encToCId = addressToCId . makePubKeyAddress . encToPublic
+encToCId = addressToCId . makePubKeyAddress undefined . encToPublic
 
 mkCTxId :: Text -> CTxId
 mkCTxId = CTxId . CHash

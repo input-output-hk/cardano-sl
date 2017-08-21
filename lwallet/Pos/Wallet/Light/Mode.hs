@@ -24,10 +24,11 @@ import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core                         (HasCoreConstants, SlotId (..),
+import           Pos.Core                         (HasCoreConstants,
+                                                   IsBootstrapEraAddr (..), SlotId (..),
                                                    makePubKeyAddress)
 import           Pos.Crypto                       (PublicKey)
-import           Pos.DB                           (MonadGState (..))
+import           Pos.DB                           (MonadGState (..), gsIsBootstrapEra)
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
@@ -135,4 +136,8 @@ instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode w
 
 instance MonadAddresses LightWalletMode where
     type AddrData LightWalletMode = PublicKey
-    getNewAddress = pure . makePubKeyAddress
+    getNewAddress pk = do
+        -- Light wallet doesn't know current slot, so let's assume
+        -- it's 0-th epoch. It's enough for our current needs.
+        ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra 0
+        return $ makePubKeyAddress ibea pk

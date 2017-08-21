@@ -47,7 +47,7 @@ import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogCont
 import           Pos.Block.Types                (Undo)
 import           Pos.Core                       (AddrSpendingData (..), HasCoreConstants,
                                                  IsHeader, SlotId, StakeDistribution (..),
-                                                 Timestamp (..), makePubKeyAddress,
+                                                 Timestamp (..), makePubKeyAddressBoot,
                                                  mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
@@ -63,8 +63,7 @@ import           Pos.Generator.BlockEvent       (SnapshotId)
 import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
                                                  GenesisWStakeholders (..),
                                                  genesisContextImplicit, gtcUtxo,
-                                                 gtcWStakeholders, gtcWStakeholders,
-                                                 safeExpStakes)
+                                                 gtcWStakeholders, safeExpStakes)
 import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
 import           Pos.Launcher                   (newInitFuture)
@@ -73,10 +72,11 @@ import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
                                                  SimpleSlottingVar, SlottingData,
-                                                 mkSimpleSlottingVar, getCurrentSlotSimple,
+                                                 currentTimeSlottingSimple,
                                                  getCurrentSlotBlockingSimple,
                                                  getCurrentSlotInaccurateSimple,
-                                                 currentTimeSlottingSimple)
+                                                 getCurrentSlotSimple,
+                                                 mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
@@ -167,7 +167,7 @@ instance Arbitrary TestParams where
         let _tpStartTime = fromMicroseconds 0
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let publicKeys = map toPublic (toList invSecretsMap)
-        let addresses = map makePubKeyAddress publicKeys
+        let addresses = map makePubKeyAddressBoot publicKeys
         let invAddrSpendingData =
                 mkInvAddrSpendingData $
                 addresses `zip` (map PubKeyASD publicKeys)

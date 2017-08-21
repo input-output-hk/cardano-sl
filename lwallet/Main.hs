@@ -51,7 +51,8 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    submitVote, txRelays, usRelays, worker)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
-import           Pos.Core                         (coinF, makePubKeyAddress)
+import           Pos.Core                         (IsBootstrapEraAddr (..), coinF,
+                                                   makePubKeyAddress)
 import           Pos.Core.Coin                    (subCoin)
 import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types                   (Timestamp (..), mkCoin)
@@ -62,6 +63,7 @@ import           Pos.Crypto                       (Hash, SecretKey, SignTag (Sig
                                                    safeToPublic, toPublic, unsafeHash,
                                                    withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
+import           Pos.DB                           (gsIsBootstrapEra)
 import           Pos.Genesis                      (GenesisContext (..),
                                                    StakeDistribution (..), devAddrDistr,
                                                    devStakesDistr,
@@ -185,23 +187,21 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
         txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
+        -- Light wallet doesn't know current slot, so let's assume
+        -- it's 0-th epoch. It's enough for our current needs.
+        ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra 0
         forM_ (zip keysToSend [0..]) $ \((key, balance), n) -> do
             let val1 = mkCoin 1
                 txOut1 = TxOut {
-                    txOutAddress = makePubKeyAddress (toPublic key),
+                    txOutAddress = makePubKeyAddress ibea (toPublic key),
                     txOutValue = val1
                     }
                 val2 = fromMaybe (error $ "zero balance for key #" <> show n) $
                     balance `subCoin` mkCoin 1
                 txOut2 = TxOut {
-                    txOutAddress = makePubKeyAddress (toPublic key),
+                    txOutAddress = makePubKeyAddress ibea (toPublic key),
                     txOutValue = val2
                     }
-                -- FXIME CSL-1489
-                -- stakeholderId = addressHash (toPublic key)
-                -- toDistr val = [(stakeholderId, val)]
-                -- txOuts = TxOutAux txOut1 (toDistr val1)
-                --     :| [TxOutAux txOut2 (toDistr val2)]
                 txOuts = TxOutAux txOut1 :| [TxOutAux txOut2]
             neighbours <- case sendMode of
                     SendNeighbours -> return na
@@ -235,7 +235,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                           return (TxCount submitted failed (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just (key, txOuts, neighbours) -> do
-                          utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic (fakeSigner key)
+                          utxo <- getOwnUtxo $ makePubKeyAddress ibea $ safeToPublic (fakeSigner key)
                           etx <- createTx utxo (fakeSigner key) txOuts (toPublic key)
                           case etx of
                               Left (TxError err) -> do
@@ -318,10 +318,13 @@ runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
 runCmd _ Help _ = putText helpMsg
 runCmd _ ListAddresses _ = do
    addrs <- map encToPublic <$> getSecretKeys
+    -- Light wallet doesn't know current slot, so let's assume
+    -- it's 0-th epoch. It's enough for our current needs.
+   ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra 0
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) ->
        putText $ sformat ("    #"%int%":   "%build%" (PK: "%stext%")")
-                    i (makePubKeyAddress pk) (toBase58Text pk)
+                    i (makePubKeyAddress ibea pk) (toBase58Text pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na} = do

@@ -122,7 +122,8 @@ genTestParams = do
         -> Gen AddrDistribution
     genAddressesAndDistrs totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
         let secretKeysRange = subList (4 * i, 4 * (i + 1)) allSecretKeys
-        let skToAddr = makePubKeyAddress . toPublic
+        -- sad place :(
+        let skToAddr = makePubKeyAddress undefined . toPublic
         let addresses = map skToAddr secretKeysRange
         let totalStake = totalStakeGroup `unsafeMulCoin` groupsNumber
         let thresholdCoin =

@@ -25,7 +25,7 @@ import           Serokell.Util       (listJson, mapJson)
 
 import           Pos.Core            (AddrSpendingData (..), Address, StakeholderId,
                                       addressHash, checkAddrSpendingData,
-                                      makePubKeyAddress)
+                                      makePubKeyAddressBoot)
 import           Pos.Crypto          (PublicKey, SecretKey, toPublic)
 
 -- | This map effectively provides inverse of 'hash' and
@@ -85,7 +85,7 @@ instance Buildable AllSecrets where
             (unInvAddrSpendingData _asSpendingData)
 
 -- | Make simple 'AllSecrets' assuming that only public key addresses
--- exist in the system.
+-- with bootstrap era distribution exist in the system.
 mkAllSecretsSimple :: [SecretKey] -> AllSecrets
 mkAllSecretsSimple sks =
     AllSecrets
@@ -96,4 +96,4 @@ mkAllSecretsSimple sks =
     pks :: [PublicKey]
     pks = map toPublic sks
     spendingDataList = map PubKeyASD pks
-    addresses = map makePubKeyAddress pks
+    addresses = map makePubKeyAddressBoot pks

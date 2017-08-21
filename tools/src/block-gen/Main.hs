@@ -78,7 +78,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
         throwM EmptyUtxo
 
     let pks = toPublic <$> toList invSecretsMap
-    let addresses = map makePubKeyAddress pks
+    let addresses = map (makePubKeyAddress undefined) pks
     let spendingDataList = map PubKeyASD pks
     let invAddrSpendingData = mkInvAddrSpendingData $ addresses `zip` spendingDataList
     let bgenParams =
@@ -104,7 +104,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
 
     filterSecretsUtxo :: [SecretKey] -> Utxo -> Utxo
     filterSecretsUtxo secrets utxo = do
-        let addrs = map (makePubKeyAddress . toPublic) secrets
+        let addrs = map (makePubKeyAddress undefined . toPublic) secrets
         let inAddrs x = txOutAddress (toaOut x) `elem` addrs
         M.filter inAddrs utxo
 

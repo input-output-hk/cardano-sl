@@ -680,6 +680,9 @@ test-suite cardano-test
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(with-explorer)
+    cpp-options: -DWITH_EXPLORER
+
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench
   main-is:             Local/Criterion.hs

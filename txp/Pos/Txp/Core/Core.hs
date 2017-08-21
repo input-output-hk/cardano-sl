@@ -13,7 +13,7 @@ module Pos.Txp.Core.Core
 import           Universum
 
 import           Control.Lens        (ix)
-import qualified Data.Hashable       as Hashable (hash)
+import qualified Data.ByteArray      as ByteArray
 import qualified Data.HashSet        as HS
 import           Data.List           (zipWith)
 import qualified Data.Map.Strict     as M
@@ -29,6 +29,7 @@ import           Pos.Core            (AddrStakeDistribution (..), Address (..), 
                                       unsafeIntegerToCoin)
 import           Pos.Core.Genesis    (GenesisWStakeholders (..), bootDustThreshold)
 import           Pos.Crypto          (hash)
+import           Pos.Crypto.Random   (deterministic, randomNumber)
 import           Pos.Merkle          (mtRoot)
 import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
                                       TxOutAux (..), TxPayload (..), TxProof (..),
@@ -102,7 +103,6 @@ emptyTxPayload = mkTxPayload []
 -- distributes them between bootstrap era stakeholders. Remainder is
 -- assigned randomly (among bootstrap era stakeholders) based on hash of the
 -- coin.
--- TODO CSL-1489 Don't use 'hash' which is used here!
 --
 -- If coin is lower than 'bootDustThreshold' then this function
 -- distributes coins among first stakeholders in the list according to
@@ -117,7 +117,7 @@ bootstrapEraDistr g@(GenesisWStakeholders bootWHolders) c
   where
     foldrFunc (s,w) r@(totalSum, res) = case compare totalSum cval of
         EQ -> r
-        GT -> error "genesisSplitBoot: totalSum > cval can't happen"
+        GT -> error "bootstrapEraDistr: totalSum > cval can't happen"
         LT -> let w' = (fromIntegral w :: Word64)
                   toInclude = bool w' (cval - totalSum) (totalSum + w' > cval)
               in (totalSum + toInclude
@@ -135,8 +135,10 @@ bootstrapEraDistr g@(GenesisWStakeholders bootWHolders) c
     (d :: Word64, m :: Word64) = divMod cval weightsSum
 
     -- Person who will get the remainder.
+    -- Must be in range `[0, addrsNum)` as long as randomNumber is valid.
     remReceiver :: Int
-    remReceiver = abs (Hashable.hash c) `mod` addrsNum
+    remReceiver = fromIntegral $ deterministic (ByteArray.convert $ hash c)
+        $ randomNumber (toInteger addrsNum)
 
     cval :: Word64
     cval = unsafeGetCoin c

@@ -56,12 +56,12 @@ import           Test.Pos.Util                (splitIntoChunks, stopProperty)
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.
-spec = giveConsts CoreConstants{_ccBlkSecurityParam=5} $
+spec = giveConsts CoreConstants{_ccBlkSecurityParam=3} $
     describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
         describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
         describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
         describe "applyBlocks" applyBlocksSpec
-        modifyMaxSuccess (min 2) $ describe "Block.Event" $ do
+        modifyMaxSuccess (min 1) $ describe "Block.Event" $ do
             describe "Successful sequence" $ blockEventSuccessSpec
             describe "Apply through epoch" $ applyThroughEpochSpec 0
             describe "Apply through epoch" $ applyThroughEpochSpec 4

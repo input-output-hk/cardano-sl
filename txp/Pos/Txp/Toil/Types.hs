@@ -44,7 +44,7 @@ import           Serokell.Util.Text         (mapBuilderJson)
 
 import           Pos.Core                   (Coin, GenesisWStakeholders, StakeholderId,
                                              StakesMap, unsafeAddCoin)
-import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo,
+import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux (..), TxUndo,
                                              txOutStake)
 import qualified Pos.Util.Modifier          as MM
 
@@ -63,7 +63,7 @@ utxoToStakes :: GenesisWStakeholders -> Utxo -> StakesMap
 utxoToStakes gws = foldl' putDistr mempty . M.toList
   where
     plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    putDistr hm (_, toaux) = foldl' plusAt hm (txOutStake gws toaux)
+    putDistr hm (_, TxOutAux txOut) = foldl' plusAt hm (txOutStake gws txOut)
 
 -- | Format 'Utxo' map for showing
 formatUtxo :: Utxo -> Builder

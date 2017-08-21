@@ -16,6 +16,7 @@ module Pos.Core.Types
        -- * Stakeholders
        , StakeholderId
        , StakesMap
+       , StakesList
 
        , Timestamp (..)
        , TimeDiff (..)
@@ -122,6 +123,9 @@ type StakeholderId = AddressHash PublicKey
 
 -- | A mapping between stakeholders and they stakes.
 type StakesMap = HashMap StakeholderId Coin
+
+-- | Stakeholders and their stakes.
+type StakesList = [(StakeholderId, Coin)]
 
 -- | Data which is bound to an address and must be revealed in order
 -- to spend coins belonging to this address.

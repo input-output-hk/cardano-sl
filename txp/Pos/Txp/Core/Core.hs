@@ -22,16 +22,17 @@ import           Pos.Binary.Core     ()
 import           Pos.Binary.Crypto   ()
 import           Pos.Binary.Txp.Core ()
 import           Pos.Core            (AddrStakeDistribution (..), Address (..), Coin,
-                                      CoinPortion, StakeholderId, aaStakeDistribution,
-                                      addrAttributesUnwrapped, applyCoinPortionDown,
-                                      coinToInteger, mkCoin, sumCoins, unsafeAddCoin,
-                                      unsafeGetCoin, unsafeIntegerToCoin)
+                                      CoinPortion, StakeholderId, StakesList,
+                                      aaStakeDistribution, addrAttributesUnwrapped,
+                                      applyCoinPortionDown, coinToInteger, mkCoin,
+                                      sumCoins, unsafeAddCoin, unsafeGetCoin,
+                                      unsafeIntegerToCoin)
 import           Pos.Core.Genesis    (GenesisWStakeholders (..), bootDustThreshold)
 import           Pos.Crypto          (hash)
 import           Pos.Merkle          (mtRoot)
 import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
-                                      TxOutAux (..), TxOutDistribution, TxPayload (..),
-                                      TxProof (..), mkTxPayload)
+                                      TxOutAux (..), TxPayload (..), TxProof (..),
+                                      mkTxPayload)
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -49,8 +50,8 @@ txInToPair (TxIn h i) = (h, i)
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: GenesisWStakeholders -> TxOutAux -> TxOutDistribution
-txOutStake genStakeholders (toaOut -> TxOut {..}) =
+txOutStake :: GenesisWStakeholders -> TxOut -> StakesList
+txOutStake genStakeholders TxOut {..} =
     case aaStakeDistribution (addrAttributesUnwrapped txOutAddress) of
         BootstrapEraDistr            -> bootstrapEraDistr genStakeholders txOutValue
         SingleKeyDistr sId           -> [(sId, txOutValue)]
@@ -61,7 +62,7 @@ txOutStake genStakeholders (toaOut -> TxOut {..}) =
     -- the first one we use 'applyCoinPortionDown'. For the first one
     -- we take the difference. It is safe because sum of portions must
     -- be 1.
-    computeMultiKeyDistr :: [(StakeholderId, CoinPortion)] -> TxOutDistribution
+    computeMultiKeyDistr :: [(StakeholderId, CoinPortion)] -> StakesList
     computeMultiKeyDistr [] =
         error $ "txOutStake: impossible happened, " <>
         "multi key distribution is empty"
@@ -71,7 +72,7 @@ txOutStake genStakeholders (toaOut -> TxOut {..}) =
             headStake = outValueInteger - restDistrSum
         -- 'unsafeIntegerToCoin' is safe by construction
         in (headStakeholder, unsafeIntegerToCoin headStake) : restDistr
-    computeMultiKeyDistrRest :: [(StakeholderId, CoinPortion)] -> TxOutDistribution
+    computeMultiKeyDistrRest :: [(StakeholderId, CoinPortion)] -> StakesList
     computeMultiKeyDistrRest = map (second (`applyCoinPortionDown` txOutValue))
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.

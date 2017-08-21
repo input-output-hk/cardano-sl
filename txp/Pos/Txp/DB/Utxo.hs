@@ -51,8 +51,8 @@ import           Pos.DB                       (DBError (..), DBIteratorClass (..
                                                MonadDBRead, RocksBatchOp (..),
                                                dbIterSource, encodeWithKeyPrefix)
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
-import           Pos.Txp.Core                 (TxIn (..), TxOutAux, addrBelongsToSet,
-                                               txOutStake)
+import           Pos.Txp.Core                 (TxIn (..), TxOutAux (toaOut),
+                                               addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types           (GenesisUtxo (..), Utxo)
 import           Pos.Util.Util                (HasLens', lensOf)
 
@@ -137,7 +137,8 @@ sanityCheckUtxo
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     gws <- view (lensOf @GenesisWStakeholders)
-    let stakesSource = mapOutput (map snd . txOutStake gws . snd) utxoSource
+    let stakesSource =
+            mapOutput (map snd . txOutStake gws . toaOut . snd) utxoSource
     calculatedTotalStake <-
         runConduitRes $ stakesSource .| CL.fold foldAdd (mkCoin 0)
     let fmt =

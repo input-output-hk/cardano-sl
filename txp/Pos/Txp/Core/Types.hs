@@ -7,7 +7,6 @@ module Pos.Txp.Core.Types
        -- * Witness
        , TxInWitness (..)
        , TxWitness
-       , TxOutDistribution
        , TxSigData (..)
        , TxSig
 
@@ -44,7 +43,6 @@ module Pos.Txp.Core.Types
 
 import           Control.Lens         (makeLenses, makePrisms)
 import           Data.Hashable        (Hashable)
-import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
 import           Formatting           (Format, bprint, build, builder, formatToString,
@@ -57,8 +55,8 @@ import           Universum
 import           Pos.Binary.Class     (Bi)
 import           Pos.Binary.Core      ()
 import           Pos.Binary.Crypto    ()
-import           Pos.Core             (Address (..), Coin, Script, StakeholderId,
-                                       addressHash, coinF, mkCoin)
+import           Pos.Core             (Address (..), Coin, Script, addressHash, coinF,
+                                       mkCoin)
 import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                                        Signature, hash, shortHashF)
 import           Pos.Data.Attributes  (Attributes, areAttributesKnown)
@@ -113,12 +111,6 @@ instance NFData TxInWitness
 -- spends (by providing signatures, redeeming scripts, etc). A separate proof
 -- is provided for each input.
 type TxWitness = Vector TxInWitness
-
--- | Distribution of stake associated with one of transaction's
--- outputs. This stake is used mostly by LRC (including
--- follow-the-satoshi algorithm).  Sum of coins in the list should be
--- the same as `txOutValue` of corresponding output.
-type TxOutDistribution = [(StakeholderId, Coin)]
 
 ----------------------------------------------------------------------------
 -- Tx parts

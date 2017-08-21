@@ -15,10 +15,10 @@ import           Formatting          (sformat, (%))
 import           Serokell.Util.Text  (listJson)
 import           System.Wlog         (WithLogger, logDebug)
 
-import           Pos.Core            (GenesisWStakeholders, coinToInteger, mkCoin,
-                                      sumCoins, unsafeIntegerToCoin)
-import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..),
-                                      TxOutDistribution, TxUndo, txOutStake)
+import           Pos.Core            (GenesisWStakeholders, StakesList, coinToInteger,
+                                      mkCoin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..), TxUndo,
+                                      txOutStake)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..))
 import           Pos.Util.Util       (HasLens', lensOf')
 
@@ -50,8 +50,8 @@ rollbackTxsBalances txun = do
 -- Compute new stakeholder's stakes by lists of spent and received coins.
 recomputeStakes
     :: BalancesMode ctx m
-    => TxOutDistribution
-    -> TxOutDistribution
+    => StakesList
+    -> StakesList
     -> m ()
 recomputeStakes plusDistr minusDistr = do
     let (plusStakeHolders, plusCoins) = unzip plusDistr
@@ -97,10 +97,10 @@ recomputeStakes plusDistr minusDistr = do
 concatStakes ::
        GenesisWStakeholders
     -> [(TxAux, TxUndo)]
-    -> (TxOutDistribution, TxOutDistribution)
+    -> (StakesList, StakesList)
 concatStakes gws (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap (txOutStake gws) (foldMap toList undo)
+    undoTxInDistr = concatMap (txOutStake gws . toaOut) (foldMap toList undo)
     concatDistr (TxAux UnsafeTx {..} _) =
-        concatMap (txOutStake gws) $ toList (map TxOutAux _txOutputs)
+        concatMap (txOutStake gws . toaOut) $ toList (map TxOutAux _txOutputs)

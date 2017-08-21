@@ -17,17 +17,17 @@ enqueue:
   requestBlockHeaders:
     - all:
         nodeType: 'core'
-        maxAhead: 1
+        maxAhead: 2
         precedence: 'high'
     - all:
         nodeType: 'relay'
-        maxAhead: 1
+        maxAhead: 2
         precedence: 'high'
 
   requestBlocks:
     - one:
         nodeTypes: ['core', 'relay']
-        maxAhead: 2
+        maxAhead: 3
         precedence: 'high'
 
   mpc:

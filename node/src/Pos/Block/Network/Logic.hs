@@ -114,7 +114,7 @@ triggerRecovery :: forall ssc ctx m.
     => EnqueueMsg m -> m ()
 triggerRecovery enqueue = unlessM recoveryInProgress $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
-    void (enqueue MsgRequestBlockHeaders (\addr _ -> pure (Conversation (requestTip addr))) >>= waitForConversations) `catch`
+    void (enqueue (MsgRequestBlockHeaders Nothing) (\addr _ -> pure (Conversation (requestTip addr))) >>= waitForConversations) `catch`
         \(e :: SomeException) -> do
            logDebug ("Error happened in triggerRecovery: " <> show e)
            throwM e

@@ -41,7 +41,7 @@ import           Foreign.C.Error              (Errno (..), ePIPE)
 import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl             (version)
-import           Pos.CLI                      (readLoggerConfig)
+import           Pos.Client.CLI                (readLoggerConfig)
 import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
 

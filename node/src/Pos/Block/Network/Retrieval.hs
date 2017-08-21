@@ -125,7 +125,7 @@ retrievalWorkerImpl SendActions {..} =
                 let firstHeader = headers ^. _Wrapped . _neLast
                 in handleCHsValid enqueueMsg endedRecoveryVar nodeId
                                   firstHeader (headerHash header)
-        void $ enqueueMsg (MsgRequestBlocks (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $ \conv ->
+        void $ enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $ \_ _ -> pure $ Conversation $ \conv ->
             requestHeaders cont mgh nodeId conv
                 `finally` void (tryPutMVar endedRecoveryVar False)
         -- Block until the conversation has ended.

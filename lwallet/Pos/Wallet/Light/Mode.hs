@@ -25,7 +25,7 @@ import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core                         (HasCoreConstants, SlotId (..),
-                                                   addressHash, makePubKeyAddress)
+                                                   makePubKeyAddress)
 import           Pos.Crypto                       (PublicKey)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Genesis                      (GenesisWStakeholders)
@@ -135,4 +135,4 @@ instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode w
 
 instance MonadAddresses LightWalletMode where
     type AddrData LightWalletMode = PublicKey
-    getNewAddress pk = pure (makePubKeyAddress pk, Just $ addressHash pk)
+    getNewAddress = pure . makePubKeyAddress

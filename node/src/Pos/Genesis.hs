@@ -167,10 +167,8 @@ genesisUtxo ad = GenesisUtxo . M.fromList $ map utxoEntry balances
     balances = concatAddrDistrs ad
     utxoEntry (addr, coin) =
         ( TxIn (unsafeHash addr) 0
-        , TxOutAux
-              (TxOut addr coin)
-              [] -- note: distribution will be removed soon
-         )
+        , TxOutAux (TxOut addr coin)
+        )
 
 -- | Same as 'genesisUtxo' but generates 'GenesisWStakeholders' set
 -- using 'generateWStakeholders' inside and wraps it all in

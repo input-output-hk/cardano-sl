@@ -27,11 +27,9 @@ import           Pos.Crypto                (SignTag (SignTx), WithHash (..), che
 import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
-import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
-                                            TxDistribution (..), TxIn (..),
+import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..), TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
-                                            TxOutDistribution, TxSigData (..), TxUndo,
-                                            TxWitness)
+                                            TxSigData (..), TxUndo, TxWitness)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
@@ -75,7 +73,7 @@ verifyTxUtxo
     => VTxContext
     -> TxAux
     -> m (TxUndo, TxFee)
-verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses _) = do
+verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
     verifyConsistency _txInputs witnesses
     verResToMonadError (ToilInvalidOutputs . formatFirstError) $
         verifyOutputs ctx ta
@@ -117,16 +115,12 @@ verifyConsistency inputs witnesses
     errMsg = sformat errFmt (length inputs) (length witnesses)
 
 verifyOutputs :: VTxContext -> TxAux -> VerificationRes
-verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs) =
+verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
     verifyGeneric $
-    ( length _txOutputs == length (getTxDistribution distrs)
-    , "length of outputs != length of tx distribution") :
-    concatMap
-        verifyOutput
-        (enumerate $ toList (NE.zip _txOutputs (getTxDistribution distrs)))
+    concatMap verifyOutput (enumerate $ toList _txOutputs)
   where
-    verifyOutput :: (Int, (TxOut, TxOutDistribution)) -> [(Bool, Text)]
-    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..}, _)) =
+    verifyOutput :: (Int, TxOut) -> [(Bool, Text)]
+    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..})) =
         [ ( not vtcVerifyAllIsKnown || areAttributesKnown addrAttributes
           , sformat
                 ("output #"%int%" with address "%addressF%
@@ -156,9 +150,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
   where
     uncurry3 f (a, b, c) = f a b c
     witnesses = taWitness
-    distrs = taDistribution
     txHash = hash taTx
-    distrHash = hash distrs
 
     allInputsDifferent :: Bool
     allInputsDifferent = allDistinct (toList (map fst resolvedInputs))
@@ -169,7 +161,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
         -> m ()
-    inputPredicates i (txIn@TxIn{..}, toa@(TxOutAux txOut@TxOut{..} _)) witness = do
+    inputPredicates i (txIn@TxIn{..}, toa@(TxOutAux txOut@TxOut{..})) witness = do
         unless (checkSpendingData txOutAddress witness) $ throwError $
             ToilWitnessDoesntMatch i txIn txOut witness
         -- N.B. @neongreen promised to improve it
@@ -196,7 +188,6 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
     validateTxIn _txOutAux wit =
         let txSigData = TxSigData
                 { txSigTxHash      = txHash
-                , txSigTxDistrHash = distrHash
                 }
         in
         case wit of
@@ -236,11 +227,10 @@ verifyAttributesAreKnown attrs =
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
-applyTxToUtxo :: MonadUtxo m => WithHash Tx -> TxDistribution -> m ()
-applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
+applyTxToUtxo :: MonadUtxo m => WithHash Tx -> m ()
+applyTxToUtxo (WithHash UnsafeTx {..} txid) = do
     mapM_ utxoDel _txInputs
-    mapM_ applyOutput . zip [0 ..] . toList . NE.zipWith TxOutAux _txOutputs $
-        getTxDistribution distr
+    mapM_ applyOutput . zip [0 ..] . toList . map TxOutAux $ _txOutputs
   where
     applyOutput (idx, toa) = utxoPut (TxIn txid idx) toa
 

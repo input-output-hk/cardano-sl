@@ -15,7 +15,7 @@ import           Universum
 import           Control.Lens        (ix)
 import qualified Data.Hashable       as Hashable (hash)
 import qualified Data.HashSet        as HS
-import           Data.List           (zipWith3)
+import           Data.List           (zipWith)
 import qualified Data.Map.Strict     as M
 
 import           Pos.Binary.Core     ()
@@ -32,7 +32,6 @@ import           Pos.Merkle          (mtRoot)
 import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
                                       TxOutAux (..), TxOutDistribution, TxPayload (..),
                                       TxProof (..), mkTxPayload)
-import           Pos.Util.Util       (leftToPanic)
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -82,16 +81,15 @@ mkTxProof UnsafeTxPayload {..} =
     { txpNumber = fromIntegral (length _txpTxs)
     , txpRoot = mtRoot _txpTxs
     , txpWitnessesHash = hash _txpWitnesses
-    , txpDistributionsHash = hash _txpDistributions
     }
 
 -- | Convert 'TxPayload' into a flat list of `TxAux`s.
 flattenTxPayload :: TxPayload -> [TxAux]
 flattenTxPayload UnsafeTxPayload {..} =
-    zipWith3 TxAux (toList _txpTxs) _txpWitnesses _txpDistributions
+    zipWith TxAux (toList _txpTxs) _txpWitnesses
 
 emptyTxPayload :: TxPayload
-emptyTxPayload = leftToPanic @Text "emptyTxPayload failed" $ mkTxPayload []
+emptyTxPayload = mkTxPayload []
 
 ----------------------------------------------------------------------------
 -- Details

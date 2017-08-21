@@ -37,18 +37,18 @@ import           Pos.Types                  (Address, Coin, makePubKeyAddress,
 import           Pos.Util.Util              (eitherToThrow)
 import           Pos.WorkMode.Class         (MinWorkMode)
 
-type TxMode ssc ctx m
+type TxMode ssc m
     = ( MinWorkMode m
       , MonadBalances m
       , MonadTxHistory ssc m
       , MonadMockable m
       , MonadMask m
       , MonadThrow m
-      , TxCreateMode ctx m
+      , TxCreateMode m
       )
 
 submitAndSave
-    :: TxMode ssc ctx m
+    :: TxMode ssc m
     => EnqueueMsg m -> TxAux -> m TxAux
 submitAndSave enqueue txAux@TxAux {..} = do
     let txId = hash taTx
@@ -58,7 +58,7 @@ submitAndSave enqueue txAux@TxAux {..} = do
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 submitMTx
-    :: TxMode ssc ctx m
+    :: TxMode ssc m
     => EnqueueMsg m
     -> NonEmpty (SafeSigner, Address)
     -> NonEmpty TxOutAux
@@ -72,7 +72,7 @@ submitMTx enqueue hdwSigner outputs addrData = do
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
-    :: TxMode ssc ctx m
+    :: TxMode ssc m
     => EnqueueMsg m
     -> SafeSigner
     -> NonEmpty TxOutAux
@@ -85,7 +85,7 @@ submitTx enqueue ss outputs addrData = do
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx
-    :: TxMode ssc ctx m
+    :: TxMode ssc m
     => EnqueueMsg m
     -> RedeemSecretKey
     -> Address
@@ -96,7 +96,7 @@ submitRedemptionTx enqueue rsk output = do
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
         txOuts = one $
-            TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
+            TxOutAux {toaOut = TxOut output redeemBalance}
     when (redeemBalance == mkCoin 0) $ throwM . TxError $ "Redeem balance is 0"
     txw <- eitherToThrow =<< createRedemptionTx utxo rsk txOuts
     txAux <- submitAndSave enqueue txw

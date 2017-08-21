@@ -29,8 +29,7 @@ import           Pos.Crypto                        (Hash, SecretKey, SignTag (Si
 import           Pos.Data.Attributes               (mkAttributes)
 import           Pos.Merkle                        (MerkleNode (..), MerkleRoot (..),
                                                     MerkleTree, mkMerkleTree)
-import           Pos.Txp.Core.Types                (Tx (..), TxAux (..),
-                                                    TxDistribution (..), TxIn (..),
+import           Pos.Txp.Core.Types                (Tx (..), TxAux (..), TxIn (..),
                                                     TxInWitness (..), TxOut (..),
                                                     TxOutAux (..), TxPayload (..),
                                                     TxProof (..), TxSigData (..), mkTx,
@@ -66,10 +65,6 @@ instance Arbitrary TxInWitness where
         ScriptWitness a b -> uncurry ScriptWitness <$> shrink (a, b)
         _ -> []
 
-instance Arbitrary TxDistribution where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
 instance Arbitrary TxIn where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -104,12 +99,12 @@ instance Arbitrary Tx where
 buildProperTx
     :: NonEmpty (Tx, SecretKey, SecretKey, Coin)
     -> (Coin -> Coin, Coin -> Coin)
-    -> NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    -> NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
 buildProperTx inputList (inCoin, outCoin) =
     txList <&> \(tx, txIn, fromSk, txOutput) ->
-        ( (tx, makeNullDistribution tx)
+        ( tx
         , txIn
-        , TxOutAux txOutput []
+        , TxOutAux txOutput
         , mkWitness fromSk
         )
   where
@@ -127,8 +122,6 @@ buildProperTx inputList (inCoin, outCoin) =
            , makeTxOutput toSk outC )
     -- why is it called txList? I've no idea what's going on here (@neongreen)
     txList = fmap fun inputList
-    newDistr = TxDistribution (NE.fromList $ replicate (length txList) [])
-    newDistrHash = hash newDistr
     newTx = fromMaybe (error "buildProperTx: can't create tx") $
             mkTx ins outs def
     newTxHash = hash newTx
@@ -137,26 +130,22 @@ buildProperTx inputList (inCoin, outCoin) =
     mkWitness fromSk = PkWitness
         { twKey = toPublic fromSk
         , twSig = sign SignTx fromSk TxSigData {
-                      txSigTxHash = newTxHash,
-                      txSigTxDistrHash = newDistrHash } }
-    makeNullDistribution tx =
-        TxDistribution (NE.fromList $ replicate (length (_txOutputs tx)) [])
+                      txSigTxHash = newTxHash } }
     makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
 
 -- | Well-formed transaction 'Tx'.
 --
 -- TODO: this type is hard to use and should be rewritten as a record
 newtype GoodTx = GoodTx
-    { getGoodTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    { getGoodTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
 goodTxToTxAux :: GoodTx -> TxAux
-goodTxToTxAux (GoodTx l) = TxAux tx witness distr
+goodTxToTxAux (GoodTx l) = TxAux tx witness
   where
     tx = fromMaybe (error "goodTxToTxAux created malformed tx") $
          mkTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
-    distr = TxDistribution $ map (toaDistr . view _3) l
 
 instance Arbitrary GoodTx where
     arbitrary =
@@ -168,12 +157,12 @@ instance Arbitrary GoodTx where
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
-    { getBadSigsTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    { getBadSigsTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
 -- | Ill-formed 'Tx' that spends an input twice.
 newtype DoubleInputTx = DoubleInputTx
-    { getDoubleInputTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    { getDoubleInputTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
 instance Arbitrary BadSigsTx where
@@ -219,17 +208,14 @@ txOutDistGen =
     listOf $ do
         txInW <- arbitrary
         txIns <- arbitrary
-        (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
+        txOuts <- arbitrary
         let tx =
                 either
                     (error . mappend "failed to create tx in txOutDistGen: ")
                     identity $
                 mkTx txIns txOuts (mkAttributes ())
-        return $ TxAux tx (txInW) txDist
+        return $ TxAux tx (txInW)
 
 instance Arbitrary TxPayload where
-    arbitrary =
-        fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
-        mkTxPayload <$>
-        txOutDistGen
+    arbitrary = mkTxPayload <$> txOutDistGen
     shrink = genericShrink

@@ -8,7 +8,6 @@ module Pos.Txp.Core.Types
        , TxInWitness (..)
        , TxWitness
        , TxOutDistribution
-       , TxDistribution (..)
        , TxSigData (..)
        , TxSig
 
@@ -35,7 +34,6 @@ module Pos.Txp.Core.Types
        , mkTxPayload
        , txpTxs
        , txpWitnesses
-       , txpDistributions
 
        -- * Undo
        , TxUndo
@@ -52,8 +50,7 @@ import           Data.Vector          (Vector)
 import           Formatting           (Format, bprint, build, builder, formatToString,
                                        int, later, sformat, (%))
 import           Serokell.Util.Base16 (base16F)
-import           Serokell.Util.Text   (listBuilderJSON, listJson, listJsonIndent,
-                                       pairBuilder)
+import           Serokell.Util.Text   (listJson, listJsonIndent)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, verifyGeneric)
 import           Universum
 
@@ -78,8 +75,6 @@ type TxId = Hash Tx
 data TxSigData = TxSigData
     { -- | Transaction that we're signing
       txSigTxHash      :: !(Hash Tx)
-      -- | Distribution of the transaction
-    , txSigTxDistrHash :: !(Hash TxDistribution)
     }
     deriving (Eq, Show, Generic, Typeable)
 
@@ -125,19 +120,6 @@ type TxWitness = Vector TxInWitness
 -- the same as `txOutValue` of corresponding output.
 type TxOutDistribution = [(StakeholderId, Coin)]
 
--- | Distribution of "fake" stake that follow-the-satoshi would use
--- for a particular transaction.  Length of stored list must be same
--- as length of '_txOutputs' of corresponding transaction.
-newtype TxDistribution = TxDistribution
-    { getTxDistribution :: NonEmpty TxOutDistribution
-    } deriving (Eq, Show, Generic, Typeable)
-
-instance Buildable TxDistribution where
-    build (TxDistribution x) =
-        listBuilderJSON . map (listBuilderJSON . map pairBuilder) $ x
-
-instance NFData TxDistribution
-
 ----------------------------------------------------------------------------
 -- Tx parts
 ----------------------------------------------------------------------------
@@ -174,15 +156,12 @@ instance NFData TxOut
 -- | Transaction output and auxilary data corresponding to it.
 -- [CSL-366] Add more data.
 data TxOutAux = TxOutAux
-    { toaOut   :: !TxOut             -- ^ Tx output
-    , toaDistr :: !TxOutDistribution -- ^ Stake distribution
-                                     -- associated with output
+    { toaOut   :: !TxOut
+    -- ^ Tx output
     } deriving (Generic, Show, Eq, Ord)
 
 instance Buildable TxOutAux where
-    build (TxOutAux out distr) =
-        bprint ("{txout = "%build%", distr = "%listJson%"}")
-               out (map pairBuilder distr)
+    build (TxOutAux out) = bprint ("{txout = "%build%"}") out
 
 instance NFData TxOutAux
 
@@ -208,9 +187,8 @@ makeLenses ''Tx
 
 -- | Transaction + auxiliary data
 data TxAux = TxAux
-    { taTx           :: !Tx
-    , taWitness      :: !TxWitness
-    , taDistribution :: !TxDistribution
+    { taTx      :: !Tx
+    , taWitness :: !TxWitness
     } deriving (Generic, Show, Eq)
 
 instance Hashable Tx
@@ -234,10 +212,8 @@ txF = build
 
 -- | Specialized formatter for 'TxAux'.
 txaF :: Bi Tx => Format r (TxAux -> r)
-txaF = later $ \(TxAux tx w d) ->
-    bprint (build%"\n"%
-            "witnesses: "%listJsonIndent 4%"\n"%
-            "distribution: "%build) tx w d
+txaF = later $ \(TxAux tx w) ->
+    bprint (build%"\n"%"witnesses: "%listJsonIndent 4) tx w
 
 instance Bi Tx => Buildable TxAux where
     build = bprint txaF
@@ -267,10 +243,9 @@ mkTx inputs outputs attrs =
 ----------------------------------------------------------------------------
 
 data TxProof = TxProof
-    { txpNumber            :: !Word32
-    , txpRoot              :: !(MerkleRoot Tx)
-    , txpWitnessesHash     :: !(Hash [TxWitness])
-    , txpDistributionsHash :: !(Hash [TxDistribution])
+    { txpNumber        :: !Word32
+    , txpRoot          :: !(MerkleRoot Tx)
+    , txpWitnessesHash :: !(Hash [TxWitness])
     } deriving (Show, Eq, Generic)
 
 instance NFData TxProof
@@ -280,7 +255,7 @@ instance NFData TxProof
 -- with different number of transactions and witnesses.
 data TxPayload = UnsafeTxPayload
     { -- | Transactions are the main payload.
-      _txpTxs           :: !(MerkleTree Tx)
+      _txpTxs       :: !(MerkleTree Tx)
     , -- | Witnesses for each transaction. The length of this field is
       -- checked during deserialisation; we can't put witnesses into the same
       -- Merkle tree with transactions, as the whole point of SegWit is to
@@ -288,50 +263,24 @@ data TxPayload = UnsafeTxPayload
       --
       -- TODO: should they be put into a separate Merkle tree or left as
       -- a list?
-      _txpWitnesses     :: ![TxWitness]
-    , -- | Stake distribution for each transaction. Follow-the-satoshi will
-      -- use this information to decide who “owns” which satoshi, even though
-      -- in reality we don't know it for e.g. P2SH transactions. So, one of
-      -- the reasons we need distributions is that we want (potential)
-      -- receivers of P2SH funds to count as stakeholders, though there are
-      -- also other things distributions are useful for.
-      _txpDistributions :: ![TxDistribution]
+      _txpWitnesses :: ![TxWitness]
     } deriving (Show, Eq, Generic)
 
 instance NFData TxPayload
 
 makeLenses ''TxPayload
 
--- | Smart constructor of 'TxPayload' which can fail if some
--- invariants are violated.
+-- | Smart constructor of 'TxPayload' which ensures that invariants of 'TxPayload' hold.
 --
--- Currently there are two invariants:
--- • number of txs must be same as number of witnesses and
---   number of distributions;
--- • each distribution must have the same number of elements as
---   number of outputs in corresponding transaction.
-mkTxPayload
-    :: (Bi Tx, MonadFail m)
-    => [TxAux] -> m TxPayload
+-- Currently there is only one invariant:
+-- • number of txs must be same as number of witnesses.
+mkTxPayload :: (Bi Tx) => [TxAux] -> TxPayload
 mkTxPayload txws = do
-    let (txs, _txpWitnesses, _txpDistributions) =
-            unzip3 . map (liftA3 (,,) taTx taWitness taDistribution) $ txws
-    let _txpTxs = mkMerkleTree txs
-    let payload = UnsafeTxPayload {..}
-    mapM_ checkLen (zip3 [0 ..] txs _txpDistributions) $> payload
+    UnsafeTxPayload {..}
   where
-    checkLen
-        :: MonadFail m
-        => (Int, Tx, TxDistribution) -> m ()
-    checkLen (i, tx, ds) = do
-        let lenOut = length (_txOutputs tx)
-            lenDist = length (getTxDistribution ds)
-        when (lenOut /= lenDist) $ fail $
-            formatToString
-                ("mkTxPayload: amount of outputs ("%int%") of tx "%
-                 "#"%int%" /= amount of distributions " %
-                 "for this tx ("%int%")")
-                lenOut i lenDist
+    (txs, _txpWitnesses) =
+            unzip . map (liftA2 (,) taTx taWitness) $ txws
+    _txpTxs = mkMerkleTree txs
 
 ----------------------------------------------------------------------------
 -- Undo

@@ -21,12 +21,10 @@ import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck           (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic   (pick)
 
-import           Pos.AllSecrets            (HasAllSecrets (..), InvAddrSpendingData,
-                                            mkAllSecretsSimple, unInvAddrSpendingData)
+import           Pos.AllSecrets            (HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
-import           Pos.Core                  (AddrDistribution, AddrSpendingData (..),
-                                            Address (..), Coin, EpochIndex,
+import           Pos.Core                  (AddrDistribution, Coin, EpochIndex,
                                             GenesisWStakeholders (..), HasCoreConstants,
                                             StakeholderId, addressHash,
                                             applyCoinPortionUp, blkSecurityParam, coinF,
@@ -38,7 +36,7 @@ import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutAux (..),
-                                            TxOutDistribution, mkTxPayload)
+                                            mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys, lensOf)
 
@@ -87,7 +85,6 @@ genTestParams = do
     secretKeys <- nonrepeating stakeholdersNum
     let _tpAllSecrets = mkAllSecretsSimple secretKeys
     let invSecretsMap = _tpAllSecrets ^. asSecretKeys
-    let invAddrSD = _tpAllSecrets ^. asSpendingData
     let minTotalStake = mkCoin 100000
     -- Total stake inside one group.
     totalStakeGroup <-
@@ -100,22 +97,15 @@ genTestParams = do
         mapM (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
              (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
-    let _tpGenesisContext = genesisContextSimple invAddrSD addressesAndDistrs
+    let _tpGenesisContext = genesisContextSimple addressesAndDistrs
     return TestParams {..}
   where
-    identityDistr :: InvAddrSpendingData -> Address -> Coin -> TxOutDistribution
-    identityDistr (unInvAddrSpendingData -> addrToSpending) addr coin =
-        case addrToSpending ^. at addr of
-            Just (PubKeyASD (addressHash -> sId)) -> [(sId, coin)]
-            _ -> error $ "identityDistr failed for address " <> pretty addr
-
-    genesisContextSimple :: InvAddrSpendingData -> [AddrDistribution] -> GenesisContext
-    genesisContextSimple invAddrSpendingData addrDistr = do
+    genesisContextSimple :: [AddrDistribution] -> GenesisContext
+    genesisContextSimple addrDistr = do
         let balances = concatAddrDistrs addrDistr
         let utxoEntry (addr, coin) =
                 ( TxIn (unsafeHash addr) 0
                 , TxOutAux (TxOut addr coin)
-                           (identityDistr invAddrSpendingData addr coin)
                 )
         -- We don't care about genesis stakeholders, because in this
         -- test we don't make any txs.  If we add txs, we will need to
@@ -271,14 +261,11 @@ checkRichmen = do
                 poorGuyStake totalStake
 
 genAndApplyBlockFixedTxs :: HasCoreConstants => [TxAux] -> BlockProperty ()
-genAndApplyBlockFixedTxs txs =
-    case mkTxPayload txs of
-        Left err -> stopProperty err
-        Right txPayload -> do
-            emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)
-            let blund =
-                    emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
-            lift $ applyBlocksUnsafe (one blund) Nothing
+genAndApplyBlockFixedTxs txs = do
+    let txPayload = mkTxPayload txs
+    emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)
+    let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
+    lift $ applyBlocksUnsafe (one blund) Nothing
 
 -- TODO: we can't change stake in bootstrap era!
 -- This part should be implemented in CSL-1450.

@@ -126,9 +126,7 @@ txScriptCheck sigData validator redeemer = case spoon result of
         (script, env) <- PL.buildValidationScript stdlib valScr redScr
         let txInfo = PLCore.TransactionInfo
                 { txHash      = BSL.fromStrict . BA.convert $
-                                txSigTxHash sigData
-                , txDistrHash = BSL.fromStrict . BA.convert $
-                                txSigTxDistrHash sigData }
+                                txSigTxHash sigData }
         PL.checkValidationResult txInfo (script, env)
 
 stdlib :: PL.DeclContext

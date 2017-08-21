@@ -151,8 +151,6 @@ data AddrType
     | ATUnknown !Word8
     deriving (Eq, Ord, Generic, Typeable, Show)
 
--- TODO [CSL-1489] This stake distribution is currently unused!
-
 -- | Stake distribution associated with an address.
 data AddrStakeDistribution
     = BootstrapEraDistr

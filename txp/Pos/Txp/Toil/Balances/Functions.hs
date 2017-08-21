@@ -11,7 +11,6 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
-import qualified Data.List.NonEmpty  as NE
 import           Formatting          (sformat, (%))
 import           Serokell.Util.Text  (listJson)
 import           System.Wlog         (WithLogger, logDebug)
@@ -19,8 +18,7 @@ import           System.Wlog         (WithLogger, logDebug)
 import           Pos.Core            (GenesisWStakeholders, coinToInteger, mkCoin,
                                       sumCoins, unsafeIntegerToCoin)
 import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..),
-                                      TxOutDistribution, TxUndo, getTxDistribution,
-                                      txOutStake)
+                                      TxOutDistribution, TxUndo, txOutStake)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..))
 import           Pos.Util.Util       (HasLens', lensOf')
 
@@ -104,6 +102,5 @@ concatStakes gws (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap (txOutStake gws) (foldMap toList undo)
-    concatDistr (TxAux UnsafeTx {..} _ distr) =
-        concatMap (txOutStake gws) $
-        toList (NE.zipWith TxOutAux _txOutputs (getTxDistribution distr))
+    concatDistr (TxAux UnsafeTx {..} _) =
+        concatMap (txOutStake gws) $ toList (map TxOutAux _txOutputs)

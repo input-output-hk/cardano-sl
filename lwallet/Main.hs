@@ -51,7 +51,7 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    submitVote, txRelays, usRelays, worker)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
-import           Pos.Core                         (addressHash, coinF, makePubKeyAddress)
+import           Pos.Core                         (coinF, makePubKeyAddress)
 import           Pos.Core.Coin                    (subCoin)
 import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types                   (Timestamp (..), mkCoin)
@@ -163,7 +163,7 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
         lift $ submitTx
             (immediateConcurrentConversations sendActions na)
             ss
-            (map (flip TxOutAux []) outputs)
+            (map TxOutAux outputs)
             curPk
     case etx of
         Left err      -> putText $ sformat ("Error: "%stext) err
@@ -197,10 +197,12 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                     txOutAddress = makePubKeyAddress (toPublic key),
                     txOutValue = val2
                     }
-                stakeholderId = addressHash (toPublic key)
-                toDistr val = [(stakeholderId, val)]
-                txOuts = TxOutAux txOut1 (toDistr val1)
-                    :| [TxOutAux txOut2 (toDistr val2)]
+                -- FXIME CSL-1489
+                -- stakeholderId = addressHash (toPublic key)
+                -- toDistr val = [(stakeholderId, val)]
+                -- txOuts = TxOutAux txOut1 (toDistr val1)
+                --     :| [TxOutAux txOut2 (toDistr val2)]
+                txOuts = TxOutAux txOut1 :| [TxOutAux txOut2]
             neighbours <- case sendMode of
                     SendNeighbours -> return na
                     SendRoundRobin -> return [na !! (n `mod` nNeighbours)]

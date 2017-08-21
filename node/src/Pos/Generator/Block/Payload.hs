@@ -24,8 +24,7 @@ import           System.Random              (RandomGen (..))
 
 import           Pos.AllSecrets             (asSecretKeys, asSpendingData,
                                              unInvAddrSpendingData, unInvSecretsMap)
-import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot,
-                                             runTxCreator, txToLinearFee, unTxError)
+import           Pos.Client.Txp.Util        (makeAbstractTx, txToLinearFee, unTxError)
 import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
                                              SlotId (..), StakeholderId, TxFeePolicy (..),
                                              addressHash, bvdTxFeePolicy, coinToInteger,
@@ -213,15 +212,7 @@ genTxPayload = do
                 coins <- splitCoins outputsN (unsafeIntegerToCoin outputsSum)
                 let txOuts :: NonEmpty TxOut
                     txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-                let txOutToOutAux txOut@(TxOut addr coin) = do
-                        sk <- addrToSk addr
-                        let sId :: StakeholderId
-                            sId = addressHash (toPublic sk)
-                        let distr = one (sId, coin)
-                        return TxOutAux { toaOut = txOut, toaDistr = distr }
-                txOutAuxsPre <- mapM txOutToOutAux txOuts
-                either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
-                    runTxCreator (overrideTxDistrBoot txOutAuxsPre)
+                return $ map TxOutAux txOuts
 
         ----- TX
 
@@ -259,7 +250,7 @@ genTxPayload = do
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
-                Utxo.applyTxToUtxo (WithHash tx txId) (taDistribution txAux)
+                Utxo.applyTxToUtxo (WithHash tx txId)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
                 let outsAsIns =
                         map (TxIn txId) [0..(fromIntegral $ length txOutAuxs)-1]

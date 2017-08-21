@@ -451,8 +451,10 @@ newtype LocalSlotIndex = UnsafeLocalSlotIndex
     { getSlotIndex :: Word16
     } deriving (Show, Eq, Ord, Ix, Generic, Hashable, Buildable, Typeable, NFData)
 
--- | Slot is identified by index of epoch and local index of slot in
--- this epoch. This is a global index
+
+-- | Slot is identified by index of epoch and index of slot in
+-- this epoch. This is a global index, an index to a global
+-- slot position.
 data SlotId = SlotId
     { siEpoch :: !EpochIndex
     , siSlot  :: !LocalSlotIndex

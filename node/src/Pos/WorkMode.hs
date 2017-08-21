@@ -53,10 +53,7 @@ import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum  (currentTimeSlottingSum,
                                          getCurrentSlotBlockingSum,
                                          getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState  (HasSlottingVar (..), MonadSlotsData (..),
-                                         getSlottingDataDefault, getSystemStartDefault,
-                                         putSlottingDataDefault,
-                                         waitPenultEpochEqualsDefault)
+import           Pos.Slotting.MemState  (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass)
 import           Pos.Ssc.Class.Types    (SscBlock)
 import           Pos.Ssc.Extra          (SscMemTag, SscState)
@@ -72,6 +69,7 @@ import           Pos.Util.TimeWarp      (CanJsonLog (..))
 import           Pos.Util.UserSecret    (HasUserSecret (..))
 import           Pos.Util.Util          (postfixLFields)
 import           Pos.WorkMode.Class     (MinWorkMode, TxpExtra_TMP, WorkMode)
+
 
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -145,13 +143,9 @@ instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
     jsonLog = jsonLogDefault
 
-instance MonadSlotsData (RealMode ssc) where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
-
-instance HasCoreConstants => MonadSlots (RealMode ssc) where
+instance (HasCoreConstants, MonadSlotsData ctx (RealMode ssc))
+      => MonadSlots ctx (RealMode ssc)
+  where
     getCurrentSlot = getCurrentSlotSum
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum

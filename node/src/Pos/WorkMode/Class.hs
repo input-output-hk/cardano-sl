@@ -67,7 +67,7 @@ type WorkMode ssc ctx m
     = ( MinWorkMode m
       , MonadBaseControl IO m
       , MonadMask m
-      , MonadSlots m
+      , MonadSlots ctx m
       , MonadDB m
       , MonadRealDB ctx m
       , MonadGState m

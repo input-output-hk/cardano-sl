@@ -74,7 +74,7 @@ import           Pos.Txp.Logic           (txNormalize)
 
 -- | Set of basic constraints used by high-level block processing.
 type MonadBlockBase ssc ctx m
-     = ( MonadSlogBase ssc m
+     = ( MonadSlogBase ssc ctx m
        -- Needed because SSC state is fully stored in memory.
        , MonadSscMem ssc ctx m
        -- Needed to load blocks (at least delegation does it).
@@ -114,7 +114,7 @@ type MonadBlockApply ssc ctx m
        )
 
 type MonadMempoolNormalization ssc ctx m
-    = ( MonadSlogBase ssc m
+    = ( MonadSlogBase ssc ctx m
       , MonadTxpMem TxpExtra_TMP ctx m
       , SscLocalDataClass ssc
       , MonadSscMem ssc ctx m

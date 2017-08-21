@@ -51,7 +51,7 @@ type ETxpLocalWorkMode ctx m =
     , MonadGState m
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
-    , MonadSlots m
+    , MonadSlots ctx m
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
     )
 
@@ -184,7 +184,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
 --   3. Set new tip to txp local data
 eTxNormalize ::
        ( ETxpLocalWorkMode ctx m
-       , MonadSlots m
+       , MonadSlots ctx m
        )
     => m ()
 eTxNormalize = getCurrentSlot >>= \case

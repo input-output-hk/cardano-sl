@@ -41,7 +41,7 @@ import           Universum
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
-import           Data.Time.Units              (convertUnit)
+import           Data.Time.Units              (Microsecond, convertUnit)
 import qualified Database.RocksDB             as Rocks
 import           Serokell.Data.Memory.Units   (Byte)
 
@@ -61,7 +61,8 @@ import           Pos.DB                       (DBIteratorClass (..), DBTag (..),
                                                RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
-import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData,
+                                               createInitSlottingData)
 import           Pos.Update.Constants         (genesisBlockVersion,
                                                genesisSoftwareVersions, ourAppName)
 import           Pos.Update.Core              (BlockVersionData (..), UpId,
@@ -114,15 +115,14 @@ getConfirmedSV = gsGetBi . confirmedVersionKey
 getSlottingData :: MonadDBRead m => m SlottingData
 getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
   where
-    msg =
-        "Update System part of GState DB is not initialized (slotting data is missing)"
+    msg = "Update System part of GState DB is not initialized (slotting data is missing)"
 
 -- | Get proposers for current epoch.
 getEpochProposers :: MonadDBRead m => m (HashSet StakeholderId)
 getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
   where
     msg =
-        "Update System part of GState DB is not initialized (epoch proposers are missing)"
+      "Update System part of GState DB is not initialized (epoch proposers are missing)"
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -174,27 +174,29 @@ instance HasCoreConstants => RocksBatchOp UpdateOp where
 
 initGStateUS :: (HasCoreConstants, MonadDB m) => m ()
 initGStateUS = do
-    let genesisEpochDuration =
-            fromIntegral epochSlots * convertUnit genesisSlotDuration
-        genesisSlottingData = SlottingData
-            { sdPenult      = esdPenult
-            , sdPenultEpoch = 0
-            , sdLast        = esdLast
-            }
-        esdPenult = EpochSlottingData
-            { esdSlotDuration = genesisSlotDuration
-            , esdStartDiff    = 0
-            }
-        epoch1Start = TimeDiff genesisEpochDuration
-        esdLast = EpochSlottingData
-            { esdSlotDuration = genesisSlotDuration
-            , esdStartDiff    = epoch1Start
-            }
     writeBatchGState $
         PutSlottingData genesisSlottingData :
         PutEpochProposers mempty :
         SetAdopted genesisBlockVersion genesisBlockVersionData :
         map ConfirmVersion genesisSoftwareVersions
+  where
+    genesisEpochDuration :: Microsecond
+    genesisEpochDuration = fromIntegral epochSlots * convertUnit genesisSlotDuration
+
+    esdCurrent :: EpochSlottingData
+    esdCurrent = EpochSlottingData
+        { esdSlotDuration = genesisSlotDuration
+        , esdStartDiff    = 0
+        }
+
+    esdNext :: EpochSlottingData
+    esdNext = EpochSlottingData
+        { esdSlotDuration = genesisSlotDuration
+        , esdStartDiff    = TimeDiff genesisEpochDuration
+        }
+
+    genesisSlottingData :: SlottingData
+    genesisSlottingData = createInitSlottingData esdCurrent esdNext
 
 ----------------------------------------------------------------------------
 -- Iteration

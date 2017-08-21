@@ -25,8 +25,8 @@ import           System.Wlog           (WithLogger, getLoggerName, logError, log
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
 import qualified Pos.Constants         as Const
-import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
-                                        getOurPublicKey, ncNetworkConfig)
+import           Pos.Context           (BlkSemaphore (..), getOurPublicKey,
+                                        ncNetworkConfig)
 import           Pos.DHT.Real          (KademliaDHTInstance (..),
                                         kademliaJoinNetworkNoThrow,
                                         kademliaJoinNetworkRetry)
@@ -62,11 +62,9 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
-    addr <- getOurPubKeyAddress
     let pkHash = addressHash pk
-    logInfoS $ sformat ("My public key is: "%build%
-                        ", address: "%build%
-                        ", pk hash: "%build) pk addr pkHash
+    logInfoS $ sformat ("My public key is: "%build%", pk hash: "%build)
+        pk pkHash
 
     -- Synchronously join the Kademlia network before doing any more.
     --

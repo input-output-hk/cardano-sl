@@ -6,8 +6,9 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), deriveSimpleBi, enforceSize, encodeListLen,
-                                     decodeListLen, matchSize, deserialize', serialize')
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), decodeListLen,
+                                     deriveSimpleBi, deserialize', encodeListLen,
+                                     enforceSize, matchSize, serialize')
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
@@ -19,10 +20,18 @@ import qualified Pos.Txp.Core.Types as T
 ----------------------------------------------------------------------------
 
 instance Bi T.TxIn where
-  encode txIn = encodeListLen 2 <> encode (T.txInHash txIn) <> encode (T.txInIndex txIn)
+  -- [CSL-1526] Support the "unknown" pattern for encoding a `TxIn`, so that
+  -- we can down the line extend the `TxIn` type is a backward-compatible way.
+  encode txIn =  encodeListLen 3
+              <> encode (0 :: Word8)
+              <> encode (T.txInHash txIn)
+              <> encode (T.txInIndex txIn)
   decode = do
-    enforceSize "TxIn" 2
-    T.TxIn <$> decode <*> decode
+    enforceSize "TxIn" 3
+    tag <- decode @Word8
+    case tag of
+        0 -> T.TxIn <$> decode <*> decode
+        _ -> fail $ "Error decoding TxIn, tag not supported: " <> show tag
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [

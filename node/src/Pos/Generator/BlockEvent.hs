@@ -53,7 +53,6 @@ import           Control.Lens                (folded, makeLenses, makePrisms, to
 import           Control.Monad.Random.Strict (RandT, Random (..), RandomGen, mapRandT,
                                               weighted)
 import qualified Data.ByteString.Short       as SBS
-import           Data.Default                (def)
 import qualified Data.List                   as List
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as Map
@@ -69,7 +68,7 @@ import           Pos.Core                    (HasCoreConstants, HeaderHash, head
                                               prevBlockL)
 import           Pos.Crypto.Hashing          (hashHexF)
 import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
-                                              TxGenParams, genBlocks)
+                                              TxGenParams(..), genBlocks)
 import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.GState.Context          (withClonedGState)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
@@ -180,7 +179,7 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
     let
         BlockchainTree blockDesc blockchainForest = blockchainTree
         txGenParams = case blockDesc of
-            BlockDescDefault  -> def
+            BlockDescDefault  -> TxGenParams (0, 0) 0
             BlockDescCustom p -> p
         blockGenParams = BlockGenParams
             { _bgpSecrets         = secrets

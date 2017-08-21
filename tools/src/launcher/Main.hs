@@ -6,11 +6,13 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+import           Universum
+
 import           Control.Concurrent           (modifyMVar_)
 import           Control.Concurrent.Async     (Async, async, cancel, poll, wait, waitAny,
                                                withAsyncWithUnmask)
 import           Data.List                    (isSuffixOf)
-import qualified Data.String.QQ               as Q
+import qualified NeatInterpolation            as Q (text)
 import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
@@ -32,7 +34,6 @@ import qualified System.Process               as Process
 import           System.Timeout               (timeout)
 import           System.Wlog                  (lcFilePrefix)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Universum
 
 -- Modules needed for system'
 import           Control.Exception            (handle, mask_, throwIO)
@@ -40,7 +41,7 @@ import           Foreign.C.Error              (Errno (..), ePIPE)
 import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl             (version)
-import           Pos.CLI                      (readLoggerConfig)
+import           Pos.Client.CLI                (readLoggerConfig)
 import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
 
@@ -136,7 +137,7 @@ getLauncherOptions = execParser programInfo
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = Just [Q.s|
+usageExample = (Just . fromString @Doc . toString @Text) [Q.text|
 Command example:
 
   stack exec -- cardano-launcher                                   \

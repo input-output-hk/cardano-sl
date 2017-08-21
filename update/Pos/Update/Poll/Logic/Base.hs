@@ -40,17 +40,19 @@ import           Formatting              (build, int, sformat, (%))
 import           System.Wlog             (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Update       ()
-import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
-                                          IsMainHeader (..), ScriptVersion, SlotId,
-                                          SoftforkRule (..), TimeDiff (..), addressHash,
-                                          applyCoinPortionUp, coinPortionDenominator,
-                                          coinToInteger, difficultyL, getCoinPortion,
+import           Pos.Core                (BlockVersion (..), Coin, EpochIndex,
+                                          HasCoreConstants, HeaderHash, IsMainHeader (..),
+                                          ScriptVersion, SlotId, SoftforkRule (..),
+                                          TimeDiff (..), addressHash, applyCoinPortionUp,
+                                          coinPortionDenominator, coinToInteger,
+                                          difficultyL, epochSlots, getCoinPortion,
                                           headerHashG, isBootstrapEra, mkCoinPortion,
                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                                           unsafeSubCoin)
-import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
-import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting            (EpochSlottingData (..), SlottingData,
+                                          addEpochSlottingData,
+                                          getCurrentEpochSlottingData, getNextEpochIndex)
 import           Pos.Update.Core         (BlockVersionData (..),
                                           BlockVersionModifier (..), UpId,
                                           UpdateProposal (..), UpdateVote (..),
@@ -64,6 +66,7 @@ import           Pos.Update.Poll.Types   (BlockVersionState (..),
                                           UpsExtra (..), bvsIsConfirmed, bvsScriptVersion,
                                           cpsBlockVersion)
 import           Pos.Util.Util           (leftToPanic)
+
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -205,37 +208,49 @@ adoptBlockVersion winningBlk bv = do
     logFmt = "BlockVersion is adopted: "%build%"; winning block was "%shortHashF
 
 -- | Update slotting data stored in poll. First argument is epoch for
--- which currently adopted 'BlockVersion' can be applied.
+-- which currently adopted 'BlockVersion' can be applied. Here we update the
+-- @SlottingData@ from the update. We can recieve updated epoch @SlottingData@
+-- and from it, changed epoch/slot times, which is important to keep track of.
 updateSlottingData
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => EpochIndex -> m ()
-updateSlottingData epoch = do
-    sd@SlottingData {..} <- getSlottingData
+    :: (HasCoreConstants, MonadError PollVerFailure m, MonadPoll m)
+    => EpochIndex
+    -> m ()
+updateSlottingData epochIndex = do
     let errFmt =
-            ("can't update slotting data, stored penult epoch is "%int%
+            ("can't update slotting data, stored current epoch is "%int%
              ", while given epoch is "%int%
              ")")
-    if | sdPenultEpoch + 1 == epoch -> updateSlottingDataDo sd
+
+    slottingData         <- getSlottingData
+
+    --let currentEpochIndex = getCurrentEpochIndex slottingData
+    let nextEpochIndex    = getNextEpochIndex slottingData
+    let currentEpochSD    = getCurrentEpochSlottingData slottingData
+
+    if | nextEpochIndex + 1 == epochIndex ->
+          -- We don't need an epochIndex since it's always being added at the end.
+          updateSlottingDataDo slottingData currentEpochSD
        -- This can happen if there was rollback of genesis block.
-       | sdPenultEpoch == epoch -> pass
+       | nextEpochIndex == epochIndex -> pass
        | otherwise ->
-           throwError $ PollInternalError $ sformat errFmt sdPenultEpoch epoch
+           throwError $ PollInternalError $ sformat errFmt nextEpochIndex epochIndex
   where
-    updateSlottingDataDo sd@SlottingData {..} = do
+    -- | Here we calculate the new @EpochSlottingData@ and add it in the
+    -- @MonadPoll@ memory @SlottingData@.
+    updateSlottingDataDo :: MonadPoll m => SlottingData -> EpochSlottingData -> m ()
+    updateSlottingDataDo slottingData esd = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
-        let epochDuration = fromIntegral epochSlots *
-                            convertUnit (esdSlotDuration sdLast)
-        let newLastStartDiff =
-                esdStartDiff sdLast + TimeDiff epochDuration
-        let newLast =
-                EpochSlottingData
-                {esdSlotDuration = latestSlotDuration, esdStartDiff = newLastStartDiff}
-        setSlottingData
-            sd
-            { sdPenultEpoch = sdPenultEpoch + 1
-            , sdPenult = sdLast
-            , sdLast = newLast
+
+        let epochDuration = fromIntegral epochSlots * convertUnit (esdSlotDuration esd)
+        let newLastStartDiff = esdStartDiff esd + TimeDiff epochDuration
+        let newESD = EpochSlottingData {
+              esdSlotDuration = latestSlotDuration
+            , esdStartDiff    = newLastStartDiff
             }
+
+        let newSlottingData = addEpochSlottingData slottingData newESD
+
+        setSlottingData newSlottingData
 
 -- | Verify that 'BlockVersionModifier' passed as last argument can follow
 -- 'BlockVersionData' passed as second argument. First argument

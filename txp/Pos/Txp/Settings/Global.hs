@@ -17,12 +17,12 @@ import           Universum
 import           Control.Monad.Except (MonadError)
 import           System.Wlog          (WithLogger)
 
-import           Pos.Core             (IsGenesisHeader, IsMainHeader)
+import           Pos.Core             (GenesisWStakeholders, IsGenesisHeader,
+                                       IsMainHeader)
 import           Pos.DB               (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting         (MonadSlots)
 import           Pos.Txp.Core         (TxPayload, TxpUndo)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
-import           Pos.Txp.Toil.Types   (GenesisStakeholders)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util        (HasLens', Some)
 
@@ -31,7 +31,7 @@ type TxpCommonMode ctx m =
     , MonadDBRead m
     , MonadGState m
     , MonadReader ctx m
-    , HasLens' ctx GenesisStakeholders
+    , HasLens' ctx GenesisWStakeholders
     )
 
 type TxpGlobalVerifyMode ctx m =
@@ -41,7 +41,7 @@ type TxpGlobalVerifyMode ctx m =
 
 type TxpGlobalApplyMode ctx m =
     ( TxpCommonMode ctx m
-    , MonadSlots m  -- TODO: I don't like it (@gromak)
+    , MonadSlots ctx m  -- TODO: I don't like it (@gromak)
     )
 
 type TxpGlobalRollbackMode ctx m = TxpCommonMode ctx m

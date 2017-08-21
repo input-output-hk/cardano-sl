@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Monad transformer which stores SSC data.
 
@@ -32,7 +31,7 @@ mkSscState
        , SscLocalDataClass ssc
        , MonadDBRead m
        , MonadIO m
-       , MonadSlots m
+       , MonadSlots ctx m
        )
     => m (SscState ssc)
 mkSscState = do

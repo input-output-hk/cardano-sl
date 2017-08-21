@@ -1,22 +1,43 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE CPP #-}
+
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
+
 module Pos.Network.Types
-    ( NetworkConfig (..)
-    , Topology(..)
+    ( -- * Network configuration
+      NetworkConfig (..)
+    , NodeName (..)
+    , defaultNetworkConfig
+      -- * Topology
     , StaticPeers(..)
+    , Topology(..)
+      -- ** Derived information
     , SubscriptionWorker(..)
-    , Valency
-    , Bucket(..)
-    , Fallbacks
     , topologyNodeType
-    , topologySubscriberNodeType
+    , topologySubscribers
+    , topologyUnknownNodeType
     , topologySubscriptionWorker
     , topologyRunKademlia
-    , resolveDnsDomains
-    , defaultNetworkConfig
+    , topologyEnqueuePolicy
+    , topologyDequeuePolicy
+    , topologyFailurePolicy
+    , topologyMaxBucketSize
+      -- * Queue initialization
+    , Bucket(..)
     , initQueue
+      -- * Constructing peers
+    , Valency
+    , Fallbacks
+    , choosePeers
+      -- * DNS support
+    , Resolver
+    , resolveDnsDomains
+    , initDnsOnUse
       -- * Re-exports
       -- ** from .DnsDomains
     , DnsDomains(..)
-    , DNSError
       -- ** from time-warp
     , NodeType (..)
     , MsgType (..)
@@ -25,51 +46,90 @@ module Pos.Network.Types
     , NodeId (..)
     ) where
 
-import qualified Data.ByteString.Char8                 as BS.C8
 import           Data.IP                               (IPv4)
+import           GHC.Show                              (Show (..))
 import           Network.Broadcast.OutboundQueue       (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
+import           Network.DNS                           (DNSError)
+import qualified Network.DNS                           as DNS
 import           Node.Internal                         (NodeId (..))
-import           Pos.Network.DnsDomains                (DNSError, DnsDomains (..))
+import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
-import           Pos.Network.Yaml                      (NodeName (..))
+import qualified Pos.Network.Policy                    as Policy
 import           Pos.Util.TimeWarp                     (addressToNodeId)
+import qualified System.Metrics                        as Monitoring
+import           System.Wlog.CanLog                    (WithLogger)
 import           Universum                             hiding (show)
-import           GHC.Show                              (Show(..))
+
+#if !defined(POSIX)
+import qualified Pos.Network.Windows.DnsDomains as Win
+#endif
+
+{-------------------------------------------------------------------------------
+  Network configuration
+-------------------------------------------------------------------------------}
+
+newtype NodeName = NodeName Text
+    deriving (Show, Ord, Eq, IsString)
+
+instance ToString NodeName where
+    toString (NodeName txt) = toString txt
 
 -- | Information about the network in which a node participates.
 data NetworkConfig kademlia = NetworkConfig
-    { ncTopology    :: !(Topology kademlia)
+    { ncTopology      :: !(Topology kademlia)
       -- ^ Network topology from the point of view of the current node
-    , ncDefaultPort :: !Word16
+    , ncDefaultPort   :: !Word16
       -- ^ Port number to use when translating IP addresses to NodeIds
-    , ncSelfName    :: !(Maybe NodeName)
+    , ncSelfName      :: !(Maybe NodeName)
       -- ^ Our node name (if known)
+    , ncEnqueuePolicy :: !(OQ.EnqueuePolicy NodeId)
+    , ncDequeuePolicy :: !OQ.DequeuePolicy
+    , ncFailurePolicy :: !(OQ.FailurePolicy NodeId)
     }
-  deriving (Show)
 
-defaultNetworkConfig :: Topology topology -> NetworkConfig topology
+instance Show kademlia => Show (NetworkConfig kademlia) where
+    show = show . showableNetworkConfig
+
+data ShowableNetworkConfig kademlia = ShowableNetworkConfig {
+      sncTopology    :: !(Topology kademlia)
+    , sncDefaultPort :: !Word16
+    , sncSelfName    :: !(Maybe NodeName)
+    }
+    deriving (Show)
+
+showableNetworkConfig :: NetworkConfig kademlia -> ShowableNetworkConfig kademlia
+showableNetworkConfig NetworkConfig {..} =
+    let sncTopology    = ncTopology
+        sncDefaultPort = ncDefaultPort
+        sncSelfName    = ncSelfName
+    in  ShowableNetworkConfig {..}
+
+defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
 defaultNetworkConfig ncTopology = NetworkConfig {
-      ncDefaultPort = 3000
-    , ncSelfName    = Nothing
+      ncDefaultPort   = 3000
+    , ncSelfName      = Nothing
+    , ncEnqueuePolicy = topologyEnqueuePolicy ncTopology
+    , ncDequeuePolicy = topologyDequeuePolicy ncTopology
+    , ncFailurePolicy = topologyFailurePolicy ncTopology
     , ..
     }
 
-type Valency = Int
-
-type Fallbacks = Int
+{-------------------------------------------------------------------------------
+  Topology (from the pov of a single node)
+-------------------------------------------------------------------------------}
 
 -- | Statically configured peers
 --
 -- Although the peers are statically configured, this is nonetheless stateful
 -- because we re-read the file on SIGHUP.
-data StaticPeers = StaticPeers {
-      -- | Register a handler to be invoked whenver the static peers change
+data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
+      -- | Register a handler to be invoked whenever the static peers change
       --
       -- The handler will also be called on registration
       -- (with the current value).
-      staticPeersOnChange :: (Peers NodeId -> IO ()) -> IO ()
+      staticPeersOnChange :: (Peers NodeId -> m ()) -> IO ()
     }
 
 instance Show StaticPeers where
@@ -80,26 +140,53 @@ data Topology kademlia =
     -- | All peers of the node have been statically configured
     --
     -- This is used for core and relay nodes
-    TopologyCore !StaticPeers
+    TopologyCore {
+        topologyStaticPeers :: !StaticPeers
+      , topologyOptKademlia :: !(Maybe kademlia)
+      }
 
-  | TopologyRelay !StaticPeers !kademlia
+  | TopologyRelay {
+        topologyStaticPeers :: !StaticPeers
+      , topologyOptKademlia :: !(Maybe kademlia)
+      , topologyMaxSubscrs  :: !OQ.MaxBucketSize
+      }
 
     -- | We discover our peers through DNS
     --
     -- This is used for behind-NAT nodes.
-  | TopologyBehindNAT !DnsDomains
+  | TopologyBehindNAT {
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyDnsDomains :: !(DnsDomains DNS.Domain)
+      }
 
     -- | We discover our peers through Kademlia
-  | TopologyP2P !Valency !Fallbacks !kademlia
+  | TopologyP2P {
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyKademlia   :: !kademlia
+      , topologyMaxSubscrs :: !OQ.MaxBucketSize
+      }
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
-  | TopologyTraditional !Valency !Fallbacks !kademlia
+  | TopologyTraditional {
+        topologyValency    :: !Valency
+      , topologyFallbacks  :: !Fallbacks
+      , topologyKademlia   :: !kademlia
+      , topologyMaxSubscrs :: !OQ.MaxBucketSize
+      }
 
     -- | Light wallets simulate "real" edge nodes, but are configured with
     -- a static set of relays.
-  | TopologyLightWallet ![NodeId]
+  | TopologyLightWallet {
+        topologyRelays :: ![NodeId]
+      }
   deriving (Show)
+
+{-------------------------------------------------------------------------------
+  Information derived from the topology
+-------------------------------------------------------------------------------}
 
 -- | Derive node type from its topology
 topologyNodeType :: Topology kademlia -> NodeType
@@ -110,46 +197,106 @@ topologyNodeType TopologyP2P{}         = NodeEdge
 topologyNodeType TopologyTraditional{} = NodeCore
 topologyNodeType TopologyLightWallet{} = NodeEdge
 
--- | The NodeType to assign to subscribers. Give Nothing if subscribtion
--- is not allowed for a node with this topology.
-topologySubscriberNodeType :: Topology kademlia -> Maybe NodeType
-topologySubscriberNodeType TopologyRelay{}       = Just NodeEdge
-topologySubscriberNodeType TopologyTraditional{} = Just NodeCore
-topologySubscriberNodeType TopologyP2P{}         = Just NodeRelay
-topologySubscriberNodeType _                     = Nothing
+-- | Assumed type and maximum number of subscribers (if subscription is allowed)
+topologySubscribers :: Topology kademlia -> Maybe (NodeType, OQ.MaxBucketSize)
+topologySubscribers TopologyCore{}          = Nothing
+topologySubscribers TopologyRelay{..}       = Just (NodeEdge, topologyMaxSubscrs)
+topologySubscribers TopologyBehindNAT{}     = Nothing
+topologySubscribers TopologyP2P{..}         = Just (NodeRelay, topologyMaxSubscrs)
+topologySubscribers TopologyTraditional{..} = Just (NodeCore, topologyMaxSubscrs)
+topologySubscribers TopologyLightWallet{}   = Nothing
+
+-- | Assumed type for unknown nodes
+topologyUnknownNodeType :: Topology kademlia -> OQ.UnknownNodeType NodeId
+topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
+  where
+    go :: Topology kademlia -> NodeId -> NodeType
+    go TopologyCore{..}      = const NodeEdge
+    go TopologyRelay{..}     = const NodeEdge
+    go TopologyTraditional{} = const NodeCore
+    go TopologyP2P{}         = const NodeEdge
+    go TopologyBehindNAT{}   = const NodeEdge
+    go TopologyLightWallet{} = const NodeEdge
 
 data SubscriptionWorker kademlia =
-    SubscriptionWorkerBehindNAT DnsDomains
+    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain) Valency Fallbacks
   | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
 topologySubscriptionWorker :: Topology kademlia -> Maybe (SubscriptionWorker kademlia)
 topologySubscriptionWorker = go
   where
-    go (TopologyBehindNAT doms)           = Just $ SubscriptionWorkerBehindNAT doms
-    go (TopologyP2P v f kademlia)         = Just $ SubscriptionWorkerKademlia kademlia NodeRelay v f
-    go (TopologyTraditional v f kademlia) = Just $ SubscriptionWorkerKademlia kademlia NodeCore v f
-    go _otherwise                         = Nothing
+    go TopologyCore{}          = Nothing
+    go TopologyRelay{}         = Nothing
+    go TopologyBehindNAT{..}   = Just $ SubscriptionWorkerBehindNAT
+                                          topologyDnsDomains
+                                          topologyValency
+                                          topologyFallbacks
+    go TopologyP2P{..}         = Just $ SubscriptionWorkerKademlia
+                                          topologyKademlia
+                                          NodeRelay
+                                          topologyValency
+                                          topologyFallbacks
+    go TopologyTraditional{..} = Just $ SubscriptionWorkerKademlia
+                                          topologyKademlia
+                                          NodeCore
+                                          topologyValency
+                                          topologyFallbacks
+    go TopologyLightWallet{}   = Nothing
 
--- | Should we register to the Kademlia network?
-topologyRunKademlia :: Topology kademlia -> Maybe kademlia
+-- | Should we register to the Kademlia network? If so, is it essential that we
+-- successfully join it (contact at least one existing peer)? Second component
+-- is 'True' if yes.
+topologyRunKademlia :: Topology kademlia -> Maybe (kademlia, Bool)
 topologyRunKademlia = go
   where
-    go (TopologyRelay _ kademlia)         = Just kademlia
-    go (TopologyP2P _ _ kademlia)         = Just kademlia
-    go (TopologyTraditional _ _ kademlia) = Just kademlia
-    go _                                  = Nothing
+    go TopologyCore{..}        = flip (,) False <$> topologyOptKademlia
+    go TopologyRelay{..}       = flip (,) False <$> topologyOptKademlia
+    go TopologyBehindNAT{}     = Nothing
+    go TopologyP2P{..}         = Just (topologyKademlia, True)
+    go TopologyTraditional{..} = Just (topologyKademlia, True)
+    go TopologyLightWallet{}   = Nothing
 
--- | Variation on resolveDnsDomains that returns node IDs
-resolveDnsDomains :: NetworkConfig kademlia
-                  -> DnsDomains
-                  -> IO (Either [DNSError] [NodeId])
-resolveDnsDomains NetworkConfig{..} dnsDomains =
-    fmap (map ipv4ToNodeId) <$> DnsDomains.resolveDnsDomains dnsDomains
+-- | Enqueue policy for the given topology
+topologyEnqueuePolicy :: Topology kademia -> OQ.EnqueuePolicy NodeId
+topologyEnqueuePolicy = go
   where
-    -- | Turn IPv4 address returned by DNS into a NodeId
-    ipv4ToNodeId :: IPv4 -> NodeId
-    ipv4ToNodeId addr = addressToNodeId (BS.C8.pack (show addr), ncDefaultPort)
+    go TopologyCore{}        = Policy.defaultEnqueuePolicyCore
+    go TopologyRelay{}       = Policy.defaultEnqueuePolicyRelay
+    go TopologyBehindNAT{..} = Policy.defaultEnqueuePolicyEdgeBehindNat
+    go TopologyP2P{}         = Policy.defaultEnqueuePolicyEdgeP2P
+    go TopologyTraditional{} = Policy.defaultEnqueuePolicyCore
+    go TopologyLightWallet{} = Policy.defaultEnqueuePolicyEdgeBehindNat
+
+-- | Dequeue policy for the given topology
+topologyDequeuePolicy :: Topology kademia -> OQ.DequeuePolicy
+topologyDequeuePolicy = go
+  where
+    go TopologyCore{}        = Policy.defaultDequeuePolicyCore
+    go TopologyRelay{}       = Policy.defaultDequeuePolicyRelay
+    go TopologyBehindNAT{..} = Policy.defaultDequeuePolicyEdgeBehindNat
+    go TopologyP2P{}         = Policy.defaultDequeuePolicyEdgeP2P
+    go TopologyTraditional{} = Policy.defaultDequeuePolicyCore
+    go TopologyLightWallet{} = Policy.defaultDequeuePolicyEdgeBehindNat
+
+-- | Failure policy for the given topology
+topologyFailurePolicy :: Topology kademia -> OQ.FailurePolicy NodeId
+topologyFailurePolicy = Policy.defaultFailurePolicy . topologyNodeType
+
+-- | Maximum bucket size
+topologyMaxBucketSize :: Topology kademia -> Bucket -> OQ.MaxBucketSize
+topologyMaxBucketSize topology bucket =
+    case bucket of
+      BucketSubscriptionListener ->
+        case topologySubscribers topology of
+          Just (_subscriberType, maxBucketSize) -> maxBucketSize
+          Nothing -> OQ.BucketSizeMax 0 -- subscription not allowed
+      _otherBucket ->
+        OQ.BucketSizeUnlimited
+
+{-------------------------------------------------------------------------------
+  Queue initialization
+-------------------------------------------------------------------------------}
 
 -- | The various buckets we use for the outbound queue
 data Bucket =
@@ -178,17 +325,27 @@ data Bucket =
 -- For behind NAT nodes and Kademlia nodes (P2P or traditional) we start
 -- (elsewhere) specialized workers that add peers to the queue and subscribe
 -- to (some of) those peers.
-initQueue :: FormatMsg msg
+initQueue :: (MonadIO m, WithLogger m, FormatMsg msg)
           => NetworkConfig kademlia
-          -> IO (OutboundQ msg NodeId Bucket)
-initQueue NetworkConfig{..} = do
-    oq <- OQ.new selfName enqueuePolicy dequeuePolicy failurePolicy
+          -> Maybe Monitoring.Store -- ^ EKG store (if used)
+          -> m (OutboundQ msg NodeId Bucket)
+initQueue NetworkConfig{..} mStore = do
+    oq <- OQ.new (maybe "self" toString ncSelfName)
+                 ncEnqueuePolicy
+                 ncDequeuePolicy
+                 ncFailurePolicy
+                 (topologyMaxBucketSize   ncTopology)
+                 (topologyUnknownNodeType ncTopology)
+
+    case mStore of
+      Nothing    -> return () -- EKG store not used
+      Just store -> liftIO $ OQ.registerQueueMetrics oq store
 
     case ncTopology of
       TopologyLightWallet peers -> do
         let peers' = simplePeers $ map (NodeRelay, ) peers
-        OQ.updatePeersBucket oq BucketStatic (\_ -> peers')
-      TopologyBehindNAT _ ->
+        void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers')
+      TopologyBehindNAT{} ->
         -- subscription worker is responsible for adding peers
         return ()
       TopologyP2P{} ->
@@ -197,17 +354,78 @@ initQueue NetworkConfig{..} = do
       TopologyTraditional{} ->
         -- Kademlia worker is responsible for adding peers
         return ()
-      TopologyCore StaticPeers{..} ->
-        staticPeersOnChange $ \peers ->
-          OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
-      TopologyRelay StaticPeers{..} _ ->
-        staticPeersOnChange $ \peers ->
-          OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
+      TopologyCore{topologyStaticPeers = StaticPeers{..}} -> liftIO $
+        staticPeersOnChange $ \peers -> do
+          OQ.clearRecentFailures oq
+          void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
+      TopologyRelay{topologyStaticPeers = StaticPeers{..}} -> liftIO $
+        staticPeersOnChange $ \peers -> do
+          OQ.clearRecentFailures oq
+          void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
 
     return oq
+
+{-------------------------------------------------------------------------------
+  Constructing peers
+-------------------------------------------------------------------------------}
+
+-- | The number of peers we want to send to
+--
+-- In other words, this should correspond to the length of the outermost lists
+-- in the OutboundQueue's 'Peers' data structure.
+type Valency = Int
+
+-- | The number of fallbacks for each peer we want to send to
+--
+-- In other words, this should corresponding to one less than the length of the
+-- innermost lists in the OutboundQueue's 'Peers' data structure.
+type Fallbacks = Int
+
+-- | Construct 'Peers' from a set of potential peer nodes.
+choosePeers :: Valency -> Fallbacks -> NodeType -> [NodeId] -> Peers NodeId
+choosePeers valency fallbacks peerType =
+      peersFromList mempty
+    . fmap ((,) peerType)
+    . transpose
+    . take (1 + fallbacks)
+    . mkGroupsOf valency
   where
-    ourNodeType   = topologyNodeType ncTopology
-    selfName      = fromMaybe "self" ncSelfName
-    enqueuePolicy = OQ.defaultEnqueuePolicy ourNodeType
-    dequeuePolicy = OQ.defaultDequeuePolicy ourNodeType
-    failurePolicy = OQ.defaultFailurePolicy ourNodeType
+    mkGroupsOf :: Int -> [a] -> [[a]]
+    mkGroupsOf _ []  = []
+    mkGroupsOf n lst = case splitAt n lst of
+                         (these, those) -> these : mkGroupsOf n those
+
+{-------------------------------------------------------------------------------
+  DNS support
+-------------------------------------------------------------------------------}
+
+type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
+
+-- | Variation on resolveDnsDomains that returns node IDs
+resolveDnsDomains :: NetworkConfig kademlia
+                  -> DnsDomains DNS.Domain
+                  -> IO (Either [DNSError] [NodeId])
+resolveDnsDomains NetworkConfig{..} dnsDomains =
+    initDnsOnUse $ \resolve ->
+      fmap (fmap addressToNodeId) <$> DnsDomains.resolveDnsDomains
+                                        resolve
+                                        ncDefaultPort
+                                        dnsDomains
+
+-- | Initialize the DNS library whenever it's used
+--
+-- This isn't great for performance but it means that we do not initialize it
+-- when we need it; initializing it once only on demand is possible but requires
+-- jumping through too many hoops.
+initDnsOnUse :: (Resolver -> IO a) -> IO a
+initDnsOnUse k = k $ \dom -> do
+#if POSIX
+    let conf = DNS.defaultResolvConf
+#else
+    let googlePublicDNS = "8.8.8.8"
+    dns <- fromMaybe googlePublicDNS <$> Win.getWindowsDefaultDnsServer
+    let conf = DNS.defaultResolvConf { DNS.resolvInfo = DNS.RCHostName dns }
+#endif
+    resolvSeed <- DNS.makeResolvSeed conf
+    DNS.withResolver resolvSeed $ \resolver ->
+      DNS.lookupA resolver dom

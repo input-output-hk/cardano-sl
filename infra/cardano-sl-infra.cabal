@@ -33,8 +33,6 @@ library
                         Pos.Slotting.Impl.Sum
                         Pos.Slotting.Impl.Util
                         Pos.Slotting.MemState
-                        Pos.Slotting.MemState.Class
-                        Pos.Slotting.MemState.Holder
                         Pos.Slotting.Types
                         Pos.Slotting.Error
                         Pos.Slotting.Util
@@ -59,7 +57,6 @@ library
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
                         Pos.Communication.Listener
-                        Pos.Communication.MessagePart
                         Pos.Communication.Protocol
                         Pos.Communication.Specs
                         Pos.Communication.Relay
@@ -74,6 +71,7 @@ library
 
                         -- Network topology
                         Pos.Network.DnsDomains
+                        Pos.Network.Policy
                         Pos.Network.Types
                         Pos.Network.Yaml
                         Pos.Network.CLI
@@ -103,6 +101,9 @@ library
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
+  if os(windows)
+    exposed-modules:    Pos.Network.Windows.DnsDomains
+
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants
 
@@ -120,12 +121,15 @@ library
                       , directory
                       , dns
                       , either
+                      , ekg-core
                       , ether >= 0.5
                       , exceptions
                       , filepath
                       , formatting
                       , generic-arbitrary
                       , hashable
+                      , http-client
+                      , http-client-tls
                       , iproute
                       , kademlia
                       , lens
@@ -142,7 +146,6 @@ library
                       , reflection
                       , serokell-util >= 0.1.3.4
                       , stm
-                      , stm-containers
                       , tagged
                       , text
                       , template-haskell
@@ -156,7 +159,6 @@ library
                       , network-transport
                       , universum
                       , unordered-containers
-                      , wreq
                       , yaml
 
   if !os(windows)
@@ -164,6 +166,9 @@ library
     build-depends:     unix
 
   default-language:    Haskell2010
+
+  if os(windows)
+    C-sources:         Pos/Network/Windows/defaultdns.c
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
@@ -186,6 +191,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -o xtrace
 
+# Make sure we're in a tmux session.
+if ! [ -n "$TMUX" ]; then
+  echo "You must run this script from the tmux session!"
+  exit 1
+fi
+
 base=$(dirname "$0")
 source "$base"/../common-functions.sh
-
-# Make sure we're in a tmux session
-# if [[ $TERM != screen* ]]; then
-    # echo "ERROR: Must have tmux started!"
-    # exit 1
-# fi
 
 # If stack-work doesn't exist use function
 if [[ ! -d "$base/../../.stack-work" ]]; then
@@ -25,6 +25,11 @@ if [[ "$n" == "" ]]; then
   n=$DEFAULT_NODES_N
 fi
 
+# CORE_NODES specifies how many nodes should be core nodes, i.e., have non-negligible stake in the rich_poor_distr
+if [[ "$CORE_NODES" == "" ]]; then
+  CORE_NODES == 3
+fi
+
 config_dir=$2
 
 if [[ $config_dir == "" ]]
@@ -36,7 +41,7 @@ fi
 # Use "flat" for flat_distr. Anything else will use rich_poor_distr
 stake_distr_param=$3
 flat_distr=" --flat-distr \"($n, 100000)\" "
-rich_poor_distr=" --rich-poor-distr \"($n,50000,6000000000,0.99)\" "
+rich_poor_distr=" --rich-poor-distr \"($CORE_NODES,50000,6000000000,0.99)\" "
 
 # Stats are not mandatory either
 stats=$4
@@ -47,12 +52,16 @@ if [[ "$CONC" != "" ]]; then
   panesCnt=$((n+1))
 fi
 
+if [[ "$NUM_TXS" == "" ]]; then
+  NUM_TXS=3000
+fi
+
 # System start time in seconds (time since epoch).
 # An extra second is added so that the nodes have extra time to start up
 # and start processing the first slot.
 if [ -z "$system_start" ]
   then
-    system_start=$((`date +%s` + 1))
+    system_start=$((`date +%s` + 45))
 fi
 
 echo "Using system start time "$system_start
@@ -76,34 +85,34 @@ while [[ $i -lt $panesCnt ]]; do
   tmux select-pane -t $im
 
   wallet_args=''
+  exec_name='cardano-node-simple'
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
-          wallet_args=" --wallet --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt " # --wallet-rebuild-db'
+          wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt " # --wallet-rebuild-db'
+          exec_name='cardano-node'
           if [[ $WALLET_DEBUG != "" ]]; then
               wallet_args="$wallet_args --wallet-debug"
           fi
       fi
   fi
 
-  if [[ $stake_distr_param == "flat" ]]; then
-    stake_distr=$flat_distr
-  else
+  if [[ $stake_distr_param == "rich_poor" ]]; then
     stake_distr=$rich_poor_distr
+  else
+    stake_distr=$flat_distr
   fi
 
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       stake_distr=""
   fi
 
-  pane="${window}.$i"
-
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir") --no-ntp" C-m
+    tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp" C-m
   else
     # Number of transactions to send per-thread: 300
     # Concurrency (number of threads sending transactions); $CONC
     # Delay between sends on each thread: 500 milliseconds
-    tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
+    tmux send-keys "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" $NUM_TXS $CONC 500 neighbours)" C-m
   fi
   i=$((i+1))
 done

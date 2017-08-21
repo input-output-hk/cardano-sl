@@ -6,7 +6,6 @@ import           Universum
 
 import qualified Data.ByteString                   as BS
 import           Network.Kademlia.HashNodeId       (HashId (..))
-import           Node.Message.Class                (MessageName (..))
 import           Test.QuickCheck                   (Arbitrary (..), choose, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
@@ -36,10 +35,6 @@ instance Arbitrary HandlerSpec where
         [ ConvHandler <$> arbitrary
         , UnknownHandler <$> choose (128, 255) <*> arbitrary
         ]
-
-instance Arbitrary MessageName where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
 
 instance Arbitrary VerInfo where
     arbitrary = genericArbitrary

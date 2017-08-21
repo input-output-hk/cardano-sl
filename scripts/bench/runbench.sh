@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# CONC=4 transaction generator spawns 4 threads 
+# CONC=4 transaction generator spawns 4 threads
 #   all send about 2 transactions per second
 # 3 : 3 nodes
 # ./run/demo/static : find topology yaml config in this directory
 #
-# To modify the behaviour of the benchmark generator: demo.sh, line 104 
-# 
+# To modify the behaviour of the benchmark generator: demo.sh, line 104
+#
 # > tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
 #
 #   300         number of transactions to send per thread
@@ -18,7 +18,7 @@
 #
 # node_cmd , bench_cmd defined in scripts/common_functions.sh
 
-CONC=4 scripts/launch/demo.sh 3 `dirname $0`/topology
+CORE_NODES=3 CONC=4 NUM_TXS=$1 scripts/launch/demo.sh 5 `dirname $0`/topology rich_poor
 
 # transaction generator generates file tps-sent.csv
 #
@@ -29,7 +29,7 @@ CONC=4 scripts/launch/demo.sh 3 `dirname $0`/topology
 # 1500971350774060,92,submitted
 # 1500971350774060,0,failed
 #
-# listing for each slot how many transaction it sent and how many it failed to send 
+# listing for each slot how many transactions it sent and how many it failed to send
 #
 # generates a directory in logs/ directory. node0.json contains "events" from node0:
 #

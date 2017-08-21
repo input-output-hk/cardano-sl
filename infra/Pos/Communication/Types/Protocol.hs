@@ -1,7 +1,6 @@
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | Protocol/versioning related communication types.
 
@@ -15,7 +14,7 @@ module Pos.Communication.Types.Protocol
        , HandlerSpecs
        , InSpecs (..)
        , Listener
-       , listenerMessageName
+       , listenerMessageCode
        , ListenerSpec (..)
        , MkListeners (..)
        , notInSpecs
@@ -42,25 +41,26 @@ module Pos.Communication.Types.Protocol
        , MsgSubscribe (..)
        ) where
 
-import           Data.Aeson                 (ToJSON (..), FromJSON (..), Value)
+import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value)
 import           Data.Aeson.Types           (Parser)
-import qualified Data.ByteString.Base64     as B64 (encode, decode)
-import qualified Data.Map                   as M
+import qualified Data.ByteString.Base64     as B64 (decode, encode)
 import qualified Data.HashMap.Strict        as HM
+import qualified Data.Map                   as M
 import qualified Data.Text.Buildable        as B
-import qualified Data.Text.Encoding         as Text (encodeUtf8, decodeUtf8)
+import qualified Data.Text.Encoding         as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting                 (bprint, build, hex, sformat, (%))
 -- TODO should not have to import outboundqueue stuff here. MsgType and
 -- NodeType should be a cardano-sl notion.
-import           Pos.Network.Types          (NodeType (..), MsgType (..), Origin (..), NodeId (..))
 import           Mockable.Class             (Mockable)
 import           Mockable.Concurrent        (Async, async, wait)
 import           Network.Transport          (EndPointAddress (..))
 import qualified Node                       as N
-import           Node.Message.Class         (Message (..), MessageName (..))
-import           Serokell.Util.Text         (listJson, mapJson)
+import           Node.Message.Class         (Message (..), MessageCode)
+import           Pos.Network.Types          (MsgType (..), NodeId (..), NodeType (..),
+                                             Origin (..))
 import           Serokell.Util.Base16       (base16F)
+import           Serokell.Util.Text         (listJson, mapJson)
 import           Universum
 
 import           Pos.Binary.Class           (Bi)
@@ -104,7 +104,7 @@ data SendActions m = SendActions {
 --
 -- You probably do not want to use this. Use 'enqueueMsg' instead.
 immediateConcurrentConversations
-    :: ( Applicative m, Mockable Async m )
+    :: ( Mockable Async m )
     => SendActions m
     -> [NodeId]
     -> EnqueueMsg m
@@ -170,7 +170,7 @@ fromJSONBS :: (ByteString -> a) -> Value -> Parser a
 fromJSONBS f v = do
     bs <- Text.encodeUtf8 <$> parseJSON v
     case B64.decode bs of
-        Left err -> fail err
+        Left err      -> fail err
         Right decoded -> pure $ f decoded
 
 instance Buildable PeerId where
@@ -183,23 +183,23 @@ buildBS :: ByteString -> B.Builder
 buildBS = bprint base16F
 
 data HandlerSpec
-    = ConvHandler { hsReplyType :: MessageName }
+    = ConvHandler { hsReplyType :: MessageCode }
     | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
-convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageName, HandlerSpec)
-convH pSnd pReply = (messageName pSnd, ConvHandler $ messageName pReply)
+convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageCode, HandlerSpec)
+convH pSnd pReply = (messageCode pSnd, ConvHandler $ messageCode pReply)
 
 instance Buildable HandlerSpec where
-    build (ConvHandler (MessageName replyType)) =
-        bprint ("Conv "%base16F) replyType
+    build (ConvHandler replyType) =
+        bprint ("Conv "%hex) replyType
     build (UnknownHandler htype hcontent) =
         bprint ("UnknownHandler "%hex%" "%base16F) htype hcontent
 
-instance Buildable (MessageName, HandlerSpec) where
-    build (MessageName rcvType, h) = bprint (base16F % " -> " % build) rcvType h
+instance Buildable (MessageCode, HandlerSpec) where
+    build (rcvType, h) = bprint (hex % " -> " % build) rcvType h
 
-type HandlerSpecs = HashMap MessageName HandlerSpec
+type HandlerSpecs = HashMap MessageCode HandlerSpec
 
 instance Buildable HandlerSpecs where
     build x = bprint ("HandlerSpecs: "%listJson) (HM.toList x)
@@ -224,25 +224,25 @@ instance Buildable VerInfo where
                                 (HM.toList vIInHandlers)
                                 (HM.toList vIOutHandlers)
 
-checkInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
+checkInSpecs :: (MessageCode, HandlerSpec) -> HandlerSpecs -> Bool
 checkInSpecs (name, sp) specs = case name `HM.lookup` specs of
                               Just sp' -> sp == sp'
                               _        -> False
 
-notInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
+notInSpecs :: (MessageCode, HandlerSpec) -> HandlerSpecs -> Bool
 notInSpecs sp' = not . checkInSpecs sp'
 
 -- ListenerSpec makes no sense like this. Surely the HandlerSpec must also
 -- depend upon the VerInfo.
 data ListenerSpec m = ListenerSpec
     { lsHandler :: VerInfo -> Listener m -- ^ Handler accepts out verInfo and returns listener
-    , lsInSpec  :: (MessageName, HandlerSpec)
+    , lsInSpec  :: (MessageCode, HandlerSpec)
     }
 
--- | The MessageName that the listener responds to.
-listenerMessageName :: forall m . Listener m -> MessageName
-listenerMessageName (N.Listener (_ :: PeerData -> NodeId -> N.ConversationActions snd rcv m -> m ())) =
-    messageName (Proxy @rcv)
+-- | The MessageCode that the listener responds to.
+listenerMessageCode :: forall m . Listener m -> MessageCode
+listenerMessageCode (N.Listener (_ :: PeerData -> NodeId -> N.ConversationActions snd rcv m -> m ())) =
+    messageCode (Proxy @rcv)
 
 newtype InSpecs = InSpecs HandlerSpecs
   deriving (Eq, Show, Generic)
@@ -272,8 +272,13 @@ instance Monoid OutSpecs where
                     ("Conflicting key output spec: "%build%" "%build)
                     (name, h1) (name, h2)
 
-toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
-toOutSpecs = OutSpecs . HM.fromList
+toOutSpecs :: [(MessageCode, HandlerSpec)] -> OutSpecs
+toOutSpecs = OutSpecs . merge . fmap (uncurry HM.singleton)
+  where
+    merge = foldr (HM.unionWithKey merger) mempty
+    merger name h1 h2 = error $ sformat
+        ("Conflicting key output spec in toOutSpecs: "%build%" at "%build%" "%build)
+        name h1 h2
 
 -- | Data type to represent listeners, provided upon our version info and peerData
 -- received from other node, in and out specs for all listeners which may be provided

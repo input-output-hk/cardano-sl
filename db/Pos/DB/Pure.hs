@@ -1,6 +1,5 @@
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
 -- | Pure database implementation using 'Data.Map'. More efficient
@@ -19,6 +18,7 @@ module Pos.DB.Pure
 
        , MonadPureDB
        , dbPureDump
+       , dbPureReset
 
        , DBPureVar
        , newDBPureVar
@@ -102,6 +102,11 @@ type MonadPureDB ctx m =
 
 dbPureDump :: MonadPureDB ctx m => m DBPure
 dbPureDump = view (lensOf @DBPureVar) >>= readIORef
+
+dbPureReset :: MonadPureDB ctx m => DBPure -> m ()
+dbPureReset dbPure = do
+    ref <- view (lensOf @DBPureVar)
+    writeIORef ref dbPure
 
 ----------------------------------------------------------------------------
 -- MonadDBRead / MonadDB

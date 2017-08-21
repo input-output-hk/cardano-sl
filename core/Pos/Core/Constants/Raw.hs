@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 
 -- | Raw constants which we want to have in 'core'. They have simpler
 -- types than constants from 'Typed' module. It's done to avoid cyclic
@@ -13,11 +12,10 @@ module Pos.Core.Constants.Raw
        , genesisHash
 
        -- * The config structure
-       , CoreConstants(..)
-       , coreConstants
+       , CoreConfig(..)
+       , coreConfig
 
        -- * Constants
-       , epochSlotsRaw
        , isDevelopment
        , protocolMagic
        , staticSysStartRaw
@@ -69,7 +67,7 @@ genesisHash = unsafeHash @Text "patak"
 -- Config itself
 ----------------------------------------------------------------------------
 
-data CoreConstants = CoreConstants
+data CoreConfig = CoreConfig
     {
       -- | Security parameter from paper
       ccK                            :: !Int
@@ -146,48 +144,44 @@ data CoreConstants = CoreConstants
 
 -- | Suffix for genesis.bin files
 genesisBinSuffix :: [Char]
-genesisBinSuffix = ccGenesisBinSuffix coreConstants
+genesisBinSuffix = ccGenesisBinSuffix coreConfig
 
-coreConstants :: CoreConstants
-coreConstants =
+coreConfig :: CoreConfig
+coreConfig =
     case parseFromCslConfig configParser of
         Left err -> error (toText ("Couldn't parse core config: " ++ err))
         Right x  -> x
 
-instance FromJSON CoreConstants where
+instance FromJSON CoreConfig where
     parseJSON = checkConstants <=< genericParseJSON defaultOptions
 
-instance IsConfig CoreConstants where
+instance IsConfig CoreConfig where
     configPrefix = Tagged Nothing
 
 -- | Check invariants
-checkConstants :: CoreConstants -> A.Parser CoreConstants
-checkConstants cs@CoreConstants{..} = do
+checkConstants :: CoreConfig -> A.Parser CoreConfig
+checkConstants cs@CoreConfig{..} = do
     let check :: [a -> Bool] -> a -> Bool
         check ps x = all ($ x) ps
     unless (check [(>= 0), (< 1)] ccGenesisMpcThd) $
-        fail "CoreConstants: genesisMpcThd is not in range [0, 1)"
+        fail "CoreConfig: genesisMpcThd is not in range [0, 1)"
     unless (check [(>= 0), (< 1)] ccGenesisUpdateVoteThd) $
-        fail "CoreConstants: genesisUpdateVoteThd is not in range [0, 1)"
+        fail "CoreConfig: genesisUpdateVoteThd is not in range [0, 1)"
     unless (check [(>= 0), (< 1)] ccGenesisHeavyDelThd) $
-        fail "CoreConstants: genesisHeavyDelThd is not in range [0, 1)"
+        fail "CoreConfig: genesisHeavyDelThd is not in range [0, 1)"
     unless (check [(> 0), (< 1)] ccGenesisUpdateProposalThd) $
-        fail "CoreConstants: genesisUpdateProposalThd is not in range (0, 1)"
+        fail "CoreConfig: genesisUpdateProposalThd is not in range (0, 1)"
     unless (check [(> 0), (< 1)] ccGenesisSoftforkInit) $
-        fail "CoreConstants: genesisSoftforkInit is not in range (0, 1)"
+        fail "CoreConfig: genesisSoftforkInit is not in range (0, 1)"
     unless (check [(> 0), (< 1)] ccGenesisSoftforkMin) $
-        fail "CoreConstants: genesisSoftforkMin is not in range (0, 1)"
+        fail "CoreConfig: genesisSoftforkMin is not in range (0, 1)"
     unless (check [(> 0), (< 1)] ccGenesisSoftforkDec) $
-        fail "CoreConstants: genesisSoftforkDec is not in range (0, 1)"
+        fail "CoreConfig: genesisSoftforkDec is not in range (0, 1)"
     pure cs
 
 ----------------------------------------------------------------------------
 -- Constants taken from the config
 ----------------------------------------------------------------------------
-
--- | Number of slots inside one epoch.
-epochSlotsRaw :: Integral a => a
-epochSlotsRaw = 10 * fromIntegral (ccK coreConstants)
 
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool
@@ -203,44 +197,43 @@ staticSysStartRaw
     | isDevelopment = error "System start time should be passed \
                               \as a command line argument in dev mode."
     | otherwise     =
-          sec $ ccProductionNetworkStartTime coreConstants
+          sec $ ccProductionNetworkStartTime coreConfig
 
 -- | Protocol magic constant. Is put to block serialized version to
 -- distinguish testnet and realnet (for example, possible usages are
 -- wider).
 protocolMagic :: Int32
-protocolMagic = fromIntegral . ccProtocolMagic $ coreConstants
+protocolMagic = fromIntegral . ccProtocolMagic $ coreConfig
 
 -- | Number of pre-generated keys
 genesisKeysN :: Integral i => i
-genesisKeysN = fromIntegral . ccGenesisN $ coreConstants
+genesisKeysN = fromIntegral . ccGenesisN $ coreConfig
 
 -- | Size of mem pool will be limited by this value muliplied by block
 -- size limit.
 memPoolLimitRatio :: Integral i => i
-memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConstants
+memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConfig
 
 -- | If chain quality in bootstrap era is less than this value,
 -- non critical misbehavior will be reported.
 nonCriticalCQBootstrap :: Double
-nonCriticalCQBootstrap = ccNonCriticalCQBootstrap coreConstants
+nonCriticalCQBootstrap = ccNonCriticalCQBootstrap coreConfig
 
 -- | If chain quality in bootstrap era is less than this value,
 -- critical misbehavior will be reported.
 criticalCQBootstrap :: Double
-criticalCQBootstrap = ccCriticalCQBootstrap coreConstants
+criticalCQBootstrap = ccCriticalCQBootstrap coreConfig
 
 -- | If chain quality after bootstrap era is less than this
 -- value, non critical misbehavior will be reported.
 nonCriticalCQ :: Double
-nonCriticalCQ = ccNonCriticalCQ coreConstants
+nonCriticalCQ = ccNonCriticalCQ coreConfig
 
 -- | If chain quality after bootstrap era is less than this
 -- value, critical misbehavior will be reported.
 criticalCQ :: Double
-criticalCQ = ccCriticalCQ coreConstants
+criticalCQ = ccCriticalCQ coreConfig
 
 -- | Web logging might be disabled for security concerns.
 webLoggingEnabled :: Bool
-webLoggingEnabled = ccWebLoggingEnabled coreConstants
-
+webLoggingEnabled = ccWebLoggingEnabled coreConfig

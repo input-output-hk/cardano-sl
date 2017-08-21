@@ -8,15 +8,13 @@ module Pos.Communication.Util
 
 import           Universum
 
-import           Formatting                  (sformat, shown, (%))
-import           Mockable                    (Async, Bracket, Delay, Mockable)
+import           Formatting                  (sformat, shown, hex, (%))
 import qualified Node                        as N
-import           Serokell.Util.Base16        (base16F)
-import           System.Wlog                 (LoggerName, WithLogger, modifyLoggerName)
+import           System.Wlog                 (LoggerName, modifyLoggerName)
 
 import           Pos.Communication.Constants (networkWaitLogInterval)
 import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
-                                              MessageName (..), mapActionSpec,
+                                              mapActionSpec,
                                               mapListener,
                                               SendActions (..), Conversation (..))
 import           Pos.Util.TimeLimit          (CanLogInParallel, logWarningWaitLinear)
@@ -42,14 +40,14 @@ convWithWaitLog nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
         logWarningWaitLinear networkWaitLogInterval
-          (sformat ("Send "%base16F%" to "%shown%" in conversation")
+          (sformat ("Send "%hex%" to "%shown%" in conversation")
             sndMsg nodeId) $
            N.send conv msg
     recv' limit =
         logWarningWaitLinear networkWaitLogInterval
           (sformat ("Recv from "%shown%" in conversation") nodeId) $
            N.recv conv limit
-    MessageName sndMsg = messageName $
+    sndMsg = messageCode $
         ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy snd) conv
 
 -- TODO: Remove?
@@ -66,28 +64,20 @@ _convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
             N.send conv msg
     recv' limit =
         logWarningWaitLinear networkWaitLogInterval
-          (sformat ("Recv "%base16F%" from "%shown%" in conversation") rcvMsg nodeId) $
+          (sformat ("Recv "%hex%" from "%shown%" in conversation") rcvMsg nodeId) $
             N.recv conv limit
-    MessageName rcvMsg = messageName $
+    rcvMsg = messageCode $
         ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy rcv) conv
 
 wrapListener
-  :: ( CanLogInParallel m
-     , Mockable Async m
-     , Mockable Bracket m
-     , Mockable Delay m
-     , MonadIO m
-     , WithLogger m
-     )
+  :: ( CanLogInParallel m )
   => LoggerName -> Listener m -> Listener m
 wrapListener lname = modifyLogger lname
   where
     modifyLogger _name = mapListener $ modifyLoggerName (<> lname)
 
 wrapActionSpec
-  :: ( CanLogInParallel m
-     , Mockable Bracket m
-     )
+  :: ( CanLogInParallel m )
   => LoggerName -> ActionSpec m a -> ActionSpec m a
 wrapActionSpec lname = modifyLogger lname
   where
@@ -95,13 +85,7 @@ wrapActionSpec lname = modifyLogger lname
                                     (<> lname)
 
 wrapSendActions
-  :: ( CanLogInParallel m
-     , Mockable Async m
-     , Mockable Bracket m
-     , Mockable Delay m
-     , MonadIO m
-     , WithLogger m
-     )
+  :: ( CanLogInParallel m )
   => SendActions m
   -> SendActions m
 wrapSendActions =

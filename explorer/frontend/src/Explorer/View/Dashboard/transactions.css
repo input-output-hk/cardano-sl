@@ -1,0 +1,110 @@
+
+.explorer-dashboard {
+
+  .transactions {
+
+    &__container {
+      padding-bottom: 24px;
+    }
+
+    &__waiting {
+      padding: 10px 24px;
+
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color13);
+    }
+
+    &__row {
+
+      lost-utility: clearfix;
+
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color8);
+      padding: 10px 18px;
+
+      &:nth-child(odd) {
+        background-color: var(--color7);
+      }
+
+    }
+
+    @media (--md) {
+      &__row {
+        padding: 10px 24px;
+      }
+    }
+
+    &__column {
+
+      &--hash-container {
+        lost-column: 1/1 1;
+
+        .hash {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: block;
+          button: standard-button;
+          button-color: var(--color8) var(--color5) var(--color5);
+        }
+      }
+
+      &--currency {
+        @extend .hide;
+
+        text-align: right;
+
+        .ada,
+        .usd {
+          padding-right: 10px;
+          background-repeat: no-repeat;
+          background-position: right center;
+        }
+
+        .ada {
+          background-size: 8px 7px;
+        }
+
+        .usd {
+          background-size: 6px 10px;
+        }
+      }
+
+      &--date {
+        @extend .hide;
+      }
+
+    }
+
+    @media (--md) {
+      &__column {
+
+        &--hash-container {
+          lost-column: 8/12;
+
+          .hash {
+            display: inline-block; /* needed to select text in browser */
+          }
+
+        }
+
+        &--date {
+          @extend .show;
+          lost-column: 2/12;
+        }
+
+        &--currency {
+          @extend .show;
+          lost-column: 2/12;
+        }
+
+      }
+    }
+
+    &__footer {
+      text-align: center;
+    }
+
+  }
+}

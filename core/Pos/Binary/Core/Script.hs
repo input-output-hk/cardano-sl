@@ -48,10 +48,6 @@ instance Bi PLTypes.ConSig where
   encode = genericEncode
   decode = genericDecode
 
-instance Bi PLTypes.PolymorphicType where
-  encode = genericEncode
-  decode = genericDecode
-
 instance Bi a => Bi (Names.Sourced a) where
   encode = genericEncode
   decode = genericDecode
@@ -76,11 +72,11 @@ instance Bi a => Bi (PLCore.TermF a) where
   encode = genericEncode
   decode = genericDecode
 
-instance Bi a => Bi (PLCore.PatternF a) where
+instance Bi a => Bi (PLTypes.TypeF a) where
   encode = genericEncode
   decode = genericDecode
 
-instance Bi a => Bi (PLTypes.TypeF a) where
+instance Bi PLCore.SimplePattern where
   encode = genericEncode
   decode = genericDecode
 

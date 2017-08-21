@@ -2,34 +2,41 @@
 
 This document specifies a tag for sets in Concise Binary Object Representation (CBOR) [1].
 
-    Tag: 258
+    Tag: 258 (set)
     Data item: array
     Semantics: Set
-    Point of contact: Input Output HK <operations@iohk.io>
-    Description of semantics: https://github.com/input-output-hk/cardano-sl/tree/master/specs/CBOR_SETS.md
+    Reference: https://github.com/input-output-hk/cardano-sl/tree/master/specs/CBOR_SETS.md
+    Contact: Input Output HK <operations@iohk.io>
 
-## Semantics
+## Introduction
+
+A set [2] is a finite or infinite collection of objects in which order has no significance, and multiplicity
+is also ignored. Practically speaking, a set is a well-formed collection of distinct objects, without duplicates.
 
 Tag 258 can be applied to an array to indicate that the tagged object is a set. Sets should be handled
 similarly to maps: a set that has duplicate items may be well-formed, but it is not valid. Like
-arrays, items in a set don't need to all be of the same type, provided it's possible to compare them without
-ambiguities to ensure no duplicates are present. In case ambiguity can't be avoided, items do necessarily
-need to all be of the same type.
+arrays, items in a set don't need to all be of the same type.
+
+## Semantics
 
 The encoding and decoding applications need to agree on what types of items are going to be used in sets.
 If multiple types of items are to be used, consideration should be given to how these types would be
-represented in the specific programming environments that are to be used.  For example, in some languages,
+represented in the specific programming environments that are to be used. For example, in some languages,
 an item of integer 1 cannot be distinguished from an item of string "1". This means that, if integer
-items are used, the simultaneous use of string items that look like numbers needs to be avoided.
-Again, this leads to the conclusion that items should be of a single CBOR type.
+items are used, the simultaneous use of string items that look like numbers needs to be avoided. This is
+especially important for CBOR decoders that are using strict mode [3].
 
-When a CBOR-based protocol does see multiple identical items in a set it should reject the set as invalid.
+A CBOR-based protocol should make an intentional decision about what to do when a receiving application
+does see multiple identical items in a set.  The resulting rule in the protocol should respect the CBOR
+data model: it cannot prescribe a specific handling of the entries with the identical items, except that
+it might have a rule that having identical items in a set indicates a malformed set and that the decoder
+has to stop with an error. Duplicate items are also prohibited by CBOR decoders that are using strict mode.
 
 ## Rationale
 
 CBOR has a notion of maps, but not of sets. While CBOR is first and foremost about structured data without
 too much in the way of semantic hints, there is inherently some associated semantics and that is sometimes
-important and useful. In particular the semantics of maps are important in the case of canonical CBOR [2]
+important and useful. In particular the semantics of maps are important in the case of canonical CBOR [4]
 (where unique and sorted keys are required). They are also important for interoperability since internal
 data structures for maps also enforce unique keys.
 
@@ -38,6 +45,8 @@ CBOR arrays, but applications have to know from context (e.g. schemas) to treat 
 In certain use cases it is useful for generic tools that work without schemas to be able to know that
 an array should be treated as a set. Use cases include deserialising sets in untyped languages,
 generic transformations, or query tools.
+
+## Canonical CBOR
 
 Similarly to maps, sets also have implications for canonical CBOR representations. Being able to distinguish
 unordered sets from ordered sequences can be useful in verifying that representations are canonical,
@@ -60,7 +69,9 @@ The natural encoding of this data structure as a CBOR Set would be 0xD9010283010
 ## References
 
 [1] C. Bormann, and P. Hoffman. "Concise Binary Object Representation (CBOR)". RFC 7049, October 2013.
-[2] https://tools.ietf.org/html/rfc7049#section-3.9
+[2] http://mathworld.wolfram.com/Set.html
+[3] https://tools.ietf.org/html/rfc7049#section-3.10
+[4] https://tools.ietf.org/html/rfc7049#section-3.9
 
 ## Authors
 

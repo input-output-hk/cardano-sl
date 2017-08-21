@@ -13,7 +13,7 @@ import qualified Data.Map              as M
 import qualified Data.Vector           as V (fromList)
 import           Serokell.Util         (allDistinct)
 import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
-                                        it, shouldSatisfy)
+                                        it)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, arbitrary, counterexample, property,
                                         (==>))
@@ -25,7 +25,7 @@ import           Pos.Core              (addressHash, checkPubKeyAddress,
 import           Pos.Crypto            (SignTag (SignTx), checkSig, fakeSigner, hash,
                                         toPublic, unsafeHash, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Script            (Script)
+import           Pos.Script            (PlutusError (..), Script)
 import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
                                         goodIntRedeemer, goodIntRedeemerWithBlah,
                                         goodStdlibRedeemer, idValidator, intValidator,
@@ -36,7 +36,8 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
                                         TxOut (..), TxOutAux (..), TxSigData (..),
                                         TxWitness, Utxo, VTxContext (..),
-                                        applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
+                                        WitnessVerFailure (..), applyTxToUtxoPure,
+                                        verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
 
 ----------------------------------------------------------------------------
@@ -230,57 +231,44 @@ scriptTxSpec :: Spec
 scriptTxSpec = describe "script transactions" $ do
     describe "good cases" $ do
         it "goodIntRedeemer + intValidator" $ do
-            let res = checkScriptTx
-                    intValidator
-                    (\_ -> ScriptWitness intValidator goodIntRedeemer)
-            res `shouldSatisfy` isSuccess
+            txShouldSucceed $ checkScriptTx
+                intValidator
+                (\_ -> ScriptWitness intValidator goodIntRedeemer)
 
         it "goodStdlibRedeemer + stdlibValidator" $ do
-            let res = checkScriptTx
-                    stdlibValidator
-                    (\_ -> ScriptWitness stdlibValidator goodStdlibRedeemer)
-            res `shouldSatisfy` isSuccess
+            txShouldSucceed $ checkScriptTx
+                stdlibValidator
+                (\_ -> ScriptWitness stdlibValidator goodStdlibRedeemer)
 
     describe "bad cases" $ do
         it "a P2PK tx spending a P2SH tx" $ do
-            let res = checkScriptTx
-                    alwaysSuccessValidator
-                    (\_ -> randomPkWitness)
-            res `errorsShouldMatch` [
-                -- There are two errors
-                "input #0's witness doesn't match address.*\
-                    \address details: ScriptAddress.*\
-                    \witness: PkWitness.*",
-                "input #0 isn't validated by its witness.*\
-                    \signature check failed.*" ]
+            txShouldFailWithWitnessMismatch $ checkScriptTx
+                alwaysSuccessValidator
+                (\_ -> randomPkWitness)
 
         it "validator script provided in witness doesn't match \
            \the validator for which the address was created" $ do
-            let res = checkScriptTx
-                    alwaysSuccessValidator
-                    (\_ -> ScriptWitness intValidator goodIntRedeemer)
-            res `errorsShouldMatch` [
-                "input #0's witness doesn't match address.*\
-                     \address details: ScriptAddress.*\
-                     \witness: ScriptWitness.*" ]
+            let witness = ScriptWitness intValidator goodIntRedeemer
+            txShouldFailWithWitnessMismatch $ checkScriptTx
+                alwaysSuccessValidator
+                (const witness)
 
         it "validator script isn't a proper validator, \
            \redeemer script isn't a proper redeemer" $ do
             let res = checkScriptTx
                     goodIntRedeemer
                     (\_ -> ScriptWitness goodIntRedeemer intValidator)
-            res `errorsShouldMatch` [
-                "input #0 isn't validated by its witness.*\
-                    \reason: The validator script is missing `validator`.*\
-                    \the redeemer script is missing `redeemer`"]
+            res `txShouldFailWithPlutus` PlutusExecutionFailure
+                "The validator script is missing `validator` and \
+                \the redeemer script is missing `redeemer`"
 
         it "redeemer >>= validator doesn't typecheck" $ do
             let res = checkScriptTx
                     idValidator
                     (\_ -> ScriptWitness idValidator goodIntRedeemer)
-            res `errorsShouldMatch` [
-                "input #0 isn't validated by its witness.*\
-                    \reason: The validation result isn't of type Comp.*"]
+            res `txShouldFailWithPlutus` PlutusExecutionFailure
+                "The validation result isn't of type Comp \
+                \(i.e. neither success nor failure)"
 
         it "redeemer and validator define same names" $ do
             let res = checkScriptTx
@@ -288,122 +276,111 @@ scriptTxSpec = describe "script transactions" $ do
                     (\_ -> ScriptWitness
                                intValidatorWithBlah
                                goodIntRedeemerWithBlah)
-            res `errorsShouldMatch` [
-                "input #0 isn't validated by its witness.*\
-                    \reason: There are overlapping declared names \
-                    \in these scripts: User \"blah\"*"]
+            res `txShouldFailWithPlutus` PlutusExecutionFailure
+                "There are overlapping declared names in \
+                \these scripts: User \"blah\""
 
         it "redeemer >>= validator outputs 'failure'" $ do
             let res = checkScriptTx
                     intValidator
                     (\_ -> ScriptWitness intValidator badIntRedeemer)
-            res `errorsShouldMatch` [
-                "input #0 isn't validated by its witness.*\
-                    \reason: result of evaluation is 'failure'.*"]
+            res `txShouldFailWithPlutus` PlutusReturnedFalse
 
     let sks@[sk1, sk2, sk3,  sk4] = runGen $ nonrepeating 4
     let     [pk1, pk2, pk3, _pk4] = map toPublic sks
-    let shouldBeFailure res = res `errorsShouldMatch` [
-            "input #0 isn't validated by its witness.*\
-                \reason: result of evaluation is 'failure'.*"]
 
     describe "multisig" $ do
         describe "1-of-1" $ do
             let val = multisigValidator 1 [addressHash pk1]
             it "good (1 provided)" $ do
-                let res = checkScriptTx val
-                        (\sd -> ScriptWitness val
-                            (multisigRedeemer sd [Just $ fakeSigner sk1]))
-                res `shouldSatisfy` isSuccess
+                txShouldSucceed $ checkScriptTx val
+                    (\sd -> ScriptWitness val
+                        (multisigRedeemer sd [Just $ fakeSigner sk1]))
             it "bad (0 provided)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd [Nothing]))
-                shouldBeFailure res
+                res `txShouldFailWithPlutus` PlutusReturnedFalse
             it "bad (1 provided, wrong sig)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd [Just $ fakeSigner sk2]))
-                shouldBeFailure res
+                res `txShouldFailWithPlutus` PlutusReturnedFalse
         describe "2-of-3" $ do
             let val = multisigValidator 2 (map addressHash [pk1, pk2, pk3])
             it "good (2 provided)" $ do
-                let res = checkScriptTx val
-                        (\sd -> ScriptWitness val
-                            (multisigRedeemer sd
-                             [Just $ fakeSigner sk1, Nothing, Just $ fakeSigner sk3]))
-                res `shouldSatisfy` isSuccess
+                txShouldSucceed $ checkScriptTx val
+                    (\sd -> ScriptWitness val
+                        (multisigRedeemer sd
+                          [ Just $ fakeSigner sk1
+                          , Nothing
+                          , Just $ fakeSigner sk3]))
             it "good (3 provided)" $ do
-                let res = checkScriptTx val
-                        (\sd -> ScriptWitness val
-                            (multisigRedeemer sd
-                             [Just $ fakeSigner sk1, Just $ fakeSigner sk2, Just $ fakeSigner sk3]))
-                res `shouldSatisfy` isSuccess
+                txShouldSucceed $ checkScriptTx val
+                    (\sd -> ScriptWitness val
+                        (multisigRedeemer sd
+                          [ Just $ fakeSigner sk1
+                          , Just $ fakeSigner sk2
+                          , Just $ fakeSigner sk3]))
             it "good (3 provided, 1 wrong)" $ do
-                let res = checkScriptTx val
-                        (\sd -> ScriptWitness val
-                            (multisigRedeemer sd
-                             [Just $ fakeSigner sk1, Just $ fakeSigner sk4, Just $ fakeSigner sk3]))
-                res `shouldSatisfy` isSuccess
+                txShouldSucceed $ checkScriptTx val
+                    (\sd -> ScriptWitness val
+                        (multisigRedeemer sd
+                         [Just $ fakeSigner sk1,
+                          Just $ fakeSigner sk4,
+                          Just $ fakeSigner sk3]))
             it "bad (1 provided)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
                              [Just $ fakeSigner sk1, Nothing, Nothing]))
-                shouldBeFailure res
+                res `txShouldFailWithPlutus` PlutusReturnedFalse
             it "bad (2 provided, length doesn't match)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
                              [Just $ fakeSigner sk1, Just $ fakeSigner sk2]))
-                shouldBeFailure res
+                res `txShouldFailWithPlutus` PlutusReturnedFalse
             it "bad (3 provided, 2 wrong)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
                              [Just $ fakeSigner sk1, Just $ fakeSigner sk3, Just $ fakeSigner sk2]))
-                shouldBeFailure res
+                res `txShouldFailWithPlutus` PlutusReturnedFalse
 
     describe "execution limits" $ do
         it "5-of-5 multisig is okay" $ do
             let val = multisigValidator 5 (replicate 5 (addressHash pk1))
-            let res = checkScriptTx val
-                    (\sd -> ScriptWitness val
-                        (multisigRedeemer sd
-                         (replicate 5 (Just $ fakeSigner sk1))))
-            res `shouldSatisfy` isSuccess
+            txShouldSucceed $ checkScriptTx val
+                (\sd -> ScriptWitness val
+                    (multisigRedeemer sd
+                     (replicate 5 (Just $ fakeSigner sk1))))
         it "10-of-10 multisig is bad" $ do
             let val = multisigValidator 10 (replicate 10 (addressHash pk1))
             let res = checkScriptTx val
                     (\sd -> ScriptWitness val
                         (multisigRedeemer sd
                          (replicate 10 (Just $ fakeSigner sk1))))
-            res `errorsShouldMatch` [
-                "input #0 isn't validated by its witness.*\
-                        \reason: Out of petrol.*"]
+            res `txShouldFailWithPlutus` PlutusExecutionFailure
+                "Out of petrol."
         it "500 rounds of SHA3 is okay" $ do
-            let res = checkScriptTx idValidator
-                      (\_ -> ScriptWitness idValidator (shaStressRedeemer 500))
-            res `shouldSatisfy` isSuccess
+            txShouldSucceed $ checkScriptTx idValidator
+                (\_ -> ScriptWitness idValidator (shaStressRedeemer 500))
         it "1000 rounds of SHA3 is bad" $ do
             let res = checkScriptTx idValidator
                       (\_ -> ScriptWitness idValidator (shaStressRedeemer 1000))
-            res `errorsShouldMatch` [
-                "input #0 isn't validated by its witness.*\
-                        \reason: Out of petrol.*"]
+            res `txShouldFailWithPlutus` PlutusExecutionFailure
+                "Out of petrol."
         it "100 rounds of sigverify is okay" $ do
-            let res = checkScriptTx idValidator
-                      (\_ -> ScriptWitness idValidator (sigStressRedeemer 100))
-            res `shouldSatisfy` isSuccess
+            txShouldSucceed $ checkScriptTx idValidator
+                (\_ -> ScriptWitness idValidator (sigStressRedeemer 100))
         it "200 rounds of sigverify is bad" $ do
             let res = checkScriptTx idValidator
                       (\_ -> ScriptWitness idValidator (sigStressRedeemer 200))
-            res `errorsShouldMatch` [
-                "input #0 isn't validated by its witness.*\
-                        \reason: Out of petrol.*"]
+            res `txShouldFailWithPlutus` PlutusExecutionFailure
+                "Out of petrol."
 
   where
-    isSuccess = isRight
     -- Some random stuff we're going to use when building transactions
     randomPkOutput = runGen $ do
         key <- arbitrary
@@ -428,53 +405,47 @@ scriptTxSpec = describe "script transactions" $ do
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
     -- input witness).
-    checkScriptTx :: Script -> (TxSigData -> TxInWitness) -> Either ToilVerFailure ()
+    checkScriptTx :: Script
+                  -> (TxSigData -> TxInWitness)
+                  -> Either ToilVerFailure ()
     checkScriptTx val mkWit =
-        let (inp, _, utxo) = mkUtxo $
-                TxOut (makeScriptAddress val) (mkCoin 1)
+        let (inp, _, utxo) = mkUtxo $ TxOut (makeScriptAddress val) (mkCoin 1)
             tx = UnsafeTx (one inp) (one randomPkOutput) $ mkAttributes ()
             txSigData = TxSigData { txSigTxHash = hash tx }
             txAux = TxAux tx (one (mkWit txSigData))
         in tryApplyTx utxo txAux
 
--- | Test that errors in a 'VerFailure' match given regexes.
-errorsShouldMatch :: Either ToilVerFailure a -> [Text] -> Expectation
-errorsShouldMatch (Right _) _ =
-    expectationFailure "expected to have errors, but there were none"
-errorsShouldMatch (Left (ToilInvalidInput{})) _ = pass
-errorsShouldMatch (Left (ToilWitnessDoesntMatch{})) _ = pass
--- N.B. @neongreen promised to improve it
--- errorsShouldMatch (Left (ToilInvalidInputs xs)) ys = do
---     let lx = length xs
---         ly = length ys
---     when (lx /= ly) $ expectationFailure $ toString $ sformat
---         ("expected "%int%" errors: "%listJsonIndent 0%"\n"%
---          "but there were "%int%" errors: "%listJsonIndent 0)
---         ly ys lx xs
---     sequence_ $ zipWith3 tryMatch [1 :: Int ..] xs ys
---   where
---     tryMatch i x y = do
---         let mbRegexp = TDFA.compile
---                          TDFA.defaultCompOpt{TDFA.multiline = False}
---                          TDFA.defaultExecOpt
---                          y
---         regexp <- case mbRegexp of
---             Right r -> return r
---             Left e -> do expectationFailure $ toString $ sformat
---                              ("couldn't compile regex for #"%int%": "%build)
---                              i e
---                          return (error "fail")
---         unless (TDFA.matchTest regexp x) $
---             expectationFailure $ toString $ sformat
---                 ("error #"%int%" doesn't match the regexp:\n"%
---                  shown%"\n\n"%
---                  build)
---                 i y x
-errorsShouldMatch (Left e) _ =
-    expectationFailure $ "unexpected error: " <> toString (pretty e)
+----------------------------------------------------------------------------
+-- Script tx testing utilities
+----------------------------------------------------------------------------
+
+-- | Script transaction should pass the check and return 'Right'.
+txShouldSucceed :: Either ToilVerFailure () -> Expectation
+txShouldSucceed test = whenLeft test $ \x ->
+    expectationFailure $ "unexpected failure: " <> show x
+
+-- | Transaction should fail with a 'ToilWitnessDoesntMatch' error.
+txShouldFailWithWitnessMismatch :: Either ToilVerFailure () -> Expectation
+txShouldFailWithWitnessMismatch = \case
+    Left ToilWitnessDoesntMatch{} -> pass
+    other -> expectationFailure $
+        "expected: Left ToilWitnessDoesntMatch{..}\n" <>
+        " but got: " <> show other
+
+-- | Transaction should fail with a Plutus error.
+txShouldFailWithPlutus :: Either ToilVerFailure () -> PlutusError -> Expectation
+txShouldFailWithPlutus res err = case res of
+    Left ToilInvalidWitness{..}
+        | tiwReason == WitnessScriptError err -> pass
+        | otherwise -> expectationFailure $
+              "expected: " <> show (WitnessScriptError err) <> "\n" <>
+              " but got: " <> show tiwReason
+    other -> expectationFailure $
+        "expected: Left ...: " <> show (WitnessScriptError err) <> "\n" <>
+        " but got: " <> show other
 
 ----------------------------------------------------------------------------
--- Utilities
+-- General-purpose utilities
 ----------------------------------------------------------------------------
 
 qcIsLeft :: Show b => Either a b -> Property

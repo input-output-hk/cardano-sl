@@ -47,10 +47,12 @@ module Pos.Generator.BlockEvent
 
 import           Universum
 
-import           Control.Lens                (foldMapOf, folded, makeLenses, makePrisms)
+import           Control.Lens                (folded, makeLenses, makePrisms, to,
+                                              toListOf)
 import           Control.Monad.Random.Strict (RandT, Random (..), RandomGen, mapRandT,
                                               weighted)
-import           Data.Default                (def)
+import qualified Data.ByteString.Short       as SBS
+import qualified Data.List                   as List
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as Map
 import qualified Data.Sequence               as Seq
@@ -65,7 +67,7 @@ import           Pos.Core                    (HasCoreConstants, HeaderHash, head
                                               prevBlockL)
 import           Pos.Crypto.Hashing          (hashHexF)
 import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
-                                              TxGenParams, genBlocks)
+                                              TxGenParams(..), genBlocks)
 import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.GState.Context          (withClonedGState)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
@@ -80,7 +82,7 @@ type BlundDefault = Blund SscGodTossing
 
 -- NB. not a monoid, so the user can be sure that `(<>)` acts as expected
 -- on string literals for paths (not path segments).
-newtype PathSegment = PathSegment { pathSegmentText :: Text }
+newtype PathSegment = PathSegment { pathSegmentByteString :: SBS.ShortByteString }
     deriving (Eq, Ord, IsString)
 
 instance Show PathSegment where
@@ -98,7 +100,8 @@ instance IsString Path where
 
 instance Buildable Path where
     build (Path segs) = bprint build
-        (fold . intersperse "/" . toList $ pathSegmentText <$> segs)
+        (fold . intersperse ("/" :: Text) . toList $
+            decodeUtf8 . SBS.fromShort . pathSegmentByteString <$> segs)
 
 -- | Convert a sequence of relative paths into a sequence of absolute paths:
 --   @pathSequence "base" ["a", "b", "c"] = ["base" <> "a", "base" <> "a" <> "b", "base" <> "a" <> "b" <> "c"]
@@ -122,27 +125,23 @@ data BlockDesc
     | BlockDescCustom TxGenParams -- a random valid block with custom gen params
     deriving (Show)
 
--- Precondition: input paths are non-empty
-buildBlockchainForest :: a -> Map Path a -> BlockchainForest a
+-- Empty input paths are ignored.
+buildBlockchainForest :: a -> [(Path, a)] -> BlockchainForest a
 buildBlockchainForest defElem elements =
-    fmap (buildBlockchainTree defElem) . Map.fromListWith Map.union $ do
-        (Path path, a) <- Map.toList elements
+    fmap (buildBlockchainTree defElem . getDList) . Map.fromListWith (<>) $ do
+        (Path path, a) <- elements
         case Seq.viewl path of
-            Seq.EmptyL -> error
-                "buildBlockchainForest: precondition violated, empty path"
+            Seq.EmptyL -> []
             pathSegment Seq.:< path' ->
-                [(pathSegment, Map.singleton (Path path') a)]
+                [(pathSegment, dlistSingleton (Path path', a))]
+  where
+    dlistSingleton a = Endo (a:)
+    getDList (Endo dl) = dl []
 
-buildBlockchainTree :: a -> Map Path a -> BlockchainTree a
+buildBlockchainTree :: a -> [(Path, a)] -> BlockchainTree a
 buildBlockchainTree defElem elements =
-    let
-        topPath = Path Seq.empty
-        topElement = Map.findWithDefault defElem topPath elements
-        -- 'otherElements' has its empty path deleted (if there was one in the
-        -- first place), so it satisfies the precondition of 'buildBlockchainForest'
-        otherElements = Map.delete topPath elements
-    in
-        BlockchainTree topElement (buildBlockchainForest defElem otherElements)
+    let topElement = fromMaybe defElem $ List.lookup (Path Seq.empty) elements
+    in BlockchainTree topElement (buildBlockchainForest defElem elements)
 
 -- Inverse to 'buildBlockchainForest'.
 flattenBlockchainForest' :: BlockchainForest a -> Map Path a
@@ -179,7 +178,7 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
     let
         BlockchainTree blockDesc blockchainForest = blockchainTree
         txGenParams = case blockDesc of
-            BlockDescDefault  -> def
+            BlockDescDefault  -> TxGenParams (0, 0) 0
             BlockDescCustom p -> p
         blockGenParams = BlockGenParams
             { _bgpSecrets         = secrets
@@ -209,10 +208,8 @@ genBlocksInStructure secrets bootStakeholders annotations s = do
         getAnnotation :: Path -> BlockDesc
         getAnnotation path =
             Map.findWithDefault BlockDescDefault path annotations
-        paths :: Map Path BlockDesc
-        paths = foldMapOf folded
-            (\path -> Map.singleton path (getAnnotation path))
-            s
+        paths :: [(Path, BlockDesc)]
+        paths = toListOf (folded . to (\path -> (path, getAnnotation path))) s
         descForest :: BlockchainForest BlockDesc
         descForest = buildBlockchainForest BlockDescDefault paths
     blockForest :: BlockchainForest BlundDefault <-

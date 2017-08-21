@@ -196,8 +196,13 @@ lrcDo epoch consumers tip = tip <$ do
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
+    bsc =
+        -- LRC rollbacks temporarily to examine the state of the DB at the
+        -- time of the crucial slot. The crucial slot may be further than 'blkSecurityParam'
+        -- slots from the current one, so the security check must be disabled.
+        BypassSecurityCheck True
     withBlocksRolledBack blunds =
-        bracket_ (rollbackBlocksUnsafe (BypassSecurityCheck True) blunds)
+        bracket_ (rollbackBlocksUnsafe bsc blunds)
                  (applyBack (toOldestFirst blunds))
 
 issuersComputationDo :: forall ssc ctx m . LrcMode ssc ctx m => EpochIndex -> m ()

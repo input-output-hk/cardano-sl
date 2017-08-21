@@ -270,8 +270,13 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) blunds = do
     resultingDifficulty <-
         maybe 0 (view difficultyL) <$>
         blkGetHeader @ssc (NE.head (getOldestFirst . toOldestFirst $ blunds) ^. prevBlockL)
-    let secure = maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
-    unless (secure || bypassSecurity) $
+    let
+        secure =
+            -- no underflow from subtraction
+            maxSeenDifficulty >= resultingDifficulty &&
+            -- no rollback further than k blocks
+            maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
+    unless (bypassSecurity || secure) $
         reportFatalError "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."

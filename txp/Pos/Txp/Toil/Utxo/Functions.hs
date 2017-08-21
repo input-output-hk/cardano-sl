@@ -32,7 +32,7 @@ import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
                                             TxDistribution (..), TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
                                             TxOutDistribution, TxSigData (..), TxUndo,
-                                            TxWitness)
+                                            TxWitness, UtxoTxIn (..))
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
@@ -186,7 +186,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
         -> m ()
-    inputPredicates i (txIn@TxIn{..}, toa@(TxOutAux txOut@TxOut{..} _)) witness = do
+    inputPredicates i (txIn, toa@(TxOutAux txOut@TxOut{..} _)) witness = do
         unless (checkSpendingData txOutAddress witness) $ throwError $
             ToilWitnessDoesntMatch i txIn txOut witness
         -- N.B. @neongreen promised to improve it
@@ -259,7 +259,7 @@ applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
     mapM_ applyOutput . zip [0 ..] . toList . NE.zipWith TxOutAux _txOutputs $
         getTxDistribution distr
   where
-    applyOutput (idx, toa) = utxoPut (TxIn txid idx) toa
+    applyOutput (idx, toa) = utxoPut (TxInUtxo $ UtxoTxIn txid idx) toa
 
 -- | Rollback application of given transaction to Utxo using Undo
 -- data.  This function assumes that transaction has been really
@@ -270,5 +270,5 @@ rollbackTxUtxo
 rollbackTxUtxo (txAux, undo) = do
     let tx@UnsafeTx {..} = taTx txAux
     let txid = hash tx
-    mapM_ utxoDel $ take (length _txOutputs) $ map (TxIn txid) [0..]
+    mapM_ utxoDel $ take (length _txOutputs) $ map (TxInUtxo . UtxoTxIn txid) [0..]
     mapM_ (uncurry utxoPut) $ NE.zip _txInputs undo

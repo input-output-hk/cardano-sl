@@ -18,6 +18,15 @@ import qualified Pos.Txp.Core.Types as T
 -- Core
 ----------------------------------------------------------------------------
 
+instance Bi T.UtxoTxIn where
+    encode utxIn =
+        encodeListLen 2 <>
+        encode (T.txInHash utxIn) <>
+        encode (T.txInIndex utxIn)
+    decode = do
+        enforceSize "UtxoTxIn" 2
+        T.UtxoTxIn <$> decode <*> decode
+
 instance Bi T.TxIn where
     encode (T.TxInUtxo utxoTxIn) =
         encodeListLen 2 <>

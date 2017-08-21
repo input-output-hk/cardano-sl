@@ -13,6 +13,7 @@ module Pos.Txp.Core.Types
        , TxSig
 
        -- * Tx parts
+       , UtxoTxIn (..)
        , TxIn (..)
        , TxOut (..)
        , _TxOut

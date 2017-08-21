@@ -8,9 +8,11 @@ module Pos.Binary.Class.Core
     ( Bi(..)
     , encodeBinary
     , decodeBinary
+    , decodeCBORDataItem
     , enforceSize
     , matchSize
     -- * CBOR re-exports
+    , E.encodeTag
     , E.encodeListLen
     , D.decodeListLen
     , D.decodeListLenOf
@@ -67,6 +69,16 @@ matchSize :: Int -> String -> Int -> D.Decoder s ()
 matchSize requestedSize lbl actualSize =
   when (actualSize /= requestedSize) $
     fail (lbl <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
+
+-- | Tries to decode Tag 24 (CBOR Data Item) from a ByteString blob,
+-- failing in case the tag cannot be found.
+decodeCBORDataItem :: ByteString -> D.Decoder s ByteString
+decodeCBORDataItem blob = do
+    case BS.splitAt 2 blob of
+        -- \216\CAN == D8 18
+        -- Cfr. http://cbor.me/?diag=24(h%27%27)
+        ("\216\CAN", rest) -> pure rest
+        _ -> fail $ "decodeCBORDataItem: Couldn't find CBOR tag 24 at the beginning of the blob: " <> show blob
 
 ----------------------------------------
 

@@ -61,7 +61,7 @@ import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
-import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Core               (TxIn (..), UtxoTxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil               (GenesisUtxo (..), utxoToStakes)
 
 -- reexports
@@ -169,7 +169,7 @@ genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
     balances :: [(Address, Coin)]
     balances = concatAddrDistrs ad
     utxoEntry (addr, coin) =
-        ( TxIn (unsafeHash addr) 0
+        ( TxInUtxo $ UtxoTxIn (unsafeHash addr) 0
         , TxOutAux (TxOut addr coin) (outDistr coin))
     outDistr = genesisSplitBoot gws
 

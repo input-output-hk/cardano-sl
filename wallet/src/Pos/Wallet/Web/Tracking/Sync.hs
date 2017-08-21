@@ -72,7 +72,7 @@ import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
                                                    getSystemStartM)
-import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
+import           Pos.Txp.Core                     (Tx (..), UtxoTxIn (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
                                                    flattenTxPayload, getTxDistribution,
                                                    toaOut, topsortTxs, txOutAddress)
@@ -319,7 +319,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
     foldl' applyTx mempty txs
   where
     snd3 (_, x, _) = x
-    toTxInOut txid (idx, out, dist) = (TxIn txid idx, TxOutAux out dist)
+    toTxInOut txid (idx, out, dist) = (TxInUtxo $ UtxoTxIn txid idx, TxOutAux out dist)
 
     applyTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader ssc) -> CAccModifier
     applyTx CAccModifier{..} (TxAux {..}, undo, blkHeader) =
@@ -381,7 +381,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
 
             l = fromIntegral (length outs) :: Word32
             ownTxIns = zip inps $ map fst ownInputs
-            ownTxOuts = map (TxIn txid) ([0 .. l - 1] :: [Word32])
+            ownTxOuts = map (TxInUtxo . UtxoTxIn txid) ([0 .. l - 1] :: [Word32])
 
             deletedHistory =
                 if (not $ null ownInputAddrs) || (not $ null ownOutputAddrs)

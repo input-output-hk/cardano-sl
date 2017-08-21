@@ -34,8 +34,8 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         Tx (..), TxAux (..), TxDistribution (..),
                                         TxIn (..), TxInWitness (..), TxOut (..),
                                         TxOutAux (..), TxSigData (..), TxWitness, Utxo,
-                                        VTxContext (..), applyTxToUtxoPure, verifyTxUtxo,
-                                        verifyTxUtxoPure)
+                                        UtxoTxIn (..), VTxContext (..), applyTxToUtxoPure,
+                                        verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
                                         makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
@@ -59,7 +59,7 @@ spec = describe "Txp.Toil.Utxo" $ do
         prop description_applyTxToUtxoGood applyTxToUtxoGood
     scriptTxSpec
   where
-    myTx = TxIn myHash 0
+    myTx = TxInUtxo $ UtxoTxIn myHash 0
     myHash = unsafeHash @Int32 0
     description_findTxInUtxo =
         "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in\
@@ -226,7 +226,7 @@ applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
         newUtxoMap = applyTxToUtxoPure (withHash tx) txDistr utxoMap
         newUtxos =
             NE.fromList $
-            (map (TxIn (hash tx)) [0 ..]) `zip` toList txOuts
+            (map (TxInUtxo . UtxoTxIn (hash tx)) [0 ..]) `zip` toList txOuts
         rmvUtxo = foldr M.delete utxoMap inpList
         insNewUtxo = foldr (uncurry M.insert) rmvUtxo newUtxos
     in insNewUtxo == newUtxoMap
@@ -424,7 +424,7 @@ scriptTxSpec = describe "script transactions" $ do
     mkUtxo :: TxOut -> (TxIn, TxOut, Utxo)
     mkUtxo outp =
         let txid = unsafeHash ("nonexistent tx" :: Text)
-        in  (TxIn txid 0, outp, one ((TxIn txid 0), (TxOutAux outp [])))
+        in  (TxInUtxo $ UtxoTxIn txid 0, outp, one ((TxInUtxo $ UtxoTxIn txid 0), (TxOutAux outp [])))
 
     -- Do not verify versions
     vtxContext = VTxContext False

@@ -27,15 +27,15 @@ instance Bi T.TxIn where
               <> encode (0 :: Word8)
               <> encode binaryBlob
     where
-      binaryBlob = toLazyByteString (encodeTag 24 <> innerType)
-      innerType  = encode (T.txInHash txIn, T.txInIndex txIn)
+      binaryBlob = toLazyByteString (encodeTag 24 <> encode innerType)
+      innerType  = serialize' (T.txInHash txIn, T.txInIndex txIn)
 
   decode = do
     enforceSize "TxIn" 2
     tag       <- decode @Word8
     dataItem  <- decodeCBORDataItem =<< decode @ByteString
     case tag of
-        0 -> case decodeFull dataItem of
+        0 -> case decodeFull (deserialize' dataItem) of
             Left e           -> fail (toString e)
             Right (hsh, idx) -> pure (T.TxIn hsh idx)
         _ -> fail $ "Error decoding TxIn, tag not supported: " <> show tag

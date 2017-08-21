@@ -43,6 +43,20 @@ Similarly to maps, sets also have implications for canonical CBOR representation
 unordered sets from ordered sequences can be useful in verifying that representations are canonical,
 or in testing that implementations correctly reject non-canonical representations.
 
+## Examples
+
+Given the following JavaScript array:
+
+   [1,2,3]
+
+The natural encoding of this data structure as a CBOR Set would be 0xD9010283010203:
+
+   D9 0102  -- Tag 258
+      83    -- Array of length 3
+         01 -- 1
+         02 -- 2
+         03 -- 3
+
 ## References
 
 [1] C. Bormann, and P. Hoffman. "Concise Binary Object Representation (CBOR)". RFC 7049, October 2013.

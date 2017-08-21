@@ -19,10 +19,20 @@ import qualified Pos.Txp.Core.Types as T
 ----------------------------------------------------------------------------
 
 instance Bi T.TxIn where
-  encode txIn = encodeListLen 2 <> encode (T.txInHash txIn) <> encode (T.txInIndex txIn)
-  decode = do
-    enforceSize "TxIn" 2
-    T.TxIn <$> decode <*> decode
+    encode (T.TxInUtxo utxoTxIn) =
+        encodeListLen 2 <>
+        encode (0 :: Word8) <>
+        encode (serialize' utxoTxIn)
+    encode (T.TxInUnknown tag bs) =
+        encodeListLen 2 <>
+        encode tag <>
+        encode bs
+    decode = do
+        enforceSize "TxIn" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> T.TxInUtxo <$> decode
+            _ -> T.TxInUnknown tag <$> decode
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [
@@ -37,43 +47,51 @@ deriveSimpleBi ''T.TxOutAux [
     ]]
 
 instance Bi T.Tx where
-  encode tx =  encodeListLen 3
-            <> encode (T._txInputs tx)
-            <> encode (T._txOutputs tx)
-            <> encode (T._txAttributes tx)
-  decode = do
-    enforceSize "Tx" 3
-    res <- T.mkTx <$> decode <*> decode <*> decode
-    case res of
-      Left e   -> fail e
-      Right tx -> pure tx
+    encode tx = encodeListLen 3
+                <> encode (T._txInputs tx)
+                <> encode (T._txOutputs tx)
+                <> encode (T._txAttributes tx)
+    decode = do
+        enforceSize "Tx" 3
+        res <- T.mkTx <$> decode <*> decode <*> decode
+        case res of
+            Left e   -> fail e
+            Right tx -> pure tx
 
 instance Bi T.TxInWitness where
-  encode input = case input of
-    T.PkWitness key sig         -> encodeListLen 2 <> encode (0 :: Word8)
-                                                   <> encode (serialize' (key, sig))
-    T.ScriptWitness val red     -> encodeListLen 2 <> encode (1 :: Word8)
-                                                   <> encode (serialize' (val, red))
-    T.RedeemWitness key sig     -> encodeListLen 2 <> encode (2 :: Word8)
-                                                   <> encode (serialize' (key, sig))
-    T.UnknownWitnessType tag bs -> encodeListLen 2 <> encode tag
-                                                   <> encode bs
-  decode = do
-    len <- decodeListLen
-    tag <- decode @Word8
-    case tag of
-      0 -> do
-        matchSize len "TxInWitness.PkWitness" 2
-        uncurry T.PkWitness . deserialize' <$> decode
-      1 -> do
-        matchSize len "TxInWitness.ScriptWitness" 2
-        uncurry T.ScriptWitness . deserialize' <$> decode
-      2 -> do
-        matchSize len "TxInWitness.RedeemWitness" 2
-        uncurry T.RedeemWitness . deserialize' <$> decode
-      _ -> do
-        matchSize len "TxInWitness.UnknownWitnessType" 2
-        T.UnknownWitnessType tag <$> decode
+    encode input = case input of
+        T.PkWitness key sig         ->
+            encodeListLen 2 <>
+            encode (0 :: Word8) <>
+            encode (serialize' (key, sig))
+        T.ScriptWitness val red     ->
+            encodeListLen 2 <>
+            encode (1 :: Word8) <>
+            encode (serialize' (val, red))
+        T.RedeemWitness key sig     ->
+            encodeListLen 2 <>
+            encode (2 :: Word8) <>
+            encode (serialize' (key, sig))
+        T.UnknownWitnessType tag bs ->
+            encodeListLen 2 <>
+            encode tag <>
+            encode bs
+    decode = do
+        len <- decodeListLen
+        tag <- decode @Word8
+        case tag of
+            0 -> do
+                matchSize len "TxInWitness.PkWitness" 2
+                uncurry T.PkWitness . deserialize' <$> decode
+            1 -> do
+                matchSize len "TxInWitness.ScriptWitness" 2
+                uncurry T.ScriptWitness . deserialize' <$> decode
+            2 -> do
+                matchSize len "TxInWitness.RedeemWitness" 2
+                uncurry T.RedeemWitness . deserialize' <$> decode
+            _ -> do
+                matchSize len "TxInWitness.UnknownWitnessType" 2
+                T.UnknownWitnessType tag <$> decode
 
 instance Bi T.TxDistribution where
   encode = encode . go

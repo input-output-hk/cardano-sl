@@ -6,8 +6,10 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), deriveSimpleBi, enforceSize, encodeListLen,
-                                     decodeListLen, matchSize, deserialize', serialize')
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), decodeCBORDataItem,
+                                     decodeFull, decodeListLen, deriveSimpleBi,
+                                     deserialize', encodeListLen, encodeTag, enforceSize,
+                                     matchSize, serialize', toLazyByteString)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
@@ -19,10 +21,24 @@ import qualified Pos.Txp.Core.Types as T
 ----------------------------------------------------------------------------
 
 instance Bi T.TxIn where
-  encode txIn = encodeListLen 2 <> encode (T.txInHash txIn) <> encode (T.txInIndex txIn)
+  -- [CSL-1526] Support the "unknown" pattern for encoding a `TxIn`, so that
+  -- we can down the line extend the `TxIn` type is a backward-compatible way.
+  encode txIn =  encodeListLen 2
+              <> encode (0 :: Word8)
+              <> encode binaryBlob
+    where
+      binaryBlob = toLazyByteString (encodeTag 24 <> encode innerType)
+      innerType  = serialize' (T.txInHash txIn, T.txInIndex txIn)
+
   decode = do
     enforceSize "TxIn" 2
-    T.TxIn <$> decode <*> decode
+    tag       <- decode @Word8
+    dataItem  <- decodeCBORDataItem =<< decode @ByteString
+    case tag of
+        0 -> case decodeFull (deserialize' dataItem) of
+            Left e           -> fail (toString e)
+            Right (hsh, idx) -> pure (T.TxIn hsh idx)
+        _ -> fail $ "Error decoding TxIn, tag not supported: " <> show tag
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [

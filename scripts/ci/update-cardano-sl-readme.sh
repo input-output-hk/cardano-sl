@@ -7,6 +7,7 @@ readonly CARDANO_DOCS_REPO_NAME=cardanodocs.com
 readonly CARDANO_SL_REPO_NAME=cardano-sl
 readonly PATH_TO_CARDANO_DOCS_REPO="${HOME}"/"${CARDANO_DOCS_REPO_NAME}"
 readonly PATH_TO_CARDANO_SL_REPO="${HOME}"/"${CARDANO_SL_REPO_NAME}"
+readonly PATH_TO_NODE_SUBDIR="${PATH_TO_CARDANO_SL_REPO}"/node/
 readonly README=README.md
 readonly PATH_TO_DOCS_CHAPTERS="${PATH_TO_CARDANO_DOCS_REPO}"/_docs/
 
@@ -46,7 +47,7 @@ for i in {1..5}; do
 done
 
 echo "**** Copy new ${README} in ${CARDANO_SL_REPO_NAME} ****"
-mv -f "${README}" "${PATH_TO_CARDANO_SL_REPO}"
+mv -f "${README}" "${PATH_TO_NODE_SUBDIR}"
 
 echo "**** Push all changes, if required ****"
 cd "${PATH_TO_CARDANO_SL_REPO}"

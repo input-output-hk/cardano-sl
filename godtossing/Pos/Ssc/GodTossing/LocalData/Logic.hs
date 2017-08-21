@@ -127,7 +127,7 @@ normalize (epoch, stake) bvd gs = do
 sscIsDataUseful
     :: ( WithLogger m
        , MonadIO m
-       , MonadSlots m
+       , MonadSlots ctx m
        , MonadSscMem SscGodTossing ctx m
        , Rand.MonadRandom m
        , HasCoreConstants
@@ -166,7 +166,7 @@ type GtDataProcessingMode ctx m =
     , Rand.MonadRandom m  -- for crypto
     , MonadDBRead m       -- to get richmen
     , MonadGState m       -- to get block size limit
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadSscMem SscGodTossing ctx m
     , MonadError TossVerFailure m
     , HasCoreConstants

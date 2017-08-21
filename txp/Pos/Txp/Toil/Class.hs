@@ -7,6 +7,7 @@
 
 module Pos.Txp.Toil.Class
        ( MonadUtxoRead (..)
+       , utxoGetReader
        , MonadUtxo (..)
        , MonadBalancesRead (..)
        , MonadBalances (..)
@@ -23,7 +24,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Core                   (Coin, StakeholderId)
 import           Pos.Txp.Core.Types         (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Txp.Toil.Types         (Utxo)
-import           Pos.Util.Util              (ether)
+import           Pos.Util.Util              (HasLens', ether, lensOf)
 
 ----------------------------------------------------------------------------
 -- MonadUtxo
@@ -38,8 +39,12 @@ instance {-# OVERLAPPABLE #-}
     (MonadUtxoRead m, MonadTrans t, Monad (t m)) =>
         MonadUtxoRead (t m)
 
+-- | Implementation of 'utxoGet' which takes data from 'MonadReader' context.
+utxoGetReader :: (HasLens' ctx Utxo, MonadReader ctx m) => TxIn -> m (Maybe TxOutAux)
+utxoGetReader txIn = view $ lensOf @Utxo . at txIn
+
 instance MonadUtxoRead ((->) Utxo) where
-    utxoGet id = view (at id)
+    utxoGet = utxoGetReader
 
 instance Monad m => MonadUtxoRead (Ether.StateT' Utxo m) where
     utxoGet id = ether $ use (at id)

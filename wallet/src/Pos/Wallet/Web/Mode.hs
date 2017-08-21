@@ -21,7 +21,8 @@ import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogContext (..))
 import           Pos.Block.Types                (Undo)
 import           Pos.Context                    (HasNodeContext (..))
-import           Pos.Core                       (HasPrimaryKey (..), IsHeader, HasCoreConstants)
+import           Pos.Core                       (HasCoreConstants, HasPrimaryKey (..),
+                                                 IsHeader)
 import           Pos.DB                         (MonadGState (..))
 import           Pos.DB.Block                   (dbGetBlockDefault, dbGetBlockSscDefault,
                                                  dbGetHeaderDefault,
@@ -49,11 +50,7 @@ import           Pos.Slotting.Impl.Sum          (currentTimeSlottingSum,
                                                  getCurrentSlotBlockingSum,
                                                  getCurrentSlotInaccurateSum,
                                                  getCurrentSlotSum)
-import           Pos.Slotting.MemState          (HasSlottingVar (..), MonadSlotsData (..),
-                                                 getSlottingDataDefault,
-                                                 getSystemStartDefault,
-                                                 putSlottingDataDefault,
-                                                 waitPenultEpochEqualsDefault)
+import           Pos.Slotting.MemState          (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class.Types            (HasSscContext (..), SscBlock)
 import           Pos.Util                       (Some (..))
 import           Pos.Util.JsonLog               (HasJsonLogConfig (..), jsonLogDefault)
@@ -75,9 +72,12 @@ import           Pos.Wallet.Redirect            (MonadBlockchainInfo (..),
 import           Pos.Wallet.SscType             (WalletSscType)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State.State     (WalletState)
-import           Pos.Wallet.Web.Tracking        (MonadBListener (..),
-                                                 onApplyTracking, onRollbackTracking)
+import           Pos.Wallet.Web.Tracking        (MonadBListener (..), onApplyTracking,
+                                                 onRollbackTracking)
 import           Pos.WorkMode                   (RealModeContext (..))
+
+
+
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
@@ -141,13 +141,9 @@ type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 -- concrete monad is quite likely more performant.
 type MonadWalletWebMode m = (HasCoreConstants, m ~ WalletWebMode)
 
-instance MonadSlotsData WalletWebMode where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
-
-instance HasCoreConstants => MonadSlots WalletWebMode where
+instance (HasCoreConstants, MonadSlotsData ctx WalletWebMode)
+      => MonadSlots ctx WalletWebMode
+  where
     getCurrentSlot = getCurrentSlotSum
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum

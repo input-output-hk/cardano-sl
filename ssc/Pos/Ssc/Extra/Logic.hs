@@ -180,7 +180,7 @@ sscResetLocal ::
        ( MonadDBRead m
        , MonadSscMem ssc ctx m
        , SscLocalDataClass ssc
-       , MonadSlots m
+       , MonadSlots ctx m
        , MonadIO m
        )
     => m ()

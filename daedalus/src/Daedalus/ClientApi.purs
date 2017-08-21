@@ -896,8 +896,8 @@ syncProgress = mkEffFn1 $ fromAff <<< map encodeJson <<< B.syncProgress
 importBackupJSON :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Json)
 importBackupJSON = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.importBackupJSON tls
 
-exportBackupJSON :: forall eff. EffFn2 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String (Promise Unit)
-exportBackupJSON = mkEffFn2 $ \tls -> fromAff <<< B.exportBackupJSON tls
+exportBackupJSON :: forall eff. EffFn3 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions String String (Promise Unit)
+exportBackupJSON = mkEffFn3 $ \tls wId -> fromAff <<< B.exportBackupJSON tls (mkCId wId)
 
 --------------------------------------------------------------------------------
 -- Mnemonics ---------------------------------------------------------------------

@@ -30,8 +30,7 @@ import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
 import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
-import           Pos.Wallet.Web.State         (casPtxCondition, countDownPtxAttempts,
-                                               getPendingTxs, setPtxCondition)
+import           Pos.Wallet.Web.State         (casPtxCondition, getPendingTxs)
 import           Pos.Wallet.Web.Util          (getWalletAssuredDepth)
 
 type MonadPendings m =
@@ -44,12 +43,10 @@ type MonadPendings m =
 -- to resubmit it failed.
 processPtxFailure :: MonadPendings m => PendingTx -> ToilVerFailure -> m ()
 processPtxFailure PendingTx{..} e =
-    if isReclaimableFailure e
-        then countDownPtxAttempts _ptxWallet _ptxTxId
-        else do
-            let newCond = PtxWontApply (sformat build e)
-            void $ casPtxCondition _ptxWallet _ptxTxId PtxApplying newCond
-            logInfo $ sformat ("Transaction "%build%" was canceled") _ptxTxId
+    unless (isReclaimableFailure e) $ do
+        let newCond = PtxWontApply (sformat build e)
+        void $ casPtxCondition _ptxWallet _ptxTxId PtxApplying newCond
+        logInfo $ sformat ("Transaction "%build%" was canceled") _ptxTxId
 
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
 processPtxInUpperBlocks curSlot PendingTx{..} = do
@@ -111,16 +108,6 @@ resubmitPtxsDuringSlot sendActions ptxs = do
         let checkPeriod = max 0 $ slotDuration - convertUnit submitionEta
         return (checkPeriod `div` fromIntegral toResubmitNum)
 
--- | Checks number of remaining resubmision attempts.
--- Returns 'True' for still living transaction.
-processPtxRemAttempts :: MonadPendings m => PendingTx -> m Bool
-processPtxRemAttempts PendingTx{..} = do
-    let expired = _ptxAttemptsRem <= 0
-    when expired $ do
-        logInfo $ sformat ("Pending transaction "%build%" has expired") _ptxTxId
-        setPtxCondition _ptxWallet _ptxTxId (PtxWontApply "Exceeded resubmission attempts limit")
-    return (not expired)
-
 -- | Checks and updates state of given pending transactions, resubmitting them
 -- if needed.
 processPtxs
@@ -128,10 +115,7 @@ processPtxs
     => SendActions m -> SlotId -> [PendingTx] -> m ()
 processPtxs sendActions curSlot ptxs = do
     mapM_ (processPtxInUpperBlocks curSlot) ptxs
-
-    livingPtxs <- filterM processPtxRemAttempts ptxs
-
-    let toResubmit = filter ((PtxApplying ==) . _ptxCond) livingPtxs
+    let toResubmit = filter ((PtxApplying ==) . _ptxCond) ptxs
     logInfo $ sformat fmt (map _ptxTxId toResubmit)
     resubmitPtxsDuringSlot sendActions toResubmit
   where

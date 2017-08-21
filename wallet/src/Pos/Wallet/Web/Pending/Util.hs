@@ -12,7 +12,6 @@ import           Universum
 
 import           Formatting                   (build, sformat, (%))
 
-import qualified Pos.Constants                as C
 import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
 import           Pos.Txp                      (TxAux, TxId)
 import           Pos.Txp                      (ToilVerFailure (..))
@@ -37,7 +36,6 @@ mkPendingTx wid _ptxTxId _ptxTxAux = do
     return PendingTx
         { _ptxCond = PtxApplying
         , _ptxWallet = wid
-        , _ptxAttemptsRem = C.pendingTxAttemptsLimit
         , ..
         }
   where

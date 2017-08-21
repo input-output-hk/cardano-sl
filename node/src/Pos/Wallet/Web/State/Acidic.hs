@@ -60,7 +60,6 @@ module Pos.Wallet.Web.State.Acidic
        , SetPtxCondition (..)
        , CasPtxCondition (..)
        , AddOnlyNewPendingTx (..)
-       , CountDownPtxAttempts (..)
        ) where
 
 import           Universum
@@ -150,5 +149,4 @@ makeAcidic ''WalletStorage
     , 'WS.setPtxCondition
     , 'WS.casPtxCondition
     , 'WS.addOnlyNewPendingTx
-    , 'WS.countDownPtxAttempts
     ]

@@ -66,7 +66,6 @@ module Pos.Wallet.Web.State.State
        , setPtxCondition
        , casPtxCondition
        , addOnlyNewPendingTx
-       , countDownPtxAttempts
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -269,5 +268,3 @@ casPtxCondition = updateDisk ... A.CasPtxCondition
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
 
-countDownPtxAttempts :: WebWalletModeDB ctx m => CId Wal -> TxId -> m ()
-countDownPtxAttempts = updateDisk ... A.CountDownPtxAttempts

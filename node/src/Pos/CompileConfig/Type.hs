@@ -42,7 +42,4 @@ data CompileConfig = CompileConfig
       -- ^ InvMsg propagation queue capacity
     , ccPendingTxResubmissionPeriod   :: !Int
       -- ^ Minimal delay between pending transactions resubmission
-    , ccPendingTxAttemptsLimit        :: !Int
-      -- ^ How long pending transaction is attempted to be submitted
-      -- in case of reclaimable error
     } deriving (Show)

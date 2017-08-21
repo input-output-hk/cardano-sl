@@ -58,14 +58,13 @@ module Pos.Wallet.Web.State.Storage
        , setPtxCondition
        , casPtxCondition
        , addOnlyNewPendingTx
-       , countDownPtxAttempts
        ) where
 
 import           Universum
 
 import           Control.Lens                 (at, ix, makeClassy, makeLenses, non',
-                                               toListOf, traversed, (%=), (+=), (-=),
-                                               (.=), (<<.=), (?=), _Empty, _head)
+                                               toListOf, traversed, (%=), (+=), (.=),
+                                               (<<.=), (?=), _Empty, _head)
 import           Control.Monad.State.Class    (put)
 import           Data.Default                 (Default, def)
 import qualified Data.HashMap.Strict          as HM
@@ -82,8 +81,7 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CC
                                                CUpdateInfo, CWAddressMeta (..),
                                                CWalletAssurance, CWalletMeta,
                                                PassPhraseLU, Wal, addrMetaToAccount)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
-                                               ptxAttemptsRem, ptxCond)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, ptxCond)
 
 type AddressSortingKey = Int
 
@@ -392,11 +390,6 @@ addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
     wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
-
--- | Decreases attempts counter, returns new value
-countDownPtxAttempts :: CId Wal -> TxId -> Update ()
-countDownPtxAttempts wid txId =
-    wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxAttemptsRem -= 1
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile

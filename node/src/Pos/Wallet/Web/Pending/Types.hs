@@ -7,7 +7,6 @@ module Pos.Wallet.Web.Pending.Types
     , ptxCond
     , ptxCreationSlot
     , ptxWallet
-    , ptxAttemptsRem
 
     , PtxCondition (..)
     , PtxBlockInfo
@@ -58,7 +57,6 @@ data PendingTx = PendingTx
                                   -- this in NOT when tx appeared in blockchain
     , _ptxCond         :: PtxCondition
     , _ptxWallet       :: CId Wal
-    , _ptxAttemptsRem  :: Int  -- ^ remaining number of resubmission attempts
     } deriving (Eq)
 
 makeLenses ''PendingTx

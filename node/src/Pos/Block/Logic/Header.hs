@@ -70,7 +70,11 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- | Classify new header announced by some node. Result is represented
 -- as ClassifyHeaderRes type.
 classifyNewHeader
-    :: forall m ssc. (HasCoreConstants, MonadSlots m, DB.MonadBlockDB ssc m)
+    :: forall ctx ssc m.
+    ( HasCoreConstants
+    , MonadSlots ctx m
+    , DB.MonadBlockDB ssc m
+    )
     => BlockHeader ssc -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
@@ -146,9 +150,9 @@ data ClassifyHeadersRes ssc
 --    (i.e. if 'needRecovery' is false) but the newest header in the list isn't
 --    from the current slot. See CSL-177.
 classifyHeaders ::
-       forall ssc m.
+       forall ctx ssc m.
        ( DB.MonadBlockDB ssc m
-       , MonadSlots m
+       , MonadSlots ctx m
        , MonadCatch m
        , WithLogger m
        , HasCoreConstants

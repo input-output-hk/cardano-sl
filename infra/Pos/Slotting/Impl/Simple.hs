@@ -15,23 +15,23 @@ module Pos.Slotting.Impl.Simple
 
 import           Universum
 
-import           Mockable                    (CurrentTime, Mockable, currentTime)
-import           NTP.Example                 ()
+import           Mockable               (CurrentTime, Mockable, currentTime)
+import           NTP.Example            ()
 
-import           Pos.Core.Context            (HasCoreConstants)
-import           Pos.Core.Slotting           (unflattenSlotId)
-import           Pos.Core.Types              (SlotId (..), Timestamp (..))
-import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
-import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (SlottingData (..))
+import           Pos.Core.Context       (HasCoreConstants)
+import           Pos.Core.Slotting      (unflattenSlotId)
+import           Pos.Core.Types         (SlotId (..), Timestamp (..))
+import           Pos.Slotting.Impl.Util (approxSlotUsingOutdated, slotFromTimestamp)
+import           Pos.Slotting.MemState  (MonadSlotsData, getCurrentNextEpochIndexM,
+                                         waitCurrentEpochEqualsM)
 
 ----------------------------------------------------------------------------
 -- Mode
 ----------------------------------------------------------------------------
 
-type SimpleSlottingMode m
+type SimpleSlottingMode ctx m
     = ( Mockable CurrentTime m
-      , MonadSlotsData m
+      , MonadSlotsData ctx m
       , MonadIO m
       , HasCoreConstants)
 
@@ -52,28 +52,37 @@ mkSimpleSlottingVar = atomically $ newTVar $ SimpleSlottingState $ unflattenSlot
 -- Implementation
 ----------------------------------------------------------------------------
 
-getCurrentSlotSimple :: SimpleSlottingMode m => SimpleSlottingVar -> m (Maybe SlotId)
+getCurrentSlotSimple
+    :: (SimpleSlottingMode ctx m)
+    => SimpleSlottingVar
+    -> m (Maybe SlotId)
 getCurrentSlotSimple var = traverse (updateLastSlot var) =<< (currentTimeSlottingSimple >>= slotFromTimestamp)
 
-getCurrentSlotBlockingSimple :: SimpleSlottingMode m => SimpleSlottingVar -> m SlotId
+getCurrentSlotBlockingSimple
+    :: (SimpleSlottingMode ctx m)
+    => SimpleSlottingVar
+    -> m SlotId
 getCurrentSlotBlockingSimple var = do
-    penult <- sdPenultEpoch <$> getSlottingData
+    (currentEpochIndex, _) <- getCurrentNextEpochIndexM
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing -> do
-            waitPenultEpochEquals (penult + 1)
+            waitCurrentEpochEqualsM (currentEpochIndex + 1)
             getCurrentSlotBlockingSimple var
 
-getCurrentSlotInaccurateSimple :: SimpleSlottingMode m => SimpleSlottingVar -> m SlotId
-getCurrentSlotInaccurateSimple var = do
-    penult <- sdPenultEpoch <$> getSlottingData
+getCurrentSlotInaccurateSimple
+    :: (SimpleSlottingMode ctx m)
+    => SimpleSlottingVar
+    -> m SlotId
+getCurrentSlotInaccurateSimple var =
     getCurrentSlotSimple var >>= \case
         Just slot -> pure slot
         Nothing   -> do
             lastSlot <- _sssLastSlot <$> atomically (readTVar var)
-            max lastSlot <$> (currentTimeSlottingSimple >>= approxSlotUsingOutdated penult)
+            max lastSlot <$> (currentTimeSlottingSimple >>=
+                approxSlotUsingOutdated)
 
-currentTimeSlottingSimple :: SimpleSlottingMode m => m Timestamp
+currentTimeSlottingSimple :: (SimpleSlottingMode ctx m) => m Timestamp
 currentTimeSlottingSimple = Timestamp <$> currentTime
 
 updateLastSlot :: MonadIO m => SimpleSlottingVar -> SlotId -> m SlotId

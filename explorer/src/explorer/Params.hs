@@ -15,7 +15,7 @@ import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
-import qualified Pos.CLI               as CLI
+import qualified Pos.Client.CLI        as CLI
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)

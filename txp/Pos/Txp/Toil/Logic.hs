@@ -32,6 +32,7 @@ import           Serokell.Util.Text         (mapJson)
 import           System.Wlog                (WithLogger)
 
 import           Pos.Binary.Class           (biSize)
+import           Pos.Core.Address           (isRedeemAddress)
 import           Pos.Core.Coin              (integerToCoin, mkCoin, unsafeGetCoin)
 import           Pos.Core.Constants         (memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
@@ -41,16 +42,16 @@ import           Pos.Core.Types             (BlockVersionData (..), Coin, EpochI
                                              StakeholderId)
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.DB.Class               (MonadGState (..))
-import           Pos.Util.Util              (HasLens', lensOf')
-
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOutDistribution, TxUndo,
-                                             TxpUndo, getTxDistribution, topsortTxs)
+                                             TxpUndo, getTxDistribution, toaOut,
+                                             topsortTxs, txInputs, txOutAddress)
 import           Pos.Txp.Toil.Balances      (applyTxsToBalances, rollbackTxsBalances)
 import           Pos.Txp.Toil.Class         (MonadBalances (..), MonadTxPool (..),
-                                             MonadUtxo (..))
+                                             MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types         (TxFee (..))
 import qualified Pos.Txp.Toil.Utxo          as Utxo
+import           Pos.Util.Util              (HasLens', lensOf')
 
 ----------------------------------------------------------------------------
 -- Global
@@ -164,9 +165,16 @@ verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
   where
     ctx = Utxo.VTxContext verifyVersions
 
+isRedeemTx :: MonadUtxoRead m => TxAux -> m Bool
+isRedeemTx txAux = do
+    resolvedOuts <- traverse utxoGet $ (view txInputs . taTx) txAux
+    let inputAddresses = fmap (txOutAddress . toaOut) . catMaybes . toList $ resolvedOuts
+    return $ all isRedeemAddress inputAddresses
+
 verifyGState
     :: forall ctx m .
        ( MonadGState m
+       , MonadUtxoRead m
        , MonadError ToilVerFailure m
        , HasLens' ctx GenesisWStakeholders
        , MonadReader ctx m)
@@ -176,7 +184,8 @@ verifyGState curEpoch txAux txFee = do
     verifyBootEra @ctx curEpoch bvdUnlockStakeEpoch txAux
     let txSize = biSize txAux
     let limit = bvdMaxTxSize
-    verifyTxFeePolicy txFee bvdTxFeePolicy txSize
+    unlessM (isRedeemTx txAux) $
+        verifyTxFeePolicy txFee bvdTxFeePolicy txSize
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
 

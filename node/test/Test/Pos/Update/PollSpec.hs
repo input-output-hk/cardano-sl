@@ -92,6 +92,7 @@ actionToMonad (DeactivateProposal ui)    = Poll.deactivateProposal ui
 actionToMonad (SetSlottingData sd)       = Poll.setSlottingData sd
 actionToMonad (SetEpochProposers hs)     = Poll.setEpochProposers hs
 
+
 applyActionToModifier
     :: PollAction
     -> Poll.PollState
@@ -135,7 +136,7 @@ applyActionToModifier (DeactivateProposal ui) pst = \p ->
   where
     innerLookupFun k = pst ^. Poll.psActiveProposals . at k
 
-applyActionToModifier (SetSlottingData sd) _ = Poll.pmSlottingDataL .~ (Just sd)
+applyActionToModifier (SetSlottingData sd) _   = Poll.pmSlottingDataL .~ (Just sd)
 applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
 
 type PollActions = [PollAction]

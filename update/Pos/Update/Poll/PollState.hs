@@ -33,8 +33,8 @@ import           Pos.Core.Types        (ApplicationName, BlockVersion, BlockVers
                                         SoftwareVersion (..), StakeholderId)
 import           Pos.Lrc.DB.Issuers    (IssuersStakes)
 import           Pos.Lrc.Types         (FullRichmenData)
-import           Pos.Slotting.Types    (SlottingData)
 import           Pos.Update.Core       (UpId, UpdateProposal (..))
+import           Pos.Slotting.Types    (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         PollModifier (..), ProposalState, psProposal)
 import           Pos.Util.Modifier     (foldlMapModWKey', modifyHashMap)
@@ -55,7 +55,7 @@ data PollState = PollState
       -- | Update proposals for each application
     , _psActivePropsIdx     :: !(HM.HashMap ApplicationName (HashSet UpId))
       -- | Slotting data for this node
-    , _psSlottingData       :: !SlottingData
+    , _psSlottingData       :: !(SlottingData)
       -- | Mapping between epochs and their richmen stake distribution
     , _psFullRichmenData    :: !(HM.HashMap EpochIndex FullRichmenData)
       -- | Mapping between epochs and stake of each of the epoch's slot's block issuer

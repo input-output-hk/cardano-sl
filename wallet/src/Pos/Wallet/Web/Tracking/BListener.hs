@@ -28,7 +28,8 @@ import           Pos.Core                         (HasCoreConstants, HeaderHash,
 import           Pos.DB.BatchOp                   (SomeBatchOp)
 import           Pos.DB.Class                     (MonadDBRead)
 import qualified Pos.GState                       as GS
-import           Pos.Slotting                     (MonadSlotsData (..), getSlotStartPure)
+import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
+                                                   getSystemStartM)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
@@ -64,7 +65,7 @@ onApplyTracking
     :: forall ssc ctx m .
     ( SscHelpersClass ssc
     , AccountMode ctx m
-    , MonadSlotsData m
+    , MonadSlotsData ctx m
     , MonadDBRead m
     , HasCoreConstants
     )
@@ -81,6 +82,7 @@ onApplyTracking blunds = setLogger $ do
     -- something a bit more reasonable.
     pure mempty
   where
+
     syncWallet
         :: HeaderHash
         -> BlockHeader ssc
@@ -88,10 +90,12 @@ onApplyTracking blunds = setLogger $ do
         -> CId Wal
         -> m ()
     syncWallet curTip newTipH blkTxsWUndo wAddr = walletGuard curTip wAddr $ do
-        systemStart <- getSystemStart
-        sd <- getSlottingData
+
+        systemStart <- getSystemStartM
+        sd          <- GS.getSlottingData
+
         let mainBlkHeaderTs mBlkH =
-                getSlotStartPure systemStart True (mBlkH ^. headerSlotL) sd
+              getSlotStartPure systemStart (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         allAddresses <- getWalletAddrMetas WS.Ever wAddr

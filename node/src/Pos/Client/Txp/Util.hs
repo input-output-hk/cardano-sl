@@ -107,7 +107,7 @@ throwTxError = throwError . TxError
 type TxDistrMode ctx m
      = ( MonadGState m
        , MonadReader ctx m
-       , MonadSlots m
+       , MonadSlots ctx m
        , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        )
 

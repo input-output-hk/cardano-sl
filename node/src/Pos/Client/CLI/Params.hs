@@ -2,7 +2,10 @@
 
 module Pos.Client.CLI.Params
        ( loggingParams
-       , getSimpleNodeParams
+       , getBaseParams
+       , getKeyfilePath
+       , getNodeParams
+       , getTransportParams
        , gtSscParams
        ) where
 
@@ -13,7 +16,6 @@ import           Mockable                   (Catch, Fork, Mockable)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           System.Wlog                (LoggerName, WithLogger)
 
-import qualified Pos.CLI                    as CLI
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
@@ -29,55 +31,58 @@ import           Pos.Ssc.GodTossing         (GtParams (..))
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.UserSecret        (peekUserSecret)
 
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..))
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..),
+                                             maliciousEmulationAttacks,
+                                             maliciousEmulationTargets)
+import           Pos.Client.CLI.Options     (CommonArgs (..))
 import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
                                              userSecretWithGenesisKey)
 
-
-loggingParams :: LoggerName -> SimpleNodeArgs -> LoggingParams
-loggingParams tag SimpleNodeArgs{..} =
+loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
+loggingParams tag CommonNodeArgs{..} =
     LoggingParams
-    { lpHandlerPrefix = CLI.logPrefix commonArgs
-    , lpConfigPath    = CLI.logConfig commonArgs
+    { lpHandlerPrefix = logPrefix commonArgs
+    , lpConfigPath    = logConfig commonArgs
     , lpRunnerTag     = tag
     }
 
-getBaseParams :: LoggerName -> SimpleNodeArgs -> BaseParams
-getBaseParams loggingTag args@SimpleNodeArgs {..} =
+getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams
+getBaseParams loggingTag args@CommonNodeArgs {..} =
     BaseParams { bpLoggingParams = loggingParams loggingTag args }
 
-gtSscParams :: SimpleNodeArgs -> VssKeyPair -> GtParams
-gtSscParams SimpleNodeArgs {..} vssSK =
+gtSscParams :: CommonNodeArgs -> VssKeyPair -> GtParams
+gtSscParams CommonNodeArgs {..} vssSK =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 
-getKeyfilePath :: SimpleNodeArgs -> FilePath
-getKeyfilePath SimpleNodeArgs {..}
+getKeyfilePath :: CommonNodeArgs -> FilePath
+getKeyfilePath CommonNodeArgs {..}
     | isDevelopment = case devSpendingGenesisI of
           Nothing -> keyfilePath
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
     | otherwise = keyfilePath
 
-getSimpleNodeParams ::
+getNodeParams ::
        (MonadIO m, WithLogger m, Mockable Fork m, Mockable Catch m)
-    => SimpleNodeArgs
+    => CommonNodeArgs
+    -> NodeArgs
     -> Timestamp
     -> m NodeParams
-getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
+getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
     (primarySK, userSecret) <-
-        userSecretWithGenesisKey args =<<
-            updateUserSecretVSS args =<<
-                peekUserSecret (getKeyfilePath args)
+        userSecretWithGenesisKey cArgs =<<
+            updateUserSecretVSS cArgs =<<
+                peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    let npTransport = getTransportParams args npNetworkConfig
+    let npTransport = getTransportParams cArgs npNetworkConfig
         devStakeDistr =
             devStakesDistr
-                (CLI.flatDistr commonArgs)
-                (CLI.bitcoinDistr commonArgs)
-                (CLI.richPoorDistr commonArgs)
-                (CLI.expDistr commonArgs)
+                (flatDistr commonArgs)
+                (bitcoinDistr commonArgs)
+                (richPoorDistr commonArgs)
+                (expDistr commonArgs)
     let npGenesisCtx
             | isDevelopment =
               let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
@@ -90,13 +95,13 @@ getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
         , npSecretKey = primarySK
         , npUserSecret = userSecret
         , npSystemStart = systemStart
-        , npBaseParams = getBaseParams "node" args
+        , npBaseParams = getBaseParams "node" cArgs
         , npJLFile = jlPath
-        , npReportServers = CLI.reportServers commonArgs
+        , npReportServers = reportServers commonArgs
         , npUpdateParams = UpdateParams
             { upUpdatePath    = updateLatestPath
             , upUpdateWithPkg = updateWithPackage
-            , upUpdateServers = CLI.updateServers commonArgs
+            , upUpdateServers = updateServers commonArgs
             }
         , npSecurityParams = SecurityParams
             { spAttackTypes   = maliciousEmulationAttacks
@@ -109,7 +114,7 @@ getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
         , ..
         }
 
-getTransportParams :: SimpleNodeArgs -> NetworkConfig kademlia -> TransportParams
+getTransportParams :: CommonNodeArgs -> NetworkConfig kademlia -> TransportParams
 getTransportParams args networkConfig = TransportParams { tpTcpAddr = tcpAddr }
   where
     tcpAddr = case ncTopology networkConfig of

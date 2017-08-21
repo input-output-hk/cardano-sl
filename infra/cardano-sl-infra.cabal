@@ -33,8 +33,6 @@ library
                         Pos.Slotting.Impl.Sum
                         Pos.Slotting.Impl.Util
                         Pos.Slotting.MemState
-                        Pos.Slotting.MemState.Class
-                        Pos.Slotting.MemState.Holder
                         Pos.Slotting.Types
                         Pos.Slotting.Error
                         Pos.Slotting.Util

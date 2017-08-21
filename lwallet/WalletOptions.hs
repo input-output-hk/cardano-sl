@@ -22,7 +22,7 @@ import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
-import qualified Pos.CLI                      as CLI
+import qualified Pos.Client.CLI               as CLI
 import           Pos.Communication            (NodeId)
 
 data WalletOptions = WalletOptions

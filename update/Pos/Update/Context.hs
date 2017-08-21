@@ -27,7 +27,13 @@ data UpdateContext = UpdateContext
     }
 
 -- | Create initial 'UpdateContext'.
-mkUpdateContext ::
-       (HasCoreConstants, MonadIO m, MonadDBRead m, MonadSlots m) => m UpdateContext
+mkUpdateContext
+    :: forall ctx m.
+    ( HasCoreConstants
+    , MonadIO m
+    , MonadDBRead m
+    , MonadSlots ctx m
+    )
+    => m UpdateContext
 mkUpdateContext =
     UpdateContext <$> newEmptyMVar <*> newTVarIO mempty <*> newMemVar

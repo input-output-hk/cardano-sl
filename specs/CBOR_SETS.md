@@ -52,13 +52,21 @@ Similarly to maps, sets also have implications for canonical CBOR representation
 unordered sets from ordered sequences can be useful in verifying that representations are canonical,
 or in testing that implementations correctly reject non-canonical representations.
 
+Like maps, the items in every set must be sorted lowest value to highest. Sorting is performed on the bytes
+of the representation of the encoded items without paying attention to the 3/5 bit splitting for major types.
+The sorting rules are:
+
+*  If two items have different lengths, the shorter one sorts earlier;
+
+*  If two items have the same length, the one with the lower value in (byte-wise) lexical order sorts earlier.
+
 ## Examples
 
 Given the following JavaScript array:
 
    [1,2,3]
 
-The natural encoding of this data structure as a CBOR Set would be 0xD9010283010203:
+The natural encoding of this data structure as a CBOR set would be 0xD9010283010203:
 
    D9 0102  -- Tag 258
       83    -- Array of length 3

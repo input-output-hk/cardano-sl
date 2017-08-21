@@ -94,6 +94,7 @@ import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
                                                  transResourceT)
+import qualified Crypto.Random                  as Rand
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.Char                      (isAlphaNum)
 import           Data.HashSet                   (fromMap)
@@ -128,6 +129,7 @@ import           System.FilePath                (normalise, pathSeparator, takeD
 import           System.IO                      (hClose, openTempFile)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
+import qualified Test.QuickCheck                as QC
 import           Test.QuickCheck.Monadic        (PropertyM (..))
 
 ----------------------------------------------------------------------------
@@ -188,6 +190,18 @@ instance ToJSON Byte where
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
+
+instance Rand.MonadRandom m => Rand.MonadRandom (ReaderT r m) where
+    getRandomBytes = lift . Rand.getRandomBytes
+
+instance (Monad m, Monad (t m), MonadTrans t, Rand.MonadRandom m)
+         => Rand.MonadRandom (Ether.TaggedTrans tag t m) where
+    getRandomBytes = lift . Rand.getRandomBytes
+
+instance Rand.MonadRandom QC.Gen where
+    getRandomBytes n = do
+        [a,b,c,d,e] <- replicateM 5 QC.arbitrary
+        pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 instance NFData Millisecond where
     rnf ms = rnf (toInteger ms)

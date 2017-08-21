@@ -25,6 +25,7 @@ module Test.Pos.Util
        , stopProperty
        , maybeStopProperty
        , splitIntoChunks
+       , brokenDisabled
        ) where
 
 import           Universum
@@ -243,3 +244,8 @@ splitIntoChunks maxSize items = do
     case nonEmpty chunk of
         Nothing      -> return []
         Just chunkNE -> (chunkNE :) <$> splitIntoChunks maxSize rest
+
+-- | Mark a test case as broken. The intended use is for tests that are
+-- themselves valid, but the code they're testing turned out to be buggy.
+brokenDisabled :: Monad m => m a -> m ()
+brokenDisabled _ = return ()

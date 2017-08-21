@@ -25,8 +25,8 @@ import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
-                                             rollbackBlocksUnsafe)
+import           Pos.Block.Logic.Internal   (BypassSecurityCheck (..), MonadBlockApply,
+                                             applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
@@ -197,7 +197,7 @@ lrcDo epoch consumers tip = tip <$ do
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     withBlocksRolledBack blunds =
-        bracket_ (rollbackBlocksUnsafe blunds)
+        bracket_ (rollbackBlocksUnsafe (BypassSecurityCheck True) blunds)
                  (applyBack (toOldestFirst blunds))
 
 issuersComputationDo :: forall ssc ctx m . LrcMode ssc ctx m => EpochIndex -> m ()

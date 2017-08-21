@@ -12,19 +12,17 @@ module Pos.Arbitrary.Ssc.GodTossing
 import           Universum
 
 import qualified Data.HashMap.Strict               as HM
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
-                                                    listOf, oneof)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, listOf,
+                                                    oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core.Unsafe         ()
 import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
-import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
                                                     SlotId (..), addressHash)
-import           Pos.Crypto                        (SecretKey, deterministicVssKeyGen,
-                                                    toVssPublicKey)
+import           Pos.Crypto                        (SecretKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
@@ -44,8 +42,7 @@ import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..),
                                                     GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
-import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
-                                                    sublistN, unsafeMakePool)
+import           Pos.Util.Arbitrary                (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Core
@@ -94,23 +91,10 @@ instance Arbitrary BadCommAndOpening where
         return $ BadCommAndOpening (badComm, opening)
     shrink = genericShrink
 
--- | Generate 50 commitment/opening pairs in advance
--- (see `Pos.Crypto.Arbitrary` for explanations)
-commitmentsAndOpenings :: [CommitmentOpening]
-commitmentsAndOpenings =
-    map (uncurry CommitmentOpening) $
-    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-       genCommitmentAndOpening 1 (one (asBinary vssPk))
-  where
-    vssPk = toVssPublicKey $ deterministicVssKeyGen "ababahalamaha"
-{-# NOINLINE commitmentsAndOpenings #-}
-
 instance Arbitrary CommitmentOpening where
-    arbitrary = elements commitmentsAndOpenings
-    shrink = genericShrink
-
-instance Nonrepeating CommitmentOpening where
-    nonrepeating n = sublistN n commitmentsAndOpenings
+    arbitrary = do
+        vssPk <- arbitrary
+        uncurry CommitmentOpening <$> genCommitmentAndOpening 1 (one vssPk)
 
 instance Arbitrary Commitment where
     arbitrary = coCommitment <$> arbitrary

@@ -26,10 +26,11 @@ import           Pos.Block.Core           (Block)
 import           Pos.Block.Error          (ApplyBlocksException (..),
                                            RollbackException (..),
                                            VerifyBlocksException (..))
-import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
-                                           MonadMempoolNormalization, applyBlocksUnsafe,
-                                           normalizeMempool, rollbackBlocksUnsafe,
-                                           toTxpBlock, toUpdateBlock)
+import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
+                                           MonadBlockVerify, MonadMempoolNormalization,
+                                           applyBlocksUnsafe, normalizeMempool,
+                                           rollbackBlocksUnsafe, toTxpBlock,
+                                           toUpdateBlock)
 import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
@@ -217,7 +218,7 @@ rollbackBlocks blunds = do
     let firstToRollback = blunds ^. _Wrapped . _neHead . _1 . headerHashG
     when (tip /= firstToRollback) $
         throwM $ RollbackTipMismatch tip firstToRollback
-    rollbackBlocksUnsafe blunds
+    rollbackBlocksUnsafe (BypassSecurityCheck False) blunds
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
@@ -229,7 +230,7 @@ applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback
-    lift $ rollbackBlocksUnsafe toRollback
+    lift $ rollbackBlocksUnsafe (BypassSecurityCheck False) toRollback
     ExceptT $ bracketOnError (pure ()) (\_ -> applyBack) $ \_ -> do
         tipAfterRollback <- GS.getTip
         if tipAfterRollback /= expectedTipApply

@@ -12,7 +12,6 @@ import           Universum
 import           Control.Concurrent.STM                (readTVar)
 import           Control.Lens                          (at, to, views)
 import           Control.Monad.Except                  (runExceptT)
-import           Control.Monad.Trans.Maybe             (runMaybeT)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List.NonEmpty                    as NE
 import           Data.Tagged                           (Tagged)
@@ -25,7 +24,8 @@ import           Serokell.Util.Text                    (listJson)
 import           System.Wlog                           (logDebug, logError, logInfo,
                                                         logWarning)
 
-import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
+import           Pos.Binary.Class                      (AsBinary, Bi, asBinary,
+                                                        fromBinaryM)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
@@ -342,11 +342,13 @@ generateAndSetNewSecret sk SlotId {..} = do
                             NE.map (first $ flip (HM.lookupDefault 0) distr) ps
             case multiPSmb of
                 Nothing -> Nothing <$ logWarning "Couldn't compute participant's vss"
-                Just multiPS -> do
-                    mPair <- runMaybeT (genCommitmentAndOpening threshold multiPS)
-                    flip (maybe (reportDeserFail $> Nothing)) mPair $
-                        \(mkSignedCommitment sk siEpoch -> comm, open) ->
-                            Just comm <$ SS.putOurSecret comm open siEpoch
+                Just multiPS -> case mapM fromBinaryM multiPS of
+                    Nothing -> Nothing <$ reportDeserFail
+                    Just keys -> do
+                        (comm, open) <- genCommitmentAndOpening threshold keys
+                        let signedComm = mkSignedCommitment sk siEpoch comm
+                        SS.putOurSecret signedComm open siEpoch
+                        pure (Just signedComm)
 
 randomTimeInInterval
     :: SscMode SscGodTossing ctx m

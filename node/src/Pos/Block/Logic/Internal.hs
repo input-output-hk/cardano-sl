@@ -16,6 +16,7 @@ module Pos.Block.Logic.Internal
        , applyBlocksUnsafe
        , normalizeMempool
        , rollbackBlocksUnsafe
+       , BypassSecurityCheck(..)
 
          -- * Garbage
        , toUpdateBlock
@@ -33,7 +34,8 @@ import           Serokell.Util.Text      (listJson)
 import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
                                           mbUpdatePayload)
-import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
+import           Pos.Block.Slog          (BypassSecurityCheck (..), MonadSlogApply,
+                                          MonadSlogBase, slogApplyBlocks,
                                           slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (GenesisWStakeholders, HasCoreConstants,
@@ -209,10 +211,11 @@ applyBlocksDbUnsafeDo blunds pModifier = do
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
     :: forall ssc ctx m. (MonadBlockApply ssc ctx m)
-    => NewestFirst NE (Blund ssc)
+    => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
+    -> NewestFirst NE (Blund ssc)
     -> m ()
-rollbackBlocksUnsafe toRollback = reportingFatal $ do
-    slogRoll <- slogRollbackBlocks toRollback
+rollbackBlocksUnsafe bsc toRollback = reportingFatal $ do
+    slogRoll <- slogRollbackBlocks bsc toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS

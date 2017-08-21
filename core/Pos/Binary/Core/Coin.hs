@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Pos.Binary.Core.Coin () where
 
 import           Universum

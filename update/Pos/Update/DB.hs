@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Part of GState DB which stores data necessary for update system.
 
@@ -42,7 +41,7 @@ import           Universum
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
-import           Data.Time.Units              (convertUnit)
+import           Data.Time.Units              (Microsecond, convertUnit)
 import qualified Database.RocksDB             as Rocks
 import           Serokell.Data.Memory.Units   (Byte)
 
@@ -50,10 +49,11 @@ import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
-                                               ChainDifficulty, NumSoftwareVersion,
-                                               SlotId, SoftwareVersion (..),
-                                               StakeholderId, TimeDiff (..))
-import           Pos.Core.Constants           (epochSlots, genesisBlockVersionData,
+                                               ChainDifficulty, HasCoreConstants,
+                                               NumSoftwareVersion, SlotId,
+                                               SoftwareVersion (..), StakeholderId,
+                                               TimeDiff (..), epochSlots)
+import           Pos.Core.Constants           (genesisBlockVersionData,
                                                genesisSlotDuration)
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
@@ -61,7 +61,8 @@ import           Pos.DB                       (DBIteratorClass (..), DBTag (..),
                                                RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
-import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData,
+                                               createInitSlottingData)
 import           Pos.Update.Constants         (genesisBlockVersion,
                                                genesisSoftwareVersions, ourAppName)
 import           Pos.Update.Core              (BlockVersionData (..), UpId,
@@ -103,7 +104,7 @@ getBVState :: MonadDBRead m => BlockVersion -> m (Maybe BlockVersionState)
 getBVState = gsGetBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
-getProposalState :: MonadDBRead m => UpId -> m (Maybe ProposalState)
+getProposalState :: (HasCoreConstants, MonadDBRead m) => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
 -- | Get last confirmed SoftwareVersion of given application.
@@ -114,15 +115,14 @@ getConfirmedSV = gsGetBi . confirmedVersionKey
 getSlottingData :: MonadDBRead m => m SlottingData
 getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
   where
-    msg =
-        "Update System part of GState DB is not initialized (slotting data is missing)"
+    msg = "Update System part of GState DB is not initialized (slotting data is missing)"
 
 -- | Get proposers for current epoch.
 getEpochProposers :: MonadDBRead m => m (HashSet StakeholderId)
 getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
   where
     msg =
-        "Update System part of GState DB is not initialized (epoch proposers are missing)"
+      "Update System part of GState DB is not initialized (epoch proposers are missing)"
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -141,7 +141,7 @@ data UpdateOp
     | PutSlottingData !SlottingData
     | PutEpochProposers !(HashSet StakeholderId)
 
-instance RocksBatchOp UpdateOp where
+instance HasCoreConstants => RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
         [ Rocks.Put (proposalKey upId) (serialize' ps)]
       where
@@ -172,29 +172,31 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: MonadDB m => m ()
+initGStateUS :: (HasCoreConstants, MonadDB m) => m ()
 initGStateUS = do
-    let genesisEpochDuration =
-            fromIntegral epochSlots * convertUnit genesisSlotDuration
-        genesisSlottingData = SlottingData
-            { sdPenult      = esdPenult
-            , sdPenultEpoch = 0
-            , sdLast        = esdLast
-            }
-        esdPenult = EpochSlottingData
-            { esdSlotDuration = genesisSlotDuration
-            , esdStartDiff    = 0
-            }
-        epoch1Start = TimeDiff genesisEpochDuration
-        esdLast = EpochSlottingData
-            { esdSlotDuration = genesisSlotDuration
-            , esdStartDiff    = epoch1Start
-            }
     writeBatchGState $
         PutSlottingData genesisSlottingData :
         PutEpochProposers mempty :
         SetAdopted genesisBlockVersion genesisBlockVersionData :
         map ConfirmVersion genesisSoftwareVersions
+  where
+    genesisEpochDuration :: Microsecond
+    genesisEpochDuration = fromIntegral epochSlots * convertUnit genesisSlotDuration
+
+    esdCurrent :: EpochSlottingData
+    esdCurrent = EpochSlottingData
+        { esdSlotDuration = genesisSlotDuration
+        , esdStartDiff    = 0
+        }
+
+    esdNext :: EpochSlottingData
+    esdNext = EpochSlottingData
+        { esdSlotDuration = genesisSlotDuration
+        , esdStartDiff    = TimeDiff genesisEpochDuration
+        }
+
+    genesisSlottingData :: SlottingData
+    genesisSlottingData = createInitSlottingData esdCurrent esdNext
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -207,14 +209,14 @@ instance DBIteratorClass PropIter where
     type IterValue PropIter = ProposalState
     iterKeyPrefix = iterationPrefix
 
-proposalSource :: (MonadDBRead m) => Source (ResourceT m) (IterType PropIter)
+proposalSource :: (HasCoreConstants, MonadDBRead m) => Source (ResourceT m) (IterType PropIter)
 proposalSource = dbIterSource GStateDB (Proxy @PropIter)
 
 -- TODO: it can be optimized by storing some index sorted by
 -- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
-    :: MonadDBRead m
+    :: (HasCoreConstants, MonadDBRead m)
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId =
     runConduitRes $ mapOutput snd proposalSource .| CL.mapMaybe isOld .| CL.consume
@@ -225,7 +227,7 @@ getOldProposals slotId =
 -- | Get all decided proposals which were accepted deeper than given
 -- difficulty.
 getDeepProposals
-    :: MonadDBRead m
+    :: (HasCoreConstants, MonadDBRead m)
     => ChainDifficulty -> m [DecidedProposalState]
 getDeepProposals cd =
     runConduitRes $ mapOutput snd proposalSource .| CL.mapMaybe isDeep .| CL.consume
@@ -236,7 +238,7 @@ getDeepProposals cd =
     isDeep _                 = Nothing
 
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
-getProposalsByApp :: MonadDBRead m => ApplicationName -> m [ProposalState]
+getProposalsByApp :: (HasCoreConstants, MonadDBRead m) => ApplicationName -> m [ProposalState]
 getProposalsByApp appName =
     runConduitRes $ mapOutput snd proposalSource .| CL.filter matchesName .| CL.consume
   where

@@ -62,13 +62,16 @@ be carefully constructed to minimize network fragmentation.
 Note that relay nodes register themselves with the Kademia network, but core
 nodes do not (see below for Kademlia configuration).
 
-## Behind-NAT edge nodes
+## Behind-NAT wallet (edge) nodes
 
 Behind NAT nodes are provided with a list of lists of domain names, which
 they use to discover relays. It looks something like
 
 ``` yaml
-relays: [[{"host": "domain1"},{"host": "domain2", "port": 1234}]]
+wallet:
+  relays: [[{"host": "domain1"},{"host": "domain2", "port": 1234}]]
+  valency: 3   # optional
+  fallbacks: 2 # optional
 ```
 
 The interpretation of the list of lists here is as follows. If the list looks
@@ -88,7 +91,12 @@ on the port number specified in the yaml file, or on the default port otherwise
 
 In order to support behind NAT nodes that for whatever reason cannot do DNS
 resolution, it is also possible to include relay nodes by IP address in this
-list, using `addr` instead of `host`; the structure remains otherwise the same.
+list, using `addr` instead of `host`; the structure remains otherwise the same:
+
+``` yaml
+wallet:
+  relays: [[{"addr": "10.0.0.1"},{"addr": "10.0.0.2", "port": 1234}]]
+```
 
 ## Peer-to-peer nodes
 

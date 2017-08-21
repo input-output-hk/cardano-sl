@@ -1092,7 +1092,7 @@ self: {
       mkDerivation {
           pname = "cardano-sl";
           version = "0.5.1";
-          src = ./../.;
+          src = ./../node;
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -1486,13 +1486,14 @@ self: {
           description = "Cardano explorer";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-godtossing = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, containers, cpphs, cryptonite, data-default, ether, file-embed, formatting, generic-arbitrary, hashable, lens, log-warper, mkDerivation, mmorph, mono-traversable, mtl, node-sketch, rocksdb-haskell, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-godtossing = callPackage ({ QuickCheck, aeson, array, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, containers, cpphs, cryptonite, data-default, ether, file-embed, formatting, generic-arbitrary, hashable, lens, log-warper, mkDerivation, mmorph, mono-traversable, mtl, node-sketch, rocksdb-haskell, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-godtossing";
           version = "0.5.1";
           src = ./../godtossing;
           libraryHaskellDepends = [
             aeson
+            array
             base
             bytestring
             cardano-sl-core
@@ -1532,7 +1533,7 @@ self: {
           description = "Cardano SL - GodTossing implementation of SSC";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-infra = callPackage ({ QuickCheck, aeson, base, base64-bytestring, binary, bytestring, cardano-report-server, cardano-sl-core, cardano-sl-db, containers, cpphs, data-default, directory, dns, either, ether, exceptions, filepath, formatting, generic-arbitrary, hashable, http-client, http-client-tls, iproute, kademlia, lens, list-t, log-warper, mkDerivation, mmorph, monad-control, mtl, network-info, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, reflection, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers, yaml }:
+      cardano-sl-infra = callPackage ({ QuickCheck, aeson, base, base64-bytestring, binary, bytestring, cardano-report-server, cardano-sl-core, cardano-sl-db, containers, cpphs, data-default, directory, dns, either, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, hashable, http-client, http-client-tls, iproute, kademlia, lens, list-t, log-warper, mkDerivation, mmorph, monad-control, mtl, network-info, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, reflection, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "cardano-sl-infra";
           version = "0.5.1";
@@ -1551,6 +1552,7 @@ self: {
             directory
             dns
             either
+            ekg-core
             ether
             exceptions
             filepath
@@ -4807,8 +4809,8 @@ self: {
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "1lxxxdazgw1chrcjc8pqs3ac6xp699f2s70ymb2hgqq4xcfr1ic9";
-            rev = "a6671797bd56b2f691b30a4950701d3591f8f925";
+            sha256 = "09sqk5vdv3fkn2r48kcvw77vwsbslfnijcnm3ssfqapmnvw1d2id";
+            rev = "39fd29a944efdfd19270a5866ec4ee81ac80fe01";
           };
           isLibrary = true;
           isExecutable = true;
@@ -5648,8 +5650,8 @@ self: {
       serokell-util = callPackage ({ QuickCheck, acid-state, aeson, ansi-terminal, base, base16-bytestring, base64-bytestring, bytestring, clock, containers, deepseq, directory, exceptions, extra, filepath, formatting, hashable, lens, log-warper, mkDerivation, monad-control, mtl, optparse-applicative, parsec, quickcheck-instances, safecopy, scientific, semigroups, stdenv, stm, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "serokell-util";
-          version = "0.3";
-          sha256 = "1crcc9vsg713cnsrpha54rki4a9pnls8sw4m9hz3pikmyqg01jsh";
+          version = "0.4.0";
+          sha256 = "1hql9cmw43cq9dsrkd0qwy1ycj6srsc2sr32grcfvh2j350k2m0p";
           libraryHaskellDepends = [
             acid-state
             aeson

@@ -1,7 +1,6 @@
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | Protocol/versioning related communication types.
 
@@ -42,25 +41,26 @@ module Pos.Communication.Types.Protocol
        , MsgSubscribe (..)
        ) where
 
-import           Data.Aeson                 (ToJSON (..), FromJSON (..), Value)
+import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value)
 import           Data.Aeson.Types           (Parser)
-import qualified Data.ByteString.Base64     as B64 (encode, decode)
-import qualified Data.Map                   as M
+import qualified Data.ByteString.Base64     as B64 (decode, encode)
 import qualified Data.HashMap.Strict        as HM
+import qualified Data.Map                   as M
 import qualified Data.Text.Buildable        as B
-import qualified Data.Text.Encoding         as Text (encodeUtf8, decodeUtf8)
+import qualified Data.Text.Encoding         as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting                 (bprint, build, hex, sformat, (%))
 -- TODO should not have to import outboundqueue stuff here. MsgType and
 -- NodeType should be a cardano-sl notion.
-import           Pos.Network.Types          (NodeType (..), MsgType (..), Origin (..), NodeId (..))
 import           Mockable.Class             (Mockable)
 import           Mockable.Concurrent        (Async, async, wait)
 import           Network.Transport          (EndPointAddress (..))
 import qualified Node                       as N
 import           Node.Message.Class         (Message (..), MessageCode)
-import           Serokell.Util.Text         (listJson, mapJson)
+import           Pos.Network.Types          (MsgType (..), NodeId (..), NodeType (..),
+                                             Origin (..))
 import           Serokell.Util.Base16       (base16F)
+import           Serokell.Util.Text         (listJson, mapJson)
 import           Universum
 
 import           Pos.Binary.Class           (Bi)
@@ -104,7 +104,7 @@ data SendActions m = SendActions {
 --
 -- You probably do not want to use this. Use 'enqueueMsg' instead.
 immediateConcurrentConversations
-    :: ( Applicative m, Mockable Async m )
+    :: ( Mockable Async m )
     => SendActions m
     -> [NodeId]
     -> EnqueueMsg m
@@ -170,7 +170,7 @@ fromJSONBS :: (ByteString -> a) -> Value -> Parser a
 fromJSONBS f v = do
     bs <- Text.encodeUtf8 <$> parseJSON v
     case B64.decode bs of
-        Left err -> fail err
+        Left err      -> fail err
         Right decoded -> pure $ f decoded
 
 instance Buildable PeerId where
@@ -273,7 +273,12 @@ instance Monoid OutSpecs where
                     (name, h1) (name, h2)
 
 toOutSpecs :: [(MessageCode, HandlerSpec)] -> OutSpecs
-toOutSpecs = OutSpecs . HM.fromList
+toOutSpecs = OutSpecs . merge . fmap (uncurry HM.singleton)
+  where
+    merge = foldr (HM.unionWithKey merger) mempty
+    merger name h1 h2 = error $ sformat
+        ("Conflicting key output spec in toOutSpecs: "%build%" at "%build%" "%build)
+        name h1 h2
 
 -- | Data type to represent listeners, provided upon our version info and peerData
 -- received from other node, in and out specs for all listeners which may be provided

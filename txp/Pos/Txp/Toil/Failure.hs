@@ -7,15 +7,12 @@ module Pos.Txp.Toil.Failure
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, build, int, sformat,
-                                             shown, stext, (%))
+import           Formatting                 (bprint, build, int, shown, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util.Text         (listJson, pairF)
-import           Serokell.Util.Verify       (formatAllErrors)
 
-import           Pos.Core                   (HeaderHash, TxFeePolicy)
+import           Pos.Core                   (HeaderHash, TxFeePolicy, addressDetailedF)
 import           Pos.Data.Attributes        (UnparsedFields)
-import           Pos.Txp.Core               (TxIn, TxOutDistribution)
+import           Pos.Txp.Core               (TxIn, TxInWitness, TxOut (..))
 import           Pos.Txp.Toil.Types         (TxFee)
 
 -- | Result of transaction processing
@@ -31,7 +28,8 @@ data ToilVerFailure
                   , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
     | ToilInvalidOutputs !Text  -- [CSL-814] TODO: make it more informative
-    | ToilInvalidInputs ![Text] -- [CSL-814] TODO: make it more informative
+    | ToilInvalidInput !Word32 !Text -- [CSL-814] TODO: make it more informative
+    | ToilWitnessDoesntMatch !Word32 !TxIn !TxOut !TxInWitness
     | ToilTooLargeTx { ttltSize  :: !Byte
                      , ttltLimit :: !Byte}
     | ToilInvalidMinFee { timfPolicy :: !TxFeePolicy
@@ -42,7 +40,8 @@ data ToilVerFailure
                           , tifMinFee :: !TxFee
                           , tifSize   :: !Byte }
     | ToilUnknownAttributes !UnparsedFields
-    | ToilBootDifferentStake !TxOutDistribution
+    | ToilBootInappropriate !Text
+    | ToilRepeatedInput
     deriving (Show, Eq)
 
 instance Exception ToilVerFailure
@@ -66,8 +65,16 @@ instance Buildable ToilVerFailure where
         bprint ("TxAux is inconsistent: "%stext) msg
     build (ToilInvalidOutputs msg) =
         bprint ("outputs are invalid: "%stext) msg
-    build (ToilInvalidInputs msg) =
-        bprint ("inputs are invalid: "%stext) $ formatAllErrors msg
+    build (ToilInvalidInput i msg) =
+        bprint ("input #"%int%" is invalid: "%stext) i msg
+    build (ToilWitnessDoesntMatch i txIn txOut@TxOut {..} witness) =
+        bprint ("input #"%int%"'s witness doesn't match address "%
+                "of corresponding output:\n"%
+                "  input: "%build%"\n"%
+                "  output spent by this input: "%build%"\n"%
+                "  address details: "%addressDetailedF%"\n"%
+                "  witness: "%build)
+            i txIn txOut txOutAddress witness
     build (ToilTooLargeTx {..}) =
         bprint ("transaction's size exceeds limit "%
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
@@ -86,6 +93,7 @@ instance Buildable ToilVerFailure where
             tifMinFee
     build (ToilUnknownAttributes uf) =
         bprint ("transaction has unknown attributes: "%shown) uf
-    build (ToilBootDifferentStake distr) =
-        bprint ("transaction has non-boot stake distr in boot era: "%listJson)
-               (map (sformat pairF) distr)
+    build (ToilBootInappropriate msg) =
+        bprint ("transaction is not suitable for boot era: "%stext) msg
+    build ToilRepeatedInput =
+        "transaction tries to spent an unspent input more than once"

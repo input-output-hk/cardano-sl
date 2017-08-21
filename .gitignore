@@ -64,3 +64,6 @@ scripts/haskell/dependencies.hs
 scripts/haskell/dependencies.hi
 scripts/haskell/dependencies.o
 scripts/haskell/dependencies
+
+# 'pkgs/stack2nix' is a symlink into the nix store, it can safely be ignored
+pkgs/stack2nix

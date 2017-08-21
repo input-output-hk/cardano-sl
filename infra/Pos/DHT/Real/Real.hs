@@ -1,8 +1,9 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.DHT.Real.Real
        ( kademliaJoinNetwork
+       , kademliaJoinNetworkNoThrow
+       , kademliaJoinNetworkRetry
        , K.lookupNode
        , kademliaGetKnownPeers
        , startDHTInstance
@@ -13,15 +14,15 @@ module Pos.DHT.Real.Real
        , foreverRejoinNetwork
        , rejoinNetwork
        , withKademliaLogger
-       , kademliaJoinNetworkNoThrow
        ) where
 
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import           Data.List                 (intersect, (\\))
+import           Data.Time.Units           (Second)
 import           Formatting                (build, int, sformat, shown, (%))
-import           Mockable                  (Async, Catch, Mockable, MonadMockable,
-                                            Promise, Throw, catch, catchAll, throw, try,
+import           Mockable                  (Catch, Delay, Mockable, MonadMockable, Throw,
+                                            catch, catchAll, delay, throw, try,
                                             waitAnyUnexceptional, withAsync)
 import qualified Network.Kademlia          as K
 import qualified Network.Kademlia.Instance as K (KademliaInstance (state),
@@ -54,7 +55,6 @@ kademliaConfig = K.defaultConfig { K.k = 16 }
 --   the action is finished.
 foreverRejoinNetwork
     :: ( MonadMockable m
-       , Eq (Promise m (Maybe ()))
        , MonadIO m
        , WithLogger m
        )
@@ -123,10 +123,8 @@ startDHTInstance kconf@KademliaParams {..} = do
 
 rejoinNetwork
     :: ( MonadIO m
-       , Mockable Async m
        , Mockable Catch m
        , Mockable Throw m
-       , Eq (Promise m (Maybe ()))
        , WithLogger m
        , Bi DHTData
        , Bi DHTKey
@@ -204,6 +202,8 @@ fromKPeer K.Peer{..} = (encodeUtf8 peerHost, fromIntegral peerPort)
 toKPeer :: NetworkAddress -> K.Peer
 toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)
 
+-- | Attempt to join a Kademlia network by contacting this list of peers.
+--   If none of them are up, throw 'AllPeersUnavailable'.
 kademliaJoinNetwork
     :: ( MonadIO m
        , Mockable Catch m
@@ -237,17 +237,17 @@ kademliaJoinNetwork' inst peer = do
         K.NodeDown -> throw NodeDown
         K.NodeBanned ->
             logInfo $
-            sformat ("joinNetwork: peer " % build % " is banned") peer
+            sformat ("kademliaJoinNetwork: peer " % build % " is banned") peer
         K.IDClash ->
             logInfo $
-            sformat ("joinNetwork: peer " % build % " already contains us") peer
+            sformat ("kademliaJoinNetwork: peer " % build % " already contains us") peer
 
+-- | Attempt to join a Kademlia network by contacting this list of peers.
+--   If none of them are up, a warning is logged but no exception is thrown.
 kademliaJoinNetworkNoThrow
     :: ( MonadIO m
        , Mockable Catch m
        , Mockable Throw m
-       , Mockable Async m
-       , Eq (Promise m (Maybe ()))
        , WithLogger m
        , Bi DHTKey
        , Bi DHTData
@@ -258,5 +258,30 @@ kademliaJoinNetworkNoThrow
 kademliaJoinNetworkNoThrow inst peers = kademliaJoinNetwork inst peers `catch` handleJoinE
     where
     handleJoinE AllPeersUnavailable =
-        logWarning $ sformat ("Not connected to any of peers "%listJson) peers
+        logWarning $ sformat ("kademliaJoinNetwork: not connected to any of peers "%listJson) peers
     handleJoinE e = throw e
+
+-- | Attempt to join a Kademlia network by contacting this list of peers.
+--   If none of them are up, retry after a fixed delay.
+kademliaJoinNetworkRetry
+    :: ( MonadIO m
+       , Mockable Catch m
+       , Mockable Throw m
+       , Mockable Delay m
+       , WithLogger m
+       , Bi DHTKey
+       , Bi DHTData
+       )
+    => KademliaDHTInstance
+    -> [NetworkAddress]
+    -> Second
+    -> m ()
+kademliaJoinNetworkRetry inst peers interval = do
+    result <- try $ kademliaJoinNetwork inst peers
+    case result of
+      Right _ -> return ()
+      Left AllPeersUnavailable -> do
+          logWarning $ sformat ("kademliaJoinNetwork: could not connect to any peers, will retry in "%shown) interval
+          delay interval
+          kademliaJoinNetworkRetry inst peers interval
+      Left e -> throw e

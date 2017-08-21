@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Hashing capabilities.
 
@@ -112,17 +111,21 @@ reifyHashDigestSize
 reifyHashDigestSize = reifyNat (fromIntegral (hashDigestSize' @algo))
 
 -- | Parses given hash in base16 form.
-decodeAbstractHash
-    :: forall algo a.
-       Bi (AbstractHash algo a)
-    => Text -> AbstractHash algo a
-decodeAbstractHash = processRes . Bi.decodeFull . processRes . B16.decode
-  where
-    processRes (Right x) = x
-    processRes (Left e)  = error $ "decode hash error: " <> e
+decodeAbstractHash ::
+       forall algo a. HashAlgorithm algo
+    => Text
+    -> Either Text (AbstractHash algo a)
+decodeAbstractHash prettyHash = do
+    bytes <- B16.decode prettyHash
+    case Hash.digestFromByteString bytes of
+        Nothing ->
+            Left
+                ("decodeAbstractHash: " <> "can't convert bytes to hash," <>
+                 " the value was " <> prettyHash)
+        Just digest -> return (AbstractHash digest)
 
 -- | Parses given hash in base16 form.
-decodeHash :: Bi (Hash a) => Text -> Hash a
+decodeHash :: Bi (Hash a) => Text -> Either Text (Hash a)
 decodeHash = decodeAbstractHash @Blake2b_256
 
 -- | Encode thing as 'Binary' data and then wrap into constructor.

@@ -1,7 +1,6 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeOperators   #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 -- | Stack of monads used by light wallet.
@@ -25,13 +24,15 @@ import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core                         (Address, SlotId (..))
+import           Pos.Core                         (HasCoreConstants, SlotId (..),
+                                                   addressHash, makePubKeyAddress)
+import           Pos.Crypto                       (PublicKey)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
-import           Pos.Slotting                     (MonadSlots (..),
+import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    currentTimeSlottingSimple)
-import           Pos.Slotting.MemState            (MonadSlotsData (..))
+import           Pos.Slotting.MemState            (MonadSlotsData)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), JsonLogConfig,
                                                    jsonLogDefault)
@@ -95,30 +96,30 @@ instance MonadBListener LightWalletMode where
     onRollbackBlocks = onRollbackBlocksStub
 
 -- FIXME: Dummy instance for lite-wallet.
+instance HasSlottingVar LightWalletContext where
+    slottingTimestamp = error "notImplemented"
+    slottingVar       = error "notImplemented"
+
+-- FIXME: Dummy instance for lite-wallet.
 instance MonadBlockchainInfo LightWalletMode where
     networkChainDifficulty = error "notImplemented"
-    localChainDifficulty = error "notImplemented"
+    localChainDifficulty   = error "notImplemented"
     blockchainSlotDuration = error "notImplemented"
-    connectedPeers = error "notImplemented"
+    connectedPeers         = error "notImplemented"
 
 -- FIXME: Dummy instance for lite-wallet.
 instance MonadUpdates LightWalletMode where
-    waitForUpdate = error "notImplemented"
+    waitForUpdate   = error "notImplemented"
     applyLastUpdate = pure ()
 
 -- FIXME: Dummy instance for lite-wallet.
-instance MonadSlotsData LightWalletMode where
-    getSystemStart = error "notImplemented"
-    getSlottingData = error "notImplemented"
-    waitPenultEpochEquals = error "notImplemented"
-    putSlottingData = error "notImplemented"
-
--- FIXME: Dummy instance for lite-wallet.
-instance MonadSlots LightWalletMode where
-    getCurrentSlot = Just <$> getCurrentSlotInaccurate
-    getCurrentSlotBlocking = getCurrentSlotInaccurate
+instance (HasCoreConstants, MonadSlotsData ctx LightWalletMode)
+      => MonadSlots ctx LightWalletMode
+  where
+    getCurrentSlot           = Just <$> getCurrentSlotInaccurate
+    getCurrentSlotBlocking   = getCurrentSlotInaccurate
     getCurrentSlotInaccurate = pure (SlotId 0 minBound)
-    currentTimeSlotting = currentTimeSlottingSimple
+    currentTimeSlotting      = currentTimeSlottingSimple
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = gsAdoptedBVDataWallet
@@ -127,11 +128,11 @@ instance MonadBalances LightWalletMode where
     getOwnUtxos = getOwnUtxosWallet
     getBalance = getBalanceWallet
 
-instance MonadTxHistory LightWalletSscType LightWalletMode where
+instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode where
     getBlockHistory = getBlockHistoryWallet
     getLocalHistory = getLocalHistoryWallet
     saveTx = saveTxWallet
 
 instance MonadAddresses LightWalletMode where
-    type AddrData LightWalletMode = Address
-    getNewAddress = pure
+    type AddrData LightWalletMode = PublicKey
+    getNewAddress pk = pure (makePubKeyAddress pk, Just $ addressHash pk)

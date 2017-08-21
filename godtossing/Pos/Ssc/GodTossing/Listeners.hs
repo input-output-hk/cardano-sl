@@ -19,13 +19,14 @@ import           Pos.Binary.Class                      (Bi)
 import           Pos.Binary.Crypto                     ()
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
-import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Communication.Limits.Types        (MessageLimited)
 import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         InvReqDataParams (..),
                                                         MempoolParams (NoMempool),
-                                                        Relay (..), ReqMsg)
-import           Pos.Core                              (StakeholderId, addressHash)
+                                                        Relay (..), ReqMsg, ReqOrRes)
+import           Pos.Communication.Types.Protocol      (MsgType (..))
+import           Pos.Core                              (HasCoreConstants, StakeholderId,
+                                                        addressHash)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
@@ -97,7 +98,9 @@ sscRelay
        , MessageLimited (DataMsg contents)
        , Bi (DataMsg contents)
        , Message (InvOrData (Tagged contents StakeholderId) contents)
+       , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
+       , HasCoreConstants
        )
     => GtTag
     -> (contents -> StakeholderId)

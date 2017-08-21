@@ -17,10 +17,9 @@ import           Serokell.Util             (VerificationRes, allDistinct, enumer
                                             verifyGeneric)
 
 import           Pos.Binary.Txp.Core       ()
-import           Pos.Core                  (AddrType (..), Address (..), StakeholderId,
-                                            addressF, coinF, coinToInteger, integerToCoin,
-                                            isRedeemAddress, isUnknownAddressType, mkCoin,
-                                            sumCoins)
+import           Pos.Core                  (AddrType (..), Address (..), addressF,
+                                            integerToCoin, isRedeemAddress,
+                                            isUnknownAddressType, sumCoins)
 import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
                                             checkScriptAddress)
 import           Pos.Crypto                (SignTag (SignTx), WithHash (..), checkSig,
@@ -127,7 +126,7 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs) =
         (enumerate $ toList (NE.zip _txOutputs (getTxDistribution distrs)))
   where
     verifyOutput :: (Int, (TxOut, TxOutDistribution)) -> [(Bool, Text)]
-    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..}, d)) =
+    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..}, _)) =
         [ ( not vtcVerifyAllIsKnown || areAttributesKnown addrAttributes
           , sformat
                 ("output #"%int%" with address "%addressF%
@@ -142,23 +141,7 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs) =
           , sformat ("output #"%int%" sends money to a redeem address ("
                     %addressF%"), this is prohibited") i addr
           )
-        ] ++ checkDist i d txOutValue
-    checkDist i d txOutValue =
-        let sumDist = sumCoins (map snd d)
-        in [ ( sumDist <= coinToInteger txOutValue
-             , sformat
-                   ("output #"%int%" has distribution "%"sum("%int%
-                    ") > txOutValue("%coinF%")")
-                   i sumDist txOutValue)
-           , ( allDistinct (map fst d :: [StakeholderId])
-             , sformat
-                   ("output #"%int%"'s distribution "%
-                    "has duplicated addresses") i)
-           , ( all (> mkCoin 0) (map snd d)
-             , sformat
-                   ("output #"%int%"'s distribution "%
-                    "assigns 0 coins to some addresses") i)
-           ]
+        ]
 
 verifyInputs ::
        MonadError ToilVerFailure m

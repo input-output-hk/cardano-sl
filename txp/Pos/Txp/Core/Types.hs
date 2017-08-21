@@ -142,18 +142,22 @@ instance NFData TxDistribution
 -- Tx parts
 ----------------------------------------------------------------------------
 
--- | Transaction input.
-data TxIn = TxIn
+-- | Transaction arbitrary input.
+data TxIn
+    = TxInUtxo
     { -- | Which transaction's output is used
       txInHash  :: !TxId
       -- | Index of the output in transaction's outputs
     , txInIndex :: !Word32
-    } deriving (Eq, Ord, Show, Generic, Typeable)
+    }
+    | TxInUnknown !Word8 !ByteString
+    deriving (Eq, Ord, Generic, Show, Typeable)
 
 instance Hashable TxIn
 
 instance Buildable TxIn where
-    build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
+    build TxInUtxo {..} = bprint ("TxInUtxo "%shortHashF%" #"%int) txInHash txInIndex
+    build (TxInUnknown tag bs) = bprint ("TxInUnknown "%build%" "%base16F) tag bs
 
 instance NFData TxIn
 

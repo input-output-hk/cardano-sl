@@ -93,7 +93,7 @@ instance Arbitrary StakeAndHolder where
             nAdr = S.size setUtxo
             values = scanl1 unsafeAddCoin $ replicate nAdr coins
             utxoList =
-                (zipWith TxIn (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
+                (zipWith (\txi id -> TxInUtxo txi id) (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
                 (zipWith toTxOutAux (toList setUtxo) values)
         return (myPk, M.fromList utxoList)
 
@@ -173,7 +173,7 @@ ftsReasonableStake
     let result = go numberOfRuns (0, 0, 0) ftsList utxoList
     in threshold result
   where
-    key = TxIn (unsafeHash ("this is unsafe" :: Text)) 0
+    key = TxInUtxo (unsafeHash ("this is unsafe" :: Text)) 0
 
     -- We count how many times someone was present in selection and how many
     -- times someone was chosen overall.

@@ -40,11 +40,10 @@ import           Pos.Network.Types               (NodeId, NodeName(..))
 import qualified Pos.Network.Types               as T
 import           Pos.Network.Yaml                (NodeMetadata (..))
 import qualified Pos.Network.Yaml                as Y
-import           Pos.Util.TimeWarp               (addressToNodeId)
+import           Pos.Util.TimeWarp               (NetworkAddress, addressToNodeId)
 import           System.Wlog.CanLog              (WithLogger, logError, logNotice)
 import           Universum
 
-import           Pos.Util.TimeWarp               (NetworkAddress)
 #ifdef POSIX
 import           Pos.Util.SigHandler             (Signal (..), installHandler)
 #endif
@@ -327,7 +326,12 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers =
             hasKademlia   = M.filter nmKademlia (Y.allStaticallyKnownPeers allPeers)
             selfKademlia  = M.member self hasKademlia
             otherKademlia = M.delete self hasKademlia
-            allKademlia   = M.keys otherKademlia ++ if selfKademlia then [self] else []
+            -- Linter claims that
+            --   [self | selfKademlia]
+            -- is more readable than
+            --   if selfKademlia then [self] else []
+            allKademlia   = M.keys otherKademlia ++ [self | selfKademlia]
+
             kademliaPeers = mkKademliaAddress . snd <$> mapMaybe (\name -> M.lookup name resolved) allKademlia
         return (selfMetadata, peersFromList directory routes, kademliaPeers)
   where

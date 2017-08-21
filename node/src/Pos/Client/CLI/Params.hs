@@ -137,8 +137,8 @@ getTransportParams args networkConfig = case ncTopology networkConfig of
     -- confusion: if a user gives a --listen parameter then they probably
     -- think the program will bind a socket.
     TopologyBehindNAT{} -> do
-        _ <- maybe (return ()) (const (throw UnnecessaryAddress)) (bindAddress args)
-        _ <- maybe (return ()) (const (throw UnnecessaryAddress)) (externalAddress args)
+        _ <- whenJust (bindAddress args) (const (throw UnnecessaryAddress))
+        _ <- whenJust (externalAddress args) (const (throw UnnecessaryAddress))
         return $ TransportParams { tpTcpAddr = TCP.Unaddressable }
     _ -> do
         (bindHost, bindPort) <- maybe (throw MissingBindAddress) return (bindAddress args)

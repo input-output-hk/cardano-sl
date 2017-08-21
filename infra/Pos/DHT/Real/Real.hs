@@ -84,7 +84,7 @@ startDHTInstance
     -> NetworkAddress -- ^ Default NetworkAddress to bind.
     -> m KademliaDHTInstance
 startDHTInstance kconf@KademliaParams {..} defaultBind = do
-    let bindAddr = first B8.unpack (maybe defaultBind identity kpNetworkAddress)
+    let bindAddr = first B8.unpack (fromMaybe defaultBind kpNetworkAddress)
         extAddr  = maybe bindAddr (first B8.unpack) kpExternalAddress
     logInfo "Generating dht key.."
     kdiKey <- maybe randomDHTKey pure kpKey

@@ -38,7 +38,7 @@ fromYamlConfig yamlParams = do
         , kpExternalAddress = kademliaAddressToNetworkAddress <$> Y.kpAddress yamlParams
         , kpPeers           = kademliaAddressToNetworkAddress <$> Y.kpPeers yamlParams
         , kpDumpFile        = Y.kpDumpFile yamlParams
-        , kpExplicitInitial = maybe False identity (Y.kpExplicitInitial yamlParams)
+        , kpExplicitInitial = fromMaybe False (Y.kpExplicitInitial yamlParams)
         }
 
 kademliaAddressToNetworkAddress :: Y.KademliaAddress -> NetworkAddress

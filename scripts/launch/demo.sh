@@ -107,7 +107,9 @@ while [[ $i -lt $panesCnt ]]; do
   fi
 
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp" C-m
+    node_cmd="$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp"
+    echo "$node_cmd"
+    tmux send-keys "$node_cmd" C-m
   else
     # Number of transactions to send per-thread: 300
     # Concurrency (number of threads sending transactions); $CONC

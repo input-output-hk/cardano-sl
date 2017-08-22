@@ -12,7 +12,7 @@ import qualified Data.Map              as M (fromList, insert, singleton)
 import qualified Data.Set              as S (deleteFindMin, fromList, size)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
+import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf)
 
 import           Pos.Core              (Coin, HasCoreConstants, SharedSeed, addressHash,
                                         blkSecurityParam, epochSlots, giveStaticConsts,
@@ -81,7 +81,7 @@ toTxOutAux pk v = TxOutAux (TxOut addr v) distr
 instance Arbitrary StakeAndHolder where
     arbitrary = StakeAndHolder <$> do
         pk1 <- arbitrary
-        pk2 <- arbitrary `suchThat` ((/=) pk1)
+        pk2 <- arbitrary
         listPks <- do
             n <- choose (2, 10)
             replicateM n arbitrary

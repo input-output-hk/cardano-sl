@@ -72,10 +72,11 @@ import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
                                                  SimpleSlottingVar, SlottingData,
-                                                 mkSimpleSlottingVar, getCurrentSlotSimple,
+                                                 currentTimeSlottingSimple,
                                                  getCurrentSlotBlockingSimple,
                                                  getCurrentSlotInaccurateSimple,
-                                                 currentTimeSlottingSimple)
+                                                 getCurrentSlotSimple,
+                                                 mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
@@ -161,7 +162,6 @@ instance Arbitrary TestParams where
     arbitrary = do
         secretKeysList <-
             toList @(NonEmpty SecretKey) <$>
-             -- might have repetitions
             (arbitrary `suchThat` (\l -> length l < 15))
         let _tpStartTime = fromMicroseconds 0
         let invSecretsMap = mkInvSecretsMap secretKeysList

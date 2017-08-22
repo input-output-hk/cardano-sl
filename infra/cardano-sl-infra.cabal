@@ -33,8 +33,6 @@ library
                         Pos.Slotting.Impl.Sum
                         Pos.Slotting.Impl.Util
                         Pos.Slotting.MemState
-                        Pos.Slotting.MemState.Class
-                        Pos.Slotting.MemState.Holder
                         Pos.Slotting.Types
                         Pos.Slotting.Error
                         Pos.Slotting.Util
@@ -73,6 +71,7 @@ library
 
                         -- Network topology
                         Pos.Network.DnsDomains
+                        Pos.Network.Policy
                         Pos.Network.Types
                         Pos.Network.Yaml
                         Pos.Network.CLI
@@ -122,6 +121,7 @@ library
                       , directory
                       , dns
                       , either
+                      , ekg-core
                       , ether >= 0.5
                       , exceptions
                       , filepath
@@ -191,6 +191,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   ghc-options:         -Wall
                        -fno-warn-orphans

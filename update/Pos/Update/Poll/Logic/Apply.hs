@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Logic of application and verification of data in Poll.
 
@@ -25,7 +24,7 @@ import           Pos.Core                      (ChainDifficulty (..), Coin, Epoc
                                                 epochIndexL, flattenSlotId, headerHashG,
                                                 headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Core.Constants            (blkSecurityParam)
+import           Pos.Core.Context              (HasCoreConstants, blkSecurityParam)
 import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Data.Attributes           (areAttributesKnown)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
@@ -46,7 +45,10 @@ import           Pos.Update.Poll.Types         (ConfirmedProposalState (..),
                                                 UpsExtra (..), psProposal)
 import           Pos.Util.Util                 (Some (..))
 
-type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
+type ApplyMode m =
+    ( MonadError PollVerFailure m
+    , MonadPoll m
+    , HasCoreConstants)
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
@@ -277,7 +279,7 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
-    :: MonadPoll m
+    :: (HasCoreConstants, MonadPoll m)
     => SlotId -> ChainDifficulty -> HeaderHash -> m ()
 applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData

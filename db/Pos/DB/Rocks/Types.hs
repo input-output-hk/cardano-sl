@@ -1,6 +1,5 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Types related to rocksdb implementation 'MonadDBRead' and
 -- 'MonadDB'.

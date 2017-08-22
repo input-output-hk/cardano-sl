@@ -1,6 +1,5 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds  #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Protocol/versioning related communication helpers.
 
@@ -41,6 +40,7 @@ import           System.Wlog                      (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Communication.Types.Protocol
+import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Core.Types                   (SlotId)
 import           Pos.KnownPeers                   (MonadFormatPeers)
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
@@ -154,7 +154,7 @@ alternativeConversations nid ourVerInfo theirVerInfo convs =
     fstArg _ = Proxy
 
     logOSNR (Right e@(OutSpecNotReported _ _)) = logWarning $ sformat build e
-    logOSNR _                                = pure ()
+    logOSNR _                                  = pure ()
 
     checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
         checkingOutSpecs (sndMsgCode, ConvHandler rcvMsgCode) nodeId peerInSpecs conv
@@ -221,7 +221,7 @@ worker' outSpecs h =
 type LocalOnNewSlotComm ctx m =
     ( MonadIO m
     , MonadReader ctx m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
     , Mockables m [Fork, Delay]
@@ -229,12 +229,14 @@ type LocalOnNewSlotComm ctx m =
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
+    , HasCoreConstants
     )
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , Mockable Throw m
     , Mockable SharedAtomic m
+    , HasCoreConstants
     )
 
 onNewSlot'

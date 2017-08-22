@@ -1,5 +1,4 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Pos.DHT.Workers
        ( DhtWorkMode
@@ -17,6 +16,7 @@ import           System.Wlog                (WithLogger, logNotice)
 import           Pos.Binary.Class           (serialize)
 import           Pos.Binary.Infra.DHTModel  ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
+import           Pos.Core.Context           (HasCoreConstants)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
@@ -29,7 +29,7 @@ import           Pos.Slotting.Class         (MonadSlots)
 
 type DhtWorkMode ctx m =
     ( WithLogger m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadIO m
     , MonadMask m
     , Mockable Async m
@@ -42,6 +42,7 @@ type DhtWorkMode ctx m =
     , MonadFormatPeers m
     , HasReportingContext ctx
     , HasShutdownContext ctx
+    , HasCoreConstants
     )
 
 dhtWorkers

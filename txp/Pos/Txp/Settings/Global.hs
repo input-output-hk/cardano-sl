@@ -41,7 +41,7 @@ type TxpGlobalVerifyMode ctx m =
 
 type TxpGlobalApplyMode ctx m =
     ( TxpCommonMode ctx m
-    , MonadSlots m  -- TODO: I don't like it (@gromak)
+    , MonadSlots ctx m  -- TODO: I don't like it (@gromak)
     )
 
 type TxpGlobalRollbackMode ctx m = TxpCommonMode ctx m

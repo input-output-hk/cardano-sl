@@ -365,7 +365,6 @@ library
                       , focus
                       , formatting
                       , generic-arbitrary
-                      , gitrev
                       , hashable
                       , http-client
                       , http-client-tls

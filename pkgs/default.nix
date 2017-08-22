@@ -3640,31 +3640,24 @@ self: {
           description = "Convert strings into hexadecimal and back";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      hfsevents = callPackage ({ Cocoa, CoreServices, base, bytestring, cereal, mkDerivation, mtl, stdenv, text }:
+      hinotify = callPackage ({ async, base, containers, directory, mkDerivation, stdenv, unix }:
       mkDerivation {
-          pname = "hfsevents";
-          version = "0.1.6";
-          sha256 = "019zbnvfd866ch49gax0c1c93zv92142saim1hrgypz5lprz7hvl";
+          pname = "hinotify";
+          version = "0.3.9";
+          sha256 = "16fzql0s34my9k1ib4rdjf9fhhijkmmbrvi148f865m51160wj7j";
           libraryHaskellDepends = [
+            async
             base
-            bytestring
-            cereal
-            mtl
-            text
-          ];
-          librarySystemDepends = [
-            Cocoa
-          ];
-          libraryToolDepends = [
-            CoreServices
+            containers
+            directory
+            unix
           ];
           doHaddock = false;
           doCheck = false;
-          homepage = "http://github.com/luite/hfsevents";
-          description = "File/folder watching for OS X";
+          homepage = "https://github.com/kolmodin/hinotify.git";
+          description = "Haskell binding to inotify";
           license = stdenv.lib.licenses.bsd3;
-          platforms = [ "x86_64-darwin" ];
-        }) { Cocoa = pkgs.Cocoa; };
+        }) {};
       hourglass = callPackage ({ base, deepseq, mkDerivation, stdenv }:
       mkDerivation {
           pname = "hourglass";

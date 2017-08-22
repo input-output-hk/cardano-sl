@@ -5,7 +5,7 @@
 rm -rf run/* node-* *key* *.dump
 
 stack exec -- cardano-explorer \
-    --system-start 1499802478 \
+    --system-start 1501793381 \
     --log-config log-config.yaml \
     --logs-prefix "logs/testnet" \
     --db-path db-testnet \

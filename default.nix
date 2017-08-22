@@ -4,10 +4,11 @@ in
 { system ? builtins.currentSystem
 , config ? {}
 , dconfig ? "testnet_staging"
+, gitrev ? "unknown"
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
 
 with pkgs.lib;
-with (import <nixpkgs/pkgs/development/haskell-modules/lib.nix> { inherit pkgs; });
+with (import (pkgs.path + "/pkgs/development/haskell-modules/lib.nix") { inherit pkgs; });
 
 let
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
@@ -45,6 +46,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
         "-f-asserts"
         "-f-dev-mode"
         "--ghc-options=-DCONFIG=${dconfig}"
+        "--ghc-options=-DGITREV=${gitrev}"
       ];
     });
     cardano-sl-tools = overrideCabal super.cardano-sl-tools (drv: {

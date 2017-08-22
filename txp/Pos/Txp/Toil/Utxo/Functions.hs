@@ -9,10 +9,10 @@ module Pos.Txp.Toil.Utxo.Functions
 
 import           Universum
 
+import           Control.Lens              (_Left)
 import           Control.Monad.Error.Class (MonadError (..))
-import           Data.List                 (findIndex)
 import qualified Data.List.NonEmpty        as NE
-import           Formatting                (build, int, sformat, stext, (%))
+import           Formatting                (int, sformat, (%))
 import           Serokell.Util             (VerificationRes, allDistinct, enumerate,
                                             formatFirstError, verResToMonadError,
                                             verifyGeneric)
@@ -35,7 +35,7 @@ import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
                                             TxOutDistribution, TxSigData (..), TxUndo,
                                             TxWitness, isTxInUnknown)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
+import           Pos.Txp.Toil.Failure      (ToilVerFailure (..), WitnessVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
 
 ----------------------------------------------------------------------------
@@ -78,10 +78,10 @@ verifyTxUtxo
     -> TxAux
     -> m (TxUndo, Maybe TxFee)
 verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses _) = do
-    let unknownTxInIdMB = findIndex isTxInUnknown (toList _txInputs)
-    case (vtcVerifyAllIsKnown, unknownTxInIdMB) of
-        (True, Just (fromIntegral -> inpId)) -> throwError $
-            ToilInvalidInput inpId "vtcVerifyAllIsKnown is True, but the input is unknown"
+    let unknownTxInMB = find (isTxInUnknown . snd) $ zip [0..] (toList _txInputs)
+    case (vtcVerifyAllIsKnown, unknownTxInMB) of
+        (True, Just (inpId, txIn)) -> throwError $
+            ToilUnknownInput inpId txIn
         (False, Just _) -> do
             -- Case when at least one input isn't known
             minimalReasonableChecks
@@ -183,7 +183,7 @@ verifyInputs ::
     -> m ()
 verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
     unless allInputsDifferent $ throwError ToilRepeatedInput
-    mapM_ (uncurry3 inputPredicates) $
+    mapM_ (uncurry3 checkInput) $
         zip3 [0 ..] (toList resolvedInputs) (toList witnesses)
   where
     uncurry3 f (a, b, c) = f a b c
@@ -191,31 +191,24 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
     distrs = taDistribution
     txHash = hash taTx
     distrHash = hash distrs
+    txSigData = TxSigData txHash distrHash
 
     allInputsDifferent :: Bool
     allInputsDifferent = allDistinct (toList (map fst resolvedInputs))
 
-    inputPredicates
+    checkInput
         :: MonadError ToilVerFailure m
         => Word32           -- ^ Input index
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
         -> m ()
-    inputPredicates i (txIn, toa@(TxOutAux txOut@TxOut{..} _)) witness = do
-        unless (checkSpendingData txOutAddress witness) $ throwError $
-            ToilWitnessDoesntMatch i txIn txOut witness
+    checkInput i (txIn, toa@(TxOutAux txOut@TxOut{..} _)) witness = do
+        unless (checkSpendingData txOutAddress witness) $
+            throwError $ ToilWitnessDoesntMatch i txIn txOut witness
         when (isTxInUnknown txIn && vtcVerifyAllIsKnown) $ throwError $
-            ToilInvalidInput i "vtcVerifyAllIsKnown is True, but the input is unknown"
-        -- N.B. @neongreen promised to improve it
-        case validateTxIn toa witness of
-              Right _ -> pass
-              Left err -> throwError $ ToilInvalidInput i $ sformat
-                  ("input #"%int%" isn't validated by its witness:\n"%
-                   "  reason: "%stext%"\n"%
-                   "  input: "%build%"\n"%
-                   "  output spent by this input: "%build%"\n"%
-                   "  witness: "%build)
-                  i err txIn txOut witness
+            ToilUnknownInput i txIn
+        whenLeft (checkWitness toa witness) $ \err ->
+            throwError $ ToilInvalidWitness i witness err
 
     checkSpendingData addr wit = case wit of
         PkWitness{..}            -> checkPubKeyAddress twKey addr
@@ -226,40 +219,26 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
             _                 -> False
 
     -- the first argument here includes local context, can be used for scripts
-    validateTxIn :: TxOutAux -> TxInWitness -> Either Text ()
-    validateTxIn _txOutAux wit =
-        let txSigData = TxSigData
-                { txSigTxHash      = txHash
-                , txSigTxDistrHash = distrHash
-                }
-        in
-        case wit of
-            PkWitness{..}
-                | checkSig SignTx twKey txSigData twSig ->
-                      Right ()
-                | otherwise ->
-                      Left "signature check failed"
-
-            ScriptWitness{..}
-                | scrVersion twValidator /= scrVersion twRedeemer ->
-                      Left "validator and redeemer have different versions"
-                | not (isKnownScriptVersion (scrVersion twValidator)) ->
-                      when vtcVerifyAllIsKnown $
-                      Left ("unknown script version " <> show (scrVersion twValidator))
-                | otherwise ->
-                      first toText (txScriptCheck txSigData twValidator twRedeemer)
-
-            RedeemWitness{..}
-                | redeemCheckSig twRedeemKey txSigData twRedeemSig ->
-                      Right ()
-                | otherwise ->
-                      Left "signature check failed"
-
-            UnknownWitnessType t _
-                | vtcVerifyAllIsKnown ->
-                      Left ("unknown witness type: " <> show t)
-                | otherwise ->
-                      Right ()
+    checkWitness :: TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
+    checkWitness _txOutAux witness = case witness of
+        PkWitness{..} ->
+            unless (checkSig SignTx twKey txSigData twSig) $
+                throwError WitnessWrongSignature
+        RedeemWitness{..} ->
+            unless (redeemCheckSig twRedeemKey txSigData twRedeemSig) $
+                throwError WitnessWrongSignature
+        ScriptWitness{..} -> do
+            let valVer = scrVersion twValidator
+                redVer = scrVersion twRedeemer
+            when (valVer /= redVer) $
+                throwError $ WitnessScriptVerMismatch valVer redVer
+            when (vtcVerifyAllIsKnown && not (isKnownScriptVersion valVer)) $
+                throwError $ WitnessUnknownScriptVer valVer
+            over _Left WitnessScriptError $
+                txScriptCheck txSigData twValidator twRedeemer
+        UnknownWitnessType t _ ->
+            when vtcVerifyAllIsKnown $
+                throwError $ WitnessUnknownType t
 
 verifyAttributesAreKnown
     :: (MonadError ToilVerFailure m)

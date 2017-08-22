@@ -158,8 +158,6 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
         curPk = encToPublic skey
     etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runEitherT $ do
         ss <- mss `whenNothing` throwError "Invalid passphrase"
-        -- N.B. Empty output is not valid, but we have bootstrap
-        -- era anyway and it won't be needed after CSL-1489.
         lift $ submitTx
             (immediateConcurrentConversations sendActions na)
             ss

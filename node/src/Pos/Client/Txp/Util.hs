@@ -135,9 +135,6 @@ runTxCreator action = runExceptT $ do
     _tcdFeePolicy <- bvdTxFeePolicy <$> gsAdoptedBVData
     runReaderT action TxCreatorData{..}
 
--- TODO [CSL-1489] We need to decide what to do with bootstrap era. It's
--- impossible to change distribution without additional information.
-
 -- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx
     :: (owner -> SafeSigner)

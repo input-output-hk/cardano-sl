@@ -8,10 +8,11 @@ module Pos.Block.Network.Retrieval
 
 import           Control.Concurrent.STM     (putTMVar, swapTMVar, tryReadTBQueue,
                                              tryReadTMVar, tryTakeTMVar)
-import           Control.Lens               (_Wrapped)
+import           Control.Lens               (to, _Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
+import qualified Data.List.NonEmpty         as NE
 import qualified Ether
 import           Formatting                 (build, builder, int, sformat, shown, stext,
                                              (%))
@@ -282,12 +283,14 @@ handleCHsValid
     -> m ()
 handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
-    logDebug $ sformat validFormat lcaChildHash newestHash
     reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
       withConnectionTo sendActions nodeId $
       \_ -> pure $ Conversation $
           \(conv :: ConversationActions MsgGetBlocks
              (LimitedLength s0 (MsgBlock ssc)) m) -> do
+        logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
+                           lcaChildHash
+                           newestHash
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
         recHeaderVar <- Ether.ask @RecoveryHeaderTag
@@ -300,7 +303,8 @@ handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash = do
                 dropRecoveryHeaderAndRepeat sendActions nodeId
             Right blocks -> do
                 logDebug $ sformat
-                    ("retrievalWorker: retrieved blocks of size "%builder%": "%listJson)
+                    ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+                    (blocks ^. _Wrapped . to NE.length)
                     (unitBuilder $ biSize blocks)
                     (map (headerHash . view blockHeader) blocks)
                 handleBlocks nodeId blocks sendActions
@@ -318,9 +322,6 @@ handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash = do
                                 then isJust <$> tryTakeTMVar recHeaderVar
                                 else return False
                 void $ tryPutMVar endedRecoveryVar endedRecovery
-  where
-    validFormat =
-        "Requesting blocks from " %shortHashF % " to " %shortHashF
 
 retrieveBlocks
     :: (SscWorkersClass ssc, WorkMode ssc m)

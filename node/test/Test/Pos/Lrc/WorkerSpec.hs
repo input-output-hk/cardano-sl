@@ -26,10 +26,11 @@ import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
 import           Pos.Core                  (AddrDistribution, Coin, EpochIndex,
                                             GenesisWStakeholders (..), HasCoreConstants,
-                                            StakeholderId, addressHash,
-                                            applyCoinPortionUp, blkSecurityParam, coinF,
-                                            divCoin, makePubKeyAddress, mkCoin,
-                                            unsafeAddCoin, unsafeMulCoin, unsafeSubCoin)
+                                            IsBootstrapEraAddr (..), StakeholderId,
+                                            addressHash, applyCoinPortionUp,
+                                            blkSecurityParam, coinF, divCoin,
+                                            makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                            unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic, unsafeHash)
 import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..),
                                             StakeDistribution (..), concatAddrDistrs)
@@ -122,8 +123,12 @@ genTestParams = do
         -> Gen AddrDistribution
     genAddressesAndDistrs totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
         let secretKeysRange = subList (4 * i, 4 * (i + 1)) allSecretKeys
-        -- sad place :(
-        let skToAddr = makePubKeyAddress undefined . toPublic
+        -- We set single key distribution (not bootstrap era) despite
+        -- generating genesis utxo (which conceptually should contain
+        -- bootstrap era addresses only). That's fine in these
+        -- particular tests, because we just want to assign concrete
+        -- stakes to nodes.
+        let skToAddr = makePubKeyAddress (IsBootstrapEraAddr False) . toPublic
         let addresses = map skToAddr secretKeysRange
         let totalStake = totalStakeGroup `unsafeMulCoin` groupsNumber
         let thresholdCoin =

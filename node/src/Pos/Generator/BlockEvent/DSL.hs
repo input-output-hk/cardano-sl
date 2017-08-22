@@ -7,6 +7,7 @@ module Pos.Generator.BlockEvent.DSL
        , pathSequence
        , BlockApplyResult(..)
        , BlockRollbackResult(..)
+       , BlockRollbackFailure(..)
        , BlockScenario
        , BlockScenario'
        , CheckCount(..)
@@ -37,6 +38,7 @@ import           Pos.Generator.Block         (MonadBlockGen)
 import           Pos.Generator.BlockEvent    (BlockApplyResult (..), BlockDesc (..),
                                               BlockEvent' (..), BlockEventApply' (..),
                                               BlockEventRollback' (..),
+                                              BlockRollbackFailure (..),
                                               BlockRollbackResult (..), BlockScenario,
                                               BlockScenario' (..), Chance (..),
                                               CheckCount (..), Path, PathSegment,

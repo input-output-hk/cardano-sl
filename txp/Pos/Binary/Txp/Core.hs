@@ -42,10 +42,8 @@ instance Bi T.TxIn where
         enforceSize "TxIn" 2
         tag <- decode @Word8
         case tag of
-            0 -> T.TxInUtxo <$> decodeCborDataItem
-            _ -> do
-                decodeCborDataItemTag
-                T.TxInUnknown tag <$> decode
+            0 -> T.TxInUtxo        <$> decodeCborDataItem
+            _ -> T.TxInUnknown tag <$> (decodeCborDataItemTag *> decode)
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [

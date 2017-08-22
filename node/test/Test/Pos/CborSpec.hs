@@ -179,6 +179,15 @@ instance Bi U where
 instance Arbitrary U where
     arbitrary = U <$> choose (0, 255) <*> arbitrary
 
+-- | Like `U`, but we expect to read back the Cbor Data Item when decoding.
+data U24 = U24 Word8 BS.ByteString deriving (Show, Eq)
+
+instance Bi U24 where
+    encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeCborDataItem bs
+    decode = do
+        decodeListLenOf 2
+        U24 <$> decode <*> (decodeCborDataItemTag *> decode)
+
 ----------------------------------------
 
 data X1 = X1 { x1A :: Int }
@@ -223,11 +232,12 @@ roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === in
 -- without breaking anything. This should work with every time which adopted
 -- the schema of having at least one constructor of the form:
 -- .... | Unknown Word8 ByteString
-extensionProperty :: forall a. (Arbitrary a, Eq a, Show a, Bi a) => Property
-extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
+extensionPropertyOn :: forall a b. (Eq a, Show a, Bi a, Arbitrary b, Eq b, Show b, Bi b)
+                    => Property
+extensionPropertyOn = forAll @b (arbitrary :: Gen b) $ \input ->
     let serialized      = serialize input -- We now have a BS blob
-        (u :: U)        = deserialize serialized
-        (encoded :: a)  = deserialize (serialize u)
+        (u :: a)        = deserialize serialized
+        (encoded :: b)  = deserialize (serialize u)
     in encoded === input
 
 soundSerializationAttributesOfAsProperty
@@ -344,7 +354,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "TinyVarInt" (soundInstanceProperty @TinyVarInt)
                 prop "Coeff" (soundInstanceProperty @Coeff)
                 prop "TxSizeLinear" (soundInstanceProperty @TxSizeLinear)
-                prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy .&&. extensionProperty @TxFeePolicy)
+                prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy .&&. extensionPropertyOn @U @TxFeePolicy)
                 prop "Timestamp" (soundInstanceProperty @Timestamp)
                 prop "TimeDiff"  (soundInstanceProperty @TimeDiff)
                 prop "EpochIndex" (soundInstanceProperty @EpochIndex)
@@ -407,7 +417,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "DHTKey" (soundInstanceProperty @DHTKey)
                 prop "DHTData" (soundInstanceProperty @DHTData)
                 prop "MessageCode" (soundInstanceProperty @MessageCode)
-                prop "HandlerSpec" (soundInstanceProperty @HandlerSpec .&&. extensionProperty @HandlerSpec)
+                prop "HandlerSpec" (soundInstanceProperty @HandlerSpec .&&. extensionPropertyOn @U @HandlerSpec)
                 prop "VerInfo" (soundInstanceProperty @VerInfo)
                 prop "DlgPayload" (soundInstanceProperty @DlgPayload)
                 prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData)
@@ -428,7 +438,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "ProposalState" (soundInstanceProperty @ProposalState)
                 prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState)
                 prop "UtxoTxIn" (soundInstanceProperty @UtxoTxIn)
-                prop "TxIn" (soundInstanceProperty @TxIn)
+                prop "TxIn" (soundInstanceProperty @TxIn .&&. extensionPropertyOn @U24 @TxIn)
                 modifyMaxSuccess (const 100) $
                     prop "TxDistribution" (soundInstanceProperty @TxDistribution)
                 prop "TxSigData" (soundInstanceProperty @TxSigData)
@@ -457,7 +467,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "TxOut" (soundInstanceProperty @TxOut)
                 modifyMaxSuccess (const 100) $
                     prop "DataMsg TxMsgContents" (soundInstanceProperty @(DataMsg TxMsgContents))
-                prop "TxInWitness" (soundInstanceProperty @TxInWitness .&&. extensionProperty @TxInWitness)
+                prop "TxInWitness" (soundInstanceProperty @TxInWitness .&&. extensionPropertyOn @U @TxInWitness)
                 prop "Signature a" (soundInstanceProperty @(Signature U))
                 prop "Signed a"    (soundInstanceProperty @(Signed U))
                 prop "RedeemSignature a"    (soundInstanceProperty @(RedeemSignature U))

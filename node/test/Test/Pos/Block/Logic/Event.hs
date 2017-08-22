@@ -14,15 +14,13 @@ module Test.Pos.Block.Logic.Event
 
 import           Universum
 
-import           Control.Lens              (_Right)
 import           Control.Monad.Catch       (catch)
-import qualified Data.List.NonEmpty        as NE
 import qualified Data.Map                  as Map
 
 import           Pos.Block.Logic.VAR       (BlockLrcMode, rollbackBlocks,
                                             verifyAndApplyBlocks)
 import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (HeaderHash, getEpochOrSlot, unEpochOrSlot)
+import           Pos.Core                  (HeaderHash)
 import           Pos.DB.Pure               (DBPureDiff, MonadPureDB, dbPureDiff,
                                             dbPureDump, dbPureReset)
 import           Pos.Generator.BlockEvent  (BlockEvent, BlockEvent' (..), BlockScenario,
@@ -30,10 +28,10 @@ import           Pos.Generator.BlockEvent  (BlockEvent, BlockEvent' (..), BlockS
                                             SnapshotId, SnapshotOperation (..), beaInput,
                                             berInput)
 import           Pos.Ssc.GodTossing.Type   (SscGodTossing)
-import           Pos.Util.Chrono           (NE, OldestFirst, getOldestFirst)
+import           Pos.Util.Chrono           (NE, OldestFirst)
 import           Pos.Util.Util             (eitherToThrow, lensOf)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, PureDBSnapshotsVar (..))
-import           Test.Pos.Block.Logic.Util (withCurrentSlot)
+import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -64,12 +62,13 @@ verifyAndApplyBlocks' ::
        BlockLrcMode SscGodTossing BlockTestContext m
     => OldestFirst NE (Blund SscGodTossing)
     -> m ()
-verifyAndApplyBlocks' bs = do
-    let mSlot = (unEpochOrSlot . getEpochOrSlot . fst . NE.last . getOldestFirst) bs ^? _Right
-    maybe identity withCurrentSlot mSlot $ do
+verifyAndApplyBlocks' blunds = do
+    satisfySlotCheck blocks $ do
         (_ :: HeaderHash) <- eitherToThrow =<<
-            verifyAndApplyBlocks True (fst <$> bs)
+            verifyAndApplyBlocks True blocks
         return ()
+  where
+    blocks = fst <$> blunds
 
 -- | Execute a single block event.
 runBlockEvent ::

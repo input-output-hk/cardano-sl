@@ -52,7 +52,6 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
 import           Pos.Core                         (addressHash, coinF, makePubKeyAddress)
-import           Pos.Core.Coin                    (subCoin)
 import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types                   (Timestamp (..), mkCoin)
 import           Pos.Crypto                       (Hash, SecretKey, SignTag (SignUSVote),
@@ -62,12 +61,11 @@ import           Pos.Crypto                       (Hash, SecretKey, SignTag (Sig
                                                    safeToPublic, toPublic, unsafeHash,
                                                    withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
-import           Pos.Genesis                      (GenesisContext (..),
-                                                   StakeDistribution (..), devAddrDistr,
-                                                   devStakesDistr,
+import           Pos.Genesis                      (StakeDistribution (..),
+                                                   devGenesisContext, devStakesDistr,
                                                    genesisContextProduction,
-                                                   genesisDevSecretKeys, genesisUtxo,
-                                                   gtcUtxo, stakeDistribution)
+                                                   genesisDevSecretKeys, gtcUtxo,
+                                                   stakeDistribution)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    bracketTransport, loggerBracket)
 import           Pos.Network.Types                (MsgType (..), Origin (..))
@@ -185,28 +183,21 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
         txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
-        forM_ (zip keysToSend [0..]) $ \((key, balance), n) -> do
+        forM_ (zip keysToSend [0..]) $ \((key, _balance), n) -> do
             let val1 = mkCoin 1
                 txOut1 = TxOut {
                     txOutAddress = makePubKeyAddress (toPublic key),
                     txOutValue = val1
                     }
-                val2 = fromMaybe (error $ "zero balance for key #" <> show n) $
-                    balance `subCoin` mkCoin 1
-                txOut2 = TxOut {
-                    txOutAddress = makePubKeyAddress (toPublic key),
-                    txOutValue = val2
-                    }
                 stakeholderId = addressHash (toPublic key)
                 toDistr val = [(stakeholderId, val)]
-                txOuts = TxOutAux txOut1 (toDistr val1)
-                    :| [TxOutAux txOut2 (toDistr val2)]
+                txOuts = TxOutAux txOut1 (toDistr val1) :| []
             neighbours <- case sendMode of
-                    SendNeighbours -> return na
-                    SendRoundRobin -> return [na !! (n `mod` nNeighbours)]
-                    SendRandom -> do
-                        i <- liftIO $ randomRIO (0, nNeighbours - 1)
-                        return [na !! i]
+                SendNeighbours -> return na
+                SendRoundRobin -> return [na !! (n `mod` nNeighbours)]
+                SendRandom -> do
+                    i <- liftIO $ randomRIO (0, nNeighbours - 1)
+                    return [na !! i]
             atomically $ writeTQueue txQueue (key, txOuts, neighbours)
 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
@@ -426,15 +417,11 @@ main = giveStaticConsts $ do
     let devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr woCommonArgs)
-                (CLI.bitcoinDistr woCommonArgs)
                 (CLI.richPoorDistr woCommonArgs)
                 (CLI.expDistr woCommonArgs)
-    let wpGenesisContext =
-            if isDevelopment
-            then let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-                 in GenesisContext (genesisUtxo bootStakeholders aDistr)
-                                   bootStakeholders
-            else genesisContextProduction
+    let wpGenesisContext
+            | isDevelopment = devGenesisContext devStakeDistr
+            | otherwise = genesisContextProduction
     let params =
             WalletParams
             { wpDbPath      = Just woDbPath

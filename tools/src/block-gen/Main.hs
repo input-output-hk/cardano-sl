@@ -13,9 +13,11 @@ import           System.Wlog                 (usingLoggerName)
 
 import           Pos.AllSecrets              (AllSecrets (..), mkInvAddrSpendingData,
                                               mkInvSecretsMap)
-import           Pos.Core                    (AddrSpendingData (..), genesisDevSecretKeys,
-                                              giveStaticConsts, isDevelopment,
-                                              makePubKeyAddress)
+import           Pos.Core                    (AddrSpendingData (..),
+                                              IsBootstrapEraAddr (..),
+                                              genesisDevSecretKeys, giveStaticConsts,
+                                              isDevelopment, makePubKeyAddress,
+                                              makePubKeyAddressBoot)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
@@ -66,10 +68,18 @@ main = flip catch catchEx $ giveStaticConsts $ do
     when (M.null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 
+    -- We need to construct an 'InvAddrSpendingData'. We can't be sure
+    -- whether bootstrap era will be used or not, so we put addresses
+    -- with bootstrap era distribution as well as addresses with
+    -- single key distribution. Spending data list is the same.
     let pks = toPublic <$> toList invSecretsMap
-    let addresses = map (makePubKeyAddress undefined) pks
+    let addressesNonBoot = map (makePubKeyAddress (IsBootstrapEraAddr False)) pks
+    let addressesBoot = map makePubKeyAddressBoot pks
     let spendingDataList = map PubKeyASD pks
-    let invAddrSpendingData = mkInvAddrSpendingData $ addresses `zip` spendingDataList
+    let invAddrSpendingData = mkInvAddrSpendingData $
+            zip addressesNonBoot spendingDataList <>
+            zip addressesBoot spendingDataList
+
     let bgenParams =
             BlockGenParams
                 (AllSecrets invSecretsMap invAddrSpendingData)

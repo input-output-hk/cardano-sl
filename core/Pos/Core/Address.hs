@@ -29,6 +29,7 @@ module Pos.Core.Address
        , makeAddress
        , makePubKeyAddress
        , makePubKeyAddressBoot
+       , makeRootPubKeyAddress
        , makePubKeyHdwAddress
        , makeScriptAddress
        , makeRedeemAddress
@@ -177,6 +178,14 @@ makePubKeyAddress = makePubKeyAddressImpl Nothing
 -- | A function for making an address from 'PublicKey' for bootstrap era.
 makePubKeyAddressBoot :: PublicKey -> Address
 makePubKeyAddressBoot = makePubKeyAddress (IsBootstrapEraAddr True)
+
+-- | This function creates a root public key address. Stake
+-- distribution doesn't matter for root addresses because by design
+-- nobody should even use these addresses as outputs, so we can put
+-- arbitrary distribution there. We use bootstrap era distrbution
+-- because its representation is more compact.
+makeRootPubKeyAddress :: PublicKey -> Address
+makeRootPubKeyAddress = makePubKeyAddressBoot
 
 -- | A function for making an HDW address.
 makePubKeyHdwAddress

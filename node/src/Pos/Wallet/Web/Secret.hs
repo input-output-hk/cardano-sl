@@ -17,9 +17,9 @@ import qualified Data.Text.Buildable
 import           Formatting          (Format, bprint, build, later, (%))
 
 import           Pos.Binary.Class    (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Core            (addressF, makeRootPubKeyAddress)
 import           Pos.Crypto          (EncryptedSecretKey, encToPublic)
 import           Pos.Genesis         (accountGenesisIndex, wAddressGenesisIndex)
-import           Pos.Types           (addressF, makePubKeyAddress)
 
 --- | Describes HD wallets keyfile content
 data WalletUserSecret = WalletUserSecret
@@ -35,7 +35,7 @@ instance Buildable WalletUserSecret where
     build WalletUserSecret{..} =
         bprint ("{ root = "%addressF%", set name = "%build%
                 ", wallets = "%pairsF%", accounts = "%pairsF%" }")
-        (makePubKeyAddress undefined $ encToPublic _wusRootKey)
+        (makeRootPubKeyAddress $ encToPublic _wusRootKey)
         _wusWalletName
         _wusAccounts
         _wusAddrs

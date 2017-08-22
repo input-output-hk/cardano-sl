@@ -61,7 +61,7 @@ import           Pos.Core                         (Address (..), BlockHeaderStub
                                                    Timestamp, aaPkDerivationPath,
                                                    addrAttributesUnwrapped,
                                                    blkSecurityParam, headerHash,
-                                                   headerSlotL, makePubKeyAddress)
+                                                   headerSlotL, makeRootPubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -457,7 +457,7 @@ getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CId Wal)
 getEncInfo encSK = do
     let pubKey = encToPublic encSK
     let hdPass = deriveHDPassphrase pubKey
-    let wCId = addressToCId $ makePubKeyAddress undefined pubKey
+    let wCId = addressToCId $ makeRootPubKeyAddress pubKey
     (hdPass, wCId)
 
 selectOwnAccounts

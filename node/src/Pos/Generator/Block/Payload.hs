@@ -28,7 +28,7 @@ import           Pos.Client.Txp.Util        (makeAbstractTx, txToLinearFee, unTx
 import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
                                              SlotId (..), StakeholderId, TxFeePolicy (..),
                                              addressHash, bvdTxFeePolicy, coinToInteger,
-                                             makePubKeyAddress, mkCoin, sumCoins,
+                                             makePubKeyAddressBoot, mkCoin, sumCoins,
                                              unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Crypto                 (SecretKey, SignTag (SignTx), WithHash (..),
                                              hash, sign, toPublic)
@@ -160,7 +160,10 @@ genTxPayload = do
                         sformat ("Found an address with non-pubkey spending data: "
                                     %build) another
 
-        let utxoAddresses = map (makePubKeyAddress undefined . toPublic) $ HM.elems secrets
+        -- Currently payload generator only uses addresses with
+        -- bootstrap era distribution. This is fine, because we don't
+        -- have usecases where we switch to reward era.
+        let utxoAddresses = map (makePubKeyAddressBoot . toPublic) $ HM.elems secrets
 
         ----- INPUTS
 

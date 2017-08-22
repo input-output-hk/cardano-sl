@@ -1274,6 +1274,7 @@ self: {
             safecopy
             serokell-util
             tagged
+            text
             text-format
             time-units
             transformers-base

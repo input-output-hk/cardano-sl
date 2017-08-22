@@ -22,6 +22,7 @@ module Pos.Explorer.Web.ClientTypes
        , EpochIndex (..)
        , LocalSlotIndex (..)
        , StakeholderId
+       , Byte
        , mkCCoin
        , toCHash
        , fromCHash
@@ -40,42 +41,43 @@ module Pos.Explorer.Web.ClientTypes
 
 import           Universum
 
-import           Control.Arrow          ((&&&))
-import           Control.Lens           (ix, _Left)
-import qualified Data.ByteArray         as BA
-import qualified Data.ByteString.Base16 as B16
-import qualified Data.List.NonEmpty     as NE
-import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Formatting             (sformat)
-import           Prelude                ()
-import           Serokell.Util.Base16   as SB16
-import           Servant.API            (FromHttpApiData (..))
+import           Control.Arrow              ((&&&))
+import           Control.Lens               (ix, _Left)
+import qualified Data.ByteArray             as BA
+import qualified Data.ByteString.Base16     as B16
+import qualified Data.List.NonEmpty         as NE
+import           Data.Time.Clock.POSIX      (POSIXTime)
+import           Formatting                 (sformat)
+import           Prelude                    ()
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Base16       as SB16
+import           Servant.API                (FromHttpApiData (..))
 
-import qualified Pos.Binary             as Bi
-import           Pos.Block.Core         (MainBlock, mainBlockSlot, mainBlockTxPayload,
-                                         mcdSlot)
-import           Pos.Block.Types        (Undo (..))
-import           Pos.Core               (HasCoreConstants)
-import           Pos.Crypto             (Hash, hash)
-import           Pos.DB.Block           (MonadBlockDB)
-import           Pos.DB.Class           (MonadDBRead)
-import           Pos.DB.Rocks           (MonadRealDB)
-import           Pos.Explorer           (TxExtra (..))
-import qualified Pos.GState             as GS
-import           Pos.Lrc                (getLeaders)
-import           Pos.Merkle             (getMerkleRoot, mtRoot)
-import           Pos.Slotting           (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing     (SscGodTossing)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
-                                         txpTxs, _txOutputs)
-import           Pos.Types              (Address, AddressHash, Coin, EpochIndex,
-                                         LocalSlotIndex, SlotId (..), StakeholderId,
-                                         Timestamp, addressF, coinToInteger,
-                                         decodeTextAddress, gbHeader, gbhConsensus,
-                                         getEpochIndex, getSlotIndex, headerHash, mkCoin,
-                                         prevBlockL, sumCoins, unsafeAddCoin,
-                                         unsafeGetCoin, unsafeIntegerToCoin,
-                                         unsafeSubCoin)
+import qualified Pos.Binary                 as Bi
+import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
+                                             mcdSlot)
+import           Pos.Block.Types            (Undo (..))
+import           Pos.Core                   (HasCoreConstants)
+import           Pos.Crypto                 (Hash, hash)
+import           Pos.DB.Block               (MonadBlockDB)
+import           Pos.DB.Class               (MonadDBRead)
+import           Pos.DB.Rocks               (MonadRealDB)
+import           Pos.Explorer               (TxExtra (..))
+import qualified Pos.GState                 as GS
+import           Pos.Lrc                    (getLeaders)
+import           Pos.Merkle                 (getMerkleRoot, mtRoot)
+import           Pos.Slotting               (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                                             TxUndo, txpTxs, _txOutputs)
+import           Pos.Types                  (Address, AddressHash, Coin, EpochIndex,
+                                             LocalSlotIndex, SlotId (..), StakeholderId,
+                                             Timestamp, addressF, coinToInteger,
+                                             decodeTextAddress, gbHeader, gbhConsensus,
+                                             getEpochIndex, getSlotIndex, headerHash,
+                                             mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
+                                             unsafeGetCoin, unsafeIntegerToCoin,
+                                             unsafeSubCoin)
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -154,12 +156,13 @@ toPosixTime = (/ 1e6) . fromIntegral
 
 toBlockEntry
     :: forall ctx m .
-      ( MonadBlockDB SscGodTossing m
-       , MonadDBRead m
-       , MonadRealDB ctx m
-       , MonadSlots m
-       , MonadThrow m
-       , HasCoreConstants)
+    ( MonadBlockDB SscGodTossing m
+    , MonadDBRead m
+    , MonadRealDB ctx m
+    , MonadSlots ctx m
+    , MonadThrow m
+    , HasCoreConstants
+    )
     => (MainBlock SscGodTossing, Undo)
     -> m CBlockEntry
 toBlockEntry (blk, Undo{..}) = do
@@ -242,12 +245,14 @@ data CBlockSummary = CBlockSummary
     } deriving (Show, Generic)
 
 toBlockSummary
-    :: ( MonadBlockDB SscGodTossing m
-       , MonadDBRead m
-       , MonadRealDB ctx m
-       , MonadSlots m
-       , MonadThrow m
-       , HasCoreConstants)
+    :: forall ctx m.
+    ( MonadBlockDB SscGodTossing m
+    , MonadDBRead m
+    , MonadRealDB ctx m
+    , MonadSlots ctx m
+    , MonadThrow m
+    , HasCoreConstants
+    )
     => (MainBlock SscGodTossing, Undo)
     -> m CBlockSummary
 toBlockSummary blund@(blk, _) = do

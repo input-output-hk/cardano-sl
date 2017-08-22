@@ -28,11 +28,11 @@ fi
 if [[ "$commands" != "" ]]; then
     suffix=" cmd --commands=\"$commands\""
 else
-    suffix="$@"
+    suffix=$@
 fi
 
 to_exec="$template $suffix"
 
 echo "$to_exec"
 
-$to_exec
+eval $to_exec

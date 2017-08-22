@@ -1,7 +1,10 @@
+{-# LANGUAGE DeriveAnyClass #-}
+
 -- | Toil failures.
 
 module Pos.Txp.Toil.Failure
        ( ToilVerFailure (..)
+       , WitnessVerFailure (..)
        ) where
 
 import           Universum
@@ -9,12 +12,17 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting                 (bprint, build, int, shown, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util.Verify       (formatAllErrors)
 
-import           Pos.Core                   (HeaderHash, TxFeePolicy)
+import           Pos.Core                   (HeaderHash, ScriptVersion, TxFeePolicy,
+                                             addressDetailedF)
 import           Pos.Data.Attributes        (UnparsedFields)
-import           Pos.Txp.Core               (TxIn)
+import           Pos.Script                 (PlutusError)
+import           Pos.Txp.Core               (TxIn, TxInWitness, TxOut (..))
 import           Pos.Txp.Toil.Types         (TxFee)
+
+----------------------------------------------------------------------------
+-- ToilVerFailure
+----------------------------------------------------------------------------
 
 -- | Result of transaction processing
 data ToilVerFailure
@@ -29,7 +37,23 @@ data ToilVerFailure
                   , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
     | ToilInvalidOutputs !Text  -- [CSL-814] TODO: make it more informative
-    | ToilInvalidInputs ![Text] -- [CSL-814] TODO: make it more informative
+
+    -- | The witness can't be used to justify spending an output – either
+    --     * it has a wrong type, e.g. PKWitness for a script address, or
+    --     * it has the right type but doesn't match the address, e.g. the
+    --       hash of key in PKWitness is not equal to the address.
+    | ToilWitnessDoesntMatch { twdmInputIndex  :: !Word32
+                             , twdmInput       :: !TxIn
+                             , twdmSpentOutput :: !TxOut
+                             , twdmWitness     :: !TxInWitness }
+
+    -- | The witness could in theory justify spending an output, but it
+    -- simply isn't valid (the signature doesn't pass validation, the
+    -- validator–redeemer pair produces 'False' when executed, etc).
+    | ToilInvalidWitness { tiwInputIndex :: !Word32
+                         , tiwWitness    :: !TxInWitness
+                         , tiwReason     :: !WitnessVerFailure }
+
     | ToilTooLargeTx { ttltSize  :: !Byte
                      , ttltLimit :: !Byte}
     | ToilInvalidMinFee { timfPolicy :: !TxFeePolicy
@@ -41,6 +65,7 @@ data ToilVerFailure
                           , tifSize   :: !Byte }
     | ToilUnknownAttributes !UnparsedFields
     | ToilBootInappropriate !Text
+    | ToilRepeatedInput
     deriving (Show, Eq)
 
 instance Exception ToilVerFailure
@@ -64,8 +89,19 @@ instance Buildable ToilVerFailure where
         bprint ("TxAux is inconsistent: "%stext) msg
     build (ToilInvalidOutputs msg) =
         bprint ("outputs are invalid: "%stext) msg
-    build (ToilInvalidInputs msg) =
-        bprint ("inputs are invalid: "%stext) $ formatAllErrors msg
+    build (ToilWitnessDoesntMatch i txIn txOut@TxOut {..} witness) =
+        bprint ("input #"%int%"'s witness doesn't match address "%
+                "of corresponding output:\n"%
+                "  input: "%build%"\n"%
+                "  output spent by this input: "%build%"\n"%
+                "  address details: "%addressDetailedF%"\n"%
+                "  witness: "%build)
+            i txIn txOut txOutAddress witness
+    build (ToilInvalidWitness i witness reason) =
+        bprint ("input #"%int%"'s witness doesn't pass verification:\n"%
+                "  witness: "%build%"\n"%
+                "  reason: "%build)
+            i witness reason
     build (ToilTooLargeTx {..}) =
         bprint ("transaction's size exceeds limit "%
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
@@ -86,3 +122,37 @@ instance Buildable ToilVerFailure where
         bprint ("transaction has unknown attributes: "%shown) uf
     build (ToilBootInappropriate msg) =
         bprint ("transaction is not suitable for boot era: "%stext) msg
+    build ToilRepeatedInput =
+        "transaction tries to spent an unspent input more than once"
+
+----------------------------------------------------------------------------
+-- WitnessVerFailure
+----------------------------------------------------------------------------
+
+-- | Result of checking a witness.
+data WitnessVerFailure
+    -- | The signature of a 'PKWitness' doesn't pass validation
+    = WitnessWrongSignature
+    -- | Validator and redeemer script versions don't match
+    | WitnessScriptVerMismatch ScriptVersion ScriptVersion
+    -- | Don't know how to handle script version
+    | WitnessUnknownScriptVer ScriptVersion
+    -- | Plutus error (e.g. exhausted execution steps, redeemer script
+    -- returning 'False', etc)
+    | WitnessScriptError PlutusError
+    -- | Don't know how to handle this witness type
+    | WitnessUnknownType Word8
+    deriving (Show, Eq, Generic, NFData)
+
+instance Buildable WitnessVerFailure where
+    build WitnessWrongSignature =
+        bprint "the signature in the witness doesn't pass validation"
+    build (WitnessScriptVerMismatch val red) =
+        bprint ("validator and redeemer script versions don't match: "%
+                "validator version = "%build%", script version = "%build) val red
+    build (WitnessUnknownScriptVer ver) =
+        bprint ("unknown/unhandleable script version: "%build) ver
+    build (WitnessScriptError err) =
+        bprint ("error when executing scripts: "%build) err
+    build (WitnessUnknownType t) =
+        bprint ("unknown witness type: "%build) t

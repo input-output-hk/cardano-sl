@@ -3,15 +3,16 @@
 -- | This is a separate module due to the TH stage restriction
 module Pos.Util.Config.Get
        ( getCslConfig
+       , configName
        ) where
 
 import           Universum
 
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.Yaml            as Y
+import qualified Data.HashMap.Strict      as HM
+import qualified Data.Yaml                as Y
 
-import           Pos.Util.Config.Path (cslConfigFilePath)
 import           Pos.Util.Config.Contents (cslConfigFile)
+import           Pos.Util.Config.Path     (cslConfigFilePath)
 
 #define QUOTED(x) "/**/x/**/"
 
@@ -20,6 +21,9 @@ import           Pos.Util.Config.Contents (cslConfigFile)
 # error CPP variable CONFIG isn't defined (should be 'dev', 'prod' or 'wallet'). If you're building with Stack, pass --ghc-options=-DCONFIG=..., or consider using scripts/build/cardano-sl.sh instead
 
 #else
+
+configName :: Text
+configName = QUOTED(CONFIG)
 
 -- | Parse @constants.yaml@ and pick the right config according to @CONFIG@.
 getCslConfig :: IO (Either String Y.Value)
@@ -31,9 +35,9 @@ getCslConfig = do
             Left err -> Left $
                 "Couldn't parse " ++ cslConfigFilePath ++ ": " ++
                 Y.prettyPrintParseException err
-        case HM.lookup QUOTED(CONFIG) val of
+        case HM.lookup configName val of
             Just x  -> pure x
             Nothing -> Left $
-                "Couldn't find config " ++ show (QUOTED(CONFIG) :: Text) ++
+                "Couldn't find config " ++ show configName ++
                 " in " ++ cslConfigFilePath
 #endif

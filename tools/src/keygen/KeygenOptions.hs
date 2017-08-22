@@ -21,9 +21,9 @@ import           Options.Applicative    (Parser, auto, command, execParser, full
                                          subparser, value)
 import           Serokell.Util.OptParse (fromParsec)
 import qualified Text.Parsec            as P
-import qualified Text.Parsec.String     as P
+import qualified Text.Parsec.Text       as P
 
-import           Pos.CLI                (stakeholderIdParser)
+import           Pos.Client.CLI         (stakeholderIdParser)
 import           Pos.Core               (StakeholderId)
 
 import           Paths_cardano_sl       (version)

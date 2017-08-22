@@ -10,17 +10,17 @@ module Params
 
 import           Universum
 
-import           Mockable              (Fork, Mockable, Catch)
+import           Mockable              (Catch, Fork, Mockable)
 import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
-import qualified Pos.CLI               as CLI
+import qualified Pos.Client.CLI        as CLI
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
-import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
-                                        genesisContextProduction, genesisUtxo)
+import           Pos.Genesis           (devGenesisContext, devStakesDistr,
+                                        genesisContextProduction)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
@@ -94,15 +94,11 @@ getNodeParams args@Args {..} systemStart = do
     let devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
-                (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
 
     let npGenesisCtx
-            | isDevelopment =
-              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo bootStakeholders aDistr)
-                                bootStakeholders
+            | isDevelopment = devGenesisContext devStakeDistr
             | otherwise = genesisContextProduction
 
     return NodeParams

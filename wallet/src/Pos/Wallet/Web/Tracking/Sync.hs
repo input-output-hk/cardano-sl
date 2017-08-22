@@ -53,22 +53,25 @@ import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Constants                    (genesisHash)
 import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..),
-                                                   genesisUtxoM, blkSecurityParam)
-import           Pos.Core                         (HasCoreConstants, AddrPkAttrs (..), Address (..),
-                                                   BlockHeaderStub, ChainDifficulty,
+                                                   genesisUtxoM)
+import           Pos.Core                         (Address (..), BlockHeaderStub,
+                                                   ChainDifficulty, HasCoreConstants,
                                                    HasDifficulty (..), HeaderHash,
-                                                   Timestamp, headerHash, headerSlotL,
-                                                   makePubKeyAddress)
+                                                   Timestamp, aaPkDerivationPath,
+                                                   addrAttributesUnwrapped,
+                                                   blkSecurityParam, headerHash,
+                                                   headerSlotL, makePubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
                                                    unpackHDAddressAttr)
-import           Pos.Data.Attributes              (Attributes (..))
 import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
 import           Pos.DB.Rocks                     (MonadRealDB)
+import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
-import           Pos.Slotting                     (MonadSlotsData (..), getSlotStartPure)
+import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
+                                                   getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
                                                    flattenTxPayload, getTxDistribution,
@@ -110,7 +113,7 @@ type WalletTrackingEnv ext ctx m =
      , MonadTxpMem ext ctx m
      , HasLens GenesisUtxo ctx GenesisUtxo
      , WS.MonadWalletWebDB ctx m
-     , MonadSlotsData m
+     , MonadSlotsData ctx m
      , WithLogger m
      , HasCoreConstants
      )
@@ -147,12 +150,13 @@ txMempoolToModifier encSK = do
 
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGState
-    :: forall ssc ctx m . (
-      WebWalletModeDB ctx m
+    :: forall ssc ctx m.
+    ( WebWalletModeDB ctx m
     , BlockLockMode ssc ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
-    , MonadSlotsData m
-    , HasCoreConstants)
+    , MonadSlotsData ctx m
+    , HasCoreConstants
+    )
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
     let wAddr = encToCId encSK
@@ -208,7 +212,7 @@ syncWalletWithGStateUnsafe
     , DB.MonadBlockDB ssc m
     , WithLogger m
     , HasLens GenesisUtxo ctx GenesisUtxo
-    , MonadSlotsData m
+    , MonadSlotsData ctx m
     , HasCoreConstants
     )
     => EncryptedSecretKey      -- ^ Secret key for decoding our addresses
@@ -217,8 +221,8 @@ syncWalletWithGStateUnsafe
     -> BlockHeader ssc         -- ^ GState header hash
     -> m ()
 syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
-    systemStart <- getSystemStart
-    slottingData <- getSlottingData
+    systemStart  <- getSystemStartM
+    slottingData <- GS.getSlottingData
 
     let gstateHHash = headerHash gstateH
         loadCond (b, _) _ = b ^. difficultyL <= gstateH ^. difficultyL
@@ -229,7 +233,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
         mainBlkHeaderTs mBlkH =
-            getSlotStartPure systemStart True (mBlkH ^. headerSlotL) slottingData
+          getSlotStartPure systemStart (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
@@ -468,11 +472,11 @@ setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "sync")
 
 decryptAccount :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
-decryptAccount (hdPass, wCId) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do
+decryptAccount (hdPass, wCId) addr = do
+    hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
     pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (addressToCId addr)
-decryptAccount _ _ = Nothing
 
 ----------------------------------------------------------------------------
 -- Cached modifier
@@ -494,4 +498,3 @@ fixCachedAccModifierFor
     -> m a
 fixCachedAccModifierFor key action =
     fixingCachedAccModifier (const . action) key
-

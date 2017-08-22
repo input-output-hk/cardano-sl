@@ -23,7 +23,8 @@ import           System.Random              (randomIO)
 import           System.Wlog                (WithLogger)
 import           Universum
 
-import           Pos.Core                   (Address (..), deriveLvl2KeyPair)
+import           Pos.Core                   (Address (..), IsBootstrapEraAddr (..),
+                                             deriveLvl2KeyPair)
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, isHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
@@ -154,10 +155,15 @@ deriveAccountSK
     -> AccountId
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAccountSK passphrase AccountId{..} accIndex = do
+deriveAccountSK passphrase AccountId {..} accIndex = do
     key <- getSKById aiWId
     maybeThrow badPass $
-        deriveLvl2KeyPair undefined passphrase key aiIndex accIndex
+        deriveLvl2KeyPair
+            (IsBootstrapEraAddr True) -- TODO: make it context-dependent!
+            passphrase
+            key
+            aiIndex
+            accIndex
   where
     badPass = RequestError "Passphrase doesn't match"
 

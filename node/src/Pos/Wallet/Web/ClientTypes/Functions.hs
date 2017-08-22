@@ -28,9 +28,9 @@ import           Pos.Crypto                       (EncryptedSecretKey, encToPubl
 import           Pos.Txp.Core.Types               (Tx (..), TxId, txOutAddress,
                                                    txOutValue)
 import           Pos.Types                        (Address (..), ChainDifficulty, Coin,
-                                                   decodeTextAddress, makePubKeyAddress,
-                                                   sumCoins, unsafeGetCoin,
-                                                   unsafeIntegerToCoin)
+                                                   decodeTextAddress,
+                                                   makePubKeyAddressBoot, sumCoins,
+                                                   unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Update.Core                  (BlockVersionModifier (..),
                                                    StakeholderVotes, UpdateProposal (..),
                                                    isPositiveVote)
@@ -53,8 +53,11 @@ addressToCId = CId . CHash . sformat F.build
 cIdToAddress :: CId w -> Either Text Address
 cIdToAddress (CId (CHash h)) = decodeTextAddress h
 
+-- TODO: pass extra information to this function and choose
+-- distribution based on this information. Currently it's always
+-- bootstrap era distribution.
 encToCId :: EncryptedSecretKey -> CId w
-encToCId = addressToCId . makePubKeyAddress undefined . encToPublic
+encToCId = addressToCId . makePubKeyAddressBoot . encToPublic
 
 mkCTxId :: Text -> CTxId
 mkCTxId = CTxId . CHash

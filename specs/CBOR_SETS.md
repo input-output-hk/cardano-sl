@@ -68,6 +68,8 @@ Given the following JavaScript array:
 
 The natural encoding of this data structure as a CBOR set would be 0xD9010283010203:
 
+   258([1,2,3])
+
    D9 0102  -- Tag 258
       83    -- Array of length 3
          01 -- 1

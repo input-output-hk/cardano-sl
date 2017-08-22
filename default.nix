@@ -4,6 +4,7 @@ in
 { system ? builtins.currentSystem
 , config ? {}
 , dconfig ? "testnet_staging"
+, gitrev ? "unknown"
 , genesis ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
 
@@ -51,6 +52,7 @@ let
           "-f-asserts"
           "-f-dev-mode"
           "--ghc-options=-DCONFIG=${dconfig}"
+          "--ghc-options=-DGITREV=${gitrev}"
         ];
       } // optionalAttrs (genesis != null) {
         postUnpack = ''

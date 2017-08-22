@@ -35,7 +35,7 @@ calculateTxSizeLinear :: TxSizeLinear -> Byte -> Nano
 calculateTxSizeLinear
     (TxSizeLinear (Coeff a) (Coeff b))
     (fromInteger . toBytes -> txSize) =
-        a + b * txSize
+        a * 1e6 + b * 1e6 * txSize
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed
 -- fee for a transaction. Transactions with lesser fees won't be accepted. The

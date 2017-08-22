@@ -26,14 +26,15 @@ import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (EnqueueMsg, OutSpecs)
 import           Pos.Communication.Specs    (createOutSpecs)
 import           Pos.Communication.Types    (InvOrDataTK)
+import           Pos.Core                   (Address, Coin, IsBootstrapEraAddr (..),
+                                             makePubKeyAddress, makeRedeemAddress, mkCoin,
+                                             unsafeAddCoin)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Class               (MonadGState)
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOut (..), TxOutAux (..),
                                              txaF)
 import           Pos.Txp.Network.Types      (TxMsgContents (..))
-import           Pos.Types                  (Address, Coin, makePubKeyAddress,
-                                             makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Util.Util              (eitherToThrow)
 import           Pos.WorkMode.Class         (MinWorkMode)
 
@@ -79,7 +80,18 @@ submitTx
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
 submitTx enqueue ss outputs addrData = do
-    utxo <- getOwnUtxos . one $ makePubKeyAddress undefined (safeToPublic ss)
+    let ourPk = safeToPublic ss
+    -- Here we want to get utxo for all addresses which we «own»,
+    -- i. e. can spend funds from them. We can't get all such
+    -- addresses, because it's impossible to extract spending data
+    -- from an address. And we can't enumerate all possible addresses
+    -- for a public key. So we only consider two addresses: one with
+    -- bootstrap era distribution and another one with signle key
+    -- distribution.
+    let ourAddresses :: [Address]
+        ourAddresses =
+            map (flip makePubKeyAddress ourPk . IsBootstrapEraAddr) [False, True]
+    utxo <- getOwnUtxos ourAddresses
     txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
     txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
 

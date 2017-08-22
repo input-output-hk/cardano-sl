@@ -9,7 +9,6 @@ set -o pipefail
 
 echo "Cleaning Explorer db..."
 
-rm -rf run/*
 rm -rf wallet-db/
 rm -rf db-qanet/
 rm -rf wdb-qanet/

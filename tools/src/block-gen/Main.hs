@@ -4,7 +4,6 @@ import           Universum
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default                (def)
-import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
@@ -12,15 +11,17 @@ import           System.Directory            (doesDirectoryExist)
 import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
-import           Pos.Core                    (StakeDistribution (..),
-                                              genesisDevSecretKeys,
-                                              genesisProdAddrDistribution, isDevelopment,
-                                              makePubKeyAddress, mkCoin)
+import           Pos.AllSecrets              (AllSecrets (..), mkInvAddrSpendingData,
+                                              mkInvSecretsMap)
+import           Pos.Core                    (AddrSpendingData (..), genesisDevSecretKeys,
+                                              giveStaticConsts, isDevelopment,
+                                              makePubKeyAddress)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
-import           Pos.Generator.Block         (AllSecrets (..), BlockGenParams (..),
-                                              genBlocks, mkInvSecretsMap, unInvSecretsMap)
-import           Pos.Genesis                 (devAddrDistr, genesisUtxo)
+import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
+import           Pos.Genesis                 (devGenesisContext, genesisContextProduction,
+                                              genesisDevFlatDistr, gtcUtxo,
+                                              gtcWStakeholders)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo, _GenesisUtxo)
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
@@ -30,12 +31,14 @@ import           Error                       (TBlockGenError (..))
 import           Options                     (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
-main = flip catch catchEx $ do
-    if isDevelopment then
-        putText $ "Generating in DEV mode"
-    else
-        putText $ "Generating in PROD mode"
+main = flip catch catchEx $ giveStaticConsts $ do
     BlockGenOptions{..} <- getBlockGenOptions
+    seed <- maybe randomIO pure bgoSeed
+    if isDevelopment then
+        putText $ "Generating in DEV mode with seed " <> show seed
+    else
+        putText $ "Generating in PROD mode with seed " <> show seed
+
     when bgoAppend $ checkExistence bgoPath
     invSecretsMap <- mkInvSecretsMap <$> case bgoNodes of
         Left bgoNodesN -> do
@@ -48,28 +51,30 @@ main = flip catch catchEx $ do
                 throwM NoOneSecrets
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
-    let nodes = length invSecretsMap
-    let flatDistr = FlatStakes (fromIntegral nodes) (mkCoin $ fromIntegral nodes)
-    let bootStakeholders = HM.fromList $
-            zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
+    let npGenesisCtx
+            | isDevelopment = devGenesisContext genesisDevFlatDistr
+            | otherwise = genesisContextProduction
+
+    let bootStakeholders = npGenesisCtx ^. gtcWStakeholders
+
     -- We need to select from utxo TxOut's corresponding to passed secrets
     -- to avoid error "Secret key of %hash% is required but isn't known"
-    let genUtxoUnfiltered
-            | isDevelopment = genesisUtxo Nothing (devAddrDistr flatDistr)
-            | otherwise =
-                 genesisUtxo (Just bootStakeholders) genesisProdAddrDistribution
-    let genUtxo = genUtxoUnfiltered &
-            _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
+    let genUtxo = npGenesisCtx ^. gtcUtxo &
+                  _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
     when (M.null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 
+    let pks = toPublic <$> toList invSecretsMap
+    let addresses = map makePubKeyAddress pks
+    let spendingDataList = map PubKeyASD pks
+    let invAddrSpendingData = mkInvAddrSpendingData $ addresses `zip` spendingDataList
     let bgenParams =
             BlockGenParams
-                (AllSecrets invSecretsMap)
+                (AllSecrets invSecretsMap invAddrSpendingData)
                 (fromIntegral bgoBlockN)
                 def
                 True
-    seed <- maybe randomIO pure bgoSeed
+                bootStakeholders
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
         initTBlockGenMode db genUtxo $

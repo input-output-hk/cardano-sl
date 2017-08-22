@@ -7,13 +7,15 @@ module Pos.DHT.Real.CLI
        , readDhtPeersFile
        ) where
 
+import           Universum
+
 import           Formatting             (build, formatToString, shown, (%))
 import qualified Options.Applicative    as Opt
-import           Pos.DHT.Model.Types    (DHTKey, DHTNode, dhtKeyParser, dhtNodeParser)
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
 import           Serokell.Util.OptParse (fromParsec)
 import           Text.Parsec            (eof, parse)
-import           Universum
+
+import           Pos.DHT.Model.Types    (DHTKey, DHTNode, dhtKeyParser, dhtNodeParser)
+import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
 
 dhtExplicitInitialOption :: Opt.Parser Bool
 dhtExplicitInitialOption =
@@ -57,7 +59,7 @@ dhtPeersFileOption =
 readDhtPeersFile :: FilePath -> IO [DHTNode]
 readDhtPeersFile path = do
     xs <- lines <$> readFile path
-    let parseLine x = case parse (dhtNodeParser <* eof) "" (toString x) of
+    let parseLine x = case parse (dhtNodeParser <* eof) "" x of
             Left err -> fail $ formatToString
                 ("error when parsing peer "%shown%
                  " from peers file "%build%": "%shown) x path err

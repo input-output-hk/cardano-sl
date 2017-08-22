@@ -7,6 +7,7 @@ module Pos.Update.Context
 
 import           Universum
 
+import           Pos.Core                  (HasCoreConstants)
 import           Pos.DB.Class              (MonadDBRead)
 import           Pos.Slotting              (MonadSlots)
 import           Pos.Update.Core           (UpId)
@@ -26,7 +27,13 @@ data UpdateContext = UpdateContext
     }
 
 -- | Create initial 'UpdateContext'.
-mkUpdateContext ::
-       (MonadIO m, MonadDBRead m, MonadSlots m) => m UpdateContext
+mkUpdateContext
+    :: forall ctx m.
+    ( HasCoreConstants
+    , MonadIO m
+    , MonadDBRead m
+    , MonadSlots ctx m
+    )
+    => m UpdateContext
 mkUpdateContext =
     UpdateContext <$> newEmptyMVar <*> newTVarIO mempty <*> newMemVar

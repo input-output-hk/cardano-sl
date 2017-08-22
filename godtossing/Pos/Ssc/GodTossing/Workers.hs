@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -29,21 +28,21 @@ import           System.Wlog                           (logDebug, logError, logI
 import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
-import           Pos.Communication.Protocol            (Message, OutSpecs, EnqueueMsg,
-                                                        Worker, WorkerSpec, SendActions (..),
-                                                        onNewSlotWorker, MsgType (..),
-                                                        Origin (..))
-import           Pos.Communication.Relay               (DataMsg, ReqMsg,
-                                                        invReqDataFlowNeighborsTK)
+import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
+                                                        Origin (..), OutSpecs,
+                                                        SendActions (..), Worker,
+                                                        WorkerSpec, onNewSlotWorker)
+import           Pos.Communication.Relay               (DataMsg, ReqOrRes,
+                                                        invReqDataFlowTK)
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
-import           Pos.Core                              (EpochIndex, SlotId (..),
-                                                        StakeholderId, Timestamp (..),
-                                                        addressHash, bvdMpcThd,
-                                                        getOurSecretKey,
+import           Pos.Core                              (EpochIndex, HasCoreConstants,
+                                                        SlotId (..), StakeholderId,
+                                                        Timestamp (..), addressHash,
+                                                        bvdMpcThd, getOurSecretKey,
                                                         getOurStakeholderId,
-                                                        mkLocalSlotIndex)
-import           Pos.Core.Constants                    (slotSecurityParam)
+                                                        mkLocalSlotIndex,
+                                                        slotSecurityParam)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
                                                         runSecureRandom)
@@ -143,7 +142,7 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage (sscProcessCertificate ourVssCertificate)
-            invReqDataFlowNeighborsTK "ssc" (enqueueMsg sendActions) (MsgMPC OriginSender) ourId contents
+            _ <- invReqDataFlowTK "ssc" (enqueueMsg sendActions) (MsgMPC OriginSender) ourId contents
             logDebug "Announced our VssCertificate."
 
     slMaybe <- getCurrentSlot
@@ -276,7 +275,7 @@ sendOurData ::
     , Bi (DataMsg contents)
     , Typeable contents
     , Message (InvOrData (Tagged contents StakeholderId) contents)
-    , Message (ReqMsg (Tagged contents StakeholderId))
+    , Message (ReqOrRes (Tagged contents StakeholderId))
     )
     => EnqueueMsg m
     -> GtTag
@@ -291,7 +290,7 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    invReqDataFlowNeighborsTK "ssc" enqueue (MsgMPC OriginSender) ourId dt
+    _ <- invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) ourId dt
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current
@@ -302,7 +301,7 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
 -- synchronized).
 generateAndSetNewSecret
     :: forall ctx m.
-       (SscMode SscGodTossing ctx m, Bi Commitment)
+       (HasCoreConstants, SscMode SscGodTossing ctx m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)

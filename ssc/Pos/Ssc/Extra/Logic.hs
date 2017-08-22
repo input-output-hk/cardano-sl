@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Higher-level logic of SSC independent of concrete SSC.
 
@@ -174,7 +173,7 @@ sscResetLocal ::
        ( MonadDBRead m
        , MonadSscMem ssc ctx m
        , SscLocalDataClass ssc
-       , MonadSlots m
+       , MonadSlots ctx m
        , MonadIO m
        )
     => m ()

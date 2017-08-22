@@ -63,6 +63,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , array
                      , base
                      , bytestring
                      , cardano-sl-core
@@ -118,6 +119,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Core types of Txp component, i. e. types which actually form
 -- block or are used by other components.
 
@@ -179,7 +177,7 @@ data TxOutAux = TxOutAux
     { toaOut   :: !TxOut             -- ^ Tx output
     , toaDistr :: !TxOutDistribution -- ^ Stake distribution
                                      -- associated with output
-    } deriving (Generic, Show, Eq)
+    } deriving (Generic, Show, Eq, Ord)
 
 instance Buildable TxOutAux where
     build (TxOutAux out distr) =

@@ -30,7 +30,8 @@ import           System.Wlog                        (WithLogger, logWarning)
 import           Pos.Binary.Class                   (biSize)
 import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
-                                                     SlotId (..), StakeholderId)
+                                                     HasCoreConstants, SlotId (..),
+                                                     StakeholderId)
 import           Pos.Core.Constants                 (memPoolLimitRatio)
 import           Pos.DB                             (MonadDBRead,
                                                      MonadGState (gsAdoptedBVData))
@@ -66,7 +67,7 @@ import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 -- Methods from type class
 ----------------------------------------------------------------------------
 
-instance SscLocalDataClass SscGodTossing where
+instance HasCoreConstants => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
     sscNormalizeU = normalize
     sscNewLocalData =
@@ -75,7 +76,7 @@ instance SscLocalDataClass SscGodTossing where
       where
         slot0 = SlotId 0 minBound
 
-getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
+getLocalPayload :: HasCoreConstants => SlotId -> LocalQuery SscGodTossing GtPayload
 getLocalPayload SlotId {..} = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
@@ -95,10 +96,12 @@ getLocalPayload SlotId {..} = do
         | isExpected = view tmCertificates
         | otherwise = pure mempty
 
-normalize :: (EpochIndex, RichmenStakes)
-          -> BlockVersionData
-          -> GtGlobalState
-          -> LocalUpdate SscGodTossing ()
+normalize
+    :: HasCoreConstants
+    => (EpochIndex, RichmenStakes)
+    -> BlockVersionData
+    -> GtGlobalState
+    -> LocalUpdate SscGodTossing ()
 normalize (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
     let multiRichmen = HM.fromList [(epoch, stake)]
@@ -122,8 +125,9 @@ normalize (epoch, stake) bvd gs = do
 sscIsDataUseful
     :: ( WithLogger m
        , MonadIO m
-       , MonadSlots m
+       , MonadSlots ctx m
        , MonadSscMem SscGodTossing ctx m
+       , HasCoreConstants
        )
     => GtTag -> StakeholderId -> m Bool
 sscIsDataUseful tag id =
@@ -157,9 +161,10 @@ type GtDataProcessingMode ctx m =
     , MonadIO m      -- STM at least
     , MonadDBRead m  -- to get richmen
     , MonadGState m  -- to get block size limit
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadSscMem SscGodTossing ctx m
     , MonadError TossVerFailure m
+    , HasCoreConstants
     )
 
 -- | Process 'SignedCommitment' received from network, checking it against
@@ -226,7 +231,7 @@ sscProcessData tag payload =
         | otherwise = pass
 
 sscProcessDataDo
-    :: (MonadState GtLocalData m, WithLogger m)
+    :: (HasCoreConstants, MonadState GtLocalData m, WithLogger m)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> GtGlobalState

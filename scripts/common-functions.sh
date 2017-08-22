@@ -81,6 +81,7 @@ function node_cmd {
   local wallet_args=$4
   local system_start=$5
   local config_dir=$6
+  local exec_name=$7
   local st=''
   local reb=''
   local no_ntp=''
@@ -118,7 +119,7 @@ function node_cmd {
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
 
-  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
+  echo -n "$(find_binary $exec_name) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
   ekg_server="127.0.0.1:"$((8000+$i))
   statsd_server="127.0.0.1:"$((8125+$i))
@@ -137,6 +138,11 @@ function node_cmd {
   echo -n " --node-id node$i"
   echo -n " --topology $config_dir/topology$i.yaml"
   echo -n " --kademlia $config_dir/kademlia$i.yaml"
+  # Use the policies option if you want to change enqueue/dequeue/failure
+  # policies without re-compiling. See example files
+  #   run/policy_core.yaml
+  #   run/policy_relay.yaml
+  #echo -n " --policies $config_dir/policy$i.yaml"
   echo ''
   sleep 0.8
 }
@@ -152,10 +158,8 @@ function bench_cmd {
   ensure_run
 
   echo -n "$(find_binary cardano-wallet)"
-  for j in $(seq 0 $((i-1)))
-  do
-      echo -n " --peer 127.0.0.1:"`get_port $j`
-  done
+  # This assumes that the n-1 node is the relay
+  echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
   echo -n " $(logs node_lightwallet.log)"
   echo -n " --system-start $system_start"
   echo -n " $stake_distr"

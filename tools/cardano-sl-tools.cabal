@@ -16,19 +16,6 @@ Flag with-post-mortem
   manual:      True
 
   description: Build the post-mortem tool.
-
-Flag with-web
-  default:     True
-  manual:      True
-
-  description: Build with web part.
-
-Flag with-wallet
-  default:     True
-  manual:      True
-
-  description: Build with wallet.
-
 -- Note: for components that we don't want to build, we add both "buildable:
 -- False" *and* wrap build-depends into "if !flag(for-installer)". This is
 -- because stack doesn't seem to take "buildable: False" into account when
@@ -94,65 +81,13 @@ executable cardano-analyzer
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(for-installer)
     buildable: False
-
-executable cardano-wallet-hs2purs
-  hs-source-dirs:      src/wallet-purescript
-  main-is:             Main.hs
-  other-modules:       PSTypes
-  build-depends:       base
-                     , cardano-sl-core
-                     , cardano-sl
-                     , optparse-applicative
-                     , purescript-bridge
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-                        ConstraintKinds
-                        UndecidableInstances
-                        BangPatterns
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(with-wallet) && flag(with-web)
-    buildable:         True
-  else
-    buildable:         False
-
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
 
 executable cardano-dht-keygen
   hs-source-dirs:      src/dht-keygen
@@ -214,61 +149,12 @@ executable cardano-dht-keygen
                         UndecidableInstances
                         BangPatterns
                         ApplicativeDo
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(for-installer)
-    buildable: False
-
-executable cardano-swagger
-  hs-source-dirs:      src/wallet-web-api-swagger
-  main-is:             Main.hs
-  other-modules:       CustomSwagger
-                       Description
-                       Instances
-                       Instances.Schema
-                       Instances.Swagger
-  if !flag(for-installer)
-   build-depends:      aeson
-                     , base
-                     , bytestring
-                     , cardano-sl
-                     , lens
-                     , optparse-applicative
-                     , swagger2
-                     , servant
-                     , servant-server
-                     , servant-multipart
-                     , servant-swagger
-                     , servant-swagger-ui
-                     , text
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   BangPatterns
-                        FlexibleContexts
-                        FlexibleInstances
-                        NoImplicitPrelude
-                        TypeApplications
-                        TypeOperators
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(for-installer)
-    buildable: False
-
-  if !flag(with-wallet) || !flag(with-web)
     buildable: False
 
 executable cardano-genupdate
@@ -304,6 +190,7 @@ executable cardano-genupdate
                        BangPatterns
                        ApplicativeDo
                        RecordWildCards
+                       ScopedTypeVariables
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen
@@ -366,12 +253,12 @@ executable cardano-keygen
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        ScopedTypeVariables
 
   if flag(for-installer)
     buildable: False
-
-  if !flag(with-wallet)
-    buildable: False
+  else
+    buildable: True
 
 executable cardano-launcher
   hs-source-dirs:      src/launcher
@@ -408,6 +295,7 @@ executable cardano-launcher
                        TupleSections
                        TypeApplications
                        BangPatterns
+                       ScopedTypeVariables
 
   if os(windows)
     LD-Options:     -mwindows
@@ -460,6 +348,7 @@ executable cardano-addr-convert
                         ConstraintKinds
                         UndecidableInstances
                         ApplicativeDo
+                        ScopedTypeVariables
 
 executable cardano-cli-docs
   hs-source-dirs:      src/cli-docs
@@ -491,6 +380,7 @@ executable cardano-cli-docs
                         RecordWildCards
                         OverloadedStrings
                         ApplicativeDo
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -550,6 +440,7 @@ executable cardano-block-gen
                         OverloadedStrings
                         FlexibleContexts
                         TypeApplications
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -635,5 +526,6 @@ executable cardano-post-mortem
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        ScopedTypeVariables
                         ScopedTypeVariables
                         BangPatterns

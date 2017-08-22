@@ -9,9 +9,9 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi, enforceSize,
-                                             encodeListLen, decodeListLen)
+                                             encodeListLen, decodeListLen, deriveSimpleBiCxt)
 import           Pos.Binary.Infra           ()
-import           Pos.Core                   (ApplicationName, BlockVersion,
+import           Pos.Core                   (ApplicationName, BlockVersion, HasCoreConstants,
                                              ChainDifficulty, Coin, CoinPortion,
                                              EpochIndex, FlatSlotId, HeaderHash,
                                              NumSoftwareVersion, ScriptVersion, SlotId,
@@ -123,7 +123,7 @@ instance Bi a => Bi (U.PrevValue a) where
       0 -> pure U.NoExist
       _ -> fail $ "decode@PrevValue: invalid len: " <> show len
 
-deriveSimpleBi ''U.USUndo [
+deriveSimpleBiCxt [t|HasCoreConstants|] ''U.USUndo [
     Cons 'U.USUndo [
         Field [| U.unChangedBV :: HashMap BlockVersion (U.PrevValue U.BlockVersionState)                |],
         Field [| U.unLastAdoptedBV :: Maybe BlockVersion                                                |],
@@ -145,7 +145,7 @@ deriveSimpleBi ''U.DpsExtra [
         Field [| U.deImplicit   :: Bool       |]
     ]]
 
-deriveSimpleBi ''U.UndecidedProposalState [
+deriveSimpleBiCxt [t|HasCoreConstants|] ''U.UndecidedProposalState [
     Cons 'U.UndecidedProposalState [
         Field [| U.upsVotes         :: U.StakeholderVotes |],
         Field [| U.upsProposal      :: U.UpdateProposal   |],
@@ -155,7 +155,7 @@ deriveSimpleBi ''U.UndecidedProposalState [
         Field [| U.upsExtra         :: Maybe U.UpsExtra   |]
     ]]
 
-deriveSimpleBi ''U.DecidedProposalState [
+deriveSimpleBiCxt [t|HasCoreConstants|] ''U.DecidedProposalState [
     Cons 'U.DecidedProposalState [
         Field [| U.dpsDecision   :: Bool                     |],
         Field [| U.dpsUndecided  :: U.UndecidedProposalState |],
@@ -163,7 +163,7 @@ deriveSimpleBi ''U.DecidedProposalState [
         Field [| U.dpsExtra      :: Maybe U.DpsExtra         |]
     ]]
 
-deriveSimpleBi ''U.ProposalState [
+deriveSimpleBiCxt [t|HasCoreConstants|] ''U.ProposalState [
     Cons 'U.PSUndecided [
         Field [| U.unPSUndecided :: U.UndecidedProposalState |]
     ],

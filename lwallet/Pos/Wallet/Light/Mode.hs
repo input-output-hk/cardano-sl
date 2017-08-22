@@ -1,7 +1,6 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeOperators   #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 -- | Stack of monads used by light wallet.
@@ -21,17 +20,20 @@ import           System.Wlog                      (HasLoggerName (..), LoggerNam
 
 import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
                                                    onRollbackBlocksStub)
+import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core                         (SlotId (..))
+import           Pos.Core                         (HasCoreConstants, SlotId (..),
+                                                   addressHash, makePubKeyAddress)
+import           Pos.Crypto                       (PublicKey)
 import           Pos.DB                           (MonadGState (..))
+import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
-import           Pos.Slotting                     (MonadSlots (..),
+import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    currentTimeSlottingSimple)
-import           Pos.Slotting.MemState            (MonadSlotsData (..))
+import           Pos.Slotting.MemState            (MonadSlotsData)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
-import           Pos.Txp                          (GenesisStakeholders)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), JsonLogConfig,
                                                    jsonLogDefault)
 import           Pos.Util.LoggerName              (HasLoggerName' (..),
@@ -60,7 +62,7 @@ data LightWalletContext = LightWalletContext
     , lwcDiscoveryPeers   :: !(Set NodeId)
     , lwcJsonLogConfig    :: !JsonLogConfig
     , lwcLoggerName       :: !LoggerName
-    , lwcGenStakeholders  :: !GenesisStakeholders
+    , lwcGenStakeholders  :: !GenesisWStakeholders
     }
 
 makeLensesWith postfixLFields ''LightWalletContext
@@ -70,7 +72,7 @@ type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 instance HasUserSecret LightWalletContext where
     userSecret = lwcKeyData_L
 
-instance HasLens GenesisStakeholders LightWalletContext GenesisStakeholders where
+instance HasLens GenesisWStakeholders LightWalletContext GenesisWStakeholders where
     lensOf = lwcGenStakeholders_L
 
 instance HasLens WalletState LightWalletContext WalletState where
@@ -94,30 +96,30 @@ instance MonadBListener LightWalletMode where
     onRollbackBlocks = onRollbackBlocksStub
 
 -- FIXME: Dummy instance for lite-wallet.
+instance HasSlottingVar LightWalletContext where
+    slottingTimestamp = error "notImplemented"
+    slottingVar       = error "notImplemented"
+
+-- FIXME: Dummy instance for lite-wallet.
 instance MonadBlockchainInfo LightWalletMode where
     networkChainDifficulty = error "notImplemented"
-    localChainDifficulty = error "notImplemented"
+    localChainDifficulty   = error "notImplemented"
     blockchainSlotDuration = error "notImplemented"
-    connectedPeers = error "notImplemented"
+    connectedPeers         = error "notImplemented"
 
 -- FIXME: Dummy instance for lite-wallet.
 instance MonadUpdates LightWalletMode where
-    waitForUpdate = error "notImplemented"
+    waitForUpdate   = error "notImplemented"
     applyLastUpdate = pure ()
 
 -- FIXME: Dummy instance for lite-wallet.
-instance MonadSlotsData LightWalletMode where
-    getSystemStart = error "notImplemented"
-    getSlottingData = error "notImplemented"
-    waitPenultEpochEquals = error "notImplemented"
-    putSlottingData = error "notImplemented"
-
--- FIXME: Dummy instance for lite-wallet.
-instance MonadSlots LightWalletMode where
-    getCurrentSlot = Just <$> getCurrentSlotInaccurate
-    getCurrentSlotBlocking = getCurrentSlotInaccurate
+instance (HasCoreConstants, MonadSlotsData ctx LightWalletMode)
+      => MonadSlots ctx LightWalletMode
+  where
+    getCurrentSlot           = Just <$> getCurrentSlotInaccurate
+    getCurrentSlotBlocking   = getCurrentSlotInaccurate
     getCurrentSlotInaccurate = pure (SlotId 0 minBound)
-    currentTimeSlotting = currentTimeSlottingSimple
+    currentTimeSlotting      = currentTimeSlottingSimple
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = gsAdoptedBVDataWallet
@@ -126,7 +128,11 @@ instance MonadBalances LightWalletMode where
     getOwnUtxos = getOwnUtxosWallet
     getBalance = getBalanceWallet
 
-instance MonadTxHistory LightWalletSscType LightWalletMode where
+instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode where
     getBlockHistory = getBlockHistoryWallet
     getLocalHistory = getLocalHistoryWallet
     saveTx = saveTxWallet
+
+instance MonadAddresses LightWalletMode where
+    type AddrData LightWalletMode = PublicKey
+    getNewAddress pk = pure (makePubKeyAddress pk, Just $ addressHash pk)

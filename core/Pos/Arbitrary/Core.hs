@@ -27,60 +27,26 @@ import           Data.Time.Units                   (Microsecond, Millisecond,
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
                                                     choose, oneof, scale, shrinkIntegral,
-                                                    suchThat, vector, vectorOf, sized)
+                                                    sized, suchThat, vector, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
 import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVarInt (..),
-                                                    UnsignedVarInt (..), TinyVarInt(..))
+                                                    TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
-                                                    makeScriptAddress)
+import           Pos.Core.Address                  (makeAddress, makePubKeyAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Constants                (epochSlots, sharedSeedLength)
+import           Pos.Core.Constants                (sharedSeedLength)
+import           Pos.Core.Context                  (HasCoreConstants, epochSlots)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
+import qualified Pos.Core.Slotting                 as Types
 import qualified Pos.Core.Types                    as Types
-import           Pos.Data.Attributes               (Attributes (..), UnparsedFields(..))
+import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
-
-----------------------------------------------------------------------------
--- Arbitrary core types
-----------------------------------------------------------------------------
-
-instance Arbitrary Types.Script where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary Types.Address where
-    arbitrary = oneof [
-        makePubKeyAddress <$> arbitrary,
-        makeScriptAddress <$> arbitrary,
-        makeRedeemAddress <$> arbitrary,
-        Types.UnknownAddressType <$> choose (3, 255) <*> scale (min 150) arbitrary
-        ]
-
-deriving instance Arbitrary Types.BlockCount
-deriving instance Arbitrary Types.SlotCount
-deriving instance Arbitrary Types.ChainDifficulty
-
-maxReasonableEpoch :: Integral a => a
-maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
-
-deriving instance Random Types.EpochIndex
-
-instance Arbitrary Types.EpochIndex where
-    arbitrary = choose (0, maxReasonableEpoch)
-    shrink = genericShrink
-
-instance Arbitrary Types.LocalSlotIndex where
-    arbitrary =
-        leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
-        choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
-    shrink = genericShrink
 
 {- NOTE: Deriving an 'Arbitrary' instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -108,11 +74,39 @@ means the generated 'Arbitrary' instance uses the default 'shrink' implementatio
 'Pos.Util.Util.dumpSplices' can be used to verify this.'
 -}
 
-instance Arbitrary Types.SlotId where
+instance Arbitrary Types.Script where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary Types.EpochOrSlot where
+deriving instance Arbitrary Types.BlockCount
+deriving instance Arbitrary Types.ChainDifficulty
+
+----------------------------------------------------------------------------
+-- Slotting
+----------------------------------------------------------------------------
+
+deriving instance Arbitrary Types.SlotCount
+
+maxReasonableEpoch :: Integral a => a
+maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
+
+deriving instance Random Types.EpochIndex
+
+instance Arbitrary Types.EpochIndex where
+    arbitrary = choose (0, maxReasonableEpoch)
+    shrink = genericShrink
+
+instance HasCoreConstants => Arbitrary Types.LocalSlotIndex where
+    arbitrary =
+        leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
+        choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
+    shrink = genericShrink
+
+instance HasCoreConstants => Arbitrary Types.SlotId where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance HasCoreConstants => Arbitrary Types.EpochOrSlot where
     arbitrary = oneof [
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
@@ -125,7 +119,7 @@ newtype EoSToIntOverflow = EoSToIntOverflow
     { getEoS :: Types.EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance Arbitrary EoSToIntOverflow where
+instance HasCoreConstants => Arbitrary EoSToIntOverflow where
     arbitrary = EoSToIntOverflow <$> do
         let maxIntAsInteger = toInteger (maxBound :: Int)
             maxW64 = toInteger (maxBound :: Word64)
@@ -152,7 +146,7 @@ newtype UnreasonableEoS = Unreasonable
     { getUnreasonable :: Types.EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance Arbitrary UnreasonableEoS where
+instance HasCoreConstants => Arbitrary UnreasonableEoS where
     arbitrary = Unreasonable . Types.EpochOrSlot <$> do
         let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
         localSlot <- arbitrary
@@ -166,6 +160,52 @@ instance Arbitrary UnreasonableEoS where
               , pure rightSlot
               ]
     shrink = genericShrink
+
+----------------------------------------------------------------------------
+-- Address and related
+----------------------------------------------------------------------------
+
+instance Arbitrary Types.AddrType where
+    arbitrary =
+        oneof
+            [ pure Types.ATPubKey
+            , pure Types.ATScript
+            , pure Types.ATRedeem
+            , Types.ATUnknown <$> choose (3, maxBound)
+            ]
+
+instance Arbitrary Types.AddrSpendingData where
+    arbitrary =
+        oneof
+            [ Types.PubKeyASD <$> arbitrary
+            , Types.ScriptASD <$> arbitrary
+            , Types.RedeemASD <$> arbitrary
+            -- For unknown spending data payload will be at most 120
+            -- bytes long.
+            , Types.UnknownASD <$> choose (3, 255) <*> scale (min 120) arbitrary
+            ]
+
+instance Arbitrary Types.AddrStakeDistribution where
+    arbitrary =
+        oneof
+            [ pure Types.BootstrapEraDistr
+            , Types.SingleKeyDistr <$> arbitrary
+            , Types.MultiKeyDistr <$> scale (min 16) arbitrary
+            ]
+
+instance Arbitrary Types.AddrAttributes where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+deriving instance Arbitrary Types.Address'
+
+instance Arbitrary Types.Address where
+    arbitrary = makeAddress <$> arbitrary <*> arbitrary
+    shrink = genericShrink
+
+----------------------------------------------------------------------------
+-- Attributes
+----------------------------------------------------------------------------
 
 instance Arbitrary UnparsedFields where
     arbitrary = sized $ go M.empty
@@ -181,6 +221,10 @@ instance Arbitrary UnparsedFields where
 instance Arbitrary h => Arbitrary (Attributes h) where
     arbitrary = genericArbitrary
     shrink = genericShrink
+
+----------------------------------------------------------------------------
+-- Coin
+----------------------------------------------------------------------------
 
 instance Arbitrary Types.Coin where
     arbitrary = Types.mkCoin <$> choose (1, Types.unsafeGetCoin maxBound)
@@ -433,34 +477,31 @@ instance Arbitrary G.GenesisCoreData where
             wordILen = fromIntegral innerLen
             distributionGen = oneof
                 [ G.FlatStakes wordILen <$> arbitrary
-                , G.BitcoinStakes wordILen <$> arbitrary
                 , do a <- choose (0, wordILen)
                      G.RichPoorStakes a
                          <$> arbitrary
                          <*> pure (wordILen - a)
                          <*> arbitrary
-                , pure $ G.ExponentialStakes wordILen
+                , pure $ G.safeExpStakes wordILen
                 , G.CustomStakes <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
         hashmapOfHolders <- arbitrary :: Gen (HashMap Types.StakeholderId Word16)
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
-            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs) hashmapOfHolders
+            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
+                                hashmapOfHolders
 
 instance Arbitrary G.StakeDistribution where
     arbitrary = oneof
       [ do stakeholders <- choose (1, 10000)
            coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
            return (G.FlatStakes (fromIntegral stakeholders) coins)
-      , do stakeholders <- choose (1, 10000)
-           coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-           return (G.BitcoinStakes (fromIntegral stakeholders) coins)
       , do sdRichmen <- choose (0, 20)
            sdRichStake <- Types.mkCoin <$> choose (100000, 5000000)
            sdPoor <- choose (0, 20)
            sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
            return G.RichPoorStakes{..}
-      , G.ExponentialStakes <$> choose (0, 20)
+      , G.safeExpStakes <$> choose (0::Integer, 20)
       , G.CustomStakes <$> arbitrary
       ]
     shrink = genericShrink

@@ -1,42 +1,47 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main
        ( main
        ) where
 
-import           Control.Lens         ((?~))
-import           Data.Aeson           (eitherDecode)
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.Text            as T
-import           Formatting           (sformat, shown, (%))
-import           Serokell.Util.Text   (listJson)
-import           System.Directory     (createDirectoryIfMissing)
-import           System.FilePath      (takeDirectory, (</>))
-import           System.FilePath.Glob (glob)
-import           System.Wlog          (Severity (Debug), WithLogger, consoleOutB,
-                                       lcTermSeverity, logError, logInfo, setupLogging,
-                                       usingLoggerName)
+import           Control.Lens          ((?~))
+import           Data.Aeson            (eitherDecode)
+import qualified Data.ByteString.Lazy  as BSL
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.List             as L
+import qualified Data.Text             as T
+import           Formatting            (build, sformat, shown, (%))
+import           Serokell.Util.Text    (listJson)
+import           System.Directory      (createDirectoryIfMissing)
+import           System.FilePath       (takeDirectory, (</>))
+import           System.FilePath.Glob  (glob)
+import           System.Wlog           (Severity (Debug), WithLogger, consoleOutB,
+                                        lcTermSeverity, logError, logInfo, setupLogging,
+                                        usingLoggerName)
 import           Universum
 
-import           Pos.Binary           (decodeFull, serialize')
-import           Pos.Core             (StakeholderId, mkCoin)
-import           Pos.Crypto           (redeemPkB64F)
-import           Pos.Genesis          (AddrDistribution, GenesisCoreData (..),
-                                       GenesisGtData (..), StakeDistribution (..),
-                                       genesisDevHdwSecretKeys, genesisDevHdwSecretKeys,
-                                       genesisDevSecretKeys, mkGenesisCoreData)
-import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
-                                       makeRedeemAddress)
+import           Pos.Binary            (asBinary, decodeFull, serialize')
+import           Pos.Core              (StakeholderId, mkCoin)
+import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, redeemPkB64F,
+                                        toVssPublicKey)
+import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
+import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
+                                        GenesisGtData (..), StakeDistribution (..),
+                                        genesisDevHdwSecretKeys, genesisDevSecretKeys,
+                                        mkGenesisCoreData)
+import           Pos.Types             (addressDetailedF, addressHash, makePubKeyAddress,
+                                        makeRedeemAddress)
+import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
+                                        usWalletSet)
+import           Pos.Wallet.Web.Secret (wusRootKey)
 
-import           Avvm                 (aeCoin, applyBlacklisted, avvmAddrDistribution,
-                                       utxo)
-import           KeygenOptions        (AvvmStakeOptions (..), DumpAvvmSeedsOptions (..),
-                                       FakeAvvmOptions (..), GenesisGenOptions (..),
-                                       KeygenCommand (..), KeygenOptions (..),
-                                       TestStakeOptions (..), getKeygenOptions)
-import           Testnet              (genTestnetDistribution, generateFakeAvvm,
-                                       generateKeyfile, rearrangeKeyfile)
+import           Avvm                  (aeCoin, applyBlacklisted, avvmAddrDistribution,
+                                        utxo)
+import           KeygenOptions         (AvvmStakeOptions (..), DumpAvvmSeedsOptions (..),
+                                        FakeAvvmOptions (..), GenesisGenOptions (..),
+                                        KeygenCommand (..), KeygenOptions (..),
+                                        TestStakeOptions (..), getKeygenOptions)
+import           Testnet               (genTestnetDistribution, generateFakeAvvm,
+                                        generateKeyfile, rearrangeKeyfile)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -145,6 +150,39 @@ getAvvmGenesis AvvmStakeOptions {..} = do
 
 rearrange :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
+
+genPrimaryKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+genPrimaryKey path = do
+    _ <- generateKeyfile True Nothing path
+    logInfo $ "Successfully generated primary key " <> (toText path)
+
+readKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+readKey path = do
+    us <- readUserSecret path
+    logInfo $ maybe "No Pimary key"
+                    (("Primary: " <>) . showKeyWithAddressHash) $
+                    view usPrimKey us
+    logInfo $ maybe "No wallet set"
+                    (("Wallet set: " <>) . showKeyWithAddressHash . decryptESK . view wusRootKey) $
+                    view usWalletSet us
+    logInfo $ "Keys: " <> (T.concat $ L.intersperse "\n" $
+                           map (showKeyWithAddressHash . decryptESK) $
+                           view usKeys us)
+    logInfo $ maybe "No vss"
+                    (("Vss PK: " <>) . showPvssKey) $
+                    view usVss us
+
+showKeyWithAddressHash :: SecretKey -> Text
+showKeyWithAddressHash sk = sformat (build%"; address hash: "%build) pk ah
+  where
+    pk = toPublic sk
+    ah = addressHash pk
+
+showPvssKey :: VssKeyPair -> Text
+showPvssKey = sformat build . asBinary . toVssPublicKey
+
+decryptESK :: EncryptedSecretKey -> SecretKey
+decryptESK (EncryptedSecretKey sk _) = SecretKey sk
 
 dumpKeys :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 dumpKeys pat = do
@@ -259,6 +297,8 @@ main = do
         logInfo "Processing command"
         case koCommand of
             RearrangeMask msk   -> rearrange msk
+            GenerateKey path    -> genPrimaryKey path
+            ReadKey path        -> readKey path
             DumpDevGenKeys pat  -> dumpKeys pat
             DumpAvvmSeeds opts  -> dumpAvvmSeeds opts
             GenerateGenesis ggo -> genGenesisFiles ggo

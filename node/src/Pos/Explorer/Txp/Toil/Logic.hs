@@ -166,6 +166,7 @@ getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} (catMaybes . toList -> undo) =
   where
     toSet = HS.fromList . toList
     -- Safe here, because union of non-empty and maybe empty sets can't be empty.
+    unionNEnList :: NonEmpty Address -> [Address] -> NonEmpty Address
     unionNEnList lhs rhs = NE.fromList $ toList $ HS.union (toSet lhs) (HS.fromList rhs)
 
 combineBalanceUpdates :: BalanceUpdate -> [(Address, (Sign, Coin))]

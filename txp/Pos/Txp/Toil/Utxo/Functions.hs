@@ -85,7 +85,7 @@ verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses _) = do
         (False, Just _) -> do
             -- Case when at least one input isn't known
             minimalReasonableChecks
-            resolvedInputs <- mapM (runMaybeT . resolveInput) _txInputs
+            resolvedInputs <- mapM (fmap rightToMaybe . runExceptT . resolveInput) _txInputs
             pure (map (fmap snd) resolvedInputs, Nothing)
         _               -> do
             -- Case when all inputs are known
@@ -267,8 +267,8 @@ rollbackTxUtxo (txAux, undo) = do
     let tx@UnsafeTx {..} = taTx txAux
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ map (TxInUtxo txid) [0..]
-    mapM_ (uncurry utxoPut) $ concatMap knownInputAndUndo $ toList $ NE.zip _txInputs undo
+    mapM_ (uncurry utxoPut) $ mapMaybe knownInputAndUndo $ toList $ NE.zip _txInputs undo
   where
-    knownInputAndUndo (_, Nothing)         = []
-    knownInputAndUndo (TxInUnknown _ _, _) = []
-    knownInputAndUndo (inp, Just u)        = [(inp, u)]
+    knownInputAndUndo (_,         Nothing) = Nothing
+    knownInputAndUndo (TxInUnknown _ _, _) = Nothing
+    knownInputAndUndo (inp, Just u)        = Just (inp, u)

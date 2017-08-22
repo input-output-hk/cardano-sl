@@ -329,7 +329,8 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             hhs = repeat hh
             tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _) = taTx
             !txId = hash tx
-            resolvedInputs = zip inps $ NE.toList undo
+            -- TODO should we do something with unknown inputs?
+            resolvedInputs = catMaybes $ zipWith (fmap . (,)) inps (NE.toList undo)
             txOutgoings = map txOutAddress outs
             txInputs = map (toaOut . snd) resolvedInputs
 
@@ -372,7 +373,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
         let hhs = repeat hh
             UnsafeTx (toList -> inps) (toList -> outs) _ = taTx
             !txid = hash taTx
-            ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
+            -- TODO should we do something with unknown inputs?
+            ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) $ catMaybes undoL
             ownOutputs = selectOwnAccounts encInfo txOutAddress $ outs
             ownInputMetas = map snd ownInputs
             ownOutputMetas = map snd ownOutputs

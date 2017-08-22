@@ -93,7 +93,7 @@ instance Arbitrary StakeAndHolder where
             nAdr = S.size setUtxo
             values = scanl1 unsafeAddCoin $ replicate nAdr coins
             utxoList =
-                (zipWith (\txi id -> TxInUtxo txi id) (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
+                (zipWith TxInUtxo (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
                 (zipWith toTxOutAux (toList setUtxo) values)
         return (myPk, M.fromList utxoList)
 

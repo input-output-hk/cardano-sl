@@ -159,6 +159,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
                     => ToilT ExplorerExtra m a
                     -> m (a, GenericToilModifier ExplorerExtra)
                 runToil = runToilTLocalExtra uv mp undo extra
+                -- We strictly rely on verifyAllIsKnown = True here
                 action ::
                        ExceptT ToilVerFailure (ToilT ExplorerExtra EProcessTxMode) ()
                 action = eProcessTx curEpoch tx (TxExtra Nothing curTime txUndo)

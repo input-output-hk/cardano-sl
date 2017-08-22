@@ -158,7 +158,7 @@ instance Hashable TxIn
 
 instance Buildable TxIn where
     build TxInUtxo {..} = bprint ("TxInUtxo "%shortHashF%" #"%int) txInHash txInIndex
-    build (TxInUnknown tag bs) = bprint ("TxInUnknown "%build%" "%base16F) tag bs
+    build (TxInUnknown tag bs) = bprint ("TxInUnknown "%int%" "%base16F) tag bs
 
 instance NFData TxIn
 
@@ -347,6 +347,8 @@ mkTxPayload txws = do
 ----------------------------------------------------------------------------
 
 -- | Particular undo needed for transactions
+-- Just means we know transaction input, hence know TxOutAux corresponding to it,
+-- Nothing otherwise.
 type TxUndo = NonEmpty (Maybe TxOutAux)
 
 type TxpUndo = [TxUndo]

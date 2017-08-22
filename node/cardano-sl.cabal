@@ -19,7 +19,7 @@ Flag with-wallet
   description: Build with wallet
 
 Flag with-explorer
-  default:     False
+  default:     True
   manual:      True
 
   description: Build with explorer

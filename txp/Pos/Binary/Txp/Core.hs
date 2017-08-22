@@ -12,7 +12,6 @@ import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), decodeListL
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
-import           Pos.Crypto.Hashing (Hash)
 import qualified Pos.Txp.Core.Types as T
 
 ----------------------------------------------------------------------------
@@ -75,10 +74,9 @@ instance Bi T.TxInWitness where
         matchSize len "TxInWitness.UnknownWitnessType" 2
         T.UnknownWitnessType tag <$> decode
 
-deriveSimpleBi ''T.TxSigData [
-    Cons 'T.TxSigData [
-        Field [| T.txSigTxHash      :: Hash T.Tx             |]
-    ]]
+instance Bi T.TxSigData where
+    encode (T.TxSigData {..}) = encode txSigTxHash
+    decode = T.TxSigData <$> decode
 
 deriveSimpleBi ''T.TxAux [
     Cons 'T.TxAux [

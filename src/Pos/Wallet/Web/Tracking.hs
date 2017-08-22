@@ -59,6 +59,7 @@ import           Pos.Core                   (AddrPkAttrs (..), Address (..),
                                              ChainDifficulty, HasDifficulty (..),
                                              HeaderHash, Timestamp, headerHash,
                                              headerSlotL, makePubKeyAddress)
+import           Pos.Core.Timestamp         (timestampToPosix)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              WithHash (..), deriveHDPassphrase,
                                              encToPublic, hash, shortHashF,
@@ -88,7 +89,8 @@ import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Wallet.SscType         (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              CWAddressMeta (..), Wal, addressToCId, aiWId,
-                                             encToCId, isTxLocalAddress)
+                                             ctmDate, encToCId, isTxLocalAddress,
+                                             txIdToCTxId)
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
                                              CustomAddressType (..), WalletWebDB,
                                              WebWalletModeDB)
@@ -417,8 +419,16 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
-    WS.updateHistoryCache wid $ DL.toList camAddedHistory <> oldCachedHist
+    sortedAddedHistory <- sortTxs (DL.toList camAddedHistory)
+    WS.updateHistoryCache wid $ sortedAddedHistory <> oldCachedHist
     WS.setWalletSyncTip wid newTip
+  where
+    getTxTime tx = ctmDate <<$>> WS.getTxMeta wid (txIdToCTxId $ _thTxId tx)
+    sortTxs txs = do
+        txsWTime <- forM txs $ \tx -> (tx, ) <$> getTxTime tx
+        let txRealTime (THEntry{..}, mtime) =
+                mtime <|> (timestampToPosix <$> _thTimestamp)
+        return $ map fst $ sortOn (fmap Down . txRealTime) txsWTime
 
 rollbackModifierFromWallet
     :: WebWalletModeDB m

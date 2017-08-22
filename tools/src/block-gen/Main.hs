@@ -101,9 +101,12 @@ main = flip catch catchEx $ giveStaticConsts $ do
     catchEx :: TBlockGenError -> IO ()
     catchEx e = putText $ sformat ("Error: "%build) e
 
+    -- This function is used to filter genesis utxo which always
+    -- contains addresses with bootstrap era distribution, hence we
+    -- use this distribution here.
     filterSecretsUtxo :: [SecretKey] -> Utxo -> Utxo
     filterSecretsUtxo secrets utxo = do
-        let addrs = map (makePubKeyAddress undefined . toPublic) secrets
+        let addrs = map (makePubKeyAddressBoot . toPublic) secrets
         let inAddrs x = txOutAddress (toaOut x) `elem` addrs
         M.filter inAddrs utxo
 

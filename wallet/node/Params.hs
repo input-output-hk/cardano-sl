@@ -13,8 +13,8 @@ import           Pos.Client.CLI      (CommonNodeArgs (..))
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Genesis         (GenesisContext (..), devAddrDistr, devStakesDistr,
-                                      genesisContextProduction, genesisUtxo)
+import           Pos.Genesis         (devGenesisContext, devStakesDistr,
+                                      genesisContextProduction)
 import           Pos.Launcher        (NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
 import           Pos.Security        (SecurityParams (..))
@@ -42,14 +42,10 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
         devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
-                (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
     let npGenesisCtx
-            | isDevelopment =
-              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo aDistr)
-                                bootStakeholders
+            | isDevelopment = devGenesisContext devStakeDistr
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath

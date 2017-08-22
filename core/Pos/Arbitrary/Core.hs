@@ -513,7 +513,6 @@ instance Arbitrary G.GenesisCoreData where
             wordILen = fromIntegral innerLen
             distributionGen = oneof
                 [ G.FlatStakes wordILen <$> arbitrary
-                , G.BitcoinStakes wordILen <$> arbitrary
                 , do a <- choose (0, wordILen)
                      G.RichPoorStakes a
                          <$> arbitrary
@@ -533,9 +532,6 @@ instance Arbitrary G.StakeDistribution where
       [ do stakeholders <- choose (1, 10000)
            coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
            return (G.FlatStakes (fromIntegral stakeholders) coins)
-      , do stakeholders <- choose (1, 10000)
-           coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-           return (G.BitcoinStakes (fromIntegral stakeholders) coins)
       , do sdRichmen <- choose (0, 20)
            sdRichStake <- Types.mkCoin <$> choose (100000, 5000000)
            sdPoor <- choose (0, 20)

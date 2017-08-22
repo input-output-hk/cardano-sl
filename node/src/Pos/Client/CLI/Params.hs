@@ -16,12 +16,17 @@ import           Mockable                   (Catch, Fork, Mockable)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           System.Wlog                (LoggerName, WithLogger)
 
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..),
+                                             maliciousEmulationAttacks,
+                                             maliciousEmulationTargets)
+import           Pos.Client.CLI.Options     (CommonArgs (..))
+import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
+                                             userSecretWithGenesisKey)
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (GenesisContext (..), devAddrDistr,
-                                             devStakesDistr, genesisContextProduction,
-                                             genesisUtxo)
+import           Pos.Genesis                (devGenesisContext, devStakesDistr,
+                                             genesisContextProduction)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
@@ -30,13 +35,6 @@ import           Pos.Security               (SecurityParams (..))
 import           Pos.Ssc.GodTossing         (GtParams (..))
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.UserSecret        (peekUserSecret)
-
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..),
-                                             maliciousEmulationAttacks,
-                                             maliciousEmulationTargets)
-import           Pos.Client.CLI.Options     (CommonArgs (..))
-import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
-                                             userSecretWithGenesisKey)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams tag CommonNodeArgs{..} =
@@ -80,14 +78,10 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
         devStakeDistr =
             devStakesDistr
                 (flatDistr commonArgs)
-                (bitcoinDistr commonArgs)
                 (richPoorDistr commonArgs)
                 (expDistr commonArgs)
     let npGenesisCtx
-            | isDevelopment =
-              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo aDistr)
-                                bootStakeholders
+            | isDevelopment = devGenesisContext devStakeDistr
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath

@@ -8,10 +8,11 @@ module Pos.Block.Network.Retrieval
 
 import           Control.Concurrent.STM     (putTMVar, swapTMVar, tryReadTBQueue,
                                              tryReadTMVar, tryTakeTMVar)
-import           Control.Lens               (_Wrapped)
+import           Control.Lens               (to, _Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
+import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, builder, int, sformat, shown, stext,
@@ -277,13 +278,15 @@ handleCHsValid
     -> HeaderHash
     -> m Bool
 handleCHsValid enqueue nodeId lcaChild newestHash = do
-    let lcaChildHash = headerHash lcaChild
-    logDebug $ sformat validFormat lcaChildHash newestHash
     -- The conversation will attempt to retrieve the necessary blocks and apply
     -- them. Each one gives a 'Bool' where 'True' means that a recovery was
     -- completed (depends upon the state of the recovery-mode TMVar).
     convs <- enqueue (MsgRequestBlocks (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $
       \(conv :: ConversationActions MsgGetBlocks (MsgBlock ssc) m) -> do
+        let lcaChildHash = headerHash lcaChild
+        logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
+                           lcaChildHash
+                           newestHash
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -297,7 +300,8 @@ handleCHsValid enqueue nodeId lcaChild newestHash = do
                 return False
             Right blocks -> do
                 logDebug $ sformat
-                    ("retrievalWorker: retrieved blocks of size "%builder%": "%listJson)
+                    ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+                    (blocks ^. _Wrapped . to NE.length)
                     (unitBuilder $ biSize blocks)
                     (map (headerHash . view blockHeader) blocks)
                 handleBlocks nodeId blocks enqueue
@@ -317,9 +321,6 @@ handleCHsValid enqueue nodeId lcaChild newestHash = do
     results <- waitForConversations $ fmap (handleAll (\_ -> return False)) convs
     let Any endedRecovery = fold $ fmap Any results
     return endedRecovery
-  where
-    validFormat =
-        "Requesting blocks from " %shortHashF % " to " %shortHashF
 
 retrieveBlocks
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)

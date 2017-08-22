@@ -47,7 +47,8 @@ import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
+                                             _NewestFirst, _OldestFirst)
 import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
@@ -120,9 +121,10 @@ retrievalWorkerImpl SendActions {..} =
     handleHeadersRequest nodeId header mgh = do
         updateRecoveryHeader nodeId header
         let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
-                let firstHeader = headers ^. _Wrapped . _neLast
+                let oldestHeader = headers ^. _NewestFirst . _neLast
+                    newestHeader = headers ^. _NewestFirst . _neHead
                 in handleCHsValid enqueueMsg nodeId
-                                  firstHeader (headerHash header)
+                                  oldestHeader (headerHash newestHeader)
         convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $ \_ _ -> pure $ Conversation $ \conv ->
             requestHeaders cont mgh nodeId conv
         results <- waitForConversations $ fmap (handleAll (\_ -> return (Just False))) convs
@@ -301,7 +303,7 @@ handleCHsValid enqueue nodeId lcaChild newestHash = do
             Right blocks -> do
                 logDebug $ sformat
                     ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
-                    (blocks ^. _Wrapped . to NE.length)
+                    (blocks ^. _OldestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
                     (map (headerHash . view blockHeader) blocks)
                 handleBlocks nodeId blocks enqueue
@@ -330,7 +332,7 @@ retrieveBlocks
     -> ExceptT Text m (OldestFirst NE (Block ssc))
 retrieveBlocks conv lcaChild endH = do
     blocks <- retrieveBlocks' 0 conv (lcaChild ^. prevBlockL) endH
-    let b0 = blocks ^. _Wrapped . _neHead
+    let b0 = blocks ^. _OldestFirst . _neHead
     if headerHash b0 == headerHash lcaChild
        then pure blocks
        else throwError $ sformat

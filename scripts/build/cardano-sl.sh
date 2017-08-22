@@ -202,7 +202,7 @@ if [[ "$prodMode" != "" ]]; then
     dconfig="${dconfig}_wallet"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig -DGITREV=`git show --format=%H`"
+ghc_opts="-DCONFIG=$dconfig -DGITREV=`git rev-parse HEAD`"
 
 if [[ $no_fast == true ]];
   then fast=""

@@ -196,7 +196,8 @@ verifyBootEra curEpoch TxAux {..} = do
   where
     notBootstrapDistrAddresses :: [Address]
     notBootstrapDistrAddresses =
-        filter isBootstrapEraDistr $ map txOutAddress $ toList $ _txOutputs taTx
+        filter (not . isBootstrapEraDistr) $
+        map txOutAddress $ toList $ _txOutputs taTx
     isBootstrapEraDistr :: Address -> Bool
     isBootstrapEraDistr (addrAttributesUnwrapped -> AddrAttributes {..}) =
         case aaStakeDistribution of

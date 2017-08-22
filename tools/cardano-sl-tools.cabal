@@ -577,7 +577,8 @@ executable cardano-post-mortem
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe
-  if flag(with-post-mortem)
+  if os(linux) || flag(with-post-mortem)
+    -- See: https://github.com/input-output-hk/cardano-sl/pull/1305#issuecomment-323761982
     buildable: True
     build-depends:       base
                        , aeson

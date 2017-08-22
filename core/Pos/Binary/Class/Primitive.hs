@@ -20,8 +20,14 @@ module Pos.Binary.Class.Primitive
        -- * Low-level, fine-grained functions
        , deserializeOrFail
        , deserializeOrFail'
+       -- * CBOR in CBOR
+       , encodeCborDataItem
+       , decodeCborDataItem
+       , decodeCborDataItemTag
        ) where
 
+import qualified Codec.CBOR.Decoding           as D
+import qualified Codec.CBOR.Encoding           as E
 import qualified Codec.CBOR.Read               as CBOR.Read
 import qualified Codec.CBOR.Write              as CBOR.Write
 import           Control.Exception             (throw)
@@ -168,3 +174,34 @@ fromBinaryM = either (fail . toString) return . fromBinary
 biSize :: Bi a => a -> Byte
 biSize = fromIntegral . BS.length . serialize'
 {-# INLINE biSize #-}
+
+----------------------------------------------------------------------------
+-- CBORDataItem
+-- https://tools.ietf.org/html/rfc7049#section-2.4.4.1
+----------------------------------------------------------------------------
+
+-- | Encode the given `ByteString` and sorrounds it with the semantic tag 24.
+-- In CBOR diagnostic notation:
+-- >>> 24(h'DEADBEEF')
+encodeCborDataItem :: ByteString -> E.Encoding
+encodeCborDataItem bs = E.encodeTag 24 <> encode bs
+
+-- | Remove the the semantic tag 24 from the enclosed CBOR data item,
+-- failing if the tag cannot be found.
+decodeCborDataItemTag :: D.Decoder s ()
+decodeCborDataItemTag = do
+    t <- D.decodeTag
+    when (t /= 24) $ fail $
+        "decodeCborDataItem: expected a bytestring with \
+        \CBOR (marked by tag 24), found tag: " <> show t
+
+-- | Remove the the semantic tag 24 from the enclosed CBOR data item,
+-- decoding back the inner `ByteString` as a proper Haskell type.
+-- Consume its input in full.
+decodeCborDataItem :: Bi a => D.Decoder s a
+decodeCborDataItem = do
+    decodeCborDataItemTag
+    bs <- decode @ByteString
+    case decodeFull bs of
+        Left e  -> fail (toString e)
+        Right v -> pure v

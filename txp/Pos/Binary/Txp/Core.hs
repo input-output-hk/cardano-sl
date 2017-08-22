@@ -6,8 +6,10 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), deriveSimpleBi, enforceSize, encodeListLen,
-                                     decodeListLen, matchSize, deserialize', serialize')
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), decodeCborDataItem,
+                                     decodeCborDataItemTag, decodeListLen, deriveSimpleBi,
+                                     deserialize', encodeCborDataItem, encodeListLen,
+                                     enforceSize, matchSize, serialize')
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
@@ -31,17 +33,19 @@ instance Bi T.TxIn where
     encode (T.TxInUtxo utxoTxIn) =
         encodeListLen 2 <>
         encode (0 :: Word8) <>
-        encode (serialize' utxoTxIn)
+        encodeCborDataItem (serialize' utxoTxIn)
     encode (T.TxInUnknown tag bs) =
         encodeListLen 2 <>
         encode tag <>
-        encode bs
+        encodeCborDataItem bs
     decode = do
         enforceSize "TxIn" 2
         tag <- decode @Word8
         case tag of
-            0 -> T.TxInUtxo <$> decode
-            _ -> T.TxInUnknown tag <$> decode
+            0 -> T.TxInUtxo <$> decodeCborDataItem
+            _ -> do
+                decodeCborDataItemTag
+                T.TxInUnknown tag <$> decode
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [

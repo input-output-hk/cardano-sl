@@ -427,6 +427,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState)
                 prop "ProposalState" (soundInstanceProperty @ProposalState)
                 prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState)
+                prop "UtxoTxIn" (soundInstanceProperty @UtxoTxIn)
                 prop "TxIn" (soundInstanceProperty @TxIn)
                 modifyMaxSuccess (const 100) $
                     prop "TxDistribution" (soundInstanceProperty @TxDistribution)

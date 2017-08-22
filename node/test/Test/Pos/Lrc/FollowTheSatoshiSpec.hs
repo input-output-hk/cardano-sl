@@ -129,7 +129,7 @@ ftsAllStake fts input pk v =
 numberOfRuns :: HasCoreConstants => Int
 -- The higher is 'blkSecurityParam', the longer epochs will be and the more
 -- time FTS will take
-numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
+numberOfRuns = 100000 `div` fromIntegral blkSecurityParam
 
 newtype FtsStream = Stream
     { getStream :: [SharedSeed]

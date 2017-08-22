@@ -26,8 +26,8 @@ import           Mockable                        (Mockable, MonadMockable,
                                                   Production (..), Throw, async, bracket,
                                                   cancel, killThread, throw)
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Node                            (Converse (..), Node, NodeAction (..),
-                                                  NodeEndPoint, ReceiveDelay, Statistics,
+import           Node                            (Node, NodeAction (..), NodeEndPoint,
+                                                  ReceiveDelay, Statistics,
                                                   defaultNodeEnvironment, noReceiveDelay,
                                                   node, simpleNodeEndPoint)
 import qualified Node.Conversation               as N (Conversation, Converse,
@@ -45,7 +45,8 @@ import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
                                                   OutSpecs (..), PackingType, PeerData,
                                                   SendActions, VerInfo (..), allListeners,
                                                   bipPacking, hoistSendActions,
-                                                  makeEnqueueMsg, makeSendActions)
+                                                  makeEnqueueMsg, makeSendActions,
+                                                  withFailureCleanup)
 import qualified Pos.Constants                   as Const
 import           Pos.Context                     (NodeContext (..))
 import           Pos.Core                        (HasCoreConstants)
@@ -219,15 +220,11 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
     node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo defaultNodeEnvironment $ \__node ->
         NodeAction mkListeners' $ \__converse ->
-            let converse    = withFailureCleanup __converse
+            let converse    = withFailureCleanup oq __converse
                 sendActions :: SendActions m
                 sendActions = makeSendActions ourVerInfo (oqEnqueue oq) converse
             in  bracket (acquire converse __node) release (const (action ourVerInfo sendActions))
   where
-    withFailureCleanup (Converse conv) = Converse $ \nodeId pack -> do
-        OQ.clearFailureOf oq nodeId
-        conv nodeId pack
-
     acquire converse __node = do
         stopDequeue <- oqDequeue oq converse
         other <- withNode __node

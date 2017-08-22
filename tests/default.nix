@@ -5,7 +5,10 @@ with pkgs.lib;
 
 let
   forAllSystems = genAttrs supportedSystems;
-  importTest = fn: args: system: import fn ({
+  importTest = fn: args: system: let
+    imported = import fn;
+    test = import (pkgs.path + "/nixos/tests/make-test.nix") imported;
+  in test ({
     inherit system;
   } // args);
   callTest = fn: args: forAllSystems (system: hydraJob (importTest fn args system));

@@ -1,4 +1,4 @@
-import <nixpkgs/nixos/tests/make-test.nix> ({ pkgs, ... }:
+{ pkgs, ... }:
 let
   iohk-nixops = pkgs.fetchFromGitHub {
     owner = "input-output-hk";
@@ -10,6 +10,7 @@ let
     type = "core";
     region = "";
     static-routes = []; # list of lists of name pairs
+    host = "node${toString index}.cardano";
   };
   topology = {
     nodes = {
@@ -24,6 +25,7 @@ let
   genesis = (import ../default.nix { inherit pkgs; }).make-genesis;
   mkMachine = index: { config, pkgs, ... }: {
     imports = [ ../nixos/cardano-node.nix ];
+    services.dnsmasq.enable = true;
     services.cardano-node = {
       enable = true;
       nodeIndex = index;
@@ -40,6 +42,13 @@ let
       topologyFile = "${topologyFile}";
     };
     networking.firewall.enable = false;
+    networking.extraHosts = ''
+      192.168.1.1 node1.cardano
+      192.168.1.2 node2.cardano
+      192.168.1.3 node3.cardano
+      192.168.1.4 node4.cardano
+      192.168.1.5 node5.cardano
+    '';
     virtualisation.qemu.options = [ "-rtc base='2017-08-01'" ];
     boot.kernelParams = [ "quiet" ];
     systemd.services.cardano-node.preStart = ''
@@ -70,4 +79,4 @@ in {
     $node1->sleep(600);
     print $node1->execute("journalctl -u cardano-node | grep 'Created a new block' ");
   '';
-})
+}

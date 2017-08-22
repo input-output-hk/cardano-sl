@@ -123,9 +123,10 @@ retrievalWorkerImpl sendActions =
         updateRecoveryHeader nodeId header
         endedRecoveryVar <- newEmptyMVar
         let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
-                let firstHeader = headers ^. _Wrapped . _neLast
+                let oldestHeader = headers ^. _Wrapped . _neLast
+                    newestHeader = headers ^. _Wrapped . _neHead
                 in handleCHsValid sendActions endedRecoveryVar nodeId
-                                  firstHeader (headerHash header)
+                                  oldestHeader (headerHash newestHeader)
         reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
             withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $ \conv ->
             requestHeaders cont mgh nodeId limPx conv

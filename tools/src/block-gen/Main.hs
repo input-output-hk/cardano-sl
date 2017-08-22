@@ -4,7 +4,6 @@ import           Universum
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default                (def)
-import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
@@ -13,19 +12,16 @@ import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
 import           Pos.AllSecrets              (AllSecrets (..), mkInvAddrSpendingData,
-                                              mkInvSecretsMap, unInvSecretsMap)
-import           Pos.Core                    (AddrSpendingData (..),
-                                              StakeDistribution (..),
-                                              genesisDevSecretKeys,
-                                              genesisProdAddrDistribution,
-                                              genesisProdBootStakeholders,
+                                              mkInvSecretsMap)
+import           Pos.Core                    (AddrSpendingData (..), genesisDevSecretKeys,
                                               giveStaticConsts, isDevelopment,
-                                              makePubKeyAddress, mkCoin)
+                                              makePubKeyAddress)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (GenesisWStakeholders (..), devAddrDistr,
-                                              genesisUtxo)
+import           Pos.Genesis                 (devGenesisContext, genesisContextProduction,
+                                              genesisDevFlatDistr, gtcUtxo,
+                                              gtcWStakeholders)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo, _GenesisUtxo)
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
@@ -55,22 +51,16 @@ main = flip catch catchEx $ giveStaticConsts $ do
                 throwM NoOneSecrets
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
-    let nodes = length invSecretsMap
-    let bootStakeholders
-            | isDevelopment =
-                GenesisWStakeholders $ HM.fromList $
-                zip (HM.keys $ unInvSecretsMap invSecretsMap) (repeat 1)
-            | otherwise = genesisProdBootStakeholders
-    let flatDistr = FlatStakes (fromIntegral nodes)
-                               (mkCoin $ fromIntegral $ length (getGenesisWStakeholders bootStakeholders) * nodes)
-    let addrDistribution
-            | isDevelopment = fst $ devAddrDistr flatDistr
-            | otherwise = genesisProdAddrDistribution
+    let npGenesisCtx
+            | isDevelopment = devGenesisContext genesisDevFlatDistr
+            | otherwise = genesisContextProduction
+
+    let bootStakeholders = npGenesisCtx ^. gtcWStakeholders
+
     -- We need to select from utxo TxOut's corresponding to passed secrets
     -- to avoid error "Secret key of %hash% is required but isn't known"
-    let genUtxoUnfiltered = genesisUtxo bootStakeholders addrDistribution
-    let genUtxo = genUtxoUnfiltered &
-            _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
+    let genUtxo = npGenesisCtx ^. gtcUtxo &
+                  _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
     when (M.null $ unGenesisUtxo genUtxo) $
         throwM EmptyUtxo
 

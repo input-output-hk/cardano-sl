@@ -93,10 +93,10 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
-    (txAux@TxAux {..}, redeemAddress, redeemBalance) <- do
-        res@(txAux, _, _) <- rewrapTxError "Cannot send redemption transaction" $
-            prepareRedemptionTx redeemSK dstAddr
-        res <$ submitAndSaveReclaimableTx enqueueMsg txAux
+    (txAux@TxAux {..}, redeemAddress, redeemBalance) <-
+         rewrapTxError "Cannot send redemption transaction" $ do
+             res@(txAux, _, _) <- prepareRedemptionTx redeemSK dstAddr
+             res <$ submitAndSaveReclaimableTx enqueueMsg txAux
 
     -- add redemption transaction to the history of new wallet
     let txInputs = [TxOut redeemAddress redeemBalance]

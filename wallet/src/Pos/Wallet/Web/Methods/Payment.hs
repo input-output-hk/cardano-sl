@@ -137,10 +137,10 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         let hdwSigner = NE.zip ss srcAddrs
         relatedAccount <- getSomeMoneySourceAccount moneySource
         outputs <- coinDistrToOutputs dstDistr
-        (txAux@TxAux {taTx = tx}, inpTxOuts') <- do
-            res@(txAux, _) <- rewrapTxError "Cannot send transaction" $
-                prepareMTx hdwSigner outputs (relatedAccount, passphrase)
-            res <$ submitAndSaveReclaimableTx enqueueMsg txAux
+        (txAux@TxAux {taTx = tx}, inpTxOuts') <-
+            rewrapTxError "Cannot send transaction" $ do
+                res@(txAux, _) <- prepareMTx hdwSigner outputs (relatedAccount, passphrase)
+                res <$ submitAndSaveReclaimableTx enqueueMsg txAux
 
         let inpTxOuts = toList inpTxOuts'
             txHash    = hash tx

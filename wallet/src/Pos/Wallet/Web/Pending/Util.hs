@@ -13,8 +13,7 @@ import           Universum
 import           Formatting                   (build, sformat, (%))
 
 import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
-import           Pos.Txp                      (TxAux, TxId)
-import           Pos.Txp                      (ToilVerFailure (..))
+import           Pos.Txp                      (ToilVerFailure (..), TxAux, TxId)
 import           Pos.Util.Util                (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes   (CId, CWalletMeta (..), Wal, cwAssurance)
 import           Pos.Wallet.Web.Error         (WalletError (RequestError))

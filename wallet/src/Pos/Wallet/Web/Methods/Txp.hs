@@ -59,13 +59,16 @@ submitAndSaveReclaimableTx enqueue txAux =
             if isReclaimableFailure e
                 then ignore "reclaimable" e
                 else throwM e
+
         , Handler $ \(SomeException e) ->
-            -- it is likely networking problem, let's give transaction a chance
-            ignore "other error" e
+            -- I don't know where this error can came from,
+            -- but it's better to try with tx again than to regret, right?
+            -- At the moment of writting this all networking errors are suppresed
+            ignore "unknown error" e
         ]
   where
     ignore desc e =
         logInfo $
         sformat ("Transaction creation failed ("%shown%" - "%stext%
-                 "), but was given second chance") e desc
+                 "), but was given a second chance") e desc
 

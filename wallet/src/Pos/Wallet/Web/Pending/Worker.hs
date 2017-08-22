@@ -46,7 +46,8 @@ processPtxFailure PendingTx{..} e =
     unless (isReclaimableFailure e) $ do
         let newCond = PtxWontApply (sformat build e)
         void $ casPtxCondition _ptxWallet _ptxTxId PtxApplying newCond
-        logInfo $ sformat ("Transaction "%build%" was canceled") _ptxTxId
+        logInfo $ sformat ("Pending transaction "%build%" was canceled")
+                  _ptxTxId
 
 processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
 processPtxInUpperBlocks curSlot PendingTx{..} = do
@@ -56,6 +57,7 @@ processPtxInUpperBlocks curSlot PendingTx{..} = do
          longAgo depth slotId -> do
              void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond PtxPersisted
              logInfo $ sformat ("Transaction "%build%" got persistent") _ptxTxId
+       | otherwise -> pass
   where
      longAgo depth (flattenSlotId -> ptxSlot) =
          ptxSlot + getBlockCount depth < flattenSlotId curSlot
@@ -85,7 +87,6 @@ resubmitTx SendActions{..} ptx@PendingTx{..} = do
             processPtxFailure ptx e
 
         , Handler $ \(SomeException e) ->
-            -- these errors are likely caused by networking
             reportFail "Failed to resubmit tx, will try again later" e
         ]
     reportFail :: MonadPendings m => Exception e => Text -> e -> m ()
@@ -108,6 +109,28 @@ resubmitPtxsDuringSlot sendActions ptxs = do
         let checkPeriod = max 0 $ slotDuration - convertUnit submitionEta
         return (checkPeriod `div` fromIntegral toResubmitNum)
 
+processPtxsToResubmit
+    :: MonadPendings m
+    => SendActions m -> [PendingTx] -> m ()
+processPtxsToResubmit sendActions ptxs = do
+    ptxsPerSlotLimit <- evalPtxsPerSlotLimit
+    let toResubmit =
+            take ptxsPerSlotLimit $
+            filter ((PtxApplying ==) . _ptxCond)
+            ptxs
+    logInfo $ sformat fmt (map _ptxTxId toResubmit)
+    resubmitPtxsDuringSlot sendActions toResubmit
+  where
+    fmt = "Transactions to resubmit on current slot: "%listJson
+    evalPtxsPerSlotLimit = do
+        slotDuration <- getLastKnownSlotDuration
+        let limit = fromIntegral $
+                convertUnit slotDuration `div` pendingTxResubmitionPeriod
+        when (limit <= 0) $
+            logInfo "'pendingTxResubmitionPeriod' is larger than slot duration,\
+                    \ won't resubmit any pending transaction"
+        return limit
+
 -- | Checks and updates state of given pending transactions, resubmitting them
 -- if needed.
 processPtxs
@@ -115,20 +138,14 @@ processPtxs
     => SendActions m -> SlotId -> [PendingTx] -> m ()
 processPtxs sendActions curSlot ptxs = do
     mapM_ (processPtxInUpperBlocks curSlot) ptxs
-    let toResubmit = filter ((PtxApplying ==) . _ptxCond) ptxs
-    logInfo $ sformat fmt (map _ptxTxId toResubmit)
-    resubmitPtxsDuringSlot sendActions toResubmit
-  where
-    fmt = "Transactions to resubmit on current slot: "%listJson
+    processPtxsToResubmit sendActions ptxs
 
 processPtxsOnSlot
     :: MonadPendings m
     => SendActions m -> SlotId -> m ()
 processPtxsOnSlot sendActions curSlot = do
     ptxs <- getPendingTxs
-    ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let selectedPtxs =
-            take ptxsPerSlotLimit $
             sortWith _ptxCreationSlot $
             flip fromMaybe =<< topsortTxs wHash $
             filter (whetherCheckPtxOnSlot curSlot) $
@@ -137,10 +154,6 @@ processPtxsOnSlot sendActions curSlot = do
     processPtxs sendActions curSlot selectedPtxs
   where
     wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
-    evalPtxsPerSlotLimit = do
-        slotDuration <- getLastKnownSlotDuration
-        return $ fromIntegral $
-            convertUnit slotDuration `div` pendingTxResubmitionPeriod
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.

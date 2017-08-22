@@ -57,6 +57,6 @@ data PendingTx = PendingTx
                                   -- this in NOT when tx appeared in blockchain
     , _ptxCond         :: PtxCondition
     , _ptxWallet       :: CId Wal
-    } deriving (Eq)
+    } deriving (Eq, Show)
 
 makeLenses ''PendingTx

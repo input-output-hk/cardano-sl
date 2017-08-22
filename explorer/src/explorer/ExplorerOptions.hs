@@ -46,7 +46,7 @@ data Args = Args
     , dhtExplicitInitial :: !Bool
     , dhtPeersFile       :: !(Maybe FilePath)
       -- ^ A file containing a list of Kademlia peers to use.
-    , networkConfigOpts         :: !NetworkConfigOpts
+    , networkConfigOpts  :: !NetworkConfigOpts
       -- ^ Network configuration
       -- TODO: Does this obsolete 'peers' and 'peersFile'?
     , timeLord           :: !Bool

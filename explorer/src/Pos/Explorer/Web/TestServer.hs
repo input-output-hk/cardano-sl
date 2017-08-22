@@ -3,12 +3,19 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
 
-module Pos.Explorer.Web.TestServer (runMockServer) where
+module Pos.Explorer.Web.TestServer
+       ( runMockServer
+       ) where
+
+import           Universum
 
 import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
 import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.Warp       (run)
+import           Servant.API                    ((:<|>) ((:<|>)))
+import           Servant.Server                 (Handler, Server, serve)
+
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
@@ -17,13 +24,10 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  CGenesisAddressInfo (..),
                                                  CGenesisSummary (..), CHash (..),
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), mkCCoin)
+                                                 CTxSummary (..), Byte, mkCCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (EpochIndex, mkCoin)
 import           Pos.Web                        ()
-import           Servant.API                    ((:<|>) ((:<|>)))
-import           Servant.Server                 (Handler, Server, serve)
-import           Universum
 
 
 ----------------------------------------------------------------
@@ -64,6 +68,8 @@ explorerHandlers =
       apiGenesisPagesTotal
     :<|>
       apiGenesisAddressInfo
+    :<|>
+      apiStatsTxs
   where
     apiBlocksPages        = testBlocksPages
     apiBlocksPagesTotal   = testBlocksPagesTotal
@@ -76,6 +82,7 @@ explorerHandlers =
     apiGenesisSummary     = testGenesisSummary
     apiGenesisPagesTotal  = testGenesisPagesTotal
     apiGenesisAddressInfo = testGenesisAddressInfo
+    apiStatsTxs           = testStatsTxs
 
 --------------------------------------------------------------------------------
 -- sample data --
@@ -90,6 +97,13 @@ sampleAddressSummary = CAddressSummary
     , caTxNum   = 0
     , caBalance = mkCCoin $ mkCoin 0
     , caTxList  = []
+    }
+
+cTxEntry :: CTxEntry
+cTxEntry = CTxEntry
+    { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+    , cteTimeIssued = posixTime
+    , cteAmount     = mkCCoin $ mkCoin 33333
     }
 ----------------------------------------------------------------
 -- Test handlers
@@ -151,11 +165,7 @@ testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
     }]
 
 testTxsLast :: Handler (Either ExplorerError [CTxEntry])
-testTxsLast         = pure . pure $ [CTxEntry
-    { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-    , cteTimeIssued = posixTime
-    , cteAmount     = mkCCoin $ mkCoin 33333
-    }]
+testTxsLast         = pure . pure $ [cTxEntry]
 
 testTxsSummary
     :: CTxId
@@ -230,3 +240,11 @@ testGenesisAddressInfo _ _ = pure . pure $ [
     , cgaiGenesisAmount  = mkCCoin $ mkCoin 2225295000000
     , cgaiIsRedeemed     = True
     }]
+
+testStatsTxs
+    :: Maybe Word
+    -> Handler (Either ExplorerError (Integer, [(CTxId, Byte)]))
+testStatsTxs _ = pure . pure $ (1, [(cTxId, 200)])
+  where
+    cTxId :: CTxId
+    cTxId = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"

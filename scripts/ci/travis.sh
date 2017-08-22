@@ -48,7 +48,7 @@ targets="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet cardan
 
 for trgt in $targets; do
   echo building $trgt with nix
-  nix-build -A $trgt -o $trgt.root --argstr dconfig $DCONFIG
+  nix-build -A $trgt -o $trgt.root --argstr dconfig $DCONFIG --argstr gitrev $TRAVIS_COMMIT
 #    TODO: CSL-1133
 #    if [[ "$trgt" == "cardano-sl" ]]; then
 #      stack test --nix --fast --jobs=2 --coverage \

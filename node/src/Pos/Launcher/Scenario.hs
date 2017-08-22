@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP        #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | High-level scenarios which can be launched.
@@ -13,7 +14,6 @@ import           Universum
 
 import           Control.Lens          (views)
 import           Data.Time.Units       (Second)
-import           Development.GitRev    (gitBranch, gitHash)
 import           Ether.Internal        (HasLens (..))
 import           Formatting            (build, int, sformat, shown, (%))
 import           Mockable              (fork)
@@ -42,9 +42,19 @@ import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Types             (addressHash)
 import           Pos.Util              (inAssertMode)
+import           Pos.Util.Config       (configName)
 import           Pos.Util.LogSafe      (logInfoS)
 import           Pos.Worker            (allWorkers)
 import           Pos.WorkMode.Class    (WorkMode)
+
+#define QUOTED(x) "/**/x/**/"
+
+gitRev :: Text
+#if !defined(GITREV)
+gitRev = "unknown"
+#else
+gitRev = QUOTED(GITREV)
+#endif
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -58,7 +68,7 @@ runNode'
     -> WorkerSpec m
 runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
 
-    logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
+    logInfo $ "cardano-sl: commit " <> gitRev <> ", configName: " <> configName
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey

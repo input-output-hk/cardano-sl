@@ -41,7 +41,7 @@ import           Serokell.Util                    (ms, sec)
 
 import           Pos.Binary                       (Raw, serialize')
 import qualified Pos.Client.CLI                   as CLI
-import           Pos.Client.Txp.Balances          (getOwnUtxo)
+import           Pos.Client.Txp.Balances          (getOwnUtxoForPk)
 import           Pos.Client.Txp.Util              (TxError (..), createTx)
 import           Pos.Communication                (NodeId, OutSpecs, SendActions, Worker,
                                                    WorkerSpec, dataFlow, delegationRelays,
@@ -225,7 +225,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                           return (TxCount submitted failed (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just (key, txOuts, neighbours) -> do
-                          utxo <- getOwnUtxo $ makePubKeyAddress ibea $ safeToPublic (fakeSigner key)
+                          utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)
                           etx <- createTx utxo (fakeSigner key) txOuts (toPublic key)
                           case etx of
                               Left (TxError err) -> do

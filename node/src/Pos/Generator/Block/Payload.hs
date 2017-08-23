@@ -18,7 +18,6 @@ import           Data.List                  (notElem, (!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
-import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (RandomGen (..))
 
@@ -30,16 +29,13 @@ import           Pos.Core                   (AddrSpendingData (..), Address (..)
                                              SlotId (..), StakeholderId, TxFeePolicy (..),
                                              addressHash, bvdTxFeePolicy, coinToInteger,
                                              makePubKeyAddress, mkCoin, sumCoins,
-                                             unsafeGetCoin, unsafeIntegerToCoin)
+                                             unsafeIntegerToCoin)
 import           Pos.Crypto                 (SecretKey, SignTag (SignTx), WithHash (..),
                                              hash, sign, toPublic)
-import           Pos.DB                     (gsIsBootstrapEra)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..))
-import           Pos.Genesis                (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState                 as DB
-import           Pos.Slotting.Class         (MonadSlots (getCurrentSlotBlocking))
 import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
                                              TxOut (..), TxOutAux (..), TxSigData (..))
 #ifdef WITH_EXPLORER
@@ -127,11 +123,6 @@ genTxPayload = do
   where
     genTransaction :: StateT GenTxData (BlockGenRandMode g m) ()
     genTransaction = do
-        epoch <- siEpoch <$> lift (lift getCurrentSlotBlocking)
-        bootEra <- lift . lift $ gsIsBootstrapEra epoch
-        genWStakeholders <- view (lensOf @GenesisWStakeholders)
-        let dustThd :: Integral a => a
-            dustThd = fromIntegral $ unsafeGetCoin $ bootDustThreshold genWStakeholders
         -- Just an arbitrary not-so-big number of attempts to fit predicates
         -- to avoid infinite loops
         let randomAttempts :: Int
@@ -193,11 +184,7 @@ genTxPayload = do
 
         let generateOutputs inputsSum (TxFee fee) = do
                 let outputsSum = inputsSum - coinToInteger fee
-                -- this is max number of outputs such that none of
-                -- them is less than dust treshold
-                let ceilBoot = outputsSum `div` dustThd
                 outputsMaxN <-
-                    bool identity (min ceilBoot) bootEra .
                     fromIntegral .
                     max 1 <$>
                     lift (view tgpMaxOutputs)

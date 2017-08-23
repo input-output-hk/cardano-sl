@@ -5123,8 +5123,8 @@ self: {
           version = "0.1.0.0";
           src = fetchgit {
             url = "https://github.com/input-output-hk/plutus-prototype";
-            sha256 = "1vhnyawq02cdbywlhbvpxwdwhmvff549zlq4yda9346cr27ap565";
-            rev = "eedf6b1f6f6b931fa578cf886e36b8a3a9fcda0d";
+            sha256 = "1b0c9d8pr932fvaamyv53fa2jpfwm249imc8fxfybn71yz8p96ai";
+            rev = "d4aa461fc69fc6957aab46b41a670c2144aefb77";
           };
           libraryHaskellDepends = [
             base

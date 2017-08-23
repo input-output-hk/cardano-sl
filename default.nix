@@ -35,6 +35,17 @@ in ((import ./pkgs { inherit pkgs; }).override {
         "-f-dev-mode"
         "--ghc-option=-optl-lm"
       ];
+      testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
+      preCheck = ''
+        mkdir -p dist/test
+        touch dist/test/test.log
+        tail -F dist/test/test.log &
+        export TAILPID=$!
+      '';
+      postCheck = ''
+        sleep 10
+        kill $TAILPID
+      '';
       # waiting on load-command size fix in dyld
       doCheck = ! pkgs.stdenv.isDarwin;
     });

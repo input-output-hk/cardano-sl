@@ -21,6 +21,7 @@ import           Pos.Communication.Protocol (ConversationActions (..), ListenerS
                                              MkListeners, OutSpecs, constantListeners)
 import qualified Pos.DB.Block               as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
+import           Pos.KnownPeers             (resetFailureStatus)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
@@ -47,7 +48,7 @@ handleGetHeaders
     => (ListenerSpec m, OutSpecs)
 handleGetHeaders = listenerConv $ \__ourVerInfo nodeId conv -> do
     logDebug $ "handleGetHeaders: request from " <> show nodeId
-    handleHeadersCommunication conv --(convToSProxy conv)
+    handleHeadersCommunication nodeId conv --(convToSProxy conv)
 
 handleGetBlocks
     :: forall ssc ctx m.
@@ -55,6 +56,7 @@ handleGetBlocks
     => (ListenerSpec m, OutSpecs)
 handleGetBlocks = listenerConv $ \__ourVerInfo nodeId conv -> do
     mbMsg <- recvLimited conv
+    resetFailureStatus nodeId
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("Got request on handleGetBlocks: "%build%" from "%build)
             mgb nodeId
@@ -90,5 +92,6 @@ handleBlockHeaders = listenerConv @MsgGetHeaders $ \__ourVerInfo nodeId conv -> 
     -- we don't really send any messages.
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     mHeaders <- recvLimited conv
+    resetFailureStatus nodeId
     whenJust mHeaders $ \(MsgHeaders headers) ->
         handleUnsolicitedHeaders (getNewestFirst headers) nodeId

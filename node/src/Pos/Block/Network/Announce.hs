@@ -30,6 +30,7 @@ import           Pos.Core                   (headerHash, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
+import           Pos.KnownPeers             (resetFailureStatus)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              SecurityParams (..), shouldIgnoreAddress)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
@@ -60,15 +61,17 @@ announceBlock enqueue header = do
                 (headerHash header)
                 nodeId
         send cA $ MsgHeaders (one (Right header))
-        handleHeadersCommunication cA
+        handleHeadersCommunication nodeId cA
 
 handleHeadersCommunication
     :: forall ssc ctx m .
        (WorkMode ssc ctx m)
-    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m
+    => NodeId
+    -> ConversationActions (MsgHeaders ssc) MsgGetHeaders m
     -> m ()
-handleHeadersCommunication conv = do
+handleHeadersCommunication nodeId conv = do
     whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
+        resetFailureStatus nodeId
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM recoveryInProgress onRecovery $ do
             headers <- case (mghFrom,mghTo) of
@@ -92,7 +95,7 @@ handleHeadersCommunication conv = do
     handleSuccess h = do
         send conv (MsgHeaders h)
         onSuccess
-        handleHeadersCommunication conv
+        handleHeadersCommunication nodeId conv
     onSuccess =
         logDebug "handleGetHeaders: responded successfully"
     onRecovery =

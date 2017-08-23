@@ -10,17 +10,17 @@ module Pos.Util.OutboundQueue
     , formatKnownPeersReader
     ) where
 
-import           Formatting                            (Format, shown)
 import           Control.Monad.Reader
+import           Formatting                            (Format, shown)
 import           Universum
 
-import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import qualified Network.Broadcast.OutboundQueue       as OQ
-import           System.Wlog.CanLog                    (WithLogger)
+import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import           Node.Conversation                     (Conversation)
+import           Pos.Communication                     (Msg, NodeId, PackingType,
+                                                        PeerData)
 import           Pos.Network.Types                     (Bucket)
-import           Pos.Communication                     (NodeId, PeerData, PackingType,
-                                                        Msg)
+import           System.Wlog.CanLog                    (WithLogger)
 
 -- | Specialization of OutboundQ for use in cardano-sl. Peers are identified
 -- by 'NodeId' and the data to be enqueued is an 'EnqueuedConversation m'.

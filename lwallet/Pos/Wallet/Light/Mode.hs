@@ -31,9 +31,9 @@ import           Pos.Crypto                       (PublicKey)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
-import           Pos.Slotting                     (MonadSlots (..),
+import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    currentTimeSlottingSimple)
-import           Pos.Slotting.MemState            (MonadSlotsData (..))
+import           Pos.Slotting.MemState            (MonadSlotsData)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Txp                          (filterUtxoByAddrs)
 import           Pos.Txp.Toil                     (GenesisUtxo (..))
@@ -89,30 +89,30 @@ instance MonadBListener LightWalletMode where
     onRollbackBlocks = onRollbackBlocksStub
 
 -- FIXME: Dummy instance for lite-wallet.
+instance HasSlottingVar LightWalletContext where
+    slottingTimestamp = error "notImplemented"
+    slottingVar       = error "notImplemented"
+
+-- FIXME: Dummy instance for lite-wallet.
 instance MonadBlockchainInfo LightWalletMode where
     networkChainDifficulty = error "notImplemented"
-    localChainDifficulty = error "notImplemented"
+    localChainDifficulty   = error "notImplemented"
     blockchainSlotDuration = error "notImplemented"
-    connectedPeers = error "notImplemented"
+    connectedPeers         = error "notImplemented"
 
 -- FIXME: Dummy instance for lite-wallet.
 instance MonadUpdates LightWalletMode where
-    waitForUpdate = error "notImplemented"
+    waitForUpdate   = error "notImplemented"
     applyLastUpdate = pure ()
 
 -- FIXME: Dummy instance for lite-wallet.
-instance MonadSlotsData LightWalletMode where
-    getSystemStart = error "notImplemented"
-    getSlottingData = error "notImplemented"
-    waitPenultEpochEquals = error "notImplemented"
-    putSlottingData = error "notImplemented"
-
--- FIXME: Dummy instance for lite-wallet.
-instance HasCoreConstants => MonadSlots LightWalletMode where
-    getCurrentSlot = Just <$> getCurrentSlotInaccurate
-    getCurrentSlotBlocking = getCurrentSlotInaccurate
+instance (HasCoreConstants, MonadSlotsData ctx LightWalletMode)
+      => MonadSlots ctx LightWalletMode
+  where
+    getCurrentSlot           = Just <$> getCurrentSlotInaccurate
+    getCurrentSlotBlocking   = getCurrentSlotInaccurate
     getCurrentSlotInaccurate = pure (SlotId 0 minBound)
-    currentTimeSlotting = currentTimeSlottingSimple
+    currentTimeSlotting      = currentTimeSlottingSimple
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = pure Const.genesisBlockVersionData

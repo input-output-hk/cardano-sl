@@ -5,9 +5,11 @@
 -- | Command line options of pos-node.
 
 module Pos.Client.CLI.NodeOptions
-       ( SimpleNodeArgs (..)
+       ( CommonNodeArgs (..)
+       , SimpleNodeArgs (..)
+       , NodeArgs (..)
+       , commonNodeArgsParser
        , getSimpleNodeOptions
-       , simpleNodeArgsParser
        , usageExample
        ) where
 
@@ -26,18 +28,24 @@ import qualified Text.Parsec.Char             as P
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
-import qualified Pos.CLI                      as CLI
+
+import           Pos.Client.CLI.Options       (CommonArgs(..), commonArgsParser,
+                                               externalNetworkAddressOption,
+                                               listenNetworkAddressOption,
+                                               optionalJSONPath, sscAlgoOption)
+import           Pos.Client.CLI.Util          (attackTypeParser, attackTargetParser)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Security                 (AttackTarget, AttackType)
+import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
                                                addressToNodeId)
 
-data SimpleNodeArgs = SimpleNodeArgs
+data CommonNodeArgs = CommonNodeArgs
     { dbPath                    :: !FilePath
     , rebuildDB                 :: !Bool
     -- these two arguments are only used in development mode
@@ -45,22 +53,19 @@ data SimpleNodeArgs = SimpleNodeArgs
     , devVssGenesisI            :: !(Maybe Int)
     , keyfilePath               :: !FilePath
     , backupPhrase              :: !(Maybe BackupPhrase)
-    , externalAddress           :: !NetworkAddress
+    , externalAddress           :: !(Maybe NetworkAddress)
       -- ^ A node must be addressable on the network.
-    , bindAddress               :: !NetworkAddress
+    , bindAddress               :: !(Maybe NetworkAddress)
       -- ^ A node may have a bind address which differs from its external
       -- address.
-    , supporterNode             :: !Bool
     , nodeType                  :: !NodeType
     , peers                     :: ![(NodeId, NodeType)]
       -- ^ Known peers (addresses with classification).
     , networkConfigOpts         :: !NetworkConfigOpts
       -- ^ Network configuration
     , jlPath                    :: !(Maybe FilePath)
-    , maliciousEmulationAttacks :: ![AttackType]
-    , maliciousEmulationTargets :: ![AttackTarget]
     , kademliaDumpPath          :: !FilePath
-    , commonArgs                :: !CLI.CommonArgs
+    , commonArgs                :: !CommonArgs
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
     , noNTP                     :: !Bool
@@ -69,8 +74,8 @@ data SimpleNodeArgs = SimpleNodeArgs
     , statsdParams              :: !(Maybe StatsdParams)
     } deriving Show
 
-simpleNodeArgsParser :: Parser SimpleNodeArgs
-simpleNodeArgsParser = do
+commonNodeArgsParser :: Parser CommonNodeArgs
+commonNodeArgsParser = do
     dbPath <- strOption $
         long    "db-path" <>
         metavar "FILEPATH" <>
@@ -104,34 +109,21 @@ simpleNodeArgsParser = do
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet. Words should be separated by spaces.")
     externalAddress <-
-        CLI.externalNetworkAddressOption (Just ("0.0.0.0", 0))
+        optional $ externalNetworkAddressOption Nothing
     bindAddress <-
-        CLI.listenNetworkAddressOption (Just ("0.0.0.0", 0))
-    supporterNode <- switch $
-        long "supporter" <>
-        help "Launch DHT supporter instead of full node"
+        optional $ listenNetworkAddressOption Nothing
     nodeType <- nodeTypeOption
     peers <- (++) <$> corePeersList <*> relayPeersList
     networkConfigOpts <- networkConfigOption
     jlPath <-
-        CLI.optionalJSONPath
-    maliciousEmulationAttacks <-
-        many $ option (fromParsec CLI.attackTypeParser) $
-        long    "attack" <>
-        metavar "NoBlocks | NoCommitments" <>
-        help    "Attack type to emulate. This option can be defined more than once."
-    maliciousEmulationTargets <-
-        many $ option (fromParsec CLI.attackTargetParser) $
-        long    "attack-target" <>
-        metavar "HOST:PORT | PUBKEYHASH" <>
-        help    "Node for attack. This option can be defined more than once."
+        optionalJSONPath
     kademliaDumpPath <- strOption $
         long    "kademlia-dump-path" <>
         metavar "FILEPATH" <>
         value   "kademlia.dump" <>
         help    "Path to Kademlia dump file. If file doesn't exist, it will be created." <>
         showDefault
-    commonArgs <- CLI.commonArgsParser
+    commonArgs <- commonArgsParser
     updateLatestPath <- strOption $
         long    "update-latest-path" <>
         metavar "FILEPATH" <>
@@ -152,10 +144,36 @@ simpleNodeArgsParser = do
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
 
-    pure SimpleNodeArgs{..}
+    pure CommonNodeArgs{..}
   where
     corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
     relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
+
+
+data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
+
+data NodeArgs = NodeArgs
+    { sscAlgo                   :: !SscAlgo
+    , maliciousEmulationAttacks :: ![AttackType]
+    , maliciousEmulationTargets :: ![AttackTarget]
+    } deriving Show
+
+simpleNodeArgsParser :: Parser SimpleNodeArgs
+simpleNodeArgsParser = do
+    commonNodeArgs <- commonNodeArgsParser
+    sscAlgo <- sscAlgoOption
+    maliciousEmulationAttacks <-
+        many $ option (fromParsec attackTypeParser) $
+        long    "attack" <>
+        metavar "NoBlocks | NoCommitments" <>
+        help    "Attack type to emulate. This option can be defined more than once."
+    maliciousEmulationTargets <-
+        many $ option (fromParsec attackTargetParser) $
+        long    "attack-target" <>
+        metavar "HOST:PORT | PUBKEYHASH" <>
+        help    "Node for attack. This option can be defined more than once."
+
+    pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
 
 nodeTypeOption :: Parser NodeType
 nodeTypeOption =

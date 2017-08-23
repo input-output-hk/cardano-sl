@@ -57,8 +57,7 @@ import           Pos.DB                       (MonadDBRead, MonadGState, MonadRe
 import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.Genesis                  (GenesisUtxo (..), GenesisWStakeholders)
 import qualified Pos.GState                   as GS
-import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
-                                               getSystemStart)
+import           Pos.Slotting                 (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
@@ -229,7 +228,7 @@ type TxHistoryEnv ctx m =
     , MonadGState m
     , MonadThrow m
     , WithLogger m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadReader ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
@@ -248,15 +247,16 @@ getBlockHistoryDefault
     :: forall ssc ctx m. TxHistoryEnv' ssc ctx m
     => [Address] -> m (DList TxHistoryEntry)
 getBlockHistoryDefault addrs = do
-    bot <- GS.getBot
-    sd <- GS.getSlottingData
-    systemStart <- getSystemStart
+
+    systemStart <- getSystemStartM
+    bot         <- GS.getBot
+    sd          <- GS.getSlottingData
 
     let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
         fromBlund = pure . fst
 
         getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
-        getBlockTimestamp blk = getSlotStartPure systemStart True (blk ^. mainBlockSlot) sd
+        getBlockTimestamp blk = getSlotStartPure systemStart (blk ^. mainBlockSlot) sd
 
         blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (DList TxHistoryEntry)
         blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)

@@ -2,85 +2,90 @@
 
 module Pos.Client.CLI.Params
        ( loggingParams
-       , getSimpleNodeParams
+       , getBaseParams
+       , getKeyfilePath
+       , getNodeParams
+       , getTransportParams
        , gtSscParams
        ) where
 
-import           Universum
+import           Base                  (Show (..))
+import           Universum             hiding (show)
 
-import qualified Data.ByteString.Char8 as BS8 (unpack)
-import           Mockable              (Fork, Mockable, Catch)
-import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
-import           System.Wlog           (LoggerName, WithLogger)
+import qualified Data.ByteString.Char8      as BS8 (unpack)
+import           Mockable                   (Catch, Fork, Mockable, Throw, throw)
+import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
+import           System.Wlog                (LoggerName, WithLogger)
 
-import qualified Pos.CLI               as CLI
-import           Pos.Constants         (isDevelopment)
-import           Pos.Core.Types        (Timestamp (..))
-import           Pos.Crypto            (VssKeyPair)
-import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
-                                        genesisContextProduction, genesisUtxo)
-import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
-                                        NodeParams (..), TransportParams (..))
-import           Pos.Network.CLI       (intNetworkConfigOpts)
-import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
-import           Pos.Security          (SecurityParams (..))
-import           Pos.Ssc.GodTossing    (GtParams (..))
-import           Pos.Update.Params     (UpdateParams (..))
-import           Pos.Util.UserSecret   (peekUserSecret)
+import           Pos.Constants              (isDevelopment)
+import           Pos.Core.Types             (Timestamp (..))
+import           Pos.Crypto                 (VssKeyPair)
+import           Pos.Genesis                (devGenesisContext, devStakesDistr,
+                                             genesisContextProduction)
+import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
+                                             NodeParams (..), TransportParams (..))
+import           Pos.Network.CLI            (intNetworkConfigOpts)
+import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
+import           Pos.Security               (SecurityParams (..))
+import           Pos.Ssc.GodTossing         (GtParams (..))
+import           Pos.Update.Params          (UpdateParams (..))
+import           Pos.Util.UserSecret        (peekUserSecret)
 
-import           Pos.Client.CLI.NodeOptions           (SimpleNodeArgs (..))
-import           Pos.Client.CLI.Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..),
+                                             maliciousEmulationAttacks,
+                                             maliciousEmulationTargets)
+import           Pos.Client.CLI.Options     (CommonArgs (..))
+import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
+                                             userSecretWithGenesisKey)
 
 
-loggingParams :: LoggerName -> SimpleNodeArgs -> LoggingParams
-loggingParams tag SimpleNodeArgs{..} =
+loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
+loggingParams tag CommonNodeArgs{..} =
     LoggingParams
-    { lpHandlerPrefix = CLI.logPrefix commonArgs
-    , lpConfigPath    = CLI.logConfig commonArgs
+    { lpHandlerPrefix = logPrefix commonArgs
+    , lpConfigPath    = logConfig commonArgs
     , lpRunnerTag     = tag
     }
 
-getBaseParams :: LoggerName -> SimpleNodeArgs -> BaseParams
-getBaseParams loggingTag args@SimpleNodeArgs {..} =
+getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams
+getBaseParams loggingTag args@CommonNodeArgs {..} =
     BaseParams { bpLoggingParams = loggingParams loggingTag args }
 
-gtSscParams :: SimpleNodeArgs -> VssKeyPair -> GtParams
-gtSscParams SimpleNodeArgs {..} vssSK =
+gtSscParams :: CommonNodeArgs -> VssKeyPair -> GtParams
+gtSscParams CommonNodeArgs {..} vssSK =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 
-getKeyfilePath :: SimpleNodeArgs -> FilePath
-getKeyfilePath SimpleNodeArgs {..}
+getKeyfilePath :: CommonNodeArgs -> FilePath
+getKeyfilePath CommonNodeArgs {..}
     | isDevelopment = case devSpendingGenesisI of
           Nothing -> keyfilePath
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
     | otherwise = keyfilePath
 
-getSimpleNodeParams ::
-       (MonadIO m, WithLogger m, Mockable Fork m, Mockable Catch m)
-    => SimpleNodeArgs
+
+getNodeParams ::
+       (MonadIO m, WithLogger m, Mockable Fork m, Mockable Catch m, Mockable Throw m)
+    => CommonNodeArgs
+    -> NodeArgs
     -> Timestamp
     -> m NodeParams
-getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
+getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
     (primarySK, userSecret) <-
-        userSecretWithGenesisKey args =<<
-            updateUserSecretVSS args =<<
-                peekUserSecret (getKeyfilePath args)
+        userSecretWithGenesisKey cArgs =<<
+            updateUserSecretVSS cArgs =<<
+                peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    let npTransport = getTransportParams args npNetworkConfig
-        devStakeDistr =
+    npTransport <- getTransportParams cArgs npNetworkConfig
+    let devStakeDistr =
             devStakesDistr
-                (CLI.flatDistr commonArgs)
-                (CLI.bitcoinDistr commonArgs)
-                (CLI.richPoorDistr commonArgs)
-                (CLI.expDistr commonArgs)
+                (flatDistr commonArgs)
+                (richPoorDistr commonArgs)
+                (expDistr commonArgs)
     let npGenesisCtx
-            | isDevelopment =
-              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo bootStakeholders aDistr)
-                                bootStakeholders
+            | isDevelopment = devGenesisContext devStakeDistr
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath
@@ -88,13 +93,13 @@ getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
         , npSecretKey = primarySK
         , npUserSecret = userSecret
         , npSystemStart = systemStart
-        , npBaseParams = getBaseParams "node" args
+        , npBaseParams = getBaseParams "node" cArgs
         , npJLFile = jlPath
-        , npReportServers = CLI.reportServers commonArgs
+        , npReportServers = reportServers commonArgs
         , npUpdateParams = UpdateParams
             { upUpdatePath    = updateLatestPath
             , upUpdateWithPkg = updateWithPackage
-            , upUpdateServers = CLI.updateServers commonArgs
+            , upUpdateServers = updateServers commonArgs
             }
         , npSecurityParams = SecurityParams
             { spAttackTypes   = maliciousEmulationAttacks
@@ -107,14 +112,38 @@ getSimpleNodeParams args@SimpleNodeArgs {..} systemStart = do
         , ..
         }
 
-getTransportParams :: SimpleNodeArgs -> NetworkConfig kademlia -> TransportParams
-getTransportParams args networkConfig = TransportParams { tpTcpAddr = tcpAddr }
-  where
-    tcpAddr = case ncTopology networkConfig of
-        TopologyBehindNAT{} -> TCP.Unaddressable
-        _ -> let (bindHost, bindPort) = bindAddress args
-                 (externalHost, externalPort) = externalAddress args
-                 tcpHost = BS8.unpack bindHost
-                 tcpPort = show bindPort
-                 tcpMkExternal = const (BS8.unpack externalHost, show externalPort)
-             in  TCP.Addressable $ TCP.TCPAddrInfo tcpHost tcpPort tcpMkExternal
+data NetworkTransportMisconfiguration =
+
+      -- | A bind address was not given.
+      MissingBindAddress
+
+      -- | An external address was not given.
+    | MissingExternalAddress
+
+      -- | An address was given when one was not expected (behind NAT).
+    | UnnecessaryAddress
+
+instance Show NetworkTransportMisconfiguration where
+    show MissingBindAddress     = "No network bind address given. Use the --listen option."
+    show MissingExternalAddress = "No external network address given. Use the --address option."
+    show UnnecessaryAddress     = "Network address given when none was expected. Remove the --listen and --address options."
+
+instance Exception NetworkTransportMisconfiguration
+
+getTransportParams :: ( Mockable Throw m ) => CommonNodeArgs -> NetworkConfig kademlia -> m TransportParams
+getTransportParams args networkConfig = case ncTopology networkConfig of
+    -- Behind-NAT topology claims no address for the transport, and also
+    -- throws an exception if the --listen parameter is given, to avoid
+    -- confusion: if a user gives a --listen parameter then they probably
+    -- think the program will bind a socket.
+    TopologyBehindNAT{} -> do
+        _ <- whenJust (bindAddress args) (const (throw UnnecessaryAddress))
+        _ <- whenJust (externalAddress args) (const (throw UnnecessaryAddress))
+        return $ TransportParams { tpTcpAddr = TCP.Unaddressable }
+    _ -> do
+        (bindHost, bindPort) <- maybe (throw MissingBindAddress) return (bindAddress args)
+        (externalHost, externalPort) <- maybe (throw MissingExternalAddress) return (externalAddress args)
+        let tcpHost = BS8.unpack bindHost
+            tcpPort = show bindPort
+            tcpMkExternal = const (BS8.unpack externalHost, show externalPort)
+        return $ TransportParams { tpTcpAddr = TCP.Addressable (TCP.TCPAddrInfo tcpHost tcpPort tcpMkExternal) }

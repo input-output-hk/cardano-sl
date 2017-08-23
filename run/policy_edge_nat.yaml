@@ -5,13 +5,13 @@ enqueue:
   requestBlockHeaders:
     - all:
         nodeType: 'relay'
-        maxAhead: 0
+        maxAhead: 1
         precedence: 'high'
 
   requestBlocks:
     - one:
         nodeTypes: ['relay']
-        maxAhead: 1
+        maxAhead: 2
         precedence: 'high'
 
   mpc:
@@ -22,7 +22,7 @@ enqueue:
     send:
       - all:
           nodeType: 'relay'
-          maxAhead: 1
+          maxAhead: 2
           precedence: 'low'
     forward: []
 

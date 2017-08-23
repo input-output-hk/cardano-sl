@@ -5,11 +5,16 @@
 *                               @gromakovsky
 
 # Order is important; the last matching pattern takes the most precedence.
-# When someone opens a pull request that only modifies .purs files, only
-# @akegalj will be requested for a review. Same for all other entries below.
 
 *.purs                          @akegalj
 daedalus/                       @akegalj
+
+# Explorer
+explorer/                             @akegaljj
+explorer/frontend/                    @sectore
+explorer/src/                         @ksaric
+explorer/src/Pos/Explorer/Socket/     @martoon
+explorer/test/                        @ksaric
 
 # CI, Nix
 *.nix                           @domenkozar
@@ -55,3 +60,5 @@ scripts/bench                   @kantp @avieth
 wallet/src                      @martoon @flyingleafe @akegalj
 wallet/purescript               @akegalj
 wallet/web-api-swagger          @martoon
+
+genesis-info/                   @georgeee

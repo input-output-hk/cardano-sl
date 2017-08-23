@@ -44,7 +44,6 @@ library
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
-                        Pos.CLI
                         Pos.Context
                         Pos.CompileConfig
                         Pos.Communication
@@ -98,10 +97,8 @@ library
                         Pos.Client.Txp.History
                         Pos.Client.Txp.Util
 
-                        Pos.Client.CLI.NodeOptions
-                        Pos.Client.CLI.Params
-                        Pos.Client.CLI.Secrets
-                        Pos.Client.CLI.Util
+                        -- Client CLI
+                        Pos.Client.CLI
 
                         -- Txp
                         Pos.Txp
@@ -213,6 +210,13 @@ library
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
                         Pos.Block.Worker
+
+                        -- Client
+                        Pos.Client.CLI.NodeOptions
+                        Pos.Client.CLI.Options
+                        Pos.Client.CLI.Params
+                        Pos.Client.CLI.Secrets
+                        Pos.Client.CLI.Util
 
                         -- Compile config
                         Pos.CompileConfig.Parser
@@ -361,7 +365,6 @@ library
                       , focus
                       , formatting
                       , generic-arbitrary
-                      , gitrev
                       , hashable
                       , http-client
                       , http-client-tls
@@ -425,6 +428,8 @@ library
 
   if !os(windows)
     build-depends:      unix
+                     -- See: https://github.com/input-output-hk/stack2nix/issues/56
+                     ,  systemd
 
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -570,6 +575,7 @@ test-suite cardano-test
                        Test.Pos.Explorer.Identity.BinarySpec
                        Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
+                       Test.Pos.Slotting.TypesSpec
                        Test.Pos.Ssc.GodTossing.ComputeSharesSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
@@ -636,6 +642,7 @@ test-suite cardano-test
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
+                     , text
                      , text-format
                      , time-units
                      , transformers-base
@@ -679,6 +686,9 @@ test-suite cardano-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(with-explorer)
+    cpp-options: -DWITH_EXPLORER
 
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench

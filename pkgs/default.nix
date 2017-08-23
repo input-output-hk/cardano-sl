@@ -1899,7 +1899,7 @@ self: {
           description = "Cardano SL - update";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet = callPackage ({ aeson, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, containers, cpphs, data-default, directory, dlist, ether, exceptions, filepath, formatting, lens, log-warper, mkDerivation, mtl, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, purescript-bridge, random, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, stm-containers, string-qq, swagger2, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, wai, wai-websockets, websockets }:
+      cardano-sl-wallet = callPackage ({ aeson, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, containers, cpphs, data-default, directory, dlist, ether, exceptions, filepath, formatting, lens, log-warper, mkDerivation, mtl, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, purescript-bridge, random, semver, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, stm-containers, string-qq, swagger2, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, wai, wai-websockets, websockets }:
       mkDerivation {
           pname = "cardano-sl-wallet";
           version = "0.5.1";
@@ -1938,6 +1938,7 @@ self: {
             optparse-applicative
             parsec
             random
+            semver
             serokell-util
             servant
             servant-multipart
@@ -5647,6 +5648,23 @@ self: {
           homepage = "http://github.com/ekmett/semigroups/";
           description = "Anything that associates";
           license = stdenv.lib.licenses.bsd3;
+        }) {};
+      semver = callPackage ({ attoparsec, base, deepseq, mkDerivation, stdenv, text }:
+      mkDerivation {
+          pname = "semver";
+          version = "0.3.3.1";
+          sha256 = "1cf8dcxq4s479f826drncqc4hd07hv330zsipkrn0vc30sbkdlrn";
+          libraryHaskellDepends = [
+            attoparsec
+            base
+            deepseq
+            text
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/brendanhay/semver";
+          description = "Representation, manipulation, and de/serialisation of Semantic Versions";
+          license = "unknown";
         }) {};
       serokell-util = callPackage ({ QuickCheck, acid-state, aeson, ansi-terminal, base, base16-bytestring, base64-bytestring, bytestring, clock, containers, deepseq, directory, exceptions, extra, filepath, formatting, hashable, lens, log-warper, mkDerivation, monad-control, mtl, optparse-applicative, parsec, quickcheck-instances, safecopy, scientific, semigroups, stdenv, stm, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector, yaml }:
       mkDerivation {

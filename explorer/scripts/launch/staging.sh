@@ -6,9 +6,9 @@ rm -rf run/* node-* *key* *.dump
 
 stack exec -- cardano-explorer \
     --system-start 1499246772 \
-    --log-config log-config.yaml \
-    --logs-prefix "logs/testnet" \
-    --db-path db-testnet \
+    --log-config log-config-prod.yaml \
+    --logs-prefix "logs/qanet" \
+    --db-path db-qanet \
     --kademlia-peer cardano-node-0.aws.iohkdev.io:3000 \
     --kademlia-peer cardano-node-1.aws.iohkdev.io:3000 \
     --kademlia-peer cardano-node-2.aws.iohkdev.io:3000 \

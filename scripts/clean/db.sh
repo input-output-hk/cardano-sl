@@ -9,7 +9,7 @@ set -o pipefail
 
 echo "Cleaning Cardano SL db..."
 
-rm -rf run/*
+# rm -rf run/*
 rm -rf wallet-db/
 rm -rf node-db/
 rm -rf db-qanet/

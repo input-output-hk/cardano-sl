@@ -45,8 +45,7 @@ import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
                                                   OutSpecs (..), PackingType, PeerData,
                                                   SendActions, VerInfo (..), allListeners,
                                                   bipPacking, hoistSendActions,
-                                                  makeEnqueueMsg, makeSendActions,
-                                                  withFailureCleanup)
+                                                  makeEnqueueMsg, makeSendActions)
 import qualified Pos.Constants                   as Const
 import           Pos.Context                     (NodeContext (..))
 import           Pos.Core                        (HasCoreConstants)
@@ -219,9 +218,8 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
     node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo defaultNodeEnvironment $ \__node ->
-        NodeAction mkListeners' $ \__converse ->
-            let converse    = withFailureCleanup oq __converse
-                sendActions :: SendActions m
+        NodeAction mkListeners' $ \converse ->
+            let sendActions :: SendActions m
                 sendActions = makeSendActions ourVerInfo (oqEnqueue oq) converse
             in  bracket (acquire converse __node) release (const (action ourVerInfo sendActions))
   where

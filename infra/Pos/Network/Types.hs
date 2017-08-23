@@ -1,5 +1,5 @@
+{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE CPP #-}
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX
@@ -63,7 +63,7 @@ import           System.Wlog.CanLog                    (WithLogger)
 import           Universum                             hiding (show)
 
 #if !defined(POSIX)
-import qualified Pos.Network.Windows.DnsDomains as Win
+import qualified Pos.Network.Windows.DnsDomains        as Win
 #endif
 
 {-------------------------------------------------------------------------------
@@ -290,7 +290,7 @@ topologyMaxBucketSize topology bucket =
       BucketSubscriptionListener ->
         case topologySubscribers topology of
           Just (_subscriberType, maxBucketSize) -> maxBucketSize
-          Nothing -> OQ.BucketSizeMax 0 -- subscription not allowed
+          Nothing                               -> OQ.BucketSizeMax 0 -- subscription not allowed
       _otherBucket ->
         OQ.BucketSizeUnlimited
 

@@ -46,7 +46,8 @@ import           Pos.DB.Rocks           (dbDeleteDefault, dbGetDefault,
                                          dbIterSourceDefault, dbPutDefault,
                                          dbWriteBatchDefault)
 import           Pos.Delegation.Class   (DelegationVar)
-import           Pos.KnownPeers         (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.KnownPeers         (HasOutboundQ (..), MonadFormatPeers (..),
+                                         MonadKnownPeers (..))
 import           Pos.Reporting          (HasReportingContext (..))
 import           Pos.Shutdown           (HasShutdownContext (..))
 import           Pos.Slotting.Class     (MonadSlots (..))
@@ -69,7 +70,6 @@ import           Pos.Util.TimeWarp      (CanJsonLog (..))
 import           Pos.Util.UserSecret    (HasUserSecret (..))
 import           Pos.Util.Util          (postfixLFields)
 import           Pos.WorkMode.Class     (MinWorkMode, TxpExtra_TMP, WorkMode)
-
 
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -104,6 +104,10 @@ instance {-# OVERLAPPABLE #-}
     HasLens tag (RealModeContext ssc) r
   where
     lensOf = rmcNodeContext_L . lensOf @tag
+
+instance HasOutboundQ (RealMode ssc) where
+    type Pack (RealMode ssc) = EnqueuedConversation (RealMode ssc)
+    getOutboundQ = rmcOutboundQ <$> ask
 
 instance HasSscContext ssc (RealModeContext ssc) where
     sscContext = rmcNodeContext_L . sscContext

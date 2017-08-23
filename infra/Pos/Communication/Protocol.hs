@@ -25,7 +25,6 @@ module Pos.Communication.Protocol
        , makeEnqueueMsg
        , checkingInSpecs
        , constantListeners
-       , withFailureCleanup
        ) where
 
 import qualified Data.HashMap.Strict              as HM
@@ -34,7 +33,6 @@ import qualified Data.Text.Buildable              as B
 import           Formatting                       (bprint, build, sformat, (%))
 import           Mockable                         (Delay, Fork, Mockable, Mockables,
                                                    SharedAtomic, Throw, throw)
-import qualified Network.Broadcast.OutboundQueue  as OQ
 import qualified Node                             as N
 import           Node.Message.Class               (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text               (listJson)
@@ -187,16 +185,6 @@ makeSendActions ourVerInfo enqueue converse = SendActions
           alternativeConversations nodeId ourVerInfo pVI (mkConv pVI)
     , enqueueMsg = makeEnqueueMsg ourVerInfo enqueue
     }
-
--- | Wrap a `Converse` action in a new one which clears the failure state associated to the
--- `NodeId` we are conversing with.
-withFailureCleanup :: MonadIO m
-                   => OQ.OutboundQ pack NodeId buk
-                   -> Converse PackingType PeerData m
-                   -> Converse PackingType PeerData m
-withFailureCleanup oq (Converse conv) = Converse $ \nodeId pack -> do
-    OQ.clearFailureOf oq nodeId
-    conv nodeId pack
 
 data SpecError
     = OutSpecNotReported HandlerSpecs (MessageCode, HandlerSpec)

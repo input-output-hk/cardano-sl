@@ -27,7 +27,7 @@ import           Pos.Wallet.Web.Account         (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..),
                                                  CAddress (..),
                                                  CPaperVendWalletRedeem (..), CTx (..),
-                                                 CTxs (..), CWalletRedeem (..))
+                                                 CWalletRedeem (..))
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
@@ -106,7 +106,4 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
         th <$ submitAndSaveNewPtx enqueueMsg ptx
 
     -- add redemption transaction to the history of new wallet
-    ctxs <- addHistoryTx (aiWId accId) th
-    ctsIncoming ctxs `whenNothing` throwM noIncomingTx
-  where
-    noIncomingTx = InternalError "Can't report incoming transaction"
+    addHistoryTx (aiWId accId) th

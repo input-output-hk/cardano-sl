@@ -12,7 +12,6 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CProfile (..)
       , CPwHash
       , CTx (..)
-      , CTxs (..)
       , CTxId (..)
       , CTxMeta (..)
       , CTExMeta (..)
@@ -277,23 +276,10 @@ data CTx = CTx
     , ctMeta          :: CTxMeta
     , ctInputAddrs    :: [CId Addr]
     , ctOutputAddrs   :: [CId Addr]
+    , ctIsLocal       :: Bool
     , ctIsOutgoing    :: Bool
     , ctCondition     :: CPtxCondition
     } deriving (Show, Generic, Typeable)
-
--- | In case of A -> A tranaction, we have to return two similar 'CTx's:
--- one with 'ctIsOutgoing' set to /true/, one with the flag set to /false/.
--- This type gathers these two together.
-data CTxs = CTxs
-    { ctsOutgoing :: Maybe CTx
-    , ctsIncoming :: Maybe CTx
-    } deriving (Show)
-
-type instance Element CTxs = CTx
-
-instance Container CTxs where
-    null = null . toList
-    toList = toList . ctsOutgoing <> toList . ctsIncoming
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

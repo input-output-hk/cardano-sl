@@ -15,12 +15,12 @@ module Pos.Wallet.Web.Pending.Types
 import           Universum
 
 import           Control.Lens                     (makeLenses)
-import           Pos.Core.Types                   (SlotId)
+import           Pos.Core.Types                   (ChainDifficulty, SlotId)
 import           Pos.Txp.Core.Types               (TxAux, TxId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
 -- | Required information about block where given pending transaction is sited
-type PtxBlockInfo = SlotId
+type PtxBlockInfo = ChainDifficulty
 
 -- | Current state of pending transaction.
 --
@@ -34,6 +34,12 @@ type PtxBlockInfo = SlotId
 --
 -- Resubmitter also checks whether transaction is deep enough in blockchain to
 -- be moved to 'PtxPersisted' state.
+-- Transactions which are marked as persistent can lose their status if block
+-- which contains this transactions gets rollbacked. However, if at some moment
+-- transaction becomes just "not deep enough" due to rollbacks, it doesn't cause
+-- the transaction to become 'PtxInNewestBlocks' again, because such small
+-- "tides" of chain difficulty likely occur and we do not want to confuse users
+-- switching status back and forth.
 --
 -- If transaction is ever noticed to be impossible to apply to current utxo,
 -- it is assigned 'PtxWontApply' state and is stopped being tracked further

@@ -108,7 +108,7 @@ onApplyTracking blunds = setLogger $ do
              (undoTx undo)
              (repeat $ getBlockHeader blk)
     gbDiff = Just . view difficultyL
-    ptxBlkInfo = either (const Nothing) (Just . view headerSlotL)
+    ptxBlkInfo = either (const Nothing) (Just . view difficultyL)
 
 -- Perform this action under block lock.
 onRollbackTracking

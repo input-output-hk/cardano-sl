@@ -20,13 +20,16 @@ import           Pos.Client.Txp.Addresses     (MonadAddresses)
 import           Pos.Communication            (submitAndSaveTx)
 import           Pos.Communication.Protocol   (SendActions (..))
 import           Pos.Constants                (pendingTxResubmitionPeriod)
-import           Pos.Core                     (FlatSlotId, SlotId (..), getBlockCount)
+import           Pos.Core                     (ChainDifficulty (..), FlatSlotId,
+                                               SlotId (..), difficultyL)
 import           Pos.Core.Context             (HasCoreConstants)
 import           Pos.Core.Slotting            (flattenSlotId)
 import           Pos.Crypto                   (WithHash (..))
+import           Pos.DB.DB                    (getTipHeader)
 import           Pos.Slotting                 (getLastKnownSlotDuration, onNewSlot)
 import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
                                                topsortTxs)
+import           Pos.Wallet.SscType           (WalletSscType)
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
 import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
@@ -49,18 +52,19 @@ processPtxFailure PendingTx{..} e =
         logInfo $ sformat ("Pending transaction "%build%" was canceled")
                   _ptxTxId
 
-processPtxInNewestBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
-processPtxInNewestBlocks curSlot PendingTx{..} = do
+processPtxInNewestBlocks :: MonadPendings m => PendingTx -> m ()
+processPtxInNewestBlocks PendingTx{..} = do
     mdepth <- getWalletAssuredDepth _ptxWallet
-    if | PtxInNewestBlocks slotId <- _ptxCond,
+    tipDiff <- view difficultyL <$> getTipHeader @WalletSscType
+    if | PtxInNewestBlocks ptxDiff <- _ptxCond,
          Just depth <- mdepth,
-         longAgo depth slotId -> do
+         longAgo depth ptxDiff tipDiff -> do
              void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond PtxPersisted
              logInfo $ sformat ("Transaction "%build%" got persistent") _ptxTxId
        | otherwise -> pass
   where
-     longAgo depth (flattenSlotId -> ptxSlot) =
-         ptxSlot + getBlockCount depth < flattenSlotId curSlot
+     longAgo depth (ChainDifficulty ptxDiff) (ChainDifficulty tipDiff) =
+         ptxDiff + depth <= tipDiff
 
 -- | 'True' for slots which are equal to
 -- @ptxCreationSlot + initialDelay + furtherDelay * k@ for some integer @k@
@@ -68,7 +72,7 @@ whetherCheckPtxOnSlot :: HasCoreConstants => SlotId -> PendingTx -> Bool
 whetherCheckPtxOnSlot (flattenSlotId -> curSlot) ptx = do
     let ptxSlot = flattenSlotId (_ptxCreationSlot ptx)
         checkStartSlot = ptxSlot + initialDelay
-    and [ curSlot > checkStartSlot
+    and [ curSlot >= checkStartSlot
         , ((curSlot - checkStartSlot) `mod` furtherDelay) == 0
         ]
   where
@@ -135,9 +139,9 @@ processPtxsToResubmit sendActions ptxs = do
 -- if needed.
 processPtxs
     :: MonadPendings m
-    => SendActions m -> SlotId -> [PendingTx] -> m ()
-processPtxs sendActions curSlot ptxs = do
-    mapM_ (processPtxInNewestBlocks curSlot) ptxs
+    => SendActions m -> [PendingTx] -> m ()
+processPtxs sendActions ptxs = do
+    mapM_ processPtxInNewestBlocks ptxs
     processPtxsToResubmit sendActions ptxs
 
 processPtxsOnSlot
@@ -151,7 +155,7 @@ processPtxsOnSlot sendActions curSlot = do
             filter (whetherCheckPtxOnSlot curSlot) $
             ptxs
 
-    processPtxs sendActions curSlot selectedPtxs
+    processPtxs sendActions selectedPtxs
   where
     wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 

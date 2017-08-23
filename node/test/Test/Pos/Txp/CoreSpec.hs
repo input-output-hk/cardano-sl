@@ -21,8 +21,7 @@ import           Test.QuickCheck.Gen   (Gen)
 import           Pos.Arbitrary.Txp     ()
 import           Pos.Crypto            (hash, whData, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Txp.Core          (Tx (..), TxIn (..), TxOut (..), UtxoTxIn (..),
-                                        UtxoTxIn (..), mkTx, topsortTxs)
+import           Pos.Txp.Core          (Tx (..), TxIn (..), TxOut (..), mkTx, topsortTxs)
 import           Pos.Types             (mkCoin)
 import           Pos.Util              (sublistN, _neHead)
 
@@ -114,7 +113,7 @@ txAcyclicGen isBamboo size = do
             max 1 . min (bool (min 3 $ length unusedUtxo) 1 isBamboo) <$> arbitrary
         chosenUtxo <- NE.fromList <$> sublistN depsN unusedUtxo
         -- grab some inputs
-        let inputs = map (\(h,i) -> TxInUtxo $ UtxoTxIn (hash h) (fromIntegral i)) chosenUtxo
+        let inputs = map (\(h,i) -> TxInUtxo (hash h) (fromIntegral i)) chosenUtxo
         (Positive outputsN) <- resize some' arbitrary
         -- gen some outputs
         outputs <- NE.fromList <$> replicateM outputsN (TxOut <$> arbitrary <*> arbitrary)
@@ -134,7 +133,7 @@ txGen :: Int -> Gen Tx
 txGen size = do
     (Positive inputsN) <- resize size arbitrary
     (Positive outputsN) <- resize size arbitrary
-    inputs <- NE.fromList <$> (replicateM inputsN $ (\h -> TxInUtxo $ UtxoTxIn h 0) <$> arbitrary)
+    inputs <- NE.fromList <$> (replicateM inputsN $ (\h -> TxInUtxo h 0) <$> arbitrary)
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
     case mkTx inputs outputs (mkAttributes ()) of

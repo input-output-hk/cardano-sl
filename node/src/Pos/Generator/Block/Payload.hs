@@ -40,7 +40,7 @@ import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenPar
 import           Pos.Genesis                (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState                 as DB
 import           Pos.Slotting.Class         (MonadSlots (getCurrentSlotBlocking))
-import           Pos.Txp.Core               (TxAux (..), TxIn (..), UtxoTxIn (..), TxInWitness (..),
+import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
                                              TxOut (..), TxOutAux (..), TxSigData (..))
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
@@ -262,7 +262,7 @@ genTxPayload = do
                 Utxo.applyTxToUtxo (WithHash tx txId) (taDistribution txAux)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
                 let outsAsIns =
-                        map (TxInUtxo . UtxoTxIn txId) [0..(fromIntegral $ length txOutAuxs)-1]
+                        map (TxInUtxo txId) [0..(fromIntegral $ length txOutAuxs)-1]
                 gtdUtxoKeys %= (V.++) (V.fromList outsAsIns)
 
 

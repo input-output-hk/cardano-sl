@@ -20,20 +20,10 @@ import qualified Pos.Txp.Core.Types as T
 -- Core
 ----------------------------------------------------------------------------
 
-instance Bi T.UtxoTxIn where
-    encode utxIn =
-        encodeListLen 2 <>
-        encode (T.txInHash utxIn) <>
-        encode (T.txInIndex utxIn)
-    decode = do
-        enforceSize "UtxoTxIn" 2
-        T.UtxoTxIn <$> decode <*> decode
-
 instance Bi T.TxIn where
-    encode (T.TxInUtxo utxoTxIn) =
-        encodeListLen 2 <>
-        encode (0 :: Word8) <>
-        encodeCborDataItem (serialize' utxoTxIn)
+    encode (T.TxInUtxo hsh idx) =
+        let dataItem = serialize' (hsh, idx)
+        in encodeListLen 2 <> encode (0 :: Word8) <> encodeCborDataItem dataItem
     encode (T.TxInUnknown tag bs) =
         encodeListLen 2 <>
         encode tag <>
@@ -42,8 +32,8 @@ instance Bi T.TxIn where
         enforceSize "TxIn" 2
         tag <- decode @Word8
         case tag of
-            0 -> T.TxInUtxo        <$> decodeCborDataItem
-            _ -> T.TxInUnknown tag <$> (decodeCborDataItemTag *> decode)
+            0 -> uncurry T.TxInUtxo <$> decodeCborDataItem
+            _ -> T.TxInUnknown tag  <$> (decodeCborDataItemTag *> decode)
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [

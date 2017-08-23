@@ -34,6 +34,7 @@ module Pos.Util.Config
        -- ** Internal functions
        , cslConfigFilePath
        , getCslConfig
+       , configName
        ) where
 
 import           Control.Lens               (Getting, _Left)
@@ -49,7 +50,7 @@ import qualified Language.Haskell.TH.Syntax as TH
 import           System.IO.Unsafe           (unsafePerformIO)
 #endif
 
-import           Pos.Util.Config.Get        (getCslConfig)
+import           Pos.Util.Config.Get        (configName, getCslConfig)
 import           Pos.Util.Config.Path       (cslConfigFilePath)
 import           Pos.Util.HVect             (HVect)
 import qualified Pos.Util.HVect             as HVect

@@ -33,8 +33,8 @@ import           Pos.Txp.Core.Types                (Tx (..), TxAux (..),
                                                     TxDistribution (..), TxIn (..),
                                                     TxInWitness (..), TxOut (..),
                                                     TxOutAux (..), TxPayload (..),
-                                                    TxProof (..), TxSigData (..),
-                                                    UtxoTxIn (..), mkTx, mkTxPayload)
+                                                    TxProof (..), TxSigData (..), mkTx,
+                                                    mkTxPayload)
 import           Pos.Util.Arbitrary                (makeSmall)
 
 ----------------------------------------------------------------------------
@@ -70,13 +70,9 @@ instance Arbitrary TxDistribution where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary UtxoTxIn where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
 instance Arbitrary TxIn where
     arbitrary = oneof [
-        TxInUtxo <$> arbitrary,
+        TxInUtxo <$> arbitrary <*> arbitrary,
         TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary]
     shrink = genericShrink
 
@@ -127,7 +123,7 @@ buildProperTx inputList (inCoin, outCoin) =
                     ((makeTxOutput fromSk inC) <| txOut)
                     (mkAttributes ())
         in ( txToBeSpent
-           , TxInUtxo $ UtxoTxIn (hash txToBeSpent) 0
+           , TxInUtxo (hash txToBeSpent) 0
            , fromSk
            , makeTxOutput toSk outC )
     -- why is it called txList? I've no idea what's going on here (@neongreen)

@@ -60,3 +60,5 @@ scripts/bench                   @kantp @avieth
 wallet/src                      @martoon @flyingleafe @akegalj
 wallet/purescript               @akegalj
 wallet/web-api-swagger          @martoon
+
+genesis-info/                   @georgeee

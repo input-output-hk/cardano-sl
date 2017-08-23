@@ -51,7 +51,7 @@ import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
                                                   GtPayload (..), GtProof (..),
                                                   Opening (..), VssCertificate (..))
-import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), TxIn (..), UtxoTxIn (..),
+import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), TxIn (..),
                                                   TxInWitness (..), TxOut (..),
                                                   TxOutAux (..), TxPayload (..),
                                                   TxProof (..))
@@ -128,7 +128,6 @@ deriveSafeCopySimple 0 'base ''TxInWitness
 -- TODO: in many cases TxDistribution would just be lots of empty lists, so
 -- its SafeCopy instance could be optimised
 deriveSafeCopySimple 0 'base ''TxDistribution
-deriveSafeCopySimple 0 'base ''UtxoTxIn
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
 deriveSafeCopySimple 0 'base ''TxOutAux

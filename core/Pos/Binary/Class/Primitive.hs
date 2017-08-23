@@ -6,6 +6,7 @@ module Pos.Binary.Class.Primitive
        , serialize'
        , deserialize
        , deserialize'
+       , CBOR.Write.toStrictByteString
        , putCopyBi
        , getCopyBi
        , Raw(..)

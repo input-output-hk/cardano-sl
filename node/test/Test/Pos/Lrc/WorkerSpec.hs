@@ -38,7 +38,7 @@ import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutAux (..),
-                                            TxOutDistribution, UtxoTxIn (..), mkTxPayload)
+                                            TxOutDistribution, mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys)
 
@@ -113,7 +113,7 @@ genTestParams = do
     genesisContextSimple invAddrSpendingData addrDistr = do
         let balances = concatAddrDistrs addrDistr
         let utxoEntry (addr, coin) =
-                ( TxInUtxo $ UtxoTxIn (unsafeHash addr) 0
+                ( TxInUtxo (unsafeHash addr) 0
                 , TxOutAux (TxOut addr coin)
                            (identityDistr invAddrSpendingData addr coin)
                 )

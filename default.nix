@@ -36,6 +36,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
         "-f-dev-mode"
         "--ghc-option=-optl-lm"
       ];
+      testTarget = "--test-option='--format=progress'";
       # waiting on load-command size fix in dyld
       doCheck = ! pkgs.stdenv.isDarwin;
     });

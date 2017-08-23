@@ -26,6 +26,8 @@ module Pos.Binary.Class.Primitive
        , decodeCborDataItemTag
        ) where
 
+import qualified Codec.CBOR.Decoding           as D
+import qualified Codec.CBOR.Encoding           as E
 import qualified Codec.CBOR.Read               as CBOR.Read
 import qualified Codec.CBOR.Write              as CBOR.Write
 import           Control.Exception             (throw)

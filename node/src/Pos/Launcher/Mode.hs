@@ -25,6 +25,7 @@ module Pos.Launcher.Mode
 
 import           Universum
 
+import           Control.Exception     (throwIO)
 import           Control.Lens          (makeLensesWith)
 import qualified Control.Monad.Reader  as Mtl
 import           Ether.Internal        (HasLens (..))
@@ -59,23 +60,31 @@ import           Pos.Util              (Some (..))
 import           Pos.Util.Util         (postfixLFields)
 
 
+data FutureError = FutureAlreadyFilled
+    deriving Show
 
+instance Exception FutureError
 
 -- | 'newInitFuture' creates a thunk and a procedure to fill it. This can be
 -- used to create a data structure and initialize it gradually while doing some
 -- IO (e.g. accessing the database).
 -- There are two contracts the caller must obey:
 -- * the thunk isn't forced until the procedure to fill it was called.
---   Violation of this contract will lead to an error:
---     "thread blocked indefinitely in an MVar operation".
--- * the procedure to fill the thunk is called at most one time or multiple
---   times but with equivalent values.  Violation of this contract will lead
---   to non-deterministic choice of which value will be used.
+--   Violation of this contract will either block the thread forever or
+--   trigger the error "thread blocked indefinitely in an MVar operation".
+-- * the procedure to fill the thunk is called at most once.
+--   Violation of this contract will throw `FutureAlreadyFilled`.
 newInitFuture :: (MonadIO m, MonadIO m') => m (a, a -> m' ())
 newInitFuture = do
-    v <- newEmptyMVar
-    r <- liftIO $ unsafeInterleaveIO (readMVar v)
-    pure (r, putMVar v)
+    mvar <- newEmptyMVar
+    thunk <- liftIO $ unsafeInterleaveIO (readMVar mvar)
+    let setter value = assertSingleAssignment =<< tryPutMVar mvar value
+    pure (thunk, setter)
+  where
+    assertSingleAssignment :: MonadIO m => Bool -> m ()
+    assertSingleAssignment = \case
+        True -> pure ()
+        False -> liftIO $ throwIO FutureAlreadyFilled
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.

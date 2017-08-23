@@ -12,7 +12,7 @@ import           Universum
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.SemVer                as V
 
-import           Pos.Crypto                 (EncryptedSecretKey)
+import           Pos.Crypto                 (PassPhrase, SecretKey, removeEncPassphrase)
 import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.Account     (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
@@ -28,16 +28,19 @@ newtype WalletMetaBackup = WalletMetaBackup CWalletMeta
 newtype AccountMetaBackup = AccountMetaBackup CAccountMeta
 
 data WalletBackup = WalletBackup
-    { wbSecretKey :: !EncryptedSecretKey
+    { wbSecretKey :: !SecretKey
     , wbMeta      :: !WalletMetaBackup
     , wbAccounts  :: !(HashMap Int AccountMetaBackup)
     }
 
 data TotalBackup = TotalBackup WalletBackup
 
-getWalletBackup :: AccountMode ctx m => CId Wal -> m WalletBackup
-getWalletBackup wId = do
-    sk <- getSKById wId
+getWalletBackup :: AccountMode ctx m => PassPhrase -> CId Wal -> m WalletBackup
+getWalletBackup passphrase wId = do
+    encSK <- getSKById wId
+    let msk = removeEncPassphrase passphrase encSK
+    sk <- maybeThrow (RequestError "Passphrase doesn't match") msk
+
     meta <- maybeThrow (InternalError "Wallet have no meta") =<<
             getWalletMeta wId
     accountIds <- getWalletAccountIds wId

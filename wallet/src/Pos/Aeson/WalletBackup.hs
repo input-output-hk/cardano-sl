@@ -15,7 +15,7 @@ import           Formatting                 (build, formatToString, (%))
 import qualified Serokell.Util.Base64       as B64
 
 import qualified Pos.Binary                 as Bi
-import           Pos.Crypto                 (EncryptedSecretKey (..))
+import           Pos.Crypto                 (SecretKey (..))
 import           Pos.Util.Util              (eitherToFail)
 import           Pos.Wallet.Web.Backup      (AccountMetaBackup (..), TotalBackup (..),
                                              WalletBackup (..), WalletMetaBackup (..),
@@ -83,11 +83,10 @@ instance FromJSON WalletBackup where
                 return $ HM.insert idx meta accMap
 
         prvKey <- decodeBase64 =<< o .: "walletSecretKey"
-        passPhraseHash <- decodeBase64 =<< o .: "passwordHash"
         walletMeta <- o .: "walletMeta"
         walletAccounts <- withArray "WalletBackup.accounts" collectAccMap =<<
                           o .: "accounts"
-        let encKey = EncryptedSecretKey prvKey passPhraseHash
+        let encKey = SecretKey prvKey
         return $ WalletBackup encKey walletMeta walletAccounts
 
 instance FromJSON TotalBackup where
@@ -123,12 +122,11 @@ instance ToJSON IndexedAccountMeta where
 instance ToJSON WalletBackup where
     toJSON (WalletBackup skey wMeta wAccounts) = object
         [ "walletSecretKey" .= B64.encode (Bi.serialize' prvKey)
-        , "passwordHash" .= B64.encode (Bi.serialize' passPhraseHash)
         , "walletMeta" .= wMeta
         , "accounts" .= encodeAccMap wAccounts
         ]
       where
-        EncryptedSecretKey prvKey passPhraseHash = skey
+        SecretKey prvKey = skey
         encodeAccMap = toJSON . map (uncurry IndexedAccountMeta) . HM.toList
 
 instance ToJSON TotalBackup where

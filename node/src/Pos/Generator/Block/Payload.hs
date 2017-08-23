@@ -128,10 +128,7 @@ genTxPayload = do
     genTransaction :: StateT GenTxData (BlockGenRandMode g m) ()
     genTransaction = do
         epoch <- siEpoch <$> lift (lift getCurrentSlotBlocking)
-        bootEra <- lift . lift $ gsIsBootstrapEra epoch
         genWStakeholders <- view (lensOf @GenesisWStakeholders)
-        let dustThd :: Integral a => a
-            dustThd = fromIntegral $ unsafeGetCoin $ bootDustThreshold genWStakeholders
         -- Just an arbitrary not-so-big number of attempts to fit predicates
         -- to avoid infinite loops
         let randomAttempts :: Int
@@ -193,14 +190,8 @@ genTxPayload = do
 
         let generateOutputs inputsSum (TxFee fee) = do
                 let outputsSum = inputsSum - coinToInteger fee
-                -- this is max number of outputs such that none of
-                -- them is less than dust treshold
-                let ceilBoot = outputsSum `div` dustThd
                 outputsMaxN <-
-                    bool identity (min ceilBoot) bootEra .
-                    fromIntegral .
-                    max 1 <$>
-                    lift (view tgpMaxOutputs)
+                    fromIntegral . max 1 <$> lift (view tgpMaxOutputs)
                 (outputsN :: Int) <-
                     fromIntegral <$> getRandomR (1, min outputsMaxN outputsSum)
                 outputsIxs <-

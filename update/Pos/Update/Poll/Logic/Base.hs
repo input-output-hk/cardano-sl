@@ -51,8 +51,8 @@ import           Pos.Core                (BlockVersion (..), Coin, EpochIndex,
                                           unsafeSubCoin)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), SlottingData,
-                                          addEpochSlottingData,
-                                          getCurrentEpochSlottingData, getNextEpochIndex)
+                                          addEpochSlottingData, getCurrentEpochIndex,
+                                          getNextEpochSlottingData)
 import           Pos.Update.Core         (BlockVersionData (..),
                                           BlockVersionModifier (..), UpId,
                                           UpdateProposal (..), UpdateVote (..),
@@ -66,6 +66,7 @@ import           Pos.Update.Poll.Types   (BlockVersionState (..),
                                           UpsExtra (..), bvsIsConfirmed, bvsScriptVersion,
                                           cpsBlockVersion)
 import           Pos.Util.Util           (leftToPanic)
+
 
 
 ----------------------------------------------------------------------------
@@ -223,17 +224,16 @@ updateSlottingData epochIndex = do
 
     slottingData         <- getSlottingData
 
-    --let currentEpochIndex = getCurrentEpochIndex slottingData
-    let nextEpochIndex    = getNextEpochIndex slottingData
-    let currentEpochSD    = getCurrentEpochSlottingData slottingData
+    let currentEpochIndex = getCurrentEpochIndex slottingData
+    let nextEpochSD       = getNextEpochSlottingData slottingData
 
-    if | nextEpochIndex + 1 == epochIndex ->
+    if | currentEpochIndex + 1 == epochIndex ->
           -- We don't need an epochIndex since it's always being added at the end.
-          updateSlottingDataDo slottingData currentEpochSD
+          updateSlottingDataDo slottingData nextEpochSD
        -- This can happen if there was rollback of genesis block.
-       | nextEpochIndex == epochIndex -> pass
+       | currentEpochIndex == epochIndex -> pass
        | otherwise ->
-           throwError $ PollInternalError $ sformat errFmt nextEpochIndex epochIndex
+           throwError $ PollInternalError $ sformat errFmt currentEpochIndex epochIndex
   where
     -- | Here we calculate the new @EpochSlottingData@ and add it in the
     -- @MonadPoll@ memory @SlottingData@.

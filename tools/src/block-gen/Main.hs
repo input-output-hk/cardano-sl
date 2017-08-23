@@ -15,13 +15,13 @@ import           Pos.AllSecrets              (AllSecrets (..), mkInvAddrSpending
                                               mkInvSecretsMap)
 import           Pos.Core                    (AddrSpendingData (..), genesisDevSecretKeys,
                                               giveStaticConsts, isDevelopment,
-                                              makePubKeyAddress)
+                                              makePubKeyAddress, mkCoin, unsafeMulCoin)
 import           Pos.Crypto                  (SecretKey, toPublic)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (devGenesisContext, genesisContextProduction,
-                                              genesisDevFlatDistr, gtcUtxo,
-                                              gtcWStakeholders)
+import           Pos.Genesis                 (StakeDistribution (FlatStakes),
+                                              devGenesisContext, genesisContextProduction,
+                                              gtcUtxo, gtcWStakeholders)
 import           Pos.Txp.Core                (TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil                (GenesisUtxo (..), Utxo, _GenesisUtxo)
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
@@ -34,25 +34,24 @@ main :: IO ()
 main = flip catch catchEx $ giveStaticConsts $ do
     BlockGenOptions{..} <- getBlockGenOptions
     seed <- maybe randomIO pure bgoSeed
-    if isDevelopment then
-        putText $ "Generating in DEV mode with seed " <> show seed
-    else
-        putText $ "Generating in PROD mode with seed " <> show seed
+    let runMode = bool "PROD" "DEV" isDevelopment
+    putText $ "Generating in " <> runMode <> " mode with seed " <> show seed
 
     when bgoAppend $ checkExistence bgoPath
     invSecretsMap <- mkInvSecretsMap <$> case bgoNodes of
         Left bgoNodesN -> do
-            unless (bgoNodesN > 0) $
-                throwM NoOneSecrets
-            let secretKeys = take (fromIntegral bgoNodesN) genesisDevSecretKeys
-            pure secretKeys
+            unless (bgoNodesN > 0) $ throwM NoOneSecrets
+            pure $ take (fromIntegral bgoNodesN) genesisDevSecretKeys
         Right bgoSecretFiles -> do
-            when (null bgoSecretFiles) $
-                throwM NoOneSecrets
+            when (null bgoSecretFiles) $ throwM NoOneSecrets
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
+    let devStakeDistr =
+            let nodesN :: Integral n => n
+                nodesN = fromIntegral $ length invSecretsMap
+            in FlatStakes nodesN $ mkCoin 10000 `unsafeMulCoin` (nodesN :: Int)
     let npGenesisCtx
-            | isDevelopment = devGenesisContext genesisDevFlatDistr
+            | isDevelopment = devGenesisContext devStakeDistr
             | otherwise = genesisContextProduction
 
     let bootStakeholders = npGenesisCtx ^. gtcWStakeholders
@@ -61,8 +60,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
     -- to avoid error "Secret key of %hash% is required but isn't known"
     let genUtxo = npGenesisCtx ^. gtcUtxo &
                   _GenesisUtxo %~ filterSecretsUtxo (toList invSecretsMap)
-    when (M.null $ unGenesisUtxo genUtxo) $
-        throwM EmptyUtxo
+    when (M.null $ unGenesisUtxo genUtxo) $ throwM EmptyUtxo
 
     let pks = toPublic <$> toList invSecretsMap
     let addresses = map makePubKeyAddress pks

@@ -34,7 +34,7 @@ module Pos.Explorer.Web.ClientTypes
        , toTxEntry
        , toBlockSummary
        , toTxBrief
-       , toPosixTime
+       , timestampToPosix
        , convertTxOutputs
        , tiToTxEntry
        ) where
@@ -57,7 +57,7 @@ import qualified Pos.Binary                 as Bi
 import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
                                              mcdSlot)
 import           Pos.Block.Types            (Undo (..))
-import           Pos.Core                   (HasCoreConstants)
+import           Pos.Core                   (HasCoreConstants, timestampToPosix)
 import           Pos.Crypto                 (Hash, hash)
 import           Pos.DB.Block               (MonadBlockDB)
 import           Pos.DB.Class               (MonadDBRead)
@@ -151,9 +151,6 @@ data CBlockEntry = CBlockEntry
     , cbeFees       :: !CCoin
     } deriving (Show, Generic)
 
-toPosixTime :: Timestamp -> POSIXTime
-toPosixTime = (/ 1e6) . fromIntegral
-
 toBlockEntry
     :: forall ctx m .
     ( MonadBlockDB SscGodTossing m
@@ -181,7 +178,7 @@ toBlockEntry (blk, Undo{..}) = do
     let cbeEpoch      = getEpochIndex epochIndex
         cbeSlot       = getSlotIndex  slotIndex
         cbeBlkHash    = toCHash $ headerHash blk
-        cbeTimeIssued = toPosixTime <$> blkSlotStart
+        cbeTimeIssued = timestampToPosix <$> blkSlotStart
         txs           = toList $ blk ^. mainBlockTxPayload . txpTxs
         cbeTxNum      = fromIntegral $ length txs
         addOutCoins c = unsafeAddCoin c . totalTxOutMoney
@@ -233,7 +230,7 @@ totalTxInMoney =
 toTxEntry :: Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
-        cteTimeIssued = toPosixTime ts
+        cteTimeIssued = timestampToPosix ts
         cteAmount = mkCCoin $ totalTxOutMoney tx
 
 -- | Data displayed on block summary page
@@ -371,7 +368,7 @@ toTxBrief txi = CTxBrief {..}
     tx            = tiTx txi
     ts            = tiTimestamp txi
     ctbId         = toCTxId $ hash tx
-    ctbTimeIssued = toPosixTime ts
+    ctbTimeIssued = timestampToPosix ts
     ctbInputs     = map (second mkCCoin) txinputs
     ctbOutputs    = map (second mkCCoin) txOutputs
     ctbInputSum   = sumCoinOfInputsOutputs txinputs

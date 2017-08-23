@@ -40,10 +40,10 @@ import           Pos.Crypto                     (WithHash (..), hash, redeemPkBu
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
 
+import           Pos.Binary.Class               (biSize)
 import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
-import           Pos.Binary.Class               (biSize)
 import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
 import           Pos.Core                       (AddrType (..), Address (..), Coin,
                                                  EpochIndex, HeaderHash, Timestamp,
@@ -51,7 +51,8 @@ import           Pos.Core                       (AddrType (..), Address (..), Co
                                                  getChainDifficulty, isRedeemAddress,
                                                  isUnknownAddressType, makeRedeemAddress,
                                                  mkCoin, siEpoch, siSlot, sumCoins,
-                                                 unsafeIntegerToCoin, unsafeSubCoin)
+                                                 timestampToPosix, unsafeIntegerToCoin,
+                                                 unsafeSubCoin)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
@@ -72,18 +73,18 @@ import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHi
                                                        getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CAddressType (..), CBlockEntry (..),
-                                                 CBlockSummary (..),
+import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
+                                                 CAddressSummary (..), CAddressType (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
                                                  CGenesisAddressInfo (..),
                                                  CGenesisSummary (..), CHash,
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), TxInternal (..), Byte,
+                                                 CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
                                                  fromCHash, fromCTxId, getEpochIndex,
                                                  getSlotIndex, mkCCoin, tiToTxEntry,
                                                  toBlockEntry, toBlockSummary, toCAddress,
-                                                 toCHash, toPosixTime, toTxBrief, toCTxId)
+                                                 toCHash, toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -431,7 +432,7 @@ getTxSummary cTxId = do
 
         let blockHeight         = fromIntegral $ mb ^. difficultyL
         let receivedTime        = teReceivedTime txExtra
-        let blockTime           = toPosixTime <$> blkSlotStart
+        let blockTime           = timestampToPosix <$> blkSlotStart
 
         -- Get block epoch and slot index
         let blkHeaderSlot       = mb ^. mainBlockSlot
@@ -454,7 +455,7 @@ getTxSummary cTxId = do
 
         pure $ CTxSummary
             { ctsId              = cTxId'
-            , ctsTxTimeIssued    = Just $ toPosixTime receivedTime
+            , ctsTxTimeIssued    = Just $ timestampToPosix receivedTime
             , ctsBlockTimeIssued = blockTime
             , ctsBlockHeight     = Just blockHeight
             , ctsBlockEpoch      = Just epochIndex

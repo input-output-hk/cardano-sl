@@ -70,6 +70,7 @@ instance ToSchema      C.CCoin
 instance ToSchema      C.CNetworkAddress
 instance ToSchema      C.CGenesisSummary
 instance ToSchema      C.CGenesisAddressInfo
+instance ToSchema      C.Byte
 instance ToSchema      ExplorerError
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.

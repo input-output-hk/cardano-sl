@@ -2,15 +2,15 @@ module Pos.Wallet.Web.Backup
        ( WalletMetaBackup (..)
        , AccountMetaBackup (..)
        , WalletBackup (..)
-       , StateBackup (..)
+       , TotalBackup (..)
        , currentBackupFormatVersion
        , getWalletBackup
-       , getStateBackup
        ) where
 
 import           Universum
 
 import qualified Data.HashMap.Strict        as HM
+import qualified Data.SemVer                as V
 
 import           Pos.Crypto                 (EncryptedSecretKey)
 import           Pos.Util.Util              (maybeThrow)
@@ -18,14 +18,11 @@ import           Pos.Wallet.Web.Account     (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
                                              CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (getAccountMeta, getWalletAddresses,
-                                             getWalletMeta)
+import           Pos.Wallet.Web.State       (getAccountMeta, getWalletMeta)
 import           Pos.Wallet.Web.Util        (getWalletAccountIds)
 
--- TODO: use `Data.Versions.SemVer` datatype for
--- accurate parsing and comparisons
-currentBackupFormatVersion :: Text
-currentBackupFormatVersion = "1.0.0"
+currentBackupFormatVersion :: V.Version
+currentBackupFormatVersion = V.initial & V.major .~ 1
 
 newtype WalletMetaBackup = WalletMetaBackup CWalletMeta
 newtype AccountMetaBackup = AccountMetaBackup CAccountMeta
@@ -36,7 +33,7 @@ data WalletBackup = WalletBackup
     , wbAccounts  :: !(HashMap Int AccountMetaBackup)
     }
 
-data StateBackup = FullStateBackup [WalletBackup]
+data TotalBackup = TotalBackup WalletBackup
 
 getWalletBackup :: AccountMode ctx m => CId Wal -> m WalletBackup
 getWalletBackup wId = do
@@ -57,6 +54,3 @@ getWalletBackup wId = do
         , wbMeta = WalletMetaBackup meta
         , wbAccounts = accountsMap
         }
-
-getStateBackup :: AccountMode ctx m => m StateBackup
-getStateBackup = getWalletAddresses >>= fmap FullStateBackup . mapM getWalletBackup

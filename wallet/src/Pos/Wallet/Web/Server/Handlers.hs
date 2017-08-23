@@ -37,8 +37,6 @@ servantHandlers sendActions =
     :<|>
      M.restoreWallet
     :<|>
-     M.renameWallet
-    :<|>
      M.deleteWallet
     :<|>
      M.importWallet
@@ -98,6 +96,6 @@ servantHandlers sendActions =
     :<|>
      M.syncProgress
     :<|>
-     M.importStateJSON
+     M.importWalletJSON
     :<|>
-     M.exportStateJSON
+     M.exportWalletJSON

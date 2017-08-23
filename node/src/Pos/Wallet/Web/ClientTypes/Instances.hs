@@ -18,10 +18,11 @@ import           Servant.Multipart                    (FromMultipart (..), looku
 import           Pos.Core                             (Address, Coin, decodeTextAddress,
                                                        mkCoin)
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
+import           Pos.Txp.Core                         (TxId)
 import           Pos.Util.Servant                     (FromCType (..), OriginType,
                                                        ToCType (..))
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
-                                                       mkCCoin, mkCTxId)
+                                                       mkCCoin, mkCTxId, txIdToCTxId)
 import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccountId (..),
                                                        CCoin (..),
                                                        CElectronCrashReport (..),
@@ -85,6 +86,12 @@ instance FromCType (CId w) where
 
 instance ToCType (CId w) where
     encodeCType = addressToCId
+
+
+type instance OriginType CTxId = TxId
+
+instance ToCType CTxId where
+    encodeCType = txIdToCTxId
 
 ----------------------------------------------------------------------------
 -- Servant

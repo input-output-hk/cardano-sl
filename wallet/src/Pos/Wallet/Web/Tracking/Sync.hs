@@ -60,7 +60,8 @@ import           Pos.Core                         (Address (..), BlockHeaderStub
                                                    Timestamp, aaPkDerivationPath,
                                                    addrAttributesUnwrapped,
                                                    blkSecurityParam, headerHash,
-                                                   headerSlotL, makePubKeyAddress)
+                                                   headerSlotL, makePubKeyAddress,
+                                                   timestampToPosix)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -81,10 +82,11 @@ import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
 
 import           Pos.Ssc.Class                    (SscHelpersClass)
+import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..), Wal,
-                                                   addressToCId, encToCId,
+                                                   addressToCId, ctmDate, encToCId,
                                                    isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
@@ -197,7 +199,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
             else pure wTipH
         withBlkSemaphore_ $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
-            tipH <- maybe (error "Wallet tracking: no block header corresponding to tip") pure =<< DB.blkGetHeader tip
+            tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.blkGetHeader tip
             tip <$ syncWalletWithGStateUnsafe encSK wNewTip tipH
 
 ----------------------------------------------------------------------------
@@ -413,8 +415,16 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
-    WS.updateHistoryCache wid $ DL.toList camAddedHistory <> oldCachedHist
+    sortedAddedHistory <- sortTxs (DL.toList camAddedHistory)
+    WS.updateHistoryCache wid $ sortedAddedHistory <> oldCachedHist
     WS.setWalletSyncTip wid newTip
+  where
+    getTxTime tx = ctmDate <<$>> WS.getTxMeta wid (encodeCType $ _thTxId tx)
+    sortTxs txs = do
+        txsWTime <- forM txs $ \tx -> (tx, ) <$> getTxTime tx
+        let txRealTime (THEntry{..}, mtime) =
+                mtime <|> (timestampToPosix <$> _thTimestamp)
+        return $ map fst $ sortOn (fmap Down . txRealTime) txsWTime
 
 rollbackModifierFromWallet
     :: WebWalletModeDB ctx m

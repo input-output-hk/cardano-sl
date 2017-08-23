@@ -47,8 +47,8 @@ coinDistrToOutputs distr = do
     (cAddrs, coins) = NE.unzip distr
     mkTxOut addr coin = TxOutAux (TxOut addr coin) []
 
--- | Like 'submitAndSaveTx', but suppresses errors which can gone
--- to the time of resubmission.
+-- | Like 'submitAndSaveTx', but suppresses errors which can get gone
+-- by the time of resubmission.
 submitAndSaveReclaimableTx
     :: (TxMode ssc ctx m, MonadCatch m)
     => EnqueueMsg m -> TxAux -> m ()

@@ -257,7 +257,7 @@ data CTxMeta = CTxMeta
 
 -- | State of transaction, corresponding to
 -- 'Pos.Wallet.Web.Pending.Types.PtxCondition'.
--- @PtxInUpperBlocks@ and @PtxPersisted@ states are merged into one
+-- @PtxInNewestBlocks@ and @PtxPersisted@ states are merged into one
 -- not to provide information which conflicts with 'ctConfirmations'.
 data CPtxCondition
     = CPtxApplying

@@ -68,10 +68,10 @@ txIdToCTxId = mkCTxId . sformat hashHexF
 
 ptxCondToCPtxCond :: Maybe PtxCondition -> CPtxCondition
 ptxCondToCPtxCond = maybe CPtxNotTracked $ \case
-    PtxApplying{}      -> CPtxApplying
-    PtxInUpperBlocks{} -> CPtxInBlocks
-    PtxPersisted{}     -> CPtxInBlocks
-    PtxWontApply{}     -> CPtxWontApply
+    PtxApplying{}       -> CPtxApplying
+    PtxInNewestBlocks{} -> CPtxInBlocks
+    PtxPersisted{}      -> CPtxInBlocks
+    PtxWontApply{}      -> CPtxWontApply
 
 -- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.

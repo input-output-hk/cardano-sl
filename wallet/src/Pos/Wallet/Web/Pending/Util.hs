@@ -23,10 +23,10 @@ import           Pos.Wallet.Web.State         (getWalletMeta)
 
 isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = \case
-    PtxApplying{}      -> False
-    PtxInUpperBlocks{} -> True
-    PtxPersisted{}     -> True
-    PtxWontApply{}     -> False
+    PtxApplying{}       -> False
+    PtxInNewestBlocks{} -> True
+    PtxPersisted{}      -> True
+    PtxWontApply{}      -> False
 
 mkPendingTx :: MonadWalletWebMode m => CId Wal -> TxId -> TxAux -> m PendingTx
 mkPendingTx wid _ptxTxId _ptxTxAux = do

@@ -85,7 +85,7 @@ import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..)
                                                    addressToCId, encToCId,
                                                    isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
-import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInUpperBlocks))
+import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
                                                    CustomAddressType (..), WalletTip (..),
                                                    WebWalletModeDB)
@@ -432,7 +432,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
         WS.setPtxCondition wid txid (newPtxCondition cond)
     WS.setWalletSyncTip wid newTip
   where
-    newPtxCondition = maybe PtxApplying PtxInUpperBlocks
+    newPtxCondition = maybe PtxApplying PtxInNewestBlocks
 
 rollbackModifierFromWallet
     :: WebWalletModeDB ctx m

@@ -10,7 +10,7 @@ module Pos.Wallet.Web.Pending.Worker
 import           Universum
 
 import           Control.Monad.Catch          (Handler (..), catches)
-import           Data.Time.Units              (Second, convertUnit)
+import           Data.Time.Units              (Microsecond, Second, convertUnit)
 import           Formatting                   (build, sformat, shown, stext, (%))
 import           Mockable                     (delay, fork)
 import           Serokell.Util.Text           (listJson)
@@ -49,10 +49,10 @@ processPtxFailure PendingTx{..} e =
         logInfo $ sformat ("Pending transaction "%build%" was canceled")
                   _ptxTxId
 
-processPtxInUpperBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
-processPtxInUpperBlocks curSlot PendingTx{..} = do
+processPtxInNewestBlocks :: MonadPendings m => SlotId -> PendingTx -> m ()
+processPtxInNewestBlocks curSlot PendingTx{..} = do
     mdepth <- getWalletAssuredDepth _ptxWallet
-    if | PtxInUpperBlocks slotId <- _ptxCond,
+    if | PtxInNewestBlocks slotId <- _ptxCond,
          Just depth <- mdepth,
          longAgo depth slotId -> do
              void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond PtxPersisted
@@ -124,8 +124,8 @@ processPtxsToResubmit sendActions ptxs = do
     fmt = "Transactions to resubmit on current slot: "%listJson
     evalPtxsPerSlotLimit = do
         slotDuration <- getLastKnownSlotDuration
-        let limit = fromIntegral $
-                convertUnit slotDuration `div` pendingTxResubmitionPeriod
+        let limit = fromIntegral @Microsecond $
+                convertUnit slotDuration `div` convertUnit pendingTxResubmitionPeriod
         when (limit <= 0) $
             logInfo "'pendingTxResubmitionPeriod' is larger than slot duration,\
                     \ won't resubmit any pending transaction"
@@ -137,7 +137,7 @@ processPtxs
     :: MonadPendings m
     => SendActions m -> SlotId -> [PendingTx] -> m ()
 processPtxs sendActions curSlot ptxs = do
-    mapM_ (processPtxInUpperBlocks curSlot) ptxs
+    mapM_ (processPtxInNewestBlocks curSlot) ptxs
     processPtxsToResubmit sendActions ptxs
 
 processPtxsOnSlot

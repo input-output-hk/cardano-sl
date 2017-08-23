@@ -63,6 +63,7 @@ bpGenBlocks blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
                       def & tgpTxCountRange %~ bool (const (0,0)) identity enableTxPayload
                 , _bgpInplaceDB = inplaceDB
                 , _bgpGenStakeholders = genStakeholders
+                , _bgpSkipNoKey = False
                 }
     params <- pick $ sized genBlockGenParams
     g <- pick $ MkGen $ \qc _ -> qc

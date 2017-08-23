@@ -243,8 +243,9 @@ syncProgress tls = getR tls $ noQueryParam ["settings", "sync", "progress"]
 
 --------------------------------------------------------------------------------
 -- JSON BACKUP -----------------------------------------------------------------
-importBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet
-importBackupJSON tls = postRBody tls $ noQueryParam ["backup", "import"]
+importBackupJSON :: forall eff. TLSOptions -> Maybe CPassPhrase -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet
+importBackupJSON tls pass = postRBody tls $ queryParams ["backup", "import"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-exportBackupJSON :: forall eff. TLSOptions -> CId Wal -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
-exportBackupJSON tls addr = postRBody tls $ noQueryParam ["backup", "export", _address addr]
+exportBackupJSON :: forall eff. TLSOptions -> Maybe CPassPhrase -> CId Wal -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
+exportBackupJSON tls pass addr = postRBody tls $ queryParams ["backup", "export", _address addr] [qParam "passphrase" $ _passPhrase <$> pass]
+

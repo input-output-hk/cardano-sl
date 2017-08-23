@@ -78,6 +78,11 @@ import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
 import           Pos.WorkMode               (TxpExtra_TMP)
 
+#ifdef linux_HOST_OS
+import qualified System.Systemd.Daemon      as Systemd
+import qualified System.Wlog                as Logger
+#endif
+
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
@@ -198,7 +203,10 @@ bracketNodeResources :: forall ssc m a.
     -> Production a
 bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
     bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
-        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources k
+        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources $ \nodeRes ->do
+            -- Notify systemd we are fully operative
+            notifyReady
+            k nodeRes
   where
     tcpAddr = tpTcpAddr (npTransport np)
 
@@ -387,3 +395,17 @@ bracketTransport
     -> m a
 bracketTransport tcpAddr k =
     bracket (createTransportTCP tcpAddr) snd (k . fst)
+
+-- | Notify process manager tools like systemd the node is ready.
+-- Available only on Linux for systems where `libsystemd-dev` is installed.
+-- It defaults to a noop for all the other platforms.
+notifyReady :: (MonadIO m, WithLogger m) => m ()
+#ifdef linux_HOST_OS
+notifyReady = do
+    res <- liftIO Systemd.notifyReady
+    case res of
+        Just () -> return ()
+        Nothing -> Logger.logWarning "notifyReady failed to notify systemd."
+#else
+notifyReady = return ()
+#endif

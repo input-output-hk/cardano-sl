@@ -30,10 +30,10 @@ import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBloc
 import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              normalizeMempool)
-import           Pos.Block.Logic.Util       (calcChainQualityM, withBlkSemaphore)
+import           Pos.Block.Logic.Util       (calcChainQualityM)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Slog             (HasSlogContext (..))
-import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
+import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              EpochOrSlot (..), HasCoreConstants,
@@ -49,6 +49,7 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
+import           Pos.Infra.Semaphore        (BlkSemaphore, withBlkSemaphore)
 import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)

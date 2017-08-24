@@ -48,12 +48,10 @@ import           System.Wlog                      (HasLoggerName, WithLogger, lo
 
 import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
                                                    mainBlockTxPayload)
-import           Pos.Block.Logic                  (withBlkSemaphore_)
 import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Constants                    (genesisHash)
-import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..),
-                                                   genesisUtxoM)
+import           Pos.Context                      (GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                         (Address (..), BlockHeaderStub,
                                                    ChainDifficulty, HasCoreConstants,
                                                    HasDifficulty (..), HeaderHash,
@@ -70,6 +68,7 @@ import qualified Pos.DB.DB                        as DB
 import           Pos.DB.Rocks                     (MonadRealDB)
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
+import           Pos.Infra.Semaphore              (BlkSemaphore, withBlkSemaphore_)
 import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
                                                    getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),

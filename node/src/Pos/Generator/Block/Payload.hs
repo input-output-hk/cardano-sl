@@ -43,9 +43,9 @@ import           Pos.Slotting.Class         (MonadSlots (getCurrentSlotBlocking)
 import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
                                              TxOut (..), TxOutAux (..), TxSigData (..))
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
+import           Pos.Explorer.Txp.Local     (eTxProcessTransactionNoLock)
 #else
-import           Pos.Txp.Logic              (txProcessTransaction)
+import           Pos.Txp.Logic              (txProcessTransactionNoLock)
 #endif
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types         (TxFee (..), Utxo)
@@ -252,9 +252,9 @@ genTxPayload = do
         let tx = taTx txAux
         let txId = hash tx
 #ifdef WITH_EXPLORER
-        res <- lift . lift $ runExceptT $ eTxProcessTransaction (txId, txAux)
+        res <- lift . lift $ eTxProcessTransactionNoLock (txId, txAux)
 #else
-        res <- lift . lift $ runExceptT $ txProcessTransaction (txId, txAux)
+        res <- lift . lift $ txProcessTransactionNoLock (txId, txAux)
 #endif
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e

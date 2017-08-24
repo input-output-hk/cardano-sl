@@ -25,11 +25,10 @@ import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
-                                             rollbackBlocksUnsafe, BypassSecurityCheck(..))
-import           Pos.Block.Logic.Util       (withBlkSemaphore_)
+import           Pos.Block.Logic.Internal   (BypassSecurityCheck (..), MonadBlockApply,
+                                             applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
-import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
+import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              EpochOrSlot (..), HeaderHash, SharedSeed,
                                              SlotId (..), StakeholderId, crucialSlot,
@@ -37,6 +36,7 @@ import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              slotSecurityParam)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.GState                 as GS
+import           Pos.Infra.Semaphore        (BlkSemaphore, withBlkSemaphore_)
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))

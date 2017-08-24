@@ -44,8 +44,7 @@ import           Pos.Block.Error            (ApplyBlocksException)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,
-                                             lcaWithMainChain, verifyAndApplyBlocks,
-                                             withBlkSemaphore)
+                                             lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
@@ -67,6 +66,7 @@ import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
+import           Pos.Infra.Semaphore        (withBlkSemaphore)
 import           Pos.Reporting.Methods      (reportMisbehaviourSilent)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)

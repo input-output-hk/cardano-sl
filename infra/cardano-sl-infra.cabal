@@ -101,6 +101,9 @@ library
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
+                        -- Everything else that is too small to have a special group
+                        Pos.Infra.Semaphore
+
   if os(windows)
     exposed-modules:    Pos.Network.Windows.DnsDomains
 

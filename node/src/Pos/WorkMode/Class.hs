@@ -22,17 +22,17 @@ import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Slog.Types        (HasSlogContext)
-import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
-                                              BlockRetrievalQueueTag, HasSscContext,
-                                              MonadLastKnownHeader, MonadProgressHeader,
-                                              MonadRecoveryHeader, StartTime,
-                                              TxpGlobalSettings)
+import           Pos.Context                 (BlockRetrievalQueue, BlockRetrievalQueueTag,
+                                              HasSscContext, MonadLastKnownHeader,
+                                              MonadProgressHeader, MonadRecoveryHeader,
+                                              StartTime, TxpGlobalSettings)
 import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Real.Types          (KademliaDHTInstance)
 import           Pos.Genesis                 (GenesisUtxo, GenesisWStakeholders)
+import           Pos.Infra.Semaphore         (BlkSemaphore)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)

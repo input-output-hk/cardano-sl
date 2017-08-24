@@ -25,13 +25,14 @@ import           System.Wlog           (WithLogger, getLoggerName, logError, log
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
 import qualified Pos.Constants         as Const
-import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
-                                        getOurPublicKey, ncNetworkConfig)
+import           Pos.Context           (getOurPubKeyAddress, getOurPublicKey,
+                                        ncNetworkConfig)
 import           Pos.DHT.Real          (KademliaDHTInstance (..),
                                         kademliaJoinNetworkNoThrow,
                                         kademliaJoinNetworkRetry)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
+import           Pos.Infra.Semaphore   (BlkSemaphore (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
 import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)

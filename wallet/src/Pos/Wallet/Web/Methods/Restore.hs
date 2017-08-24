@@ -20,11 +20,11 @@ import           System.Wlog                  (logDebug)
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
-import           Pos.Block.Logic              (withBlkSemaphore_)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
 import           Pos.Genesis                  (genesisDevHdwSecretKeys)
+import           Pos.Infra.Semaphore          (withBlkSemaphore_)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
                                                readUserSecret, usWalletSet)

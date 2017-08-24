@@ -2,6 +2,7 @@
 
 module Pos.Explorer.Txp.Local
        ( eTxProcessTransaction
+       , eTxProcessTransactionNoLock
        , eTxNormalize
        ) where
 
@@ -14,7 +15,6 @@ import           Data.Default                (def)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
-import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 
@@ -24,6 +24,7 @@ import           Pos.Core                    (BlockVersionData, EpochIndex,
 import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB             as ExDB
 import qualified Pos.GState                  as GS
+import           Pos.Infra.Semaphore         (BlkSemaphore, withBlkSemaphoreIgnoreTip)
 import           Pos.Slotting                (MonadSlots (currentTimeSlotting, getCurrentSlot))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, toaOut,
                                               txOutAddress)
@@ -38,6 +39,7 @@ import           Pos.Txp.Toil                (GenericToilModifier (..),
                                               utxoGetReader)
 import           Pos.Util.Chrono             (NewestFirst (..))
 import qualified Pos.Util.Modifier           as MM
+import           Pos.Util.Util               (HasLens (..), HasLens')
 
 import           Pos.Explorer.Core           (TxExtra (..))
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra, ExplorerExtraTxp (..),
@@ -52,7 +54,7 @@ type ETxpLocalWorkMode ctx m =
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
     , MonadSlots ctx m
-    , HasLens GenesisWStakeholders ctx GenesisWStakeholders
+    , HasLens' ctx GenesisWStakeholders
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -91,9 +93,14 @@ instance MonadTxExtraRead EProcessTxMode where
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
 
 eTxProcessTransaction
-    :: ETxpLocalWorkMode ctx m
-    => (TxId, TxAux) -> ExceptT ToilVerFailure m ()
-eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
+    :: (ETxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
+    => (TxId, TxAux) -> m (Either ToilVerFailure ())
+eTxProcessTransaction itw = withBlkSemaphoreIgnoreTip $ eTxProcessTransactionNoLock itw
+
+eTxProcessTransactionNoLock
+    :: (ETxpLocalWorkMode ctx m)
+    => (TxId, TxAux) -> m (Either ToilVerFailure ())
+eTxProcessTransactionNoLock itw@(txId, TxAux {taTx = UnsafeTx {..}}) = runExceptT $ do
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)

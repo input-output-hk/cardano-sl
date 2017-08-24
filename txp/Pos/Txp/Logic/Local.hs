@@ -5,18 +5,18 @@
 
 module Pos.Txp.Logic.Local
        ( txProcessTransaction
+       , txProcessTransactionNoLock
        , txNormalize
        ) where
 
 import           Universum
 
 import           Control.Lens                (makeLenses)
-import           Control.Monad.Except        (MonadError (..))
+import           Control.Monad.Except        (MonadError (..), runExceptT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
-import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 
@@ -24,6 +24,7 @@ import           Pos.Core                    (BlockVersionData, EpochIndex,
                                               GenesisWStakeholders, HeaderHash, siEpoch)
 import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common        as GS
+import           Pos.Infra.Semaphore         (BlkSemaphore, withBlkSemaphoreIgnoreTip)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, TxUndo)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
@@ -31,10 +32,10 @@ import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, get
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
                                               MonadUtxoRead (..), ToilModifier, ToilT,
-                                              ToilVerFailure (..), ToilVerFailure (..),
-                                              Utxo, execToilTLocal, normalizeToil,
-                                              processTx, runDBToil, runToilTLocal,
-                                              utxoGetReader)
+                                              ToilVerFailure (..), Utxo, execToilTLocal,
+                                              normalizeToil, processTx, runDBToil,
+                                              runToilTLocal, utxoGetReader)
+import           Pos.Util.Util               (HasLens (..), HasLens')
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -44,7 +45,7 @@ type TxpLocalWorkMode ctx m =
     , MonadSlots ctx m
     , MonadTxpMem () ctx m
     , WithLogger m
-    , HasLens GenesisWStakeholders ctx GenesisWStakeholders
+    , HasLens' ctx GenesisWStakeholders
     )
 
 -- Base context for tx processing in.
@@ -75,10 +76,18 @@ instance MonadGState ProcessTxMode where
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: TxpLocalWorkMode ctx m
-    => (TxId, TxAux) -> ExceptT ToilVerFailure m ()
-txProcessTransaction itw@(txId, txAux) = do
+    :: (TxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
+    => (TxId, TxAux) -> m (Either ToilVerFailure ())
+txProcessTransaction itw = withBlkSemaphoreIgnoreTip $ txProcessTransactionNoLock itw
+
+-- | Unsafe version of 'txProcessTransaction' which doesn't take a
+-- lock. Can be used in tests.
+txProcessTransactionNoLock
+    :: (TxpLocalWorkMode ctx m)
+    => (TxId, TxAux) -> m (Either ToilVerFailure ())
+txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
     let UnsafeTx {..} = taTx txAux
+    -- Note: we don't need to check tip, but it's for proof of concept.
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)

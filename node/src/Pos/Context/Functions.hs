@@ -8,11 +8,6 @@ module Pos.Context.Functions
        , genesisStakesM
        , genesisLeadersM
 
-         -- * Block semaphore.
-       , putBlkSemaphore
-       , readBlkSemaphore
-       , takeBlkSemaphore
-
          -- * LRC synchronization
        , waitLrc
        , lrcActionOnEpoch
@@ -29,9 +24,8 @@ import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import           Ether.Internal      (HasLens (..))
 
-import           Pos.Context.Context (BlkSemaphore (..), StartTime (..))
-import           Pos.Core            (HasCoreConstants, HeaderHash, SlotLeaders,
-                                      StakesMap)
+import           Pos.Context.Context (StartTime (..))
+import           Pos.Core            (HasCoreConstants, SlotLeaders, StakesMap)
 import           Pos.Genesis         (GenesisUtxo (..), genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
 import           Pos.Txp.Toil        (utxoToStakes)
@@ -54,25 +48,6 @@ genesisLeadersM ::
        (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, HasCoreConstants)
     => m SlotLeaders
 genesisLeadersM = genesisLeaders <$> genesisUtxoM
-
-----------------------------------------------------------------------------
--- Semaphore-related logic
-----------------------------------------------------------------------------
-
-takeBlkSemaphore
-    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => m HeaderHash
-takeBlkSemaphore = takeMVar =<< views (lensOf @BlkSemaphore) unBlkSemaphore
-
-putBlkSemaphore
-    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => HeaderHash -> m ()
-putBlkSemaphore tip = flip putMVar tip =<< views (lensOf @BlkSemaphore) unBlkSemaphore
-
-readBlkSemaphore
-    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => m HeaderHash
-readBlkSemaphore = readMVar =<< views (lensOf @BlkSemaphore) unBlkSemaphore
 
 ----------------------------------------------------------------------------
 -- Misc

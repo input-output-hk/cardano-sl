@@ -7,28 +7,28 @@ module Pos.Update.MemState.Functions
 
 import           Universum
 
-import qualified Control.Concurrent.Lock   as Lock
-import           Control.Lens              (views)
-import           Control.Monad.Catch       (MonadMask, bracket_)
+import           Control.Monad.Catch       (MonadMask)
 import qualified Data.HashMap.Strict       as HM
-import           Ether.Internal            (HasLens (..))
 
 import           Pos.Binary.Class          (biSize)
 import           Pos.Binary.Update         ()
 import           Pos.Crypto                (PublicKey, hash)
-import           Pos.Update.Context        (UpdateContext (ucMemState))
+import           Pos.Infra.Semaphore       (BlkSemaphore, withBlkSemaphoreIgnoreTip)
 import           Pos.Update.Core.Types     (LocalVotes, UpdatePayload (..),
                                             UpdateVote (..))
-import           Pos.Update.MemState.Types (MemPool (..), MemVar (..))
+import           Pos.Update.MemState.Types (MemPool (..))
+import           Pos.Util.Util             (HasLens')
 
 type UpdateVotes = HashMap PublicKey UpdateVote
 
+-- | Use a lock to perform operation on in-memory state of update system.
+--
+-- Currently we are using a single lock for everything, so this
+-- function is just an alias for 'withBlkSemaphoreIgnoreTip'.
 withUSLock
-    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m, MonadMask m)
+    :: (MonadReader ctx m, HasLens' ctx BlkSemaphore, MonadIO m, MonadMask m)
     => m a -> m a
-withUSLock action = do
-    lock <- mvLock <$> views (lensOf @UpdateContext) ucMemState
-    bracket_ (liftIO $ Lock.acquire lock) (liftIO $ Lock.release lock) action
+withUSLock = withBlkSemaphoreIgnoreTip
 
 -- | Add given payload to MemPool. Size is updated assuming that all added
 -- data is new (is not in MemPool). This assumption is fine, because

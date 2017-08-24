@@ -29,7 +29,6 @@ import           Control.Monad.Except   (runExceptT)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
-import           Ether.Internal         (HasLens (..))
 import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 
@@ -41,6 +40,7 @@ import           Pos.Core.Constants     (memPoolLimitRatio)
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDBRead)
 import qualified Pos.DB.GState.Common   as DB
+import           Pos.Infra.Semaphore    (BlkSemaphore)
 import           Pos.Lrc.Context        (LrcContext)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
@@ -55,17 +55,22 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          filterProposalsByThd, modifyPollModifier,
                                          normalizePoll, psVotes, refreshPoll, runDBPoll,
                                          runPollT, verifyAndApplyUSPayload)
+import           Pos.Util.Util          (HasLens (..), HasLens')
 
--- MonadMask is needed because are using Lock. It can be improved later.
 type USLocalLogicMode ctx m =
     ( MonadIO m
     , MonadDBRead m
-    , MonadMask m
     , WithLogger m
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     , HasLens LrcContext ctx LrcContext
     , HasCoreConstants
+    )
+
+type USLocalLogicModeWithLock ctx m =
+    ( USLocalLogicMode ctx m
+    , MonadMask m
+    , HasLens' ctx BlkSemaphore
     )
 
 getMemPool
@@ -115,7 +120,7 @@ withCurrentTip action = do
 ----------------------------------------------------------------------------
 
 processSkeleton
-    :: (USLocalLogicMode ctx m)
+    :: (USLocalLogicModeWithLock ctx m)
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload =
     withUSLock $
@@ -189,7 +194,7 @@ getLocalProposalNVotes id = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processProposal
-    :: (USLocalLogicMode ctx m)
+    :: (USLocalLogicModeWithLock ctx m)
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
@@ -238,7 +243,7 @@ getLocalVote propId pk decision = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processVote
-    :: (USLocalLogicMode ctx m)
+    :: (USLocalLogicModeWithLock ctx m)
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
@@ -251,11 +256,10 @@ processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 -- tries to leave as much data as possible. It assumes that
 -- 'blkSemaphore' is taken.
 usNormalize :: (USLocalLogicMode ctx m) => m ()
-usNormalize =
-    withUSLock $ do
-        tip <- DB.getTip
-        stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
-        atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
+usNormalize = do
+    tip <- DB.getTip
+    stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
+    atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
 
 -- Normalization under lock.
 usNormalizeDo
@@ -285,8 +289,11 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: (USLocalLogicMode ctx m) => SlotId -> m ()
-processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
+processNewSlot :: (USLocalLogicModeWithLock ctx m) => SlotId -> m ()
+processNewSlot slotId = withUSLock $ processNewSlotNoLock slotId
+
+processNewSlotNoLock :: (USLocalLogicMode ctx m) => SlotId -> m ()
+processNewSlotNoLock slotId = withCurrentTip $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
        | siEpoch msSlot == siEpoch slotId -> pure $ ms {msSlot = slotId}
@@ -294,7 +301,7 @@ processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
 
 -- | Prepare UpdatePayload for inclusion into new block with given
 -- SlotId.  This function assumes that 'blkSemaphore' is taken and
--- nobody can apply/rollback blocks in parallel.
+-- nobody can apply/rollback blocks in parallel or modify US mempool.
 -- Sometimes payload can't be created. It can happen if we are trying to
 -- create block for slot which has already passed, for example.
 usPreparePayload :: (USLocalLogicMode ctx m) => SlotId -> m (Maybe UpdatePayload)
@@ -304,15 +311,14 @@ usPreparePayload slotId@SlotId{..} = do
     -- be updated, but we don't want to create block in this case
     -- anyway.  Here 'processNewSlot' can't fail because of tip
     -- mismatch, because we are under 'blkSemaphore'.
-    processNewSlot slotId
+    processNewSlotNoLock slotId
     -- After that we normalize payload to be sure it's valid. We try
     -- to keep it valid anyway, but we decided to have an extra
     -- precaution. We also do it because here we need to eliminate all
     -- proposals which don't have enough positive stake for inclusion
     -- into block. We check that payload corresponds to requested slot
-    -- and return it if it does. We take lock to be sure that noone
-    -- can put anything during normalization.
-    withUSLock preparePayloadDo
+    -- and return it if it does.
+    preparePayloadDo
   where
     preparePayloadDo = do
         -- Normalization is done just in case, as said before

@@ -6,20 +6,20 @@ module Params
 
 import           Universum
 
-import           Mockable              (Fork, Mockable, Catch)
-import           System.Wlog           (WithLogger)
+import           Mockable            (Catch, Fork, Mockable, Throw)
+import           System.Wlog         (WithLogger)
 
-import           Pos.Client.CLI        (CommonNodeArgs (..))
-import qualified Pos.Client.CLI        as CLI
-import           Pos.Constants         (isDevelopment)
-import           Pos.Core.Types        (Timestamp (..))
-import           Pos.Genesis           (GenesisContext (..), devAddrDistr, devStakesDistr,
-                                        genesisContextProduction, genesisUtxo)
-import           Pos.Launcher          (NodeParams (..))
-import           Pos.Network.CLI       (intNetworkConfigOpts)
-import           Pos.Security          (SecurityParams (..))
-import           Pos.Update.Params     (UpdateParams (..))
-import           Pos.Util.UserSecret   (peekUserSecret)
+import           Pos.Client.CLI      (CommonNodeArgs (..))
+import qualified Pos.Client.CLI      as CLI
+import           Pos.Constants       (isDevelopment)
+import           Pos.Core.Types      (Timestamp (..))
+import           Pos.Genesis         (devGenesisContext, devStakesDistr,
+                                      genesisContextProduction)
+import           Pos.Launcher        (NodeParams (..))
+import           Pos.Network.CLI     (intNetworkConfigOpts)
+import           Pos.Security        (SecurityParams (..))
+import           Pos.Update.Params   (UpdateParams (..))
+import           Pos.Util.UserSecret (peekUserSecret)
 
 getNodeParams ::
        ( MonadIO m
@@ -28,6 +28,7 @@ getNodeParams ::
        , WithLogger m
        , Mockable Fork m
        , Mockable Catch m
+       , Mockable Throw m
        )
     => CommonNodeArgs
     -> Timestamp
@@ -38,18 +39,14 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             CLI.updateUserSecretVSS args =<<
                 peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    let npTransport = CLI.getTransportParams args npNetworkConfig
-        devStakeDistr =
+    npTransport <- CLI.getTransportParams args npNetworkConfig
+    let devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
-                (CLI.bitcoinDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
     let npGenesisCtx
-            | isDevelopment =
-              let (aDistr,bootStakeholders) = devAddrDistr devStakeDistr
-              in GenesisContext (genesisUtxo bootStakeholders aDistr)
-                                bootStakeholders
+            | isDevelopment = devGenesisContext devStakeDistr
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath

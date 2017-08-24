@@ -95,6 +95,7 @@ test_script:
       --no-haddock-deps
       --work-dir %STACK_WORK%
       --ghc-options="-DCONFIG=%DCONFIG%"
+      --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode
@@ -102,7 +103,6 @@ test_script:
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
-      --test-arguments "--skip Block.Logic.Var --skip Lrc.Worker"
   - scripts\ci\appveyor-retry call stack install cardano-sl-tools
       -j 2
       --no-terminal
@@ -111,6 +111,7 @@ test_script:
       --no-haddock-deps
       --work-dir %STACK_WORK%
       --ghc-options="-DCONFIG=%DCONFIG%"
+      --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode
@@ -127,6 +128,7 @@ test_script:
       --no-haddock-deps
       --work-dir %STACK_WORK%
       --ghc-options="-DCONFIG=%DCONFIG%"
+      --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode

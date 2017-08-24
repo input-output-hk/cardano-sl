@@ -1,5 +1,4 @@
-Cardano networking policy for initial mainnet launch
-====================================================
+# Cardano networking policy for initial mainnet launch
 
 We have three classifications of nodes:
 
@@ -66,8 +65,7 @@ We have a few classifications of message/conversation:
   * block requests
 
 
-Unmet requirements
--------------------
+## Unmet requirements
 
 These requirements on the network layer are, by deliberate choice, not met
 in the current policy for the initial mainnet deployment:
@@ -90,8 +88,7 @@ for the initial deployment as the time to inclusion in a block should be
 20-40 seconds.
 
 
-Outbound conversations
-----------------------
+## Outbound conversations
 
 The sending mechanism works at the level of conversations (not messages) and
 only for conversations that are initiated in the outbound direction. The
@@ -99,8 +96,7 @@ mechanisms and policies described here do not apply to conversation handlers
 / listeners.
 
 
-Known peers
------------
+## Known peers
 
 The sending mechanism maintains a set of known peers. This set includes their
 network address and their node classification (ie core/relay/edge). When
@@ -119,8 +115,7 @@ The particular combination depends on the overall networking arrangement and
 individual node configuration.
 
 
-Subscriptions, nodes behind NAT and P2P nodes using kademlia
-------------------------------------------------------------
+## Subscriptions, nodes behind NAT and P2P nodes using kademlia
 
 In cardano up to and including testnet 5, wallet nodes would use kademlia to
 determine a selection of peers to send messages to. For example that means they
@@ -145,8 +140,7 @@ There is also a transitional mode (described below) that works in a very
 similar way to the testnet5 system.
 
 
-Known peers vs subscriptions
-----------------------------
+## Known peers vs subscriptions
 
 Known peers are only used for determining which nodes outbound conversations
 go to. So nodes can receive connections for conversations from nodes that are
@@ -171,8 +165,7 @@ for subscriptions. Thus it is useful to have a set of alternatives for
 outbound conversations.
 
 
-Enqueuing to specific known or unknown peers
--------------------------------------------
+## Enqueuing to specific known or unknown peers
 
 As mentioned above, there are cases where the application layer logic dictates
 that we must enqueue a conversation to one of a specific set of peers.
@@ -196,8 +189,7 @@ The exact method is described in the section below as part of the various
 configurations.
 
 
-Configuring network nodes
--------------------------
+## Configuring network nodes
 
 At a global network level there are two main arrangements: transitional and
 the mainnet production deployment. The transitional arrangement closely
@@ -327,8 +319,7 @@ The "light wallet" configuration:
   * Unknown peer fallback type: N/A
 
 
-Discovering peers using DNS
----------------------------
+## Discovering peers using DNS
 
 Whether a node uses this mechanism depends on its configuration as described
 above. When this mechanism is active, a node will use DNS to look up a set of
@@ -350,8 +341,7 @@ Having discovered peers, these are used for updating the nodes set of known
 peers and to subscribe to, according to the configuration described above.
 
 
-Discovering peers using kademlia
---------------------------------
+## Discovering peers using Kademlia
 
 Whether a node uses this mechanism depends on its configuration as described
 below. When this mechanism is active, a node will use kademlia to discover a
@@ -386,8 +376,7 @@ network and resource availability, always be able to receive updates, and to
 do so promptly upon joining the kademlia network.
 
 
-Outbound policy descriptions
-----------------------------
+## Outbound policy descriptions
 
 For each source node we provide two policy tables: the enqueuing policy and
 the dequeueing policy.
@@ -461,8 +450,7 @@ may be sent to a single peer (or inversely, how long to wait between sends).
 These policies apply per peer (across message types and precedence levels).
 
 
-Core -> Core, Core -> Relay
----------------------------
+## Core -> Core, Core -> Relay
 
 Enqueuing:
  * header announce: to Core,  P1, 3 route lists, max ahead 0, fallback drop
@@ -491,8 +479,7 @@ while for block headers and MPC messages we can rely on the "already broken"
 assumption.
 
 
-Relay -> Core, Relay -> Relay, Relay -> Edge
---------------------------------------------
+## Relay -> Core, Relay -> Relay, Relay -> Edge
 
 Enqueuing:
  * header announce: to Relay, P1, 3 route lists, max ahead 0, fallback drop
@@ -530,8 +517,7 @@ known peers and for the policy to pick a relay node over a core node in that
 set if possible.
 
 
-Edge -> Relay
--------------
+## Edge -> Relay
 
 For ordinary end user nodes behind NAT/firewall
 
@@ -579,8 +565,7 @@ re-enqueued. Only if all alternative relays are unavailable or at maximum 4
 retries will the send be deemed to have failed.
 
 
-EKG monitoring measures
------------------------
+## EKG monitoring measures
 
 Each node will have the following EKG metrics associated with the networking
 layer:

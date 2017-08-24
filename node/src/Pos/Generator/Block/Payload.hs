@@ -19,7 +19,6 @@ import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
 import           Formatting                 (build, sformat, (%))
-import           Serokell.Util.Text         (listJson)
 import           System.Random              (RandomGen (..))
 
 import           Pos.AllSecrets             (asSecretKeys, asSpendingData,

@@ -6,10 +6,12 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), decodeCborDataItem,
-                                     decodeCborDataItemTag, decodeListLen, deriveSimpleBi,
-                                     deserialize', encodeCborDataItem, encodeListLen,
-                                     enforceSize, matchSize, serialize')
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..),
+                                     decodeKnownCborDataItem, decodeListLen,
+                                     decodeUnknownCborDataItem, deriveSimpleBi,
+                                     deserialize', encodeKnownCborDataItem, encodeListLen,
+                                     encodeUnknownCborDataItem, enforceSize, matchSize,
+                                     serialize')
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
@@ -22,18 +24,17 @@ import qualified Pos.Txp.Core.Types as T
 
 instance Bi T.TxIn where
     encode (T.TxInUtxo hsh idx) =
-        let dataItem = serialize' (hsh, idx)
-        in encodeListLen 2 <> encode (0 :: Word8) <> encodeCborDataItem dataItem
+        encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem (hsh, idx)
     encode (T.TxInUnknown tag bs) =
         encodeListLen 2 <>
         encode tag <>
-        encodeCborDataItem bs
+        encodeUnknownCborDataItem bs
     decode = do
         enforceSize "TxIn" 2
         tag <- decode @Word8
         case tag of
-            0 -> uncurry T.TxInUtxo <$> decodeCborDataItem
-            _ -> T.TxInUnknown tag  <$> (decodeCborDataItemTag *> decode)
+            0 -> uncurry T.TxInUtxo <$> decodeKnownCborDataItem
+            _ -> T.TxInUnknown tag  <$> decodeUnknownCborDataItem
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [

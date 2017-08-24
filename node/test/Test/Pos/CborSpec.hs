@@ -183,10 +183,10 @@ instance Arbitrary U where
 data U24 = U24 Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U24 where
-    encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeCborDataItem bs
+    encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
     decode = do
         decodeListLenOf 2
-        U24 <$> decode <*> (decodeCborDataItemTag *> decode)
+        U24 <$> decode <*> decodeUnknownCborDataItem
 
 ----------------------------------------
 
@@ -232,7 +232,7 @@ roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === in
 -- without breaking anything. This should work with every time which adopted
 -- the schema of having at least one constructor of the form:
 -- .... | Unknown Word8 ByteString
-extensionPropertyOn :: forall a b. (Eq a, Show a, Bi a, Arbitrary b, Eq b, Show b, Bi b)
+extensionPropertyOn :: forall a b. (Bi a, Arbitrary b, Eq b, Show b, Bi b)
                     => Property
 extensionPropertyOn = forAll @b (arbitrary :: Gen b) $ \input ->
     let serialized      = serialize input -- We now have a BS blob

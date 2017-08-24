@@ -164,7 +164,7 @@ instance NFData TxIn
 
 isTxInUnknown :: TxIn -> Bool
 isTxInUnknown (TxInUnknown _ _) = True
-isTxInUnknown _ = False
+isTxInUnknown _                 = False
 
 -- | Transaction output.
 data TxOut = TxOut

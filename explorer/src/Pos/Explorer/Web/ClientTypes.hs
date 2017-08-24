@@ -380,9 +380,7 @@ toTxBrief txi = CTxBrief {..}
     ts            = tiTimestamp txi
     ctbId         = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime ts
-    -- TODO [CSE-204]
     ctbInputs     = map (fmap (second mkCCoin)) txInputsMB
-    -- ctbInputs     = map (second mkCCoin) $ catMaybes txInputsMB
     ctbOutputs    = map (second mkCCoin) txOutputs
     ctbInputSum   = sumCoinOfInputsOutputs txInputsMB
     ctbOutputSum  = sumCoinOfInputsOutputs $ map Just txOutputs

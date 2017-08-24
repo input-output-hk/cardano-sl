@@ -479,7 +479,6 @@ getTxSummary cTxId = do
         tx                     <- fetchTxFromMempoolOrFail txId
 
         let inputOutputs        = NE.toList . _txOutputs $ taTx tx
-        -- let inputOutputsMB      = map (fmap toaOut) $ NE.toList $ teInputOutputs txExtra
         let txOutputs           = convertTxOutputs inputOutputs
 
         let totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs

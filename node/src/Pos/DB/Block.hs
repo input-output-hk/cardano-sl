@@ -68,7 +68,7 @@ import           System.FilePath       ((</>))
 import           System.IO.Error       (isDoesNotExistError)
 
 import           Pos.Binary.Block      ()
-import           Pos.Binary.Class      (Bi, decodeFull, serialize', unsafeDeserialize')
+import           Pos.Binary.Class      (Bi, decodeFull, serialize')
 import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core        as BC
 import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
@@ -287,9 +287,8 @@ type MonadBlockDBWrite ssc m
 -- Pure implementation
 ----------------------------------------------------------------------------
 
--- [CSL-1493] Should we make this function return an `Either e (Block ssc, Undo)`?
-decodeOrFailPureDB :: (HasCoreConstants, SscHelpersClass ssc) => ByteString -> (Block ssc, Undo)
-decodeOrFailPureDB = unsafeDeserialize'
+decodeOrFailPureDB :: (HasCoreConstants, SscHelpersClass ssc) => ByteString -> Either Text (Block ssc, Undo)
+decodeOrFailPureDB = decodeFull
 
 dbGetBlundPure ::
        forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
@@ -298,7 +297,10 @@ dbGetBlundPure ::
 dbGetBlundPure h = do
     (blund :: Maybe ByteString) <-
         view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
-    pure $ decodeOrFailPureDB <$> blund
+    case decodeOrFailPureDB <$> blund of
+        Nothing        -> pure Nothing
+        Just (Left e)  -> throwM (DBMalformed e)
+        Just (Right v) -> pure (Just v)
 
 dbGetBlockPureDefault ::
        forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)

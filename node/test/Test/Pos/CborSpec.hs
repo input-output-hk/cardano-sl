@@ -198,15 +198,15 @@ instance Arbitrary X2 where
 instance Bi (Attributes X1) where
     encode = encodeAttributes [(0, serialize' . x1A)]
     decode = decodeAttributes (X1 0) $ \n v acc -> case n of
-        0 -> Just $ acc { x1A = unsafeDeserialize' v }
-        _ -> Nothing
+        0 -> pure $ Just $ acc { x1A = unsafeDeserialize' v }
+        _ -> pure $ Nothing
 
 instance Bi (Attributes X2) where
     encode = encodeAttributes [(0, serialize' . x2A), (1, serialize' . x2B)]
     decode = decodeAttributes (X2 0 []) $ \n v acc -> case n of
-        0 -> Just $ acc { x2A = unsafeDeserialize' v }
-        1 -> Just $ acc { x2B = unsafeDeserialize' v }
-        _ -> Nothing
+        0 -> return $ Just $ acc { x2A = unsafeDeserialize' v }
+        1 -> return $ Just $ acc { x2B = unsafeDeserialize' v }
+        _ -> return $ Nothing
 
 ----------------------------------------
 

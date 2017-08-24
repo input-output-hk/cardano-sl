@@ -80,11 +80,12 @@ import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
                                                  CGenesisSummary (..), CHash,
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
                                                  CTxSummary (..), TxInternal (..),
-                                                 convertTxOutputs, fromCAddress,
-                                                 fromCHash, fromCTxId, getEpochIndex,
-                                                 getSlotIndex, mkCCoin, tiToTxEntry,
-                                                 toBlockEntry, toBlockSummary, toCAddress,
-                                                 toCHash, toCTxId, toTxBrief)
+                                                 convertTxOutputs, convertTxOutputsMB,
+                                                 fromCAddress, fromCHash, fromCTxId,
+                                                 getEpochIndex, getSlotIndex, mkCCoin,
+                                                 mkCCoinMB, tiToTxEntry, toBlockEntry,
+                                                 toBlockSummary, toCAddress, toCHash,
+                                                 toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -443,14 +444,14 @@ getTxSummary cTxId = do
         tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
               atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) (fromIntegral txIndexInBlock)
 
-        let inputOutputs        = map toaOut $ NE.toList $ teInputOutputs txExtra
+        let inputOutputsMB      = map (fmap toaOut) $ NE.toList $ teInputOutputs txExtra
         let txOutputs           = convertTxOutputs . NE.toList $ _txOutputs tx
 
-        let totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        let totalInputMB        = unsafeIntegerToCoin . sumCoins . map txOutValue <$> sequence inputOutputsMB
         let totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
 
         -- Verify that strange things don't happen with transactions
-        when (totalOutput > totalInput) $
+        whenJust totalInputMB $ \totalInput -> when (totalOutput > totalInput) $
             throwM $ Internal "Detected tx with output greater than input"
 
         pure $ CTxSummary
@@ -462,10 +463,11 @@ getTxSummary cTxId = do
             , ctsBlockSlot       = Just slotIndex
             , ctsBlockHash       = Just blkHash
             , ctsRelayedBy       = Nothing
-            , ctsTotalInput      = mkCCoin totalInput
+            , ctsTotalInput      = mkCCoinMB totalInputMB
             , ctsTotalOutput     = mkCCoin totalOutput
-            , ctsFees            = mkCCoin $ unsafeSubCoin totalInput totalOutput
-            , ctsInputs          = map (second mkCCoin) $ convertTxOutputs inputOutputs
+            , ctsFees            = mkCCoinMB $ (`unsafeSubCoin` totalOutput) <$> totalInputMB
+            -- TODO [CSE-204] ctsInputs = map (fmap (second mkCCoin)) $ convertTxOutputsMB inputOutputsMB
+            , ctsInputs          = map (second mkCCoin) $ catMaybes $ convertTxOutputsMB inputOutputsMB
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
 

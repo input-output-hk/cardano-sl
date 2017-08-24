@@ -321,7 +321,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
     foldl' applyTx mempty txs
   where
     snd3 (_, x, _) = x
-    toTxInOut txid (idx, out, dist) = (TxIn txid idx, TxOutAux out dist)
+    toTxInOut txid (idx, out, dist) = (TxInUtxo  txid idx, TxOutAux out dist)
 
     applyTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader ssc) -> CAccModifier
     applyTx CAccModifier{..} (TxAux {..}, undo, blkHeader) =
@@ -331,7 +331,8 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             hhs = repeat hh
             tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _) = taTx
             !txId = hash tx
-            resolvedInputs = zip inps $ NE.toList undo
+            -- TODO should we do something with unknown inputs?
+            resolvedInputs = catMaybes $ zipWith (fmap . (,)) inps (NE.toList undo)
             txOutgoings = map txOutAddress outs
             txInputs = map (toaOut . snd) resolvedInputs
 
@@ -374,7 +375,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
         let hhs = repeat hh
             UnsafeTx (toList -> inps) (toList -> outs) _ = taTx
             !txid = hash taTx
-            ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
+            -- TODO should we do something with unknown inputs?
+            ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) $ catMaybes undoL
             ownOutputs = selectOwnAccounts encInfo txOutAddress $ outs
             ownInputMetas = map snd ownInputs
             ownOutputMetas = map snd ownOutputs
@@ -383,7 +385,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
 
             l = fromIntegral (length outs) :: Word32
             ownTxIns = zip inps $ map fst ownInputs
-            ownTxOuts = map (TxIn txid) ([0 .. l - 1] :: [Word32])
+            ownTxOuts = map (TxInUtxo txid) ([0 .. l - 1] :: [Word32])
 
             deletedHistory =
                 if (not $ null ownInputAddrs) || (not $ null ownOutputAddrs)

@@ -57,6 +57,7 @@ set -o pipefail
 # * Pass -Werror or do `touch .Werror` if you want to compile with -Werror.
 # * Pass --for-installer to enable 'for-installer' flag (which means that most
 #   of executables won't be built).
+# * Pass --no-asserts to disable asserts.
 
 # We can't have lwallet, wallet or explorer here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
@@ -77,6 +78,7 @@ explorer=true
 no_code=false
 werror=false
 for_installer=false
+asserts=true
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -141,6 +143,9 @@ do
   # disabling --fast
   elif [[ $var == "-O2" ]]; then
     no_fast=true
+  # disabling asserts
+  elif [[ $var == "--no-asserts" ]]; then
+    asserts=false
   # project name = build only the project
   # (for “godtossing” we allow “gt” as an alias)
   elif [[ $var == "sl" ]]; then
@@ -192,6 +197,10 @@ fi
 
 if [[ $for_installer == true ]]; then
   commonargs="$commonargs --flag cardano-sl-tools:for-installer"
+fi
+
+if [[ $for_installer == true ]]; then
+  commonargs="$commonargs --flag cardano-sl-core:-asserts"
 fi
 
 # CONFIG = dev, prod, or wallet

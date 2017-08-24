@@ -30,7 +30,7 @@ ptxPoolInfo (PtxWontApply _ i) = Just i
 ptxPoolInfo _                  = Nothing
 
 isPtxInBlocks :: PtxCondition -> Bool
-isPtxInBlocks = not . isJust . ptxPoolInfo
+isPtxInBlocks = isNothing . ptxPoolInfo
 
 mkPendingTx
     :: MonadWalletWebMode m

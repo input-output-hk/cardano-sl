@@ -19,7 +19,7 @@ import           System.Wlog                (logError, logWarning)
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (getTimestamp)
+import           Pos.Core                   (getTimestamp, timestampToPosix)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
@@ -136,7 +136,7 @@ addRecentPtxHistory wid currentHistory = do
     merge currentHistory candidates
   where
     thToOrdForm = Arg =<< _thTxId
-    getCandidates = catMaybes . map (ptxPoolInfo . _ptxCond) <$> getPendingTxs
+    getCandidates = mapMaybe (ptxPoolInfo . _ptxCond) <$> getPendingTxs
 
     merge [] recent     = return recent
     merge current []    = return current
@@ -145,7 +145,7 @@ addRecentPtxHistory wid currentHistory = do
             then (c:) <$> merge cs rs
             else do
                 mctime <- getWalletThTime wid c
-                let mrtime = undefined $ _thTimestamp r
+                let mrtime = timestampToPosix <$> _thTimestamp r
                 when (isNothing mrtime) $ reportNoTimestamp r
                 if mctime <= mrtime
                     then (r:) <$> merge (c:cs) rs

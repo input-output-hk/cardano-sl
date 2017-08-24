@@ -18,9 +18,8 @@ import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Formatting                 (build, sformat, (%))
 
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core.Types             (BlockCount)
-import           Pos.Util.Servant           (FromCType (..), OriginType)
-import           Pos.Util.Servant           (encodeCType)
+import           Pos.Core                   (BlockCount, timestampToPosix)
+import           Pos.Util.Servant           (FromCType (..), OriginType, encodeCType)
 import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
                                              assuredBlockDepth)
@@ -72,5 +71,5 @@ getWalletThTime
     => CId Wal -> TxHistoryEntry -> m (Maybe POSIXTime)
 getWalletThTime wid th = do
     metaTime <- ctmDate <<$>> getTxMeta wid (encodeCType $ _thTxId th)
-    let thTime = undefined $ _thTimestamp th
+    let thTime = timestampToPosix <$> _thTimestamp th
     return $ metaTime <|> thTime

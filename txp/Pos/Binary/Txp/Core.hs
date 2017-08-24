@@ -6,8 +6,9 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), deriveSimpleBi, enforceSize, encodeListLen,
-                                     decodeListLen, matchSize, deserialize', serialize')
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), decodeListLen,
+                                     deriveSimpleBi, deserialize', encodeListLen,
+                                     enforceSize, matchSize, serialize')
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
@@ -64,13 +65,13 @@ instance Bi T.TxInWitness where
     case tag of
       0 -> do
         matchSize len "TxInWitness.PkWitness" 2
-        uncurry T.PkWitness . deserialize' <$> decode
+        uncurry T.PkWitness <$> (deserialize' =<< decode)
       1 -> do
         matchSize len "TxInWitness.ScriptWitness" 2
-        uncurry T.ScriptWitness . deserialize' <$> decode
+        uncurry T.ScriptWitness <$> (deserialize' =<< decode)
       2 -> do
         matchSize len "TxInWitness.RedeemWitness" 2
-        uncurry T.RedeemWitness . deserialize' <$> decode
+        uncurry T.RedeemWitness <$> (deserialize' =<< decode)
       _ -> do
         matchSize len "TxInWitness.UnknownWitnessType" 2
         T.UnknownWitnessType tag <$> decode

@@ -12,8 +12,8 @@ import           Data.Digest.CRC32     (CRC32 (..))
 import           Data.Word             (Word8)
 import           Formatting            (build, formatToString, shown, (%))
 
-import           Pos.Binary.Class      (Bi (..), decodeListLen, deserialize',
-                                        encodeListLen, enforceSize, serialize')
+import           Pos.Binary.Class      (Bi (..), decodeListLen, encodeListLen,
+                                        enforceSize, serialize', unsafeDeserialize')
 import           Pos.Binary.Core.Types ()
 import           Pos.Binary.Crypto     ()
 import           Pos.Core.Types        (AddrAttributes (..), AddrSpendingData (..),
@@ -138,9 +138,14 @@ instance Bi (Attributes AddrAttributes) where
             , aaStakeDistribution = BootstrapEraDistr
             }
         go n v acc =
+            -- [CSL-1493] Should we:
+            -- 1. fail explicitly here (by using risky unsafe functions)
+            -- 2. Yield `Nothing` in case we cannot deserialize `v`
+            -- 3. Make `go` and thus `decodeAttributes` take an impure `updater`
+            --    function (which runs in the `Decoder` monad).
             case n of
-                0 -> pure acc {aaStakeDistribution = deserialize' v}
-                1 -> pure acc {aaPkDerivationPath = Just $ deserialize' v}
+                0 -> pure acc {aaStakeDistribution = unsafeDeserialize' v}
+                1 -> pure acc {aaPkDerivationPath = Just $ unsafeDeserialize' v}
                 _ -> Nothing
 
 -- We don't need a special encoding for 'Address'', GND is what we want.

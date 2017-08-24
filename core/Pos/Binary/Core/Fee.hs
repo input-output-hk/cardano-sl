@@ -33,5 +33,5 @@ instance Bi TxFeePolicy where
     enforceSize "TxFeePolicy" 2
     tag <- decode @Word8
     case tag of
-      0 -> TxFeePolicyTxSizeLinear . deserialize' <$> decode
-      _ -> TxFeePolicyUnknown tag                 <$> decode
+      0 -> TxFeePolicyTxSizeLinear <$> (deserialize' =<< decode)
+      _ -> TxFeePolicyUnknown tag  <$> decode

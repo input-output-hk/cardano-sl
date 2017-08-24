@@ -66,8 +66,8 @@ instance Bi HandlerSpec where
     enforceSize "HandlerSpec" 2
     tag <- decode @Word8
     case tag of
-      0 -> ConvHandler . deserialize' <$> decode
-      _ -> UnknownHandler tag         <$> decode
+      0 -> ConvHandler        <$> (deserialize' =<< decode)
+      _ -> UnknownHandler tag <$> decode
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

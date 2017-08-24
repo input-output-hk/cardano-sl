@@ -115,11 +115,14 @@ onRollbackTracking
     :: forall ssc ctx m .
     ( AccountMode ctx m
     , MonadDBRead m
+    , MonadSlotsData m
+    , SscHelpersClass ssc
+    , HasCoreConstants
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = setLogger $ do
     let newestFirst = getNewestFirst blunds
-        txs = concatMap (reverse . blundTxUn) newestFirst
+        txs = concatMap (reverse . gbTxsWUndo) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
     currentTipHH <- GS.getTip
     mapM_ (catchInSync "rollback" $ syncWallet currentTipHH newTip txs)
@@ -129,16 +132,34 @@ onRollbackTracking blunds = setLogger $ do
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWallet :: HeaderHash -> HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
+    syncWallet
+        :: HeaderHash
+        -> HeaderHash
+        -> [(TxAux, TxUndo, BlockHeader ssc)]
+        -> CId Wal
+        -> m ()
     syncWallet curTip newTip txs wid = walletGuard curTip wid $ do
         allAddresses <- getWalletAddrMetas WS.Ever wid
         encSK <- getSKById wid
-        let mapModifier = trackingRollbackTxs encSK allAddresses $
-                          map (\(aux, undo) -> (aux, undo, newTip)) txs
-        rollbackModifierFromWallet wid newTip mapModifier
+
+        systemStart <- getSystemStart
+        sd <- getSlottingData
+        let mainBlkHeaderTs mBlkH =
+                getSlotStartPure systemStart True (mBlkH ^. headerSlotL) sd
+            blkHeaderTs = either (const Nothing) mainBlkHeaderTs
+
+        let mapModifier = trackingRollbackTxs encSK allAddresses gbDiff blkHeaderTs txs
+        rollbackModifierFromWallet wid (headerHash newTip) mapModifier
         logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
-    gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
-    blundTxUn (b, u) = zip (gbTxs b) (undoTx u)
+
+    gbTxsWUndo :: Blund ssc -> [(TxAux, TxUndo, BlockHeader ssc)]
+    gbTxsWUndo (Left _, _) = []
+    gbTxsWUndo (blk@(Right mb), undo) =
+        zip3 (mb ^. mainBlockTxPayload . to flattenTxPayload)
+             (undoTx undo)
+             (repeat $ getBlockHeader blk)
+
+    gbDiff = Just . view difficultyL
 
 setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "blistener")

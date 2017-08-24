@@ -9,23 +9,28 @@ module Pos.Wallet.Web.Util
     , getWalletAddrs
     , decodeCTypeOrFail
     , getWalletAssuredDepth
+    , getWalletThTime
     ) where
 
 import           Universum
 
+import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Formatting                 (build, sformat, (%))
 
+import           Pos.Client.Txp.History     (TxHistoryEntry (..))
 import           Pos.Core.Types             (BlockCount)
 import           Pos.Util.Servant           (FromCType (..), OriginType)
+import           Pos.Util.Servant           (encodeCType)
 import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
                                              assuredBlockDepth)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal, cwAssurance)
+                                             CWAddressMeta (..), Wal, ctmDate,
+                                             cwAssurance)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode, WebWalletModeDB,
                                              getAccountIds, getAccountWAddresses,
-                                             getWalletMeta)
+                                             getTxMeta, getWalletMeta)
 
 getWalletAccountIds :: WebWalletModeDB ctx m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
@@ -62,3 +67,10 @@ getWalletAssuredDepth wid =
     assuredBlockDepth HighAssurance . cwAssurance <<$>>
     getWalletMeta wid
 
+getWalletThTime
+    :: (WebWalletModeDB ctx m)
+    => CId Wal -> TxHistoryEntry -> m (Maybe POSIXTime)
+getWalletThTime wid th = do
+    metaTime <- ctmDate <<$>> getTxMeta wid (encodeCType $ _thTxId th)
+    let thTime = undefined $ _thTimestamp th
+    return $ metaTime <|> thTime

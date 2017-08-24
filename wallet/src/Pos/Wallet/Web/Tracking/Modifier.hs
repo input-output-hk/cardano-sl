@@ -58,19 +58,20 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
         IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
 
 data CAccModifier = CAccModifier
-    { camAddresses      :: !(IndexedMapModifier CWAddressMeta)
-    , camUsed           :: !(VoidModifier (CId Addr, HeaderHash))
-    , camChange         :: !(VoidModifier (CId Addr, HeaderHash))
-    , camUtxo           :: !UtxoModifier
-    , camAddedHistory   :: !(DList TxHistoryEntry)
-    , camDeletedHistory :: !(DList TxId)
-    , camPtxCandidates  :: !(MapModifier TxId (Maybe PtxBlockInfo))
+    { camAddresses            :: !(IndexedMapModifier CWAddressMeta)
+    , camUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
+    , camChange               :: !(VoidModifier (CId Addr, HeaderHash))
+    , camUtxo                 :: !UtxoModifier
+    , camAddedHistory         :: !(DList TxHistoryEntry)
+    , camDeletedHistory       :: !(DList TxId)
+    , camAddedPtxCandidates   :: !(DList (TxId, PtxBlockInfo))
+    , camDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
     }
 
 instance Monoid CAccModifier where
-    mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty
-    (CAccModifier a b c d ah dh p) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1 p1) =
-        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (p <> p1)
+    mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty mempty
+    (CAccModifier a b c d ah dh aptx dptx) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
+        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (aptx <> aptx1) (dptx <> dptx1)
 
 instance Buildable CAccModifier where
     build CAccModifier{..} =
@@ -91,8 +92,8 @@ instance Buildable CAccModifier where
         camUtxo
         camAddedHistory
         camDeletedHistory
-        (map fst $ MM.insertions camPtxCandidates)
-        (MM.deletions camPtxCandidates)
+        (map fst camAddedPtxCandidates)
+        (map fst camDeletedPtxCandidates)
 
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.

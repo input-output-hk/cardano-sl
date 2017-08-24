@@ -9,12 +9,13 @@ module Pos.Wallet.Web.Pending.Worker
 
 import           Universum
 
+import           Control.Lens                 (has)
 import           Control.Monad.Catch          (Handler (..), catches)
 import           Data.Time.Units              (Microsecond, Second, convertUnit)
 import           Formatting                   (build, sformat, shown, stext, (%))
 import           Mockable                     (delay, fork)
 import           Serokell.Util.Text           (listJson)
-import           System.Wlog                  (logInfo, modifyLoggerName)
+import           System.Wlog                  (logInfo, logWarning, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses     (MonadAddresses)
 import           Pos.Communication            (submitAndSaveTx)
@@ -31,7 +32,8 @@ import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
                                                topsortTxs)
 import           Pos.Wallet.SscType           (WalletSscType)
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
+                                               _PtxApplying)
 import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
 import           Pos.Wallet.Web.State         (casPtxCondition, getPendingTxs)
 import           Pos.Wallet.Web.Util          (getWalletAssuredDepth)
@@ -45,12 +47,19 @@ type MonadPendings m =
 -- | What should happen with existing pending transaction if attempt
 -- to resubmit it failed.
 processPtxFailure :: MonadPendings m => PendingTx -> ToilVerFailure -> m ()
-processPtxFailure PendingTx{..} e =
-    unless (isReclaimableFailure e) $ do
-        let newCond = PtxWontApply (sformat build e)
-        void $ casPtxCondition _ptxWallet _ptxTxId PtxApplying newCond
-        logInfo $ sformat ("Pending transaction "%build%" was canceled")
-                  _ptxTxId
+processPtxFailure PendingTx{..} e
+    | PtxApplying poolInfo <- _ptxCond =
+        unless (isReclaimableFailure e) $ do
+            let newCond = PtxWontApply (sformat build e) poolInfo
+            void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+            logInfo $ sformat ("Pending transaction "%build%" was canceled")
+                    _ptxTxId
+    | otherwise =
+        logWarning $
+        sformat ("Processing failure of "%build%" resubmission, but \
+                 \this transaction has unexpected condition "%build)
+                _ptxTxId _ptxCond
+
 
 processPtxInNewestBlocks :: MonadPendings m => PendingTx -> m ()
 processPtxInNewestBlocks PendingTx{..} = do
@@ -120,7 +129,7 @@ processPtxsToResubmit sendActions ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
             take ptxsPerSlotLimit $
-            filter ((PtxApplying ==) . _ptxCond)
+            filter (has _PtxApplying . _ptxCond)
             ptxs
     logInfo $ sformat fmt (map _ptxTxId toResubmit)
     resubmitPtxsDuringSlot sendActions toResubmit

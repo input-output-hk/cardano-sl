@@ -3,7 +3,8 @@
 -- | Pending transactions utils.
 
 module Pos.Wallet.Web.Pending.Util
-    ( isPtxInBlocks
+    ( ptxPoolInfo
+    , isPtxInBlocks
     , mkPendingTx
     , isReclaimableFailure
     ) where
@@ -12,28 +13,33 @@ import           Universum
 
 import           Formatting                   (build, sformat, (%))
 
+import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
 import           Pos.Txp                      (ToilVerFailure (..), TxAux, TxId)
 import           Pos.Util.Util                (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes   (CId, CWalletMeta (..), Wal, cwAssurance)
 import           Pos.Wallet.Web.Error         (WalletError (RequestError))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
+                                               PtxPoolInfo)
 import           Pos.Wallet.Web.State         (getWalletMeta)
 
-isPtxInBlocks :: PtxCondition -> Bool
-isPtxInBlocks = \case
-    PtxApplying{}       -> False
-    PtxInNewestBlocks{} -> True
-    PtxPersisted{}      -> True
-    PtxWontApply{}      -> False
+ptxPoolInfo :: PtxCondition -> Maybe PtxPoolInfo
+ptxPoolInfo (PtxApplying i)    = Just i
+ptxPoolInfo (PtxWontApply _ i) = Just i
+ptxPoolInfo _                  = Nothing
 
-mkPendingTx :: MonadWalletWebMode m => CId Wal -> TxId -> TxAux -> m PendingTx
-mkPendingTx wid _ptxTxId _ptxTxAux = do
+isPtxInBlocks :: PtxCondition -> Bool
+isPtxInBlocks = not . isJust . ptxPoolInfo
+
+mkPendingTx
+    :: MonadWalletWebMode m
+    => CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
+mkPendingTx wid _ptxTxId _ptxTxAux th = do
     _ptxCreationSlot <- getCurrentSlotInaccurate
     CWalletMeta{..} <- maybeThrow noWallet =<< getWalletMeta wid
     return PendingTx
-        { _ptxCond = PtxApplying
+        { _ptxCond = PtxApplying th
         , _ptxWallet = wid
         , ..
         }

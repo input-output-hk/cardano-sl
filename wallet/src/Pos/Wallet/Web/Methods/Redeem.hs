@@ -99,13 +99,13 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
              res <$ submitAndSaveReclaimableTx enqueueMsg txAux
 
     -- add redemption transaction to the history of new wallet
+    ts <- Just <$> getCurrentTimestamp
     let txInputs = [TxOut redeemAddress redeemBalance]
         txHash = hash taTx
         dstWallet = aiWId accId
-    addOnlyNewPendingTx =<< mkPendingTx dstWallet txHash txAux
-    ts <- Just <$> getCurrentTimestamp
-    ctxs <- addHistoryTx (aiWId accId) $
-        THEntry (hash taTx) taTx Nothing txInputs [dstAddr] ts
+        th = THEntry (hash taTx) taTx Nothing txInputs [dstAddr] ts
+    ctxs <- addHistoryTx (aiWId accId) th
+    addOnlyNewPendingTx =<< mkPendingTx dstWallet txHash txAux th
     ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
     noIncomingTx = InternalError "Can't report incoming transaction"

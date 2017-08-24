@@ -11,9 +11,10 @@ module Pos.Wallet.Web.Methods.History
 import           Universum
 
 import qualified Data.DList                 as DL
+import           Data.Semigroup             (Arg (..))
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (logWarning)
+import           System.Wlog                (logError, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
@@ -27,13 +28,13 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
                                              mkCTxs)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending     (PendingTx (..))
+import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                             getHistoryCache, getPendingTx, getTxMeta,
-                                             setWalletTxMeta)
+                                             getHistoryCache, getPendingTx, getPendingTxs,
+                                             getTxMeta, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                              getWalletAccountIds, getWalletAddrMetas,
-                                             getWalletAddrs)
+                                             getWalletAddrs, getWalletThTime)
 
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m ([CTx], Word)
@@ -50,7 +51,7 @@ getFullWalletHistory cWalId = do
 
     localHistory <- getLocalHistory addrs
 
-    let fullHistory = DL.toList $ localHistory <> blockHistory
+    fullHistory <- addRecentPtxHistory cWalId $ DL.toList $ localHistory <> blockHistory
     ctxs <- forM fullHistory $ addHistoryTx cWalId
     let cHistory = concatMap toList ctxs
     pure (cHistory, fromIntegral $ length cHistory)
@@ -110,7 +111,6 @@ addHistoryTx
     -> TxHistoryEntry
     -> m CTxs
 addHistoryTx cWalId wtx@THEntry{..} = do
-    -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
     meta <- CTxMeta <$> case _thTimestamp of
@@ -127,4 +127,33 @@ addHistoryTx cWalId wtx@THEntry{..} = do
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
+
+addRecentPtxHistory
+    :: MonadWalletWebMode m
+    => CId Wal -> [TxHistoryEntry] -> m [TxHistoryEntry]
+addRecentPtxHistory wid currentHistory = do
+    candidates <- sortWith thToOrdForm <$> getCandidates
+    merge currentHistory candidates
+  where
+    thToOrdForm = Arg =<< _thTxId
+    getCandidates = catMaybes . map (ptxPoolInfo . _ptxCond) <$> getPendingTxs
+
+    merge [] recent     = return recent
+    merge current []    = return current
+    merge (c:cs) (r:rs) = do
+        if _thTxId c == _thTxId r
+            then (c:) <$> merge cs rs
+            else do
+                mctime <- getWalletThTime wid c
+                let mrtime = undefined $ _thTimestamp r
+                when (isNothing mrtime) $ reportNoTimestamp r
+                if mctime <= mrtime
+                    then (r:) <$> merge (c:cs) rs
+                    else (c:) <$> merge cs (r:rs)
+
+    -- pending transactions are made by us, always have timestamp set
+    reportNoTimestamp th =
+        logError $
+        sformat ("Pending transaction "%build%" has no timestamp set")
+                (_thTxId th)
 

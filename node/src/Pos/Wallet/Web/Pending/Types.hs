@@ -9,18 +9,32 @@ module Pos.Wallet.Web.Pending.Types
     , ptxWallet
 
     , PtxCondition (..)
+    , _PtxApplying
+    , _PtxInNewestBlocks
+    , _PtxPersisted
+    , _PtxWontApply
+
     , PtxBlockInfo
+    , PtxPoolInfo
     ) where
 
 import           Universum
 
-import           Control.Lens                     (makeLenses)
+import           Control.Lens                     (makeLenses, makePrisms)
+import qualified Data.Text.Buildable
+import           Formatting                       (bprint, build, (%))
+
+import           Pos.Client.Txp.History           (TxHistoryEntry)
 import           Pos.Core.Types                   (ChainDifficulty, SlotId)
 import           Pos.Txp.Core.Types               (TxAux, TxId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
 -- | Required information about block where given pending transaction is sited
 type PtxBlockInfo = ChainDifficulty
+
+-- | Information which is stored in pending tx pool when correspondent
+-- transaction is not in blockchain
+type PtxPoolInfo = TxHistoryEntry
 
 -- | Current state of pending transaction.
 --
@@ -46,14 +60,27 @@ type PtxBlockInfo = ChainDifficulty
 -- (effect can be canceled by BListener on rollback though).
 -- This behaviour is to be improved in CSM-390.
 data PtxCondition
-    = PtxApplying                     -- ^ Is waiting to be applyed
+    = PtxApplying PtxPoolInfo         -- ^ Is waiting to be applyed
     | PtxInNewestBlocks PtxBlockInfo  -- ^ Recently appeared in block.
     | PtxPersisted                    -- ^ Transaction is ~guaranteed to remain
                                       --   in blockchain
                                       --   (with up to *high* assurance level)
-    | PtxWontApply Text               -- ^ Can't be applyed and requires user's
+    | PtxWontApply Text PtxPoolInfo   -- ^ Can't be applyed and requires user's
                                       --   input to reform tx
     deriving (Eq, Show)
+
+makePrisms ''PtxCondition
+
+instance Buildable PtxCondition where
+    build = \case
+        PtxApplying{} ->
+            "applying"
+        PtxInNewestBlocks cd ->
+            bprint ("in newest blocks (since "%build%" difficulty)") cd
+        PtxPersisted ->
+            "persisted"
+        PtxWontApply reason _ ->
+            bprint ("wont apply ("%build%")") reason
 
 -- | All info kept about pending transaction
 data PendingTx = PendingTx

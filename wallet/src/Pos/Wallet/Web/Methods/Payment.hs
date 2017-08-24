@@ -154,10 +154,10 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
             (toList srcAddrs)
             dstAddrs
 
-        addOnlyNewPendingTx =<< mkPendingTx srcWallet txHash txAux
         ts <- Just <$> getCurrentTimestamp
-        ctxs <- addHistoryTx srcWallet $
-            THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+        let th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+        ctxs <- addHistoryTx srcWallet th
+        addOnlyNewPendingTx =<< mkPendingTx srcWallet txHash txAux th
         ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
      noOutgoingTx = InternalError "Can't report outgoing transaction"

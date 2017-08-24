@@ -14,6 +14,7 @@ module Pos.Communication.Tx
 
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
+import           System.Random              (randomRIO)
 import           System.Wlog                (logInfo)
 import           Universum
 
@@ -30,6 +31,7 @@ import           Pos.Communication.Types    (InvOrDataTK)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Class               (MonadGState)
+import           Pos.Txp                    (ToilVerFailure (..))
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOut (..), TxOutAux (..),
                                              txaF)
 import           Pos.Txp.Network.Types      (TxMsgContents (..))
@@ -53,6 +55,9 @@ submitAndSaveTx
     => EnqueueMsg m -> TxAux -> m TxAux
 submitAndSaveTx enqueue txAux@TxAux {..} = do
     let txId = hash taTx
+    whenM (liftIO $ (> 0) <$> randomRIO (0 :: Int, 6)) $ do
+        logInfo "Failing sending"
+        throwM ToilKnown
     submitTxRaw enqueue txAux
     saveTx (txId, txAux)
     return txAux

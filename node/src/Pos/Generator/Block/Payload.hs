@@ -19,34 +19,34 @@ import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
 import           Formatting                 (build, sformat, (%))
+import           Serokell.Util.Text         (listJson)
 import           System.Random              (RandomGen (..))
 
 import           Pos.AllSecrets             (asSecretKeys, asSpendingData,
                                              unInvAddrSpendingData, unInvSecretsMap)
-import           Pos.Client.Txp.Util        (makeAbstractTx, overrideTxDistrBoot,
-                                             runTxCreator, txToLinearFee, unTxError)
+import           Pos.Client.Txp.Util        (createGenericTx, makeMPubKeyTxAddrs,
+                                             unTxError)
 import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
-                                             SlotId (..), StakeholderId, TxFeePolicy (..),
-                                             addressHash, bvdTxFeePolicy, coinToInteger,
-                                             makePubKeyAddress, mkCoin, sumCoins,
+                                             SlotId (..), StakeholderId, addressHash,
+                                             coinToInteger, makePubKeyAddress,
                                              unsafeIntegerToCoin)
-import           Pos.Crypto                 (SecretKey, SignTag (SignTx), WithHash (..),
-                                             hash, sign, toPublic)
+import           Pos.Crypto                 (SecretKey, WithHash (..), fakeSigner, hash,
+                                             toPublic)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
 import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState                 as DB
-import           Pos.Txp.Core               (TxAux (..), TxIn (..), TxInWitness (..),
-                                             TxOut (..), TxOutAux (..), TxSigData (..))
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..), TxOut (..),
+                                             TxOutAux (..))
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
 #else
 import           Pos.Txp.Logic              (txProcessTransaction)
 #endif
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Toil.Types         (TxFee (..), Utxo)
+import           Pos.Txp.Toil.Types         (Utxo)
 import qualified Pos.Txp.Toil.Utxo          as Utxo
-import           Pos.Util.Util              (eitherToThrow, maybeThrow)
+import           Pos.Util.Util              (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Tx payload generation
@@ -70,6 +70,19 @@ selectDistinct n0 p@(a, b)
         let upEdge = b' - leftN + 1
         nextInt <- getRandomR (a', upEdge)
         selectDistinct' (nextInt : cur) (leftN - 1) (nextInt + 1, b')
+
+-- | Selects some number of distinct elements from the list; the number is
+-- taken from given range [a, b]
+selectSomeFromList :: MonadRandom m => (Int, Int) -> [a] -> m [a]
+selectSomeFromList p@(a, b0) ls
+    | b - a < 0 = error $ "selectSomeFromList: b < a " <> show p
+    | otherwise = do
+          n <- getRandomR (a, b)
+          idxs <- selectDistinct n (0, l - 1)
+          pure $ map (ls !!) idxs
+  where
+    l = length ls
+    b = min l b0
 
 -- | Separates coin into provided number of coins. All resulting coins
 -- are nonzero.
@@ -125,12 +138,9 @@ genTxPayload = do
     genTransaction = do
         -- Just an arbitrary not-so-big number of attempts to fit predicates
         -- to avoid infinite loops
-        let randomAttempts :: Int
-            randomAttempts = 20
-        -- Number of attempts to set a stable fee for transaction
-        -- (the same as in `Pos.Client.Txp.Util.stabilizeTxFee`)
-        let feeAttempts :: Int
-            feeAttempts = 5
+        -- let randomAttempts :: Int
+            -- randomAttempts = 20
+        utxo <- use gtdUtxo
         utxoSize <- uses gtdUtxoKeys V.length
         when (utxoSize == 0) $
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
@@ -153,91 +163,55 @@ genTxPayload = do
                                     %build) another
 
         let utxoAddresses = map (makePubKeyAddress . toPublic) $ HM.elems secrets
+            utxoAddrsN = HM.size secrets
+        let adder hm TxOutAux { toaOut = TxOut {..} } =
+                HM.insertWith (+) txOutAddress (coinToInteger txOutValue) hm
+            utxoBalances = foldl' adder mempty utxo
+            hasMoney addr = fromMaybe 0 (HM.lookup addr utxoBalances) > 0
+            addrsWithMoney = filter hasMoney utxoAddresses
 
-        ----- INPUTS
+        -- Select input and output addresses
 
-        let generateInputs attempts expectedFee@(TxFee fee) = do
-                when (attempts <= 0) $
-                    throwM . BGFailedToCreate $ "Too many attempts to choose tx inputs!"
-                inputsN <- getRandomR (1, min 5 utxoSize)
-                inputsIxs <- selectDistinct inputsN (0, utxoSize - 1)
-                -- It's alright to use unsafeIndex because length of
-                -- gtdUtxoKeys must match utxo size and inputsIxs is selected
-                -- prior to length limitation.
-                txIns <- forM inputsIxs $ \i -> uses gtdUtxoKeys (`V.unsafeIndex` i)
-                inputsResolved <- forM txIns $ \txIn ->
-                    -- we're selecting from utxo by 'gtdUtxoKeys'. Inability to resolve
-                    -- txin means that 'GenTxData' is malformed.
-                    toaOut .
-                    fromMaybe (error "genTxPayload: inputsSum can't happen") <$>
-                    utxoGet txIn
-                let (inputsSum :: Integer) = sumCoins $ map txOutValue inputsResolved
-                    minInputsSum = coinToInteger fee + 1
-                -- We need to ensure that sum of inputs is enough to
-                -- pay expected fee and leave some money for outputs
-                if inputsSum < minInputsSum
-                    -- just retry
-                    then generateInputs (attempts - 1) expectedFee
-                    else pure (txIns, inputsResolved, inputsSum)
+        inputAddrs <- selectSomeFromList (1, 3) addrsWithMoney
+        outputAddrs <- selectSomeFromList (1, 3) utxoAddresses
+        let outputsN = length outputAddrs
 
-        ----- OUTPUTS
+        -- Select UTXOs belonging to one of input addresses and determine
+        -- total amount of money available
+        let ownUtxo = Utxo.filterUtxoByAddrs inputAddrs utxo
+            totalOwnMoney = coinToInteger $ Utxo.getTotalCoinsInUtxo ownUtxo
 
-        let generateOutputs inputsSum (TxFee fee) = do
-                let outputsSum = inputsSum - coinToInteger fee
-                outputsMaxN <-
-                    fromIntegral .
-                    max 1 <$>
-                    lift (view tgpMaxOutputs)
-                (outputsN :: Int) <-
-                    fromIntegral <$> getRandomR (1, min outputsMaxN outputsSum)
-                outputsIxs <-
-                    selectDistinct
-                        outputsN
-                        (0, max outputsN (length utxoAddresses - 1))
-                let outputAddrs = map ((cycle utxoAddresses) !!) outputsIxs
-                -- We operate small coins values so any input sum mush be less
-                -- than coin maxbound.
-                coins <- splitCoins outputsN (unsafeIntegerToCoin outputsSum)
-                let txOuts :: NonEmpty TxOut
-                    txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-                let txOutToOutAux txOut@(TxOut addr coin) = do
-                        sk <- addrToSk addr
-                        let sId :: StakeholderId
-                            sId = addressHash (toPublic sk)
-                        let distr = one (sId, coin)
-                        return TxOutAux { toaOut = txOut, toaDistr = distr }
-                txOutAuxsPre <- mapM txOutToOutAux txOuts
-                either (lift . throwM . BGFailedToCreate . unTxError) pure =<<
-                    runTxCreator (overrideTxDistrBoot txOutAuxsPre)
+        -- We divide total own money by 2 to have space for tx fee
+        totalTxAmount <- getRandomR (fromIntegral outputsN, totalOwnMoney `div` 2)
 
-        ----- TX
+        changeAddrIdx <- getRandomR (0, utxoAddrsN - 1)
+        let changeAddrData = makePubKeyAddress &&& (Just . addressHash) $
+                toPublic $ HM.elems secrets !! changeAddrIdx
 
-        feePolicy <- lift . lift $ bvdTxFeePolicy <$> DB.getAdoptedBVData
-        linearPolicy <- case feePolicy of
-            TxFeePolicyUnknown w _ -> throwM . BGFailedToCreate $
-                sformat ("Unknown fee policy, tag: "%build) w
-            TxFeePolicyTxSizeLinear linear -> pure linear
+        -- Prepare tx outputs
+        coins <- splitCoins outputsN (unsafeIntegerToCoin totalTxAmount)
+        let txOuts :: NonEmpty TxOut
+            txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
+        let txOutToOutAux txOut@(TxOut addr coin) = do
+                sk <- addrToSk addr
+                let sId :: StakeholderId
+                    sId = addressHash (toPublic sk)
+                let distr = one (sId, coin)
+                return TxOutAux { toaOut = txOut, toaDistr = distr }
+        txOutAuxs <- mapM txOutToOutAux txOuts
 
-        let genTxWithFee attempt expectedFee = do
-                when (attempt <= 0) $
-                    lift . throwM $ BGFailedToCreate "Too many attempts to set a tx fee!"
-                (txIns, inputsResolved, inputsSum) <- generateInputs randomAttempts expectedFee
-                txOutAuxs <- generateOutputs inputsSum expectedFee
+        -- Form a transaction
+        inputSKs <- mapM addrToSk inputAddrs
+        let hdwSigners = NE.fromList $ zip (map fakeSigner inputSKs) inputAddrs
+            makeTestTx = makeMPubKeyTxAddrs hdwSigners
 
-                resolvedSks <- mapM (addrToSk . txOutAddress) inputsResolved
-                let txInsWithSks = NE.fromList $ resolvedSks `zip` txIns
-                let mkWit :: SecretKey -> TxSigData -> TxInWitness
-                    mkWit sk txSigData = PkWitness (toPublic sk) (sign SignTx sk txSigData)
-                let txAux = makeAbstractTx mkWit txInsWithSks txOutAuxs
-                txFee <- lift $ eitherToThrow . first (BGFailedToCreate . unTxError) $
-                    txToLinearFee linearPolicy txAux
-                if txFee == expectedFee
-                    then pure (txAux, txIns, txOutAuxs)
-                    else genTxWithFee (attempt - 1) txFee
+        eTx <- lift . lift $
+            createGenericTx makeTestTx ownUtxo txOutAuxs changeAddrData
+        (txAux, _) <- either (throwM . BGFailedToCreate . unTxError) pure eTx
 
-        (txAux, txIns, txOutAuxs) <- genTxWithFee feeAttempts (TxFee $ mkCoin 0)
         let tx = taTx txAux
         let txId = hash tx
+        let txIns = _txInputs tx
 #ifdef WITH_EXPLORER
         res <- lift . lift $ runExceptT $ eTxProcessTransaction (txId, txAux)
 #else
@@ -249,7 +223,7 @@ genTxPayload = do
                 Utxo.applyTxToUtxo (WithHash tx txId) (taDistribution txAux)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
                 let outsAsIns =
-                        map (TxIn txId) [0..(fromIntegral $ length txOutAuxs)-1]
+                        map (TxIn txId) [0..(fromIntegral $ length txOuts)-1]
                 gtdUtxoKeys %= (V.++) (V.fromList outsAsIns)
 
 

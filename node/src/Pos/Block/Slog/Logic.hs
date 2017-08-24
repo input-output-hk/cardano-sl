@@ -16,6 +16,8 @@ module Pos.Block.Slog.Logic
        , MonadSlogApply
        , slogApplyBlocks
        , slogRollbackBlocks
+
+       , BypassSecurityCheck(..)
        ) where
 
 import           Universum
@@ -23,6 +25,7 @@ import           Universum
 import           Control.Lens           (_Wrapped)
 import           Control.Monad.Except   (MonadError (throwError))
 import qualified Data.List.NonEmpty     as NE
+import qualified Data.Map               as M
 import           Ether.Internal         (HasLens (..))
 import           Formatting             (build, sformat, (%))
 import           Serokell.Util          (Color (Red), colorize)
@@ -45,16 +48,18 @@ import           Pos.Core               (BlockVersion (..), FlatSlotId, HasCoreC
 import           Pos.DB                 (SomeBatchOp (..))
 import           Pos.DB.Block           (MonadBlockDBWrite, blkGetHeader)
 import           Pos.DB.Class           (MonadDBRead, dbPutBlund)
-import           Pos.DB.DB              (sanityCheckDB)
 import           Pos.Exception          (assertionFailed, reportFatalError)
 import qualified Pos.GState             as GS
 import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
-import           Pos.Slotting           (MonadSlots (getCurrentSlot), putSlottingData)
+import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlottingDataMap,
+                                         putEpochSlottingDataM)
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass (..))
 import           Pos.Util               (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
                                          OldestFirst (..), toOldestFirst)
+
+
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -97,8 +102,8 @@ mustDataBeKnown adoptedBV =
 ----------------------------------------------------------------------------
 
 -- | Set of basic constraints needed by Slog.
-type MonadSlogBase ssc m =
-    ( MonadSlots m
+type MonadSlogBase ssc ctx m =
+    ( MonadSlots ctx m
     , MonadIO m
     , SscHelpersClass ssc
     , MonadDBRead m
@@ -108,7 +113,7 @@ type MonadSlogBase ssc m =
 
 -- | Set of constraints needed for Slog verification.
 type MonadSlogVerify ssc ctx m =
-    ( MonadSlogBase ssc m
+    ( MonadSlogBase ssc ctx m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
     )
@@ -117,7 +122,10 @@ type MonadSlogVerify ssc ctx m =
 -- All blocks must be from the same epoch.
 slogVerifyBlocks
     :: forall ssc ctx m.
-       (MonadSlogVerify ssc ctx m, MonadError Text m)
+    ( MonadSlogVerify ssc ctx m
+    , MonadError Text m
+    , SscHelpersClass ssc
+    )
     => OldestFirst NE (Block ssc)
     -> m (OldestFirst NE SlogUndo)
 slogVerifyBlocks blocks = do
@@ -174,7 +182,7 @@ slogVerifyBlocks blocks = do
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type MonadSlogApply ssc ctx m =
-    ( MonadSlogBase ssc m
+    ( MonadSlogBase ssc ctx m
     , MonadBlockDBWrite ssc m
     , MonadBListener m
     , MonadMask m
@@ -192,8 +200,8 @@ type MonadSlogApply ssc ctx m =
 
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
-slogApplyBlocks ::
-       forall ssc ctx m. MonadSlogApply ssc ctx m
+slogApplyBlocks
+    :: forall ssc ctx m. (MonadSlogApply ssc ctx m)
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogApplyBlocks blunds = do
@@ -243,13 +251,16 @@ slogApplyBlocks blunds = do
     blockExtraBatch lastSlots =
         mconcat [knownSlotsBatch lastSlots, forwardLinksBatch, inMainBatch]
 
+newtype BypassSecurityCheck = BypassSecurityCheck Bool
+
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
 slogRollbackBlocks ::
        forall ssc ctx m. MonadSlogApply ssc ctx m
-    => NewestFirst NE (Blund ssc)
+    => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
+    -> NewestFirst NE (Blund ssc)
     -> m SomeBatchOp
-slogRollbackBlocks blunds = do
+slogRollbackBlocks (BypassSecurityCheck bypassSecurity) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
@@ -258,9 +269,14 @@ slogRollbackBlocks blunds = do
     maxSeenDifficulty <- GS.getMaxSeenDifficulty
     resultingDifficulty <-
         maybe 0 (view difficultyL) <$>
-        blkGetHeader @ssc (NE.head (getNewestFirst blunds) ^. prevBlockL)
-    when (maxSeenDifficulty >
-          fromIntegral blkSecurityParam + resultingDifficulty) $
+        blkGetHeader @ssc (NE.head (getOldestFirst . toOldestFirst $ blunds) ^. prevBlockL)
+    let
+        secure =
+            -- no underflow from subtraction
+            maxSeenDifficulty >= resultingDifficulty &&
+            -- no rollback further than k blocks
+            maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
+    unless (bypassSecurity || secure) $
         reportFatalError "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."
@@ -304,8 +320,15 @@ slogRollbackBlocks blunds = do
         mconcat [forwardLinksBatch, inMainBatch]
 
 -- Common actions for rollback and apply.
-slogCommon :: MonadSlogApply ssc ctx m => LastBlkSlots -> m ()
+slogCommon
+    :: MonadSlogApply ssc ctx m
+    => LastBlkSlots
+    -> m ()
 slogCommon newLastSlots = do
-    sanityCheckDB
     slogPutLastSlots newLastSlots
-    putSlottingData =<< GS.getSlottingData
+    -- We read from the database and write in the memory.
+    -- TODO(ks): This is unsafe! We don't have control over sequentiality and
+    -- use explicit indexing. It would be better if we have sorted EpochSlotData and
+    -- pass it without the index.
+    slotData <- M.toList . getSlottingDataMap <$> GS.getSlottingData
+    forM_ slotData (uncurry putEpochSlottingDataM)

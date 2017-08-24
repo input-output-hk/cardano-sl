@@ -14,10 +14,11 @@ import           Universum                  hiding (over)
 import           Data.Maybe                 (fromJust)
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Production, currentTime, runProduction)
-import           System.Wlog                (logError, logInfo)
+import           System.Wlog                (logInfo)
 
 import           Pos.Binary                 ()
-import qualified Pos.CLI                    as CLI
+import           Pos.Client.CLI             (CommonNodeArgs (..))
+import qualified Pos.Client.CLI             as CLI
 import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
                                              worker)
 import           Pos.Context                (HasNodeContext)
@@ -27,8 +28,6 @@ import           Pos.Launcher               (NodeParams (..), NodeResources (..)
                                              bracketNodeResources, runNode)
 import           Pos.Ssc.Class              (SscParams)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
-import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Util.UserSecret        (usVss)
 import           Pos.Wallet.Web             (WalletWebMode, bracketWalletWS,
                                              bracketWalletWebDB, runWRealMode,
@@ -36,12 +35,9 @@ import           Pos.Wallet.Web             (WalletWebMode, bracketWalletWS,
 import           Pos.Web                    (serveWebGT)
 import           Pos.WorkMode               (WorkMode)
 
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..))
-import           Pos.Client.CLI.Params      (getSimpleNodeParams, gtSscParams)
-import           Pos.Client.CLI.Util        (printFlags)
-
 import           NodeOptions                (WalletArgs (..), WalletNodeArgs (..),
                                              getWalletNodeOptions)
+import           Params                     (getNodeParams)
 
 actionWithWallet :: HasCoreConstants => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
@@ -75,27 +71,22 @@ pluginsGT WalletArgs {..}
     | otherwise = []
 
 action :: WalletNodeArgs -> Production ()
-action (WalletNodeArgs (snArgs@SimpleNodeArgs {..}) (wArgs@WalletArgs {..})) = giveStaticConsts $ do
+action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = giveStaticConsts $ do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getSimpleNodeParams snArgs systemStart
-    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
+    currentParams <- getNodeParams cArgs systemStart
     putText $ "Wallet is enabled!"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams snArgs vssSK
+    let gtParams = CLI.gtSscParams cArgs vssSK
 
-    let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
-        sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
-    case sscParams of
-        (Left _)    -> logError "Wallet does not support NIST beacon!"
-        (Right par) -> actionWithWallet par currentParams wArgs
+    actionWithWallet gtParams currentParams wArgs
 
 main :: IO ()
 main = do
     args <- getWalletNodeOptions
-    printFlags
+    CLI.printFlags
     putText "[Attention] Software is built with wallet part"
     runProduction (action args)

@@ -22,7 +22,7 @@ import           Pos.Network.Types                     (Bucket (..), DnsDomains 
                                                         NodeId (..), NodeType (..),
                                                         Valency, resolveDnsDomains)
 import           Pos.Slotting                          (MonadSlotsData,
-                                                        getLastKnownSlotDuration)
+                                                        getNextEpochSlotDuration)
 import           Pos.Subscription.Common
 
 data KnownRelay = Relay {
@@ -46,7 +46,8 @@ activeRelays = map fst . filter (relayActive . snd) . M.toList
 
 -- TODO: Use valency and fallbacks
 dnsSubscriptionWorker
-    :: forall kademlia m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
+    :: forall kademlia ctx m.
+     ( SubscriptionMode m, Mockable Delay m, MonadSlotsData ctx m)
     => NetworkConfig kademlia
     -> DnsDomains DNS.Domain
     -> Valency
@@ -57,7 +58,7 @@ dnsSubscriptionWorker networkCfg dnsDomains _valency _fallbacks sendActions =
   where
     loop :: KnownRelays -> m ()
     loop oldRelays = do
-      slotDur <- getLastKnownSlotDuration
+      slotDur <- getNextEpochSlotDuration
       now     <- liftIO $ getCurrentTime
       peers   <- findRelays
 

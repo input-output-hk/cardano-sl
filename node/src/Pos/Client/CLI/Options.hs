@@ -1,20 +1,10 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE CPP           #-}
 
--- | Module for command-line utilites, parsers and convenient handlers.
+-- | Module for command-line options and flags
 
-module Pos.CLI
-       ( addrParser
-       , attackTypeParser
-       , attackTargetParser
-       , stakeholderIdParser
-       , defaultLoggerConfig
-       , readLoggerConfig
-       , sscAlgoParser
-       , getNodeSystemStart
-
-       -- | CLI options and flags
-       , CommonArgs (..)
+module Pos.Client.CLI.Options
+       ( CommonArgs (..)
        , commonArgsParser
        , optionalJSONPath
        , optionalLogPrefix
@@ -26,6 +16,7 @@ module Pos.CLI
        , externalNetworkAddressOption
        , listenNetworkAddressOption
        , templateParser
+       , sscAlgoOption
 
        , sysStartOption
        , nodeIdOption
@@ -33,110 +24,28 @@ module Pos.CLI
 
 import           Universum
 
-import           Control.Lens                         (zoom, (?=))
-import           Data.Time.Clock.POSIX                (getPOSIXTime)
-import           Data.Time.Units                      (toMicroseconds)
 import qualified Options.Applicative                  as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
-import           System.Wlog                          (LoggerConfig (..),
-                                                       Severity (Info, Warning),
-                                                       fromScratch, lcTree, ltSeverity,
-                                                       parseLoggerConfig, zoomLogger)
-import           Text.Parsec                          (try)
-import qualified Text.Parsec.Char                     as P
-import qualified Text.Parsec.Text                     as P
 
 import           Pos.Binary.Core                      ()
 import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
-import           Pos.Core                             (StakeholderId, Timestamp (..))
-import           Pos.Crypto                           (decodeAbstractHash)
-import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
+import           Pos.Core                             (Timestamp (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Util                             (eitherToFail)
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
-
-----------------------------------------------------------------------------
--- Utilities
-----------------------------------------------------------------------------
-
--- | Decides which secret-sharing algorithm to use.
-sscAlgoParser :: P.Parser SscAlgo
-sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
-                NistBeaconAlgo   <$ (P.string "NistBeacon")
-
-attackTypeParser :: P.Parser AttackType
-attackTypeParser = P.string "No" >>
-    AttackNoBlocks <$ (P.string "Blocks") <|>
-    AttackNoCommitments <$ (P.string "Commitments")
-
-stakeholderIdParser :: P.Parser StakeholderId
-stakeholderIdParser = do
-    token <- some $ P.noneOf " "
-    eitherToFail $ decodeAbstractHash (toText token)
-
-attackTargetParser :: P.Parser AttackTarget
-attackTargetParser =
-    (PubKeyAddressTarget <$> try stakeholderIdParser) <|>
-    (NetworkAddressTarget <$> addrParser)
-
--- | Default logger config. Will be used if `--log-config` argument is
--- not passed. Corresponds to next logger config:
---
--- > node:
--- >   severity: Info
--- >   comm:
--- >     severity: Warning
---
-defaultLoggerConfig :: LoggerConfig
-defaultLoggerConfig = fromScratch $ zoom lcTree $ zoomLogger "node" $ do
-    ltSeverity ?= Info
-    zoomLogger "comm" $ ltSeverity ?= Warning
-
--- | Reads logger config from given path. By default return
--- 'defaultLoggerConfig'.
-readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
-readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
-
--- | This function carries out special logic to convert given
--- timestamp to the system start time.
-getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
-getNodeSystemStart cliOrConfigSystemStart
-  | cliOrConfigSystemStart >= 1400000000 =
-    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
-    -- It was chosen arbitrarily as some date far enough in the past.
-    -- See CSL-983 for more information.
-    pure cliOrConfigSystemStart
-  | otherwise = do
-    let frameLength = timestampToSeconds cliOrConfigSystemStart
-    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
-    -- The whole timeline is split into frames, with the first frame starting
-    -- at UNIX epoch start. We're looking for a time `t` which would be in the
-    -- middle of the same frame as the current UNIX time.
-    let currentFrame = currentPOSIXTime `div` frameLength
-        t = currentFrame * frameLength + (frameLength `div` 2)
-    pure $ Timestamp $ sec $ fromIntegral t
-  where
-    timestampToSeconds :: Timestamp -> Integer
-    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
-
-----------------------------------------------------------------------------
--- ClI Options
-----------------------------------------------------------------------------
+import           Pos.Client.CLI.Util                   (sscAlgoParser)
 
 data CommonArgs = CommonArgs
     { logConfig     :: !(Maybe FilePath)
     , logPrefix     :: !(Maybe FilePath)
-    , sscAlgo       :: !SscAlgo
     , reportServers :: ![Text]
     , updateServers :: ![Text]
     -- distributions, only used in dev mode
     , flatDistr     :: !(Maybe (Int, Int))
-    , bitcoinDistr  :: !(Maybe (Int, Int))
     , richPoorDistr :: !(Maybe (Int, Int, Integer, Double))
     , expDistr      :: !(Maybe Int)
     , sysStart      :: !Timestamp
@@ -148,13 +57,10 @@ commonArgsParser = do
     logConfig <- optionalLogConfig
     logPrefix <- optionalLogPrefix
     --
-    sscAlgo <- sscAlgoOption
-    --
     reportServers <- reportServersOption
     updateServers <- updateServersOption
     -- distributions
     flatDistr     <- if isDevelopment then flatDistrOptional else pure Nothing
-    bitcoinDistr  <- if isDevelopment then btcDistrOptional  else pure Nothing
     richPoorDistr <- if isDevelopment then rnpDistrOptional  else pure Nothing
     expDistr      <- if isDevelopment then expDistrOption    else pure Nothing
     --
@@ -247,15 +153,6 @@ flatDistrOptional =
                 "flat-distr"
                 "(INT,INT)"
                 "Use flat stake distribution with given parameters (nodes, coins)."
-
-btcDistrOptional :: Opt.Parser (Maybe (Int, Int))
-btcDistrOptional =
-    Opt.optional $
-        Opt.option Opt.auto $
-            templateParser
-                "bitcoin-distr"
-                "(INT,INT)"
-                "Use bitcoin stake distribution with given parameters (nodes,coins)."
 
 rnpDistrOptional :: Opt.Parser (Maybe (Int, Int, Integer, Double))
 rnpDistrOptional =

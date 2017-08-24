@@ -111,7 +111,7 @@ data KademliaParams = KademliaParams
       -- ^ Initial Kademlia peers, for joining the network.
     , kpAddress         :: !(Maybe KademliaAddress)
       -- ^ External Kadmelia address.
-    , kpBind            :: !KademliaAddress
+    , kpBind            :: !(Maybe KademliaAddress)
       -- ^ Address at which to bind the Kademlia socket.
       -- Shouldn't be necessary to have a separate bind and public address.
       -- The Kademlia instance in fact shouldn't even need to know its own
@@ -119,7 +119,7 @@ data KademliaParams = KademliaParams
       -- that responses for FIND_NODES are serialized, Kademlia needs to know
       -- its own external address [TW-153]. The mainline 'kademlia' package
       -- doesn't suffer this problem.
-    , kpExplicitInitial :: !Bool
+    , kpExplicitInitial :: !(Maybe Bool)
     , kpDumpFile        :: !(Maybe FilePath)
     }
     deriving (Show)
@@ -129,8 +129,8 @@ instance FromJSON KademliaParams where
         kpId <- obj .:? "identifier"
         kpPeers <- obj .: "peers"
         kpAddress <- obj .:? "externalAddress"
-        kpBind <- obj .: "address"
-        kpExplicitInitial <- obj .:? "explicitInitial" .!= False
+        kpBind <- obj .:? "address"
+        kpExplicitInitial <- obj .:? "explicitInitial"
         kpDumpFile <- obj .:? "dumpFile"
         return KademliaParams {..}
 
@@ -359,7 +359,7 @@ instance FromJSON t => FromJSON (ByMsgType t) where
         mpc                 <- obj .: "mpc"
         return $ ByMsgType $ \msg -> case msg of
             MsgAnnounceBlockHeader _                 -> announceBlockHeader
-            MsgRequestBlockHeaders                   -> requestBlockHeaders
+            MsgRequestBlockHeaders _                 -> requestBlockHeaders
             MsgRequestBlocks       _                 -> requestBlocks
             MsgTransaction         OriginSender      -> send transaction
             MsgTransaction         (OriginForward _) -> forward transaction

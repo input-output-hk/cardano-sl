@@ -27,7 +27,7 @@ import           Pos.Core.Context             (HasCoreConstants)
 import           Pos.Core.Slotting            (flattenSlotId)
 import           Pos.Crypto                   (WithHash (..))
 import           Pos.DB.DB                    (getTipHeader)
-import           Pos.Slotting                 (getLastKnownSlotDuration, onNewSlot)
+import           Pos.Slotting                 (getNextEpochSlotDuration, onNewSlot)
 import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
                                                topsortTxs)
 import           Pos.Wallet.SscType           (WalletSscType)
@@ -118,7 +118,7 @@ resubmitPtxsDuringSlot sendActions ptxs = do
   where
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
-        slotDuration <- getLastKnownSlotDuration
+        slotDuration <- getNextEpochSlotDuration
         let checkPeriod = max 0 $ slotDuration - convertUnit submitionEta
         return (checkPeriod `div` fromIntegral toResubmitNum)
 
@@ -136,7 +136,7 @@ processPtxsToResubmit sendActions ptxs = do
   where
     fmt = "Transactions to resubmit on current slot: "%listJson
     evalPtxsPerSlotLimit = do
-        slotDuration <- getLastKnownSlotDuration
+        slotDuration <- getNextEpochSlotDuration
         let limit = fromIntegral @Microsecond $
                 convertUnit slotDuration `div` convertUnit pendingTxResubmitionPeriod
         when (limit <= 0) $

@@ -7,6 +7,7 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
+import           Control.Lens                (makeLenses)
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (def)
@@ -31,9 +32,10 @@ import           Pos.Txp.MemState            (GenericTxpLocalDataPure, MonadTxpM
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
-                                              MonadUtxoRead (..), ToilVerFailure (..),
-                                              Utxo, evalUtxoStateT, runDBToil,
-                                              runToilTLocalExtra, utxoGet)
+                                              MonadUtxoRead (..), ToilT,
+                                              ToilVerFailure (..), Utxo, runDBToil,
+                                              runDBToil, runToilTLocalExtra, utxoGet,
+                                              utxoGetReader)
 import           Pos.Util.Chrono             (NewestFirst (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -49,28 +51,44 @@ type ETxpLocalWorkMode ctx m =
     , MonadGState m
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
-    , MonadSlots m
+    , MonadSlots ctx m
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
 
--- | A monad transformer whose purpose is to avoid overlapping instances
--- of MonadTxExtraRead (ReaderT ExplorerExtraTxp m).
-newtype ExplorerReaderWrapper m a = ExplorerReaderWrapper
-    { runExplorerReaderWrapper :: m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadError e
-               , MonadUtxoRead
-               , MonadGState
-               )
+-- Base context for tx processing in explorer.
+data EProcessTxContext = EProcessTxContext
+    { _eptcExtraBase       :: !ExplorerExtraTxp
+    , _eptcGenStakeholders :: !GenesisWStakeholders
+    , _eptcAdoptedBVData   :: !BlockVersionData
+    , _eptcUtxoBase        :: !Utxo
+    }
 
-instance Monad m => MonadTxExtraRead (ExplorerReaderWrapper (ReaderT ExplorerExtraTxp m)) where
-    getTxExtra txId = HM.lookup txId . eetTxExtra <$> ExplorerReaderWrapper ask
-    getAddrHistory addr = HM.lookupDefault (NewestFirst []) addr . eetAddrHistories <$> ExplorerReaderWrapper ask
-    getAddrBalance addr = HM.lookup addr . eetAddrBalances <$> ExplorerReaderWrapper ask
+makeLenses ''EProcessTxContext
+
+instance HasLens GenesisWStakeholders EProcessTxContext GenesisWStakeholders where
+    lensOf = eptcGenStakeholders
+
+instance HasLens Utxo EProcessTxContext Utxo where
+    lensOf = eptcUtxoBase
+
+-- Base monad for tx processing in explorer.
+type EProcessTxMode = Reader EProcessTxContext
+
+instance MonadUtxoRead EProcessTxMode where
+    utxoGet = utxoGetReader
+
+instance MonadGState EProcessTxMode where
+    gsAdoptedBVData = view eptcAdoptedBVData
+
+instance MonadTxExtraRead EProcessTxMode where
+    getTxExtra txId = HM.lookup txId . eetTxExtra <$> view eptcExtraBase
+    getAddrHistory addr =
+        HM.lookupDefault (NewestFirst []) addr . eetAddrHistories <$>
+        view eptcExtraBase
+    getAddrBalance addr =
+        HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
 
 eTxProcessTransaction
     :: ETxpLocalWorkMode ctx m
@@ -89,73 +107,85 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.
-    let resolved = M.fromList $
-                   catMaybes $
-                   toList $
-                   NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
+    let resolved =
+            M.fromList $
+            catMaybes $
+            toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     curTime <- currentTimeSlotting
-    let txInAddrs = map (txOutAddress . toaOut) $ catMaybes $ toList resolvedOuts
+    let txInAddrs =
+            map (txOutAddress . toaOut) $ catMaybes $ toList resolvedOuts
         txOutAddrs = toList $ map txOutAddress _txOutputs
         allAddrs = ordNub $ txInAddrs <> txOutAddrs
-    hmHistories <- buildMap allAddrs <$> mapM (fmap Just . ExDB.getAddrHistory) allAddrs
+    hmHistories <-
+        buildMap allAddrs <$> mapM (fmap Just . ExDB.getAddrHistory) allAddrs
     hmBalances <- buildMap allAddrs <$> mapM ExDB.getAddrBalance allAddrs
     -- `eet` is passed to `processTxDo` where it is used in a ReaderT environment
     -- to provide underlying functions (`modifyAddrHistory` and `modifyAddrBalance`)
     -- with data to update. In case of `TxExtra` data is only added, but never updated,
     -- hence `mempty` here.
     let eet = ExplorerExtraTxp mempty hmHistories hmBalances
-    pRes <- lift $ modifyTxpLocalData "eTxProcessTransaction" $
-            processTxDo epoch bvd genStks resolved tipBefore itw curTime eet
+    let ctx =
+            EProcessTxContext
+            { _eptcExtraBase = eet
+            , _eptcAdoptedBVData = bvd
+            , _eptcUtxoBase = resolved
+            , _eptcGenStakeholders = genStks
+            }
+    pRes <-
+        lift $
+        modifyTxpLocalData "eTxProcessTransaction" $
+        processTxDo epoch ctx tipBefore itw curTime
     case pRes of
         Left er -> do
-            logDebug $ sformat ("Transaction processing failed: "%build) txId
+            logDebug $ sformat ("Transaction processing failed: " %build) txId
             throwError er
-        Right _   ->
-            logDebug $ sformat ("Transaction is processed successfully: "%build) txId
+        Right _ ->
+            logDebug $
+            sformat ("Transaction is processed successfully: " %build) txId
   where
-    processTxDo
-        :: EpochIndex
-        -> BlockVersionData
-        -> GenesisWStakeholders
-        -> Utxo
+    processTxDo ::
+           EpochIndex
+        -> EProcessTxContext
         -> HeaderHash
         -> (TxId, TxAux)
         -> Timestamp
-        -> ExplorerExtraTxp
         -> ETxpLocalDataPure
         -> (Either ToilVerFailure (), ETxpLocalDataPure)
-    processTxDo curEpoch bvd genStks resolved tipBefore tx curTime eet txld@(uv, mp, undo, tip, extra)
+    processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx curTime txld@(uv, mp, undo, tip, extra)
         | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
-            let execToil action =
-                    snd <$> runToilTLocalExtra uv mp undo extra action
+            let runToil ::
+                       Functor m
+                    => ToilT ExplorerExtra m a
+                    -> m (a, GenericToilModifier ExplorerExtra)
+                runToil = runToilTLocalExtra uv mp undo extra
+                -- We strictly rely on verifyAllIsKnown = True here
+                action ::
+                       ExceptT ToilVerFailure (ToilT ExplorerExtra EProcessTxMode) ()
+                action = eProcessTx curEpoch tx (TxExtra Nothing curTime txUndo)
                 -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
                 -- wouldn't save extra value, thus wouldn't reduce it to NF
-                txUndo = NE.fromList $ toList resolved
-                res =
-                    (runExceptT $
-                     flip evalUtxoStateT resolved $
-                     flip runReaderT eet $
-                     runExplorerReaderWrapper $
-                     flip runReaderT genStks $
-                     execToil $
-                     eProcessTx curEpoch tx (TxExtra Nothing curTime txUndo)) bvd
+                txUndo = NE.fromList $ map Just $ toList _eptcUtxoBase
+                res :: ( Either ToilVerFailure ()
+                       , GenericToilModifier ExplorerExtra)
+                res = usingReader ctx $ runToil $ runExceptT action
             in case res of
-                Left er  -> (Left er, txld)
-                Right ToilModifier{..} ->
-                    (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
+                   (Left er, _) -> (Left er, txld)
+                   (Right (), ToilModifier {..}) ->
+                       ( Right ()
+                       , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
     runUM um = runToilTLocalExtra um def mempty (def @ExplorerExtra)
     buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
     buildMap keys maybeValues =
-        HM.fromList $ catMaybes $ toList $
-            zipWith (liftM2 (,) . Just) keys maybeValues
+        HM.fromList $
+        catMaybes $ toList $ zipWith (liftM2 (,) . Just) keys maybeValues
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize ::
        ( ETxpLocalWorkMode ctx m
-       , MonadSlots m
+       , MonadSlots ctx m
        )
     => m ()
 eTxNormalize = getCurrentSlot >>= \case

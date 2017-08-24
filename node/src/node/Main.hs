@@ -18,7 +18,9 @@ import           Mockable                   (Production, currentTime, runProduct
 import           System.Wlog                (logInfo)
 
 import           Pos.Binary                 ()
-import qualified Pos.CLI                    as CLI
+import qualified Pos.Client.CLI             as CLI
+import           Pos.Client.CLI             (SimpleNodeArgs (..), CommonNodeArgs (..),
+                                             NodeArgs(..))
 import           Pos.Communication          (OutSpecs, WorkerSpec, worker)
 import           Pos.Core                   (HasCoreConstants, Timestamp (..),
                                              giveStaticConsts)
@@ -32,10 +34,6 @@ import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Update.Context         (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util.UserSecret        (usVss)
 import           Pos.WorkMode               (RealMode)
-
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..), getSimpleNodeOptions)
-import           Pos.Client.CLI.Params      (getSimpleNodeParams, gtSscParams)
-import           Pos.Client.CLI.Util        (printFlags)
 
 actionWithoutWallet
     :: forall ssc.
@@ -59,26 +57,26 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     triggerShutdown
 
 action :: SimpleNodeArgs -> Production ()
-action args@SimpleNodeArgs {..} = giveStaticConsts $ do
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = giveStaticConsts $ do
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getSimpleNodeParams args systemStart
-    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
+    currentParams <- CLI.getNodeParams cArgs nArgs systemStart
+    putText $ "Running using " <> show sscAlgo
     putText "Wallet is disabled, because software is built w/o it"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams args vssSK
+    let gtParams = CLI.gtSscParams cArgs vssSK
 
     let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
-        sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
-    case sscParams of
+        sscParams = bool (Left ()) (Right gtParams) (sscAlgo == GodTossingAlgo)
+    case (sscParams) of
         Left par  -> actionWithoutWallet @SscNistBeacon par currentParams
         Right par -> actionWithoutWallet @SscGodTossing par currentParams
 
 main :: IO ()
 main = do
-    args <- getSimpleNodeOptions
-    printFlags
+    args <- CLI.getSimpleNodeOptions
+    CLI.printFlags
     runProduction (action args)

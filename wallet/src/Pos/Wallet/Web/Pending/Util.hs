@@ -59,8 +59,9 @@ isReclaimableFailure = \case
     ToilOutGTIn{}            -> False
     ToilInconsistentTxAux{}  -> False
     ToilInvalidOutputs{}     -> False
-    ToilInvalidInput{}       -> False
+    ToilUnknownInput{}       -> False
     ToilWitnessDoesntMatch{} -> False
+    ToilInvalidWitness{}     -> False
     ToilTooLargeTx{}         -> False
     ToilInvalidMinFee{}      -> False
     ToilInsufficientFee{}    -> False

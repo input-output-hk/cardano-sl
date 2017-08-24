@@ -10,7 +10,7 @@ module Params
 
 import           Universum
 
-import           Mockable              (Catch, Fork, Mockable)
+import           Mockable              (Catch, Fork, Mockable, Throw)
 import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
@@ -80,6 +80,7 @@ getNodeParams
        , WithLogger     m
        , Mockable Fork  m
        , Mockable Catch m
+       , Mockable Throw m
        )
     => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do

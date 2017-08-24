@@ -222,7 +222,7 @@ genTxPayload = do
                 Utxo.applyTxToUtxo (WithHash tx txId) (taDistribution txAux)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
                 let outsAsIns =
-                        map (TxIn txId) [0..(fromIntegral $ length txOuts)-1]
+                        map (TxInUtxo txId) [0..(fromIntegral $ length txOuts)-1]
                 gtdUtxoKeys %= (V.++) (V.fromList outsAsIns)
 
 

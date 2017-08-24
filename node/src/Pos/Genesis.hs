@@ -129,7 +129,7 @@ genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
     balances :: [(Address, Coin)]
     balances = concatAddrDistrs ad
     utxoEntry (addr, coin) =
-        ( TxIn (unsafeHash addr) 0
+        ( TxInUtxo (unsafeHash addr) 0
         , TxOutAux (TxOut addr coin) (outDistr coin))
     outDistr = genesisSplitBoot gws
 

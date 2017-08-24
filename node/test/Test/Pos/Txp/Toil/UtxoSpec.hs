@@ -35,7 +35,8 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         TxIn (..), TxInWitness (..), TxOut (..),
                                         TxOutAux (..), TxSigData (..), TxWitness, Utxo,
                                         VTxContext (..), WitnessVerFailure (..),
-                                        applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
+                                        applyTxToUtxoPure, isTxInUnknown, verifyTxUtxo,
+                                        verifyTxUtxoPure)
 import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
                                         makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
@@ -59,7 +60,7 @@ spec = describe "Txp.Toil.Utxo" $ do
         prop description_applyTxToUtxoGood applyTxToUtxoGood
     scriptTxSpec
   where
-    myTx = TxIn myHash 0
+    myTx = TxInUtxo myHash 0
     myHash = unsafeHash @Int32 0
     description_findTxInUtxo =
         "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in\
@@ -222,14 +223,19 @@ applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
     let inpList = txIn0 :| M.keys txMap
         tx = UnsafeTx inpList (map toaOut txOuts) (mkAttributes ())
         txDistr = TxDistribution (map toaDistr txOuts)
-        utxoMap = M.fromList $ toList $ NE.zip inpList (txOut0 :| M.elems txMap)
-        newUtxoMap = applyTxToUtxoPure (withHash tx) txDistr utxoMap
-        newUtxos =
+        -- Initial utxo
+        initUtxo = M.fromList $ toList $ NE.zip inpList (txOut0 :| M.elems txMap)
+        resultUtxo = applyTxToUtxoPure (withHash tx) txDistr initUtxo
+
+        -- Inserted tx outputs
+        newUtxosInputs =
             NE.fromList $
-            (map (TxIn (hash tx)) [0 ..]) `zip` toList txOuts
-        rmvUtxo = foldr M.delete utxoMap inpList
-        insNewUtxo = foldr (uncurry M.insert) rmvUtxo newUtxos
-    in insNewUtxo == newUtxoMap
+            (map (TxInUtxo (hash tx)) [0 ..]) `zip` toList txOuts
+        -- Utxo without removed known inputs (we musn't remove unknown inputs)
+        rmvUtxo = foldr M.delete initUtxo $ NE.filter (not . isTxInUnknown) inpList
+        -- Expected Utxo after applying of the tx
+        expectedUtxo = foldr (uncurry M.insert) rmvUtxo newUtxosInputs
+    in expectedUtxo == resultUtxo
 
 ----------------------------------------------------------------------------
 -- Script Txs spec
@@ -400,7 +406,7 @@ scriptTxSpec = describe "script transactions" $ do
     mkUtxo :: TxOut -> (TxIn, TxOut, Utxo)
     mkUtxo outp =
         let txid = unsafeHash ("nonexistent tx" :: Text)
-        in  (TxIn txid 0, outp, one ((TxIn txid 0), (TxOutAux outp [])))
+        in  (TxInUtxo txid 0, outp, one ((TxInUtxo txid 0), (TxOutAux outp [])))
 
     -- Do not verify versions
     vtxContext = VTxContext False

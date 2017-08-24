@@ -289,8 +289,7 @@ data CAddressSummary = CAddressSummary
 data CTxBrief = CTxBrief
     { ctbId         :: !CTxId
     , ctbTimeIssued :: !POSIXTime
-    -- TODO [CSE-204] Make list of type [Maybe (CAddress, CCoin)] here
-    , ctbInputs     :: ![(CAddress, CCoin)]
+    , ctbInputs     :: ![Maybe (CAddress, CCoin)]
     , ctbOutputs    :: ![(CAddress, CCoin)]
     , ctbInputSum   :: !CCoin
     , ctbOutputSum  :: !CCoin
@@ -311,8 +310,7 @@ data CTxSummary = CTxSummary
     , ctsTotalInput      :: !CCoin
     , ctsTotalOutput     :: !CCoin
     , ctsFees            :: !CCoin
-    -- TODO [CSE-204] Make list of type [Maybe (CAddress, CCoin)] here
-    , ctsInputs          :: ![(CAddress, CCoin)]
+    , ctsInputs          :: ![Maybe (CAddress, CCoin)]
     , ctsOutputs         :: ![(CAddress, CCoin)]
     } deriving (Show, Generic)
 
@@ -382,8 +380,9 @@ toTxBrief txi = CTxBrief {..}
     ts            = tiTimestamp txi
     ctbId         = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime ts
-    -- TODO [CSE-204] ctbInputs = map (fmap (second mkCCoin)) txInputsMB
-    ctbInputs     = map (second mkCCoin) $ catMaybes txInputsMB
+    -- TODO [CSE-204]
+    ctbInputs     = map (fmap (second mkCCoin)) txInputsMB
+    -- ctbInputs     = map (second mkCCoin) $ catMaybes txInputsMB
     ctbOutputs    = map (second mkCCoin) txOutputs
     ctbInputSum   = sumCoinOfInputsOutputs txInputsMB
     ctbOutputSum  = sumCoinOfInputsOutputs $ map Just txOutputs

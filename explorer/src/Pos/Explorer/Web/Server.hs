@@ -465,8 +465,7 @@ getTxSummary cTxId = do
             , ctsTotalInput      = mkCCoinMB totalInputMB
             , ctsTotalOutput     = mkCCoin totalOutput
             , ctsFees            = mkCCoinMB $ (`unsafeSubCoin` totalOutput) <$> totalInputMB
-            -- TODO [CSE-204] ctsInputs = map (fmap (second mkCCoin)) $ convertTxOutputsMB inputOutputsMB
-            , ctsInputs          = map (second mkCCoin) $ catMaybes $ convertTxOutputsMB inputOutputsMB
+            , ctsInputs          = map (fmap (second mkCCoin)) $ convertTxOutputsMB inputOutputsMB
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
 
@@ -480,6 +479,7 @@ getTxSummary cTxId = do
         tx                     <- fetchTxFromMempoolOrFail txId
 
         let inputOutputs        = NE.toList . _txOutputs $ taTx tx
+        -- let inputOutputsMB      = map (fmap toaOut) $ NE.toList $ teInputOutputs txExtra
         let txOutputs           = convertTxOutputs inputOutputs
 
         let totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
@@ -501,7 +501,7 @@ getTxSummary cTxId = do
             , ctsTotalInput      = mkCCoin totalInput
             , ctsTotalOutput     = mkCCoin totalOutput
             , ctsFees            = mkCCoin $ unsafeSubCoin totalInput totalOutput
-            , ctsInputs          = map (second mkCCoin) $ convertTxOutputs inputOutputs
+            , ctsInputs          = map (Just . second mkCCoin) $ convertTxOutputs inputOutputs
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
 

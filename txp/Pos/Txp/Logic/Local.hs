@@ -11,35 +11,32 @@ module Pos.Txp.Logic.Local
 
 import           Universum
 
-import           Control.Lens                (makeLenses)
-import           Control.Monad.Except        (MonadError (..), runExceptT)
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Default                (Default (def))
-import qualified Data.List.NonEmpty          as NE
-import qualified Data.Map                    as M (fromList)
-import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (WithLogger, logDebug)
+import           Control.Lens         (makeLenses)
+import           Control.Monad.Except (MonadError (..), runExceptT)
+import           Data.Default         (Default (def))
+import qualified Data.List.NonEmpty   as NE
+import qualified Data.Map             as M (fromList)
+import           Formatting           (build, sformat, (%))
+import           System.Wlog          (WithLogger, logDebug)
 
-import           Pos.Core                    (BlockVersionData, EpochIndex,
-                                              GenesisWStakeholders, HeaderHash, siEpoch)
-import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
-import qualified Pos.DB.GState.Common        as GS
-import           Pos.Infra.Semaphore         (BlkSemaphore, withBlkSemaphoreIgnoreTip)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, TxUndo)
-import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
-                                              getUtxoModifier, modifyTxpLocalData,
-                                              setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..),
-                                              MonadUtxoRead (..), ToilModifier, ToilT,
-                                              ToilVerFailure (..), Utxo, execToilTLocal,
-                                              normalizeToil, processTx, runDBToil,
-                                              runToilTLocal, utxoGetReader)
-import           Pos.Util.Util               (HasLens (..), HasLens')
+import           Pos.Core             (BlockVersionData, EpochIndex, GenesisWStakeholders,
+                                       HeaderHash, siEpoch)
+import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
+import qualified Pos.DB.GState.Common as GS
+import           Pos.Infra.Semaphore  (BlkSemaphore, withBlkSemaphoreIgnoreTip)
+import           Pos.Slotting         (MonadSlots (..))
+import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo)
+import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
+                                       getUtxoModifier, modifyTxpLocalData,
+                                       setTxpLocalData)
+import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
+                                       ToilModifier, ToilT, ToilVerFailure (..), Utxo,
+                                       execToilTLocal, normalizeToil, processTx,
+                                       runDBToil, runToilTLocal, utxoGetReader)
+import           Pos.Util.Util        (HasLens (..), HasLens')
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
-    , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
     , MonadSlots ctx m

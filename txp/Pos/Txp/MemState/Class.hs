@@ -21,20 +21,17 @@ module Pos.Txp.MemState.Class
 
 import           Universum
 
-import qualified Control.Concurrent.STM      as STM
-import qualified Control.Exception.Lifted    as L
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Default                (Default (def))
-import qualified Data.HashMap.Strict         as HM
-import           Ether.Internal              (HasLens (..))
-import           Mockable                    (CurrentTime, Mockable, currentTime)
-import           System.IO.Unsafe            (unsafePerformIO)
-import           System.Wlog                 (WithLogger, getLoggerName, usingLoggerName)
+import qualified Control.Concurrent.STM as STM
+import           Data.Default           (Default (def))
+import qualified Data.HashMap.Strict    as HM
+import           Ether.Internal         (HasLens (..))
+import           Mockable               (CurrentTime, Mockable, currentTime)
+import           System.Wlog            (WithLogger, getLoggerName, usingLoggerName)
 
-import           Pos.Txp.Core.Types          (TxAux, TxId, TxUndo)
-import           Pos.Txp.MemState.Types      (GenericTxpLocalData (..),
-                                              GenericTxpLocalDataPure, TxpMetrics (..))
-import           Pos.Txp.Toil.Types          (MemPool (..), UtxoModifier)
+import           Pos.Txp.Core.Types     (TxAux, TxId, TxUndo)
+import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
+                                         GenericTxpLocalDataPure, TxpMetrics (..))
+import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
 
 data TxpHolderTag
 
@@ -86,12 +83,8 @@ getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
 getTxpExtra :: (MonadIO m, MonadTxpMem e ctx m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
-txpLocalDataLock :: MVar ()
-txpLocalDataLock = unsafePerformIO $ newMVar ()
-{-# NOINLINE txpLocalDataLock #-}
-
 modifyTxpLocalData
-    :: (WithLogger m, MonadIO m, MonadBaseControl IO m, MonadTxpMem ext ctx m)
+    :: (WithLogger m, MonadIO m, MonadTxpMem ext ctx m)
     => String
     -> (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
     -> m a
@@ -100,7 +93,7 @@ modifyTxpLocalData reason f =
         lname <- getLoggerName
         liftIO . usingLoggerName lname $ txpMetricsWait reason
         timeBeginWait <- currentTime
-        (res, logMetricsRelease) <- withLock $ do
+        (res, logMetricsRelease) <- do
             timeEndWait <- currentTime
             liftIO . usingLoggerName lname $
                 txpMetricsAcquire (timeEndWait - timeBeginWait)
@@ -125,11 +118,9 @@ modifyTxpLocalData reason f =
             pure (res, logMetricsRelease)
         logMetricsRelease
         pure res
- where
-   withLock = L.bracket_ (takeMVar txpLocalDataLock) (putMVar txpLocalDataLock ())
 
 setTxpLocalData ::
-       (WithLogger m, MonadIO m, MonadBaseControl IO m, MonadTxpMem ext ctx m)
+       (WithLogger m, MonadIO m, MonadTxpMem ext ctx m)
     => String
     -> GenericTxpLocalDataPure ext
     -> m ()
@@ -138,7 +129,6 @@ setTxpLocalData reason x = modifyTxpLocalData reason (const ((), x))
 clearTxpMemPool ::
        ( WithLogger m
        , MonadIO m
-       , MonadBaseControl IO m
        , MonadTxpMem ext ctx m
        , Default ext
        )

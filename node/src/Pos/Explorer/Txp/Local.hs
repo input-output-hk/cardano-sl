@@ -8,47 +8,42 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
-import           Control.Lens                (makeLenses)
-import           Control.Monad.Except        (MonadError (..))
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Default                (def)
-import qualified Data.HashMap.Strict         as HM
-import qualified Data.List.NonEmpty          as NE
-import qualified Data.Map                    as M (fromList)
-import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (WithLogger, logDebug)
+import           Control.Lens          (makeLenses)
+import           Control.Monad.Except  (MonadError (..))
+import           Data.Default          (def)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.List.NonEmpty    as NE
+import qualified Data.Map              as M (fromList)
+import           Formatting            (build, sformat, (%))
+import           System.Wlog           (WithLogger, logDebug)
 
-import           Pos.Core                    (BlockVersionData, EpochIndex,
-                                              GenesisWStakeholders, HeaderHash, Timestamp,
-                                              siEpoch)
-import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
-import qualified Pos.Explorer.DB             as ExDB
-import qualified Pos.GState                  as GS
-import           Pos.Infra.Semaphore         (BlkSemaphore, withBlkSemaphoreIgnoreTip)
-import           Pos.Slotting                (MonadSlots (currentTimeSlotting, getCurrentSlot))
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, toaOut,
-                                              txOutAddress)
-import           Pos.Txp.MemState            (GenericTxpLocalDataPure, MonadTxpMem,
-                                              getLocalTxsMap, getTxpExtra,
-                                              getUtxoModifier, modifyTxpLocalData,
-                                              setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..),
-                                              MonadUtxoRead (..), ToilT,
-                                              ToilVerFailure (..), Utxo, runDBToil,
-                                              runDBToil, runToilTLocalExtra, utxoGet,
-                                              utxoGetReader)
-import           Pos.Util.Chrono             (NewestFirst (..))
-import qualified Pos.Util.Modifier           as MM
-import           Pos.Util.Util               (HasLens (..), HasLens')
+import           Pos.Core              (BlockVersionData, EpochIndex,
+                                        GenesisWStakeholders, HeaderHash, Timestamp,
+                                        siEpoch)
+import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
+import qualified Pos.Explorer.DB       as ExDB
+import qualified Pos.GState            as GS
+import           Pos.Infra.Semaphore   (BlkSemaphore, withBlkSemaphoreIgnoreTip)
+import           Pos.Slotting          (MonadSlots (currentTimeSlotting, getCurrentSlot))
+import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
+import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
+                                        getLocalTxsMap, getTxpExtra, getUtxoModifier,
+                                        modifyTxpLocalData, setTxpLocalData)
+import           Pos.Txp.Toil          (GenericToilModifier (..), MonadUtxoRead (..),
+                                        ToilT, ToilVerFailure (..), Utxo, runDBToil,
+                                        runDBToil, runToilTLocalExtra, utxoGet,
+                                        utxoGetReader)
+import           Pos.Util.Chrono       (NewestFirst (..))
+import qualified Pos.Util.Modifier     as MM
+import           Pos.Util.Util         (HasLens (..), HasLens')
 
-import           Pos.Explorer.Core           (TxExtra (..))
-import           Pos.Explorer.Txp.Toil       (ExplorerExtra, ExplorerExtraTxp (..),
-                                              MonadTxExtraRead (..), eNormalizeToil,
-                                              eProcessTx, eeLocalTxsExtra)
+import           Pos.Explorer.Core     (TxExtra (..))
+import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
+                                        MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
+                                        eeLocalTxsExtra)
 
 type ETxpLocalWorkMode ctx m =
     ( MonadIO m
-    , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
     , MonadTxpMem ExplorerExtra ctx m

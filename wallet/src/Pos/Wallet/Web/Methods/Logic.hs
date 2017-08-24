@@ -19,7 +19,6 @@ module Pos.Wallet.Web.Methods.Logic
        , deleteAccount
 
        , updateWallet
-       , renameWallet
        , updateAccount
        , changeWalletPassphrase
        ) where
@@ -208,12 +207,6 @@ updateWallet :: MonadWalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
 updateWallet wId wMeta = do
     setWalletMeta wId wMeta
     getWallet wId
-
-renameWallet :: MonadWalletWebMode m => CId Wal -> Text -> m CWallet
-renameWallet cid newName = do
-    meta <- getWalletMeta cid >>= maybeThrow (RequestError "No such wallet")
-    setWalletMeta cid meta{ cwName = newName }
-    getWallet cid
 
 updateAccount :: MonadWalletWebMode m => AccountId -> CAccountMeta -> m CAccount
 updateAccount accId wMeta = do

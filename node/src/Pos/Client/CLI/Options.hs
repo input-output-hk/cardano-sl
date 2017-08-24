@@ -46,7 +46,6 @@ data CommonArgs = CommonArgs
     , updateServers :: ![Text]
     -- distributions, only used in dev mode
     , flatDistr     :: !(Maybe (Int, Int))
-    , bitcoinDistr  :: !(Maybe (Int, Int))
     , richPoorDistr :: !(Maybe (Int, Int, Integer, Double))
     , expDistr      :: !(Maybe Int)
     , sysStart      :: !Timestamp
@@ -62,7 +61,6 @@ commonArgsParser = do
     updateServers <- updateServersOption
     -- distributions
     flatDistr     <- if isDevelopment then flatDistrOptional else pure Nothing
-    bitcoinDistr  <- if isDevelopment then btcDistrOptional  else pure Nothing
     richPoorDistr <- if isDevelopment then rnpDistrOptional  else pure Nothing
     expDistr      <- if isDevelopment then expDistrOption    else pure Nothing
     --
@@ -155,15 +153,6 @@ flatDistrOptional =
                 "flat-distr"
                 "(INT,INT)"
                 "Use flat stake distribution with given parameters (nodes, coins)."
-
-btcDistrOptional :: Opt.Parser (Maybe (Int, Int))
-btcDistrOptional =
-    Opt.optional $
-        Opt.option Opt.auto $
-            templateParser
-                "bitcoin-distr"
-                "(INT,INT)"
-                "Use bitcoin stake distribution with given parameters (nodes,coins)."
 
 rnpDistrOptional :: Opt.Parser (Maybe (Int, Int, Integer, Double))
 rnpDistrOptional =

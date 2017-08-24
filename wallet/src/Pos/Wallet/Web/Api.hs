@@ -21,7 +21,6 @@ module Pos.Wallet.Web.Api
        , NewWallet
        , UpdateWallet
        , RestoreWallet
-       , RenameWallet
        , DeleteWallet
        , ImportWallet
        , ChangeWalletPassphrase
@@ -141,13 +140,6 @@ type RestoreWallet =
     :> "restore"
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
-    :> WRes Post CWallet
-
-type RenameWallet =
-       "wallets"
-    :> "rename"
-    :> Capture "walletId" (CId Wal)
-    :> Capture "name" Text
     :> WRes Post CWallet
 
 type DeleteWallet =
@@ -348,11 +340,12 @@ type ImportBackupJSON =
        "backup"
     :> "import"
     :> ReqBody '[JSON] Text
-    :> WRes Post [CWallet]
+    :> WRes Post CWallet
 
 type ExportBackupJSON =
        "backup"
     :> "export"
+    :> Capture "walletId" (CId Wal)
     :> ReqBody '[JSON] Text
     :> WRes Post ()
 
@@ -374,8 +367,6 @@ type WalletApi = ApiPrefix :> (
      UpdateWallet
     :<|>
      RestoreWallet
-    :<|>
-     RenameWallet
     :<|>
      DeleteWallet
     :<|>

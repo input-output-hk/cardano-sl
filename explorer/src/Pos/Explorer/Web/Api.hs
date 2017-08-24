@@ -16,17 +16,21 @@ module Pos.Explorer.Web.Api
        , EpochSlotSearch
        ) where
 
+import           Universum
+
 import           Data.Proxy                   (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
                                                CBlockSummary, CGenesisAddressInfo,
                                                CGenesisSummary, CHash, CTxBrief, CTxEntry,
-                                               CTxId, CTxSummary)
+                                               CTxId, CTxSummary, Byte)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (EpochIndex)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
-import           Universum
+
+
+type PageNumber = Integer
 
 -- | Common prefix for all endpoints.
 type API = "api"
@@ -36,14 +40,14 @@ type BlocksPages = API
     :> "pages"
     :> QueryParam "page" Word
     :> QueryParam "pageSize" Word
-    :> Get '[JSON] (Either ExplorerError (Integer, [CBlockEntry]))
+    :> Get '[JSON] (Either ExplorerError (PageNumber, [CBlockEntry]))
 
 type BlocksPagesTotal = API
     :> "blocks"
     :> "pages"
     :> "total"
     :> QueryParam "pageSize" Word
-    :> Get '[JSON] (Either ExplorerError Integer)
+    :> Get '[JSON] (Either ExplorerError PageNumber)
 
 type BlocksSummary = API
     :> "blocks"
@@ -94,7 +98,7 @@ type GenesisPagesTotal = API
     :> "pages"
     :> "total"
     :> QueryParam "pageSize" Word
-    :> Get '[JSON] (Either ExplorerError Integer)
+    :> Get '[JSON] (Either ExplorerError PageNumber)
 
 type GenesisAddressInfo = API
     :> "genesis"
@@ -102,6 +106,12 @@ type GenesisAddressInfo = API
     :> QueryParam "page" Word
     :> QueryParam "pageSize" Word
     :> Get '[JSON] (Either ExplorerError [CGenesisAddressInfo])
+
+type StatsTxs = API
+    :> "stats"
+    :> "txs"
+    :> QueryParam "page" Word
+    :> Get '[JSON] (Either ExplorerError (PageNumber, [(CTxId, Byte)]))
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =
@@ -116,6 +126,7 @@ type ExplorerApi =
     :<|> GenesisSummary
     :<|> GenesisPagesTotal
     :<|> GenesisAddressInfo
+    :<|> StatsTxs
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

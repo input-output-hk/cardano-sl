@@ -30,12 +30,13 @@ stack exec cardano-explorer-mock
 
 ## Run it
 
+Run it from project root.
+
 ### Dev version
 
-- run `./scripts/build.sh`
-- run `./frontend/scripts/build.sh`
-- run `./start-dev.sh` if you have both `cardano-sl` and `cardano-sl-explorer` under the *same* folder.
-- run `./start-dev.sh {path/to/}cardano-sl` if you have both `cardano-sl` and `cardano-sl-explorer` under *different* folders.
+- run `./scripts/build/cardano-sl.sh`
+- run `./explorer/frontend/scripts/build.sh`
+- run `./scripts/launch/explorer-with-nodes.sh`
 
 ### Prod version (connects explorer to testnet staging cluster)
 

@@ -53,9 +53,9 @@ data CommonNodeArgs = CommonNodeArgs
     , devVssGenesisI            :: !(Maybe Int)
     , keyfilePath               :: !FilePath
     , backupPhrase              :: !(Maybe BackupPhrase)
-    , externalAddress           :: !NetworkAddress
+    , externalAddress           :: !(Maybe NetworkAddress)
       -- ^ A node must be addressable on the network.
-    , bindAddress               :: !NetworkAddress
+    , bindAddress               :: !(Maybe NetworkAddress)
       -- ^ A node may have a bind address which differs from its external
       -- address.
     , nodeType                  :: !NodeType
@@ -109,9 +109,9 @@ commonNodeArgsParser = do
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet. Words should be separated by spaces.")
     externalAddress <-
-        externalNetworkAddressOption (Just ("0.0.0.0", 0))
+        optional $ externalNetworkAddressOption Nothing
     bindAddress <-
-        listenNetworkAddressOption (Just ("0.0.0.0", 0))
+        optional $ listenNetworkAddressOption Nothing
     nodeType <- nodeTypeOption
     peers <- (++) <$> corePeersList <*> relayPeersList
     networkConfigOpts <- networkConfigOption

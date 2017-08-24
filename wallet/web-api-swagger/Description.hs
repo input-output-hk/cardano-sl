@@ -65,10 +65,6 @@ instance HasCustomSwagger W.RestoreWallet where
     swaggerModifier = modifyDescription
         "Create a new wallet."
 
-instance HasCustomSwagger W.RenameWallet where
-    swaggerModifier = modifyDescription
-        "Change name of given wallet."
-
 instance HasCustomSwagger W.DeleteWallet where
     swaggerModifier = modifyDescription
         "Delete given wallet with all contained accounts."
@@ -185,10 +181,10 @@ instance HasCustomSwagger W.GetSyncProgress where
 
 instance HasCustomSwagger W.ImportBackupJSON where
     swaggerModifier = modifyDescription
-        "Import full information about wallets from a given file."
+        "Import full information about wallet from a given file."
 
 instance HasCustomSwagger W.ExportBackupJSON where
     swaggerModifier = modifyDescription
-        "Export full information about wallets in JSON format into a file under \
-        \given path. Wallets may be later restored with 'ImportBackupJSON' \
-        \endpoint."
+        "Export full information about wallet in JSON format into a file under \
+        \given path. Wallet may be later restored from this file with \
+        \'ImportBackupJSON' endpoint."

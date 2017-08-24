@@ -37,6 +37,8 @@ module Pos.Explorer.Web.ClientTypes
        , toPosixTime
        , convertTxOutputs
        , tiToTxEntry
+       , encodeHashHex
+       , decodeHashHex
        ) where
 
 import           Universum
@@ -83,9 +85,15 @@ import           Pos.Types                  (Address, AddressHash, Coin, EpochIn
 -- Hash types
 -------------------------------------------------------------------------------------
 
+-- TODO(ks): To explain this a bit better.
+-- type AddressHash = AbstractHash Blake2b_224
+-- type Hash        = AbstractHash Blake2b_256
+-- type TxId        = Hash Tx
+-- decodeAbstractHash/abstractHash
+
 -- | Client hash
 newtype CHash = CHash Text
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+  deriving (Show, Eq, Generic, Buildable, Hashable)
 
 -- | Client address. The address may be from either Cardano or RSCoin.
 newtype CAddress = CAddress Text
@@ -103,7 +111,7 @@ encodeHashHex = decodeUtf8 . B16.encode . BA.convert
 encodeAHashHex :: AddressHash a -> Text
 encodeAHashHex = decodeUtf8 . B16.encode . BA.convert
 
-decodeHashHex :: forall a. Bi.Bi (Hash a) => Text -> Either Text (Hash a)
+decodeHashHex :: forall a. (Bi.Bi (Hash a)) => Text -> Either Text (Hash a)
 decodeHashHex hashText = do
     hashBinary <- SB16.decode hashText
     over _Left toText $ Bi.decodeFull $ hashBinary
@@ -111,7 +119,7 @@ decodeHashHex hashText = do
 toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex
 
-fromCHash :: forall a. Bi.Bi (Hash a) => CHash -> Either Text (Hash a)
+fromCHash :: forall a. (Typeable (Hash a), Bi.Bi (Hash a)) => CHash -> Either Text (Hash a)
 fromCHash (CHash h) = decodeHashHex h
 
 toCAddress :: Address -> CAddress
@@ -332,7 +340,7 @@ data CGenesisAddressInfo = CGenesisAddressInfo
 instance FromHttpApiData CHash where
     -- Force the free type @a@ to a type `()` so we can get a witness
     -- for the `Bi` and `Typeable` instances.
-    parseUrlPiece url = toCHash @() <$> decodeHashHex url
+    parseUrlPiece url = toCHash @Text <$> decodeHashHex url
 
 instance FromHttpApiData CAddress where
     parseUrlPiece = pure . CAddress

@@ -607,6 +607,7 @@ epochSlotSearch epochIndex slotIndex = do
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
 
+
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m
     => Maybe Word
@@ -631,18 +632,20 @@ getStatsTxs mPageNumber = do
         blockPageTxsInfo :: m [(CTxId, Byte)]
         blockPageTxsInfo = concat <$> forM cHashes getBlockTxsInfo
 
-    getBlockTxsInfo
-        :: CHash
-        -> m [(CTxId, Byte)]
-    getBlockTxsInfo cHash = do
-        h   <- unwrapOrThrow $ fromCHash cHash
-        blk <- getMainBlock h
-        txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+        getBlockTxsInfo
+            :: CHash
+            -> m [(CTxId, Byte)]
+        getBlockTxsInfo cHash = do
+            h   <- unwrapOrThrow $ fromCHash cHash
+            blk <- getMainBlock h
+            txs <- topsortTxsOrFail withHash
+                $ toList
+                $ blk ^. mainBlockTxPayload . txpTxs
 
-        pure $ txToTxIdSize <$> txs
-      where
-        txToTxIdSize :: Tx -> (CTxId, Byte)
-        txToTxIdSize tx = (toCTxId $ hash tx, biSize tx)
+            pure $ txToTxIdSize <$> txs
+          where
+            txToTxIdSize :: Tx -> (CTxId, Byte)
+            txToTxIdSize tx = (toCTxId $ hash tx, biSize tx)
 
 
 --------------------------------------------------------------------------------

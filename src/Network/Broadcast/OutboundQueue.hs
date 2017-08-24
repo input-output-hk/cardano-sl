@@ -648,7 +648,7 @@ countInFlight :: InFlight nid -> Int
 countInFlight = sum . fmap sum
 
 countPeers :: Ord nid => Peers nid -> Int
-countPeers = Set.size . peersToSet
+countPeers = Set.size . peersRouteSet
 
 countRecentFailures :: MonadIO m => Failures nid -> m Int
 countRecentFailures fs = liftIO $ aux <$> getCurrentTime
@@ -1096,10 +1096,12 @@ intEnqueueTo outQ@OutQ{..} msgType msg enqTo = do
         EnqueueToAll           -> allPeers
         EnqueueToSubset subset ->
           let restricted = restrictPeers subset allPeers
+              -- Every peer in the target subset, not appearing in the routes,
+              -- will be classified and included in a route via peersFromList.
               unknown    = peersFromList mempty
                          . map (\nid -> (classifyNodeDefault allPeers (qUnknownNodeType nid) nid, [nid]))
                          . Set.toList
-                         $ subset Set.\\ peersToSet allPeers
+                         $ subset Set.\\ peersRouteSet allPeers
 
           in  restricted <> unknown
 
@@ -1279,9 +1281,11 @@ updatePeersBucket outQ@OutQ{..} buck f = do
       let before   = fold buckets
           buckets' = Map.alter f' buck buckets
           after    = fold buckets'
-          removed  = peersToSet before Set.\\ peersToSet after
+          removed  = peersSet before Set.\\ peersSet after
 
-      if    Set.size (peersToSet (buckets' Map.! buck))
+      -- Use the peersRouteSet here because the bucket size is in terms of
+      -- routed peers.
+      if    Set.size (peersRouteSet (buckets' Map.! buck))
          `exceedsBucketSize`
             qMaxBucketSize buck
         then return (buckets, False)

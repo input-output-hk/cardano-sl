@@ -105,7 +105,7 @@ genTestParams = do
     genesisContextSimple addrDistr = do
         let balances = concatAddrDistrs addrDistr
         let utxoEntry (addr, coin) =
-                ( TxIn (unsafeHash addr) 0
+                ( TxInUtxo (unsafeHash addr) 0
                 , TxOutAux (TxOut addr coin)
                 )
         -- We don't care about genesis stakeholders, because in this

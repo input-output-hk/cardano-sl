@@ -24,6 +24,7 @@ module Pos.Explorer.Web.ClientTypes
        , StakeholderId
        , Byte
        , mkCCoin
+       , mkCCoinMB
        , toCHash
        , fromCHash
        , toCAddress
@@ -36,6 +37,7 @@ module Pos.Explorer.Web.ClientTypes
        , toTxBrief
        , toPosixTime
        , convertTxOutputs
+       , convertTxOutputsMB
        , tiToTxEntry
        ) where
 
@@ -138,6 +140,9 @@ newtype CCoin = CCoin
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
 
+mkCCoinMB :: Maybe Coin -> CCoin
+mkCCoinMB = maybe (CCoin "N/A") mkCCoin
+
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
     { cbeEpoch      :: !Word64
@@ -185,11 +190,11 @@ toBlockEntry (blk, Undo{..}) = do
         txs           = toList $ blk ^. mainBlockTxPayload . txpTxs
         cbeTxNum      = fromIntegral $ length txs
         addOutCoins c = unsafeAddCoin c . totalTxOutMoney
-        addInCoins c  = unsafeAddCoin c . totalTxInMoney
+        totalRecvCoin = unsafeIntegerToCoin . sumCoins <$> traverse totalTxInMoney undoTx
         totalSentCoin = foldl' addOutCoins (mkCoin 0) txs
         cbeTotalSent  = mkCCoin $ totalSentCoin
         cbeSize       = fromIntegral $ Bi.biSize blk
-        cbeFees       = mkCCoin $ foldl' addInCoins (mkCoin 0) undoTx `unsafeSubCoin` totalSentCoin
+        cbeFees       = mkCCoinMB $ (`unsafeSubCoin` totalSentCoin) <$> totalRecvCoin
 
         -- A simple reconstruction of the AbstractHash, could be better?
         cbeBlockLead  = encodeAHashHex <$> epochSlotLeader
@@ -226,9 +231,9 @@ totalTxOutMoney :: Tx -> Coin
 totalTxOutMoney =
     unsafeIntegerToCoin . sumCoins . map txOutValue . _txOutputs
 
-totalTxInMoney :: TxUndo -> Coin
+totalTxInMoney :: TxUndo -> Maybe Coin
 totalTxInMoney =
-    unsafeIntegerToCoin . sumCoins . NE.map (txOutValue . toaOut)
+    fmap (unsafeIntegerToCoin . sumCoins . NE.map (txOutValue . toaOut)) . sequence
 
 toTxEntry :: Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
@@ -284,6 +289,7 @@ data CAddressSummary = CAddressSummary
 data CTxBrief = CTxBrief
     { ctbId         :: !CTxId
     , ctbTimeIssued :: !POSIXTime
+    -- TODO [CSE-204] Make list of type [Maybe (CAddress, CCoin)] here
     , ctbInputs     :: ![(CAddress, CCoin)]
     , ctbOutputs    :: ![(CAddress, CCoin)]
     , ctbInputSum   :: !CCoin
@@ -305,6 +311,7 @@ data CTxSummary = CTxSummary
     , ctsTotalInput      :: !CCoin
     , ctsTotalOutput     :: !CCoin
     , ctsFees            :: !CCoin
+    -- TODO [CSE-204] Make list of type [Maybe (CAddress, CCoin)] here
     , ctsInputs          :: ![(CAddress, CCoin)]
     , ctsOutputs         :: ![(CAddress, CCoin)]
     } deriving (Show, Generic)
@@ -362,6 +369,9 @@ tiTimestamp = teReceivedTime . tiExtra
 tiToTxEntry :: TxInternal -> CTxEntry
 tiToTxEntry txi@TxInternal{..} = toTxEntry (tiTimestamp txi) tiTx
 
+convertTxOutputsMB :: [Maybe TxOut] -> [Maybe (CAddress, Coin)]
+convertTxOutputsMB = map (fmap $ toCAddress . txOutAddress &&& txOutValue)
+
 convertTxOutputs :: [TxOut] -> [(CAddress, Coin)]
 convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 
@@ -372,24 +382,26 @@ toTxBrief txi = CTxBrief {..}
     ts            = tiTimestamp txi
     ctbId         = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime ts
-    ctbInputs     = map (second mkCCoin) txinputs
+    -- TODO [CSE-204] ctbInputs = map (fmap (second mkCCoin)) txInputsMB
+    ctbInputs     = map (second mkCCoin) $ catMaybes txInputsMB
     ctbOutputs    = map (second mkCCoin) txOutputs
-    ctbInputSum   = sumCoinOfInputsOutputs txinputs
-    ctbOutputSum  = sumCoinOfInputsOutputs txOutputs
+    ctbInputSum   = sumCoinOfInputsOutputs txInputsMB
+    ctbOutputSum  = sumCoinOfInputsOutputs $ map Just txOutputs
 
-    txinputs      = convertTxOutputs $ map toaOut $ NE.toList $
+    txInputsMB    = convertTxOutputsMB $ map (fmap toaOut) $ NE.toList $
                     teInputOutputs (tiExtra txi)
     txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
 
 -- | Sums the coins of inputs and outputs
-sumCoinOfInputsOutputs :: [(CAddress, Coin)] -> CCoin
-sumCoinOfInputsOutputs addressList =
-    mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
-      where
+sumCoinOfInputsOutputs :: [Maybe (CAddress, Coin)] -> CCoin
+sumCoinOfInputsOutputs addressListMB
+    | Just addressList <- sequence addressListMB = do
         -- | Get total number of coins from an address
-        addressCoins :: (CAddress, Coin) -> Integer
-        addressCoins (_, coin) = coinToInteger coin
+        let addressCoins :: (CAddress, Coin) -> Integer
+            addressCoins (_, coin) = coinToInteger coin
 
         -- | Arbitrary precision, so we don't overflow
-        addressCoinList :: [Integer]
-        addressCoinList = addressCoins <$> addressList
+        let addressCoinList :: [Integer]
+            addressCoinList = addressCoins <$> addressList
+        mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
+    | otherwise = mkCCoinMB Nothing

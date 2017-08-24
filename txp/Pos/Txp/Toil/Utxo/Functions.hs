@@ -30,7 +30,8 @@ import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
 import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..), TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
-                                            TxSigData (..), TxUndo, TxWitness)
+                                            TxSigData (..), TxUndo, TxWitness,
+                                            isTxInUnknown)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..), WitnessVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
@@ -69,20 +70,36 @@ data VTxContext = VTxContext
 -- blocks when we're creating a block (because transactions for
 -- inclusion into blocks are verified with 'vtcVerifyAllIsKnown'
 -- set to 'True', so unknown script versions are rejected).
+--
+-- Returned fee can be 'Nothing' if there are inputs of unknown types.
 verifyTxUtxo
     :: (MonadUtxoRead m, MonadError ToilVerFailure m)
     => VTxContext
     -> TxAux
-    -> m (TxUndo, TxFee)
+    -> m (TxUndo, Maybe TxFee)
 verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
-    verifyConsistency _txInputs witnesses
-    verResToMonadError (ToilInvalidOutputs . formatFirstError) $
-        verifyOutputs ctx ta
-    resolvedInputs <- mapM resolveInput _txInputs
-    txFee <- verifySums resolvedInputs _txOutputs
-    verifyInputs ctx resolvedInputs ta
-    when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
-    return (map snd resolvedInputs, txFee)
+    let unknownTxInMB = find (isTxInUnknown . snd) $ zip [0..] (toList _txInputs)
+    case (vtcVerifyAllIsKnown, unknownTxInMB) of
+        (True, Just (inpId, txIn)) -> throwError $
+            ToilUnknownInput inpId txIn
+        (False, Just _) -> do
+            -- Case when at least one input isn't known
+            minimalReasonableChecks
+            resolvedInputs <- mapM (fmap rightToMaybe . runExceptT . resolveInput) _txInputs
+            pure (map (fmap snd) resolvedInputs, Nothing)
+        _               -> do
+            -- Case when all inputs are known
+            minimalReasonableChecks
+            resolvedInputs <- mapM resolveInput _txInputs
+            txFee <- verifySums resolvedInputs _txOutputs
+            verifyInputs ctx resolvedInputs ta
+            when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
+            pure (map (Just . snd) resolvedInputs, Just txFee)
+  where
+    minimalReasonableChecks = do
+        verifyConsistency _txInputs witnesses
+        verResToMonadError (ToilInvalidOutputs . formatFirstError) $
+            verifyOutputs ctx ta
 
 resolveInput
     :: (MonadUtxoRead m, MonadError ToilVerFailure m)
@@ -163,9 +180,11 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
         -> m ()
-    checkInput i (txIn@TxIn{..}, toa@(TxOutAux txOut@TxOut{..})) witness = do
+    checkInput i (txIn, toa@(TxOutAux txOut@TxOut{..})) witness = do
         unless (checkSpendingData txOutAddress witness) $
             throwError $ ToilWitnessDoesntMatch i txIn txOut witness
+        when (isTxInUnknown txIn && vtcVerifyAllIsKnown) $ throwError $
+            ToilUnknownInput i txIn
         whenLeft (checkWitness toa witness) $ \err ->
             throwError $ ToilInvalidWitness i witness err
 
@@ -210,10 +229,10 @@ verifyAttributesAreKnown attrs =
 -- outputs.
 applyTxToUtxo :: MonadUtxo m => WithHash Tx -> m ()
 applyTxToUtxo (WithHash UnsafeTx {..} txid) = do
-    mapM_ utxoDel _txInputs
+    mapM_ utxoDel $ filter (not . isTxInUnknown) (toList _txInputs)
     mapM_ applyOutput . zip [0 ..] . toList . map TxOutAux $ _txOutputs
   where
-    applyOutput (idx, toa) = utxoPut (TxIn txid idx) toa
+    applyOutput (idx, toa) = utxoPut (TxInUtxo  txid idx) toa
 
 -- | Rollback application of given transaction to Utxo using Undo
 -- data.  This function assumes that transaction has been really
@@ -224,5 +243,9 @@ rollbackTxUtxo
 rollbackTxUtxo (txAux, undo) = do
     let tx@UnsafeTx {..} = taTx txAux
     let txid = hash tx
-    mapM_ utxoDel $ take (length _txOutputs) $ map (TxIn txid) [0..]
-    mapM_ (uncurry utxoPut) $ NE.zip _txInputs undo
+    mapM_ utxoDel $ take (length _txOutputs) $ map (TxInUtxo txid) [0..]
+    mapM_ (uncurry utxoPut) $ mapMaybe knownInputAndUndo $ toList $ NE.zip _txInputs undo
+  where
+    knownInputAndUndo (_,         Nothing) = Nothing
+    knownInputAndUndo (TxInUnknown _ _, _) = Nothing
+    knownInputAndUndo (inp, Just u)        = Just (inp, u)

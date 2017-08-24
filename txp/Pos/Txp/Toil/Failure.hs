@@ -38,6 +38,7 @@ data ToilVerFailure
                   , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
     | ToilInvalidOutputs !Text  -- [CSL-814] TODO: make it more informative
+    | ToilUnknownInput !Word32 !TxIn
 
     -- | The witness can't be used to justify spending an output – either
     --     * it has a wrong type, e.g. PKWitness for a script address, or
@@ -126,6 +127,8 @@ instance Buildable ToilVerFailure where
                 " which is not 'BootstrapEraDistr': "%listJson) addresses
     build ToilRepeatedInput =
         "transaction tries to spent an unspent input more than once"
+    build (ToilUnknownInput inpId txIn) =
+       bprint ("vtcVerifyAllIsKnown is True, but the input #"%int%" "%build%" is unknown") inpId txIn
 
 ----------------------------------------------------------------------------
 -- WitnessVerFailure

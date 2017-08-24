@@ -67,9 +67,10 @@ instance Arbitrary TxInWitness where
         _ -> []
 
 instance Arbitrary TxIn where
-    arbitrary = genericArbitrary
+    arbitrary = oneof [
+        TxInUtxo <$> arbitrary <*> arbitrary,
+        TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary]
     shrink = genericShrink
-
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'mxTx'
@@ -118,7 +119,7 @@ buildProperTx inputList (inCoin, outCoin) =
                     ((makeTxOutput fromSk inC) <| txOut)
                     (mkAttributes ())
         in ( txToBeSpent
-           , TxIn (hash txToBeSpent) 0
+           , TxInUtxo (hash txToBeSpent) 0
            , fromSk
            , makeTxOutput toSk outC )
     -- why is it called txList? I've no idea what's going on here (@neongreen)

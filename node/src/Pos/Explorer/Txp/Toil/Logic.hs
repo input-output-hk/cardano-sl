@@ -161,12 +161,13 @@ delTxExtraWithHistory id addrs = do
         NewestFirst . delete id . getNewestFirst
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
-getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} undo =
-    map txOutAddress _txOutputs `unionNE` map (txOutAddress . toaOut) undo
+getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} (catMaybes . toList -> undo) =
+    map txOutAddress _txOutputs `unionNEnList` map (txOutAddress . toaOut) undo
   where
     toSet = HS.fromList . toList
-    -- Safe here, because union of non-empty sets can't be empty.
-    unionNE lhs rhs = NE.fromList $ toList $ HS.union (toSet lhs) (toSet rhs)
+    -- Safe here, because union of non-empty and maybe empty sets can't be empty.
+    unionNEnList :: NonEmpty Address -> [Address] -> NonEmpty Address
+    unionNEnList lhs rhs = NE.fromList $ toList $ HS.union (toSet lhs) (HS.fromList rhs)
 
 combineBalanceUpdates :: BalanceUpdate -> [(Address, (Sign, Coin))]
 combineBalanceUpdates BalanceUpdate {..} =
@@ -225,6 +226,6 @@ updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate txAux txUndo =
-    let minusBalance = map (view _TxOut . toaOut) $ toList txUndo
+    let minusBalance = map (view _TxOut . toaOut) $ catMaybes $ toList txUndo
         plusBalance = map (view _TxOut) $ toList $ _txOutputs (taTx txAux)
     in BalanceUpdate {..}

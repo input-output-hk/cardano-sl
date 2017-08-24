@@ -6,7 +6,6 @@ module Pos.Txp.Core.Core
        , emptyTxPayload
        , flattenTxPayload
        , mkTxProof
-       , txInToPair
        , txOutStake
        ) where
 
@@ -31,9 +30,8 @@ import           Pos.Core.Genesis    (GenesisWStakeholders (..), bootDustThresho
 import           Pos.Crypto          (hash)
 import           Pos.Crypto.Random   (deterministic, randomNumber)
 import           Pos.Merkle          (mtRoot)
-import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
-                                      TxOutAux (..), TxPayload (..), TxProof (..),
-                                      mkTxPayload)
+import           Pos.Txp.Core.Types  (TxAux (..), TxOut (..), TxOutAux (..),
+                                      TxPayload (..), TxProof (..), mkTxPayload)
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -44,10 +42,6 @@ addrBelongsTo TxOutAux {..} = (== txOutAddress toaOut)
 -- addresses.
 addrBelongsToSet :: TxOutAux -> HashSet Address -> Bool
 TxOutAux {..} `addrBelongsToSet` addrs = txOutAddress toaOut `HS.member` addrs
-
--- | Make a pair from 'TxIn'.
-txInToPair :: TxIn -> (TxId, Word32)
-txInToPair (TxIn h i) = (h, i)
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).

@@ -100,7 +100,8 @@ concatStakes ::
     -> (StakesList, StakesList)
 concatStakes gws (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
+    onlyKnownUndos = catMaybes . toList
     txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap (txOutStake gws . toaOut) (foldMap toList undo)
+    undoTxInDistr = concatMap (txOutStake gws . toaOut) (foldMap onlyKnownUndos undo)
     concatDistr (TxAux UnsafeTx {..} _) =
         concatMap (txOutStake gws . toaOut) $ toList (map TxOutAux _txOutputs)

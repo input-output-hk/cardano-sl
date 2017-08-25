@@ -66,7 +66,7 @@ import           Pos.Core                    (HasCoreConstants, HeaderHash, head
                                               prevBlockL)
 import           Pos.Crypto.Hashing          (hashHexF)
 import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
-                                              TxGenParams(..), genBlocks)
+                                              TxGenParams (..), genBlocks)
 import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.GState.Context          (withClonedGState)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
@@ -185,6 +185,7 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
             , _bgpBlockCount      = 1
             , _bgpTxGenParams     = txGenParams
             , _bgpInplaceDB       = True
+            , _bgpSkipNoKey       = False
             }
     -- Partial pattern-matching is safe because we specify
     -- blockCount = 1 in the generation parameters.

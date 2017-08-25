@@ -59,6 +59,8 @@ data BlockGenParams = BlockGenParams
     -- ^ Transaction generation parameters.
     , _bgpInplaceDB       :: !Bool
     -- ^ Whether to extend existing DB.
+    , _bgpSkipNoKey       :: !Bool
+    -- ^ Skip block creation procedure if related leader key is not found.
     , _bgpGenStakeholders :: !GenesisWStakeholders
     -- ^ Set of genesis stakeholders. This is needed to properly
     -- generate transaction payload.

@@ -26,9 +26,8 @@ import           Pos.AllSecrets             (asSecretKeys, asSpendingData,
 import           Pos.Client.Txp.Util        (createGenericTx, makeMPubKeyTxAddrs,
                                              unTxError)
 import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
-                                             SlotId (..), StakeholderId, addressHash,
-                                             coinToInteger, makePubKeyAddress,
-                                             unsafeIntegerToCoin)
+                                             SlotId (..), addressHash, coinToInteger,
+                                             makePubKeyAddress, unsafeIntegerToCoin)
 import           Pos.Crypto                 (SecretKey, WithHash (..), fakeSigner, hash,
                                              toPublic)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
@@ -45,7 +44,6 @@ import           Pos.Txp.Logic              (txProcessTransaction)
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types         (Utxo)
 import qualified Pos.Txp.Toil.Utxo          as Utxo
-import           Pos.Util.Util              (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Tx payload generation
@@ -106,7 +104,9 @@ splitCoins n c0
     c :: Integral a => a
     c = fromIntegral $ coinToInteger c0
 
--- | State datatype for transaction payload generation
+-- | State datatype for transaction payload generation. Internal UTXO
+-- view only contains the part of utxo that we have access to (own
+-- related secret keys).
 data GenTxData = GenTxData
     { _gtdUtxo     :: Utxo
       -- ^ Utxo as it is.
@@ -129,7 +129,14 @@ genTxPayload ::
        forall g m. (RandomGen g, MonadBlockGenBase m)
     => BlockGenRandMode g m ()
 genTxPayload = do
-    utxo <- lift DB.getAllPotentiallyHugeUtxo
+    invAddrSpendingData <-
+        unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
+    -- We only leave outputs we have secret keys related to. Tx
+    -- generation only sends money to, again, keys from
+    -- 'invAddrSpendingData' so 'GenTxData' is consistent.
+    let knowSecret (toaOut -> txOut) =
+            txOutAddress txOut `HM.member` invAddrSpendingData
+    utxo <- M.filter knowSecret <$> lift DB.getAllPotentiallyHugeUtxo
     let gtd = GenTxData utxo (V.fromList $ M.keys utxo)
     flip evalStateT gtd $ do
         (a,d) <- lift $ view tgpTxCountRange
@@ -143,24 +150,28 @@ genTxPayload = do
         when (utxoSize == 0) $
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
 
-        secrets <- unInvSecretsMap . view asSecretKeys <$> view blockGenParams
-        let resolveSecret :: MonadThrow n => StakeholderId -> n SecretKey
-            resolveSecret stId =
-                maybeThrow (BGUnknownSecret stId) (HM.lookup stId secrets)
-
-        invAddrSpendingData <- unInvAddrSpendingData <$>
-            view (blockGenParams . asSpendingData)
-        let addrToSk :: MonadThrow n => Address -> n SecretKey
+        secrets <- unInvSecretsMap <$> view (blockGenParams . asSecretKeys)
+        invAddrSpendingData <-
+            unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
+        let secretsPks = map toPublic $ HM.elems secrets
+        let addrToSk :: Address -> SecretKey
             addrToSk addr = do
-                spendingData <- maybeThrow (BGUnknownAddress addr)
-                    (invAddrSpendingData ^. at addr)
+                let cantResolve =
+                        "addrToSk: can't resolve " <> pretty addr <>
+                        " probably genTransaction is broken"
+                let inconsistent =
+                        "addrToSk: resolved sk using invAddrSpendingData " <>
+                        "but cant using invSecretsMap"
+                let spendingData =
+                        fromMaybe (error cantResolve) $ invAddrSpendingData ^. at addr
                 case spendingData of
-                    PubKeyASD pk -> resolveSecret (addressHash pk)
+                    PubKeyASD pk ->
+                        fromMaybe (error inconsistent) (HM.lookup (addressHash pk) secrets)
                     another -> error $
-                        sformat ("Found an address with non-pubkey spending data: "
+                        sformat ("addrToSk: ound an address with non-pubkey spending data: "
                                     %build) another
 
-        let utxoAddresses = map (makePubKeyAddress . toPublic) $ HM.elems secrets
+        let utxoAddresses = map makePubKeyAddress secretsPks
             utxoAddrsN = HM.size secrets
         let adder hm TxOutAux { toaOut = TxOut {..} } =
                 HM.insertWith (+) txOutAddress (coinToInteger txOutValue) hm
@@ -184,23 +195,22 @@ genTxPayload = do
 
         changeAddrIdx <- getRandomR (0, utxoAddrsN - 1)
         let changeAddrData = makePubKeyAddress &&& (Just . addressHash) $
-                toPublic $ HM.elems secrets !! changeAddrIdx
+                secretsPks !! changeAddrIdx
 
         -- Prepare tx outputs
         coins <- splitCoins outputsN (unsafeIntegerToCoin totalTxAmount)
         let txOuts :: NonEmpty TxOut
             txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-        let txOutToOutAux txOut@(TxOut addr coin) = do
-                sk <- addrToSk addr
-                let sId :: StakeholderId
+        let txOutToOutAux txOut@(TxOut addr coin) =
+                let sk = addrToSk addr
                     sId = addressHash (toPublic sk)
-                let distr = one (sId, coin)
-                return TxOutAux { toaOut = txOut, toaDistr = distr }
-        txOutAuxs <- mapM txOutToOutAux txOuts
+                    distr = one (sId, coin)
+                in TxOutAux { toaOut = txOut, toaDistr = distr }
+            txOutAuxs = map txOutToOutAux txOuts
 
         -- Form a transaction
-        inputSKs <- mapM addrToSk inputAddrs
-        let hdwSigners = NE.fromList $ zip (map fakeSigner inputSKs) inputAddrs
+        let inputSKs = map addrToSk inputAddrs
+            hdwSigners = NE.fromList $ zip (map fakeSigner inputSKs) inputAddrs
             makeTestTx = makeMPubKeyTxAddrs hdwSigners
 
         eTx <- lift . lift $

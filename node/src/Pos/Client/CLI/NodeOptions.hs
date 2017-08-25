@@ -24,7 +24,6 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                value)
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
-import qualified Text.Parsec.Char             as P
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
@@ -58,7 +57,6 @@ data CommonNodeArgs = CommonNodeArgs
     , bindAddress               :: !(Maybe NetworkAddress)
       -- ^ A node may have a bind address which differs from its external
       -- address.
-    , nodeType                  :: !NodeType
     , peers                     :: ![(NodeId, NodeType)]
       -- ^ Known peers (addresses with classification).
     , networkConfigOpts         :: !NetworkConfigOpts
@@ -112,7 +110,6 @@ commonNodeArgsParser = do
         optional $ externalNetworkAddressOption Nothing
     bindAddress <-
         optional $ listenNetworkAddressOption Nothing
-    nodeType <- nodeTypeOption
     peers <- (++) <$> corePeersList <*> relayPeersList
     networkConfigOpts <- networkConfigOption
     jlPath <-
@@ -174,19 +171,6 @@ simpleNodeArgsParser = do
         help    "Node for attack. This option can be defined more than once."
 
     pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
-
-nodeTypeOption :: Parser NodeType
-nodeTypeOption =
-    option (fromParsec nodeTypeParser) $
-        long "node-type" <>
-        value NodeCore <>
-        metavar "core|relay|edge" <>
-        help "The type of this node (core, relay, edge), default core"
-  where
-    nodeTypeParser =
-            (NodeCore  <$ P.string "core")
-        <|> (NodeRelay <$ P.string "relay")
-        <|> (NodeEdge  <$ P.string "edge")
 
 peerOption :: String -> (NetworkAddress -> (NodeId, NodeType)) -> Parser (NodeId, NodeType)
 peerOption longName mk =

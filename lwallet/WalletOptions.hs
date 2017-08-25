@@ -38,13 +38,9 @@ data WalletOptions = WalletOptions
 
 data WalletAction = Repl
                   | Cmd { cmd :: !Text }
-                  | Serve { webPort           :: !Word16
-                          , webDaedalusDbPath :: !FilePath
-                          }
 
 actionParser :: Parser WalletAction
 actionParser = subparser $ replParser <> cmdParser
-                        <> serveParser
 
 replParser :: Mod CommandFields WalletAction
 replParser = command "repl" $ info (pure Repl) $
@@ -56,16 +52,6 @@ cmdParser = command "cmd" $ info opts desc
                                <> metavar "CMD"
                                <> help "Commands to execute, comma-separated.")
         desc = progDesc "Execute a list of predefined commands."
-
-serveParser :: Mod CommandFields WalletAction
-serveParser = command "serve" $ info opts desc
-  where opts = Serve <$> CLI.webPortOption 8090    -- to differ from node's default port
-                                           "Port for web server."
-                     <*> option auto (long "daedalus-db-path"
-                                   <> metavar "FILEPATH"
-                                   <> value "run/daedalus-db"
-                                   <> help "Path to the wallet database.")
-        desc = progDesc "Serve HTTP Daedalus API on given port."
 
 argsParser :: Parser WalletOptions
 argsParser = do

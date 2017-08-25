@@ -25,11 +25,11 @@ import           Universum
 import           Control.Concurrent.STM     (isFullTBQueue, readTVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (_Wrapped)
+import           Control.Lens               (to, _Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
 import           Ether.Internal             (HasLens (..))
-import           Formatting                 (bprint, build, builder, sformat, shown,
+import           Formatting                 (bprint, build, builder, int, sformat, shown,
                                              stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
@@ -266,16 +266,19 @@ requestHeaders
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m (Maybe t)
 requestHeaders cont mgh nodeId conv = do
-    logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
+    logDebug $ sformat ("requestHeaders: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
     inRecovery <- recoveryInProgress
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
-            ("requestHeaders: withConnection: received "%listJson%
-             " from nodeId "%build%" of total size "%builder)
-            (map headerHash headers) nodeId (unitBuilder $ biSize headers)
+            ("requestHeaders: received "%int%" headers of total size "%builder%
+             " from nodeId "%build%": "%listJson)
+            (headers ^. _Wrapped . to NE.length)
+            (unitBuilder $ biSize headers)
+            nodeId
+            (map headerHash headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
                 handleRequestedHeaders cont inRecovery headers

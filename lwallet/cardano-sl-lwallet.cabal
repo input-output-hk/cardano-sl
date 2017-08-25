@@ -23,16 +23,6 @@ executable cardano-wallet
                        Pos.Wallet.Light.Launcher.Runner
                        Pos.Wallet.Light.Launcher.Param
                        Pos.Wallet.Light.Mode
-                       Pos.Wallet.Light.State
-                       Pos.Wallet.Light.State.Acidic
-                       Pos.Wallet.Light.State.Core
-                       Pos.Wallet.Light.State.State
-                       Pos.Wallet.Light.State.Storage
-                       Pos.Wallet.Light.State.Storage.Block
-                       Pos.Wallet.Light.State.Storage.Tx
-                       Pos.Wallet.Light.Redirect
-                       Pos.Wallet.Light.Web
-                       Pos.Wallet.Light.Web.Server
 
   build-depends:
                        QuickCheck
@@ -46,6 +36,7 @@ executable cardano-wallet
                      , cardano-sl-db
                      , cardano-sl-update
                      , cardano-sl-infra
+                     , cardano-sl-txp
                      , cardano-sl
                      , data-default
                      , dlist

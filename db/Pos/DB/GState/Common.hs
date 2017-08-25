@@ -6,7 +6,6 @@ module Pos.DB.GState.Common
        (
          -- * Getters
          getTip
-       , getBot
        , getMaxSeenDifficulty
        , getTipBlockGeneric
        , getTipHeaderGeneric
@@ -72,10 +71,6 @@ writeBatchGState = dbWriteBatch' GStateDB
 getTip :: MonadDBRead m => m HeaderHash
 getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
 
--- | Get the hash of the first genesis block from GState DB.
-getBot :: MonadDBRead m => m HeaderHash
-getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
-
 -- | Get maximum seen chain difficulty (used to prevent improper rollbacks).
 getMaxSeenDifficulty :: MonadDBRead m => m ChainDifficulty
 getMaxSeenDifficulty =
@@ -132,7 +127,6 @@ instance RocksBatchOp CommonOp where
 initGStateCommon :: (MonadDB m) => HeaderHash -> m ()
 initGStateCommon initialTip = do
     putTip initialTip
-    putBot initialTip
     putMaxSeenDifficulty 0
 
 -- | Checks if gstate is initialized.
@@ -155,9 +149,6 @@ initKey = "init/gstate"
 tipKey :: ByteString
 tipKey = "c/tip"
 
-botKey :: ByteString
-botKey = "c/bot"
-
 maxSeenDifficultyKey :: ByteString
 maxSeenDifficultyKey = "c/maxsd"
 
@@ -168,17 +159,11 @@ maxSeenDifficultyKey = "c/maxsd"
 getTipMaybe :: MonadDBRead m => m (Maybe HeaderHash)
 getTipMaybe = gsGetBi tipKey
 
-getBotMaybe :: MonadDBRead m => m (Maybe HeaderHash)
-getBotMaybe = gsGetBi botKey
-
 getMaxSeenDifficultyMaybe :: MonadDBRead m => m (Maybe ChainDifficulty)
 getMaxSeenDifficultyMaybe = gsGetBi maxSeenDifficultyKey
 
 putTip :: MonadDB m => HeaderHash -> m ()
 putTip = gsPutBi tipKey
-
-putBot :: MonadDB m => HeaderHash -> m ()
-putBot = gsPutBi botKey
 
 putMaxSeenDifficulty :: MonadDB m => ChainDifficulty -> m ()
 putMaxSeenDifficulty = gsPutBi maxSeenDifficultyKey

@@ -8,15 +8,12 @@ module Pos.DB.Misc
        , addProxySecretKey
        , removeProxySecretKey
        , dropOldProxySecretKeys
-
-       , putSecretKeyHash
-       , checkSecretKeyHash
        ) where
 
 import           Universum
 
 import           Pos.Binary.Ssc     ()
-import           Pos.Crypto         (Hash, PublicKey, SecretKey, pskIssuerPk, pskOmega)
+import           Pos.Crypto         (PublicKey, pskIssuerPk, pskOmega)
 import           Pos.DB.Class       (MonadDB)
 import           Pos.DB.Misc.Common (miscGetBi, miscPutBi)
 import           Pos.Types          (EpochIndex, ProxySKLight)
@@ -70,35 +67,8 @@ dropOldProxySecretKeys eId = do
     miscPutBi proxySKKey keys
 
 ----------------------------------------------------------------------------
--- Secret key storage & verification
---
--- Currently node is allowed to have only one secret key, so its hash
--- is stored in the storage and can be checked/overwritten (e.g. in order
--- to exit if tried to launch with another key).
-----------------------------------------------------------------------------
-
--- | Puts or overwrites secret key of the node. Returns if it was
--- overwritten.
-putSecretKeyHash :: MonadDB m => Hash SecretKey -> m Bool
-putSecretKeyHash h = do
-    curSkHash <- miscGetBi @(Hash SecretKey) skHashKey
-    miscPutBi skHashKey h
-    pure $ isJust curSkHash
-
--- | Checks if given secret key hash matches the hash in the
--- database. Puts it into the database and return True if nothing was
--- stored there.
-checkSecretKeyHash :: MonadDB m => Hash SecretKey -> m Bool
-checkSecretKeyHash h = do
-    curSkHash <- miscGetBi @(Hash SecretKey) skHashKey
-    maybe (miscPutBi skHashKey h >> pure True) (pure . (== h)) curSkHash
-
-----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 proxySKKey :: ByteString
 proxySKKey = "psk/"
-
-skHashKey :: ByteString
-skHashKey = "skh/"

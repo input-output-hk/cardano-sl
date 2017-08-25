@@ -96,17 +96,27 @@ eTxProcessTransaction itw =
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock itw@(txId, TxAux {taTx = UnsafeTx {..}}) = runExceptT $ do
+eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
+    let UnsafeTx {..} = taTx txAux
+    -- Note: we need to read tip from the DB and check that it's the
+    -- same as the one in mempool. That's because mempool state is
+    -- valid only with respect to the tip stored there. Normally tips
+    -- will match, because whenever we apply/rollback blocks we
+    -- normalize mempool. However, there is a corner case when we
+    -- receive an unexpected exception after modifying GState and
+    -- before normalization. In this case normalization can fail and
+    -- tips will differ. Rejecting transactions in this case should be
+    -- fine, because the fact that we receive exceptions likely
+    -- indicates that something is bad and we have more serious issues.
+    --
+    -- Also note that we don't need to use a snapshot here and can be
+    -- sure that GState won't change, because changing it requires
+    -- 'BlkSemaphore' which we own inside this function.
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     genStks <- view (lensOf @GenesisWStakeholders)
     bvd <- gsAdoptedBVData
-    -- Note: snapshot isn't used here, because it's not necessary.  If
-    -- tip changes after 'getTip' and before resolving all inputs, it's
-    -- possible that invalid transaction will appear in
-    -- mempool. However, in this case it will be removed by
-    -- normalization before releasing lock on block application.
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.

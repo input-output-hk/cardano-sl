@@ -49,9 +49,10 @@ import           System.Wlog                  (WithLogger)
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Context                  (genesisUtxoM)
-import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
-                                               Timestamp (..), difficultyL)
+import           Pos.Context                  (genesisBlock0M, genesisUtxoM)
+import           Pos.Core                     (Address, ChainDifficulty, HasCoreConstants,
+                                               HeaderHash, Timestamp (..), difficultyL,
+                                               headerHash)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
@@ -249,13 +250,12 @@ type TxHistoryEnv' ssc ctx m =
 type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
-    :: forall ssc ctx m. TxHistoryEnv' ssc ctx m
+    :: forall ssc ctx m. (HasCoreConstants, SscHelpersClass ssc, TxHistoryEnv' ssc ctx m)
     => [Address] -> m (DList TxHistoryEntry)
 getBlockHistoryDefault addrs = do
-
-    systemStart <- getSystemStartM
-    bot         <- GS.getBot
+    bot         <- headerHash <$> genesisBlock0M @ssc
     sd          <- GS.getSlottingData
+    systemStart <- getSystemStartM
 
     let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
         fromBlund = pure . fst

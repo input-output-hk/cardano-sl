@@ -10,7 +10,9 @@ import           Universum
 
 import           Control.Lens                (at, ix, _Wrapped)
 import           Control.Monad.Random.Strict (RandT, mapRandT)
+import           Formatting                  (build, sformat, (%))
 import           System.Random               (RandomGen (..))
+import           System.Wlog                 (logWarning)
 
 import           Pos.AllSecrets              (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Core              (mkGenesisBlock)
@@ -55,14 +57,14 @@ genBlocks params = do
             let startEOS = succ tipEOS
             let finishEOS =
                     toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
-            mapM genBlock [startEOS .. finishEOS]
+            catMaybes <$> mapM genBlock [startEOS .. finishEOS]
 
 -- Generate a valid 'Block' for the given epoch or slot (genesis block
 -- in the former case and main block the latter case) and apply it.
 genBlock ::
        forall ctx m g. (RandomGen g, MonadBlockGen ctx m)
     => EpochOrSlot
-    -> BlockGenRandMode g m (Blund SscGodTossing)
+    -> BlockGenRandMode g m (Maybe (Blund SscGodTossing))
 genBlock eos = do
     let epoch = eos ^. epochIndexL
     unlessM ((epoch ==) <$> lift LrcDB.getEpoch) $
@@ -74,7 +76,7 @@ genBlock eos = do
             tipHeader <- lift $ getTipHeader @SscGodTossing
             let slot0 = SlotId epoch minBound
             let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders
-            withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
+            fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
         EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
             genPayload slot
             -- We need to know leader's secret key to create a block.
@@ -84,10 +86,20 @@ genBlock eos = do
                     (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
             secrets <-
                 unInvSecretsMap . view asSecretKeys <$> view blockGenParams
-            leaderSK <-
-                lift $ maybeThrow (BGUnknownSecret leader) (secrets ^. at leader)
+            let maybeLeader = secrets ^. at leader
+            canSkip <- view bgpSkipNoKey
+            case (maybeLeader, canSkip) of
+                (Nothing,True)     -> do
+                    lift $ logWarning $
+                        sformat ("Skipping block creation for leader "%build%
+                                 " as no related key was found")
+                                leader
+                    pure Nothing
+                (Nothing,False)    ->
+                    throwM $ BGUnknownSecret leader
+                (Just leaderSK, _) ->
                     -- When we know the secret key we can proceed to the actual creation.
-            usingPrimaryKey leaderSK (genMainBlock slot)
+                    Just <$> usingPrimaryKey leaderSK (genMainBlock slot)
   where
     genMainBlock slot =
         lift $ createMainBlockInternal @SscGodTossing slot Nothing >>= \case

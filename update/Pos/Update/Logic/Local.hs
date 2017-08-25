@@ -25,7 +25,7 @@ import           Universum
 
 import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
 import           Control.Lens           (views)
-import           Control.Monad.Except   (runExceptT)
+import           Control.Monad.Except   (runExceptT, throwError)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
@@ -51,7 +51,7 @@ import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..)
                                          withUSLock)
 import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          MonadPollRead (getProposal), PollModifier,
-                                         PollVerFailure, evalPollT, execPollT,
+                                         PollVerFailure (..), evalPollT, execPollT,
                                          filterProposalsByThd, modifyPollModifier,
                                          normalizePoll, psVotes, refreshPoll, runDBPoll,
                                          runPollT, verifyAndApplyUSPayload)
@@ -103,17 +103,16 @@ getLocalVotes
     => m LocalVotes
 getLocalVotes = mpLocalVotes <$> getMemPool
 
-withCurrentTip
-    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadDBRead m, MonadIO m)
+-- Fetch memory state from 'TVar', modify it, write back. No
+-- synchronization is done, it's caller's responsibility.
+modifyMemState
+    :: (MonadIO m, MonadReader ctx m, HasLens UpdateContext ctx UpdateContext)
     => (MemState -> m MemState) -> m ()
-withCurrentTip action = do
-    tipBefore <- DB.getTip
+modifyMemState action = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms <- atomically $ readTVar stateVar
     newMS <- action ms
-    atomically $ modifyTVar' stateVar $ \cur ->
-      if | tipBefore == msTip cur -> newMS
-         | otherwise -> cur
+    atomically $ writeTVar stateVar newMS
 
 ----------------------------------------------------------------------------
 -- Data exchange in general
@@ -125,7 +124,18 @@ processSkeleton
 processSkeleton payload =
     withUSLock $
     runExceptT $
-    withCurrentTip $ \ms@MemState {..} -> do
+    modifyMemState $ \ms@MemState {..} -> do
+        dbTip <- DB.getTip
+        -- We must check tip here, because we can't be sure that tip
+        -- in DB is the same as the tip in memory. Normally it will be
+        -- the case, but if normalization fails, it won't be true.
+        --
+        -- If this equality holds, we can be sure that all further
+        -- reads will be done for the same GState, because here we own
+        -- global lock and nobody can modify GState.
+        unless (dbTip == msTip) $
+            throwError $
+            PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
         maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
         let maxMemPoolSize = maxBlockSize * memPoolLimitRatio
         msIntermediate <-
@@ -261,7 +271,10 @@ usNormalize = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
 
--- Normalization under lock.
+-- Normalization under lock.  Note that here we don't care whether tip
+-- in mempool is the same as the one is DB, because we take payload
+-- from mempool and apply it to empty mempool, so it depends only on
+-- GState.
 usNormalizeDo
     :: (USLocalLogicMode ctx m)
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
@@ -293,7 +306,7 @@ processNewSlot :: (USLocalLogicModeWithLock ctx m) => SlotId -> m ()
 processNewSlot slotId = withUSLock $ processNewSlotNoLock slotId
 
 processNewSlotNoLock :: (USLocalLogicMode ctx m) => SlotId -> m ()
-processNewSlotNoLock slotId = withCurrentTip $ \ms@MemState{..} -> do
+processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
        | siEpoch msSlot == siEpoch slotId -> pure $ ms {msSlot = slotId}

@@ -74,6 +74,9 @@ selectDistinct n0 p@(a, b)
 -- taken from given range [a, b]
 selectSomeFromList :: MonadRandom m => (Int, Int) -> [a] -> m [a]
 selectSomeFromList p@(a, b0) ls
+    | l < a = error $
+              "selectSomeFromList: list length < a (" <>
+              show l <> " < " <> show a <> ")"
     | b - a < 0 = error $ "selectSomeFromList: b < a " <> show p
     | otherwise = do
           n <- getRandomR (a, b)
@@ -135,10 +138,6 @@ genTxPayload = do
   where
     genTransaction :: StateT GenTxData (BlockGenRandMode g m) ()
     genTransaction = do
-        -- Just an arbitrary not-so-big number of attempts to fit predicates
-        -- to avoid infinite loops
-        -- let randomAttempts :: Int
-            -- randomAttempts = 20
         utxo <- use gtdUtxo
         utxoSize <- uses gtdUtxoKeys V.length
         when (utxoSize == 0) $
@@ -170,9 +169,9 @@ genTxPayload = do
             addrsWithMoney = filter hasMoney utxoAddresses
 
         -- Select input and output addresses
-
+        maxOutputsN <- fromIntegral <$> view tgpMaxOutputs
         inputAddrs <- selectSomeFromList (1, 3) addrsWithMoney
-        outputAddrs <- selectSomeFromList (1, 3) utxoAddresses
+        outputAddrs <- selectSomeFromList (1, maxOutputsN) utxoAddresses
         let outputsN = length outputAddrs
 
         -- Select UTXOs belonging to one of input addresses and determine

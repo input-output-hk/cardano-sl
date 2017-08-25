@@ -225,7 +225,7 @@ createMainBlockInternal sId pske = do
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockFinish :: BlockHeader ssc -> ExceptT Text m (MainBlock ssc)
     createMainBlockFinish prevHeader = do
-        rawPay <- getRawPayload (headerHash prevHeader) sId
+        rawPay <- lift $ getRawPayload (headerHash prevHeader) sId
         sk <- getOurSecretKey
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
@@ -364,12 +364,12 @@ getRawPayload ::
        forall ssc ctx m. (MonadCreateBlock ssc ctx m)
     => HeaderHash
     -> SlotId
-    -> ExceptT Text m (RawPayload ssc)
+    -> m (RawPayload ssc)
 getRawPayload tip slotId = do
     localTxs <- txGetPayload tip -- result is topsorted
     sscData <- sscGetLocalPayload @ssc slotId
-    usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-    dlgPayload <- lift getDlgMempool
+    usPayload <- usPreparePayload tip slotId
+    dlgPayload <- getDlgMempool
     let rawPayload =
             RawPayload
             { rpTxp = localTxs
@@ -378,8 +378,6 @@ getRawPayload tip slotId = do
             , rpUpdate = usPayload
             }
     return rawPayload
-  where
-    onNoUS = "can't obtain US payload to create block"
 
 -- Main purpose of this function is to create main block's body taking
 -- limit into account. Usually this function doesn't fail, but we

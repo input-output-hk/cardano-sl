@@ -37,7 +37,7 @@ import           Pos.Core               (BlockVersionData (bvdMaxBlockSize),
                                          HasCoreConstants, HeaderHash, SlotId (..),
                                          slotIdF)
 import           Pos.Core.Constants     (memPoolLimitRatio)
-import           Pos.Crypto             (PublicKey)
+import           Pos.Crypto             (PublicKey, shortHashF)
 import           Pos.DB.Class           (MonadDBRead)
 import qualified Pos.DB.GState.Common   as DB
 import           Pos.Infra.Semaphore    (BlkSemaphore)
@@ -300,17 +300,27 @@ processNewSlotNoLock slotId = withCurrentTip $ \ms@MemState{..} -> do
        | otherwise -> usNormalizeDo Nothing (Just slotId)
 
 -- | Prepare UpdatePayload for inclusion into new block with given
--- SlotId.  This function assumes that 'blkSemaphore' is taken and
--- nobody can apply/rollback blocks in parallel or modify US mempool.
--- Sometimes payload can't be created. It can happen if we are trying to
--- create block for slot which has already passed, for example.
-usPreparePayload :: (USLocalLogicMode ctx m) => SlotId -> m (Maybe UpdatePayload)
-usPreparePayload slotId@SlotId{..} = do
+-- SlotId based on given tip.  This function assumes that
+-- 'blkSemaphore' is taken and nobody can apply/rollback blocks in
+-- parallel or modify US mempool.  Sometimes payload can't be
+-- created. It can happen if we are trying to create block for slot
+-- which has already passed, for example. Or if we have different tip
+-- in mempool because normalization failed earlier.
+--
+-- If we can't obtain payload for block creation, we use empty
+-- payload, because it's important to create blocks for system
+-- maintenance (empty blocks are better than no blocks).
+usPreparePayload ::
+       (USLocalLogicMode ctx m)
+    => HeaderHash
+    -> SlotId
+    -> m UpdatePayload
+usPreparePayload neededTip slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't
     -- be updated, but we don't want to create block in this case
-    -- anyway.  Here 'processNewSlot' can't fail because of tip
-    -- mismatch, because we are under 'blkSemaphore'.
+    -- anyway.  In normal cases 'processNewSlot' can't fail here
+    -- because of tip mismatch, because we are under 'blkSemaphore'.
     processNewSlotNoLock slotId
     -- After that we normalize payload to be sure it's valid. We try
     -- to keep it valid anyway, but we decided to have an extra
@@ -324,19 +334,25 @@ usPreparePayload slotId@SlotId{..} = do
         -- Normalization is done just in case, as said before
         MemState {..} <- usNormalizeDo Nothing (Just slotId)
         -- If slot doesn't match, we can't provide payload for this slot.
-        if | msSlot /= slotId -> Nothing <$
+        if | msSlot /= slotId -> def <$
                logWarning (sformat slotMismatchFmt msSlot slotId)
+           | msTip /= neededTip -> def <$
+               logWarning (sformat tipMismatchFmt msTip neededTip)
            | otherwise -> do
                -- Here we remove proposals which don't have enough
                -- positive stake for inclusion into payload.
                let MemPool {..} = msPool
                (filteredProposals, bad) <- runDBPoll . evalPollT msModifier $
                    filterProposalsByThd siEpoch mpProposals
-               fmap Just . runDBPoll . evalPollT msModifier $
+               runDBPoll . evalPollT msModifier $
                    finishPrepare bad filteredProposals mpLocalVotes
     slotMismatchFmt = "US payload can't be created due to slot mismatch "%
                       "(our payload is for "%
                        slotIdF%", but requested one is "%slotIdF%")"
+    tipMismatchFmt =  "US payload can't be created due to tip mismatch "
+                     %"(our payload is for "
+                     %shortHashF%", but we want to create payload based on tip "
+                     %shortHashF%")"
 
 -- Here we basically choose only one proposal for inclusion and remove
 -- all votes for other proposals.

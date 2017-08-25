@@ -187,12 +187,11 @@ instance Arbitrary TestParams where
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data TestInitModeContext ssc = TestInitModeContext
-    { timcDBPureVar           :: DBPureVar
-    , timcGenesisUtxo         :: GenesisUtxo
-    , timcGenesisStakeholders :: GenesisWStakeholders
-    , timcSlottingVar         :: TVar SlottingData
-    , timcSystemStart         :: !Timestamp
-    , timcLrcContext          :: LrcContext
+    { timcDBPureVar      :: DBPureVar
+    , timcGenesisContext :: GenesisContext
+    , timcSlottingVar    :: TVar SlottingData
+    , timcSystemStart    :: !Timestamp
+    , timcLrcContext     :: LrcContext
     }
 
 makeLensesWith postfixLFields ''TestInitModeContext
@@ -254,8 +253,7 @@ initBlockTestContext tp@TestParams {..} callback = do
     let initCtx =
             TestInitModeContext
                 dbPureVar
-                (_tpGenesisContext ^. gtcUtxo)
-                (_tpGenesisContext ^. gtcWStakeholders)
+                _tpGenesisContext
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -331,10 +329,10 @@ instance HasLens DBPureVar (TestInitModeContext ssc) DBPureVar where
     lensOf = timcDBPureVar_L
 
 instance HasLens GenesisUtxo (TestInitModeContext ssc) GenesisUtxo where
-    lensOf = timcGenesisUtxo_L
+    lensOf = timcGenesisContext_L . gtcUtxo
 
 instance HasLens GenesisWStakeholders (TestInitModeContext ssc) GenesisWStakeholders where
-    lensOf = timcGenesisStakeholders_L
+    lensOf = timcGenesisContext_L . gtcWStakeholders
 
 instance HasLens LrcContext (TestInitModeContext ssc) LrcContext where
     lensOf = timcLrcContext_L

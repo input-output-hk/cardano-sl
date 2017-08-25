@@ -117,9 +117,8 @@ concatAddrDistrs :: [AddrDistribution] -> [(Address, Coin)]
 concatAddrDistrs addrDistrs =
     concatMap (uncurry zip . second stakeDistribution) addrDistrs
 
--- | Generates genesis 'Utxo' given weighted boot stakeholders and
--- address distributions. All the stake is distributed among genesis
--- stakeholders (using 'genesisSplitBoot').
+-- | Generates 'GenesisUtxo' given address distributions (which also
+-- include stake distributions as parts of addresses).
 genesisUtxo :: [AddrDistribution] -> GenesisUtxo
 genesisUtxo ad = GenesisUtxo . Map.fromList $ map utxoEntry balances
   where

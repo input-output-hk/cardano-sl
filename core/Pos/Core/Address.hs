@@ -21,8 +21,11 @@ module Pos.Core.Address
        , addrSpendingDataToType
        , addrAttributesUnwrapped
        , deriveLvl2KeyPair
+
+       -- * Pattern-matching helpers
        , isRedeemAddress
        , isUnknownAddressType
+       , isBootstrapEraDistrAddress
 
        -- * Construction
        , IsBootstrapEraAddr (..)
@@ -307,19 +310,6 @@ addrSpendingDataToType =
         RedeemASD {} -> ATRedeem
         UnknownASD tag _ -> ATUnknown tag
 
--- | Check whether an 'Address' is redeem address.
-isRedeemAddress :: Address -> Bool
-isRedeemAddress Address {..} =
-    case addrType of
-        ATRedeem -> True
-        _        -> False
-
-isUnknownAddressType :: Address -> Bool
-isUnknownAddressType Address {..} =
-    case addrType of
-        ATUnknown {} -> True
-        _            -> False
-
 -- | Get 'AddrAttributes' from 'Address'.
 addrAttributesUnwrapped :: Address -> AddrAttributes
 addrAttributesUnwrapped = attrData . addrAttributes
@@ -336,3 +326,27 @@ deriveLvl2KeyPair ibea passphrase wsKey walletIndex accIndex = do
     wKey <- deriveHDSecretKey passphrase wsKey walletIndex
     let hdPass = deriveHDPassphrase $ encToPublic wsKey
     createHDAddressH ibea passphrase hdPass wKey [walletIndex] accIndex
+
+----------------------------------------------------------------------------
+-- Pattern-matching helpers
+----------------------------------------------------------------------------
+
+-- | Check whether an 'Address' is redeem address.
+isRedeemAddress :: Address -> Bool
+isRedeemAddress Address {..} =
+    case addrType of
+        ATRedeem -> True
+        _        -> False
+
+isUnknownAddressType :: Address -> Bool
+isUnknownAddressType Address {..} =
+    case addrType of
+        ATUnknown {} -> True
+        _            -> False
+
+-- | Check whether an 'Address' has bootstrap era stake distribution.
+isBootstrapEraDistrAddress :: Address -> Bool
+isBootstrapEraDistrAddress (addrAttributesUnwrapped -> AddrAttributes {..}) =
+    case aaStakeDistribution of
+        BootstrapEraDistr -> True
+        _                 -> False

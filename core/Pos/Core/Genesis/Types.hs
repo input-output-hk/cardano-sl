@@ -19,6 +19,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, (%))
 import           Serokell.Util       (allDistinct, mapJson)
 
+import           Pos.Core.Address    (isBootstrapEraDistrAddress)
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeGetCoin,
                                       unsafeIntegerToCoin)
 import           Pos.Core.Types      (Address, Coin, StakeholderId, mkCoin)
@@ -120,18 +121,21 @@ mkGenesisCoreData ::
     -> Map StakeholderId Word16
     -> Either String GenesisCoreData
 mkGenesisCoreData distribution bootStakeholders = do
-    -- Every set of addresses should match the stakeholders count
-    for_ distribution $ \(addrs, distr) ->
+    for_ distribution $ \(addrs, distr) -> do
+        -- Every set of addresses should match the stakeholders count
         unless (fromIntegral (length addrs) == getDistributionSize distr) $
             Left "mkGenesisCoreData: addressCount != stakeholdersCount \
                  \for some set of addresses"
-    -- Addresses in each list are distinct (except for CustomStakes)
-    for_ distribution $ \(addrs, distr) -> do
+        -- Addresses in each list are distinct (except for CustomStakes)
         let isCustom = case distr of
                 CustomStakes{} -> True
                 _              -> False
         unless (isCustom || allDistinct addrs) $
             Left "mkGenesisCoreData: addresses in some list aren't distinct"
+        unless (all isBootstrapEraDistrAddress addrs) $
+            Left $ "mkGenesisCoreData: there is an address with stake " <>
+                   "distribution different from BootstrapEraDistr"
+
     -- No address belongs to more than one distribution
     let addrList = concatMap (ordNub . fst) distribution
     unless (allDistinct addrList) $

@@ -8,11 +8,11 @@ import           Pos.Binary.Class        (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Txp          ()
 import           Pos.Core                (HeaderHash, Timestamp)
 import           Pos.Explorer.Core.Types (TxExtra (..))
-import           Pos.Txp.Core            (TxOutAux)
+import           Pos.Txp.Core            (TxUndo)
 
 deriveSimpleBi ''TxExtra [
     Cons 'TxExtra [
         Field [| teBlockchainPlace :: Maybe (HeaderHash, Word32) |],
         Field [| teReceivedTime    :: Timestamp                  |],
-        Field [| teInputOutputs    :: NonEmpty TxOutAux          |]
+        Field [| teInputOutputs    :: TxUndo                     |]
     ]]

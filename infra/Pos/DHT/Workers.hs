@@ -29,7 +29,7 @@ import           Pos.Slotting.Class         (MonadSlots)
 
 type DhtWorkMode ctx m =
     ( WithLogger m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadIO m
     , MonadMask m
     , Mockable Async m

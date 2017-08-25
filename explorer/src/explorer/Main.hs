@@ -16,7 +16,7 @@ import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 
 import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
+import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec, worker)
 import           Pos.Constants       (isDevelopment)
 import           Pos.Core            (HasCoreConstants, giveStaticConsts)
@@ -66,7 +66,6 @@ action args@Args {..} = giveStaticConsts $ do
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     nodeParams <- getNodeParams args systemStart
-    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
     putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss

@@ -72,16 +72,11 @@ import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
                                                  SimpleSlottingVar, SlottingData,
-                                                 currentTimeSlottingSimple,
+                                                 mkSimpleSlottingVar, getCurrentSlotSimple,
                                                  getCurrentSlotBlockingSimple,
                                                  getCurrentSlotInaccurateSimple,
-                                                 getCurrentSlotSimple,
-                                                 mkSimpleSlottingVar)
-import           Pos.Slotting.MemState          (MonadSlotsData (..),
-                                                 getSlottingDataDefault,
-                                                 getSystemStartDefault,
-                                                 putSlottingDataDefault,
-                                                 waitPenultEpochEqualsDefault)
+                                                 currentTimeSlottingSimple)
+import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
@@ -371,17 +366,13 @@ instance
     dbGetUndo   = DB.dbGetUndoSscPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
 
-instance MonadSlotsData (TestInitMode ssc) where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
-
-instance HasCoreConstants => MonadSlots (TestInitMode ssc) where
-    getCurrentSlot = getCurrentSlotSimple =<< mkSimpleSlottingVar
-    getCurrentSlotBlocking = getCurrentSlotBlockingSimple =<< mkSimpleSlottingVar
+instance (HasCoreConstants, MonadSlotsData ctx (TestInitMode ssc))
+      => MonadSlots ctx (TestInitMode ssc)
+  where
+    getCurrentSlot           = getCurrentSlotSimple           =<< mkSimpleSlottingVar
+    getCurrentSlotBlocking   = getCurrentSlotBlockingSimple   =<< mkSimpleSlottingVar
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple =<< mkSimpleSlottingVar
-    currentTimeSlotting = currentTimeSlottingSimple
+    currentTimeSlotting      = currentTimeSlottingSimple
 
 ----------------------------------------------------------------------------
 -- Boilerplate BlockTestContext instances
@@ -454,13 +445,9 @@ instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
     getLoggerName = getLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
-instance MonadSlotsData BlockTestMode where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault
-
-instance HasCoreConstants => MonadSlots BlockTestMode where
+instance (HasCoreConstants, MonadSlotsData ctx BlockTestMode)
+      => MonadSlots ctx BlockTestMode
+  where
     getCurrentSlot = do
         view btcSlotId_L >>= \case
             Nothing -> getCurrentSlotSimple =<< view btcSSlottingVar_L

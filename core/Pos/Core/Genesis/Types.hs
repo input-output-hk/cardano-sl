@@ -33,9 +33,6 @@ data StakeDistribution
     -- same amount of coins.
     = FlatStakes !Word     -- ^ Number of stakeholders
                  !Coin     -- ^ Total number of coins
-    -- | Distribution mimicking bitcoin mining pool style.
-    | BitcoinStakes !Word  -- ^ Number of stakeholders
-                    !Coin  -- ^ Total number of coins
     -- | Rich/poor distribution, for testnet mostly.
     | RichPoorStakes
         { sdRichmen   :: !Word
@@ -53,7 +50,6 @@ data StakeDistribution
 -- | Get the amount of stakeholders in a distribution.
 getDistributionSize :: StakeDistribution -> Word
 getDistributionSize (FlatStakes n _)         = n
-getDistributionSize (BitcoinStakes n _)      = n
 getDistributionSize (RichPoorStakes a _ b _) = a + b
 getDistributionSize (ExponentialStakes n _)  = n
 getDistributionSize (CustomStakes cs)        = fromIntegral (length cs)
@@ -61,7 +57,6 @@ getDistributionSize (CustomStakes cs)        = fromIntegral (length cs)
 -- | Get total amount of stake in a distribution.
 getTotalStake :: StakeDistribution -> Coin
 getTotalStake (FlatStakes _ st) = st
-getTotalStake (BitcoinStakes _ st) = st
 getTotalStake RichPoorStakes {..} = unsafeIntegerToCoin $
     coinToInteger sdRichStake * fromIntegral sdRichmen +
     coinToInteger sdPoorStake * fromIntegral sdPoor

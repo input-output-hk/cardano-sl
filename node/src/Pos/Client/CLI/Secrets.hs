@@ -14,11 +14,11 @@ import           Pos.Genesis         (genesisDevSecretKeys)
 import           Pos.Ssc.GodTossing  (genesisDevVssKeyPairs)
 import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSecret)
 
-import           Pos.Client.CLI.NodeOptions         (SimpleNodeArgs (..))
+import           Pos.Client.CLI.NodeOptions         (CommonNodeArgs (..))
 
 userSecretWithGenesisKey
-    :: (MonadIO m) => SimpleNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey SimpleNodeArgs{..} userSecret
+    :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
+userSecretWithGenesisKey CommonNodeArgs{..} userSecret
     | isDevelopment = case devSpendingGenesisI of
           Nothing -> fetchPrimaryKey userSecret
           Just i -> do
@@ -29,8 +29,8 @@ userSecretWithGenesisKey SimpleNodeArgs{..} userSecret
     | otherwise = fetchPrimaryKey userSecret
 
 updateUserSecretVSS
-    :: (MonadIO m) => SimpleNodeArgs -> UserSecret -> m UserSecret
-updateUserSecretVSS SimpleNodeArgs{..} us
+    :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
+updateUserSecretVSS CommonNodeArgs{..} us
     | isDevelopment = case devVssGenesisI of
           Nothing -> fillUserSecretVSS us
           Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)

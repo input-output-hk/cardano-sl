@@ -16,6 +16,7 @@ module Pos.Block.Logic.Internal
        , applyBlocksUnsafe
        , normalizeMempool
        , rollbackBlocksUnsafe
+       , BypassSecurityCheck(..)
 
          -- * Garbage
        , toUpdateBlock
@@ -34,7 +35,7 @@ import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
                                           mbUpdatePayload)
 import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
-                                          slogRollbackBlocks)
+                                          slogRollbackBlocks, BypassSecurityCheck(..))
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (GenesisWStakeholders, HasCoreConstants,
                                           IsGenesisHeader, IsMainHeader, epochIndexL,
@@ -74,7 +75,7 @@ import           Pos.Txp.Logic           (txNormalize)
 
 -- | Set of basic constraints used by high-level block processing.
 type MonadBlockBase ssc ctx m
-     = ( MonadSlogBase ssc m
+     = ( MonadSlogBase ssc ctx m
        -- Needed because SSC state is fully stored in memory.
        , MonadSscMem ssc ctx m
        -- Needed to load blocks (at least delegation does it).
@@ -114,7 +115,7 @@ type MonadBlockApply ssc ctx m
        )
 
 type MonadMempoolNormalization ssc ctx m
-    = ( MonadSlogBase ssc m
+    = ( MonadSlogBase ssc ctx m
       , MonadTxpMem TxpExtra_TMP ctx m
       , SscLocalDataClass ssc
       , MonadSscMem ssc ctx m
@@ -209,10 +210,11 @@ applyBlocksDbUnsafeDo blunds pModifier = do
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
     :: forall ssc ctx m. (MonadBlockApply ssc ctx m)
-    => NewestFirst NE (Blund ssc)
+    => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
+    -> NewestFirst NE (Blund ssc)
     -> m ()
-rollbackBlocksUnsafe toRollback = reportingFatal $ do
-    slogRoll <- slogRollbackBlocks toRollback
+rollbackBlocksUnsafe bsc toRollback = reportingFatal $ do
+    slogRoll <- slogRollbackBlocks bsc toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS

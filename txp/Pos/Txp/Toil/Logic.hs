@@ -155,8 +155,8 @@ verifyAndApplyTx
        , MonadReader ctx m)
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
-    (txUndo, txFee) <- Utxo.verifyTxUtxo ctx txAux
-    verifyGState @ctx curEpoch txAux txFee
+    (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
+    verifyGState @ctx curEpoch txAux txFeeMB
     applyTxToUtxo' tx
     pure txUndo
   where
@@ -175,13 +175,13 @@ verifyGState
        , MonadError ToilVerFailure m
        , HasLens' ctx GenesisWStakeholders
        , MonadReader ctx m)
-    => EpochIndex -> TxAux -> TxFee -> m ()
-verifyGState curEpoch txAux txFee = do
+    => EpochIndex -> TxAux -> Maybe TxFee -> m ()
+verifyGState curEpoch txAux txFeeMB = do
     BlockVersionData {..} <- gsAdoptedBVData
     verifyBootEra @ctx curEpoch bvdUnlockStakeEpoch txAux
     let txSize = biSize txAux
     let limit = bvdMaxTxSize
-    unlessM (isRedeemTx txAux) $
+    unlessM (isRedeemTx txAux) $ whenJust txFeeMB $ \txFee ->
         verifyTxFeePolicy txFee bvdTxFeePolicy txSize
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}

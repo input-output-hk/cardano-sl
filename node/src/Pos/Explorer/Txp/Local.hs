@@ -51,7 +51,7 @@ type ETxpLocalWorkMode ctx m =
     , MonadGState m
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
-    , MonadSlots m
+    , MonadSlots ctx m
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
     )
 
@@ -159,12 +159,13 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
                     => ToilT ExplorerExtra m a
                     -> m (a, GenericToilModifier ExplorerExtra)
                 runToil = runToilTLocalExtra uv mp undo extra
+                -- We strictly rely on verifyAllIsKnown = True here
                 action ::
                        ExceptT ToilVerFailure (ToilT ExplorerExtra EProcessTxMode) ()
                 action = eProcessTx curEpoch tx (TxExtra Nothing curTime txUndo)
                 -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
                 -- wouldn't save extra value, thus wouldn't reduce it to NF
-                txUndo = NE.fromList $ toList _eptcUtxoBase
+                txUndo = NE.fromList $ map Just $ toList _eptcUtxoBase
                 res :: ( Either ToilVerFailure ()
                        , GenericToilModifier ExplorerExtra)
                 res = usingReader ctx $ runToil $ runExceptT action
@@ -184,7 +185,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
 --   3. Set new tip to txp local data
 eTxNormalize ::
        ( ETxpLocalWorkMode ctx m
-       , MonadSlots m
+       , MonadSlots ctx m
        )
     => m ()
 eTxNormalize = getCurrentSlot >>= \case

@@ -31,7 +31,7 @@ type SscMode ssc ctx m
       , MonadIO m
       , MonadMask m
       , MonadMockable m
-      , MonadSlots m
+      , MonadSlots ctx m
       , MonadGState m
       , MonadDB m
       , MonadFormatPeers m

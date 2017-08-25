@@ -119,13 +119,20 @@ function node_cmd {
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
 
+  local topology_file="$config_dir/topology$i.yaml"
+  local kademlia_file="$config_dir/kademlia$i.yaml"
+
   echo -n "$(find_binary $exec_name) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
   ekg_server="127.0.0.1:"$((8000+$i))
   statsd_server="127.0.0.1:"$((8125+$i))
 
-  echo -n " --address 127.0.0.1:"`get_port $i`
-  echo -n " --listen 127.0.0.1:"`get_port $i`
+  # A sloppy test but it'll do for now.
+  local topology_first_six_bytes=`cat $topology_file | head -c 6`
+  if [[ "$topology_first_six_bytes" != "wallet" ]]; then
+    echo -n " --address 127.0.0.1:"`get_port $i`
+    echo -n " --listen 127.0.0.1:"`get_port $i`
+  fi
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
@@ -136,8 +143,8 @@ function node_cmd {
   echo -n " --ekg-server $ekg_server"
   #echo -n " --statsd-server $statsd_server"
   echo -n " --node-id node$i"
-  echo -n " --topology $config_dir/topology$i.yaml"
-  echo -n " --kademlia $config_dir/kademlia$i.yaml"
+  echo -n " --topology $topology_file"
+  echo -n " --kademlia $kademlia_file"
   # Use the policies option if you want to change enqueue/dequeue/failure
   # policies without re-compiling. See example files
   #   run/policy_core.yaml

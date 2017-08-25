@@ -114,7 +114,7 @@ triggerRecovery :: forall ssc ctx m.
     => EnqueueMsg m -> m ()
 triggerRecovery enqueue = unlessM recoveryInProgress $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
-    void (enqueue MsgRequestBlockHeaders (\addr _ -> pure (Conversation (requestTip addr))) >>= waitForConversations) `catch`
+    void (enqueue (MsgRequestBlockHeaders Nothing) (\addr _ -> pure (Conversation (requestTip addr))) >>= waitForConversations) `catch`
         \(e :: SomeException) -> do
            logDebug ("Error happened in triggerRecovery: " <> show e)
            throwM e
@@ -258,13 +258,13 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
           | otherwise -> MRGood
 
 requestHeaders
-    :: forall ssc ctx m.
+    :: forall ssc ctx m t.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => (NewestFirst NE (BlockHeader ssc) -> m ())
+    => (NewestFirst NE (BlockHeader ssc) -> m t)
     -> MsgGetHeaders
     -> NodeId
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
-    -> m ()
+    -> m (Maybe t)
 requestHeaders cont mgh nodeId conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
@@ -298,12 +298,12 @@ requestHeaders cont mgh nodeId conv = do
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
-    :: forall ssc ctx m.
+    :: forall ssc ctx m t.
        WorkMode ssc ctx m
-    => (NewestFirst NE (BlockHeader ssc) -> m ())
+    => (NewestFirst NE (BlockHeader ssc) -> m t)
     -> Bool -- recovery in progress?
     -> NewestFirst NE (BlockHeader ssc)
-    -> m ()
+    -> m (Maybe t)
 handleRequestedHeaders cont inRecovery headers = do
     classificationRes <- classifyHeaders inRecovery headers
     let newestHeader = headers ^. _Wrapped . _neHead
@@ -321,12 +321,13 @@ handleRequestedHeaders cont inRecovery headers = do
                         "handleRequestedHeaders: couldn't find LCA child " <>
                         "within headers returned, most probably classifyHeaders is broken"
                 Just headersPostfix ->
-                    cont (NewestFirst headersPostfix)
+                    Just <$> cont (NewestFirst headersPostfix)
         CHsUseless reason -> do
             let msg = sformat uselessFormat oldestHash newestHash reason
             logDebug msg
             -- It's weird to have useless headers in recovery mode.
             whenM recoveryInProgress $ throwM $ BlockNetLogicInternal msg
+            return Nothing
         CHsInvalid reason -> do
              -- TODO: ban node for sending invalid block.
             let msg = sformat invalidFormat oldestHash newestHash reason

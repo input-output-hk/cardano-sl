@@ -4811,8 +4811,8 @@ self: {
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "18bs4k4zspzivmgqikq7hv6qqv57l7j703qr99d8fz4nlp49nxl7";
-            rev = "18e60874e5725a1e5abf4f19957542bdd342a0a3";
+            sha256 = "0gwr1n6mp6n70mwgczf8pblq1l2085nmyll5wl19dg1ic0dnmbh2";
+            rev = "40f4235cda65c746c6edc2a3455242d96d7175bf";
           };
           isLibrary = true;
           isExecutable = true;

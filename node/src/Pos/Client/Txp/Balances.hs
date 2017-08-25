@@ -84,7 +84,7 @@ getOwnUtxo = getOwnUtxos . one
 -- from public key, because it's impossible to extract spending data
 -- from an address. And we can't enumerate all possible addresses for
 -- a public key. So we only consider two addresses: one with bootstrap
--- era distribution and another one with signle key distribution.
+-- era distribution and another one with single key distribution.
 getOwnUtxoForPk :: MonadBalances m => PublicKey -> m Utxo
 getOwnUtxoForPk ourPk = getOwnUtxos ourAddresses
   where

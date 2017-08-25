@@ -1,4 +1,4 @@
-import <nixpkgs/nixos/tests/make-test.nix> ({ pkgs, ... }:
+{ pkgs, ... }:
 let
   iohk-nixops = pkgs.fetchFromGitHub {
     owner = "input-output-hk";
@@ -23,4 +23,4 @@ in {
     # TODO, implement sd_notify?
     $machine->waitForOpenPort(3000);
   '';
-})
+}

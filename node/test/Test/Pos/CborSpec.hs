@@ -171,10 +171,10 @@ deriveSimpleBi ''MyScript [
 data U = U Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U where
-    encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeCborDataItem bs
+    encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
     decode = do
         decodeListLenOf 2
-        U <$> decode <*> (decodeCborDataItemTag *> decode)
+        U <$> decode <*> decodeUnknownCborDataItem
 
 instance Arbitrary U where
     arbitrary = U <$> choose (0, 255) <*> arbitrary

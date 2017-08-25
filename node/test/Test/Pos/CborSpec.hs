@@ -168,6 +168,7 @@ deriveSimpleBi ''MyScript [
 -- Type to be used to simulate a breaking change in the serialisation
 -- schema, so we can test instances which uses the `UnknownXX` pattern
 -- for extensibility.
+-- Check the `extensionProperty` for more details.
 data U = U Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U where
@@ -225,9 +226,51 @@ roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === in
 -- .... | Unknown Word8 ByteString
 extensionProperty :: forall a. (Arbitrary a, Eq a, Show a, Bi a) => Property
 extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
-    let serialized      = serialize input -- We now have a BS blob
-        (u :: U)        = deserialize serialized
-        (encoded :: a)  = deserialize (serialize u)
+{- This function works as follows:
+
+   1. When we call `serialized`, we are implicitly assuming (as contract of this
+      function) that the input type would be of a shape such as:
+
+      data MyType = Constructor1 Int Bool
+                  | Constructor2 String
+                  | UnknownConstructor Word8 ByteString
+
+      Such type will be encoded, roughly, like this:
+
+      encode (Constructor1 a b) = encodeWord 0 <> encodeKnownCborDataItem (a,b)
+      encode (Constructor2 a b) = encodeWord 1 <> encodeKnownCborDataItem a
+      encode (UnknownConstructor tag bs) = encodeWord tag <> encodeUnknownCborDataItem bs
+
+      In CBOR terms, we would produce something like this:
+
+      <tag :: Word32><Tag24><CborDataItem :: ByteString>
+
+   2. Now, when we call `deserialize serialized`, we are effectively asking to produce as
+      output a value of type `U`. `U` is defined by only 1 constructor, it
+      being `U Word8 ByteString`, but this is still compatible with our `tag + cborDataItem`
+      format. So now we will have something like:
+
+      U <tag :: Word32> <CborDataItem :: ByteString>
+
+      (The <Tag24> has been removed as part of the decoding process).
+
+   3. We now call `deserialize (serialize u)`, which means: Can you produce a CBOR binary
+      from `U`, and finally try to decode it into a value of type `a`? This will work because
+      our intermediate encoding into `U` didn't touch the inital `<tag :: Word32>`, so we will
+      be able to reconstruct the original object back.
+      More specifically, `serialize u` would produce once again:
+
+      <tag :: Word32><Tag24><CborDataItem :: ByteString>
+
+      (The <Tag24> has been added as part of the encoding process).
+
+      `deserialize` would then consume the tag (to understand which type constructor this corresponds to),
+      remove the <Tag24> token and finally proceed to deserialise the rest.
+
+-}
+    let serialized      = serialize input             -- Step 1
+        (u :: U)        = deserialize serialized      -- Step 2
+        (encoded :: a)  = deserialize (serialize u)   -- Step 3
     in encoded === input
 
 soundSerializationAttributesOfAsProperty

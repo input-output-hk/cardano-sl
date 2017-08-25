@@ -23,7 +23,7 @@ import           Pos.Core              (BlockVersionData, EpochIndex,
 import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
 import qualified Pos.GState            as GS
-import           Pos.Infra.Semaphore   (BlkSemaphore, withBlkSemaphoreIgnoreTip)
+import           Pos.Infra.Semaphore   (BlkSemaphore, withBlkSemaphore)
 import           Pos.Slotting          (MonadSlots (currentTimeSlotting, getCurrentSlot))
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
@@ -90,7 +90,8 @@ instance MonadTxExtraRead EProcessTxMode where
 eTxProcessTransaction
     :: (ETxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-eTxProcessTransaction itw = withBlkSemaphoreIgnoreTip $ eTxProcessTransactionNoLock itw
+eTxProcessTransaction itw =
+    withBlkSemaphore $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)

@@ -68,7 +68,7 @@ import qualified Pos.DB.DB                        as DB
 import           Pos.DB.Rocks                     (MonadRealDB)
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
-import           Pos.Infra.Semaphore              (BlkSemaphore, withBlkSemaphore_)
+import           Pos.Infra.Semaphore              (BlkSemaphore, withBlkSemaphore)
 import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
                                                    getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
@@ -194,10 +194,10 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
                 syncWalletWithGStateUnsafe encSK wTipH bh
                 pure $ Just bh
             else pure wTipH
-        withBlkSemaphore_ $ \tip -> do
+        withBlkSemaphore $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
             tipH <- maybe (error "Wallet tracking: no block header corresponding to tip") pure =<< DB.blkGetHeader tip
-            tip <$ syncWalletWithGStateUnsafe encSK wNewTip tipH
+            syncWalletWithGStateUnsafe encSK wNewTip tipH
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.

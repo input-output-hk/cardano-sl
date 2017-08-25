@@ -24,7 +24,7 @@ import           Pos.Constants                (isDevelopment)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
 import           Pos.Genesis                  (genesisDevHdwSecretKeys)
-import           Pos.Infra.Semaphore          (withBlkSemaphore_)
+import           Pos.Infra.Semaphore          (withBlkSemaphore)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
                                                readUserSecret, usWalletSet)
@@ -75,7 +75,7 @@ newWallet passphrase cwInit = do
     updateHistoryCache wId []
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
-    withBlkSemaphore_ $ \tip -> tip <$ setWalletSyncTip wId tip
+    withBlkSemaphore $ \tip -> setWalletSyncTip wId tip
     L.getWallet wId
 
 restoreWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet

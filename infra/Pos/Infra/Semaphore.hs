@@ -3,17 +3,18 @@
 
 module Pos.Infra.Semaphore
        ( BlkSemaphore (..)
+       , modifyBlkSemaphore
+       , modifyBlkSemaphore_
        , withBlkSemaphore
-       , withBlkSemaphoreIgnoreTip
-       , withBlkSemaphore_
        ) where
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask, bracketOnError)
+import           Control.Monad.Catch (MonadMask)
 
 import           Pos.Core            (HeaderHash)
-import           Pos.Util.Util       (HasLens, lensOf)
+import           Pos.Util.Concurrent (modifyMVar, modifyMVar_, withMVar)
+import           Pos.Util.Util       (HasLens', lensOf)
 
 -- | A simple wrapper over 'MVar' which stores 'HeaderHash' (our
 -- current tip) and is taken whenever we want to update GState or
@@ -22,59 +23,48 @@ newtype BlkSemaphore = BlkSemaphore
     { unBlkSemaphore :: MVar HeaderHash
     }
 
--- TODO: use 'withMVar' instead ('MonadThrow'-based).
--- | Run action acquiring 'BlkSemaphore' lock. Argument of
+-- | Run an action acquiring 'BlkSemaphore' lock. Argument of
 -- action is an old tip, result is put as a new tip.
+modifyBlkSemaphore ::
+       ( MonadIO m
+       , MonadMask m
+       , MonadReader ctx m
+       , HasLens' ctx BlkSemaphore
+       )
+    => (HeaderHash -> m (HeaderHash, a))
+    -> m a
+modifyBlkSemaphore action = blkSemaphoreHelper (flip modifyMVar action)
+
+-- | Version of 'modifyBlkSemaphore' which doesn't have any result.
+modifyBlkSemaphore_ ::
+       ( MonadIO m
+       , MonadMask m
+       , MonadReader ctx m
+       , HasLens' ctx BlkSemaphore
+       )
+    => (HeaderHash -> m HeaderHash)
+    -> m ()
+modifyBlkSemaphore_ action = blkSemaphoreHelper (flip modifyMVar_ action)
+
+-- | Run an action acquiring 'BlkSemaphore' lock without modifying tip.
 withBlkSemaphore ::
        ( MonadIO m
        , MonadMask m
        , MonadReader ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasLens' ctx BlkSemaphore
        )
-    => (HeaderHash -> m (a, HeaderHash))
+    => (HeaderHash -> m a)
     -> m a
-withBlkSemaphore action =
-    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
-  where
-    doAction tip = do
-        (res, newTip) <- action tip
-        res <$ putBlkSemaphore newTip
-
--- | Version of 'withBlkSemaphore' which doesn't modify tip.
-withBlkSemaphoreIgnoreTip ::
-       ( MonadIO m
-       , MonadMask m
-       , MonadReader ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
-       )
-    => m a
-    -> m a
-withBlkSemaphoreIgnoreTip action = withBlkSemaphore wrappedAction
-  where
-    wrappedAction tip = (, tip) <$> action
-
--- | Version of 'withBlkSemaphore' which doesn't have any result.
-withBlkSemaphore_ ::
-       ( MonadIO m
-       , MonadMask m
-       , MonadReader ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
-       )
-    => (HeaderHash -> m HeaderHash)
-    -> m ()
-withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
+withBlkSemaphore action = blkSemaphoreHelper (flip withMVar action)
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
-takeBlkSemaphore
-    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => m HeaderHash
-takeBlkSemaphore = takeMVar . unBlkSemaphore =<< view (lensOf @BlkSemaphore)
-
-putBlkSemaphore
-    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => HeaderHash -> m ()
-putBlkSemaphore tip =
-    flip putMVar tip . unBlkSemaphore =<< view (lensOf @BlkSemaphore)
+blkSemaphoreHelper ::
+       (MonadReader ctx m, HasLens' ctx BlkSemaphore)
+    => (MVar HeaderHash -> m a)
+    -> m a
+blkSemaphoreHelper action = do
+    BlkSemaphore mvar <- view (lensOf @BlkSemaphore)
+    action mvar

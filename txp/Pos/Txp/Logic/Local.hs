@@ -23,7 +23,7 @@ import           Pos.Core             (BlockVersionData, EpochIndex, GenesisWSta
                                        HeaderHash, siEpoch)
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Infra.Semaphore  (BlkSemaphore, withBlkSemaphoreIgnoreTip)
+import           Pos.Infra.Semaphore  (BlkSemaphore, withBlkSemaphore)
 import           Pos.Slotting         (MonadSlots (..))
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo)
 import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
@@ -75,7 +75,8 @@ instance MonadGState ProcessTxMode where
 txProcessTransaction
     :: (TxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransaction itw = withBlkSemaphoreIgnoreTip $ txProcessTransactionNoLock itw
+txProcessTransaction itw =
+    withBlkSemaphore $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.

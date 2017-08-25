@@ -49,7 +49,7 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
-import           Pos.Infra.Semaphore        (BlkSemaphore, withBlkSemaphore)
+import           Pos.Infra.Semaphore        (BlkSemaphore, modifyBlkSemaphore)
 import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)
@@ -124,7 +124,7 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> withBlkSemaphore (createGenesisBlockDo epoch leaders)
+        Right leaders -> modifyBlkSemaphore (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -133,14 +133,14 @@ createGenesisBlockDo
     => EpochIndex
     -> SlotLeaders
     -> HeaderHash
-    -> m (Maybe (GenesisBlock ssc), HeaderHash)
+    -> m (HeaderHash, Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch leaders tip = do
     let noHeaderMsg =
             "There is no header is DB corresponding to tip from semaphore"
     tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.blkGetHeader tip
     logDebug $ sformat msgTryingFmt epoch tipHeader
     shouldCreate tipHeader >>= \case
-        False -> (Nothing, tip) <$ logShouldNot
+        False -> (tip, Nothing) <$ logShouldNot
         True -> actuallyCreate tipHeader
   where
     shouldCreate (Left _) = pure False
@@ -161,7 +161,7 @@ createGenesisBlockDo epoch leaders tip = do
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier)
                 normalizeMempool
-                pure (Just blk, newTip)
+                pure (newTip, Just blk)
     logShouldNot =
         logDebug
             "After we took lock for genesis block creation, we noticed that we shouldn't create it"
@@ -194,13 +194,13 @@ createMainBlockAndApply ::
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ withBlkSemaphore createAndApply
+    reportingFatal $ modifyBlkSemaphore createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case
-            Left reason -> pure (Left reason, tip)
+            Left reason -> pure (tip, Left reason)
             Right blk -> convertRes <$> applyCreatedBlock pske blk
-    convertRes createdBlk = (Right createdBlk, headerHash createdBlk)
+    convertRes createdBlk = (headerHash createdBlk, Right createdBlk)
 
 ----------------------------------------------------------------------------
 -- MainBlock creation

@@ -30,13 +30,13 @@ import           Pos.Block.Logic.Internal   (BypassSecurityCheck (..), MonadBloc
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
-                                             EpochOrSlot (..), HeaderHash, SharedSeed,
-                                             SlotId (..), StakeholderId, crucialSlot,
-                                             epochIndexL, getEpochOrSlot, getSlotIndex,
+                                             EpochOrSlot (..), SharedSeed, SlotId (..),
+                                             StakeholderId, crucialSlot, epochIndexL,
+                                             getEpochOrSlot, getSlotIndex,
                                              slotSecurityParam)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.GState                 as GS
-import           Pos.Infra.Semaphore        (BlkSemaphore, withBlkSemaphore_)
+import           Pos.Infra.Semaphore        (BlkSemaphore, withBlkSemaphore)
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -95,7 +95,7 @@ type LrcModeFull ssc ctx m =
     , HasLens BlkSemaphore ctx BlkSemaphore
     )
 
-type WithBlkSemaphore_ m = (HeaderHash -> m HeaderHash) -> m ()
+type WithBlkSemaphore_ m = m () -> m ()
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
@@ -103,16 +103,14 @@ lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc withBlkSemaphore_ epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc (withBlkSemaphore . const) epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
     :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShotNoLock epoch =
-    lrcSingleShotImpl @ssc withSemaphore epoch (allLrcConsumers @ssc)
-  where
-    withSemaphore action = void . action =<< GS.getTip
+    lrcSingleShotImpl @ssc identity epoch (allLrcConsumers @ssc)
 
 lrcSingleShotImpl
     :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
@@ -161,8 +159,8 @@ tryAcquireExclusiveLock epoch lock action =
 lrcDo
     :: forall ssc ctx m.
        LrcModeFullNoSemaphore ssc ctx m
-    => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
-lrcDo epoch consumers tip = tip <$ do
+    => EpochIndex -> [LrcConsumer m] -> m ()
+lrcDo epoch consumers = do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.

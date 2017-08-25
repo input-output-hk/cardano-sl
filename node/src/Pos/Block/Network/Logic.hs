@@ -66,7 +66,7 @@ import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
-import           Pos.Infra.Semaphore        (withBlkSemaphore)
+import           Pos.Infra.Semaphore        (modifyBlkSemaphore)
 import           Pos.Reporting.Methods      (reportMisbehaviourSilent)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
@@ -452,7 +452,7 @@ applyWithoutRollback
 applyWithoutRollback enqueue blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
-    withBlkSemaphore applyWithoutRollbackDo >>= \case
+    modifyBlkSemaphore applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -475,13 +475,13 @@ applyWithoutRollback enqueue blocks = do
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
-        :: HeaderHash -> m (Either ApplyBlocksException HeaderHash, HeaderHash)
+        :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
         res <- verifyAndApplyBlocks False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
-        pure (res, newTip)
+        pure (newTip, res)
 
 applyWithRollback
     :: forall ssc ctx m.
@@ -496,9 +496,9 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
-    res <- withBlkSemaphore $ \curTip -> do
+    res <- modifyBlkSemaphore $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
-        pure (res, either (const curTip) identity res)
+        pure (either (const curTip) identity res, res)
     case res of
         Left (pretty -> err) ->
             logWarning $ "Couldn't apply blocks with rollback: " <> err

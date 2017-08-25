@@ -4,7 +4,7 @@ module Pos.Block.Network.Listeners
        ( blockListeners
        ) where
 
-import           Formatting                 (build, sformat, (%))
+import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logDebug, logWarning)
 import           Universum
@@ -56,14 +56,15 @@ handleGetBlocks
 handleGetBlocks = listenerConv $ \__ourVerInfo nodeId conv -> do
     mbMsg <- recvLimited conv
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
-        logDebug $ sformat ("Got request on handleGetBlocks: "%build%" from "%build)
+        logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
         mHashes <- getHeadersFromToIncl @ssc mgbFrom mgbTo
         case mHashes of
             Just hashes -> do
                 logDebug $ sformat
-                    ("handleGetBlocks: started sending blocks to "%build%" one-by-one: "%listJson)
-                    nodeId hashes
+                    ("handleGetBlocks: started sending "%int%
+                     "blocks to "%build%" one-by-one: "%listJson)
+                    (length hashes) nodeId hashes
                 for_ hashes $ \hHash -> do
                     block <- maybe failMalformed pure =<< DB.blkGetBlock @ssc hHash
                     send conv (MsgBlock block)

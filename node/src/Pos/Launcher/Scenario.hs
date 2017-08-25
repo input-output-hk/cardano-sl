@@ -27,6 +27,7 @@ import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
 import qualified Pos.Constants         as Const
 import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
                                         getOurPublicKey, ncNetworkConfig)
+import qualified Pos.DB.DB             as DB
 import           Pos.DHT.Real          (KademliaDHTInstance (..),
                                         kademliaJoinNetworkNoThrow,
                                         kademliaJoinNetworkRetry)
@@ -104,6 +105,8 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             sformat ("Last known leaders for epoch "%build%" are: "%listJson)
                     lastKnownEpoch leaders
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
+    tipHeader <- DB.getTipHeader @ssc
+    logInfo $ sformat ("Current tip header: "%build) tipHeader
 
     initSemaphore
     waitSystemStart

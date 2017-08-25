@@ -8,7 +8,7 @@ in
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
 
 with pkgs.lib;
-with (import (pkgs.path + "/pkgs/development/haskell-modules/lib.nix") { inherit pkgs; });
+with pkgs.haskell.lib;
 
 let
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
@@ -18,11 +18,10 @@ let
       f1 = cleanSourceFilter name type;
       baseName = baseNameOf (toString name);
       f2 = ! (type == "symlink" && hasSuffix ".root" baseName);
-      f3 = ! (hasSuffix ".root" baseName);
-      f4 = ! (baseName == ".stack-work");
-      f5 = ! (hasSuffix ".nix" baseName);
-      f6 = ! (hasSuffix ".swp" baseName);
-    in f1 && f2 && f3 && f4 && f5 && f6);
+      f3 = ! (baseName == ".stack-work");
+      f4 = ! (hasSuffix ".nix" baseName);
+      f5 = ! (hasSuffix ".swp" baseName);
+    in f1 && f2 && f3 && f4 && f5);
 in ((import ./pkgs { inherit pkgs; }).override {
   overrides = self: super: {
     cardano-sl = overrideCabal super.cardano-sl (drv: {
@@ -78,16 +77,11 @@ in ((import ./pkgs { inherit pkgs; }).override {
     cardano-sl-static = justStaticExecutables self.cardano-sl;
     cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
 
-    # Gold linker fixes
+    # Waiting on cryptonite release 0.25
     cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
 
-    # Darwin fixes upstreamed in nixpkgs commit 71bebd52547f4486816fd320bb3dc6314f139e67
-    hinotify = if pkgs.stdenv.isDarwin then self.hfsevents else super.hinotify;
+    # Due to https://github.com/input-output-hk/stack2nix/issues/56
     hfsevents = self.callPackage ./pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
-    fsnotify = if pkgs.stdenv.isDarwin
-      then addBuildDepend (dontCheck super.fsnotify) pkgs.darwin.apple_sdk.frameworks.Cocoa
-      else dontCheck super.fsnotify;
-
 
     mkDerivation = args: super.mkDerivation (args // {
       #enableLibraryProfiling = true;
@@ -97,7 +91,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
   stack2nix = import (pkgs.fetchFromGitHub {
     owner = "input-output-hk";
     repo = "stack2nix";
-    rev = "9e9676b919cc38df203fbfc1316891815e27c37b";
-    sha256 = "0rsfwxrhrq72y2rai4sidpihlnxfjvnaaa7qk94179ghjqs47hvv";
+    rev = "be52e67113332280911bcc4924d42f90e21f1144";
+    sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
   }) { inherit pkgs; };
 }

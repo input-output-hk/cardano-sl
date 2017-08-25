@@ -7,7 +7,7 @@
 , ghc ? pkgs.haskell.compiler.ghc802
 }:
 
-with (import <nixpkgs/pkgs/development/haskell-modules/lib.nix> { inherit pkgs; });
+with pkgs.haskell.lib;
 
 let
   stackPackages = { callPackage, pkgs, stdenv }:
@@ -67,6 +67,7 @@ self: {
           pname = "Chart-diagrams";
           version = "1.8.2";
           sha256 = "0hczp9dj9qs3g72hcgikym1bq3ki90graxfx068h5hds0kn1s66a";
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             base
             blaze-markup
@@ -204,7 +205,7 @@ self: {
           description = "Automatic testing of Haskell programs";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      SHA = callPackage ({ array, base, binary, bytestring, mkDerivation, stdenv }:
+      SHA = callPackage ({ array, base, binary, bytestring, directory, mkDerivation, stdenv }:
       mkDerivation {
           pname = "SHA";
           version = "1.6.4.2";
@@ -217,6 +218,11 @@ self: {
             binary
             bytestring
           ];
+          executableHaskellDepends = [
+            base
+            bytestring
+            directory
+          ];
           doHaddock = false;
           doCheck = false;
           description = "Implementations of the SHA suite of message digest functions";
@@ -227,6 +233,7 @@ self: {
           pname = "SVGFonts";
           version = "1.6.0.1";
           sha256 = "1w6hh8anpb0psilzbp4k80rbavdmkmb5rn34x9m2s72rz0jfy9zp";
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             attoparsec
             base
@@ -456,6 +463,10 @@ self: {
             base
             unix
           ];
+          executableHaskellDepends = [
+            base
+            unix
+          ];
           doHaddock = false;
           doCheck = false;
           homepage = "https://github.com/feuerbach/ansi-terminal";
@@ -470,6 +481,10 @@ self: {
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
+            ansi-terminal
+            base
+          ];
+          executableHaskellDepends = [
             ansi-terminal
             base
           ];
@@ -879,6 +894,7 @@ self: {
           pname = "byteable";
           version = "0.1.1";
           sha256 = "1qizg0kxxjqnd3cbrjhhidk5pbbciz0pb3z5kzikjjxnnnhk8fr4";
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             base
             bytestring
@@ -1291,6 +1307,7 @@ self: {
           pname = "cardano-sl-core";
           version = "0.5.1";
           src = ./../core;
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             aeson
             autoexporter
@@ -2124,6 +2141,13 @@ self: {
             template-haskell
             transformers
           ];
+          executableHaskellDepends = [
+            base
+            filepath
+            process
+            template-haskell
+            transformers
+          ];
           doHaddock = false;
           doCheck = false;
           homepage = "https://github.com/ndmitchell/cmdargs#readme";
@@ -2135,6 +2159,7 @@ self: {
           pname = "colour";
           version = "2.3.3";
           sha256 = "1qmn1778xzg07jg9nx4k1spdz2llivpblf6wwrps1qpqjhsac5cd";
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             base
           ];
@@ -2902,6 +2927,7 @@ self: {
           pname = "ekg";
           version = "0.4.0.13";
           sha256 = "13xlggjcfmp8hr8sz74r0xms36rrfa86znazy2m6304dgscdbca4";
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             aeson
             base
@@ -3526,6 +3552,13 @@ self: {
             transformers
             wl-pprint-text
           ];
+          executableHaskellDepends = [
+            base
+            bytestring
+            directory
+            filepath
+            text
+          ];
           doHaddock = false;
           doCheck = false;
           homepage = "http://projects.haskell.org/graphviz/";
@@ -3682,6 +3715,7 @@ self: {
           sha256 = "1j3rpzjygh3igvnd1n2xn63bq68rs047cjxr2qi6xyfnivgf6vz4";
           isLibrary = true;
           isExecutable = true;
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             base
             containers
@@ -3962,7 +3996,7 @@ self: {
           description = "Generic HTTP types for Haskell (for both client and server code)";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      http2 = callPackage ({ array, base, bytestring, bytestring-builder, case-insensitive, containers, mkDerivation, psqueues, stdenv, stm }:
+      http2 = callPackage ({ aeson, aeson-pretty, array, base, bytestring, bytestring-builder, case-insensitive, containers, directory, filepath, hex, mkDerivation, psqueues, stdenv, stm, text, unordered-containers, vector, word8 }:
       mkDerivation {
           pname = "http2";
           version = "1.6.3";
@@ -3978,6 +4012,23 @@ self: {
             containers
             psqueues
             stm
+          ];
+          executableHaskellDepends = [
+            aeson
+            aeson-pretty
+            array
+            base
+            bytestring
+            bytestring-builder
+            case-insensitive
+            containers
+            directory
+            filepath
+            hex
+            text
+            unordered-containers
+            vector
+            word8
           ];
           doHaddock = false;
           doCheck = false;
@@ -4806,7 +4857,7 @@ self: {
           description = "A typeclass and set of functions for working with newtypes";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      node-sketch = callPackage ({ aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
+      node-sketch = callPackage ({ MonadRandom, aeson, async, attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, cryptonite, data-default, deepseq, ekg, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, optparse-simple, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "node-sketch";
           version = "0.2.0.0";
@@ -4863,13 +4914,27 @@ self: {
             vector
           ];
           executableHaskellDepends = [
+            attoparsec
             base
             binary
             bytestring
+            conduit
+            conduit-extra
             containers
+            exceptions
+            formatting
+            lens
+            log-warper
+            MonadRandom
+            mtl
             network-transport-tcp
+            optparse-simple
             random
+            resourcet
+            serokell-util
             stm
+            text
+            text-format
             time-units
           ];
           doHaddock = false;
@@ -5003,6 +5068,7 @@ self: {
           pname = "pem";
           version = "0.2.2";
           sha256 = "162sk5sg22w21wqz5qv8kx6ibxp99v5p20g3nknhm1kddk3hha1p";
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             base
             base64-bytestring
@@ -5129,6 +5195,7 @@ self: {
             sha256 = "1vhnyawq02cdbywlhbvpxwdwhmvff549zlq4yda9346cr27ap565";
             rev = "eedf6b1f6f6b931fa578cf886e36b8a3a9fcda0d";
           };
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             base
             bifunctors
@@ -6010,7 +6077,7 @@ self: {
           description = "Snap: A Haskell Web Framework (core interfaces and types)";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      snap-server = callPackage ({ attoparsec, base, blaze-builder, bytestring, bytestring-builder, case-insensitive, clock, containers, filepath, io-streams, io-streams-haproxy, lifted-base, mkDerivation, mtl, network, old-locale, snap-core, stdenv, text, time, unix, unix-compat, vector }:
+      snap-server = callPackage ({ attoparsec, base, blaze-builder, bytestring, bytestring-builder, case-insensitive, clock, containers, directory, filepath, io-streams, io-streams-haproxy, lifted-base, mkDerivation, mtl, network, old-locale, snap-core, stdenv, text, time, transformers, unix, unix-compat, vector }:
       mkDerivation {
           pname = "snap-server";
           version = "1.0.2.0";
@@ -6038,6 +6105,30 @@ self: {
             snap-core
             text
             time
+            unix
+            unix-compat
+            vector
+          ];
+          executableHaskellDepends = [
+            attoparsec
+            base
+            blaze-builder
+            bytestring
+            bytestring-builder
+            case-insensitive
+            clock
+            containers
+            directory
+            io-streams
+            io-streams-haproxy
+            lifted-base
+            mtl
+            network
+            old-locale
+            snap-core
+            text
+            time
+            transformers
             unix
             unix-compat
             vector
@@ -6253,6 +6344,7 @@ self: {
           pname = "string-qq";
           version = "0.0.2";
           sha256 = "0662m3i5xrdrr95w829bszkhp88mj9iy1zya54vk2sl5hz9wlmwp";
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             base
             template-haskell
@@ -7088,7 +7180,7 @@ self: {
           description = "Efficient Arrays";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      vector-algorithms = callPackage ({ base, bytestring, mkDerivation, primitive, stdenv, vector }:
+      vector-algorithms = callPackage ({ base, bytestring, mkDerivation, mtl, mwc-random, primitive, stdenv, vector }:
       mkDerivation {
           pname = "vector-algorithms";
           version = "0.7.0.1";
@@ -7101,6 +7193,12 @@ self: {
             base
             bytestring
             primitive
+            vector
+          ];
+          executableHaskellDepends = [
+            base
+            mtl
+            mwc-random
             vector
           ];
           doHaddock = false;
@@ -7230,6 +7328,7 @@ self: {
           pname = "wai-cors";
           version = "0.2.5";
           sha256 = "0vkn5nws9vcjn809qv2jfhf9ckfcgvfhs1v3xx1b03iy0j59n215";
+          enableSeparateDataOutput = true;
           libraryHaskellDepends = [
             attoparsec
             base
@@ -7422,6 +7521,21 @@ self: {
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
+            attoparsec
+            base
+            base64-bytestring
+            binary
+            blaze-builder
+            bytestring
+            case-insensitive
+            containers
+            entropy
+            network
+            random
+            SHA
+            text
+          ];
+          executableHaskellDepends = [
             attoparsec
             base
             base64-bytestring

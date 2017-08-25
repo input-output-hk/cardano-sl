@@ -21,7 +21,7 @@ defaultEnqueuePolicyCore = go
     go :: EnqueuePolicy nid
     go (MsgAnnounceBlockHeader _) = [
         EnqueueAll NodeCore  (MaxAhead 0) PHighest
-      , EnqueueAll NodeRelay (MaxAhead 0) PHigh
+      , EnqueueAll NodeRelay (MaxAhead 0) PHighest
       ]
     go (MsgRequestBlockHeaders Nothing) = [
         EnqueueAll NodeCore  (MaxAhead 2) PHigh
@@ -52,7 +52,7 @@ defaultEnqueuePolicyRelay = go
     go :: EnqueuePolicy nid
     go (MsgAnnounceBlockHeader _) = [
         EnqueueAll NodeRelay (MaxAhead 0) PHighest
-      , EnqueueAll NodeCore  (MaxAhead 0) PHigh
+      , EnqueueAll NodeCore  (MaxAhead 0) PHighest
       , EnqueueAll NodeEdge  (MaxAhead 0) PMedium
       ]
     go (MsgRequestBlockHeaders Nothing) = [

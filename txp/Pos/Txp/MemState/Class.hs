@@ -39,7 +39,6 @@ data TxpHolderTag
 type MonadTxpMem ext ctx m
      = ( MonadReader ctx m
        , HasLens TxpHolderTag ctx (GenericTxpLocalData ext, TxpMetrics)
-       , Mockable CurrentTime m
        )
 
 askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)
@@ -84,7 +83,7 @@ getTxpExtra :: (MonadIO m, MonadTxpMem e ctx m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
 modifyTxpLocalData
-    :: (WithLogger m, MonadIO m, MonadTxpMem ext ctx m)
+    :: (WithLogger m, MonadIO m, MonadTxpMem ext ctx m, Mockable CurrentTime m)
     => String
     -> (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
     -> m a
@@ -120,7 +119,7 @@ modifyTxpLocalData reason f =
         pure res
 
 setTxpLocalData ::
-       (WithLogger m, MonadIO m, MonadTxpMem ext ctx m)
+       (WithLogger m, MonadIO m, MonadTxpMem ext ctx m, Mockable CurrentTime m)
     => String
     -> GenericTxpLocalDataPure ext
     -> m ()
@@ -131,6 +130,7 @@ clearTxpMemPool ::
        , MonadIO m
        , MonadTxpMem ext ctx m
        , Default ext
+       , Mockable CurrentTime m
        )
     => String
     -> m ()

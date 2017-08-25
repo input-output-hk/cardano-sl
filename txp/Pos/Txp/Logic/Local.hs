@@ -7,6 +7,7 @@ module Pos.Txp.Logic.Local
        ( txProcessTransaction
        , txProcessTransactionNoLock
        , txNormalize
+       , txGetPayload
        ) where
 
 import           Universum
@@ -14,25 +15,29 @@ import           Universum
 import           Control.Lens         (makeLenses)
 import           Control.Monad.Except (MonadError (..), runExceptT)
 import           Data.Default         (Default (def))
+import qualified Data.HashMap.Strict  as HM
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
-import           System.Wlog          (WithLogger, logDebug)
+import           Mockable             (CurrentTime, Mockable)
+import           System.Wlog          (WithLogger, logDebug, logError, logWarning)
 
 import           Pos.Core             (BlockVersionData, EpochIndex, GenesisWStakeholders,
                                        HeaderHash, siEpoch)
+import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Infra.Semaphore  (BlkSemaphore, withBlkSemaphore)
 import           Pos.Slotting         (MonadSlots (..))
-import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo)
-import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
+import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
+import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
+                                       TxpLocalDataPure, askTxpMem, getLocalTxs,
                                        getUtxoModifier, modifyTxpLocalData,
                                        setTxpLocalData)
 import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
                                        ToilModifier, ToilT, ToilVerFailure (..), Utxo,
-                                       execToilTLocal, normalizeToil, processTx,
-                                       runDBToil, runToilTLocal, utxoGetReader)
+                                       execToilTLocal, mpLocalTxs, normalizeToil,
+                                       processTx, runDBToil, runToilTLocal, utxoGetReader)
 import           Pos.Util.Util        (HasLens (..), HasLens')
 
 type TxpLocalWorkMode ctx m =
@@ -43,6 +48,7 @@ type TxpLocalWorkMode ctx m =
     , MonadTxpMem () ctx m
     , WithLogger m
     , HasLens' ctx GenesisWStakeholders
+    , Mockable CurrentTime m
     )
 
 -- Base context for tx processing in.
@@ -170,3 +176,29 @@ txNormalize = getCurrentSlot >>= \case
         ToilModifier {..} <-
             runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
         setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+
+-- | Get 'TxPayload' from mempool to include into a new block which
+-- will be based on the given tip. In something goes wrong, empty
+-- payload is returned. That's because we would sooner create an empty
+-- block to maintain decent chain quality than skip block creation.
+--
+-- We need to explicitly check that tip matches, even though we do
+-- mempool normalization whenever we apply/rollback a block. That's
+-- because we can't make them both atomically, i. e. can't guarantee
+-- that either none or both of them will be done.
+txGetPayload :: (MonadIO m, MonadTxpMem ext ctx m, WithLogger m) => HeaderHash -> m [TxAux]
+txGetPayload neededTip = do
+    TxpLocalData {..} <- askTxpMem
+    (view mpLocalTxs -> memPool, memPoolTip) <-
+        atomically $ (,) <$> readTVar txpMemPool <*> readTVar txpTip
+    let tipMismatchMsg =
+            sformat
+                ("txGetPayload: tip mismatch (in DB: )"%build%
+                 ", (in mempool: "%build%")")
+                neededTip memPoolTip
+    let topsortFailMsg = "txGetPayload: topsort failed!"
+    let convertTx (txId, txAux) = WithHash (taTx txAux) txId
+    case (memPoolTip == neededTip, topsortTxs convertTx $ HM.toList memPool) of
+        (False, _)       -> [] <$ logWarning tipMismatchMsg
+        (True, Nothing)  -> [] <$ logError topsortFailMsg
+        (True, Just res) -> return $ map snd res

@@ -15,6 +15,7 @@ import qualified Data.HashMap.Strict   as HM
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map              as M (fromList)
 import           Formatting            (build, sformat, (%))
+import           Mockable              (CurrentTime, Mockable)
 import           System.Wlog           (WithLogger, logDebug)
 
 import           Pos.Core              (BlockVersionData, EpochIndex,
@@ -50,6 +51,7 @@ type ETxpLocalWorkMode ctx m =
     , WithLogger m
     , MonadSlots ctx m
     , HasLens' ctx GenesisWStakeholders
+    , Mockable CurrentTime m
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra

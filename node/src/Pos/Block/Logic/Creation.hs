@@ -41,7 +41,7 @@ import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              chainQualityThreshold, epochIndexL,
                                              epochSlots, flattenSlotId, getEpochOrSlot,
                                              headerHash)
-import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
+import           Pos.Crypto                 (SecretKey)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
@@ -57,9 +57,8 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
-import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload,
-                                             topsortTxs)
-import           Pos.Txp.MemState           (MonadTxpMem, clearTxpMemPool, getLocalTxs)
+import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
+import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
@@ -226,7 +225,7 @@ createMainBlockInternal sId pske = do
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockFinish :: BlockHeader ssc -> ExceptT Text m (MainBlock ssc)
     createMainBlockFinish prevHeader = do
-        rawPay <- getRawPayload sId
+        rawPay <- getRawPayload (headerHash prevHeader) sId
         sk <- getOurSecretKey
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
@@ -361,28 +360,25 @@ data RawPayload ssc = RawPayload
     , rpUpdate :: !UpdatePayload
     }
 
-getRawPayload
-    :: forall ssc ctx m.
-       (MonadCreateBlock ssc ctx m)
-    => SlotId
+getRawPayload ::
+       forall ssc ctx m. (MonadCreateBlock ssc ctx m)
+    => HeaderHash
+    -> SlotId
     -> ExceptT Text m (RawPayload ssc)
-getRawPayload slotId = do
-    localTxs <- lift getLocalTxs
-    sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
+getRawPayload tip slotId = do
+    localTxs <- txGetPayload tip -- result is topsorted
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     dlgPayload <- lift getDlgMempool
     let rawPayload =
             RawPayload
-            { rpTxp = map snd sortedTxs
+            { rpTxp = localTxs
             , rpSsc = sscData
             , rpDlg = dlgPayload
             , rpUpdate = usPayload
             }
     return rawPayload
   where
-    convertTx (txId, txAux) = WithHash (taTx txAux) txId
-    onBrokenTopo = throwError "Topology of local transactions is broken!"
     onNoUS = "can't obtain US payload to create block"
 
 -- Main purpose of this function is to create main block's body taking

@@ -42,7 +42,7 @@ import qualified Data.Map.Strict              as M (lookup)
 import qualified Data.Text.Buildable
 import qualified Ether
 import           Formatting                   (bprint, build, (%))
-import           Pos.Util.Util                (HasLens (..), HasLens')
+import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util.Text           (listJson)
 import           System.Wlog                  (WithLogger)
 
@@ -61,6 +61,7 @@ import           Pos.Infra.Semaphore          (BlkSemaphore)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
+import           Pos.Util.Util                (HasLens (..), HasLens')
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
@@ -237,6 +238,7 @@ type TxHistoryEnv ctx m =
     , MonadTxpMem TxpExtra_TMP ctx m
     , HasLens' ctx BlkSemaphore
     , MonadBaseControl IO m
+    , Mockable CurrentTime m
     )
 
 type TxHistoryEnv' ssc ctx m =

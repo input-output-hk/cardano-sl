@@ -185,7 +185,7 @@ makePubKeyAddressBoot = makePubKeyAddress (IsBootstrapEraAddr True)
 -- | This function creates a root public key address. Stake
 -- distribution doesn't matter for root addresses because by design
 -- nobody should even use these addresses as outputs, so we can put
--- arbitrary distribution there. We use bootstrap era distrbution
+-- arbitrary distribution there. We use bootstrap era distribution
 -- because its representation is more compact.
 makeRootPubKeyAddress :: PublicKey -> Address
 makeRootPubKeyAddress = makePubKeyAddressBoot
@@ -199,7 +199,7 @@ makePubKeyHdwAddress
 makePubKeyHdwAddress ibe path = makePubKeyAddressImpl (Just path) ibe
 
 makePubKeyAddressImpl ::
-       Maybe HDAddressPayload -> IsBootstrapEraAddr -> PublicKey -> Address
+    Maybe HDAddressPayload -> IsBootstrapEraAddr -> PublicKey -> Address
 makePubKeyAddressImpl path (IsBootstrapEraAddr isBootstrapEra) key =
     makeAddress spendingData attrs
   where

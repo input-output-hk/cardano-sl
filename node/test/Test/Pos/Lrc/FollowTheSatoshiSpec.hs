@@ -14,9 +14,9 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
 
 import           Pos.Core              (Coin, HasCoreConstants, SharedSeed, StakeholderId,
-                                        addressHash, blkSecurityParam, epochSlots,
-                                        giveStaticConsts, mkCoin, sumCoins, unsafeAddCoin,
-                                        unsafeIntegerToCoin)
+                                        StakesList, addressHash, blkSecurityParam,
+                                        epochSlots, giveStaticConsts, mkCoin, sumCoins,
+                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Crypto            (PublicKey)
 import           Pos.Lrc               (followTheSatoshi)
 
@@ -57,14 +57,14 @@ spec = giveStaticConsts $ do
         acceptable chosen highStake
 
 -- | Type used to generate random stakes and a 'PublicKey' that
--- doesn't have any stake.  in the system's current state.
+-- doesn't have any stake.
 --
 -- Two necessarily different public keys are generated, as well as a list of
 -- public keys who will be our other stakeholders. To guarantee a non-empty
 -- stakes map, one of these public keys is inserted in the list, which is
 -- converted to a set and then to a map.
 newtype StakeAndHolder = StakeAndHolder
-    { getNoStake :: (PublicKey, [(StakeholderId, Coin)])
+    { getNoStake :: (PublicKey, StakesList)
     } deriving Show
 
 instance Arbitrary StakeAndHolder where

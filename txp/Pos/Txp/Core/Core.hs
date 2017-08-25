@@ -101,8 +101,7 @@ emptyTxPayload = mkTxPayload []
 -- If coin is lower than 'bootDustThreshold' then this function
 -- distributes coins among first stakeholders in the list according to
 -- their weights. The list is ordered by 'StakeholderId's.
-bootstrapEraDistr ::
-       GenesisWStakeholders -> Coin -> [(StakeholderId, Coin)]
+bootstrapEraDistr :: GenesisWStakeholders -> Coin -> [(StakeholderId, Coin)]
 bootstrapEraDistr g@(GenesisWStakeholders bootWHolders) c
     | c < bootDustThreshold g =
           snd $ foldr foldrFunc (0::Word64,[]) (M.toList bootWHolders)

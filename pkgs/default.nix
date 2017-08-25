@@ -6297,6 +6297,8 @@ self: {
           pname = "svg-builder";
           version = "0.1.0.2";
           sha256 = "0m7fpxh2viafcfm04xzy64jakx5c0p5wcam3bdwxgmj3r3q0qjc1";
+          revision = "1";
+          editedCabalFile = "1h3bzkimiydj5j2rh7cyp5bhphvy6hglpkidhlfwy520sqsw3zvx";
           libraryHaskellDepends = [
             base
             blaze-builder

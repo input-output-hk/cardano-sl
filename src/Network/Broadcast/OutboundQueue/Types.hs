@@ -13,7 +13,8 @@ module Network.Broadcast.OutboundQueue.Types (
   , routesOfType
   , simplePeers
   , peersFromList
-  , peersToSet
+  , peersRouteSet
+  , peersSet
   , removePeer
   , restrictPeers
   , MsgType(..)
@@ -173,14 +174,19 @@ peersFromList notRouted = go start
               }
       in  go acc' altss
 
--- | Flatten 'Peers' structure
-peersToSet :: Ord nid => Peers nid -> Set nid
-peersToSet Peers{..} = Set.unions . concat $ [
+-- | The set of all peers which appear in a route.
+--   Always a subset of 'peersSet'.
+peersRouteSet :: Ord nid => Peers nid -> Set nid
+peersRouteSet Peers{..} = Set.unions . concat $ [
       map Set.fromList (_routesCore peersRoutes)
     , map Set.fromList (_routesRelay peersRoutes)
     , map Set.fromList (_routesEdge peersRoutes)
-    , [Map.keysSet peersClassification]
     ]
+
+-- | The set of all peers which are classified.
+--   Always a superset of 'peersRouteSet'
+peersSet :: Peers nid -> Set nid
+peersSet Peers{..} = Map.keysSet peersClassification
 
 instance Monoid (Routes nid) where
   mempty      = Routes [] [] []

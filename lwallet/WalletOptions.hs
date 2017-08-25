@@ -13,11 +13,11 @@ import           Universum
 
 import           Data.Version                 (showVersion)
 import           NeatInterpolation            (text)
-import           Options.Applicative          (CommandFields, Mod, Parser, auto, command,
+import           Options.Applicative          (CommandFields, Mod, Parser, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, subparser,
-                                               switch, value)
+                                               metavar, progDesc, subparser, switch,
+                                               value)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 

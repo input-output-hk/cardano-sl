@@ -51,8 +51,7 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    submitVote, txRelays, usRelays, worker)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
-import           Pos.Core                         (IsBootstrapEraAddr (..), coinF,
-                                                   makePubKeyAddress)
+import           Pos.Core                         (coinF)
 import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types                   (Timestamp (..), mkCoin)
 import           Pos.Crypto                       (Hash, SecretKey, SignTag (SignUSVote),
@@ -62,7 +61,6 @@ import           Pos.Crypto                       (Hash, SecretKey, SignTag (Sig
                                                    safeToPublic, toPublic, unsafeHash,
                                                    withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
-import           Pos.DB                           (gsIsBootstrapEra)
 import           Pos.Genesis                      (StakeDistribution (..),
                                                    devGenesisContext, devStakesDistr,
                                                    genesisContextProduction,
@@ -83,6 +81,7 @@ import           Pos.Util.Util                    (powerLift)
 import           Pos.Wallet                       (addSecretKey, getBalance,
                                                    getSecretKeys)
 import           Pos.Wallet.Light                 (LightWalletMode, WalletParams (..),
+                                                   makePubKeyAddressLWallet,
                                                    runWalletStaticPeers)
 import           Pos.WorkMode                     (RealMode, RealModeContext)
 
@@ -185,11 +184,11 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         -- Light wallet doesn't know current slot, so let's assume
         -- it's 0-th epoch. It's enough for our current needs.
-        ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra 0
         forM_ (zip keysToSend [0..]) $ \((key, _balance), n) -> do
+            outAddr <- makePubKeyAddressLWallet (toPublic key)
             let val1 = mkCoin 1
                 txOut1 = TxOut {
-                    txOutAddress = makePubKeyAddress ibea (toPublic key),
+                    txOutAddress = outAddr,
                     txOutValue = val1
                     }
                 txOuts = TxOutAux txOut1 :| []
@@ -310,11 +309,11 @@ runCmd _ ListAddresses _ = do
    addrs <- map encToPublic <$> getSecretKeys
     -- Light wallet doesn't know current slot, so let's assume
     -- it's 0-th epoch. It's enough for our current needs.
-   ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra 0
    putText "Available addresses:"
-   for_ (zip [0 :: Int ..] addrs) $ \(i, pk) ->
+   for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
+       addr <- makePubKeyAddressLWallet pk
        putText $ sformat ("    #"%int%":   "%build%" (PK: "%stext%")")
-                    i (makePubKeyAddress ibea pk) (toBase58Text pk)
+                    i addr (toBase58Text pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na} = do

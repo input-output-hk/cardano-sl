@@ -69,7 +69,9 @@ import           Pos.Ssc.GodTossing.Genesis
 -- Context
 ----------------------------------------------------------------------------
 
--- | Genesis context related to transaction processing.
+-- | Runtime information related to genesis data. It is created from
+-- the 'GenesisCoreData' (in production mode) or created on the fly
+-- (in dev mode and tests).
 data GenesisContext = GenesisContext
     { _gtcUtxo          :: !GenesisUtxo
       -- ^ Genesis utxo.

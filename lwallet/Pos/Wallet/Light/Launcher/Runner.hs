@@ -8,8 +8,8 @@ import           Universum                       hiding (bracket)
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
 import qualified Data.Set                        as Set
-import           Mockable                        (MonadMockable, Production, bracket,
-                                                  fork, sleepForever)
+import           Mockable                        (MonadMockable, Production, fork,
+                                                  sleepForever)
 import           Network.Transport.Abstract      (Transport)
 import           Node                            (noReceiveDelay, simpleNodeEndPoint)
 import           System.Wlog                     (WithLogger, logDebug, logInfo)
@@ -95,6 +95,7 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
                 lpRunnerTag
                 (wpGenesisContext ^. gtcWStakeholders)
                 wpGenesisUtxo
+                wpExplicitBootEra
             ) .
             runServer_ transport listeners outs oq . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa

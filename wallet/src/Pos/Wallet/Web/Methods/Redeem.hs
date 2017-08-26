@@ -31,8 +31,7 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
-import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError,
-                                                 submitAndSaveReclaimableTx)
+import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (addOnlyNewPendingTx)
@@ -96,7 +95,7 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     (txAux@TxAux {..}, redeemAddress, redeemBalance) <-
          rewrapTxError "Cannot send redemption transaction" $ do
              res@(txAux, _, _) <- prepareRedemptionTx redeemSK dstAddr
-             res <$ submitAndSaveReclaimableTx enqueueMsg txAux
+             res <$ submitAndSaveNewPtx enqueueMsg txAux
 
     -- add redemption transaction to the history of new wallet
     ts <- Just <$> getCurrentTimestamp

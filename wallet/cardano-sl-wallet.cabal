@@ -41,6 +41,7 @@ library
                       Pos.Wallet.Web.Methods.Restore
                       Pos.Wallet.Web.Methods.Txp
                       Pos.Wallet.Web.Pending
+                      Pos.Wallet.Web.Pending.Submission
                       Pos.Wallet.Web.Pending.Util
                       Pos.Wallet.Web.Pending.Worker
                       Pos.Wallet.Web.Server

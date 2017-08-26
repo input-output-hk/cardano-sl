@@ -37,7 +37,7 @@ import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (coinDistrToOutputs, rewrapTxError,
-                                                 submitAndSaveReclaimableTx)
+                                                 submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode, WalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Existing),
@@ -140,7 +140,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         (txAux@TxAux {taTx = tx}, inpTxOuts') <-
             rewrapTxError "Cannot send transaction" $ do
                 res@(txAux, _) <- prepareMTx hdwSigner outputs (relatedAccount, passphrase)
-                res <$ submitAndSaveReclaimableTx enqueueMsg txAux
+                res <$ submitAndSaveNewPtx enqueueMsg txAux
 
         let inpTxOuts = toList inpTxOuts'
             txHash    = hash tx

@@ -9,57 +9,38 @@ module Pos.Wallet.Web.Pending.Worker
 
 import           Universum
 
-import           Control.Lens                 (has)
-import           Control.Monad.Catch          (Handler (..), catches)
-import           Data.Time.Units              (Microsecond, Second, convertUnit)
-import           Formatting                   (build, sformat, shown, stext, (%))
-import           Mockable                     (delay, fork)
-import           Serokell.Util.Text           (listJson)
-import           System.Wlog                  (logInfo, logWarning, modifyLoggerName)
+import           Control.Lens                      (has)
+import           Data.Time.Units                   (Microsecond, Second, convertUnit)
+import           Formatting                        (build, sformat, (%))
+import           Mockable                          (delay, fork)
+import           Serokell.Util.Text                (listJson)
+import           System.Wlog                       (logInfo, modifyLoggerName)
 
-import           Pos.Client.Txp.Addresses     (MonadAddresses)
-import           Pos.Communication            (submitAndSaveTx)
-import           Pos.Communication.Protocol   (SendActions (..))
-import           Pos.Constants                (pendingTxResubmitionPeriod)
-import           Pos.Core                     (ChainDifficulty (..), FlatSlotId,
-                                               SlotId (..), difficultyL)
-import           Pos.Core.Context             (HasCoreConstants)
-import           Pos.Core.Slotting            (flattenSlotId)
-import           Pos.Crypto                   (WithHash (..))
-import           Pos.DB.DB                    (getTipHeader)
-import           Pos.Slotting                 (getNextEpochSlotDuration, onNewSlot)
-import           Pos.Txp                      (ToilVerFailure (..), TxAux (..),
-                                               topsortTxs)
-import           Pos.Wallet.SscType           (WalletSscType)
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                                               _PtxApplying)
-import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
-import           Pos.Wallet.Web.State         (casPtxCondition, getPendingTxs)
-import           Pos.Wallet.Web.Util          (getWalletAssuredDepth)
+import           Pos.Client.Txp.Addresses          (MonadAddresses)
+import           Pos.Communication.Protocol        (SendActions (..))
+import           Pos.Constants                     (pendingTxResubmitionPeriod)
+import           Pos.Core                          (ChainDifficulty (..), FlatSlotId,
+                                                    SlotId (..), difficultyL)
+import           Pos.Core.Context                  (HasCoreConstants)
+import           Pos.Core.Slotting                 (flattenSlotId)
+import           Pos.Crypto                        (WithHash (..))
+import           Pos.DB.DB                         (getTipHeader)
+import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
+import           Pos.Txp                           (TxAux (..), topsortTxs)
+import           Pos.Wallet.SscType                (WalletSscType)
+import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
+                                                    submitAndSavePtx)
+import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
+                                                    _PtxApplying)
+import           Pos.Wallet.Web.State              (casPtxCondition, getPendingTxs)
+import           Pos.Wallet.Web.Util               (getWalletAssuredDepth)
 
 type MonadPendings m =
     ( MonadWalletWebMode m
     , MonadAddresses m
     , HasCoreConstants
     )
-
--- | What should happen with existing pending transaction if attempt
--- to resubmit it failed.
-processPtxFailure :: MonadPendings m => PendingTx -> ToilVerFailure -> m ()
-processPtxFailure PendingTx{..} e
-    | PtxApplying poolInfo <- _ptxCond =
-        unless (isReclaimableFailure e) $ do
-            let newCond = PtxWontApply (sformat build e) poolInfo
-            void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
-            logInfo $ sformat ("Pending transaction "%build%" was canceled")
-                    _ptxTxId
-    | otherwise =
-        logWarning $
-        sformat ("Processing failure of "%build%" resubmission, but \
-                 \this transaction has unexpected condition "%build)
-                _ptxTxId _ptxCond
-
 
 processPtxInNewestBlocks :: MonadPendings m => PendingTx -> m ()
 processPtxInNewestBlocks PendingTx{..} = do
@@ -91,20 +72,8 @@ whetherCheckPtxOnSlot (flattenSlotId -> curSlot) ptx = do
 resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
 resubmitTx SendActions{..} ptx@PendingTx{..} = do
     logInfo $ sformat ("Resubmitting tx "%build) _ptxTxId
-    -- FIXME [CSM-256] Doesn't it introduce a race condition?
-    void (submitAndSaveTx enqueueMsg _ptxTxAux) `catches` handlers
-  where
-    handlers =
-        [ Handler $ \e -> do
-            reportFail "Failed to resubmit tx" e
-            processPtxFailure ptx e
-
-        , Handler $ \(SomeException e) ->
-            reportFail "Failed to resubmit tx, will try again later" e
-        ]
-    reportFail :: MonadPendings m => Exception e => Text -> e -> m ()
-    reportFail desc =
-        logInfo . sformat (stext%" "%build%": "%shown) desc _ptxTxId
+    let submissionH = ptxResubmissionHandler ptx
+    submitAndSavePtx submissionH enqueueMsg _ptxTxAux
 
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot

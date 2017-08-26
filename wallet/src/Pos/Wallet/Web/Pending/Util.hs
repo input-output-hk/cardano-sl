@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes   #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Pending transactions utils.
@@ -15,7 +16,7 @@ import           Formatting                   (build, sformat, (%))
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
-import           Pos.Txp                      (ToilVerFailure (..), TxAux, TxId)
+import           Pos.Txp                      (ToilVerFailure (..), TxAux (..), TxId)
 import           Pos.Util.Util                (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes   (CId, CWalletMeta (..), Wal, cwAssurance)
 import           Pos.Wallet.Web.Error         (WalletError (RequestError))

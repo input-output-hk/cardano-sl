@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP       #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP          #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Execution mode used by blockchain generator.
 
@@ -31,8 +32,10 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (GenesisWStakeholders (..), HasCoreConstants,
-                                              HasPrimaryKey (..), IsHeader, SlotId (..),
+import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
+import           Pos.Core                    (Address, GenesisWStakeholders (..),
+                                              HasCoreConstants, HasPrimaryKey (..),
+                                              IsHeader, SlotId (..), StakeholderId,
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
@@ -343,6 +346,10 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode m) where
 instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
+
+instance Monad m => MonadAddresses (BlockGenMode m) where
+    type AddrData (BlockGenMode m) = (Address, Maybe StakeholderId)
+    getNewAddress = pure
 
 ----------------------------------------------------------------------------
 -- Utilities

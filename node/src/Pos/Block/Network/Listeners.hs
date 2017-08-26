@@ -4,31 +4,35 @@ module Pos.Block.Network.Listeners
        ( blockListeners
        ) where
 
-import           Formatting                 (build, int, sformat, (%))
-import           Serokell.Util.Text         (listJson)
-import           System.Wlog                (logDebug, logWarning)
+import           Formatting                      (build, int, sformat, (%))
+import qualified Network.Broadcast.OutboundQueue as OQ
+import           Serokell.Util.Text              (listJson)
+import           System.Wlog                     (logDebug, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic            (getHeadersFromToIncl)
-import           Pos.Block.Network.Announce (handleHeadersCommunication)
-import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
-import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgGetHeaders, MsgHeaders (..))
-import           Pos.Communication.Limits   (recvLimited)
-import           Pos.Communication.Listener (listenerConv)
-import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
-                                             MkListeners, OutSpecs, constantListeners)
-import qualified Pos.DB.Block               as DB
-import           Pos.DB.Error               (DBError (DBMalformed))
-import           Pos.Ssc.Class              (SscWorkersClass)
-import           Pos.Util.Chrono            (NewestFirst (..))
-import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.Binary.Communication        ()
+import           Pos.Block.Logic                 (getHeadersFromToIncl)
+import           Pos.Block.Network.Announce      (handleHeadersCommunication)
+import           Pos.Block.Network.Logic         (handleUnsolicitedHeaders)
+import           Pos.Block.Network.Types         (MsgBlock (..), MsgGetBlocks (..),
+                                                  MsgGetHeaders, MsgHeaders (..))
+import           Pos.Communication.Limits        (recvLimited)
+import           Pos.Communication.Listener      (listenerConv)
+import           Pos.Communication.Protocol      (ConversationActions (..),
+                                                  ListenerSpec (..), MkListeners,
+                                                  OutSpecs, constantListeners)
+import qualified Pos.DB.Block                    as DB
+import           Pos.DB.Error                    (DBError (DBMalformed))
+import           Pos.Network.Types               (Bucket, NodeId)
+import           Pos.Ssc.Class                   (SscWorkersClass)
+import           Pos.Util.Chrono                 (NewestFirst (..))
+import           Pos.WorkMode.Class              (WorkMode)
 
 blockListeners
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => MkListeners m
-blockListeners = constantListeners $
+    => OQ.OutboundQ pack NodeId Bucket
+    -> MkListeners m
+blockListeners oq = constantListeners $ map ($ oq)
     [ handleGetHeaders
     , handleGetBlocks
     , handleBlockHeaders
@@ -42,18 +46,20 @@ blockListeners = constantListeners $
 -- headers from some checkpoints that are older than optional @to@
 -- field.
 handleGetHeaders
-    :: forall ssc ctx m.
+    :: forall pack ssc ctx m.
        (WorkMode ssc ctx m)
-    => (ListenerSpec m, OutSpecs)
-handleGetHeaders = listenerConv $ \__ourVerInfo nodeId conv -> do
+    => OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleGetHeaders oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     logDebug $ "handleGetHeaders: request from " <> show nodeId
     handleHeadersCommunication conv --(convToSProxy conv)
 
 handleGetBlocks
-    :: forall ssc ctx m.
+    :: forall pack ssc ctx m.
        (WorkMode ssc ctx m)
-    => (ListenerSpec m, OutSpecs)
-handleGetBlocks = listenerConv $ \__ourVerInfo nodeId conv -> do
+    => OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     mbMsg <- recvLimited conv
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
@@ -82,10 +88,11 @@ handleGetBlocks = listenerConv $ \__ourVerInfo nodeId conv -> do
 
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
-    :: forall ssc ctx m.
+    :: forall pack ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => (ListenerSpec m, OutSpecs)
-handleBlockHeaders = listenerConv @MsgGetHeaders $ \__ourVerInfo nodeId conv -> do
+    => OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleBlockHeaders oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
     -- The type of the messages we send is set to 'MsgGetHeaders' for
     -- protocol compatibility reasons only. We could use 'Void' here because
     -- we don't really send any messages.

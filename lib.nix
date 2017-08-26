@@ -26,7 +26,7 @@ let
     inherit (spec) sha256;
   };
   fetchNixPkgs = if builtins.getEnv "NIX_PATH_LOCKED" == "1"
-    then builtins.trace "using host nixpkgs>" <nixpkgs>
+    then builtins.trace "using host <nixpkgs>" <nixpkgs>
     else builtins.trace "fetching nixpkgs"    (unpackTar fetchNixpkgsTarWithNix);
   pkgs = import fetchNixPkgs {};
   lib = pkgs.lib;

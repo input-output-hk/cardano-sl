@@ -77,6 +77,6 @@ in {
     #$node1->sleep(60);
     #print $node1->execute("netstat -anp ; ps aux | grep cardano ");
     $node1->sleep(600);
-    print $node1->execute("journalctl -u cardano-node | grep 'Created a new block' ");
+    print $node1->execute("journalctl -u cardano-node | egrep 'Created a new block|MainBlockHeader|slot|difficulty' ");
   '';
 }

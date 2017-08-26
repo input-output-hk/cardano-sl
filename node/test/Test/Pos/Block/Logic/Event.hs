@@ -14,26 +14,28 @@ module Test.Pos.Block.Logic.Event
 
 import           Universum
 
-import           Control.Lens              (_Right)
-import           Control.Monad.Catch       (catch)
-import qualified Data.List.NonEmpty        as NE
+import           Control.Monad.Catch       (catch, fromException)
 import qualified Data.Map                  as Map
+import qualified Data.Text                 as T
 
 import           Pos.Block.Logic.VAR       (BlockLrcMode, rollbackBlocks,
                                             verifyAndApplyBlocks)
 import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (HeaderHash, getEpochOrSlot, unEpochOrSlot)
+import           Pos.Core                  (HeaderHash)
 import           Pos.DB.Pure               (DBPureDiff, MonadPureDB, dbPureDiff,
                                             dbPureDump, dbPureReset)
-import           Pos.Generator.BlockEvent  (BlockEvent, BlockEvent' (..), BlockScenario,
-                                            BlockScenario' (..), IsBlockEventFailure (..),
-                                            SnapshotId, SnapshotOperation (..), beaInput,
-                                            berInput)
+import           Pos.Exception             (CardanoFatalError (..))
+import           Pos.Generator.BlockEvent  (BlockApplyResult (..), BlockEvent,
+                                            BlockEvent' (..), BlockRollbackFailure (..),
+                                            BlockRollbackResult (..), BlockScenario,
+                                            BlockScenario' (..), SnapshotId,
+                                            SnapshotOperation (..), beaInput, beaOutValid,
+                                            berInput, berOutValid)
 import           Pos.Ssc.GodTossing.Type   (SscGodTossing)
-import           Pos.Util.Chrono           (NE, OldestFirst, getOldestFirst)
+import           Pos.Util.Chrono           (NE, OldestFirst)
 import           Pos.Util.Util             (eitherToThrow, lensOf)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, PureDBSnapshotsVar (..))
-import           Test.Pos.Block.Logic.Util (withCurrentSlot)
+import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -48,43 +50,68 @@ instance Exception DbNotEquivalentToSnapshot
 newtype IsExpected = IsExpected Bool
 
 data BlockEventResult
-    = BlockEventSuccess
+    = BlockEventSuccess IsExpected
     | BlockEventFailure IsExpected SomeException
     | BlockEventDbChanged DbNotEquivalentToSnapshot
-
-mkBlockEventFailure ::
-       IsBlockEventFailure ev
-    => ev
-    -> SomeException
-    -> BlockEventResult
-mkBlockEventFailure ev =
-    BlockEventFailure (IsExpected (isBlockEventFailure ev))
 
 verifyAndApplyBlocks' ::
        BlockLrcMode SscGodTossing BlockTestContext m
     => OldestFirst NE (Blund SscGodTossing)
     -> m ()
-verifyAndApplyBlocks' bs = do
-    let mSlot = (unEpochOrSlot . getEpochOrSlot . fst . NE.last . getOldestFirst) bs ^? _Right
-    maybe identity withCurrentSlot mSlot $ do
+verifyAndApplyBlocks' blunds = do
+    satisfySlotCheck blocks $ do
         (_ :: HeaderHash) <- eitherToThrow =<<
-            verifyAndApplyBlocks True (fst <$> bs)
+            verifyAndApplyBlocks True blocks
         return ()
+  where
+    blocks = fst <$> blunds
 
 -- | Execute a single block event.
 runBlockEvent ::
        BlockLrcMode SscGodTossing BlockTestContext m
     => BlockEvent
     -> m BlockEventResult
+
 runBlockEvent (BlkEvApply ev) =
-   (BlockEventSuccess <$ verifyAndApplyBlocks' (ev ^. beaInput))
-      `catch` (return . mkBlockEventFailure ev)
+    (onSuccess <$ verifyAndApplyBlocks' (ev ^. beaInput))
+        `catch` (return . onFailure)
+  where
+    onSuccess = case ev ^. beaOutValid of
+        BlockApplySuccess -> BlockEventSuccess (IsExpected True)
+        BlockApplyFailure -> BlockEventSuccess (IsExpected False)
+    onFailure (e :: SomeException) = case ev ^. beaOutValid of
+        BlockApplySuccess -> BlockEventFailure (IsExpected False) e
+        BlockApplyFailure -> BlockEventFailure (IsExpected True) e
+
 runBlockEvent (BlkEvRollback ev) =
-   (BlockEventSuccess <$ rollbackBlocks (ev ^. berInput))
-      `catch` (return . mkBlockEventFailure ev)
+    (onSuccess <$ rollbackBlocks (ev ^. berInput))
+       `catch` (return . onFailure)
+  where
+    onSuccess = case ev ^. berOutValid of
+        BlockRollbackSuccess   -> BlockEventSuccess (IsExpected True)
+        BlockRollbackFailure _ -> BlockEventSuccess (IsExpected False)
+    onFailure (e :: SomeException) = case ev ^. berOutValid of
+        BlockRollbackSuccess -> BlockEventFailure (IsExpected False) e
+        BlockRollbackFailure brf ->
+            let
+                isExpected = case brf of
+                    BlkRbSecurityLimitExceeded
+                        | Just cfe <- fromException e
+                        , CardanoFatalError msg <- cfe
+                        , "security risk" `T.isInfixOf` msg ->
+                          True
+                        | otherwise ->
+                          False
+            in
+                BlockEventFailure (IsExpected isExpected) e
+
 runBlockEvent (BlkEvSnap ev) =
-   (BlockEventSuccess <$ runSnapshotOperation ev)
-      `catch` (return . BlockEventDbChanged)
+    (onSuccess <$ runSnapshotOperation ev)
+        `catch` (return . onFailure)
+  where
+    onSuccess = BlockEventSuccess (IsExpected True)
+    onFailure = BlockEventDbChanged
+
 
 -- | Execute a snapshot operation.
 runSnapshotOperation ::
@@ -112,6 +139,7 @@ runSnapshotOperation snapOp = do
 
 data BlockScenarioResult
     = BlockScenarioFinishedOk
+    | BlockScenarioUnexpectedSuccess
     | BlockScenarioUnexpectedFailure SomeException
     | BlockScenarioDbChanged DbNotEquivalentToSnapshot
 
@@ -125,8 +153,10 @@ runBlockScenario (BlockScenario []) =
     return BlockScenarioFinishedOk
 runBlockScenario (BlockScenario (ev:evs)) = do
     runBlockEvent ev >>= \case
-        BlockEventSuccess ->
-            runBlockScenario (BlockScenario evs)
+        BlockEventSuccess (IsExpected isExp) ->
+            if isExp
+                then runBlockScenario (BlockScenario evs)
+                else return BlockScenarioUnexpectedSuccess
         BlockEventFailure (IsExpected isExp) e ->
             return $ if isExp
                 then BlockScenarioFinishedOk

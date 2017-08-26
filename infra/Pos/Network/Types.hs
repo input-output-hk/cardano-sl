@@ -211,12 +211,12 @@ topologyUnknownNodeType :: Topology kademlia -> OQ.UnknownNodeType NodeId
 topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
   where
     go :: Topology kademlia -> NodeId -> NodeType
-    go TopologyCore{..}      = const NodeEdge
-    go TopologyRelay{..}     = const NodeEdge
+    go TopologyCore{..}      = const NodeRelay  -- to allow dynamic reconfig
+    go TopologyRelay{..}     = const NodeEdge   -- since we don't trust anyone
     go TopologyTraditional{} = const NodeCore
-    go TopologyP2P{}         = const NodeEdge
-    go TopologyBehindNAT{}   = const NodeEdge
-    go TopologyLightWallet{} = const NodeEdge
+    go TopologyP2P{}         = const NodeRelay  -- a fairly normal expected case
+    go TopologyBehindNAT{}   = const NodeEdge   -- should never happen
+    go TopologyLightWallet{} = const NodeEdge   -- should never happen
 
 data SubscriptionWorker kademlia =
     SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain) Valency Fallbacks

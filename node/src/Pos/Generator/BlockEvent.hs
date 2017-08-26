@@ -4,16 +4,15 @@
 
 module Pos.Generator.BlockEvent
        (
-       -- * Util
-         IsBlockEventFailure(..)
        -- * Block apply
-       , BlockApplyResult(..)
+         BlockApplyResult(..)
        , BlockEventApply'(..)
        , BlockEventApply
        , beaInput
        , beaOutValid
        -- * Block rollback
        , BlockRollbackResult(..)
+       , BlockRollbackFailure(..)
        , BlockEventRollback'(..)
        , BlockEventRollback
        , berInput
@@ -47,10 +46,12 @@ module Pos.Generator.BlockEvent
 
 import           Universum
 
-import           Control.Lens                (foldMapOf, folded, makeLenses, makePrisms)
+import           Control.Lens                (folded, makeLenses, makePrisms, to,
+                                              toListOf)
 import           Control.Monad.Random.Strict (RandT, Random (..), RandomGen, mapRandT,
                                               weighted)
-import           Data.Default                (def)
+import qualified Data.ByteString.Short       as SBS
+import qualified Data.List                   as List
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as Map
 import qualified Data.Sequence               as Seq
@@ -65,7 +66,7 @@ import           Pos.Core                    (HasCoreConstants, HeaderHash, head
                                               prevBlockL)
 import           Pos.Crypto.Hashing          (hashHexF)
 import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
-                                              TxGenParams, genBlocks)
+                                              TxGenParams (..), genBlocks)
 import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.GState.Context          (withClonedGState)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
@@ -80,7 +81,7 @@ type BlundDefault = Blund SscGodTossing
 
 -- NB. not a monoid, so the user can be sure that `(<>)` acts as expected
 -- on string literals for paths (not path segments).
-newtype PathSegment = PathSegment { pathSegmentText :: Text }
+newtype PathSegment = PathSegment { pathSegmentByteString :: SBS.ShortByteString }
     deriving (Eq, Ord, IsString)
 
 instance Show PathSegment where
@@ -98,7 +99,8 @@ instance IsString Path where
 
 instance Buildable Path where
     build (Path segs) = bprint build
-        (fold . intersperse "/" . toList $ pathSegmentText <$> segs)
+        (fold . intersperse ("/" :: Text) . toList $
+            decodeUtf8 . SBS.fromShort . pathSegmentByteString <$> segs)
 
 -- | Convert a sequence of relative paths into a sequence of absolute paths:
 --   @pathSequence "base" ["a", "b", "c"] = ["base" <> "a", "base" <> "a" <> "b", "base" <> "a" <> "b" <> "c"]
@@ -122,27 +124,23 @@ data BlockDesc
     | BlockDescCustom TxGenParams -- a random valid block with custom gen params
     deriving (Show)
 
--- Precondition: input paths are non-empty
-buildBlockchainForest :: a -> Map Path a -> BlockchainForest a
+-- Empty input paths are ignored.
+buildBlockchainForest :: a -> [(Path, a)] -> BlockchainForest a
 buildBlockchainForest defElem elements =
-    fmap (buildBlockchainTree defElem) . Map.fromListWith Map.union $ do
-        (Path path, a) <- Map.toList elements
+    fmap (buildBlockchainTree defElem . getDList) . Map.fromListWith (<>) $ do
+        (Path path, a) <- elements
         case Seq.viewl path of
-            Seq.EmptyL -> error
-                "buildBlockchainForest: precondition violated, empty path"
+            Seq.EmptyL -> []
             pathSegment Seq.:< path' ->
-                [(pathSegment, Map.singleton (Path path') a)]
+                [(pathSegment, dlistSingleton (Path path', a))]
+  where
+    dlistSingleton a = Endo (a:)
+    getDList (Endo dl) = dl []
 
-buildBlockchainTree :: a -> Map Path a -> BlockchainTree a
+buildBlockchainTree :: a -> [(Path, a)] -> BlockchainTree a
 buildBlockchainTree defElem elements =
-    let
-        topPath = Path Seq.empty
-        topElement = Map.findWithDefault defElem topPath elements
-        -- 'otherElements' has its empty path deleted (if there was one in the
-        -- first place), so it satisfies the precondition of 'buildBlockchainForest'
-        otherElements = Map.delete topPath elements
-    in
-        BlockchainTree topElement (buildBlockchainForest defElem otherElements)
+    let topElement = fromMaybe defElem $ List.lookup (Path Seq.empty) elements
+    in BlockchainTree topElement (buildBlockchainForest defElem elements)
 
 -- Inverse to 'buildBlockchainForest'.
 flattenBlockchainForest' :: BlockchainForest a -> Map Path a
@@ -179,7 +177,7 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
     let
         BlockchainTree blockDesc blockchainForest = blockchainTree
         txGenParams = case blockDesc of
-            BlockDescDefault  -> def
+            BlockDescDefault  -> TxGenParams (0, 0) 0
             BlockDescCustom p -> p
         blockGenParams = BlockGenParams
             { _bgpSecrets         = secrets
@@ -187,6 +185,7 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
             , _bgpBlockCount      = 1
             , _bgpTxGenParams     = txGenParams
             , _bgpInplaceDB       = True
+            , _bgpSkipNoKey       = False
             }
     -- Partial pattern-matching is safe because we specify
     -- blockCount = 1 in the generation parameters.
@@ -209,10 +208,8 @@ genBlocksInStructure secrets bootStakeholders annotations s = do
         getAnnotation :: Path -> BlockDesc
         getAnnotation path =
             Map.findWithDefault BlockDescDefault path annotations
-        paths :: Map Path BlockDesc
-        paths = foldMapOf folded
-            (\path -> Map.singleton path (getAnnotation path))
-            s
+        paths :: [(Path, BlockDesc)]
+        paths = toListOf (folded . to (\path -> (path, getAnnotation path))) s
         descForest :: BlockchainForest BlockDesc
         descForest = buildBlockchainForest BlockDescDefault paths
     blockForest :: BlockchainForest BlundDefault <-
@@ -229,10 +226,6 @@ genBlocksInStructure secrets bootStakeholders annotations s = do
 -- Block event types
 ----------------------------------------------------------------------------
 
--- | Determine whether the result of a block event is an expected failure.
-class IsBlockEventFailure a where
-    isBlockEventFailure :: a -> Bool
-
 data BlockApplyResult
     = BlockApplySuccess
     | BlockApplyFailure {- TODO: attach error info, such as:
@@ -241,11 +234,6 @@ data BlockApplyResult
                             * etc -}
     deriving (Show)
 
-instance IsBlockEventFailure BlockApplyResult where
-    isBlockEventFailure = \case
-        BlockApplyFailure -> True
-        _ -> False
-
 data BlockEventApply' blund = BlockEventApply
     { _beaInput    :: !(OldestFirst NE blund)
     , _beaOutValid :: !BlockApplyResult
@@ -253,24 +241,19 @@ data BlockEventApply' blund = BlockEventApply
 
 makeLenses ''BlockEventApply'
 
-instance IsBlockEventFailure (BlockEventApply' blund) where
-    isBlockEventFailure = isBlockEventFailure . view beaOutValid
-
 type BlockEventApply = BlockEventApply' BlundDefault
+
+-- | The type of failure that we expect from a rollback.
+-- Extend this data type as necessary if you need to check for
+-- other types of failures.
+data BlockRollbackFailure
+    = BlkRbSecurityLimitExceeded
+    deriving (Show)
 
 data BlockRollbackResult
     = BlockRollbackSuccess
-    | BlockRollbackFailure {- TODO: attach error info, such as:
-                                * not enough blocks to rollback
-                                * rollback limit exceeded
-                                * genesis block rollback
-                                * etc -}
+    | BlockRollbackFailure BlockRollbackFailure
     deriving (Show)
-
-instance IsBlockEventFailure BlockRollbackResult where
-    isBlockEventFailure = \case
-        BlockRollbackFailure -> True
-        _ -> False
 
 data BlockEventRollback' blund = BlockEventRollback
     { _berInput    :: !(NewestFirst NE blund)
@@ -278,9 +261,6 @@ data BlockEventRollback' blund = BlockEventRollback
     } deriving (Show, Functor, Foldable)
 
 makeLenses ''BlockEventRollback'
-
-instance IsBlockEventFailure (BlockEventRollback' blund) where
-    isBlockEventFailure = isBlockEventFailure . view berOutValid
 
 type BlockEventRollback = BlockEventRollback' BlundDefault
 
@@ -315,12 +295,6 @@ instance Buildable blund => Buildable (BlockEvent' blund) where
         BlkEvApply ev -> bprint ("Apply blocks: "%listJson) (getOldestFirst $ ev ^. beaInput)
         BlkEvRollback ev -> bprint ("Rollback blocks: "%listJson) (getNewestFirst $ ev ^. berInput)
         BlkEvSnap s -> bprint build s
-
-instance IsBlockEventFailure (BlockEvent' blund) where
-    isBlockEventFailure = \case
-        BlkEvApply    a -> isBlockEventFailure a
-        BlkEvRollback a -> isBlockEventFailure a
-        BlkEvSnap     _ -> False
 
 type BlockEvent = BlockEvent' BlundDefault
 

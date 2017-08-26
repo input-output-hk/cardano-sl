@@ -18,6 +18,7 @@ module Pos.Txp.Core.Types
        , _TxOut
        , TxOutAux (..)
        , TxAttributes
+       , isTxInUnknown
 
        -- * Tx
        , Tx (..)
@@ -142,20 +143,28 @@ instance NFData TxDistribution
 -- Tx parts
 ----------------------------------------------------------------------------
 
--- | Transaction input.
-data TxIn = TxIn
+-- | Transaction arbitrary input.
+data TxIn
+    = TxInUtxo
     { -- | Which transaction's output is used
       txInHash  :: !TxId
       -- | Index of the output in transaction's outputs
     , txInIndex :: !Word32
-    } deriving (Eq, Ord, Show, Generic, Typeable)
+    }
+    | TxInUnknown !Word8 !ByteString
+    deriving (Eq, Ord, Generic, Show, Typeable)
 
 instance Hashable TxIn
 
 instance Buildable TxIn where
-    build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
+    build TxInUtxo {..} = bprint ("TxInUtxo "%shortHashF%" #"%int) txInHash txInIndex
+    build (TxInUnknown tag bs) = bprint ("TxInUnknown "%int%" "%base16F) tag bs
 
 instance NFData TxIn
+
+isTxInUnknown :: TxIn -> Bool
+isTxInUnknown (TxInUnknown _ _) = True
+isTxInUnknown _ = False
 
 -- | Transaction output.
 data TxOut = TxOut
@@ -338,7 +347,9 @@ mkTxPayload txws = do
 ----------------------------------------------------------------------------
 
 -- | Particular undo needed for transactions
-type TxUndo = NonEmpty TxOutAux
+-- Just means we know transaction input, hence know TxOutAux corresponding to it,
+-- Nothing otherwise.
+type TxUndo = NonEmpty (Maybe TxOutAux)
 
 type TxpUndo = [TxUndo]
 

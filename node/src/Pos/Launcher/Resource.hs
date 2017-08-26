@@ -45,8 +45,8 @@ import           Pos.Binary                 ()
 import           Pos.Block.Slog             (mkSlogContext)
 import           Pos.Client.CLI.Util        (readLoggerConfig)
 import qualified Pos.Constants              as Const
-import           Pos.Context                (BlkSemaphore (..), ConnectedPeers (..),
-                                             NodeContext (..), StartTime (..))
+import           Pos.Context                (ConnectedPeers (..), NodeContext (..),
+                                             StartTime (..))
 import           Pos.Core                   (HasCoreConstants, Timestamp)
 import           Pos.DB                     (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                  (initNodeDBs)
@@ -54,6 +54,7 @@ import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
+import           Pos.Infra.Semaphore        (BlkSemaphore (..))
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
@@ -77,6 +78,11 @@ import           Pos.Launcher.Mode          (InitMode, InitModeContext (..),
 import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
 import           Pos.WorkMode               (TxpExtra_TMP)
+
+#ifdef linux_HOST_OS
+import qualified System.Systemd.Daemon      as Systemd
+import qualified System.Wlog                as Logger
+#endif
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -198,7 +204,10 @@ bracketNodeResources :: forall ssc m a.
     -> Production a
 bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
     bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
-        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources k
+        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources $ \nodeRes ->do
+            -- Notify systemd we are fully operative
+            notifyReady
+            k nodeRes
   where
     tcpAddr = tpTcpAddr (npTransport np)
 
@@ -289,21 +298,24 @@ createKademliaInstance ::
        (MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
     => BaseParams
     -> KademliaParams
+    -> Word16 -- ^ Default port to bind to.
     -> m KademliaDHTInstance
-createKademliaInstance BaseParams {..} kp =
-    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig)
+createKademliaInstance BaseParams {..} kp defaultPort =
+    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig defaultBindAddress)
   where
     instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ Const.defaultPeers}
+    defaultBindAddress = ("0.0.0.0", defaultPort)
 
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
     :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
     => BaseParams
     -> KademliaParams
+    -> Word16 -- ^ Default port to bind to.
     -> (KademliaDHTInstance -> m a)
     -> m a
-bracketKademliaInstance bp kp action =
-    bracket (createKademliaInstance bp kp) stopDHTInstance action
+bracketKademliaInstance bp kp defaultPort action =
+    bracket (createKademliaInstance bp kp defaultPort) stopDHTInstance action
 
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
@@ -316,16 +328,16 @@ bracketKademlia
 bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
     -- cases that need Kademlia
     TopologyP2P{topologyKademlia = kp, ..} ->
-      bracketKademliaInstance bp kp $ \kinst ->
+      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
         k $ TopologyP2P{topologyKademlia = kinst, ..}
     TopologyTraditional{topologyKademlia = kp, ..} ->
-      bracketKademliaInstance bp kp $ \kinst ->
+      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
         k $ TopologyTraditional{topologyKademlia = kinst, ..}
     TopologyRelay{topologyOptKademlia = Just kp, ..} ->
-      bracketKademliaInstance bp kp $ \kinst ->
+      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
         k $ TopologyRelay{topologyOptKademlia = Just kinst, ..}
     TopologyCore{topologyOptKademlia = Just kp, ..} ->
-      bracketKademliaInstance bp kp $ \kinst ->
+      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
         k $ TopologyCore{topologyOptKademlia = Just kinst, ..}
 
     -- cases that don't
@@ -384,3 +396,17 @@ bracketTransport
     -> m a
 bracketTransport tcpAddr k =
     bracket (createTransportTCP tcpAddr) snd (k . fst)
+
+-- | Notify process manager tools like systemd the node is ready.
+-- Available only on Linux for systems where `libsystemd-dev` is installed.
+-- It defaults to a noop for all the other platforms.
+notifyReady :: (MonadIO m, WithLogger m) => m ()
+#ifdef linux_HOST_OS
+notifyReady = do
+    res <- liftIO Systemd.notifyReady
+    case res of
+        Just () -> return ()
+        Nothing -> Logger.logWarning "notifyReady failed to notify systemd."
+#else
+notifyReady = return ()
+#endif

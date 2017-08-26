@@ -22,7 +22,9 @@ module Pos.Explorer.Web.ClientTypes
        , EpochIndex (..)
        , LocalSlotIndex (..)
        , StakeholderId
+       , Byte
        , mkCCoin
+       , mkCCoinMB
        , toCHash
        , fromCHash
        , toCAddress
@@ -35,47 +37,49 @@ module Pos.Explorer.Web.ClientTypes
        , toTxBrief
        , toPosixTime
        , convertTxOutputs
+       , convertTxOutputsMB
        , tiToTxEntry
        ) where
 
 import           Universum
 
-import           Control.Arrow          ((&&&))
-import           Control.Lens           (ix, _Left)
-import qualified Data.ByteArray         as BA
-import qualified Data.ByteString.Base16 as B16
-import qualified Data.List.NonEmpty     as NE
-import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Formatting             (sformat)
-import           Prelude                ()
-import           Serokell.Util.Base16   as SB16
-import           Servant.API            (FromHttpApiData (..))
+import           Control.Arrow              ((&&&))
+import           Control.Lens               (ix, _Left)
+import qualified Data.ByteArray             as BA
+import qualified Data.ByteString.Base16     as B16
+import qualified Data.List.NonEmpty         as NE
+import           Data.Time.Clock.POSIX      (POSIXTime)
+import           Formatting                 (sformat)
+import           Prelude                    ()
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Base16       as SB16
+import           Servant.API                (FromHttpApiData (..))
 
-import qualified Pos.Binary             as Bi
-import           Pos.Block.Core         (MainBlock, mainBlockSlot, mainBlockTxPayload,
-                                         mcdSlot)
-import           Pos.Block.Types        (Undo (..))
-import           Pos.Core               (HasCoreConstants)
-import           Pos.Crypto             (Hash, hash)
-import           Pos.DB.Block           (MonadBlockDB)
-import           Pos.DB.Class           (MonadDBRead)
-import           Pos.DB.Rocks           (MonadRealDB)
-import           Pos.Explorer           (TxExtra (..))
-import qualified Pos.GState             as GS
-import           Pos.Lrc                (getLeaders)
-import           Pos.Merkle             (getMerkleRoot, mtRoot)
-import           Pos.Slotting           (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing     (SscGodTossing)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
-                                         txpTxs, _txOutputs)
-import           Pos.Types              (Address, AddressHash, Coin, EpochIndex,
-                                         LocalSlotIndex, SlotId (..), StakeholderId,
-                                         Timestamp, addressF, coinToInteger,
-                                         decodeTextAddress, gbHeader, gbhConsensus,
-                                         getEpochIndex, getSlotIndex, headerHash, mkCoin,
-                                         prevBlockL, sumCoins, unsafeAddCoin,
-                                         unsafeGetCoin, unsafeIntegerToCoin,
-                                         unsafeSubCoin)
+import qualified Pos.Binary                 as Bi
+import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
+                                             mcdSlot)
+import           Pos.Block.Types            (Undo (..))
+import           Pos.Core                   (HasCoreConstants)
+import           Pos.Crypto                 (Hash, hash)
+import           Pos.DB.Block               (MonadBlockDB)
+import           Pos.DB.Class               (MonadDBRead)
+import           Pos.DB.Rocks               (MonadRealDB)
+import           Pos.Explorer               (TxExtra (..))
+import qualified Pos.GState                 as GS
+import           Pos.Lrc                    (getLeaders)
+import           Pos.Merkle                 (getMerkleRoot, mtRoot)
+import           Pos.Slotting               (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                                             TxUndo, txpTxs, _txOutputs)
+import           Pos.Types                  (Address, AddressHash, Coin, EpochIndex,
+                                             LocalSlotIndex, SlotId (..), StakeholderId,
+                                             Timestamp, addressF, coinToInteger,
+                                             decodeTextAddress, gbHeader, gbhConsensus,
+                                             getEpochIndex, getSlotIndex, headerHash,
+                                             mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
+                                             unsafeGetCoin, unsafeIntegerToCoin,
+                                             unsafeSubCoin)
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -136,6 +140,9 @@ newtype CCoin = CCoin
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
 
+mkCCoinMB :: Maybe Coin -> CCoin
+mkCCoinMB = maybe (CCoin "N/A") mkCCoin
+
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
     { cbeEpoch      :: !Word64
@@ -183,11 +190,11 @@ toBlockEntry (blk, Undo{..}) = do
         txs           = toList $ blk ^. mainBlockTxPayload . txpTxs
         cbeTxNum      = fromIntegral $ length txs
         addOutCoins c = unsafeAddCoin c . totalTxOutMoney
-        addInCoins c  = unsafeAddCoin c . totalTxInMoney
+        totalRecvCoin = unsafeIntegerToCoin . sumCoins <$> traverse totalTxInMoney undoTx
         totalSentCoin = foldl' addOutCoins (mkCoin 0) txs
         cbeTotalSent  = mkCCoin $ totalSentCoin
         cbeSize       = fromIntegral $ Bi.biSize blk
-        cbeFees       = mkCCoin $ foldl' addInCoins (mkCoin 0) undoTx `unsafeSubCoin` totalSentCoin
+        cbeFees       = mkCCoinMB $ (`unsafeSubCoin` totalSentCoin) <$> totalRecvCoin
 
         -- A simple reconstruction of the AbstractHash, could be better?
         cbeBlockLead  = encodeAHashHex <$> epochSlotLeader
@@ -224,9 +231,9 @@ totalTxOutMoney :: Tx -> Coin
 totalTxOutMoney =
     unsafeIntegerToCoin . sumCoins . map txOutValue . _txOutputs
 
-totalTxInMoney :: TxUndo -> Coin
+totalTxInMoney :: TxUndo -> Maybe Coin
 totalTxInMoney =
-    unsafeIntegerToCoin . sumCoins . NE.map (txOutValue . toaOut)
+    fmap (unsafeIntegerToCoin . sumCoins . NE.map (txOutValue . toaOut)) . sequence
 
 toTxEntry :: Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
@@ -282,6 +289,7 @@ data CAddressSummary = CAddressSummary
 data CTxBrief = CTxBrief
     { ctbId         :: !CTxId
     , ctbTimeIssued :: !POSIXTime
+    -- TODO [CSE-204] Make list of type [Maybe (CAddress, CCoin)] here
     , ctbInputs     :: ![(CAddress, CCoin)]
     , ctbOutputs    :: ![(CAddress, CCoin)]
     , ctbInputSum   :: !CCoin
@@ -303,6 +311,7 @@ data CTxSummary = CTxSummary
     , ctsTotalInput      :: !CCoin
     , ctsTotalOutput     :: !CCoin
     , ctsFees            :: !CCoin
+    -- TODO [CSE-204] Make list of type [Maybe (CAddress, CCoin)] here
     , ctsInputs          :: ![(CAddress, CCoin)]
     , ctsOutputs         :: ![(CAddress, CCoin)]
     } deriving (Show, Generic)
@@ -360,6 +369,9 @@ tiTimestamp = teReceivedTime . tiExtra
 tiToTxEntry :: TxInternal -> CTxEntry
 tiToTxEntry txi@TxInternal{..} = toTxEntry (tiTimestamp txi) tiTx
 
+convertTxOutputsMB :: [Maybe TxOut] -> [Maybe (CAddress, Coin)]
+convertTxOutputsMB = map (fmap $ toCAddress . txOutAddress &&& txOutValue)
+
 convertTxOutputs :: [TxOut] -> [(CAddress, Coin)]
 convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 
@@ -370,24 +382,26 @@ toTxBrief txi = CTxBrief {..}
     ts            = tiTimestamp txi
     ctbId         = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime ts
-    ctbInputs     = map (second mkCCoin) txinputs
+    -- TODO [CSE-204] ctbInputs = map (fmap (second mkCCoin)) txInputsMB
+    ctbInputs     = map (second mkCCoin) $ catMaybes txInputsMB
     ctbOutputs    = map (second mkCCoin) txOutputs
-    ctbInputSum   = sumCoinOfInputsOutputs txinputs
-    ctbOutputSum  = sumCoinOfInputsOutputs txOutputs
+    ctbInputSum   = sumCoinOfInputsOutputs txInputsMB
+    ctbOutputSum  = sumCoinOfInputsOutputs $ map Just txOutputs
 
-    txinputs      = convertTxOutputs $ map toaOut $ NE.toList $
+    txInputsMB    = convertTxOutputsMB $ map (fmap toaOut) $ NE.toList $
                     teInputOutputs (tiExtra txi)
     txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
 
 -- | Sums the coins of inputs and outputs
-sumCoinOfInputsOutputs :: [(CAddress, Coin)] -> CCoin
-sumCoinOfInputsOutputs addressList =
-    mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
-      where
+sumCoinOfInputsOutputs :: [Maybe (CAddress, Coin)] -> CCoin
+sumCoinOfInputsOutputs addressListMB
+    | Just addressList <- sequence addressListMB = do
         -- | Get total number of coins from an address
-        addressCoins :: (CAddress, Coin) -> Integer
-        addressCoins (_, coin) = coinToInteger coin
+        let addressCoins :: (CAddress, Coin) -> Integer
+            addressCoins (_, coin) = coinToInteger coin
 
         -- | Arbitrary precision, so we don't overflow
-        addressCoinList :: [Integer]
-        addressCoinList = addressCoins <$> addressList
+        let addressCoinList :: [Integer]
+            addressCoinList = addressCoins <$> addressList
+        mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
+    | otherwise = mkCCoinMB Nothing

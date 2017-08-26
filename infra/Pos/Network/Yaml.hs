@@ -23,21 +23,22 @@ module Pos.Network.Yaml (
   , fromStaticPolicies
   ) where
 
-import           Data.Aeson             (FromJSON (..), ToJSON (..), (.!=),
-                                         (.:), (.:?), (.=))
-import qualified Data.Aeson             as A
-import qualified Data.Aeson.Types       as A
-import qualified Data.ByteString.Char8  as BS.C8
-import qualified Data.HashMap.Lazy      as HM
-import qualified Data.Map.Strict        as M
+import           Data.Aeson                            (FromJSON (..), ToJSON (..), (.!=),
+                                                        (.:), (.:?), (.=))
+import qualified Data.Aeson                            as A
+import qualified Data.Aeson.Types                      as A
+import qualified Data.ByteString.Char8                 as BS.C8
+import qualified Data.HashMap.Lazy                     as HM
+import           Data.IP                               (IP)
+import qualified Data.Map.Strict                       as M
+import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
-import qualified Network.Broadcast.OutboundQueue as OQ
-import qualified Network.DNS            as DNS
-import           Pos.Network.Types      (NodeName(..), Valency, Fallbacks)
+import qualified Network.DNS                           as DNS
+import           Pos.Network.Types                     (Fallbacks, NodeName (..), Valency)
 import           Pos.Util.Config
 import           Universum
 
-import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr (..))
 
 -- | Description of the network topology in a Yaml file
 --
@@ -82,19 +83,19 @@ newtype NodeRoutes = NodeRoutes [[NodeName]]
 
 data NodeMetadata = NodeMetadata
     { -- | Node type
-      nmType    :: !NodeType
+      nmType       :: !NodeType
 
       -- | Region
-    , nmRegion  :: !NodeRegion
+    , nmRegion     :: !NodeRegion
 
       -- | Static peers of this node
-    , nmRoutes  :: !NodeRoutes
+    , nmRoutes     :: !NodeRoutes
 
       -- | Address for this node
-    , nmAddress :: !(NodeAddr (Maybe DNS.Domain))
+    , nmAddress    :: !(NodeAddr (Maybe DNS.Domain))
 
       -- | Should the node register itself with the Kademlia network?
-    , nmKademlia :: !RunKademlia
+    , nmKademlia   :: !RunKademlia
 
       -- | Maximum number of subscribers (only relevant for relays)
     , nmMaxSubscrs :: !OQ.MaxBucketSize
@@ -111,7 +112,7 @@ data KademliaParams = KademliaParams
       -- ^ Initial Kademlia peers, for joining the network.
     , kpAddress         :: !(Maybe KademliaAddress)
       -- ^ External Kadmelia address.
-    , kpBind            :: !KademliaAddress
+    , kpBind            :: !(Maybe KademliaAddress)
       -- ^ Address at which to bind the Kademlia socket.
       -- Shouldn't be necessary to have a separate bind and public address.
       -- The Kademlia instance in fact shouldn't even need to know its own
@@ -119,7 +120,7 @@ data KademliaParams = KademliaParams
       -- that responses for FIND_NODES are serialized, Kademlia needs to know
       -- its own external address [TW-153]. The mainline 'kademlia' package
       -- doesn't suffer this problem.
-    , kpExplicitInitial :: !Bool
+    , kpExplicitInitial :: !(Maybe Bool)
     , kpDumpFile        :: !(Maybe FilePath)
     }
     deriving (Show)
@@ -129,8 +130,8 @@ instance FromJSON KademliaParams where
         kpId <- obj .:? "identifier"
         kpPeers <- obj .: "peers"
         kpAddress <- obj .:? "externalAddress"
-        kpBind <- obj .: "address"
-        kpExplicitInitial <- obj .:? "explicitInitial" .!= False
+        kpBind <- obj .:? "address"
+        kpExplicitInitial <- obj .:? "explicitInitial"
         kpDumpFile <- obj .:? "dumpFile"
         return KademliaParams {..}
 
@@ -194,11 +195,11 @@ instance FromJSON NodeType where
 instance FromJSON OQ.Precedence where
   parseJSON = A.withText "Precedence" $ \typ -> do
       case toString typ of
-        "lowest"  -> return OQ.PLowest
-        "low"     -> return OQ.PLow
-        "medium"  -> return OQ.PMedium
-        "high"    -> return OQ.PHigh
-        "highest" -> return OQ.PHighest
+        "lowest"   -> return OQ.PLowest
+        "low"      -> return OQ.PLow
+        "medium"   -> return OQ.PMedium
+        "high"     -> return OQ.PHigh
+        "highest"  -> return OQ.PHighest
         _otherwise -> fail $ "Invalid Precedence" ++ show typ
 
 instance FromJSON (DnsDomains DNS.Domain) where
@@ -212,7 +213,7 @@ instance FromJSON (NodeAddr DNS.Domain) where
       aux (Just dom) = return dom
 
 -- Useful when we have a 'NodeAddr' as part of a larger object
-extractNodeAddr :: (Maybe DNS.Domain -> A.Parser a)
+extractNodeAddr :: forall a. (Maybe DNS.Domain -> A.Parser a)
                 -> A.Object
                 -> A.Parser (NodeAddr a)
 extractNodeAddr mkA obj = do
@@ -220,13 +221,27 @@ extractNodeAddr mkA obj = do
     mHost <- obj .:? "host"
     mPort <- obj .:? "port"
     case (mAddr, mHost) of
-      (Just addr, Nothing) -> return $ NodeAddrExact (aux addr) mPort
-      (Nothing,  _)        -> do a <- mkA (aux <$> mHost)
-                                 return $ NodeAddrDNS a mPort
-      (Just _, Just _)     -> fail "Cannot use both 'addr' and 'host'"
+      (Just ipAddr, Nothing) -> do
+          -- Make sure `addr` is a proper IP address
+          case readMaybe ipAddr of
+              Nothing   -> fail "The value specified in 'addr' is not a valid IP address."
+              Just addr -> return $ NodeAddrExact addr mPort
+      (Nothing,  _)        -> do
+          -- Make sure 'host' is not a valid IP address (which is disallowed)
+          case mHost of
+              Nothing  -> mkNodeAddrDNS mHost mPort -- User didn't specify a 'host', proceed normally.
+              Just mbH -> case readMaybe @IP mbH of
+                  Nothing -> mkNodeAddrDNS mHost mPort -- mHost is not an IP, allow it.
+                  Just _  -> fail "The value specified in 'host' is not a valid hostname, but an IP."
+      (Just _, Just _)    -> fail "Cannot use both 'addr' and 'host'"
   where
     aux :: String -> DNS.Domain
     aux = BS.C8.pack
+
+    mkNodeAddrDNS :: Maybe String -> Maybe Word16 -> A.Parser (NodeAddr a)
+    mkNodeAddrDNS mHost mPort = do
+          a <- mkA (aux <$> mHost)
+          return $ NodeAddrDNS a mPort
 
 instance FromJSON NodeMetadata where
   parseJSON = A.withObject "NodeMetadata" $ \obj -> do

@@ -1,11 +1,13 @@
-with (import (fetchTarball https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz) {});
-# TODO: upgrade to purescript 0.11.5
-#with (import ((import ../lib.nix).fetchNixPkgs) {});
+{ system ? builtins.currentSystem
+, config ? {}
+, pkgs ? (import ((import ./../lib.nix).fetchNixPkgs) { inherit system config; }) }:
+
+with pkgs;
 
 stdenv.mkDerivation {
   name = "daedalus-bridge";
 
-  buildInputs = [ nodejs-7_x nodePackages.bower purescript ];
+  buildInputs = [ nodejs nodePackages.bower purescript ];
 
   src = ./.;
 

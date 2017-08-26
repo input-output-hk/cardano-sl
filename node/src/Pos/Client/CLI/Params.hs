@@ -9,12 +9,13 @@ module Pos.Client.CLI.Params
        , gtSscParams
        ) where
 
-import           Base                  (Show (..))
-import           Universum             hiding (show)
+import           Universum
 
 import qualified Data.ByteString.Char8      as BS8 (unpack)
+import           Data.Default               (def)
 import           Mockable                   (Catch, Fork, Mockable, Throw, throw)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
+import qualified Prelude
 import           System.Wlog                (LoggerName, WithLogger)
 
 import           Pos.Constants              (isDevelopment)
@@ -56,6 +57,7 @@ gtSscParams CommonNodeArgs {..} vssSK =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
+    , gtpBehavior   = def
     }
 
 getKeyfilePath :: CommonNodeArgs -> FilePath

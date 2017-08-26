@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP       #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP          #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Execution mode used by blockchain generator.
 
@@ -32,8 +33,10 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
-                                              HasCoreConstants, GenesisWStakeholders (..),
+import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
+import           Pos.Core                    (Address, GenesisWStakeholders (..),
+                                              HasCoreConstants, HasPrimaryKey (..),
+                                              IsHeader, SlotId (..), StakeholderId,
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
@@ -53,8 +56,9 @@ import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
-import           Pos.Slotting                (HasSlottingVar (..), MonadSlots(..), MonadSlotsData,
-                                              SlottingData, currentTimeSlottingSimple)
+import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
+                                              MonadSlotsData, SlottingData,
+                                              currentTimeSlottingSimple)
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
@@ -345,6 +349,10 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode m) where
 instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
+
+instance Monad m => MonadAddresses (BlockGenMode m) where
+    type AddrData (BlockGenMode m) = (Address, Maybe StakeholderId)
+    getNewAddress = pure
 
 ----------------------------------------------------------------------------
 -- Utilities

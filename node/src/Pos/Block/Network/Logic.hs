@@ -25,11 +25,11 @@ import           Universum
 import           Control.Concurrent.STM     (isFullTBQueue, readTVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (_Wrapped)
+import           Control.Lens               (to, _Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
 import           Ether.Internal             (HasLens (..))
-import           Formatting                 (bprint, build, builder, sformat, shown,
+import           Formatting                 (bprint, build, builder, int, sformat, shown,
                                              stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
@@ -44,8 +44,7 @@ import           Pos.Block.Error            (ApplyBlocksException)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,
-                                             lcaWithMainChain, verifyAndApplyBlocks,
-                                             withBlkSemaphore)
+                                             lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
@@ -67,6 +66,7 @@ import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
+import           Pos.Infra.Semaphore        (modifyBlkSemaphore)
 import           Pos.Reporting.Methods      (reportMisbehaviourSilent)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
@@ -266,16 +266,19 @@ requestHeaders
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m (Maybe t)
 requestHeaders cont mgh nodeId conv = do
-    logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
+    logDebug $ sformat ("requestHeaders: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
     inRecovery <- recoveryInProgress
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
-            ("requestHeaders: withConnection: received "%listJson%
-             " from nodeId "%build%" of total size "%builder)
-            (map headerHash headers) nodeId (unitBuilder $ biSize headers)
+            ("requestHeaders: received "%int%" headers of total size "%builder%
+             " from nodeId "%build%": "%listJson)
+            (headers ^. _Wrapped . to NE.length)
+            (unitBuilder $ biSize headers)
+            nodeId
+            (map headerHash headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
                 handleRequestedHeaders cont inRecovery headers
@@ -452,7 +455,7 @@ applyWithoutRollback
 applyWithoutRollback enqueue blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
-    withBlkSemaphore applyWithoutRollbackDo >>= \case
+    modifyBlkSemaphore applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -475,13 +478,13 @@ applyWithoutRollback enqueue blocks = do
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
-        :: HeaderHash -> m (Either ApplyBlocksException HeaderHash, HeaderHash)
+        :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
         res <- verifyAndApplyBlocks False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
-        pure (res, newTip)
+        pure (newTip, res)
 
 applyWithRollback
     :: forall ssc ctx m.
@@ -496,9 +499,9 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
-    res <- withBlkSemaphore $ \curTip -> do
+    res <- modifyBlkSemaphore $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
-        pure (res, either (const curTip) identity res)
+        pure (either (const curTip) identity res, res)
     case res of
         Left (pretty -> err) ->
             logWarning $ "Couldn't apply blocks with rollback: " <> err

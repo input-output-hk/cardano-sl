@@ -1628,7 +1628,7 @@ self: {
           description = "Cardano SL - Leaders and Richmen computation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-lwallet = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-update, containers, cpphs, data-default, dlist, either, ether, formatting, lens, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parsec, random, resourcet, safecopy, serokell-util, stdenv, stm, stm-containers, tagged, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
+      cardano-sl-lwallet = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-txp, cardano-sl-update, containers, cpphs, data-default, dlist, either, ether, formatting, lens, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parsec, random, resourcet, safecopy, serokell-util, stdenv, stm, stm-containers, tagged, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-lwallet";
           version = "0.5.1";
@@ -1646,6 +1646,7 @@ self: {
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
+            cardano-sl-txp
             cardano-sl-update
             containers
             data-default
@@ -4816,8 +4817,8 @@ self: {
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "09sqk5vdv3fkn2r48kcvw77vwsbslfnijcnm3ssfqapmnvw1d2id";
-            rev = "39fd29a944efdfd19270a5866ec4ee81ac80fe01";
+            sha256 = "0gwr1n6mp6n70mwgczf8pblq1l2085nmyll5wl19dg1ic0dnmbh2";
+            rev = "40f4235cda65c746c6edc2a3455242d96d7175bf";
           };
           isLibrary = true;
           isExecutable = true;

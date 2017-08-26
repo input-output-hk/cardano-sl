@@ -75,7 +75,8 @@ instance Buildable ToilVerFailure where
     build ToilKnown =
         "transaction already is in the mem pool"
     build (ToilTipsMismatch dbTip localTip) =
-        bprint ("tips mismatch, tip from DB is "%build%", local tip is "%build)
+        bprint ("Something is bad with this node, tips mismatch, "%
+                "tip from DB is "%build%", local tip is "%build)
         dbTip localTip
     build ToilSlotUnknown =
         "can't process, current slot is unknown"

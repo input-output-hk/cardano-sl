@@ -424,12 +424,13 @@ main = giveStaticConsts $ do
             | otherwise = genesisContextProduction
     let params =
             WalletParams
-            { wpDbPath      = Just woDbPath
-            , wpRebuildDb   = woRebuildDb
-            , wpKeyFilePath = woKeyFilePath
-            , wpSystemStart = sysStart
-            , wpGenesisKeys = woDebug
-            , wpBaseParams  = baseParams
+            { wpDbPath          = Just woDbPath
+            , wpRebuildDb       = woRebuildDb
+            , wpKeyFilePath     = woKeyFilePath
+            , wpSystemStart     = sysStart
+            , wpGenesisKeys     = woDebug
+            , wpBaseParams      = baseParams
+            , wpExplicitBootEra = woExplicitBootEra
             , ..
             }
 

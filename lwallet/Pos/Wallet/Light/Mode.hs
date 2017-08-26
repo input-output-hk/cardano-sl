@@ -25,7 +25,8 @@ import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanc
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
 import qualified Pos.Constants                    as Const
-import           Pos.Core                         (HasCoreConstants, SlotId (..),
+import           Pos.Core                         (BlockVersionData (..),
+                                                   HasCoreConstants, SlotId (..),
                                                    addressHash, makePubKeyAddress)
 import           Pos.Crypto                       (PublicKey)
 import           Pos.DB                           (MonadGState (..))
@@ -59,6 +60,7 @@ data LightWalletContext = LightWalletContext
     , lwcLoggerName       :: !LoggerName
     , lwcGenStakeholders  :: !GenesisWStakeholders
     , lwcGenesisUtxo      :: !GenesisUtxo
+    , lwcExplicitBootEra  :: !Bool
     }
 
 makeLensesWith postfixLFields ''LightWalletContext
@@ -115,7 +117,16 @@ instance (HasCoreConstants, MonadSlotsData ctx LightWalletMode)
     currentTimeSlotting      = currentTimeSlottingSimple
 
 instance MonadGState LightWalletMode where
-    gsAdoptedBVData = pure Const.genesisBlockVersionData
+    gsAdoptedBVData = do
+        explicitBoot <- view lwcExplicitBootEra_L
+        -- We set unlock stake epoch to 0 if we're asked explicitly to
+        -- be out of the boot epoch. Since 'MonadSlots' instance
+        -- defines current slot as hardcoded 0th, it effectively
+        -- brings wallet into postboot epoch.
+        let alt | explicitBoot = identity
+                | otherwise = \BlockVersionData{..} ->
+                               BlockVersionData{ bvdUnlockStakeEpoch = 0, ..}
+        pure $ alt $ Const.genesisBlockVersionData
 
 instance MonadBalances LightWalletMode where
     getOwnUtxos addrs = filterUtxoByAddrs addrs <$> asks (unGenesisUtxo . lwcGenesisUtxo)

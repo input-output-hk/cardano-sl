@@ -13,11 +13,11 @@ import           Universum
 
 import           Data.Version                 (showVersion)
 import           NeatInterpolation            (text)
-import           Options.Applicative          (CommandFields, Mod, Parser, auto, command,
+import           Options.Applicative          (CommandFields, Mod, Parser, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, subparser,
-                                               switch, value)
+                                               metavar, progDesc, subparser, switch,
+                                               value)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
@@ -26,14 +26,15 @@ import qualified Pos.Client.CLI               as CLI
 import           Pos.Communication            (NodeId)
 
 data WalletOptions = WalletOptions
-    { woDbPath      :: !FilePath
-    , woRebuildDb   :: !Bool
-    , woKeyFilePath :: !FilePath       -- ^ Path to file with secret keys
-    , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
-    , woJLFile      :: !(Maybe FilePath)
-    , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
-    , woAction      :: !WalletAction
-    , woPeers       :: ![NodeId]
+    { woDbPath          :: !FilePath
+    , woRebuildDb       :: !Bool
+    , woKeyFilePath     :: !FilePath       -- ^ Path to file with secret keys
+    , woDebug           :: !Bool           -- ^ Run in debug mode (with genesis keys included)
+    , woJLFile          :: !(Maybe FilePath)
+    , woCommonArgs      :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
+    , woAction          :: !WalletAction
+    , woPeers           :: ![NodeId]
+    , woExplicitBootEra :: !Bool
     }
 
 data WalletAction = Repl
@@ -78,6 +79,9 @@ argsParser = do
         CLI.commonArgsParser
     woAction <-
         actionParser
+    woExplicitBootEra <- switch $
+        long "postboot" <>
+        help "Use postboot era parameters instead of (default) boot era ones"
 
     woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
 

@@ -112,7 +112,6 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue PendingTx{..} = do
         , Handler $ \e@SomeException{} ->
             -- I don't know where this error can came from,
             -- but it's better to try with tx again than to regret, right?
-            -- At the moment of writting this no network error can be here.
             minorError "unknown error" e
         ]
     minorError desc e = do

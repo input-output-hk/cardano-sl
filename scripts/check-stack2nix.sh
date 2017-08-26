@@ -5,7 +5,10 @@
 set -xe
 
 fail_stack2nix_check() {
-  echo "ERROR: you need to run ./pkgs/generate.sh and commit the changes" >&2
+  GIST=$(nix-build -Q '<nixpkgs>' -A gist)
+  git diff --text > /tmp/stack2nix.patch
+  gisturl=$(${GIST}/bin/gist -p /tmp/stack2nix.patch)
+  echo "ERROR: you need to (run ./pkgs/generate.sh or apply the patch in $gisturl) and commit the changes" >&2
   exit 1
 }
 
@@ -13,5 +16,6 @@ fail_stack2nix_check() {
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 
 source ${scriptDir}/../pkgs/generate.sh
+
 
 git diff --text --exit-code || fail_stack2nix_check

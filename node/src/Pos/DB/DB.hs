@@ -24,9 +24,9 @@ import           Control.Monad.Catch   (MonadMask)
 import           Ether.Internal        (HasLens (..))
 import           System.Wlog           (WithLogger)
 
-import           Pos.Block.Core        (Block, BlockHeader, mkGenesisBlock)
+import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Blund)
-import           Pos.Context.Functions (genesisLeadersM)
+import           Pos.Context.Functions (genesisBlock0M)
 import           Pos.Core              (BlockCount, BlockVersionData, HasCoreConstants,
                                         headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
@@ -60,9 +60,8 @@ initNodeDBs
        )
     => m ()
 initNodeDBs = do
-    leaders0 <- genesisLeadersM
-    let genesisBlock0 = mkGenesisBlock @ssc Nothing 0 leaders0
-        initialTip = headerHash genesisBlock0
+    genesisBlock0 <- genesisBlock0M @ssc
+    let initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
     prepareLrcDB

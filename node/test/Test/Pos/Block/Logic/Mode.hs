@@ -151,10 +151,12 @@ genSuitableStakeDistribution :: Word -> Gen StakeDistribution
 genSuitableStakeDistribution stakeholdersNum =
     oneof [ genFlat
           {-, genBitcoin-} -- is broken
-          , pure $ safeExpStakes (15::Integer) -- 15 participants should be enough
+          , pure $ safeExpStakes (25::Integer) -- 25 participants should be enough
           ]
   where
-    totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
+    -- We set the lower bound to 10 ADA per stakeholder to make sure that we have
+    -- enough money in genesis to generate transactions with proper fees
+    totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum * 10000000, unsafeGetCoin maxBound)
     genFlat = FlatStakes stakeholdersNum <$> totalCoins
 
 instance Arbitrary TestParams where

@@ -26,8 +26,8 @@ import qualified Data.Map.Strict                 as M
 import           Data.Maybe                      (fromJust, mapMaybe)
 import qualified Data.Yaml                       as Yaml
 import           Formatting                      (sformat, shown, (%))
-import           Mockable                        (Catch, Mockable, fork, try,
-                                                  Throw, throw)
+import           Mockable                        (Catch, Mockable, Throw, fork, throw,
+                                                  try)
 import           Mockable.Concurrent
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS                     as DNS
@@ -36,7 +36,7 @@ import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
                                                          fromYamlConfig)
 import           Pos.Network.DnsDomains          (DnsDomains (..), NodeAddr (..))
-import           Pos.Network.Types               (NodeId, NodeName(..))
+import           Pos.Network.Types               (NodeId, NodeName (..))
 import qualified Pos.Network.Types               as T
 import           Pos.Network.Yaml                (NodeMetadata (..))
 import qualified Pos.Network.Yaml                as Y
@@ -400,7 +400,7 @@ resolveNodeAddr :: NetworkConfigOpts
                 -> IO NetworkAddress
 resolveNodeAddr cfg _ (_, NodeAddrExact addr mPort) = do
     let port = fromMaybe (networkConfigOptsPort cfg) mPort
-    return (addr, port)
+    return (encodeUtf8 @String . show $ addr, port)
 resolveNodeAddr cfg resolve (name, NodeAddrDNS mHost mPort) = do
     let host = fromMaybe (nameToDomain name)         mHost
         port = fromMaybe (networkConfigOptsPort cfg) mPort

@@ -59,6 +59,7 @@ module Pos.Wallet.Web.State.Acidic
        , UpdateHistoryCache (..)
        , SetPtxCondition (..)
        , CasPtxCondition (..)
+       , PtxUpdateMeta (..)
        , AddOnlyNewPendingTx (..)
        ) where
 
@@ -67,12 +68,14 @@ import           Universum
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent, makeAcidic)
 import           Data.Default                 (def)
-import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.State.Storage as WS
 import           Serokell.AcidState           (ExtendedState, closeExtendedState,
                                                openLocalExtendedState,
                                                openMemoryExtendedState, queryExtended,
                                                tidyExtendedState, updateExtended)
+
+import           Pos.Core.Context             (HasCoreConstants)
+import           Pos.Wallet.Web.State.Storage (WalletStorage)
+import           Pos.Wallet.Web.State.Storage as WS
 
 type WalletState = ExtendedState WalletStorage
 
@@ -86,10 +89,10 @@ update
     => WalletState -> event -> m (EventResult event)
 update = updateExtended
 
-openState :: MonadIO m => Bool -> FilePath -> m WalletState
+openState :: (MonadIO m, HasCoreConstants) => Bool -> FilePath -> m WalletState
 openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp def
 
-openMemState :: MonadIO m => m WalletState
+openMemState :: (MonadIO m, HasCoreConstants) => m WalletState
 openMemState = openMemoryExtendedState def
 
 closeState :: MonadIO m => WalletState -> m ()
@@ -148,5 +151,6 @@ makeAcidic ''WalletStorage
     , 'WS.updateHistoryCache
     , 'WS.setPtxCondition
     , 'WS.casPtxCondition
+    , 'WS.ptxUpdateMeta
     , 'WS.addOnlyNewPendingTx
     ]

@@ -40,8 +40,7 @@ import           Pos.Wallet.Web.Methods.Txp     (coinDistrToOutputs, rewrapTxErr
                                                  submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode, WalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (AddressLookupMode (Existing),
-                                                 addOnlyNewPendingTx)
+import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
                                                  getWalletAccountIds)
@@ -134,19 +133,28 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     withSafeSigners sks (pure passphrase) $ \mss -> do
         ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
+
         let hdwSigner = NE.zip ss srcAddrs
+            srcWallet = getMoneySourceWallet moneySource
+
         relatedAccount <- getSomeMoneySourceAccount moneySource
         outputs <- coinDistrToOutputs dstDistr
-        (txAux@TxAux {taTx = tx}, inpTxOuts') <-
+        (th, dstAddrs) <-
             rewrapTxError "Cannot send transaction" $ do
-                res@(txAux, _) <- prepareMTx hdwSigner outputs (relatedAccount, passphrase)
-                res <$ submitAndSaveNewPtx enqueueMsg txAux
+                (txAux, inpTxOuts') <-
+                    prepareMTx hdwSigner outputs (relatedAccount, passphrase)
 
-        let inpTxOuts = toList inpTxOuts'
-            txHash    = hash tx
-            dstAddrs  = map txOutAddress . toList $
-                        _txOutputs tx
-            srcWallet = getMoneySourceWallet moneySource
+                ts <- Just <$> getCurrentTimestamp
+                let tx = taTx txAux
+                    txHash = hash tx
+                    inpTxOuts = toList inpTxOuts'
+                    dstAddrs  = map txOutAddress . toList $
+                                _txOutputs tx
+                    th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+                ptx <- mkPendingTx srcWallet txHash txAux th
+
+                (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
+
         logInfo $
             sformat ("Successfully spent money from "%
                      listF ", " addressF % " addresses on " %
@@ -154,10 +162,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
             (toList srcAddrs)
             dstAddrs
 
-        ts <- Just <$> getCurrentTimestamp
-        let th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ctxs <- addHistoryTx srcWallet th
-        addOnlyNewPendingTx =<< mkPendingTx srcWallet txHash txAux th
         ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
      noOutgoingTx = InternalError "Can't report outgoing transaction"

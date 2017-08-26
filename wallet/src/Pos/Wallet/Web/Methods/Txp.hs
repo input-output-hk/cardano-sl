@@ -1,5 +1,6 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Utils for payments and redeeming.
 
@@ -13,14 +14,17 @@ import           Universum
 
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, stext, (%))
-import           Pos.Communication          (EnqueueMsg, TxMode)
+import           Pos.Communication          (EnqueueMsg)
 
 import           Pos.Client.Txp.Util        (TxError (..))
 import           Pos.Core.Types             (Coin)
-import           Pos.Txp                    (TxAux, TxOut (..), TxOutAux (..))
+import           Pos.Txp                    (TxOut (..), TxOutAux (..))
 import           Pos.Wallet.Web.ClientTypes (Addr, CId)
 import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
-import           Pos.Wallet.Web.Pending     (ptxFirstSubmissionHandler, submitAndSavePtx)
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending     (PendingTx, ptxFirstSubmissionHandler,
+                                             submitAndSavePtx)
+import           Pos.Wallet.Web.State       (addOnlyNewPendingTx)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail)
 
 
@@ -48,7 +52,9 @@ coinDistrToOutputs distr = do
 -- | Like 'submitAndSaveTx', but suppresses errors which can get gone
 -- by the time of resubmission.
 submitAndSaveNewPtx
-    :: (TxMode ssc ctx m, MonadCatch m)
-    => EnqueueMsg m -> TxAux -> m ()
-submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
+    :: MonadWalletWebMode m
+    => EnqueueMsg m -> PendingTx -> m ()
+submitAndSaveNewPtx enqueue ptx = do
+    addOnlyNewPendingTx ptx
+    submitAndSavePtx ptxFirstSubmissionHandler enqueue ptx
 

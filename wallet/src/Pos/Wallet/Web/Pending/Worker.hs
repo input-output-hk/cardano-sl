@@ -19,10 +19,9 @@ import           System.Wlog                       (logInfo, modifyLoggerName)
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
 import           Pos.Communication.Protocol        (SendActions (..))
 import           Pos.Constants                     (pendingTxResubmitionPeriod)
-import           Pos.Core                          (ChainDifficulty (..), FlatSlotId,
-                                                    SlotId (..), difficultyL)
+import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
+                                                    difficultyL)
 import           Pos.Core.Context                  (HasCoreConstants)
-import           Pos.Core.Slotting                 (flattenSlotId)
 import           Pos.Crypto                        (WithHash (..))
 import           Pos.DB.DB                         (getTipHeader)
 import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
@@ -32,8 +31,10 @@ import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
-                                                    _PtxApplying)
-import           Pos.Wallet.Web.State              (casPtxCondition, getPendingTxs)
+                                                    PtxSubmitTiming (..), _PtxApplying)
+import           Pos.Wallet.Web.State              (PtxMetaUpdate (PtxIncSubmitTiming),
+                                                    casPtxCondition, getPendingTxs,
+                                                    ptxUpdateMeta)
 import           Pos.Wallet.Web.Util               (getWalletAssuredDepth)
 
 type MonadPendings m =
@@ -56,24 +57,14 @@ processPtxInNewestBlocks PendingTx{..} = do
      longAgo depth (ChainDifficulty ptxDiff) (ChainDifficulty tipDiff) =
          ptxDiff + depth <= tipDiff
 
--- | 'True' for slots which are equal to
--- @ptxCreationSlot + initialDelay + furtherDelay * k@ for some integer @k@
-whetherCheckPtxOnSlot :: HasCoreConstants => SlotId -> PendingTx -> Bool
-whetherCheckPtxOnSlot (flattenSlotId -> curSlot) ptx = do
-    let ptxSlot = flattenSlotId (_ptxCreationSlot ptx)
-        checkStartSlot = ptxSlot + initialDelay
-    and [ curSlot >= checkStartSlot
-        , ((curSlot - checkStartSlot) `mod` furtherDelay) == 0
-        ]
-  where
-    initialDelay = 3 :: FlatSlotId
-    furtherDelay = 1 :: FlatSlotId
-
 resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
 resubmitTx SendActions{..} ptx@PendingTx{..} = do
     logInfo $ sformat ("Resubmitting tx "%build) _ptxTxId
     let submissionH = ptxResubmissionHandler ptx
-    submitAndSavePtx submissionH enqueueMsg _ptxTxAux
+    submitAndSavePtx submissionH enqueueMsg ptx
+        `finally` updateTiming
+  where
+    updateTiming = ptxUpdateMeta _ptxWallet _ptxTxId PtxIncSubmitTiming
 
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot
@@ -93,11 +84,12 @@ resubmitPtxsDuringSlot sendActions ptxs = do
 
 processPtxsToResubmit
     :: MonadPendings m
-    => SendActions m -> [PendingTx] -> m ()
-processPtxsToResubmit sendActions ptxs = do
+    => SendActions m -> SlotId -> [PendingTx] -> m ()
+processPtxsToResubmit sendActions curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
             take ptxsPerSlotLimit $
+            filter ((curSlot >=) . _pstNextSlot . _ptxSubmitTiming) $
             filter (has _PtxApplying . _ptxCond)
             ptxs
     logInfo $ sformat fmt (map _ptxTxId toResubmit)
@@ -117,23 +109,22 @@ processPtxsToResubmit sendActions ptxs = do
 -- if needed.
 processPtxs
     :: MonadPendings m
-    => SendActions m -> [PendingTx] -> m ()
-processPtxs sendActions ptxs = do
+    => SendActions m -> SlotId -> [PendingTx] -> m ()
+processPtxs sendActions curSlot ptxs = do
     mapM_ processPtxInNewestBlocks ptxs
-    processPtxsToResubmit sendActions ptxs
+    processPtxsToResubmit sendActions curSlot ptxs
 
 processPtxsOnSlot
     :: MonadPendings m
     => SendActions m -> SlotId -> m ()
 processPtxsOnSlot sendActions curSlot = do
     ptxs <- getPendingTxs
-    let selectedPtxs =
+    let sortedPtxs =
             sortWith _ptxCreationSlot $
             flip fromMaybe =<< topsortTxs wHash $
-            filter (whetherCheckPtxOnSlot curSlot) $
             ptxs
 
-    processPtxs sendActions selectedPtxs
+    processPtxs sendActions curSlot sortedPtxs
   where
     wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 

@@ -18,14 +18,13 @@ import           Formatting                   (build, sformat, shown, stext, (%)
 import           System.Wlog                  (WithLogger, logInfo, logWarning)
 
 import           Pos.Client.Txp.History       (saveTx)
-import           Pos.Communication            (EnqueueMsg, TxMode, submitTxRaw)
-import           Pos.Crypto                   (hash)
-import           Pos.Txp                      (TxAux (..))
+import           Pos.Communication            (EnqueueMsg, submitTxRaw)
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
                                                PtxPoolInfo)
 import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
-import           Pos.Wallet.Web.State         (casPtxCondition)
+import           Pos.Wallet.Web.State         (PtxMetaUpdate (PtxMarkAcknowledged),
+                                               casPtxCondition, ptxUpdateMeta)
 
 
 data PtxSubmissionHandlers m = PtxSubmissionHandlers
@@ -97,12 +96,12 @@ ptxResubmissionHandler PendingTx{..} =
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
-    :: (TxMode ssc ctx m, MonadCatch m)
-    => PtxSubmissionHandlers m -> EnqueueMsg m -> TxAux -> m ()
-submitAndSavePtx PtxSubmissionHandlers{..} enqueue txAux@TxAux{..} = do
-    let txId = hash taTx
-    accepted <- submitTxRaw enqueue txAux
-    saveTx (txId, txAux) `catches` handlers accepted
+    :: MonadWalletWebMode m
+    => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
+submitAndSavePtx PtxSubmissionHandlers{..} enqueue PendingTx{..} = do
+    ack <- submitTxRaw enqueue _ptxTxAux
+    when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+    saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack
   where
     handlers accepted =
         [ Handler $ \e ->
@@ -116,7 +115,6 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue txAux@TxAux{..} = do
             -- At the moment of writting this no network error can be here.
             minorError "unknown error" e
         ]
-
     minorError desc e = do
         pshOnMinor e
         logInfo $

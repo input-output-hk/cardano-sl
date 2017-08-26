@@ -7,12 +7,18 @@ module Pos.Wallet.Web.Pending.Types
     , ptxCond
     , ptxCreationSlot
     , ptxWallet
+    , ptxPeerAck
+    , ptxSubmitTiming
 
     , PtxCondition (..)
     , _PtxApplying
     , _PtxInNewestBlocks
     , _PtxPersisted
     , _PtxWontApply
+
+    , PtxSubmitTiming (..)
+    , pstNextSlot
+    , pstNextDelay
 
     , PtxBlockInfo
     , PtxPoolInfo
@@ -25,7 +31,7 @@ import qualified Data.Text.Buildable
 import           Formatting                       (bprint, build, (%))
 
 import           Pos.Client.Txp.History           (TxHistoryEntry)
-import           Pos.Core.Types                   (ChainDifficulty, SlotId)
+import           Pos.Core.Types                   (ChainDifficulty, FlatSlotId, SlotId)
 import           Pos.Txp.Core.Types               (TxAux, TxId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
@@ -82,6 +88,13 @@ instance Buildable PtxCondition where
         PtxWontApply reason _ ->
             bprint ("wont apply ("%build%")") reason
 
+data PtxSubmitTiming = PtxSubmitTiming
+    { _pstNextSlot  :: SlotId
+    , _pstNextDelay :: FlatSlotId
+    } deriving (Eq, Show)
+
+makeLenses ''PtxSubmitTiming
+
 -- | All info kept about pending transaction
 data PendingTx = PendingTx
     { _ptxTxId         :: !TxId  -- for the sake of optimization
@@ -90,6 +103,8 @@ data PendingTx = PendingTx
                                    -- this in NOT when tx appeared in blockchain
     , _ptxCond         :: !PtxCondition
     , _ptxWallet       :: !(CId Wal)
+    , _ptxPeerAck      :: !Bool
+    , _ptxSubmitTiming :: !PtxSubmitTiming
     } deriving (Eq, Show)
 
 makeLenses ''PendingTx

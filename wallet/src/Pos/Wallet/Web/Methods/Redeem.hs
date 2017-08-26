@@ -34,7 +34,6 @@ import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (addOnlyNewPendingTx)
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail)
 
@@ -92,19 +91,22 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
-    (txAux@TxAux {..}, redeemAddress, redeemBalance) <-
-         rewrapTxError "Cannot send redemption transaction" $ do
-             res@(txAux, _, _) <- prepareRedemptionTx redeemSK dstAddr
-             res <$ submitAndSaveNewPtx enqueueMsg txAux
+    th <- rewrapTxError "Cannot send redemption transaction" $ do
+        (txAux, redeemAddress, redeemBalance) <-
+                prepareRedemptionTx redeemSK dstAddr
+
+        ts <- Just <$> getCurrentTimestamp
+        let tx = taTx txAux
+            txHash = hash tx
+            txInputs = [TxOut redeemAddress redeemBalance]
+            th = THEntry txHash tx Nothing txInputs [dstAddr] ts
+            dstWallet = aiWId accId
+        ptx <- mkPendingTx dstWallet txHash txAux th
+
+        th <$ submitAndSaveNewPtx enqueueMsg ptx
 
     -- add redemption transaction to the history of new wallet
-    ts <- Just <$> getCurrentTimestamp
-    let txInputs = [TxOut redeemAddress redeemBalance]
-        txHash = hash taTx
-        dstWallet = aiWId accId
-        th = THEntry (hash taTx) taTx Nothing txInputs [dstAddr] ts
     ctxs <- addHistoryTx (aiWId accId) th
-    addOnlyNewPendingTx =<< mkPendingTx dstWallet txHash txAux th
     ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
     noIncomingTx = InternalError "Can't report incoming transaction"

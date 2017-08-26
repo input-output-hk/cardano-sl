@@ -7,6 +7,7 @@ module Pos.Wallet.Web.State.Storage
        , AddressLookupMode (..)
        , CustomAddressType (..)
        , WalletTip (..)
+       , PtxMetaUpdate (..)
        , Query
        , Update
        , getProfile
@@ -57,31 +58,37 @@ module Pos.Wallet.Web.State.Storage
        , updateHistoryCache
        , setPtxCondition
        , casPtxCondition
+       , ptxUpdateMeta
        , addOnlyNewPendingTx
        ) where
 
 import           Universum
 
-import           Control.Lens                 (at, ix, makeClassy, makeLenses, non',
-                                               toListOf, traversed, (%=), (+=), (.=),
-                                               (<<.=), (?=), _Empty, _head)
-import           Control.Monad.State.Class    (put)
-import           Data.Default                 (Default, def)
-import qualified Data.HashMap.Strict          as HM
-import           Data.SafeCopy                (base, deriveSafeCopySimple)
-import           Data.Time.Clock.POSIX        (POSIXTime)
+import           Control.Lens                   (at, ix, makeClassy, makeLenses, non',
+                                                 toListOf, traversed, (%=), (+=), (.=),
+                                                 (<<.=), (?=), _Empty, _head)
+import           Control.Monad.State.Class      (put)
+import           Data.Default                   (Default, def)
+import qualified Data.HashMap.Strict            as HM
+import           Data.SafeCopy                  (base, deriveSafeCopySimple)
+import           Data.Time.Clock.POSIX          (POSIXTime)
 
-import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Core.Types               (Timestamp)
-import           Pos.Txp                      (TxAux, TxId, Utxo)
-import           Pos.Types                    (HeaderHash)
-import           Pos.Util.BackupPhrase        (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CCoin,
-                                               CHash, CId, CProfile, CTxId, CTxMeta,
-                                               CUpdateInfo, CWAddressMeta (..),
-                                               CWalletAssurance, CWalletMeta,
-                                               PassPhraseLU, Wal, addrMetaToAccount)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, ptxCond)
+import           Pos.Client.Txp.History         (TxHistoryEntry)
+import           Pos.Core.Context               (HasCoreConstants)
+import           Pos.Core.Types                 (Timestamp)
+import           Pos.Txp                        (TxAux, TxId, Utxo)
+import           Pos.Types                      (HeaderHash)
+import           Pos.Util.BackupPhrase          (BackupPhrase)
+import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, CCoin,
+                                                 CHash, CId, CProfile, CTxId, CTxMeta,
+                                                 CUpdateInfo, CWAddressMeta (..),
+                                                 CWalletAssurance, CWalletMeta,
+                                                 PassPhraseLU, Wal, addrMetaToAccount)
+import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition,
+                                                 PtxSubmitTiming (..), ptxCond,
+                                                 ptxSubmitTiming)
+import           Pos.Wallet.Web.Pending.Updates (incPtxSubmitTimingPure,
+                                                 ptxMarkAcknowledgedPure)
 
 type AddressSortingKey = Int
 
@@ -149,7 +156,7 @@ instance Default WalletStorage where
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. ({-MonadThrow m, -}MonadState WalletStorage m) => m a
+type Update a = forall m. (HasCoreConstants, MonadState WalletStorage m) => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode
@@ -386,6 +393,18 @@ casPtxCondition wid txId expectedCond newCond = do
     when success $ setPtxCondition wid txId newCond
     return success
 
+data PtxMetaUpdate
+    = PtxIncSubmitTiming
+    | PtxMarkAcknowledged
+
+-- | For simple atomic updates of meta info
+ptxUpdateMeta :: CId Wal -> TxId -> PtxMetaUpdate -> Update ()
+ptxUpdateMeta wid txId updType =
+    wsWalletInfos . ix wid . wsPendingTxs . ix txId %=
+        case updType of
+            PtxIncSubmitTiming  -> ptxSubmitTiming %~ incPtxSubmitTimingPure
+            PtxMarkAcknowledged -> ptxMarkAcknowledgedPure
+
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
@@ -412,6 +431,8 @@ deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
 deriveSafeCopySimple 0 'base ''TxAux
 deriveSafeCopySimple 0 'base ''PtxCondition
+deriveSafeCopySimple 0 'base ''PtxSubmitTiming
+deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo

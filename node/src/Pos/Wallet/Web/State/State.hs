@@ -4,6 +4,7 @@ module Pos.Wallet.Web.State.State
        ( WalletState
        , MonadWalletWebDB
        , WalletTip (..)
+       , PtxMetaUpdate (..)
        , getWalletWebState
        , WebWalletModeDB
        , openState
@@ -65,6 +66,7 @@ module Pos.Wallet.Web.State.State
        , setWalletUtxo
        , setPtxCondition
        , casPtxCondition
+       , ptxUpdateMeta
        , addOnlyNewPendingTx
        ) where
 
@@ -75,6 +77,7 @@ import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
+import           Pos.Core.Context             (HasCoreConstants)
 import           Pos.Txp                      (TxId, Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
@@ -86,11 +89,15 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
-                                               CustomAddressType (..), WalletStorage,
-                                               WalletTip (..))
+                                               CustomAddressType (..), PtxMetaUpdate (..),
+                                               WalletStorage, WalletTip (..))
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
-type MonadWalletWebDB ctx m = (MonadReader ctx m, HasLens WalletState ctx WalletState)
+type MonadWalletWebDB ctx m =
+    ( MonadReader ctx m
+    , HasLens WalletState ctx WalletState
+    , HasCoreConstants
+    )
 
 getWalletWebState :: MonadWalletWebDB ctx m => m WalletState
 getWalletWebState = view (lensOf @WalletState)
@@ -264,6 +271,11 @@ casPtxCondition
     :: WebWalletModeDB ctx m
     => CId Wal -> TxId -> PtxCondition -> PtxCondition -> m Bool
 casPtxCondition = updateDisk ... A.CasPtxCondition
+
+ptxUpdateMeta
+    :: WebWalletModeDB ctx m
+    => CId Wal -> TxId -> PtxMetaUpdate -> m ()
+ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx

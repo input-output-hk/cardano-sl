@@ -12,9 +12,13 @@ module Pos.Wallet.Web.Pending.Util
 
 import           Universum
 
+import           Control.Lens                 ((+~))
 import           Formatting                   (build, sformat, (%))
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
+import           Pos.Core.Context             (HasCoreConstants)
+import           Pos.Core.Slotting            (flatSlotId)
+import           Pos.Core.Types               (SlotId)
 import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
 import           Pos.Txp                      (ToilVerFailure (..), TxAux (..), TxId)
 import           Pos.Util.Util                (maybeThrow)
@@ -22,7 +26,7 @@ import           Pos.Wallet.Web.ClientTypes   (CId, CWalletMeta (..), Wal, cwAss
 import           Pos.Wallet.Web.Error         (WalletError (RequestError))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                                               PtxPoolInfo)
+                                               PtxPoolInfo, PtxSubmitTiming (..))
 import           Pos.Wallet.Web.State         (getWalletMeta)
 
 ptxPoolInfo :: PtxCondition -> Maybe PtxPoolInfo
@@ -33,6 +37,15 @@ ptxPoolInfo _                  = Nothing
 isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
 
+mkPtxSubmitTiming :: HasCoreConstants => SlotId -> PtxSubmitTiming
+mkPtxSubmitTiming creationSlot =
+    PtxSubmitTiming
+    { _pstNextSlot  = creationSlot & flatSlotId +~ initialSubmitDelay
+    , _pstNextDelay = 1
+    }
+  where
+    initialSubmitDelay = 3
+
 mkPendingTx
     :: MonadWalletWebMode m
     => CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
@@ -42,6 +55,8 @@ mkPendingTx wid _ptxTxId _ptxTxAux th = do
     return PendingTx
         { _ptxCond = PtxApplying th
         , _ptxWallet = wid
+        , _ptxPeerAck = False
+        , _ptxSubmitTiming = mkPtxSubmitTiming _ptxCreationSlot
         , ..
         }
   where
@@ -69,4 +84,3 @@ isReclaimableFailure = \case
     ToilUnknownAttributes{}  -> False
     ToilBootInappropriate{}  -> False
     ToilRepeatedInput{}      -> False
-

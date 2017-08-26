@@ -52,15 +52,15 @@ type TxMode ssc ctx m
 
 submitAndSaveTx
     :: TxMode ssc ctx m
-    => EnqueueMsg m -> TxAux -> m TxAux
+    => EnqueueMsg m -> TxAux -> m Bool
 submitAndSaveTx enqueue txAux@TxAux {..} = do
     let txId = hash taTx
     whenM (liftIO $ (> 0) <$> randomRIO (0 :: Int, 6)) $ do
         logInfo "Failing sending"
         throwM ToilKnown
-    submitTxRaw enqueue txAux
+    accepted <- submitTxRaw enqueue txAux
     saveTx (txId, txAux)
-    return txAux
+    return accepted
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
@@ -107,7 +107,7 @@ prepareRedemptionTx rsk output = do
 -- | Send the ready-to-use transaction
 submitTxRaw
     :: (MinWorkMode m, MonadGState m)
-    => EnqueueMsg m -> TxAux -> m ()
+    => EnqueueMsg m -> TxAux -> m Bool
 submitTxRaw enqueue txAux@TxAux {..} = do
     let txId = hash taTx
     logInfo $ sformat ("Submitting transaction: "%txaF) txAux

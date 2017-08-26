@@ -231,8 +231,11 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                                   addTxFailed tpsMVar
                                   logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
                               Right (tx, _) -> do
-                                  submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
-                                  addTxSubmit tpsMVar >> logInfo (sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours)
+                                  res <- submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
+                                  addTxSubmit tpsMVar
+                                  logInfo $ if res
+                                      then sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours
+                                      else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
                           sendTxs (n - 1)

@@ -41,8 +41,8 @@ import qualified Data.DList                   as DL
 import qualified Data.Map.Strict              as M (lookup)
 import qualified Data.Text.Buildable
 import qualified Ether
-import           Ether.Internal               (HasLens (..))
 import           Formatting                   (bprint, build, (%))
+import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util.Text           (listJson)
 import           System.Wlog                  (WithLogger)
 
@@ -58,8 +58,11 @@ import           Pos.DB                       (MonadDBRead, MonadGState, MonadRe
 import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.Genesis                  (GenesisUtxo (..), GenesisWStakeholders)
 import qualified Pos.GState                   as GS
-import           Pos.Slotting                 (MonadSlots, getSlotStartPure, getSystemStartM)
+import           Pos.Infra.Semaphore          (BlkSemaphore)
+import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
+                                               getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
+import           Pos.Util.Util                (HasLens (..), HasLens')
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
@@ -227,14 +230,16 @@ type TxHistoryEnv ctx m =
     ( MonadRealDB ctx m
     , MonadDBRead m
     , MonadGState m
-    , MonadThrow m
+    , MonadMask m
     , WithLogger m
     , MonadSlots ctx m
     , MonadReader ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
     , MonadTxpMem TxpExtra_TMP ctx m
+    , HasLens' ctx BlkSemaphore
     , MonadBaseControl IO m
+    , Mockable CurrentTime m
     )
 
 type TxHistoryEnv' ssc ctx m =
@@ -280,8 +285,8 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 saveTxDefault txw = do
 #ifdef WITH_EXPLORER
-    res <- runExceptT (eTxProcessTransaction txw)
+    res <- eTxProcessTransaction txw
 #else
-    res <- runExceptT (txProcessTransaction txw)
+    res <- txProcessTransaction txw
 #endif
     eitherToThrow res

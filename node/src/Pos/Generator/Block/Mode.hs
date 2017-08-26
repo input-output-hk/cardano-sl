@@ -31,8 +31,8 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
-                                              HasCoreConstants, GenesisWStakeholders (..),
+import           Pos.Core                    (GenesisWStakeholders (..), HasCoreConstants,
+                                              HasPrimaryKey (..), IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
@@ -52,8 +52,9 @@ import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
-import           Pos.Slotting                (HasSlottingVar (..), MonadSlots(..), MonadSlotsData,
-                                              SlottingData, currentTimeSlottingSimple)
+import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
+                                              MonadSlotsData, SlottingData,
+                                              currentTimeSlottingSimple)
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)

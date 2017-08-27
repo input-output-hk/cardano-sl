@@ -8,6 +8,7 @@
 
 module Test.Pos.CborSpec
        ( spec
+       , U
        , extensionProperty
        ) where
 
@@ -21,7 +22,6 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import qualified Codec.CBOR.FlatTerm               as CBOR
-import           Crypto.Hash.Algorithms            (SHA256)
 import           Node.Message.Class
 
 import           Pos.Arbitrary.Block               ()
@@ -42,15 +42,10 @@ import           Pos.Binary.Infra                  ()
 import           Pos.Binary.Relay                  ()
 import           Pos.Core.Context                  (giveStaticConsts)
 import           Pos.Core.Types
-import           Pos.Crypto                        (AbstractHash)
-import           Pos.Crypto.RedeemSigning          (RedeemSignature)
-import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
-                                                    Signature, Signed)
 import           Pos.Data.Attributes
 import           Pos.Slotting.Types
 import           Pos.Update.Poll
 import           Pos.Util.BackupPhrase
-import           Pos.Util.Chrono
 
 import           Test.Pos.Util                     (binaryTest)
 
@@ -320,20 +315,10 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
             binaryTest @AUnit
             binaryTest @ANewtype
         describe "Lib/core instances" $ do
-            binaryTest @(Attributes AddrAttributes)
-            binaryTest @(Attributes ())
             binaryTest @(Attributes X1)
             binaryTest @(Attributes X2)
             binaryTest @MessageCode
             binaryTest @SlottingData
-            binaryTest @(NewestFirst NE U)
-            binaryTest @(OldestFirst NE U)
-            binaryTest @(Signature U)
-            binaryTest @(Signed U)
-            binaryTest @(RedeemSignature U)
-            binaryTest @(ProxySecretKey U)
-            binaryTest @(ProxySignature U U)
-            binaryTest @(AbstractHash SHA256 U)
             binaryTest @BackupPhrase
             binaryTest @(PrevValue U)
 

@@ -4,7 +4,7 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
-import           Crypto.Hash             (Blake2b_224, Blake2b_256)
+import           Crypto.Hash             (Blake2b_224, Blake2b_256, SHA256)
 import qualified Data.ByteString         as BS
 import           Formatting              (sformat)
 import           Prelude                 ((!!))
@@ -21,6 +21,7 @@ import           Pos.Binary              (AsBinary, Bi)
 import qualified Pos.Crypto              as Crypto
 import           Pos.Ssc.GodTossing      ()
 
+import           Test.Pos.CborSpec       (U)
 import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
                                           msgLenLimitedTest, safeCopyEncodeDecode,
                                           safeCopyTest, serDeserId, (.=.))
@@ -44,22 +45,12 @@ spec = describe "Crypto" $ do
 
     describe "Hashing" $ do
         describe "Hash instances" $ do
-            prop
-                "Bi"
-                (binaryEncodeDecode @(Crypto.Hash Word64))
-            prop
-                "SafeCopy"
-                (safeCopyEncodeDecode @(Crypto.Hash Word64))
+            prop "Bi" (binaryEncodeDecode @(Crypto.Hash Word64))
+            prop "SafeCopy" (safeCopyEncodeDecode @(Crypto.Hash Word64))
         describe "hashes of different values are different" $ do
-            prop
-                "Bool"
-                (hashInequality @Bool)
-            prop
-                "[()]"
-                (hashInequality @[()])
-            prop
-                "[[Maybe Integer]]"
-                (hashInequality @[[Maybe Integer]])
+            prop "Bool" (hashInequality @Bool)
+            prop "[()]" (hashInequality @[()])
+            prop "[[Maybe Integer]]" (hashInequality @[[Maybe Integer]])
         -- Let's protect ourselves against *accidental* hash changes
         describe "check hash sample" $ do
             specify "1 :: Word64" $
@@ -78,30 +69,30 @@ spec = describe "Crypto" $ do
 
     describe "Signing" $ do
         describe "SafeSigning" $ do
-            prop
-                "passphrase matches"
-                matchingPassphraseWorks
-            prop
-                "passphrase doesn't match"
-                mismatchingPassphraseFails
-            prop
-                -- if you see this case failing, then passphrase changing endpoint
-                -- in wallets have to be reconsidered
-                "passphrase change doesn't modify key address"
-                passphraseChangeLeavesAddressUnmodified
+            prop "passphrase matches" matchingPassphraseWorks
+            prop "passphrase doesn't match" mismatchingPassphraseFails
+            prop -- if you see this case failing, then passphrase changing endpoint
+                 -- in wallets have to be reconsidered
+                 "passphrase change doesn't modify key address"
+                 passphraseChangeLeavesAddressUnmodified
 
         describe "Identity testing" $ do
             describe "Bi instances" $ do
                 binaryTest @Crypto.SecretKey
                 binaryTest @Crypto.PublicKey
                 binaryTest @(Crypto.Signature ())
+                binaryTest @(Crypto.Signature U)
                 binaryTest @(Crypto.ProxyCert Int32)
                 binaryTest @(Crypto.ProxySecretKey Int32)
+                binaryTest @(Crypto.ProxySecretKey U)
                 binaryTest @(Crypto.ProxySignature Int32 Int32)
+                binaryTest @(Crypto.ProxySignature U U)
                 binaryTest @(Crypto.Signed Bool)
+                binaryTest @(Crypto.Signed U)
                 binaryTest @Crypto.RedeemSecretKey
                 binaryTest @Crypto.RedeemPublicKey
                 binaryTest @(Crypto.RedeemSignature Bool)
+                binaryTest @(Crypto.RedeemSignature U)
                 binaryTest @Crypto.Threshold
                 binaryTest @Crypto.VssPublicKey
                 binaryTest @Crypto.PassPhrase
@@ -112,6 +103,9 @@ spec = describe "Crypto" $ do
                 binaryTest @Crypto.SecretProof
                 binaryTest @Crypto.SecretSharingExtra
                 binaryTest @Crypto.HDAddressPayload
+                binaryTest @(Crypto.AbstractHash SHA256 U)
+                binaryTest @(Crypto.AbstractHash Blake2b_224 U)
+                binaryTest @(Crypto.AbstractHash Blake2b_256 U)
                 binaryTest @(AsBinary Crypto.VssPublicKey)
                 binaryTest @(AsBinary Crypto.Secret)
                 binaryTest @(AsBinary Crypto.Share)

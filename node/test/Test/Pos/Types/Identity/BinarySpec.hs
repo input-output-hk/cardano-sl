@@ -14,7 +14,9 @@ import           Pos.Core.Context              (giveStaticConsts)
 import qualified Pos.Core.Fee                  as Fee
 import           Pos.Data.Attributes           (Attributes (..))
 import qualified Pos.Types                     as T
+import           Pos.Util.Chrono               (NE, NewestFirst, OldestFirst)
 
+import           Test.Pos.CborSpec             (U)
 import           Test.Pos.Util                 (binaryTest)
 
 spec :: Spec
@@ -32,7 +34,6 @@ spec = giveStaticConsts $ describe "Types" $ do
             binaryTest @T.Timestamp
             binaryTest @T.TimeDiff
             binaryTest @T.EpochIndex
-            binaryTest @(Attributes ())
             binaryTest @T.Coin
             binaryTest @T.CoinPortion
             binaryTest @T.LocalSlotIndex
@@ -42,8 +43,8 @@ spec = giveStaticConsts $ describe "Types" $ do
             binaryTest @T.ChainDifficulty
             binaryTest @T.SoftforkRule
             binaryTest @T.BlockVersionData
-            binaryTest @(DataMsg T.ProxySKHeavy)
-            binaryTest @(DataMsg T.ProxySKLight)
+            binaryTest @(Attributes ())
+            binaryTest @(Attributes T.AddrAttributes)
         describe "Core.Fee" $ do
             binaryTest @Fee.Coeff
             binaryTest @Fee.TxSizeLinear
@@ -54,3 +55,6 @@ spec = giveStaticConsts $ describe "Types" $ do
             binaryTest @T.ApplicationName
             binaryTest @T.SoftwareVersion
             binaryTest @T.BlockVersion
+        describe "Util/Data" $ do
+            binaryTest @(NewestFirst NE U)
+            binaryTest @(OldestFirst NE U)

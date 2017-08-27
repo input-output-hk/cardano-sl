@@ -33,7 +33,6 @@ spec = describe "Txp (transaction processing) system" $ do
             modifyMaxSuccess (const 100) $ binaryTest @T.TxAux
             binaryTest @T.TxProof
             binaryTest @(SmallGenerator T.TxPayload)
-            modifyMaxSuccess (const 10) $ binaryTest @T.TxPayload
         describe "Network" $ do
             binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
             binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))

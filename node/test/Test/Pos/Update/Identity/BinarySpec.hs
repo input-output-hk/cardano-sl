@@ -15,6 +15,7 @@ import qualified Pos.Communication.Relay as R
 import           Pos.Core                (giveStaticConsts)
 import qualified Pos.Update              as U
 
+import           Test.Pos.CborSpec       (U)
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
@@ -36,6 +37,7 @@ spec = giveStaticConsts $
                 binaryTest @U.UpId
             describe "Poll" $ do
                 binaryTest @(U.PrevValue ())
+                binaryTest @(U.PrevValue U)
                 binaryTest @U.USUndo
                 binaryTest @U.UpsExtra
                 binaryTest @U.DpsExtra

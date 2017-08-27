@@ -22,7 +22,6 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import qualified Codec.CBOR.FlatTerm               as CBOR
-import           Node.Message.Class                (MessageCode)
 
 import           Pos.Arbitrary.Block               ()
 import           Pos.Arbitrary.Core                ()
@@ -44,9 +43,6 @@ import           Pos.Core.Context                  (giveStaticConsts)
 import           Pos.Core.Types                    (ScriptVersion)
 import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
                                                     encodeAttributes)
-import           Pos.Slotting.Types                (SlottingData)
-import           Pos.Update.Poll                   (PrevValue)
-import           Pos.Util.BackupPhrase             (BackupPhrase)
 
 import           Test.Pos.Util                     (binaryTest)
 
@@ -318,10 +314,6 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
         describe "Lib/core instances" $ do
             binaryTest @(Attributes X1)
             binaryTest @(Attributes X2)
-            binaryTest @MessageCode
-            binaryTest @SlottingData
-            binaryTest @BackupPhrase
-            binaryTest @(PrevValue U)
 
             -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
             it "UserSecret" $ pendingWith "No Eq instance defined"

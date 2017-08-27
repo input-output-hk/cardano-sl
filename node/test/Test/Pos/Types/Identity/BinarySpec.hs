@@ -4,19 +4,20 @@ module Test.Pos.Types.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec          (Spec, describe)
+import           Test.Hspec            (Spec, describe)
 import           Universum
 
-import           Pos.Arbitrary.Core  ()
-import           Pos.Arbitrary.Infra ()
-import           Pos.Core.Context    (giveStaticConsts)
-import qualified Pos.Core.Fee        as Fee
-import           Pos.Data.Attributes (Attributes (..))
-import qualified Pos.Types           as T
-import           Pos.Util.Chrono     (NE, NewestFirst, OldestFirst)
+import           Pos.Arbitrary.Core    ()
+import           Pos.Arbitrary.Infra   ()
+import           Pos.Core.Context      (giveStaticConsts)
+import qualified Pos.Core.Fee          as Fee
+import           Pos.Data.Attributes   (Attributes (..))
+import qualified Pos.Types             as T
+import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.Chrono       (NE, NewestFirst, OldestFirst)
 
-import           Test.Pos.CborSpec   (U)
-import           Test.Pos.Util       (binaryTest)
+import           Test.Pos.CborSpec     (U)
+import           Test.Pos.Util         (binaryTest)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Types" $ do
@@ -54,6 +55,7 @@ spec = giveStaticConsts $ describe "Types" $ do
             binaryTest @T.ApplicationName
             binaryTest @T.SoftwareVersion
             binaryTest @T.BlockVersion
-        describe "Util/Data" $ do
+        describe "Util" $ do
+            binaryTest @BackupPhrase
             binaryTest @(NewestFirst NE U)
             binaryTest @(OldestFirst NE U)

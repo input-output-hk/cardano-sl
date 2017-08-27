@@ -6,6 +6,7 @@ module Test.Pos.Communication.Identity.BinarySpec
 
 import           Universum
 
+import           Node.Message.Class    (MessageCode)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 
@@ -20,5 +21,6 @@ spec = describe "Communication" $ do
     describe "Bi instances" $ do
         binaryTest @C.HandlerSpec
         binaryTest @C.VerInfo
+        binaryTest @MessageCode
     describe "Bi extension" $ do
         prop "HandlerSpec" (extensionProperty @C.HandlerSpec)

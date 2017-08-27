@@ -4,7 +4,7 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
-import           Crypto.Hash             (Blake2b_224, Blake2b_256, SHA256)
+import           Crypto.Hash             (Blake2b_224, Blake2b_256)
 import qualified Data.ByteString         as BS
 import           Formatting              (sformat)
 import           Prelude                 ((!!))
@@ -103,7 +103,6 @@ spec = describe "Crypto" $ do
                 binaryTest @Crypto.SecretProof
                 binaryTest @Crypto.SecretSharingExtra
                 binaryTest @Crypto.HDAddressPayload
-                binaryTest @(Crypto.AbstractHash SHA256 U)
                 binaryTest @(Crypto.AbstractHash Blake2b_224 U)
                 binaryTest @(Crypto.AbstractHash Blake2b_256 U)
                 binaryTest @(AsBinary Crypto.VssPublicKey)

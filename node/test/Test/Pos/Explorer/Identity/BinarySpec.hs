@@ -6,13 +6,14 @@ module Test.Pos.Explorer.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec     (Spec, describe)
+import           Test.Hspec            (Spec, describe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
-import           Pos.Explorer   (TxExtra)
-import           Test.Pos.Util  (binaryTest)
+import           Pos.Explorer          (TxExtra)
+import           Test.Pos.Util         (binaryTest)
 
 
 spec :: Spec
 spec = describe "Explorer types" $ do
     describe "Bi instances" $ do
-        binaryTest @TxExtra
+        modifyMaxSuccess (const 100) $ binaryTest @TxExtra

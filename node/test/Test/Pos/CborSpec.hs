@@ -1,4 +1,3 @@
-
 -- | Test.Pos.CborSpec specification
 
 {-# LANGUAGE AllowAmbiguousTypes       #-}
@@ -40,32 +39,18 @@ import           Pos.Binary.Crypto                 ()
 import           Pos.Binary.GodTossing             ()
 import           Pos.Binary.Infra                  ()
 import           Pos.Binary.Relay                  ()
-import           Pos.Block.Core
 import           Pos.Communication.Protocol
-import           Pos.Communication.Types.Relay     (DataMsg)
 import           Pos.Core.Context                  (giveStaticConsts)
 import           Pos.Core.Fee
-import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
 import           Pos.Crypto                        (AbstractHash)
-import           Pos.Crypto.HD                     (HDAddressPayload)
-import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
-                                                    RedeemSignature)
-import           Pos.Crypto.SafeSigning            (PassPhrase)
-import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProof,
-                                                    SecretSharingExtra, Share, VssKeyPair,
-                                                    VssPublicKey)
+import           Pos.Crypto.RedeemSigning          (RedeemSignature)
+import           Pos.Crypto.SecretSharing          (Secret, VssPublicKey)
 import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
-                                                    PublicKey, SecretKey, Signature,
-                                                    Signed)
+                                                    Signature, Signed)
 import           Pos.Data.Attributes
-import           Pos.Delegation.Types
-import           Pos.DHT.Model.Types
-import           Pos.Explorer
 import           Pos.Slotting.Types
-import           Pos.Ssc.GodTossing
 import           Pos.Txp                           hiding (Unknown)
-import           Pos.Update.Core
 import           Pos.Update.Poll
 import           Pos.Util.BackupPhrase
 import           Pos.Util.Chrono
@@ -370,145 +355,26 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                     prop "IntHashMap" (soundInstanceProperty @(HashMap Int Int))
                     prop "IntSet" (soundInstanceProperty @(Set Int))
                     prop "IntHashSet" (soundInstanceProperty @(HashSet Int))
-            describe "Plutus Types' instances are sound" $ do
-                prop "Script" (soundInstanceProperty @Script)
             describe "Core instances are sound" $ do
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int))
-                prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int))
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int64))
-                prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int64))
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int64))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word))
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Word))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word16))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word32))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word64))
-                prop "TinyVarInt" (soundInstanceProperty @TinyVarInt)
-                prop "Coeff" (soundInstanceProperty @Coeff)
-                prop "TxSizeLinear" (soundInstanceProperty @TxSizeLinear)
-                prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy .&&. extensionProperty @TxFeePolicy)
-                prop "Timestamp" (soundInstanceProperty @Timestamp)
-                prop "TimeDiff"  (soundInstanceProperty @TimeDiff)
-                prop "EpochIndex" (soundInstanceProperty @EpochIndex)
-                prop "Attributes" (soundInstanceProperty @(Attributes ()))
-                prop "AddrType" (soundInstanceProperty @AddrType)
-                prop "AddrStakeDistribution" (soundInstanceProperty @AddrStakeDistribution)
-                prop "AddrSpendingData" (soundInstanceProperty @AddrSpendingData)
+                prop "TxFeePolicy" (extensionProperty @TxFeePolicy)
                 prop "Attributes AddrAttributes" (soundInstanceProperty @(Attributes AddrAttributes))
-                prop "Address'" (soundInstanceProperty @Address')
-                prop "Address" (soundInstanceProperty @Address)
-                prop "Coin" (soundInstanceProperty @Coin)
-                prop "CoinPortion" (soundInstanceProperty @CoinPortion)
-                prop "LocalSlotIndex" (soundInstanceProperty @LocalSlotIndex)
-                prop "SlotId" (soundInstanceProperty @SlotId)
-                prop "EpochOrSlot" (soundInstanceProperty @EpochOrSlot)
-                prop "SharedSeed" (soundInstanceProperty @SharedSeed)
-                prop "ChainDifficulty" (soundInstanceProperty @ChainDifficulty)
-                prop "StakeDistribution" (soundInstanceProperty @StakeDistribution)
-                prop "GenesisCoreData" (soundInstanceProperty @GenesisCoreData)
-                prop "ApplicationName" (soundInstanceProperty @ApplicationName)
-                prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion)
-                prop "BlockVersion" (soundInstanceProperty @BlockVersion)
+                prop "Attributes" (soundInstanceProperty @(Attributes ()))
                 prop "Attributes X1" (soundInstanceProperty @(Attributes X1))
                 prop "Attributes X2" (soundInstanceProperty @(Attributes X2))
-                prop "AbstractHash " (soundInstanceProperty @(Attributes X2))
-                prop "VssPublicKey" (soundInstanceProperty @VssPublicKey)
-                prop "VssKeyPair" (soundInstanceProperty @VssKeyPair)
-                prop "Secret" (soundInstanceProperty @Secret)
-                prop "Share" (soundInstanceProperty @Share)
-                prop "EncShare" (soundInstanceProperty @EncShare)
-                prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra)
-                prop "SecretProof" (soundInstanceProperty @SecretProof)
-                prop "AsBinary VssPublicKey" (    soundInstanceProperty @(AsBinary VssPublicKey)
-                                                 .&&. asBinaryIdempotencyProperty @VssPublicKey
-                                             )
-                prop "AsBinary Secret" (    soundInstanceProperty @Secret
-                                           .&&. asBinaryIdempotencyProperty @Secret
-                                       )
-                prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share))
-                prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare))
-                prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof))
-                prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra)
-                prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof))
-                prop "PublicKey" (soundInstanceProperty @PublicKey)
-                prop "SecretKey" (soundInstanceProperty @SecretKey)
-                prop "PassPhrase" (soundInstanceProperty @PassPhrase)
-                prop "HDAddressPayload" (soundInstanceProperty @HDAddressPayload)
-                prop "RedeemPublicKey" (soundInstanceProperty @RedeemPublicKey)
-                prop "RedeemSecretKey" (soundInstanceProperty @RedeemSecretKey)
-                prop "Commitment" (soundInstanceProperty @Commitment)
-                prop "CommitmentsMap" (soundInstanceProperty @CommitmentsMap)
-                prop "VssCertificate" (soundInstanceProperty @VssCertificate)
-                prop "Opening" (soundInstanceProperty @Opening)
-                prop "GtPayload" (soundInstanceProperty @GtPayload)
-                prop "GtProof" (soundInstanceProperty @GtProof)
-                prop "DataMsg MCCommitment" (soundInstanceProperty @(DataMsg MCCommitment))
-                prop "DataMsg MCOpening" (soundInstanceProperty @(DataMsg MCOpening))
-                modifyMaxSuccess (const 50) $ prop "DataMsg MCShares" (soundInstanceProperty @(DataMsg MCShares))
-                prop "DataMsg MCVssCertificate" (soundInstanceProperty @(DataMsg MCVssCertificate))
-                prop "DHTKey" (soundInstanceProperty @DHTKey)
-                prop "DHTData" (soundInstanceProperty @DHTData)
+                prop "AsBinary VssPublicKey" (asBinaryIdempotencyProperty @VssPublicKey)
+                prop "AsBinary Secret" (asBinaryIdempotencyProperty @Secret)
                 prop "MessageCode" (soundInstanceProperty @MessageCode)
-                prop "HandlerSpec" (soundInstanceProperty @HandlerSpec .&&. extensionProperty @HandlerSpec)
-                prop "VerInfo" (soundInstanceProperty @VerInfo)
-                prop "DlgPayload" (soundInstanceProperty @DlgPayload)
-                prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData)
+                prop "HandlerSpec" (extensionProperty @HandlerSpec)
                 prop "SlottingData" (soundInstanceProperty @SlottingData)
-                prop "SystemTag" (soundInstanceProperty @SystemTag)
-                prop "UpdateVote" (soundInstanceProperty @UpdateVote)
-                prop "UpdateData" (soundInstanceProperty @UpdateData)
-                prop "BlockVersionModifier" (soundInstanceProperty @BlockVersionModifier)
-                prop "UpdateProposal" (soundInstanceProperty @UpdateProposal)
-                prop "UpdateProposalToSign" (soundInstanceProperty @UpdateProposalToSign)
-                prop "UpdatePayload" (soundInstanceProperty @UpdatePayload)
-                prop "VoteState" (soundInstanceProperty @VoteState)
-                modifyMaxSuccess (const 50) $ prop "USUndo" (soundInstanceProperty @USUndo)
-                prop "UpsExtra" (soundInstanceProperty @UpsExtra)
-                prop "DpsExtra" (soundInstanceProperty @DpsExtra)
-                prop "UndecidedProposalState" (soundInstanceProperty @UndecidedProposalState)
-                prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState)
-                prop "ProposalState" (soundInstanceProperty @ProposalState)
-                prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState)
-                prop "TxIn" (soundInstanceProperty @TxIn)
-                modifyMaxSuccess (const 100) $
-                    prop "TxDistribution" (soundInstanceProperty @TxDistribution)
-                prop "TxSigData" (soundInstanceProperty @TxSigData)
-                prop "TxProof" (soundInstanceProperty @TxProof)
-                prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData)
-                prop "MainExtraBodyData" (soundInstanceProperty @MainExtraBodyData)
-                prop "GenesisExtraHeaderData" (soundInstanceProperty @GenesisExtraHeaderData)
-                prop "GenesisExtraBodyData" (soundInstanceProperty @GenesisExtraBodyData)
-                prop "GtTag" (soundInstanceProperty @GtTag)
-                prop "TossModifier" (soundInstanceProperty @TossModifier)
-                prop "VssCertData" (soundInstanceProperty @VssCertData)
-                prop "GtGlobalState" (soundInstanceProperty @GtGlobalState)
-                prop "GtSecretStorage" (soundInstanceProperty @GtSecretStorage)
-                prop "GenesisGtData" (soundInstanceProperty @GenesisGtData)
                 prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U))
                 prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U))
-                modifyMaxSuccess (const 100) $
-                    prop "TxExtra" (soundInstanceProperty @TxExtra)
-                -- This runs extremely slow. For now the quickest course of action is to decrease the number of tests performed.
-                modifyMaxSuccess (const 10) $
-                    prop "TxPayload" (soundInstanceProperty @TxPayload)
-                modifyMaxSuccess (const 100) $
-                    prop "TxAux" (soundInstanceProperty @TxAux)
-                prop "Tx" (soundInstanceProperty @Tx)
-                prop "TxOutAux" (soundInstanceProperty @TxOutAux)
-                prop "TxOut" (soundInstanceProperty @TxOut)
-                modifyMaxSuccess (const 100) $
-                    prop "DataMsg TxMsgContents" (soundInstanceProperty @(DataMsg TxMsgContents))
-                prop "TxInWitness" (soundInstanceProperty @TxInWitness .&&. extensionProperty @TxInWitness)
+                prop "TxInWitness" (extensionProperty @TxInWitness)
                 prop "Signature a" (soundInstanceProperty @(Signature U))
                 prop "Signed a"    (soundInstanceProperty @(Signed U))
                 prop "RedeemSignature a"    (soundInstanceProperty @(RedeemSignature U))
                 prop "ProxySecretKey w"     (soundInstanceProperty @(ProxySecretKey U))
                 prop "ProxySignature w a"   (soundInstanceProperty @(ProxySignature U U))
                 prop "AbstractHash SHA256"  (soundInstanceProperty @(AbstractHash SHA256 U))
-                prop "DataMsgSKLight" (soundInstanceProperty @(DataMsg ProxySKLight))
-                prop "DataMsgSKHeavy" (soundInstanceProperty @(DataMsg ProxySKHeavy))
-                prop "DataMsgSKLightConfirmation" (soundInstanceProperty @(DataMsg ProxySKLightConfirmation))
                 prop "BackupPhrase" (soundInstanceProperty @BackupPhrase)
                 prop "PrevValue a"  (soundInstanceProperty @(PrevValue U))
                 -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.

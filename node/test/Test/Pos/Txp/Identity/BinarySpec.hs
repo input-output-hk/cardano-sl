@@ -8,6 +8,7 @@ import           Universum
 
 import           Data.Tagged             (Tagged)
 import           Test.Hspec              (Spec, describe)
+import           Test.Hspec.QuickCheck   (modifyMaxSuccess)
 
 import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
@@ -26,16 +27,17 @@ spec = describe "Txp (transaction processing) system" $ do
             binaryTest @T.TxOutAux
             binaryTest @T.Tx
             binaryTest @T.TxInWitness
-            binaryTest @T.TxDistribution
+            modifyMaxSuccess (const 100) $ binaryTest @T.TxDistribution
             binaryTest @T.TxSigData
-            binaryTest @T.TxAux
+            modifyMaxSuccess (const 100) $ binaryTest @T.TxAux
             binaryTest @T.TxProof
             binaryTest @(SmallGenerator T.TxPayload)
+            modifyMaxSuccess (const 10) $ binaryTest @T.TxPayload
         describe "Network" $ do
             binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
             binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
             binaryTest @(R.MempoolMsg T.TxMsgContents)
-            binaryTest @(R.DataMsg T.TxMsgContents)
+            modifyMaxSuccess (const 100) $ binaryTest @(R.DataMsg T.TxMsgContents)
     describe "Message length limit" $ do
         msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
         msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))

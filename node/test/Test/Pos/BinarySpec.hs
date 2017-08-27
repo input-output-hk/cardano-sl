@@ -46,9 +46,12 @@ fixedSizeIntSpec :: Spec
 fixedSizeIntSpec = describe "FixedSizeInt" $ do
     binaryTest @(B.FixedSizeInt Int)
     binaryTest @(B.FixedSizeInt Int64)
+    binaryTest @(B.FixedSizeInt Word)
 
 tinyVarIntSpec :: Spec
 tinyVarIntSpec = describe "TinyVarInt" $ do
+    binaryTest @(B.TinyVarInt)
+
     let hex n = "0x" ++ showHex n ""
         test_roundtrip n =
             prop ("roundtrip " ++ hex n) $ binaryEncodeDecode (B.TinyVarInt n)

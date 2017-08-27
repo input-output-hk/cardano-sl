@@ -24,8 +24,13 @@ spec = giveStaticConsts $ describe "Types" $ do
     describe "Bi instances" $ do
         describe "Core.Address" $ do
             binaryTest @T.Address
+            binaryTest @T.Address'
+            binaryTest @T.AddrType
+            binaryTest @T.AddrStakeDistribution
+            binaryTest @T.AddrSpendingData
         describe "Core.Types" $ do
             binaryTest @T.Timestamp
+            binaryTest @T.TimeDiff
             binaryTest @T.EpochIndex
             binaryTest @(Attributes ())
             binaryTest @T.Coin

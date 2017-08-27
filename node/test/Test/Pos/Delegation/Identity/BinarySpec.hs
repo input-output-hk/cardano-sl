@@ -11,6 +11,7 @@ import           Test.Hspec                    (Spec, describe)
 import           Pos.Arbitrary.Delegation      ()
 import           Pos.Arbitrary.Infra           ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Core                      (ProxySKHeavy, ProxySKLight)
 import           Pos.Delegation                (DlgPayload, ProxySKLightConfirmation)
 import           Test.Pos.Util                 (binaryTest)
 
@@ -19,6 +20,7 @@ spec :: Spec
 spec = describe "Delegation types" $ do
     describe "Bi instances" $ do
         binaryTest @DlgPayload
-        binaryTest @(DataMsg ProxySKLightConfirmation)
     describe "Network" $ do
         binaryTest @(DataMsg ProxySKLightConfirmation)
+        binaryTest @(DataMsg ProxySKLight)
+        binaryTest @(DataMsg ProxySKHeavy)

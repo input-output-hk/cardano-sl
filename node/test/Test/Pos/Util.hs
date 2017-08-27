@@ -89,7 +89,7 @@ safeCopyEncodeDecode a =
 serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
 serDeserId a =
     either (error . toText) identity
-        (fromBinary $ asBinary @t a) ===  a
+        (fromBinary $ asBinary @t a) === a
 
 showReadId :: (Show a, Eq a, Read a) => a -> Property
 showReadId a = read (show a) === a

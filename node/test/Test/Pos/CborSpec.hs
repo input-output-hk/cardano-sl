@@ -45,7 +45,6 @@ import           Pos.Core.Fee
 import           Pos.Core.Types
 import           Pos.Crypto                        (AbstractHash)
 import           Pos.Crypto.RedeemSigning          (RedeemSignature)
-import           Pos.Crypto.SecretSharing          (Secret, VssPublicKey)
 import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
                                                     Signature, Signed)
 import           Pos.Data.Attributes
@@ -264,11 +263,6 @@ soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
     arbitraryAttrs :: Gen aa
     arbitraryAttrs = Attributes <$> arbitrary <*> arbitrary
 
-asBinaryIdempotencyProperty ::
-       forall a. (Arbitrary a, AsBinaryClass a, Eq a, Show a)
-    => Property
-asBinaryIdempotencyProperty = forAll (arbitrary :: Gen a) $ \input ->
-    (fromBinary . asBinary $ input) === Right input
 
 testANewtype :: SpecWith ()
 testANewtype = testAgainstFile "a newtype" x rep
@@ -336,8 +330,6 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
             binaryTest @(Attributes ())
             binaryTest @(Attributes X1)
             binaryTest @(Attributes X2)
-            prop "AsBinary VssPublicKey" (asBinaryIdempotencyProperty @VssPublicKey)
-            prop "AsBinary Secret" (asBinaryIdempotencyProperty @Secret)
             binaryTest @MessageCode
             prop "HandlerSpec" (extensionProperty @HandlerSpec)
             binaryTest @SlottingData

@@ -62,7 +62,9 @@ ptxResubmissionHandler
 ptxResubmissionHandler PendingTx{..} =
     PtxSubmissionHandlers
     { pshOnNonReclaimable = \peerAck e ->
-        if | peerAck ->
+        if | _ptxPeerAck ->
+             reportPeerAppliedEarlier
+           | peerAck ->
              reportPeerApplied
            | PtxApplying poolInfo <- _ptxCond -> do
              cancelPtx poolInfo e
@@ -80,6 +82,11 @@ ptxResubmissionHandler PendingTx{..} =
         void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
         reportCanceled
 
+    reportPeerAppliedEarlier =
+        logInfo $
+        sformat ("Some peer applied tx #"%build%" earlier - continuing \
+            \tracking")
+            _ptxTxId
     reportPeerApplied =
         logInfo $
         sformat ("Peer applied tx #"%build%", while we didn't - continuing \

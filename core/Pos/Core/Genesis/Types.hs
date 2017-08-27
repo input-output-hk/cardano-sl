@@ -15,11 +15,11 @@ module Pos.Core.Genesis.Types
 
 import           Universum
 
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, sformat, (%))
-import           Serokell.Util       (allDistinct, listJson, pairF)
+import           Formatting          (bprint, (%))
+import           Serokell.Util       (allDistinct, mapJson)
 
+import           Pos.Core.Address    (isBootstrapEraDistrAddress)
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeGetCoin,
                                       unsafeIntegerToCoin)
 import           Pos.Core.Types      (Address, Coin, StakeholderId, mkCoin)
@@ -89,13 +89,12 @@ type AddrDistribution = ([Address], StakeDistribution)
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.
 newtype GenesisWStakeholders = GenesisWStakeholders
-    { getGenesisWStakeholders :: HashMap StakeholderId Word16
+    { getGenesisWStakeholders :: Map StakeholderId Word16
     } deriving (Show, Eq)
 
 instance Buildable GenesisWStakeholders where
     build (GenesisWStakeholders m) =
-        bprint ("GenesisWStakeholders: "%listJson)
-               (map (sformat pairF) $ HM.toList m)
+        bprint ("GenesisWStakeholders: "%mapJson) m
 
 -- | Hardcoded genesis data to generate utxo from.
 data GenesisCoreData = UnsafeGenesisCoreData
@@ -113,27 +112,30 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
     -- it's safe to use it here because weights are word16 and should
     -- be really low in production, so this sum is not going to be
     -- even more than 10-15 coins.
-    unsafeIntegerToCoin . sum $ map fromIntegral $ HM.elems bootHolders
+    unsafeIntegerToCoin . sum $ map fromIntegral $ toList bootHolders
 
 -- | Safe constructor for 'GenesisCoreData'. Throws error if something
 -- goes wrong.
 mkGenesisCoreData ::
        [AddrDistribution]
-    -> HashMap StakeholderId Word16
+    -> Map StakeholderId Word16
     -> Either String GenesisCoreData
 mkGenesisCoreData distribution bootStakeholders = do
-    -- Every set of addresses should match the stakeholders count
-    for_ distribution $ \(addrs, distr) ->
+    for_ distribution $ \(addrs, distr) -> do
+        -- Every set of addresses should match the stakeholders count
         unless (fromIntegral (length addrs) == getDistributionSize distr) $
             Left "mkGenesisCoreData: addressCount != stakeholdersCount \
                  \for some set of addresses"
-    -- Addresses in each list are distinct (except for CustomStakes)
-    for_ distribution $ \(addrs, distr) -> do
+        -- Addresses in each list are distinct (except for CustomStakes)
         let isCustom = case distr of
                 CustomStakes{} -> True
                 _              -> False
         unless (isCustom || allDistinct addrs) $
             Left "mkGenesisCoreData: addresses in some list aren't distinct"
+        unless (all isBootstrapEraDistrAddress addrs) $
+            Left $ "mkGenesisCoreData: there is an address with stake " <>
+                   "distribution different from BootstrapEraDistr"
+
     -- No address belongs to more than one distribution
     let addrList = concatMap (ordNub . fst) distribution
     unless (allDistinct addrList) $

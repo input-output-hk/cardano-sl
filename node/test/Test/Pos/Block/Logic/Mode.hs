@@ -47,7 +47,7 @@ import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogCont
 import           Pos.Block.Types                (Undo)
 import           Pos.Core                       (AddrSpendingData (..), HasCoreConstants,
                                                  IsHeader, SlotId, StakeDistribution (..),
-                                                 Timestamp (..), makePubKeyAddress,
+                                                 Timestamp (..), makePubKeyAddressBoot,
                                                  mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
@@ -72,10 +72,11 @@ import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
                                                  SimpleSlottingVar, SlottingData,
-                                                 mkSimpleSlottingVar, getCurrentSlotSimple,
+                                                 currentTimeSlottingSimple,
                                                  getCurrentSlotBlockingSimple,
                                                  getCurrentSlotInaccurateSimple,
-                                                 currentTimeSlottingSimple)
+                                                 getCurrentSlotSimple,
+                                                 mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
@@ -168,7 +169,7 @@ instance Arbitrary TestParams where
         let _tpStartTime = fromMicroseconds 0
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let publicKeys = map toPublic (toList invSecretsMap)
-        let addresses = map makePubKeyAddress publicKeys
+        let addresses = map makePubKeyAddressBoot publicKeys
         let invAddrSpendingData =
                 mkInvAddrSpendingData $
                 addresses `zip` (map PubKeyASD publicKeys)
@@ -188,11 +189,11 @@ instance Arbitrary TestParams where
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data TestInitModeContext ssc = TestInitModeContext
-    { timcDBPureVar   :: DBPureVar
-    , timcGenesisUtxo :: GenesisUtxo
-    , timcSlottingVar :: TVar SlottingData
-    , timcSystemStart :: !Timestamp
-    , timcLrcContext  :: LrcContext
+    { timcDBPureVar      :: DBPureVar
+    , timcGenesisContext :: GenesisContext
+    , timcSlottingVar    :: TVar SlottingData
+    , timcSystemStart    :: !Timestamp
+    , timcLrcContext     :: LrcContext
     }
 
 makeLensesWith postfixLFields ''TestInitModeContext
@@ -254,7 +255,7 @@ initBlockTestContext tp@TestParams {..} callback = do
     let initCtx =
             TestInitModeContext
                 dbPureVar
-                (_tpGenesisContext ^. gtcUtxo)
+                _tpGenesisContext
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -330,7 +331,10 @@ instance HasLens DBPureVar (TestInitModeContext ssc) DBPureVar where
     lensOf = timcDBPureVar_L
 
 instance HasLens GenesisUtxo (TestInitModeContext ssc) GenesisUtxo where
-    lensOf = timcGenesisUtxo_L
+    lensOf = timcGenesisContext_L . gtcUtxo
+
+instance HasLens GenesisWStakeholders (TestInitModeContext ssc) GenesisWStakeholders where
+    lensOf = timcGenesisContext_L . gtcWStakeholders
 
 instance HasLens LrcContext (TestInitModeContext ssc) LrcContext where
     lensOf = timcLrcContext_L

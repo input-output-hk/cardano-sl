@@ -35,12 +35,13 @@ newtype Limit t = Limit { getLimit :: Word32 }
 instance Functor Limit where
     fmap _ (Limit x) = Limit x
 
+-- TODO: use <*> instead of <+>
 infixl 4 <+>
 (<+>) :: Limit (a -> b) -> Limit a -> Limit b
 Limit x <+> Limit y = Limit $ x + y
 
--- | Defines how to determine the limit of some type's serialized representation
---   using some particular state. See 'recvLimited'.
+-- | Defines how to determine the limit of some type's serialized
+-- representation using some particular state. See 'recvLimited'.
 class MessageLimited a where
     getMsgLenLimit :: DB.MonadGState m => Proxy a -> m (Limit a)
     default getMsgLenLimit :: ( MessageLimitedPure a

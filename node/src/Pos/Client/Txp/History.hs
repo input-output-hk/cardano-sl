@@ -69,12 +69,11 @@ import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 import           Pos.Txp                      (txProcessTransaction)
 #endif
 import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
-                                               ToilT, Tx (..), TxAux (..), TxDistribution,
-                                               TxId, TxOut, TxOutAux (..), TxWitness,
-                                               TxpError (..), applyTxToUtxo,
-                                               evalToilTEmpty, flattenTxPayload,
-                                               getLocalTxs, runDBToil, topsortTxs,
-                                               txOutAddress, utxoGet)
+                                               ToilT, Tx (..), TxAux (..), TxId, TxOut,
+                                               TxOutAux (..), TxWitness, TxpError (..),
+                                               applyTxToUtxo, evalToilTEmpty,
+                                               flattenTxPayload, getLocalTxs, runDBToil,
+                                               topsortTxs, txOutAddress, utxoGet)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
@@ -124,17 +123,17 @@ getTxsByPredicate
     => ([Address] -> Bool)
     -> Maybe ChainDifficulty
     -> Maybe Timestamp
-    -> [(WithHash Tx, TxWitness, TxDistribution)]
+    -> [(WithHash Tx, TxWitness)]
     -> m [TxHistoryEntry]
 getTxsByPredicate pr mDiff mTs txs = go txs []
   where
     go [] acc = return acc
-    go ((wh@(WithHash tx txId), _wit, dist) : rest) acc = do
+    go ((wh@(WithHash tx txId), _wit) : rest) acc = do
         inputs <- getSenders tx
         let outgoings = toList $ txOutAddress <$> _txOutputs tx
         let incomings = map txOutAddress inputs
 
-        applyTxToUtxo wh dist
+        applyTxToUtxo wh
 
         let acc' = if pr (incomings ++ outgoings)
                    then (THEntry txId tx mDiff inputs outgoings mTs : acc)
@@ -147,7 +146,7 @@ getRelatedTxsByAddrs
     => [Address]
     -> Maybe ChainDifficulty
     -> Maybe Timestamp
-    -> [(WithHash Tx, TxWitness, TxDistribution)]
+    -> [(WithHash Tx, TxWitness)]
     -> m [TxHistoryEntry]
 getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 
@@ -170,7 +169,7 @@ deriveAddrHistoryBlk
     -> m (DList TxHistoryEntry)
 deriveAddrHistoryBlk _ _ hist (Left _) = pure hist
 deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
-    let mapper TxAux {..} = (withHash taTx, taWitness, taDistribution)
+    let mapper TxAux {..} = (withHash taTx, taWitness)
         difficulty = blk ^. difficultyL
         mTimestamp = getTs blk
     txs <- getRelatedTxsByAddrs addrs (Just difficulty) mTimestamp $
@@ -274,7 +273,7 @@ getLocalHistoryDefault
     => [Address] -> m (DList TxHistoryEntry)
 getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
     let mapper (txid, TxAux {..}) =
-            (WithHash taTx txid, taWitness, taDistribution)
+            (WithHash taTx txid, taWitness)
         topsortErr = TxpInternalError
             "getLocalHistory: transactions couldn't be topsorted!"
     ltxs <- lift $ map mapper <$> getLocalTxs

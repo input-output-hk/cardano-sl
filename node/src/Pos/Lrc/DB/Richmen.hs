@@ -28,12 +28,12 @@ module Pos.Lrc.DB.Richmen
 import           Universum
 
 import qualified Data.HashMap.Strict         as HM
-import           Ether.Internal              (HasLens (..))
 
 import           Pos.Binary.Core             ()
 import           Pos.Constants               (genesisHeavyDelThd)
 import           Pos.Context                 (GenesisUtxo, genesisStakesM)
-import           Pos.Core                    (Coin, EpochIndex, StakeholderId)
+import           Pos.Core                    (Coin, EpochIndex, GenesisWStakeholders,
+                                              StakeholderId)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class               (RichmenComponent (..),
                                               SomeRichmenComponent (..),
@@ -43,14 +43,18 @@ import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types               (FullRichmenData, RichmenSet)
 import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
 import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
-import           Pos.Util.Util               (getKeys)
+import           Pos.Util.Util               (HasLens', getKeys)
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcRichmen
-    :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m)
+prepareLrcRichmen ::
+       ( MonadReader ctx m
+       , HasLens' ctx GenesisUtxo
+       , HasLens' ctx GenesisWStakeholders
+       , MonadDB m
+       )
     => m ()
 prepareLrcRichmen = do
     genesisDistribution <- HM.toList <$> genesisStakesM

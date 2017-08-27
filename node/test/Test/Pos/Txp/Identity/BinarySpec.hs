@@ -28,16 +28,15 @@ spec = describe "Txp (transaction processing) system" $ do
             binaryTest @T.TxOutAux
             binaryTest @T.Tx
             binaryTest @T.TxInWitness
-            modifyMaxSuccess (const 100) $ binaryTest @T.TxDistribution
             binaryTest @T.TxSigData
-            modifyMaxSuccess (const 100) $ binaryTest @T.TxAux
+            binaryTest @T.TxAux
             binaryTest @T.TxProof
             binaryTest @(SmallGenerator T.TxPayload)
         describe "Network" $ do
             binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
             binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
             binaryTest @(R.MempoolMsg T.TxMsgContents)
-            modifyMaxSuccess (const 100) $ binaryTest @(R.DataMsg T.TxMsgContents)
+            binaryTest @(R.DataMsg T.TxMsgContents)
     describe "Bi extension" $ do
         prop "TxInWitness" (extensionProperty @T.TxInWitness)
     describe "Message length limit" $ do

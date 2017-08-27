@@ -422,7 +422,7 @@ createMainBody bodyLimit sId payload =
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block
-        txPayload <- either throwError pure $ mkTxPayload txs'
+        let txPayload = mkTxPayload txs'
         let body = BC.MainBody txPayload sscPayload dlgPay' usPayload'
         return body
   where

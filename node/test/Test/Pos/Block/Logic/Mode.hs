@@ -188,7 +188,7 @@ instance Arbitrary TestParams where
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
-data TestInitModeContext ssc = TestInitModeContext
+data TestInitModeContext = TestInitModeContext
     { timcDBPureVar      :: DBPureVar
     , timcGenesisContext :: GenesisContext
     , timcSlottingVar    :: TVar SlottingData
@@ -198,9 +198,9 @@ data TestInitModeContext ssc = TestInitModeContext
 
 makeLensesWith postfixLFields ''TestInitModeContext
 
-type TestInitMode ssc = ReaderT (TestInitModeContext ssc) Production
+type TestInitMode = ReaderT TestInitModeContext Production
 
-runTestInitMode :: TestInitModeContext ssc -> TestInitMode ssc a -> IO a
+runTestInitMode :: TestInitModeContext -> TestInitMode a -> IO a
 runTestInitMode ctx = runProduction . flip runReaderT ctx
 
 ----------------------------------------------------------------------------
@@ -285,7 +285,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
             let btCtx = BlockTestContext {btcSystemStart = systemStart, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
-    sudoLiftIO $ runTestInitMode @SscGodTossing initCtx $ initBlockTestContextDo
+    sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo
 
 ----------------------------------------------------------------------------
 -- ExecMode
@@ -327,53 +327,53 @@ instance HasCoreConstants => Testable (BlockProperty a) where
 -- Boilerplate TestInitContext instances
 ----------------------------------------------------------------------------
 
-instance HasLens DBPureVar (TestInitModeContext ssc) DBPureVar where
+instance HasLens DBPureVar TestInitModeContext DBPureVar where
     lensOf = timcDBPureVar_L
 
-instance HasLens GenesisUtxo (TestInitModeContext ssc) GenesisUtxo where
+instance HasLens GenesisUtxo TestInitModeContext GenesisUtxo where
     lensOf = timcGenesisContext_L . gtcUtxo
 
-instance HasLens GenesisWStakeholders (TestInitModeContext ssc) GenesisWStakeholders where
+instance HasLens GenesisWStakeholders TestInitModeContext GenesisWStakeholders where
     lensOf = timcGenesisContext_L . gtcWStakeholders
 
-instance HasLens LrcContext (TestInitModeContext ssc) LrcContext where
+instance HasLens LrcContext TestInitModeContext LrcContext where
     lensOf = timcLrcContext_L
 
-instance HasSlottingVar (TestInitModeContext ssc) where
+instance HasSlottingVar TestInitModeContext where
     slottingTimestamp = timcSystemStart_L
     slottingVar = timcSlottingVar_L
 
-instance MonadDBRead (TestInitMode ssc) where
+instance MonadDBRead TestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
 
-instance MonadDB (TestInitMode ssc) where
+instance MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
 
 instance
     (HasCoreConstants, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (TestInitMode ssc)
+    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockPureDefault @ssc
     dbGetUndo   = DB.dbGetUndoPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderPureDefault @ssc
 
 instance (HasCoreConstants, SscHelpersClass ssc) =>
-         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (TestInitMode ssc) where
+         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo TestInitMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
     (HasCoreConstants, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (TestInitMode ssc)
+    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
     dbGetUndo   = DB.dbGetUndoSscPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
 
-instance (HasCoreConstants, MonadSlotsData ctx (TestInitMode ssc))
-      => MonadSlots ctx (TestInitMode ssc)
+instance (HasCoreConstants, MonadSlotsData ctx TestInitMode)
+      => MonadSlots ctx TestInitMode
   where
     getCurrentSlot           = getCurrentSlotSimple           =<< mkSimpleSlottingVar
     getCurrentSlotBlocking   = getCurrentSlotBlockingSimple   =<< mkSimpleSlottingVar

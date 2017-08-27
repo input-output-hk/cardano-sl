@@ -23,8 +23,9 @@ import qualified Data.Text.Buildable
 import           Formatting          (bprint, int, (%))
 import           Serokell.Util       (listJson, mapJson)
 
-import           Pos.Core            (AddrSpendingData (..), Address, StakeholderId,
-                                      addressHash, checkAddrSpendingData,
+import           Pos.Core            (AddrSpendingData (..), Address,
+                                      IsBootstrapEraAddr (..), StakeholderId, addressHash,
+                                      checkAddrSpendingData, makePubKeyAddress,
                                       makePubKeyAddressBoot)
 import           Pos.Crypto          (PublicKey, SecretKey, toPublic)
 
@@ -85,15 +86,21 @@ instance Buildable AllSecrets where
             (unInvAddrSpendingData _asSpendingData)
 
 -- | Make simple 'AllSecrets' assuming that only public key addresses
--- with bootstrap era distribution exist in the system.
+-- with bootstrap era distribution and single key distribution exist
+-- in the system.
 mkAllSecretsSimple :: [SecretKey] -> AllSecrets
 mkAllSecretsSimple sks =
     AllSecrets
     { _asSecretKeys = mkInvSecretsMap sks
-    , _asSpendingData = mkInvAddrSpendingData $ addresses `zip` spendingDataList
+    , _asSpendingData = invAddrSpendingData
     }
   where
     pks :: [PublicKey]
     pks = map toPublic sks
     spendingDataList = map PubKeyASD pks
-    addresses = map makePubKeyAddressBoot pks
+    addressesNonBoot = map (makePubKeyAddress (IsBootstrapEraAddr False)) pks
+    addressesBoot = map makePubKeyAddressBoot pks
+    invAddrSpendingData =
+        mkInvAddrSpendingData $
+        zip addressesNonBoot spendingDataList <>
+        zip addressesBoot spendingDataList

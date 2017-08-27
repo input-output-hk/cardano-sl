@@ -7,20 +7,21 @@ module Pos.Wallet.Web.Pending.Updates
 
 import           Universum
 
-import           Control.Lens                 ((%=), (<<.=))
+import           Control.Lens                 ((%=), (+=), (<<*=), (<<.=))
 
 import           Pos.Core.Context             (HasCoreConstants)
-import           Pos.Core.Slotting            (flattenSlotId, unflattenSlotId)
+import           Pos.Core.Slotting            (flatSlotId)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (..),
-                                               pstNextDelay, ptxPeerAck, ptxSubmitTiming)
+                                               pstNextDelay, pstNextSlot, ptxPeerAck,
+                                               ptxSubmitTiming)
 
 
-incPtxSubmitTimingPure :: HasCoreConstants => PtxSubmitTiming -> PtxSubmitTiming
-incPtxSubmitTimingPure PtxSubmitTiming{..} =
-    PtxSubmitTiming
-    { _pstNextSlot = unflattenSlotId $ flattenSlotId _pstNextSlot + _pstNextDelay
-    , _pstNextDelay = 2 * _pstNextDelay
-    }
+incPtxSubmitTimingPure
+    :: HasCoreConstants
+    => PtxSubmitTiming -> PtxSubmitTiming
+incPtxSubmitTimingPure = execState $ do
+    curDelay <- pstNextDelay <<*= 2
+    pstNextSlot . flatSlotId += curDelay
 
 ptxMarkAcknowledgedPure :: PendingTx -> PendingTx
 ptxMarkAcknowledgedPure = execState $ do

@@ -34,7 +34,7 @@ data PtxSubmissionHandlers m = PtxSubmissionHandlers
       pshOnNonReclaimable  :: forall e. (Exception e, Buildable e)
                            => Bool -> e -> m ()
       -- | When minor error occurs, which means that transaction has
-      -- a chance to beapplied later.
+      -- a chance to be applied later.
     , pshOnMinor           :: SomeException -> m ()
     }
 

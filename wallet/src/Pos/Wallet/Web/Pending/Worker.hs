@@ -79,7 +79,8 @@ resubmitPtxsDuringSlot sendActions ptxs = do
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
         slotDuration <- getNextEpochSlotDuration
-        let checkPeriod = max 0 $ slotDuration - convertUnit submitionEta
+        let checkPeriod = max @Microsecond 0
+                        $ convertUnit slotDuration - convertUnit submitionEta
         return (checkPeriod `div` fromIntegral toResubmitNum)
 
 processPtxsToResubmit
@@ -98,8 +99,8 @@ processPtxsToResubmit sendActions curSlot ptxs = do
     fmt = "Transactions to resubmit on current slot: "%listJson
     evalPtxsPerSlotLimit = do
         slotDuration <- getNextEpochSlotDuration
-        let limit = fromIntegral @Microsecond $
-                convertUnit slotDuration `div` convertUnit pendingTxResubmitionPeriod
+        let limit = fromIntegral $
+                convertUnit slotDuration `div` pendingTxResubmitionPeriod
         when (limit <= 0) $
             logInfo "'pendingTxResubmitionPeriod' is larger than slot duration,\
                     \ won't resubmit any pending transaction"

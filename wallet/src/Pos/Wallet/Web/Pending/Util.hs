@@ -18,7 +18,7 @@ import           Formatting                   (build, sformat, (%))
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Context             (HasCoreConstants)
 import           Pos.Core.Slotting            (flatSlotId)
-import           Pos.Core.Types               (SlotId)
+import           Pos.Core.Types               (FlatSlotId, SlotId)
 import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
 import           Pos.Txp                      (ToilVerFailure (..), TxAux (..), TxId)
 import           Pos.Util.Util                (maybeThrow)
@@ -44,7 +44,7 @@ mkPtxSubmitTiming creationSlot =
     , _pstNextDelay = 1
     }
   where
-    initialSubmitDelay = 3
+    initialSubmitDelay = 3 :: FlatSlotId
 
 mkPendingTx
     :: MonadWalletWebMode m
@@ -63,10 +63,12 @@ mkPendingTx wid _ptxTxId _ptxTxAux th = do
     noWallet =
         RequestError $ sformat ("Failed to get meta of wallet "%build) wid
 
+-- | Whether formed transaction ('TxAux') has a change to be applied later
+-- after specified error.
 isReclaimableFailure :: ToilVerFailure -> Bool
 isReclaimableFailure = \case
-    -- If number of 'ToilVerFailure' constructors will ever change, compiler
-    -- will complain - for this purpose we consider all cases explicitly here.
+    -- We consider all cases explicitly here to prevent changing
+    -- constructors set blindly
     ToilKnown                -> True
     ToilTipsMismatch{}       -> True
     ToilSlotUnknown          -> True

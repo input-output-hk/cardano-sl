@@ -122,7 +122,6 @@ library
 
   build-depends:       QuickCheck
                      , aeson
-                     , aeson
                      , autoexporter
                      , base
                      , base58-bytestring
@@ -131,7 +130,6 @@ library
                      , cardano-crypto
                      , cborg
                      , cereal
-                     , concurrent-extra
                      , concurrent-extra
                      , containers
                      , contravariant
@@ -167,7 +165,6 @@ library
                      , safecopy
                      , semigroups
                      , serokell-util
-                     , stm
                      , stm
                      , tagged
                      , template-haskell

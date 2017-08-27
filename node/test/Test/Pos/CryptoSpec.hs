@@ -352,22 +352,26 @@ proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
 
 redeemSignCheck :: Bi a => Crypto.RedeemSecretKey -> a -> Bool
 redeemSignCheck redeemerSK a =
-    Crypto.redeemCheckSig redeemerPK a $ Crypto.redeemSign redeemerSK a
-  where redeemerPK = Crypto.redeemToPublic redeemerSK
+    Crypto.redeemCheckSig Crypto.SignForTestingOnly redeemerPK a $
+    Crypto.redeemSign Crypto.SignForTestingOnly redeemerSK a
+  where
+    redeemerPK = Crypto.redeemToPublic redeemerSK
 
 redeemThenCheckDifferentKey
     :: Bi a
     => Crypto.RedeemSecretKey -> Crypto.RedeemPublicKey -> a -> Property
 redeemThenCheckDifferentKey sk1 pk2 a =
     (Crypto.redeemToPublic sk1 /= pk2) ==>
-    not (Crypto.redeemCheckSig pk2 a $ Crypto.redeemSign sk1 a)
+    not (Crypto.redeemCheckSig Crypto.SignForTestingOnly pk2 a $
+         Crypto.redeemSign Crypto.SignForTestingOnly sk1 a)
 
 redeemThenCheckDifferentData
     :: (Eq a, Bi a)
     => Crypto.RedeemSecretKey -> a -> a -> Property
 redeemThenCheckDifferentData sk a b =
     (a /= b) ==>
-    not (Crypto.redeemCheckSig (Crypto.redeemToPublic sk) b $ Crypto.redeemSign sk a)
+    not (Crypto.redeemCheckSig Crypto.SignForTestingOnly (Crypto.redeemToPublic sk) b $
+         Crypto.redeemSign Crypto.SignForTestingOnly sk a)
 
 packUnpackHDAddress :: Crypto.HDPassphrase -> [Word32] -> Bool
 packUnpackHDAddress passphrase path =

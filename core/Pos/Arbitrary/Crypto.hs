@@ -124,7 +124,7 @@ instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
     arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
-    arbitrary = redeemSign <$> arbitrary <*> arbitrary
+    arbitrary = redeemSign <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary

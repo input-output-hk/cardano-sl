@@ -48,7 +48,8 @@ import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTx
                                            integerToCoin, isRedeemAddress, siEpoch,
                                            unsafeAddCoin, unsafeAddressHash,
                                            unsafeSubCoin)
-import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SignTag (SignTx),
+import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
+                                           SignTag (SignRedeemTx, SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
                                            redeemSign, redeemToPublic, safeSign,
                                            safeToPublic)
@@ -233,7 +234,7 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
   where rpk = redeemToPublic rsk
         mkWit _ sigData = RedeemWitness
             { twRedeemKey = rpk
-            , twRedeemSig = redeemSign rsk sigData
+            , twRedeemSig = redeemSign SignRedeemTx rsk sigData
             }
 
 type FlatUtxo = [(TxIn, TxOutAux)]

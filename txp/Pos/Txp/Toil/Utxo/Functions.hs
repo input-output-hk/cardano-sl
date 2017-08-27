@@ -24,8 +24,8 @@ import           Pos.Core                  (AddrType (..), Address (..), Stakeho
                                             sumCoins)
 import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
                                             checkScriptAddress)
-import           Pos.Crypto                (SignTag (SignTx), WithHash (..), checkSig,
-                                            hash, redeemCheckSig)
+import           Pos.Crypto                (SignTag (SignRedeemTx, SignTx), WithHash (..),
+                                            checkSig, hash, redeemCheckSig)
 import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
@@ -225,7 +225,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
             unless (checkSig SignTx twKey txSigData twSig) $
                 throwError WitnessWrongSignature
         RedeemWitness{..} ->
-            unless (redeemCheckSig twRedeemKey txSigData twRedeemSig) $
+            unless (redeemCheckSig SignRedeemTx twRedeemKey txSigData twRedeemSig) $
                 throwError WitnessWrongSignature
         ScriptWitness{..} -> do
             let valVer = scrVersion twValidator

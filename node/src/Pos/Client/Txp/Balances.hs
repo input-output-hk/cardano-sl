@@ -17,13 +17,13 @@ import           Data.List            (partition)
 import qualified Data.Map             as M
 
 import           Pos.Core             (Address (..), Coin, IsBootstrapEraAddr (..),
-                                       isRedeemAddress, makePubKeyAddress, sumCoins,
-                                       unsafeIntegerToCoin)
+                                       isRedeemAddress, makePubKeyAddress)
 import           Pos.Crypto           (PublicKey)
 import           Pos.DB               (MonadDBRead, MonadGState, MonadRealDB)
-import           Pos.Txp              (MonadTxpMem, TxOutAux (..), Utxo, addrBelongsToSet,
-                                       getUtxoModifier, txOutValue)
+import           Pos.Txp              (MonadTxpMem, Utxo, addrBelongsToSet,
+                                       getUtxoModifier)
 import qualified Pos.Txp.DB           as DB
+import           Pos.Txp.Toil.Utxo    (getTotalCoinsInUtxo)
 import qualified Pos.Util.Modifier    as MM
 import           Pos.Wallet.Web.State (WebWalletModeDB)
 import qualified Pos.Wallet.Web.State as WS
@@ -43,9 +43,7 @@ instance {-# OVERLAPPABLE #-}
     getBalance = lift . getBalance
 
 getBalanceFromUtxo :: MonadBalances m => Address -> m Coin
-getBalanceFromUtxo addr =
-    unsafeIntegerToCoin . sumCoins .
-    map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
+getBalanceFromUtxo addr = getTotalCoinsInUtxo <$> getOwnUtxo addr
 
 type BalancesEnv ext ctx m =
     ( MonadRealDB ctx m

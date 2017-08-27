@@ -21,7 +21,6 @@ import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (MsgType (..), Origin (..))
 import           Pos.Communication.Relay    (DataParams (..), PropagationMsg (..),
                                              Relay (..), propagateData)
-import           Pos.Context                (BlkSemaphore (..))
 import           Pos.Core                   (getOurKeys)
 import           Pos.Crypto                 (SignTag (SignProxySK), proxySign,
                                              pskDelegatePk)
@@ -30,6 +29,7 @@ import           Pos.Delegation.Logic       (ConfirmPskLightVerdict (..),
                                              processConfirmProxySk, processProxySKHeavy,
                                              processProxySKLight)
 import           Pos.Delegation.Types       (ProxySKLightConfirmation)
+import           Pos.Infra.Semaphore        (BlkSemaphore (..))
 import           Pos.Types                  (ProxySKHeavy)
 import           Pos.WorkMode.Class         (WorkMode)
 

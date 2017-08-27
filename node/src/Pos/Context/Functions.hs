@@ -7,11 +7,7 @@ module Pos.Context.Functions
        , genesisUtxoM
        , genesisStakesM
        , genesisLeadersM
-
-         -- * Block semaphore.
-       , putBlkSemaphore
-       , readBlkSemaphore
-       , takeBlkSemaphore
+       , genesisBlock0M
 
          -- * LRC synchronization
        , waitLrc
@@ -28,12 +24,14 @@ import           Control.Lens        (views)
 import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 
-import           Pos.Context.Context (BlkSemaphore (..), StartTime (..))
-import           Pos.Core            (GenesisWStakeholders, HasCoreConstants, HeaderHash,
-                                      SlotLeaders, StakesMap)
+import           Pos.Block.Core      (GenesisBlock, mkGenesisBlock)
+import           Pos.Context.Context (StartTime (..))
+import           Pos.Core            (GenesisWStakeholders, HasCoreConstants, SlotLeaders,
+                                      StakesMap)
 import           Pos.Genesis         (GenesisContext (..), GenesisUtxo (..),
                                       genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
+import           Pos.Ssc.Class       (SscHelpersClass)
 import           Pos.Txp.Toil        (utxoToStakes)
 import           Pos.Util.Util       (HasLens (lensOf), HasLens', lensOf')
 
@@ -68,24 +66,13 @@ genesisLeadersM ::
 genesisLeadersM =
     genesisLeaders <$> (GenesisContext <$> genesisUtxoM <*> view lensOf')
 
-----------------------------------------------------------------------------
--- Semaphore-related logic
-----------------------------------------------------------------------------
-
-takeBlkSemaphore
-    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => m HeaderHash
-takeBlkSemaphore = takeMVar =<< views (lensOf @BlkSemaphore) unBlkSemaphore
-
-putBlkSemaphore
-    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => HeaderHash -> m ()
-putBlkSemaphore tip = flip putMVar tip =<< views (lensOf @BlkSemaphore) unBlkSemaphore
-
-readBlkSemaphore
-    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => m HeaderHash
-readBlkSemaphore = readMVar =<< views (lensOf @BlkSemaphore) unBlkSemaphore
+genesisBlock0M ::
+    forall ssc ctx m. ( Functor m, MonadReader ctx m
+                      , HasLens GenesisUtxo ctx GenesisUtxo
+                      , HasLens' ctx GenesisWStakeholders
+                      , HasCoreConstants, SscHelpersClass ssc)
+    => m (GenesisBlock ssc)
+genesisBlock0M = mkGenesisBlock @ssc Nothing 0 <$> genesisLeadersM
 
 ----------------------------------------------------------------------------
 -- Misc

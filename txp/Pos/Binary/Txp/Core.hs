@@ -6,9 +6,11 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), decodeListLen,
-                                     deriveSimpleBi, deserialize', encodeListLen,
-                                     enforceSize, matchSize, serialize')
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..),
+                                     decodeKnownCborDataItem, decodeListLen,
+                                     decodeUnknownCborDataItem, deriveSimpleBi,
+                                     encodeKnownCborDataItem, encodeListLen,
+                                     encodeUnknownCborDataItem, enforceSize, matchSize)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
@@ -22,17 +24,17 @@ instance Bi T.TxIn where
     encode T.TxInUtxo{..} =
         encodeListLen 2 <>
         encode (0 :: Word8) <>
-        encode (serialize' (txInHash, txInIndex))
+        encodeKnownCborDataItem (txInHash, txInIndex)
     encode (T.TxInUnknown tag bs) =
         encodeListLen 2 <>
         encode tag <>
-        encode bs
+        encodeUnknownCborDataItem bs
     decode = do
         enforceSize "TxIn" 2
         tag <- decode @Word8
         case tag of
-            0 -> uncurry T.TxInUtxo . deserialize' <$> decode
-            _ -> T.TxInUnknown tag <$> decode
+            0 -> uncurry T.TxInUtxo <$> decodeKnownCborDataItem
+            _ -> T.TxInUnknown tag  <$> decodeUnknownCborDataItem
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [
@@ -62,35 +64,35 @@ instance Bi T.TxInWitness where
         T.PkWitness key sig         ->
             encodeListLen 2 <>
             encode (0 :: Word8) <>
-            encode (serialize' (key, sig))
+            encodeKnownCborDataItem (key, sig)
         T.ScriptWitness val red     ->
             encodeListLen 2 <>
             encode (1 :: Word8) <>
-            encode (serialize' (val, red))
+            encodeKnownCborDataItem (val, red)
         T.RedeemWitness key sig     ->
             encodeListLen 2 <>
             encode (2 :: Word8) <>
-            encode (serialize' (key, sig))
+            encodeKnownCborDataItem (key, sig)
         T.UnknownWitnessType tag bs ->
             encodeListLen 2 <>
             encode tag <>
-            encode bs
+            encodeUnknownCborDataItem bs
     decode = do
         len <- decodeListLen
         tag <- decode @Word8
         case tag of
             0 -> do
                 matchSize len "TxInWitness.PkWitness" 2
-                uncurry T.PkWitness . deserialize' <$> decode
+                uncurry T.PkWitness <$> decodeKnownCborDataItem
             1 -> do
                 matchSize len "TxInWitness.ScriptWitness" 2
-                uncurry T.ScriptWitness . deserialize' <$> decode
+                uncurry T.ScriptWitness <$> decodeKnownCborDataItem
             2 -> do
                 matchSize len "TxInWitness.RedeemWitness" 2
-                uncurry T.RedeemWitness . deserialize' <$> decode
+                uncurry T.RedeemWitness <$> decodeKnownCborDataItem
             _ -> do
                 matchSize len "TxInWitness.UnknownWitnessType" 2
-                T.UnknownWitnessType tag <$> decode
+                T.UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
 instance Bi T.TxSigData where
     encode (T.TxSigData {..}) = encode txSigTxHash

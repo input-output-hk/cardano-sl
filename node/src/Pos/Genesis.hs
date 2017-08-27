@@ -307,9 +307,9 @@ devGenesisContext distr =
 
     -- HD wallets
     hdwSize = 2 -- should be positive
-    -- 200 coins split among hdwSize users. Should be small sum enough
-    -- to avoid making wallets slot leaders.
-    hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 200)
+    -- 20 ADA (20 millon coins) split among hdwSize users.
+    -- Shouldn't mess with LRC after CSL-1502
+    hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 20000000)
     -- should be enough for testing.
     hdwAddresses = take hdwSize genesisDevHdwAccountAddresses
     genesisDevHdwAccountAddresses :: [Address]

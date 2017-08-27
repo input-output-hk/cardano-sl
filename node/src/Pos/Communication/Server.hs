@@ -13,36 +13,39 @@ module Pos.Communication.Server
 
 import           Universum
 
-import           Data.Tagged                 (untag)
-import           System.Wlog                 (LoggerName)
+import           Data.Tagged                     (untag)
+import qualified Network.Broadcast.OutboundQueue as OQ
+import           System.Wlog                     (LoggerName)
 
-import           Pos.Binary.Communication    ()
-import           Pos.Block.Network.Listeners (blockListeners)
-import           Pos.Communication.Protocol  (MkListeners (..), EnqueueMsg)
-import           Pos.Communication.Relay     (relayListeners)
-import           Pos.Communication.Util      (wrapListener)
-import           Pos.Delegation.Listeners    (delegationRelays)
-import           Pos.Network.Types           (Topology, topologySubscribers)
-import           Pos.Ssc.Class               (SscListenersClass (..), SscWorkersClass)
-import           Pos.Subscription.Common     (subscriptionListeners)
-import           Pos.Txp                     (txRelays)
-import           Pos.Update                  (usRelays)
-import           Pos.WorkMode.Class          (WorkMode)
+import           Pos.Binary.Communication        ()
+import           Pos.Block.Network.Listeners     (blockListeners)
+import           Pos.Communication.Protocol      (EnqueueMsg, MkListeners (..))
+import           Pos.Communication.Relay         (relayListeners)
+import           Pos.Communication.Util          (wrapListener)
+import           Pos.Delegation.Listeners        (delegationRelays)
+import           Pos.Network.Types               (Bucket, NodeId, Topology,
+                                                  topologySubscribers)
+import           Pos.Ssc.Class                   (SscListenersClass (..), SscWorkersClass)
+import           Pos.Subscription.Common         (subscriptionListeners)
+import           Pos.Txp                         (txRelays)
+import           Pos.Update                      (usRelays)
+import           Pos.WorkMode.Class              (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc ctx m)
-    => Topology kademlia -> EnqueueMsg m -> MkListeners m
-allListeners topology enqueue = mconcat $
+    => OQ.OutboundQ pack NodeId Bucket
+    -> Topology kademlia -> EnqueueMsg m -> MkListeners m
+allListeners oq topology enqueue = mconcat $
         -- TODO blockListeners should use 'enqueue' rather than its own
         -- block retrieval queue, no?
-        [ modifier "block"        $ blockListeners
-        , modifier "ssc"          $ relayListeners enqueue (untag sscRelays)
-        , modifier "tx"           $ relayListeners enqueue txRelays
-        , modifier "delegation"   $ relayListeners enqueue delegationRelays
-        , modifier "update"       $ relayListeners enqueue usRelays
+        [ modifier "block"        $ blockListeners oq
+        , modifier "ssc"          $ relayListeners oq enqueue (untag sscRelays)
+        , modifier "tx"           $ relayListeners oq enqueue txRelays
+        , modifier "delegation"   $ relayListeners oq enqueue delegationRelays
+        , modifier "update"       $ relayListeners oq enqueue usRelays
         ] ++ [
-          modifier "subscription" $ subscriptionListeners subscriberNodeType
+          modifier "subscription" $ subscriptionListeners oq subscriberNodeType
         | Just (subscriberNodeType, _) <- [topologySubscribers topology]
         ]
   where

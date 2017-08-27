@@ -41,25 +41,28 @@ import qualified Data.DList                   as DL
 import qualified Data.Map.Strict              as M (lookup)
 import qualified Data.Text.Buildable
 import qualified Ether
-import           Ether.Internal               (HasLens (..))
 import           Formatting                   (bprint, build, (%))
+import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util.Text           (listJson)
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Context                  (genesisUtxoM)
-import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
-                                               Timestamp (..), difficultyL)
+import           Pos.Context                  (genesisBlock0M, genesisUtxoM)
+import           Pos.Core                     (Address, ChainDifficulty, HasCoreConstants,
+                                               HeaderHash, Timestamp (..), difficultyL,
+                                               headerHash)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.Genesis                  (GenesisUtxo (..), GenesisWStakeholders)
 import qualified Pos.GState                   as GS
+import           Pos.Infra.Semaphore          (BlkSemaphore)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
+import           Pos.Util.Util                (HasLens (..), HasLens')
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
@@ -226,14 +229,16 @@ type TxHistoryEnv ctx m =
     ( MonadRealDB ctx m
     , MonadDBRead m
     , MonadGState m
-    , MonadThrow m
+    , MonadMask m
     , WithLogger m
     , MonadSlots ctx m
     , MonadReader ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
     , MonadTxpMem TxpExtra_TMP ctx m
+    , HasLens' ctx BlkSemaphore
     , MonadBaseControl IO m
+    , Mockable CurrentTime m
     )
 
 type TxHistoryEnv' ssc ctx m =
@@ -244,13 +249,12 @@ type TxHistoryEnv' ssc ctx m =
 type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
-    :: forall ssc ctx m. TxHistoryEnv' ssc ctx m
+    :: forall ssc ctx m. (HasCoreConstants, SscHelpersClass ssc, TxHistoryEnv' ssc ctx m)
     => [Address] -> m (DList TxHistoryEntry)
 getBlockHistoryDefault addrs = do
-
-    systemStart <- getSystemStartM
-    bot         <- GS.getBot
+    bot         <- headerHash <$> genesisBlock0M @ssc
     sd          <- GS.getSlottingData
+    systemStart <- getSystemStartM
 
     let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
         fromBlund = pure . fst
@@ -280,8 +284,8 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 saveTxDefault txw = do
 #ifdef WITH_EXPLORER
-    res <- runExceptT (eTxProcessTransaction txw)
+    res <- eTxProcessTransaction txw
 #else
-    res <- runExceptT (txProcessTransaction txw)
+    res <- txProcessTransaction txw
 #endif
     eitherToThrow res

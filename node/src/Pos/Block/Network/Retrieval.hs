@@ -8,10 +8,11 @@ module Pos.Block.Network.Retrieval
 
 import           Control.Concurrent.STM     (putTMVar, swapTMVar, tryReadTBQueue,
                                              tryReadTMVar, tryTakeTMVar)
-import           Control.Lens               (_Wrapped)
+import           Control.Lens               (to, _Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
+import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, builder, int, sformat, shown, stext,
@@ -46,7 +47,8 @@ import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
+                                             _NewestFirst, _OldestFirst)
 import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
@@ -119,9 +121,10 @@ retrievalWorkerImpl SendActions {..} =
     handleHeadersRequest nodeId header mgh = do
         updateRecoveryHeader nodeId header
         let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
-                let firstHeader = headers ^. _Wrapped . _neLast
+                let oldestHeader = headers ^. _NewestFirst . _neLast
+                    newestHeader = headers ^. _NewestFirst . _neHead
                 in handleCHsValid enqueueMsg nodeId
-                                  firstHeader (headerHash header)
+                                  oldestHeader (headerHash newestHeader)
         convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $ \_ _ -> pure $ Conversation $ \conv ->
             requestHeaders cont mgh nodeId conv
         results <- waitForConversations $ fmap (handleAll (\_ -> return (Just False))) convs
@@ -277,13 +280,15 @@ handleCHsValid
     -> HeaderHash
     -> m Bool
 handleCHsValid enqueue nodeId lcaChild newestHash = do
-    let lcaChildHash = headerHash lcaChild
-    logDebug $ sformat validFormat lcaChildHash newestHash
     -- The conversation will attempt to retrieve the necessary blocks and apply
     -- them. Each one gives a 'Bool' where 'True' means that a recovery was
     -- completed (depends upon the state of the recovery-mode TMVar).
     convs <- enqueue (MsgRequestBlocks (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $
       \(conv :: ConversationActions MsgGetBlocks (MsgBlock ssc) m) -> do
+        let lcaChildHash = headerHash lcaChild
+        logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
+                           lcaChildHash
+                           newestHash
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -297,7 +302,8 @@ handleCHsValid enqueue nodeId lcaChild newestHash = do
                 return False
             Right blocks -> do
                 logDebug $ sformat
-                    ("retrievalWorker: retrieved blocks of size "%builder%": "%listJson)
+                    ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+                    (blocks ^. _OldestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
                     (map (headerHash . view blockHeader) blocks)
                 handleBlocks nodeId blocks enqueue
@@ -317,9 +323,6 @@ handleCHsValid enqueue nodeId lcaChild newestHash = do
     results <- waitForConversations $ fmap (handleAll (\_ -> return False)) convs
     let Any endedRecovery = fold $ fmap Any results
     return endedRecovery
-  where
-    validFormat =
-        "Requesting blocks from " %shortHashF % " to " %shortHashF
 
 retrieveBlocks
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
@@ -329,7 +332,7 @@ retrieveBlocks
     -> ExceptT Text m (OldestFirst NE (Block ssc))
 retrieveBlocks conv lcaChild endH = do
     blocks <- retrieveBlocks' 0 conv (lcaChild ^. prevBlockL) endH
-    let b0 = blocks ^. _Wrapped . _neHead
+    let b0 = blocks ^. _OldestFirst . _neHead
     if headerHash b0 == headerHash lcaChild
        then pure blocks
        else throwError $ sformat

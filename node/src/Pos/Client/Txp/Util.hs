@@ -9,8 +9,10 @@ module Pos.Client.Txp.Util
        , runTxCreator
        , makePubKeyTx
        , makeMPubKeyTx
+       , makeMPubKeyTxAddrs
        , makeMOfNTx
        , makeRedemptionTx
+       , createGenericTx
        , createTx
        , createMTx
        , createMOfNTx
@@ -279,8 +281,8 @@ createGenericTx
     -> Utxo
     -> TxOutputs
     -> AddrData m
-    -> TxCreator m TxWithSpendings
-createGenericTx creator utxo outputs addrData = do
+    -> m (Either TxError TxWithSpendings)
+createGenericTx creator utxo outputs addrData = runTxCreator $ do
     (inps, outs) <- prepareInpsOuts utxo outputs addrData
     pure (creator inps outs, map fst inps)
 
@@ -290,7 +292,7 @@ createGenericTxSingle
     -> Utxo
     -> TxOutputs
     -> AddrData m
-    -> TxCreator m TxWithSpendings
+    -> m (Either TxError TxWithSpendings)
 createGenericTxSingle creator = createGenericTx (creator . map snd)
 
 -- | Make a multi-transaction using given secret key and info for outputs.
@@ -302,7 +304,7 @@ createMTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMTx utxo hdwSigners outputs addrData = runTxCreator $
+createMTx utxo hdwSigners outputs addrData =
     createGenericTx (makeMPubKeyTxAddrs hdwSigners)
     utxo outputs addrData
 
@@ -315,7 +317,7 @@ createTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createTx utxo ss outputs addrData = runTxCreator $
+createTx utxo ss outputs addrData =
     createGenericTxSingle (makePubKeyTx ss)
     utxo outputs addrData
 
@@ -327,7 +329,7 @@ createMOfNTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMOfNTx utxo keys outputs addrData = runTxCreator $
+createMOfNTx utxo keys outputs addrData =
     createGenericTxSingle (makeMOfNTx validator sks)
     utxo outputs addrData
   where

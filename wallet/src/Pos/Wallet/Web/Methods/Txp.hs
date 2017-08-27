@@ -55,6 +55,6 @@ submitAndSaveNewPtx
     :: MonadWalletWebMode m
     => EnqueueMsg m -> PendingTx -> m ()
 submitAndSaveNewPtx enqueue ptx = do
-    addOnlyNewPendingTx ptx
     submitAndSavePtx ptxFirstSubmissionHandler enqueue ptx
+    addOnlyNewPendingTx ptx
 

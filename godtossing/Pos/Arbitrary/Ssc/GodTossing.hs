@@ -2,7 +2,6 @@
 
 module Pos.Arbitrary.Ssc.GodTossing
        ( BadCommAndOpening (..)
-       , BadCommitment (..)
        , BadSignedCommitment (..)
        , CommitmentOpening (..)
        , commitmentMapEpochGen
@@ -12,6 +11,8 @@ module Pos.Arbitrary.Ssc.GodTossing
 import           Universum
 
 import qualified Data.HashMap.Strict               as HM
+import qualified Data.List.NonEmpty                as NE
+import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
                                                     listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
@@ -24,7 +25,7 @@ import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
                                                     SlotId (..), addressHash)
 import           Pos.Crypto                        (SecretKey, deterministicVssKeyGen,
-                                                    toVssPublicKey)
+                                                    secureRandomBS, toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
@@ -51,18 +52,8 @@ import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall
 -- Core
 ----------------------------------------------------------------------------
 
--- | Wrapper over 'Commitment'. Creates an invalid Commitment w.r.t. 'verifyCommitment'.
-newtype BadCommitment = BadComm
-    { getBadComm :: Commitment
-    } deriving (Generic, Show, Eq)
-
-instance Arbitrary BadCommitment where
-    arbitrary = BadComm <$> do
-        Commitment <$> arbitrary <*> arbitrary <*> arbitrary
-    shrink = genericShrink
-
--- | Wrapper over 'SignedCommitment'. Creates an invalid SignedCommitment w.r.t.
--- 'verifyCommitmentSignature'.
+-- | Wrapper over 'SignedCommitment'. Creates an invalid SignedCommitment
+-- w.r.t. 'verifyCommitmentSignature'.
 newtype BadSignedCommitment = BadSignedComm
     { getBadSignedC :: SignedCommitment
     } deriving (Generic, Show, Eq)
@@ -71,8 +62,8 @@ instance Arbitrary BadSignedCommitment where
     arbitrary = BadSignedComm <$> do
         pk <- arbitrary
         sig <- arbitrary
-        badComm <- getBadComm <$> (arbitrary :: Gen BadCommitment)
-        return (pk, badComm, sig)
+        comm <- Commitment <$> arbitrary <*> arbitrary
+        return (pk, comm, sig)
     shrink = genericShrink
 
 -- | Pair of 'Commitment' and 'Opening'.
@@ -89,7 +80,7 @@ data BadCommAndOpening = BadCommAndOpening
 
 instance Arbitrary BadCommAndOpening where
     arbitrary = do
-        badComm <- getBadComm <$> arbitrary
+        badComm <- Commitment <$> arbitrary <*> arbitrary
         opening <- arbitrary
         return $ BadCommAndOpening (badComm, opening)
     shrink = genericShrink
@@ -99,10 +90,13 @@ instance Arbitrary BadCommAndOpening where
 commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
-    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-       genCommitmentAndOpening 1 (one (asBinary vssPk))
-  where
-    vssPk = toVssPublicKey $ deterministicVssKeyGen "ababahalamaha"
+    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $ do
+      t <- R.randomRIO (3, 10)
+      n <- R.randomRIO (t*2-1, t*2)
+      vssKeys <- replicateM n $
+          toVssPublicKey . deterministicVssKeyGen <$> secureRandomBS 2
+      genCommitmentAndOpening (fromIntegral t)
+          (NE.fromList (map asBinary vssKeys))
 {-# NOINLINE commitmentsAndOpenings #-}
 
 instance Arbitrary CommitmentOpening where
@@ -114,7 +108,8 @@ instance Nonrepeating CommitmentOpening where
 
 instance Arbitrary Commitment where
     arbitrary = coCommitment <$> arbitrary
-    -- No other field is shrunk in the implmentation of 'shrink' for this type because:
+    -- No other field is shrunk in the implementation of 'shrink'
+    -- for this type because:
     -- 1. The datatype's invariant cannot be broken
     -- 2. The cryptographic datatypes used here don't have 'shrink' implemented
     shrink Commitment {..} = [ Commitment { commShares = shrunkShares, .. }

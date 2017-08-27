@@ -14,7 +14,6 @@ import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..),
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
-import           Pos.Crypto.Hashing (Hash)
 import qualified Pos.Txp.Core.Types as T
 
 ----------------------------------------------------------------------------
@@ -45,8 +44,7 @@ deriveSimpleBi ''T.TxOut [
 
 deriveSimpleBi ''T.TxOutAux [
     Cons 'T.TxOutAux [
-        Field [| T.toaOut   :: T.TxOut             |],
-        Field [| T.toaDistr :: T.TxOutDistribution |]
+        Field [| T.toaOut   :: T.TxOut |]
     ]]
 
 instance Bi T.Tx where
@@ -96,52 +94,27 @@ instance Bi T.TxInWitness where
                 matchSize len "TxInWitness.UnknownWitnessType" 2
                 T.UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
-instance Bi T.TxDistribution where
-  encode = encode . go
-    where
-      go (T.TxDistribution ds) =
-          if all null ds then Left (length ds)
-          else Right ds
-  decode = T.TxDistribution <$> parseDistribution
-    where
-      parseDistribution =
-          decode >>= \case
-              Left n ->
-                  maybe (fail "decode@TxDistribution: empty distribution") pure $
-                  nonEmpty $ replicate n []
-              Right ds -> pure ds
-
-deriveSimpleBi ''T.TxSigData [
-    Cons 'T.TxSigData [
-        Field [| T.txSigTxHash      :: Hash T.Tx             |],
-        Field [| T.txSigTxDistrHash :: Hash T.TxDistribution |]
-    ]]
+instance Bi T.TxSigData where
+    encode (T.TxSigData {..}) = encode txSigTxHash
+    decode = T.TxSigData <$> decode
 
 deriveSimpleBi ''T.TxAux [
     Cons 'T.TxAux [
         Field [| T.taTx           :: T.Tx             |],
-        Field [| T.taWitness      :: T.TxWitness      |],
-        Field [| T.taDistribution :: T.TxDistribution |]
+        Field [| T.taWitness      :: T.TxWitness      |]
     ]]
 
 instance Bi T.TxProof where
-  encode proof =  encodeListLen 4
+  encode proof =  encodeListLen 3
                <> encode (T.txpNumber proof)
                <> encode (T.txpRoot proof)
                <> encode (T.txpWitnessesHash proof)
-               <> encode (T.txpDistributionsHash proof)
   decode = do
-    enforceSize "TxProof" 4
+    enforceSize "TxProof" 3
     T.TxProof <$> decode <*>
-                  decode <*>
                   decode <*>
                   decode
 
 instance Bi T.TxPayload where
-  encode T.UnsafeTxPayload{..} =
-    encode $ zip3 (toList _txpTxs) _txpWitnesses _txpDistributions
-  decode = do
-    res <- T.mkTxPayload <$> decode
-    case res of
-      Left e    -> fail e
-      Right txP -> pure txP
+    encode T.UnsafeTxPayload {..} = encode $ zip (toList _txpTxs) _txpWitnesses
+    decode = T.mkTxPayload <$> decode

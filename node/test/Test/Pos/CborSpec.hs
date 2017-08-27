@@ -47,17 +47,7 @@ import           Pos.Core.Context                  (giveStaticConsts)
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
-import           Pos.Crypto                        (AbstractHash)
-import           Pos.Crypto.HD                     (HDAddressPayload)
-import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
-                                                    RedeemSignature)
-import           Pos.Crypto.SafeSigning            (PassPhrase)
-import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProof,
-                                                    SecretSharingExtra, Share, VssKeyPair,
-                                                    VssPublicKey)
-import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
-                                                    PublicKey, SecretKey, Signature,
-                                                    Signed)
+import           Pos.Crypto
 import           Pos.Data.Attributes
 import           Pos.Delegation.Types
 import           Pos.DHT.Model.Types
@@ -416,9 +406,8 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "VssPublicKey" (soundInstanceProperty @VssPublicKey)
                 prop "VssKeyPair" (soundInstanceProperty @VssKeyPair)
                 prop "Secret" (soundInstanceProperty @Secret)
-                prop "Share" (soundInstanceProperty @Share)
+                prop "DecShare" (soundInstanceProperty @DecShare)
                 prop "EncShare" (soundInstanceProperty @EncShare)
-                prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra)
                 prop "SecretProof" (soundInstanceProperty @SecretProof)
                 prop "AsBinary VssPublicKey" (    soundInstanceProperty @(AsBinary VssPublicKey)
                                                  .&&. asBinaryIdempotencyProperty @VssPublicKey
@@ -426,11 +415,9 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "AsBinary Secret" (    soundInstanceProperty @Secret
                                            .&&. asBinaryIdempotencyProperty @Secret
                                        )
-                prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share))
+                prop "AsBinary DecShare" (soundInstanceProperty @(AsBinary DecShare))
                 prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare))
-                prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof))
-                prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra)
-                prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof))
+                -- prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof))
                 prop "PublicKey" (soundInstanceProperty @PublicKey)
                 prop "SecretKey" (soundInstanceProperty @SecretKey)
                 prop "PassPhrase" (soundInstanceProperty @PassPhrase)
@@ -471,8 +458,6 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "ProposalState" (soundInstanceProperty @ProposalState)
                 prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState)
                 prop "TxIn" (soundInstanceProperty @TxIn)
-                modifyMaxSuccess (const 100) $
-                    prop "TxDistribution" (soundInstanceProperty @TxDistribution)
                 prop "TxSigData" (soundInstanceProperty @TxSigData)
                 prop "TxProof" (soundInstanceProperty @TxProof)
                 prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData)

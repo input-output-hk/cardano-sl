@@ -35,7 +35,7 @@ explorerTxpGlobalSettings =
     }
 
 eApplyBlocksSettings
-    :: (EGlobalApplyToilMode m, MonadSlots ctx m)
+    :: (EGlobalApplyToilMode ctx m, MonadSlots ctx m)
     => ApplyBlocksSettings ExplorerExtra m
 eApplyBlocksSettings =
     ApplyBlocksSettings
@@ -54,7 +54,7 @@ extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
 
 -- CSE-203 FIXME Current time is used as timestamp, are you serious?
 applyBlund
-    :: (MonadSlots ctx m, EGlobalApplyToilMode m)
+    :: (MonadSlots ctx m, EGlobalApplyToilMode ctx m)
     => TxpBlund
     -> m ()
 applyBlund blund = do

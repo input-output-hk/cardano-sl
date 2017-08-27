@@ -10,15 +10,16 @@ module Pos.Wallet.Web.Secret
     , mkGenesisWalletUserSecret
     ) where
 
+import           Universum
+
 import           Control.Lens        (makeLenses)
 import qualified Data.Text.Buildable
 import           Formatting          (Format, bprint, build, later, (%))
-import           Universum
 
 import           Pos.Binary.Class    (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Core            (addressF, makeRootPubKeyAddress)
 import           Pos.Crypto          (EncryptedSecretKey, encToPublic)
 import           Pos.Genesis         (accountGenesisIndex, wAddressGenesisIndex)
-import           Pos.Types           (addressF, makePubKeyAddress)
 
 --- | Describes HD wallets keyfile content
 data WalletUserSecret = WalletUserSecret
@@ -34,7 +35,7 @@ instance Buildable WalletUserSecret where
     build WalletUserSecret{..} =
         bprint ("{ root = "%addressF%", set name = "%build%
                 ", wallets = "%pairsF%", accounts = "%pairsF%" }")
-        (makePubKeyAddress $ encToPublic _wusRootKey)
+        (makeRootPubKeyAddress $ encToPublic _wusRootKey)
         _wusWalletName
         _wusAccounts
         _wusAddrs

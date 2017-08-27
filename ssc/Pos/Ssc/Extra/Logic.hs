@@ -27,8 +27,9 @@ import           Universum
 
 import           Control.Lens             (_Wrapped)
 import           Control.Monad.Except     (MonadError, runExceptT)
-import           Control.Monad.Morph      (generalize, hoist)
+import           Control.Monad.Morph      (hoist)
 import           Control.Monad.State      (get, put)
+import qualified Crypto.Random            as Rand
 import           Data.Tagged              (untag)
 import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, (%))
@@ -151,6 +152,7 @@ sscNormalize
        , SscHelpersClass ssc
        , WithLogger m
        , MonadIO m
+       , Rand.MonadRandom m
        )
     => m ()
 sscNormalize = do
@@ -160,10 +162,15 @@ sscNormalize = do
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
+    seed <- Rand.drgNew
 
     launchNamedPureLog atomically $
         syncingStateWith localVar $
+        executeMonadBaseRandom seed $
         sscNormalizeU @ssc (tipEpoch, richmenData) bvd gs
+  where
+    -- (... MonadPseudoRandom) a -> (... n) a
+    executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense
@@ -187,28 +194,35 @@ sscResetLocal = do
 ----------------------------------------------------------------------------
 
 -- 'MonadIO' is needed only for 'TVar' (I hope).
+-- 'MonadRandom' is needed for crypto (@neongreen hopes).
 type SscGlobalApplyMode ssc ctx m =
     (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc,
      MonadReader ctx m, HasLens LrcContext ctx LrcContext,
-     MonadDBRead m, MonadGState m, MonadIO m, WithLogger m)
+     MonadDBRead m, MonadGState m, WithLogger m,
+     MonadIO m, Rand.MonadRandom m)
 
 type SscGlobalVerifyMode ssc ctx m =
     (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc,
      MonadReader ctx m, HasLens LrcContext ctx LrcContext,
-     MonadDBRead m, MonadGState m, MonadIO m, WithLogger m,
+     MonadDBRead m, MonadGState m, WithLogger m,
+     MonadIO m, Rand.MonadRandom m,
      MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
     :: forall ssc ctx m a.
        SscGlobalApplyMode ssc ctx m
-    => StateT (SscGlobalState ssc) (NamedPureLogger Identity) a -> m a
+    => StateT (SscGlobalState ssc)
+       (NamedPureLogger (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    -> m a
 sscRunGlobalUpdate action = do
     globalVar <- sscGlobal <$> askSscMem
+    seed <- Rand.drgNew
     launchNamedPureLog atomically $
         syncingStateWith globalVar $
-        switchMonadBaseIdentityToSTM action
+        executeMonadBaseRandom seed action
   where
-    switchMonadBaseIdentityToSTM = hoist $ hoist generalize
+    -- (... MonadPseudoRandom) a -> (... n) a
+    executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 -- | Apply sequence of definitely valid blocks. Global state which is
 -- result of application of these blocks can be optionally passed as

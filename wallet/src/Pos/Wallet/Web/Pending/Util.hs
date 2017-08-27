@@ -52,7 +52,7 @@ mkPendingTx wid _ptxTxId _ptxTxAux th = do
     noWallet =
         RequestError $ sformat ("Failed to get meta of wallet "%build) wid
 
--- | Whether formed transaction ('TxAux') has a change to be applied later
+-- | Whether formed transaction ('TxAux') has a chance to be applied later
 -- after specified error.
 isReclaimableFailure :: ToilVerFailure -> Bool
 isReclaimableFailure = \case
@@ -73,7 +73,7 @@ isReclaimableFailure = \case
     ToilInvalidMinFee{}      -> False
     ToilInsufficientFee{}    -> False
     ToilUnknownAttributes{}  -> False
-    ToilBootInappropriate{}  -> False
+    ToilNonBootstrapDistr{}  -> False
     ToilRepeatedInput{}      -> False
 
 usingPtxCoords :: (CId Wal -> TxId -> a) -> PendingTx -> a

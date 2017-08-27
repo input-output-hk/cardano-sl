@@ -69,7 +69,7 @@ data TxRaw = TxRaw
     { trInputs         :: !(TxOwnedInputs TxOut)
     -- ^ Selected inputs from Utxo
     , trOutputs        :: !TxOutputs
-    -- ^ Output addresses of tx (without remaing output)
+    -- ^ Output addresses of tx (without remaining output)
     , trRemainingMoney :: !Coin
     -- ^ Remaining money
     }
@@ -240,7 +240,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
                 mNextOut <- head <$> use ipsAvailableOutputs
                 case mNextOut of
                     Nothing -> throwTxError $
-                        sformat ("Not enough money to send (need "%build%" coins more)") moneyLeft
+                        sformat ("Not enough money to send (need "%build%" more)") moneyLeft
                     Just inp@(_, (TxOutAux (TxOut {..}))) -> do
                         ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         ipsAvailableOutputs %= tail

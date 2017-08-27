@@ -6,19 +6,19 @@ let
     rev = "88c2b0b05c993287988255d0f32c6e13aad74f1c";
     sha256 = "03vyxxb608nds10c0vhjr1a42dqvsm8mip12dcfin0jgnwxl5ssc";
   };
-  mkNode = index: {
+  mkNode = index: peers: {
     type = "core";
     region = "";
-    static-routes = []; # list of lists of name pairs
+    static-routes = peers; # list of lists of names
     host = "node${toString index}.cardano";
   };
   topology = {
     nodes = {
-      node1 = mkNode 1;
-      node2 = mkNode 2;
-      node3 = mkNode 3;
-      node4 = mkNode 4;
-      node5 = mkNode 5;
+      node1 = mkNode 1 [ [ "node5" ] [ "node2" ] ];
+      node2 = mkNode 2 [ [ "node1" ] [ "node3" ] ];
+      node3 = mkNode 3 [ [ "node2" ] [ "node4" ] ];
+      node4 = mkNode 4 [ [ "node3" ] [ "node5" ] ];
+      node5 = mkNode 5 [ [ "node4" ] [ "node1" ] ];
     };
   };
   topologyFile = pkgs.writeText "topology.json" (builtins.toJSON topology);
@@ -40,6 +40,7 @@ let
       productionMode = true;
       systemStart = 1501545900; # 2017-08-01 00:05:00
       topologyFile = "${topologyFile}";
+      publicIP = "192.168.1.${toString index}";
     };
     networking.firewall.enable = false;
     networking.extraHosts = ''
@@ -49,7 +50,11 @@ let
       192.168.1.4 node4.cardano
       192.168.1.5 node5.cardano
     '';
-    virtualisation.qemu.options = [ "-rtc base='2017-08-01'" ];
+    virtualisation.qemu.options = [
+      "-rtc base='2017-08-01'"
+      "-net dump,vlan=0,file=$out/capture-0-${toString index}.pcap"
+      "-net dump,vlan=1,file=$out/capture-1-${toString index}.pcap"
+    ];
     boot.kernelParams = [ "quiet" ];
     systemd.services.cardano-node.preStart = ''
       cp -v ${genesis}/keys-testnet/rich/testnet${toString index}.key /var/lib/cardano-node/key${toString index}.sk
@@ -74,9 +79,18 @@ in {
     $node3->waitForOpenPort(3000);
     $node4->waitForOpenPort(3000);
     $node5->waitForOpenPort(3000);
-    #$node1->sleep(60);
-    #print $node1->execute("netstat -anp ; ps aux | grep cardano ");
     $node1->sleep(600);
-    print $node1->execute("journalctl -u cardano-node | egrep 'Created a new block|MainBlockHeader|slot|difficulty' ");
+    my @list = ($node1, $node2, $node3, $node4, $node5);
+    my $x;
+    foreach $x (@list) {
+      $x->execute("systemctl stop cardano-node");
+    }
+    foreach $x (@list) {
+      print STDERR $x->execute("journalctl -u cardano-node | egrep 'Created a new block|MainBlockHeader|  slot:|Current slot leader|difficulty' -C2 --color=always");
+      $x->execute("journalctl -u cardano-node > /tmp/shared/`hostname`.log");
+    }
+    system("ls -ltrh xchg-shared");
+    system('mkdir $out/logs');
+    system('mv -v xchg-shared/node*log $out/logs');
   '';
 }

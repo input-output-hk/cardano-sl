@@ -20,13 +20,18 @@ import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
                                         shouldThrowException)
 
 spec :: Spec
-spec = describe "Bi" $ do
+spec = describe "Bi" $ modifyMaxSuccess (const 10000) $ do
     describe "Numbers" $ do
-        modifyMaxSuccess (const 10000) $ do
-            unsignedVarIntSpec
-            signedVarIntSpec
-            fixedSizeIntSpec
-            tinyVarIntSpec
+        unsignedVarIntSpec
+        signedVarIntSpec
+        fixedSizeIntSpec
+        tinyVarIntSpec
+    describe "Primitive instances" $ do
+        binaryTest @Int64
+        binaryTest @(Map Int Int)
+        binaryTest @(HashMap Int Int)
+        binaryTest @(Set Int)
+        binaryTest @(HashSet Int)
 
 unsignedVarIntSpec :: Spec
 unsignedVarIntSpec = describe "UnsignedVarInt" $ do

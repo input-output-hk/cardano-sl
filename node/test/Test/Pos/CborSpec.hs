@@ -319,78 +319,66 @@ testAgainstFile name x expected =
 spec :: Spec
 spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
-        describe "(Hash)Map and (Hash)Set instances are sound" $ do
-            binaryTest @(HashMap Int Int)
-            binaryTest @(HashSet Int)
-            binaryTest @(Map Int Int)
-            binaryTest @(Set Int)
-        describe "Test instances are sound" $ do
+        describe "Test instances" $ do
             prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
             binaryTest @MyScript
             prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
-            describe "Generic deriving is sound" $ do
-                testARecord
-                testAUnit
-                testANewtype
-                binaryTest @ARecord
-                binaryTest @AUnit
-                binaryTest @ANewtype
-            modifyMaxSuccess (const 20000) $ do
-                describe "Primitive instances are sound" $ do
-                    binaryTest @Int64
-                    binaryTest @(Map Int Int)
-                    binaryTest @(HashMap Int Int)
-                    binaryTest @(Set Int)
-                    binaryTest @(HashSet Int)
-            describe "Core instances are sound" $ do
-                prop "TxFeePolicy" (extensionProperty @TxFeePolicy)
-                binaryTest @(Attributes AddrAttributes)
-                binaryTest @(Attributes ())
-                binaryTest @(Attributes X1)
-                binaryTest @(Attributes X2)
-                prop "AsBinary VssPublicKey" (asBinaryIdempotencyProperty @VssPublicKey)
-                prop "AsBinary Secret" (asBinaryIdempotencyProperty @Secret)
-                binaryTest @MessageCode
-                prop "HandlerSpec" (extensionProperty @HandlerSpec)
-                binaryTest @SlottingData
-                binaryTest @(NewestFirst NE U)
-                binaryTest @(OldestFirst NE U)
-                prop "TxInWitness" (extensionProperty @TxInWitness)
-                binaryTest @(Signature U)
-                binaryTest @(Signed U)
-                binaryTest @(RedeemSignature U)
-                binaryTest @(ProxySecretKey U)
-                binaryTest @(ProxySignature U U)
-                binaryTest @(AbstractHash SHA256 U)
-                binaryTest @BackupPhrase
-                binaryTest @(PrevValue U)
+        describe "Generic deriving" $ do
+            testARecord
+            testAUnit
+            testANewtype
+            binaryTest @ARecord
+            binaryTest @AUnit
+            binaryTest @ANewtype
+        describe "Lib/core instances" $ do
+            prop "TxFeePolicy" (extensionProperty @TxFeePolicy)
+            binaryTest @(Attributes AddrAttributes)
+            binaryTest @(Attributes ())
+            binaryTest @(Attributes X1)
+            binaryTest @(Attributes X2)
+            prop "AsBinary VssPublicKey" (asBinaryIdempotencyProperty @VssPublicKey)
+            prop "AsBinary Secret" (asBinaryIdempotencyProperty @Secret)
+            binaryTest @MessageCode
+            prop "HandlerSpec" (extensionProperty @HandlerSpec)
+            binaryTest @SlottingData
+            binaryTest @(NewestFirst NE U)
+            binaryTest @(OldestFirst NE U)
+            prop "TxInWitness" (extensionProperty @TxInWitness)
+            binaryTest @(Signature U)
+            binaryTest @(Signed U)
+            binaryTest @(RedeemSignature U)
+            binaryTest @(ProxySecretKey U)
+            binaryTest @(ProxySignature U U)
+            binaryTest @(AbstractHash SHA256 U)
+            binaryTest @BackupPhrase
+            binaryTest @(PrevValue U)
 
-                -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
-                it "UserSecret" $ pendingWith "No Eq instance defined"
-                it "WalletUserSecret" $ pendingWith "No Eq instance defined"
-                pendingNoArbitrary "Undo"
-                pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
-                pendingNoArbitrary "DataMsg UpdateVote"
-                pendingNoArbitrary "MsgGetHeaders"
-                pendingNoArbitrary "MsgGetBlocks"
-                pendingNoArbitrary "WithHash"
-                pendingNoArbitrary "Pvss.PublicKey"
-                pendingNoArbitrary "Pvss.KeyPair"
-                pendingNoArbitrary "Pvss.Secret"
-                pendingNoArbitrary "Pvss.DecryptedShare"
-                pendingNoArbitrary "Pvss.EncryptedShare"
-                pendingNoArbitrary "Pvss.Proof"
-                pendingNoArbitrary "Ed25519.PointCompressed"
-                pendingNoArbitrary "Ed25519.Scalar"
-                pendingNoArbitrary "Ed25519.Signature"
-                pendingNoArbitrary "CC.ChainCode"
-                pendingNoArbitrary "CC.XPub"
-                pendingNoArbitrary "CC.XPrv"
-                pendingNoArbitrary "CC.XSignature"
-                pendingNoArbitrary "EdStandard.PublicKey"
-                pendingNoArbitrary "EdStandard.SecretKey"
-                pendingNoArbitrary "EdStandard.Signature"
-                pendingNoArbitrary "EncryptedSecretKey"
+            -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
+            it "UserSecret" $ pendingWith "No Eq instance defined"
+            it "WalletUserSecret" $ pendingWith "No Eq instance defined"
+            pendingNoArbitrary "Undo"
+            pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
+            pendingNoArbitrary "DataMsg UpdateVote"
+            pendingNoArbitrary "MsgGetHeaders"
+            pendingNoArbitrary "MsgGetBlocks"
+            pendingNoArbitrary "WithHash"
+            pendingNoArbitrary "Pvss.PublicKey"
+            pendingNoArbitrary "Pvss.KeyPair"
+            pendingNoArbitrary "Pvss.Secret"
+            pendingNoArbitrary "Pvss.DecryptedShare"
+            pendingNoArbitrary "Pvss.EncryptedShare"
+            pendingNoArbitrary "Pvss.Proof"
+            pendingNoArbitrary "Ed25519.PointCompressed"
+            pendingNoArbitrary "Ed25519.Scalar"
+            pendingNoArbitrary "Ed25519.Signature"
+            pendingNoArbitrary "CC.ChainCode"
+            pendingNoArbitrary "CC.XPub"
+            pendingNoArbitrary "CC.XPrv"
+            pendingNoArbitrary "CC.XSignature"
+            pendingNoArbitrary "EdStandard.PublicKey"
+            pendingNoArbitrary "EdStandard.SecretKey"
+            pendingNoArbitrary "EdStandard.Signature"
+            pendingNoArbitrary "EncryptedSecretKey"
 
 pendingNoArbitrary :: String -> Spec
 pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"

@@ -12,8 +12,7 @@ import           Data.List.NonEmpty                (fromList)
 import           System.IO.Unsafe                  (unsafePerformIO)
 import           Test.QuickCheck                   (Arbitrary (..), choose, elements,
                                                     generate, oneof, vector)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
-                                                    genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe       ()
 import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)

@@ -55,6 +55,8 @@ import           Pos.Update.Poll
 import           Pos.Util.BackupPhrase
 import           Pos.Util.Chrono
 
+import           Test.Pos.Util                     (binaryTest)
+
 ----------------------------------------
 
 data User
@@ -138,7 +140,7 @@ instance Bi T where
 
 data MyScript = MyScript
     { version :: ScriptVersion -- ^ Version
-    , script  :: ByteString   -- ^ Serialized script
+    , script  :: ByteString    -- ^ Serialized script
     } deriving (Eq, Show, Generic, Typeable)
 
 instance Arbitrary MyScript where
@@ -195,15 +197,6 @@ instance Bi (Attributes X2) where
         _ -> Nothing
 
 ----------------------------------------
-
--- Machinery to test we perform "flat" encoding.
-hasValidFlatTerm :: Bi a => a -> Bool
-hasValidFlatTerm = CBOR.validFlatTerm . CBOR.toFlatTerm . encode
-
--- | Given a data type which can be generated randomly and for which the CBOR
--- encoding is defined, generates the roundtrip tests.
-roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => a -> Property
-roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === input
 
 -- | Given a data type which can be extended, verify we can indeed do so
 -- without breaking anything. This should work with every time which adopted
@@ -271,12 +264,6 @@ soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
     arbitraryAttrs :: Gen aa
     arbitraryAttrs = Attributes <$> arbitrary <*> arbitrary
 
-soundInstanceProperty :: forall a. (Arbitrary a, Eq a, Show a, Bi a) => Property
-soundInstanceProperty = forAll (arbitrary :: Gen a) $ \input ->
-    let itRoundtrips = roundtripProperty input
-        isFlat       = hasValidFlatTerm input === True
-    in itRoundtrips .&&. isFlat
-
 asBinaryIdempotencyProperty ::
        forall a. (Arbitrary a, AsBinaryClass a, Eq a, Show a)
     => Property
@@ -333,50 +320,51 @@ spec :: Spec
 spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
         describe "(Hash)Map and (Hash)Set instances are sound" $ do
-            prop "HashMap Int Int" (soundInstanceProperty @(HashMap Int Int))
-            prop "HashSet Int" (soundInstanceProperty @(HashSet Int))
-            prop "Map Int Int" (soundInstanceProperty @(Map Int Int))
-            prop "Set Int" (soundInstanceProperty @(Set Int))
+            binaryTest @(HashMap Int Int)
+            binaryTest @(HashSet Int)
+            binaryTest @(Map Int Int)
+            binaryTest @(Set Int)
         describe "Test instances are sound" $ do
             prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
-            prop "MyScript" (soundInstanceProperty @MyScript)
+            binaryTest @MyScript
             prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
             describe "Generic deriving is sound" $ do
                 testARecord
                 testAUnit
                 testANewtype
-                prop "ARecord"  (soundInstanceProperty @ARecord)
-                prop "AUnit"    (soundInstanceProperty @AUnit)
-                prop "ANewtype" (soundInstanceProperty @ANewtype)
+                binaryTest @ARecord
+                binaryTest @AUnit
+                binaryTest @ANewtype
             modifyMaxSuccess (const 20000) $ do
                 describe "Primitive instances are sound" $ do
-                    prop "Int64" (soundInstanceProperty @Int64)
-                    prop "IntMap" (soundInstanceProperty @(Map Int Int))
-                    prop "IntHashMap" (soundInstanceProperty @(HashMap Int Int))
-                    prop "IntSet" (soundInstanceProperty @(Set Int))
-                    prop "IntHashSet" (soundInstanceProperty @(HashSet Int))
+                    binaryTest @Int64
+                    binaryTest @(Map Int Int)
+                    binaryTest @(HashMap Int Int)
+                    binaryTest @(Set Int)
+                    binaryTest @(HashSet Int)
             describe "Core instances are sound" $ do
                 prop "TxFeePolicy" (extensionProperty @TxFeePolicy)
-                prop "Attributes AddrAttributes" (soundInstanceProperty @(Attributes AddrAttributes))
-                prop "Attributes" (soundInstanceProperty @(Attributes ()))
-                prop "Attributes X1" (soundInstanceProperty @(Attributes X1))
-                prop "Attributes X2" (soundInstanceProperty @(Attributes X2))
+                binaryTest @(Attributes AddrAttributes)
+                binaryTest @(Attributes ())
+                binaryTest @(Attributes X1)
+                binaryTest @(Attributes X2)
                 prop "AsBinary VssPublicKey" (asBinaryIdempotencyProperty @VssPublicKey)
                 prop "AsBinary Secret" (asBinaryIdempotencyProperty @Secret)
-                prop "MessageCode" (soundInstanceProperty @MessageCode)
+                binaryTest @MessageCode
                 prop "HandlerSpec" (extensionProperty @HandlerSpec)
-                prop "SlottingData" (soundInstanceProperty @SlottingData)
-                prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U))
-                prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U))
+                binaryTest @SlottingData
+                binaryTest @(NewestFirst NE U)
+                binaryTest @(OldestFirst NE U)
                 prop "TxInWitness" (extensionProperty @TxInWitness)
-                prop "Signature a" (soundInstanceProperty @(Signature U))
-                prop "Signed a"    (soundInstanceProperty @(Signed U))
-                prop "RedeemSignature a"    (soundInstanceProperty @(RedeemSignature U))
-                prop "ProxySecretKey w"     (soundInstanceProperty @(ProxySecretKey U))
-                prop "ProxySignature w a"   (soundInstanceProperty @(ProxySignature U U))
-                prop "AbstractHash SHA256"  (soundInstanceProperty @(AbstractHash SHA256 U))
-                prop "BackupPhrase" (soundInstanceProperty @BackupPhrase)
-                prop "PrevValue a"  (soundInstanceProperty @(PrevValue U))
+                binaryTest @(Signature U)
+                binaryTest @(Signed U)
+                binaryTest @(RedeemSignature U)
+                binaryTest @(ProxySecretKey U)
+                binaryTest @(ProxySignature U U)
+                binaryTest @(AbstractHash SHA256 U)
+                binaryTest @BackupPhrase
+                binaryTest @(PrevValue U)
+
                 -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
                 it "UserSecret" $ pendingWith "No Eq instance defined"
                 it "WalletUserSecret" $ pendingWith "No Eq instance defined"
@@ -392,7 +380,6 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 pendingNoArbitrary "Pvss.DecryptedShare"
                 pendingNoArbitrary "Pvss.EncryptedShare"
                 pendingNoArbitrary "Pvss.Proof"
-                pendingNoArbitrary "AsBinary VssKeyPair"
                 pendingNoArbitrary "Ed25519.PointCompressed"
                 pendingNoArbitrary "Ed25519.Scalar"
                 pendingNoArbitrary "Ed25519.Signature"

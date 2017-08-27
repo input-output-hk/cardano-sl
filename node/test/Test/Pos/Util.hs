@@ -103,9 +103,8 @@ identityTest fun = prop (typeName @a) fun
     typeName = show $ typeRep (Proxy @a)
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
-binaryTest = do
-    identityTest @Bi @a binaryEncodeDecode
-    identityTest @Bi @a cborFlatTermValid
+binaryTest =
+    identityTest @Bi @a $ \x -> binaryEncodeDecode x .&&. cborFlatTermValid x
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode

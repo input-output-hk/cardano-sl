@@ -11,10 +11,10 @@ import           Universum
 
 import           Control.Lens                      (has)
 import           Data.Time.Units                   (Microsecond, Second, convertUnit)
-import           Formatting                        (build, sformat, (%))
+import           Formatting                        (build, sformat, shown, (%))
 import           Mockable                          (delay, fork)
 import           Serokell.Util.Text                (listJson)
-import           System.Wlog                       (logInfo, modifyLoggerName)
+import           System.Wlog                       (logInfo, logWarning, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
 import           Pos.Communication.Protocol        (SendActions (..))
@@ -62,9 +62,12 @@ resubmitTx SendActions{..} ptx@PendingTx{..} = do
     logInfo $ sformat ("Resubmitting tx "%build) _ptxTxId
     let submissionH = ptxResubmissionHandler ptx
     submitAndSavePtx submissionH enqueueMsg ptx
-        `finally` updateTiming
+        `catchAll` reportUnhandledError
+    ptxUpdateMeta _ptxWallet _ptxTxId PtxIncSubmitTiming
   where
-    updateTiming = ptxUpdateMeta _ptxWallet _ptxTxId PtxIncSubmitTiming
+    reportUnhandledError =
+        logWarning .
+        sformat ("Unexpected unhandled error from resubmission: "%shown)
 
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot

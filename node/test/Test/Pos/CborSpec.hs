@@ -8,6 +8,7 @@
 
 module Test.Pos.CborSpec
        ( spec
+       , extensionProperty
        ) where
 
 import           Universum
@@ -39,9 +40,7 @@ import           Pos.Binary.Crypto                 ()
 import           Pos.Binary.GodTossing             ()
 import           Pos.Binary.Infra                  ()
 import           Pos.Binary.Relay                  ()
-import           Pos.Communication.Protocol
 import           Pos.Core.Context                  (giveStaticConsts)
-import           Pos.Core.Fee
 import           Pos.Core.Types
 import           Pos.Crypto                        (AbstractHash)
 import           Pos.Crypto.RedeemSigning          (RedeemSignature)
@@ -49,7 +48,6 @@ import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignatu
                                                     Signature, Signed)
 import           Pos.Data.Attributes
 import           Pos.Slotting.Types
-import           Pos.Txp                           hiding (Unknown)
 import           Pos.Update.Poll
 import           Pos.Util.BackupPhrase
 import           Pos.Util.Chrono
@@ -59,15 +57,12 @@ import           Test.Pos.Util                     (binaryTest)
 ----------------------------------------
 
 data User
-    = Login {
-      login :: String
-    , age   :: Int
-    }
-    | FullName {
-      firstName :: String
-    , lastName  :: String
-    , sex       :: Bool
-    } deriving (Show, Eq)
+    = Login { login :: String
+            , age   :: Int }
+    | FullName { firstName :: String
+               , lastName  :: String
+               , sex       :: Bool }
+    deriving (Show, Eq)
 
 deriveSimpleBi ''User [
     Cons 'Login [
@@ -325,17 +320,14 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
             binaryTest @AUnit
             binaryTest @ANewtype
         describe "Lib/core instances" $ do
-            prop "TxFeePolicy" (extensionProperty @TxFeePolicy)
             binaryTest @(Attributes AddrAttributes)
             binaryTest @(Attributes ())
             binaryTest @(Attributes X1)
             binaryTest @(Attributes X2)
             binaryTest @MessageCode
-            prop "HandlerSpec" (extensionProperty @HandlerSpec)
             binaryTest @SlottingData
             binaryTest @(NewestFirst NE U)
             binaryTest @(OldestFirst NE U)
-            prop "TxInWitness" (extensionProperty @TxInWitness)
             binaryTest @(Signature U)
             binaryTest @(Signed U)
             binaryTest @(RedeemSignature U)

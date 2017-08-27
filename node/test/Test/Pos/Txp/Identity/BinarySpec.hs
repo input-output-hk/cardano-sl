@@ -8,7 +8,7 @@ import           Universum
 
 import           Data.Tagged             (Tagged)
 import           Test.Hspec              (Spec, describe)
-import           Test.Hspec.QuickCheck   (modifyMaxSuccess)
+import           Test.Hspec.QuickCheck   (modifyMaxSuccess, prop)
 
 import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
@@ -16,6 +16,7 @@ import           Pos.Communication.Relay as R
 import qualified Pos.Txp                 as T
 import           Pos.Util                (SmallGenerator)
 
+import           Test.Pos.CborSpec       (extensionProperty)
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
 
 spec :: Spec
@@ -38,6 +39,8 @@ spec = describe "Txp (transaction processing) system" $ do
             binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
             binaryTest @(R.MempoolMsg T.TxMsgContents)
             modifyMaxSuccess (const 100) $ binaryTest @(R.DataMsg T.TxMsgContents)
+    describe "Bi extension" $ do
+        prop "TxInWitness" (extensionProperty @T.TxInWitness)
     describe "Message length limit" $ do
         msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
         msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))

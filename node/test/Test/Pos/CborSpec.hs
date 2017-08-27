@@ -22,7 +22,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import qualified Codec.CBOR.FlatTerm               as CBOR
-import           Node.Message.Class
+import           Node.Message.Class                (MessageCode)
 
 import           Pos.Arbitrary.Block               ()
 import           Pos.Arbitrary.Core                ()
@@ -41,11 +41,12 @@ import           Pos.Binary.GodTossing             ()
 import           Pos.Binary.Infra                  ()
 import           Pos.Binary.Relay                  ()
 import           Pos.Core.Context                  (giveStaticConsts)
-import           Pos.Core.Types
-import           Pos.Data.Attributes
-import           Pos.Slotting.Types
-import           Pos.Update.Poll
-import           Pos.Util.BackupPhrase
+import           Pos.Core.Types                    (ScriptVersion)
+import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
+                                                    encodeAttributes)
+import           Pos.Slotting.Types                (SlottingData)
+import           Pos.Update.Poll                   (PrevValue)
+import           Pos.Util.BackupPhrase             (BackupPhrase)
 
 import           Test.Pos.Util                     (binaryTest)
 

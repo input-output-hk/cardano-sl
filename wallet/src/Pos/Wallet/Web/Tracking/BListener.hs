@@ -28,8 +28,8 @@ import           Pos.Core                         (HasCoreConstants, HeaderHash,
 import           Pos.DB.BatchOp                   (SomeBatchOp)
 import           Pos.DB.Class                     (MonadDBRead)
 import qualified Pos.GState                       as GS
-import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
-                                                   getSystemStartM)
+import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
+                                                   getSlotStartPure, getSystemStartM)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
@@ -106,7 +106,7 @@ onRollbackTracking
     :: forall ssc ctx m .
     ( AccountMode ctx m
     , MonadDBRead m
-    , MonadSlotsData ctx m
+    , MonadSlots ctx m
     , SscHelpersClass ssc
     , HasCoreConstants
     )
@@ -135,7 +135,7 @@ onRollbackTracking blunds = setLogger $ do
         blkHeaderTs <- blkHeaderTsGetter
 
         let mapModifier = trackingRollbackTxs encSK allAddresses gbDiff blkHeaderTs txs
-        rollbackModifierFromWallet wid (headerHash newTip) mapModifier
+        rollbackModifierFromWallet wid newTip mapModifier
         logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 
     gbDiff = Just . view difficultyL

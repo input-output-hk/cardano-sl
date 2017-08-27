@@ -70,8 +70,8 @@ import           Pos.DB.Rocks                     (MonadRealDB)
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
 import           Pos.Infra.Semaphore              (BlkSemaphore, withBlkSemaphore)
-import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
-                                                   getSystemStartM)
+import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
+                                                   getSlotStartPure, getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
                                                    flattenTxPayload, getTxDistribution,
@@ -463,7 +463,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
         return $ map fst $ sortOn (fmap Down . txRealTime) txsWTime
 
 rollbackModifierFromWallet
-    :: WebWalletModeDB ctx m
+    :: (WebWalletModeDB ctx m, MonadSlots ctx m)
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -474,7 +474,9 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
-    forM_ camDeletedPtxCandidates $ \(txid, poolInfo) ->
+    forM_ camDeletedPtxCandidates $ \(txid, poolInfo) -> do
+        curSlot <- getCurrentSlotInaccurate
+        WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)
     WS.getHistoryCache wid >>= \case
         Nothing -> pure ()

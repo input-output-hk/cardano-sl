@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Pending.Types
     , ptxWallet
     , ptxPeerAck
     , ptxSubmitTiming
+    , ptxNextSubmitSlot
 
     , PtxCondition (..)
     , _PtxApplying
@@ -108,3 +109,6 @@ data PendingTx = PendingTx
     } deriving (Eq, Show)
 
 makeLenses ''PendingTx
+
+ptxNextSubmitSlot :: Lens' PendingTx SlotId
+ptxNextSubmitSlot = ptxSubmitTiming . pstNextSlot

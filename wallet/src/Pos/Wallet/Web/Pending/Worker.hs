@@ -10,11 +10,12 @@ module Pos.Wallet.Web.Pending.Worker
 import           Universum
 
 import           Control.Lens                      (has)
+import           Control.Monad.Catch               (handleAll)
 import           Data.Time.Units                   (Microsecond, Second, convertUnit)
-import           Formatting                        (build, sformat, shown, (%))
+import           Formatting                        (build, sformat, (%))
 import           Mockable                          (delay, fork)
 import           Serokell.Util.Text                (listJson)
-import           System.Wlog                       (logInfo, logWarning, modifyLoggerName)
+import           System.Wlog                       (logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
 import           Pos.Communication.Protocol        (SendActions (..))
@@ -31,10 +32,11 @@ import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
-                                                    PtxSubmitTiming (..), _PtxApplying)
+                                                    ptxNextSubmitSlot, _PtxApplying)
+import           Pos.Wallet.Web.Pending.Util       (usingPtxCoords)
 import           Pos.Wallet.Web.State              (PtxMetaUpdate (PtxIncSubmitTiming),
-                                                    casPtxCondition, getPendingTxs,
-                                                    ptxUpdateMeta)
+                                                    casPtxCondition, getPendingTx,
+                                                    getPendingTxs, ptxUpdateMeta)
 import           Pos.Wallet.Web.Util               (getWalletAssuredDepth)
 
 type MonadPendings m =
@@ -58,16 +60,22 @@ processPtxInNewestBlocks PendingTx{..} = do
          ptxDiff + depth <= tipDiff
 
 resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
-resubmitTx SendActions{..} ptx@PendingTx{..} = do
-    logInfo $ sformat ("Resubmitting tx "%build) _ptxTxId
-    let submissionH = ptxResubmissionHandler ptx
-    submitAndSavePtx submissionH enqueueMsg ptx
-        `catchAll` reportUnhandledError
-    ptxUpdateMeta _ptxWallet _ptxTxId PtxIncSubmitTiming
+resubmitTx SendActions{..} ptx =
+    handleAll (\_ -> pass) $ do
+        logInfo $ sformat ("Resubmitting tx "%build) (_ptxTxId ptx)
+        let submissionH = ptxResubmissionHandler ptx
+        submitAndSavePtx submissionH enqueueMsg ptx
+        updateTiming
   where
-    reportUnhandledError =
-        logWarning .
-        sformat ("Unexpected unhandled error from resubmission: "%shown)
+    reportNextCheckTime =
+        logInfo .
+        sformat ("Next resubmission of transaction "%build%" is scheduled at "
+                %build) (_ptxTxId ptx)
+
+    updateTiming = do
+        usingPtxCoords ptxUpdateMeta ptx PtxIncSubmitTiming
+        nextCheck <- view ptxNextSubmitSlot <<$>> usingPtxCoords getPendingTx ptx
+        whenJust nextCheck reportNextCheckTime
 
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot
@@ -93,8 +101,8 @@ processPtxsToResubmit sendActions curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
             take ptxsPerSlotLimit $
-            filter ((curSlot >=) . _pstNextSlot . _ptxSubmitTiming) $
-            filter (has _PtxApplying . _ptxCond)
+            filter ((curSlot >=) . view ptxNextSubmitSlot) $
+            filter (has _PtxApplying . _ptxCond) $
             ptxs
     logInfo $ sformat fmt (map _ptxTxId toResubmit)
     resubmitPtxsDuringSlot sendActions toResubmit

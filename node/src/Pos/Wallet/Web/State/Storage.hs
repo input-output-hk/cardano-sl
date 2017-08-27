@@ -75,7 +75,7 @@ import           Data.Time.Clock.POSIX          (POSIXTime)
 
 import           Pos.Client.Txp.History         (TxHistoryEntry)
 import           Pos.Core.Context               (HasCoreConstants)
-import           Pos.Core.Types                 (Timestamp)
+import           Pos.Core.Types                 (SlotId, Timestamp)
 import           Pos.Txp                        (TxAux, TxId, Utxo)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.BackupPhrase          (BackupPhrase)
@@ -88,6 +88,7 @@ import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition,
                                                  PtxSubmitTiming (..), ptxCond,
                                                  ptxSubmitTiming)
 import           Pos.Wallet.Web.Pending.Updates (incPtxSubmitTimingPure,
+                                                 mkPtxSubmitTiming,
                                                  ptxMarkAcknowledgedPure)
 
 type AddressSortingKey = Int
@@ -395,6 +396,7 @@ casPtxCondition wid txId expectedCond newCond = do
 
 data PtxMetaUpdate
     = PtxIncSubmitTiming
+    | PtxResetSubmitTiming SlotId
     | PtxMarkAcknowledged
 
 -- | For simple atomic updates of meta info
@@ -402,8 +404,12 @@ ptxUpdateMeta :: CId Wal -> TxId -> PtxMetaUpdate -> Update ()
 ptxUpdateMeta wid txId updType =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId %=
         case updType of
-            PtxIncSubmitTiming  -> ptxSubmitTiming %~ incPtxSubmitTimingPure
-            PtxMarkAcknowledged -> ptxMarkAcknowledgedPure
+            PtxIncSubmitTiming ->
+                ptxSubmitTiming %~ incPtxSubmitTimingPure
+            PtxResetSubmitTiming curSlot ->
+                ptxSubmitTiming .~ mkPtxSubmitTiming curSlot
+            PtxMarkAcknowledged ->
+                ptxMarkAcknowledgedPure
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =

@@ -8,26 +8,24 @@ module Pos.Wallet.Web.Pending.Util
     , isPtxInBlocks
     , mkPendingTx
     , isReclaimableFailure
+    , usingPtxCoords
     ) where
 
 import           Universum
 
-import           Control.Lens                 ((+~))
-import           Formatting                   (build, sformat, (%))
+import           Formatting                     (build, sformat, (%))
 
-import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Core.Context             (HasCoreConstants)
-import           Pos.Core.Slotting            (flatSlotId)
-import           Pos.Core.Types               (FlatSlotId, SlotId)
-import           Pos.Slotting.Class           (getCurrentSlotInaccurate)
-import           Pos.Txp                      (ToilVerFailure (..), TxAux (..), TxId)
-import           Pos.Util.Util                (maybeThrow)
-import           Pos.Wallet.Web.ClientTypes   (CId, CWalletMeta (..), Wal, cwAssurance)
-import           Pos.Wallet.Web.Error         (WalletError (RequestError))
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                                               PtxPoolInfo, PtxSubmitTiming (..))
-import           Pos.Wallet.Web.State         (getWalletMeta)
+import           Pos.Client.Txp.History         (TxHistoryEntry)
+import           Pos.Slotting.Class             (getCurrentSlotInaccurate)
+import           Pos.Txp                        (ToilVerFailure (..), TxAux (..), TxId)
+import           Pos.Util.Util                  (maybeThrow)
+import           Pos.Wallet.Web.ClientTypes     (CId, CWalletMeta (..), Wal, cwAssurance)
+import           Pos.Wallet.Web.Error           (WalletError (RequestError))
+import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition (..),
+                                                 PtxPoolInfo)
+import           Pos.Wallet.Web.Pending.Updates (mkPtxSubmitTiming)
+import           Pos.Wallet.Web.State           (getWalletMeta)
 
 ptxPoolInfo :: PtxCondition -> Maybe PtxPoolInfo
 ptxPoolInfo (PtxApplying i)    = Just i
@@ -36,15 +34,6 @@ ptxPoolInfo _                  = Nothing
 
 isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
-
-mkPtxSubmitTiming :: HasCoreConstants => SlotId -> PtxSubmitTiming
-mkPtxSubmitTiming creationSlot =
-    PtxSubmitTiming
-    { _pstNextSlot  = creationSlot & flatSlotId +~ initialSubmitDelay
-    , _pstNextDelay = 1
-    }
-  where
-    initialSubmitDelay = 3 :: FlatSlotId
 
 mkPendingTx
     :: MonadWalletWebMode m
@@ -86,3 +75,6 @@ isReclaimableFailure = \case
     ToilUnknownAttributes{}  -> False
     ToilBootInappropriate{}  -> False
     ToilRepeatedInput{}      -> False
+
+usingPtxCoords :: (CId Wal -> TxId -> a) -> PendingTx -> a
+usingPtxCoords f PendingTx{..} = f _ptxWallet _ptxTxId

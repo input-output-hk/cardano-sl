@@ -26,7 +26,9 @@ import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
 import           Pos.Wallet.Web.State         (PtxMetaUpdate (PtxMarkAcknowledged),
                                                casPtxCondition, ptxUpdateMeta)
 
-
+-- | Handers used for to procees various pending transaction submission
+-- errors.
+-- If error is fatal for transaction, handler is supposed to throw exception.
 data PtxSubmissionHandlers m = PtxSubmissionHandlers
     { -- | When fatal 'ToilVerFailure' occurs.
       -- Exception is not specified explicitely to prevent a wish
@@ -62,8 +64,9 @@ ptxResubmissionHandler PendingTx{..} =
     { pshOnNonReclaimable = \peerAck e ->
         if | peerAck ->
              reportPeerApplied
-           | PtxApplying poolInfo <- _ptxCond ->
+           | PtxApplying poolInfo <- _ptxCond -> do
              cancelPtx poolInfo e
+             throwM e
            | otherwise ->
              reportBadCondition
     , pshOnMinor = \_ -> pass
@@ -79,12 +82,12 @@ ptxResubmissionHandler PendingTx{..} =
 
     reportPeerApplied =
         logInfo $
-        sformat ("Peer applied tx "%build%", while we didn't - continuing \
+        sformat ("Peer applied tx #"%build%", while we didn't - continuing \
             \tracking")
             _ptxTxId
     reportCanceled =
         logInfo $
-        sformat ("Pending transaction "%build%" was canceled")
+        sformat ("Pending transaction #"%build%" was canceled")
             _ptxTxId
     reportBadCondition =
         logWarning $
@@ -107,16 +110,22 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue PendingTx{..} = do
         [ Handler $ \e ->
             if isReclaimableFailure e
                 then minorError "reclaimable" (SomeException e)
-                else pshOnNonReclaimable accepted e
+                else nonReclaimableError accepted (SomeException e)
 
         , Handler $ \e@SomeException{} ->
             -- I don't know where this error can came from,
             -- but it's better to try with tx again than to regret, right?
             minorError "unknown error" e
         ]
-    minorError desc e = do
-        pshOnMinor e
-        logInfo $
-            sformat ("Transaction application failed ("%shown%" - "%stext%
-                     "), but was given another chance") e desc
 
+    minorError desc e = do
+        reportError desc e ", but was given another chance"
+        pshOnMinor e
+    nonReclaimableError accepted e = do
+        reportError "fatal" e ""
+        pshOnNonReclaimable accepted e
+
+    reportError desc e outcome =
+        logInfo $
+        sformat ("Transaction #"%build%" application failed ("%shown%" - "
+                %stext%")"%stext) _ptxTxId e desc outcome

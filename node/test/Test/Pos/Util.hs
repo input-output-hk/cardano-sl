@@ -3,24 +3,33 @@
 
 module Test.Pos.Util
        ( giveTestsConsts
+
+       -- * From/to
        , binaryEncodeDecode
-       , networkBinaryEncodeDecode
        , binaryTest
-       , formsCommutativeMonoid
-       , formsMonoid
-       , formsSemigroup
+       , networkBinaryEncodeDecode
        , networkBinaryTest
-       , msgLenLimitedTest
-       , msgLenLimitedTest'
        , safeCopyEncodeDecode
        , safeCopyTest
        , serDeserId
        , serDeserTest
-       , shouldThrowException
-       , showRead
+       , showReadId
        , showReadTest
+
+       -- * Message length
+       , msgLenLimitedTest
+       , msgLenLimitedTest'
+
+       -- * Helpers
        , (.=.)
        , (>=.)
+       , shouldThrowException
+
+       -- * Semigroup/monoid laws
+       , formsSemigroup
+       , formsMonoid
+       , formsCommutativeMonoid
+
        -- * Monadic properties
        , stopProperty
        , maybeStopProperty
@@ -61,16 +70,61 @@ giveTestsConsts = giveConsts $ CoreConstants (fromIntegral @Word32 35)
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary
 
+----------------------------------------------------------------------------
+-- From/to tests
+----------------------------------------------------------------------------
+
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 binaryEncodeDecode a = (deserialize . serialize $ a) === a
 
 -- | This check is intended to be used for all messages sent via
 -- networking.
 -- TODO @pva701: should we write more clever stuff here?
+-- TODO @volhovm: can we get rid of this function at all?
 -- TODO [CSL-1122] this test used to test that the message doesn't encode
 --      into an empty string, but after pva's changes it doesn't
 networkBinaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-networkBinaryEncodeDecode a = (deserialize . serialize $ a) === a
+networkBinaryEncodeDecode = binaryEncodeDecode
+
+safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
+safeCopyEncodeDecode a =
+    either (error . toText) identity
+        (runGet safeGet $ runPut $ safePut a) === a
+
+serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
+serDeserId a =
+    either (error . toText) identity
+        (fromBinary $ asBinary @t a) ===  a
+
+showReadId :: (Show a, Eq a, Read a) => a -> Property
+showReadId a = read (show a) === a
+
+type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
+
+identityTest :: forall f a. (IdTestingRequiredClasses f a) => (a -> Property) -> Spec
+identityTest fun = prop (typeName @a) fun
+  where
+    typeName :: forall x. Typeable x => String
+    typeName = show $ typeRep (Proxy @a)
+
+binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
+binaryTest = identityTest @Bi @a binaryEncodeDecode
+
+networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
+networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
+
+safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
+safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode
+
+serDeserTest :: forall a. IdTestingRequiredClasses AsBinaryClass a => Spec
+serDeserTest = identityTest @AsBinaryClass @a serDeserId
+
+showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
+showReadTest = identityTest @Read @a showReadId
+
+----------------------------------------------------------------------------
+-- Message length
+----------------------------------------------------------------------------
 
 msgLenLimitedCheck
     :: (Show a, Bi a) => Limit a -> a -> Property
@@ -81,33 +135,6 @@ msgLenLimitedCheck limit msg =
         else flip counterexample False $
             formatToString ("Message size (max found "%int%") exceedes \
             \limit ("%int%")") sz limit
-
-safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
-safeCopyEncodeDecode a =
-    either (error . toText) identity
-        (runGet safeGet $ runPut $ safePut a) === a
-
-showRead :: (Show a, Eq a, Read a) => a -> Property
-showRead a = read (show a) === a
-
-serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
-serDeserId a =
-    either (error . toText) identity
-        (fromBinary $ asBinary @t a) ===  a
-
-typeName :: forall a. Typeable a => String
-typeName = show $ typeRep (Proxy @a)
-
-type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
-
-identityTest :: forall f a. (IdTestingRequiredClasses f a) => (a -> Property) -> Spec
-identityTest fun = prop (typeName @a) fun
-
-binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
-binaryTest = identityTest @Bi @a binaryEncodeDecode
-
-networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
-networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
 
 msgLenLimitedTest'
     :: forall a. IdTestingRequiredClasses Bi a
@@ -149,41 +176,10 @@ msgLenLimitedTest
     => Spec
 msgLenLimitedTest = msgLenLimitedTest' @a msgLenLimit "" (const True)
 
-safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
-safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode
 
-serDeserTest :: forall a. IdTestingRequiredClasses AsBinaryClass a => Spec
-serDeserTest = identityTest @AsBinaryClass @a serDeserId
-
-showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
-showReadTest = identityTest @Read @a showRead
-
--- | Extensional equality combinator. Useful to express function properties as functional
--- equations.
-(.=.) :: (Eq b, Show b, Arbitrary a) => (a -> b) -> (a -> b) -> a -> Property
-(.=.) f g a = f a === g a
-
-infixr 5 .=.
-
--- | Monadic extensional equality combinator.
-(>=.)
-    :: (Show (m b), Arbitrary a, Monad m, Eq (m b))
-    => (a -> m b)
-    -> (a -> m b)
-    -> a
-    -> Property
-(>=.) f g a = f a === g a
-
-infixr 5 >=.
-
-shouldThrowException
-    :: (Show a, Eq a, Exception e)
-    => (a -> b)
-    -> Selector e
-    -> a
-    -> Expectation
-shouldThrowException action exception arg =
-    (return $! action arg) `shouldThrow` exception
+----------------------------------------------------------------------------
+-- Monoid/Semigroup laws
+----------------------------------------------------------------------------
 
 isAssociative :: (Show m, Eq m, Semigroup m) => m -> m -> m -> Property
 isAssociative m1 m2 m3 =
@@ -213,6 +209,37 @@ isCommutative m1 m2 =
 formsCommutativeMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
 formsCommutativeMonoid m1 m2 m3 =
     (formsMonoid m1 m2 m3) .&&. (isCommutative m1 m2)
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
+
+-- | Extensional equality combinator. Useful to express function properties as functional
+-- equations.
+(.=.) :: (Eq b, Show b, Arbitrary a) => (a -> b) -> (a -> b) -> a -> Property
+(.=.) f g a = f a === g a
+
+infixr 5 .=.
+
+-- | Monadic extensional equality combinator.
+(>=.)
+    :: (Show (m b), Arbitrary a, Monad m, Eq (m b))
+    => (a -> m b)
+    -> (a -> m b)
+    -> a
+    -> Property
+(>=.) f g a = f a === g a
+
+infixr 5 >=.
+
+shouldThrowException
+    :: (Show a, Eq a, Exception e)
+    => (a -> b)
+    -> Selector e
+    -> a
+    -> Expectation
+shouldThrowException action exception arg =
+    (return $! action arg) `shouldThrow` exception
 
 ----------------------------------------------------------------------------
 -- Monadic testing

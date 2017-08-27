@@ -24,7 +24,6 @@ import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletErr
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending     (PendingTx, ptxFirstSubmissionHandler,
                                              submitAndSavePtx)
-import           Pos.Wallet.Web.State       (addOnlyNewPendingTx)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail)
 
 
@@ -54,7 +53,5 @@ coinDistrToOutputs distr = do
 submitAndSaveNewPtx
     :: MonadWalletWebMode m
     => EnqueueMsg m -> PendingTx -> m ()
-submitAndSaveNewPtx enqueue ptx = do
-    submitAndSavePtx ptxFirstSubmissionHandler enqueue ptx
-    addOnlyNewPendingTx ptx
+submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
 

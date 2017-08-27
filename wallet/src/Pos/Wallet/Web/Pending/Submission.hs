@@ -24,7 +24,8 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..)
                                                PtxPoolInfo)
 import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
 import           Pos.Wallet.Web.State         (PtxMetaUpdate (PtxMarkAcknowledged),
-                                               casPtxCondition, ptxUpdateMeta)
+                                               addOnlyNewPendingTx, casPtxCondition,
+                                               ptxUpdateMeta)
 
 -- | Handers used for to procees various pending transaction submission
 -- errors.
@@ -108,10 +109,11 @@ ptxResubmissionHandler PendingTx{..} =
 submitAndSavePtx
     :: MonadWalletWebMode m
     => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
-submitAndSavePtx PtxSubmissionHandlers{..} enqueue PendingTx{..} = do
+submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
     ack <- submitTxRaw enqueue _ptxTxAux
-    when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
     saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack
+    addOnlyNewPendingTx ptx
+    when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
     handlers accepted =
         [ Handler $ \e ->

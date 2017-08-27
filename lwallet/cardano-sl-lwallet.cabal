@@ -19,6 +19,7 @@ executable cardano-wallet
                        WalletOptions
 
                        Pos.Wallet.Light
+                       Pos.Wallet.Light.Hacks
                        Pos.Wallet.Light.Launcher
                        Pos.Wallet.Light.Launcher.Runner
                        Pos.Wallet.Light.Launcher.Param

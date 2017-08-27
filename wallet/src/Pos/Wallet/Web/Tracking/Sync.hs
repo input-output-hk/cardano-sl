@@ -43,6 +43,7 @@ import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
 import           Formatting                       (build, sformat, (%))
+import           Serokell.Util                    (enumerate)
 import           System.Wlog                      (HasLoggerName, WithLogger, logError,
                                                    logInfo, logWarning, modifyLoggerName)
 
@@ -58,7 +59,7 @@ import           Pos.Core                         (Address (..), BlockHeaderStub
                                                    Timestamp, aaPkDerivationPath,
                                                    addrAttributesUnwrapped,
                                                    blkSecurityParam, headerHash,
-                                                   headerSlotL, makePubKeyAddress)
+                                                   headerSlotL, makeRootPubKeyAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -73,8 +74,8 @@ import           Pos.Slotting                     (MonadSlotsData, getSlotStartP
                                                    getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
-                                                   flattenTxPayload, getTxDistribution,
-                                                   toaOut, topsortTxs, txOutAddress)
+                                                   flattenTxPayload, toaOut, topsortTxs,
+                                                   txOutAddress)
 import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
@@ -317,8 +318,7 @@ trackingApplyTxs
 trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
     foldl' applyTx mempty txs
   where
-    snd3 (_, x, _) = x
-    toTxInOut txid (idx, out, dist) = (TxInUtxo  txid idx, TxOutAux out dist)
+    toTxInOut txid (idx, out) = (TxInUtxo txid idx, TxOutAux out)
 
     applyTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader ssc) -> CAccModifier
     applyTx CAccModifier{..} (TxAux {..}, undo, blkHeader) =
@@ -334,8 +334,8 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             txInputs = map (toaOut . snd) resolvedInputs
 
             ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
-            ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
-                         zip3 [0..] outs (NE.toList $ getTxDistribution taDistribution)
+            ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd) $
+                enumerate outs
             ownInpAddrMetas = map snd ownInputs
             ownOutAddrMetas = map snd ownOutputs
             ownTxIns = map (fst . fst) ownInputs
@@ -458,7 +458,7 @@ getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CId Wal)
 getEncInfo encSK = do
     let pubKey = encToPublic encSK
     let hdPass = deriveHDPassphrase pubKey
-    let wCId = addressToCId $ makePubKeyAddress pubKey
+    let wCId = addressToCId $ makeRootPubKeyAddress pubKey
     (hdPass, wCId)
 
 selectOwnAccounts

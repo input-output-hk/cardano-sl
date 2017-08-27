@@ -6,6 +6,7 @@ module Pos.Client.Txp.Balances
        , getBalanceFromUtxo
        , getOwnUtxosDefault
        , getBalanceDefault
+       , getOwnUtxoForPk
        ) where
 
 import           Universum
@@ -15,7 +16,9 @@ import qualified Data.HashSet         as HS
 import           Data.List            (partition)
 import qualified Data.Map             as M
 
-import           Pos.Core             (Address (..), Coin, isRedeemAddress)
+import           Pos.Core             (Address (..), Coin, IsBootstrapEraAddr (..),
+                                       isRedeemAddress, makePubKeyAddress)
+import           Pos.Crypto           (PublicKey)
 import           Pos.DB               (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.Txp              (MonadTxpMem, Utxo, addrBelongsToSet,
                                        getUtxoModifier)
@@ -73,3 +76,16 @@ getBalanceDefault addr = getBalanceFromUtxo addr
 
 getOwnUtxo :: MonadBalances m => Address -> m Utxo
 getOwnUtxo = getOwnUtxos . one
+
+-- | Sometimes we want to get utxo for all addresses which we «own»,
+-- i. e. can spend funds from them. We can't get all such addresses
+-- from public key, because it's impossible to extract spending data
+-- from an address. And we can't enumerate all possible addresses for
+-- a public key. So we only consider two addresses: one with bootstrap
+-- era distribution and another one with single key distribution.
+getOwnUtxoForPk :: MonadBalances m => PublicKey -> m Utxo
+getOwnUtxoForPk ourPk = getOwnUtxos ourAddresses
+  where
+    ourAddresses :: [Address]
+    ourAddresses =
+        map (flip makePubKeyAddress ourPk . IsBootstrapEraAddr) [False, True]

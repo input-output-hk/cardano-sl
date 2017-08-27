@@ -36,7 +36,7 @@ import           Pos.Block.Types             (Undo)
 import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
 import           Pos.Core                    (Address, GenesisWStakeholders (..),
                                               HasCoreConstants, HasPrimaryKey (..),
-                                              IsHeader, SlotId (..), StakeholderId,
+                                              IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
@@ -351,7 +351,7 @@ instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onRollbackBlocks = onRollbackBlocksStub
 
 instance Monad m => MonadAddresses (BlockGenMode m) where
-    type AddrData (BlockGenMode m) = (Address, Maybe StakeholderId)
+    type AddrData (BlockGenMode m) = Address
     getNewAddress = pure
 
 ----------------------------------------------------------------------------

@@ -27,7 +27,7 @@ import           Pos.Client.Txp.Util        (createGenericTx, makeMPubKeyTxAddrs
                                              unTxError)
 import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
                                              SlotId (..), addressHash, coinToInteger,
-                                             makePubKeyAddress, unsafeIntegerToCoin)
+                                             makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Crypto                 (SecretKey, WithHash (..), fakeSigner, hash,
                                              toPublic)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
@@ -171,7 +171,10 @@ genTxPayload = do
                         sformat ("addrToSk: ound an address with non-pubkey spending data: "
                                     %build) another
 
-        let utxoAddresses = map makePubKeyAddress secretsPks
+        -- Currently payload generator only uses addresses with
+        -- bootstrap era distribution. This is fine, because we don't
+        -- have usecases where we switch to reward era.
+        let utxoAddresses = map (makePubKeyAddressBoot . toPublic) $ HM.elems secrets
             utxoAddrsN = HM.size secrets
         let adder hm TxOutAux { toaOut = TxOut {..} } =
                 HM.insertWith (+) txOutAddress (coinToInteger txOutValue) hm
@@ -194,19 +197,13 @@ genTxPayload = do
         totalTxAmount <- getRandomR (fromIntegral outputsN, totalOwnMoney `div` 2)
 
         changeAddrIdx <- getRandomR (0, utxoAddrsN - 1)
-        let changeAddrData = makePubKeyAddress &&& (Just . addressHash) $
-                secretsPks !! changeAddrIdx
+        let changeAddrData = makePubKeyAddressBoot $ secretsPks !! changeAddrIdx
 
         -- Prepare tx outputs
         coins <- splitCoins outputsN (unsafeIntegerToCoin totalTxAmount)
         let txOuts :: NonEmpty TxOut
             txOuts = NE.fromList $ zipWith TxOut outputAddrs coins
-        let txOutToOutAux txOut@(TxOut addr coin) =
-                let sk = addrToSk addr
-                    sId = addressHash (toPublic sk)
-                    distr = one (sId, coin)
-                in TxOutAux { toaOut = txOut, toaDistr = distr }
-            txOutAuxs = map txOutToOutAux txOuts
+            txOutAuxs = map TxOutAux txOuts
 
         -- Form a transaction
         let inputSKs = map addrToSk inputAddrs
@@ -228,7 +225,7 @@ genTxPayload = do
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
-                Utxo.applyTxToUtxo (WithHash tx txId) (taDistribution txAux)
+                Utxo.applyTxToUtxo (WithHash tx txId)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
                 let outsAsIns =
                         map (TxInUtxo txId) [0..(fromIntegral $ length txOuts)-1]

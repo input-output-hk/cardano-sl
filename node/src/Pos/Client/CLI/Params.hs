@@ -18,6 +18,12 @@ import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (.
 import qualified Prelude
 import           System.Wlog                (LoggerName, WithLogger)
 
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..),
+                                             maliciousEmulationAttacks,
+                                             maliciousEmulationTargets)
+import           Pos.Client.CLI.Options     (CommonArgs (..))
+import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
+                                             userSecretWithGenesisKey)
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
@@ -31,14 +37,6 @@ import           Pos.Security               (SecurityParams (..))
 import           Pos.Ssc.GodTossing         (GtParams (..))
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.UserSecret        (peekUserSecret)
-
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..),
-                                             maliciousEmulationAttacks,
-                                             maliciousEmulationTargets)
-import           Pos.Client.CLI.Options     (CommonArgs (..))
-import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
-                                             userSecretWithGenesisKey)
-
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams tag CommonNodeArgs{..} =

@@ -8,6 +8,7 @@ import           Data.Aeson            (eitherDecode)
 import qualified Data.ByteString.Lazy  as BSL
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.List             as L
+import qualified Data.Map.Strict       as Map
 import qualified Data.Text             as T
 import           Formatting            (build, sformat, shown, (%))
 import           Serokell.Util.Text    (listJson)
@@ -20,7 +21,8 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
 import           Universum
 
 import           Pos.Binary            (asBinary, decodeFull, serialize')
-import           Pos.Core              (StakeholderId, mkCoin)
+import           Pos.Core              (StakeholderId, addressDetailedF, addressHash,
+                                        makePubKeyAddressBoot, makeRedeemAddress, mkCoin)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, redeemPkB64F,
                                         toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
@@ -28,8 +30,6 @@ import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
                                         GenesisGtData (..), StakeDistribution (..),
                                         genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                         mkGenesisCoreData)
-import           Pos.Types             (addressDetailedF, addressHash, makePubKeyAddress,
-                                        makeRedeemAddress)
 import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
                                         usWalletSet)
 import           Pos.Wallet.Web.Secret (wusRootKey)
@@ -65,7 +65,7 @@ getTestnetData ::
        (MonadIO m, MonadFail m, WithLogger m)
     => FilePath
     -> TestStakeOptions
-    -> m ([AddrDistribution], HashMap StakeholderId Word16, GenesisGtData)
+    -> m ([AddrDistribution], Map StakeholderId Word16, GenesisGtData)
 getTestnetData dir tso@TestStakeOptions{..} = do
 
     let keysDir = dir </> "keys-testnet"
@@ -92,9 +92,9 @@ getTestnetData dir tso@TestStakeOptions{..} = do
     let distr = genTestnetDistribution tso
         richmenStakeholders = case distr of
             RichPoorStakes {..} ->
-                HM.fromList $ map ((,1) . addressHash . fst) genesisListRich
+                Map.fromList $ map ((,1) . addressHash . fst) genesisListRich
             _ -> error "cardano-keygen: impossible type of generated testnet stake"
-        genesisAddrs = map (makePubKeyAddress . fst) genesisList
+        genesisAddrs = map (makePubKeyAddressBoot . fst) genesisList
                     <> map (view _3) poorsList
         genesisAddrDistr = [(genesisAddrs, distr)]
         genGtData = GenesisGtData
@@ -237,7 +237,7 @@ genGenesisFiles GenesisGenOptions{..} = do
             | null ggoBootStakeholders =
                 mconcat $ catMaybes [ view _2 <$> mTestnetData ]
             | otherwise =
-                HM.fromList ggoBootStakeholders
+                Map.fromList ggoBootStakeholders
     when (null gcdBootstrapStakeholders) $
         error "gcdBootstrapStakeholders is empty. Current keygen implementation \
               \doesn't support explicit boot stakeholders, so if testnet is not \

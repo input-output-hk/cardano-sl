@@ -57,6 +57,9 @@ module Pos.Util.Util
        , withTempFile
        , withSystemTempFile
 
+       -- * Aeson
+       , parseJSONWithRead
+
        -- * Instances
        -- ** Lift Byte
        -- ** FromJSON Byte
@@ -92,6 +95,8 @@ import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
                                                  transResourceT)
 import qualified Crypto.Random                  as Rand
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
+import qualified Data.Aeson                     as A
+import qualified Data.Aeson.Types               as A
 import           Data.Char                      (isAlphaNum)
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
@@ -545,3 +550,13 @@ withTempFile tmpDir template action =
   where
      ignoringIOErrors :: MC.MonadCatch m => m () -> m ()
      ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: Prelude.IOError))
+
+----------------------------------------------------------------------------
+-- Aeson
+----------------------------------------------------------------------------
+
+-- | Parse a value represented as a 'show'-ed string in JSON.
+parseJSONWithRead :: Read a => A.Value -> A.Parser a
+parseJSONWithRead =
+    either (fail . toString) pure . readEither @String <=<
+    parseJSON

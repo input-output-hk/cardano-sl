@@ -42,6 +42,8 @@ library
                        Pos.Arbitrary.Crypto
                        Pos.Arbitrary.Crypto.Unsafe
 
+                       Pos.Aeson.Crypto
+
                        Pos.Core
                        Pos.Core.Address
                        Pos.Core.Block
@@ -120,25 +122,16 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , aeson
                      , autoexporter
                      , base
                      , base58-bytestring
-                     , cborg
-                     , concurrent-extra
-                     , ether >= 0.5
-                     , exceptions
-                     , log-warper >= 1.0.3
-                     , mmorph
-                     , reflection
-                     , resourcet
-                     , stm
-                     , transformers
-                     , transformers-base
-                     , transformers-lift
                      , binary
                      , bytestring
                      , cardano-crypto
+                     , cborg
                      , cereal
+                     , concurrent-extra
                      , concurrent-extra
                      , containers
                      , contravariant
@@ -150,14 +143,18 @@ library
                      , digest
                      , directory
                      , ed25519
+                     , ether >= 0.5
+                     , exceptions
                      , file-embed
                      , filepath
                      , formatting
                      , generic-arbitrary
                      , hashable
                      , lens
+                     , log-warper >= 1.0.3
                      , lrucache
                      , memory
+                     , mmorph
                      , mtl
                      , node-sketch
                      , parsec
@@ -165,9 +162,12 @@ library
                      , pvss
                      , quickcheck-instances
                      , random
+                     , reflection
+                     , resourcet
                      , safecopy
                      , semigroups
                      , serokell-util
+                     , stm
                      , stm
                      , tagged
                      , template-haskell
@@ -176,6 +176,9 @@ library
                      , th-utilities
                      , time
                      , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
                      , unordered-containers
                      , vector

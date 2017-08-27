@@ -39,6 +39,7 @@ import           Pos.Crypto.HD                   (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
                                                   RedeemSecretKey (..),
                                                   RedeemSignature (..))
+import           Pos.Crypto.SecretSharing        (SecretProof)
 import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey (..),
                                                   ProxySignature (..), PublicKey (..),
                                                   SecretKey (..), Signature (..),
@@ -90,6 +91,10 @@ deriveSafeCopySimple 0 'base ''EDS25519.Signature
 
 deriveSafeCopySimple 0 'base ''RedeemPublicKey
 deriveSafeCopySimple 0 'base ''RedeemSecretKey
+
+instance Bi SecretProof => SafeCopy SecretProof where
+    getCopy = Bi.getCopyBi
+    putCopy = Bi.putCopyBi
 
 ----------------------------------------------------------------------------
 -- God tossing

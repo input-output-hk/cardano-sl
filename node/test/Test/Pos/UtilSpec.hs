@@ -15,7 +15,7 @@ import qualified Data.List.NonEmpty    as NE
 import qualified GHC.Exts              as IL (IsList (..))
 
 import           Pos.Binary            (AsBinary)
-import           Pos.Crypto            (PublicKey, Share)
+import           Pos.Crypto            (DecShare, PublicKey)
 import           Pos.Util              (SmallGenerator (..), diffDoubleMap)
 import           Pos.Util.Chrono       (Chrono (..), NewestFirst (..), OldestFirst (..))
 
@@ -88,7 +88,7 @@ spec = describe "Util" $ do
         "Converting 'OldestFirst " ++ functor ++ " a' to 'NewestFirst " ++ functor ++
         " a' and back again changes nothing"
 
-type HashMapDDM = HashMap PublicKey (HashMap PublicKey (AsBinary Share))
+type HashMapDDM = HashMap PublicKey (HashMap PublicKey (AsBinary DecShare))
 
 ddmEmptyHashMap
     :: SmallGenerator HashMapDDM

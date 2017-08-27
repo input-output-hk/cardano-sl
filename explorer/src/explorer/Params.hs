@@ -10,6 +10,7 @@ module Params
 
 import           Universum
 
+import           Data.Default          (def)
 import           Mockable              (Catch, Fork, Mockable, Throw)
 import           System.Wlog           (LoggerName, WithLogger)
 
@@ -42,6 +43,7 @@ gtSscParams Args {..} vssSK =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
+    , gtpBehavior   = def
     }
 
 getBaseParams :: LoggerName -> Args -> BaseParams

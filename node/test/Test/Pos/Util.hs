@@ -7,8 +7,6 @@ module Test.Pos.Util
        -- * From/to
        , binaryEncodeDecode
        , binaryTest
-       , networkBinaryEncodeDecode
-       , networkBinaryTest
        , safeCopyEncodeDecode
        , safeCopyTest
        , serDeserId
@@ -38,6 +36,7 @@ module Test.Pos.Util
 
 import           Universum
 
+import           Codec.CBOR.FlatTerm      (toFlatTerm, validFlatTerm)
 import qualified Data.ByteString          as BS
 import           Data.SafeCopy            (SafeCopy, safeGet, safePut)
 import qualified Data.Semigroup           as Semigroup
@@ -74,17 +73,13 @@ instance Arbitrary a => Arbitrary (Tagged s a) where
 -- From/to tests
 ----------------------------------------------------------------------------
 
+-- | Basic binary serialization/deserialization identity.
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 binaryEncodeDecode a = (deserialize . serialize $ a) === a
 
--- | This check is intended to be used for all messages sent via
--- networking.
--- TODO @pva701: should we write more clever stuff here?
--- TODO @volhovm: can we get rid of this function at all?
--- TODO [CSL-1122] this test used to test that the message doesn't encode
---      into an empty string, but after pva's changes it doesn't
-networkBinaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-networkBinaryEncodeDecode = binaryEncodeDecode
+-- | Machinery to test we perform "flat" encoding.
+cborFlatTermValid :: (Show a, Bi a) => a -> Property
+cborFlatTermValid = property . validFlatTerm . toFlatTerm . encode
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
@@ -108,10 +103,9 @@ identityTest fun = prop (typeName @a) fun
     typeName = show $ typeRep (Proxy @a)
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
-binaryTest = identityTest @Bi @a binaryEncodeDecode
-
-networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
-networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
+binaryTest = do
+    identityTest @Bi @a binaryEncodeDecode
+    identityTest @Bi @a cborFlatTermValid
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode

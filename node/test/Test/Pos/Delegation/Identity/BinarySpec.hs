@@ -12,7 +12,7 @@ import           Pos.Arbitrary.Delegation      ()
 import           Pos.Arbitrary.Infra           ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Delegation                (DlgPayload, ProxySKLightConfirmation)
-import           Test.Pos.Util                 (binaryTest, networkBinaryTest)
+import           Test.Pos.Util                 (binaryTest)
 
 
 spec :: Spec
@@ -21,4 +21,4 @@ spec = describe "Delegation types" $ do
         binaryTest @DlgPayload
         binaryTest @(DataMsg ProxySKLightConfirmation)
     describe "Network" $ do
-        networkBinaryTest @(DataMsg ProxySKLightConfirmation)
+        binaryTest @(DataMsg ProxySKLightConfirmation)

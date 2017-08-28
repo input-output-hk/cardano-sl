@@ -93,5 +93,20 @@ in {
     system("ls -ltrh xchg-shared");
     system('mkdir $out/logs');
     system('mv -v xchg-shared/node*log $out/logs');
+    my $out = $ENV{'out'};
+    my $fname = "$out/nix-support/hydra-build-products";
+    open(my $fh, '>', $fname) or die "unable to open $fname";
+    print $fh <<"EOF";
+    file journal $out/logs/node1.log
+    file journal $out/logs/node2.log
+    file journal $out/logs/node3.log
+    file journal $out/logs/node4.log
+    file journal $out/logs/node5.log
+    file pcap $out/capture-1-1.pcap
+    file pcap $out/capture-1-2.pcap
+    file pcap $out/capture-1-3.pcap
+    file pcap $out/capture-1-4.pcap
+    file pcap $out/capture-1-5.pcap
+    EOF
   '';
 }

@@ -51,6 +51,7 @@ let
       192.168.1.5 node5.cardano
     '';
     virtualisation.qemu.options = [
+      "-cpu Haswell"
       "-rtc base='2017-08-01'"
       "-net dump,vlan=0,file=$out/capture-0-${toString index}.pcap"
       "-net dump,vlan=1,file=$out/capture-1-${toString index}.pcap"

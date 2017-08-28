@@ -34,7 +34,8 @@ import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
                                                         Origin (..), OutSpecs,
                                                         SendActions (..), Worker,
-                                                        WorkerSpec, onNewSlotWorker)
+                                                        WorkerSpec, localWorker,
+                                                        onNewSlotWorker)
 import           Pos.Communication.Relay               (DataMsg, ReqOrRes,
                                                         invReqDataFlowTK)
 import           Pos.Communication.Specs               (createOutSpecs)
@@ -54,6 +55,7 @@ import           Pos.DB                                (gsAdoptedBVData)
 import           Pos.Lrc.Context                       (lrcActionOnEpochReason)
 import           Pos.Lrc.Types                         (RichmenStakes)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
+import           Pos.Slotting                          (onNewSlot)
 import           Pos.Slotting                          (getCurrentSlot,
                                                         getSlotStartEmpatically)
 import           Pos.Ssc.Class                         (HasSscContext (..),
@@ -97,7 +99,9 @@ import           Pos.Util.Util                         (getKeys, inAssertMode,
                                                         leftToPanic)
 
 instance GtMessageConstraints => SscWorkersClass SscGodTossing where
-    sscWorkers = first pure onNewSlotSsc
+    sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
+      where
+        merge = mconcat . map (first pure)
     sscLrcConsumers = [gtLrcConsumer]
 
 -- CHECK: @onNewSlotSsc
@@ -419,3 +423,45 @@ waitUntilSend msgTag epoch slMultiplier = do
                 ttwMillisecond
                 msgTag
         delay timeToWait
+
+----------------------------------------------------------------------------
+-- Security check
+----------------------------------------------------------------------------
+
+checkForIgnoredCommitmentsWorker
+    :: forall ctx m.
+       SscMode SscGodTossing ctx m
+    => (WorkerSpec m, OutSpecs)
+checkForIgnoredCommitmentsWorker = localWorker $ do
+    epochIdx <- atomically (newTVar 0)
+    void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl epochIdx)
+
+checkForIgnoredCommitmentsWorkerImpl
+    :: forall ctx m. (SscMode SscGodTossing ctx m)
+    => TVar EpochIndex -> SlotId -> m ()
+checkForIgnoredCommitmentsWorkerImpl _tvar _slotId = recoveryCommGuard $ do
+    pass
+  -- FIXME: the logic below is ridiculous, should be reworked.
+  --   -- Check prev blocks
+  --   (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
+  --       map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam
+  --   for_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
+
+  --   -- Print warning
+  --   lastCommitment <- atomically $ readTVar tvar
+  --   when (siEpoch slotId - lastCommitment > mdNoCommitmentsEpochThreshold) $
+  --       logWarning $ sformat
+  --           ("Our neighbors are likely trying to carry out an eclipse attack! "%
+  --            "Last commitment was at epoch "%int%", "%
+  --            "which is more than 'mdNoCommitmentsEpochThreshold' epochs ago")
+  --           lastCommitment
+  -- where
+  --   checkCommitmentsInBlock :: MainBlock SscGodTossing -> m ()
+  --   checkCommitmentsInBlock block = do
+  --       ourId <- getOurStakeholderId
+  --       let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. mainBlockSscPayload)
+  --       when commitmentInBlockchain $
+  --           atomically $ writeTVar tvar $ block ^. epochIndexL
+  --   isCommitmentInPayload addr (CommitmentsPayload commitments _) =
+  --       HM.member addr $ getCommitmentsMap commitments
+  --   isCommitmentInPayload _ _ = False

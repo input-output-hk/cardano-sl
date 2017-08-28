@@ -141,9 +141,7 @@ txScriptCheck sigData validator redeemer = case spoon result of
             PL.buildValidationScript stdlib valScr redScr
         let txInfo = PLCore.TransactionInfo
                 { txHash      = BSL.fromStrict . BA.convert $
-                                txSigTxHash sigData
-                , txDistrHash = BSL.fromStrict . BA.convert $
-                                txSigTxDistrHash sigData }
+                                txSigTxHash sigData }
         over _Left (PlutusExecutionFailure . toText) $
             PL.checkValidationResult txInfo (script, env)
 

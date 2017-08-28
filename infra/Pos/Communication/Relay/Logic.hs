@@ -32,6 +32,7 @@ import           Data.Tagged                        (Tagged, tagWith)
 import           Data.Typeable                      (typeRep)
 import           Formatting                         (build, sformat, shown, stext, (%))
 import           Mockable                           (MonadMockable, handleAll, throw, try)
+import qualified Network.Broadcast.OutboundQueue    as OQ
 import           Node.Message.Class                 (Message)
 import           System.Wlog                        (WithLogger, logDebug, logError,
                                                      logWarning)
@@ -56,6 +57,7 @@ import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), 
                                                      MempoolMsg (..), ReqMsg (..),
                                                      ReqOrRes, ResMsg (..))
 import           Pos.DB.Class                       (MonadGState)
+import           Pos.Network.Types                  (Bucket)
 import           Pos.Util.TimeWarp                  (CanJsonLog (..))
 
 type MinRelayWorkMode m =
@@ -79,7 +81,7 @@ data InvReqCommunicationException =
 instance Exception InvReqCommunicationException
 
 handleReqL
-    :: forall key contents m .
+    :: forall pack key contents m .
        ( Bi (ReqMsg key)
        , Bi (InvOrData key contents)
        , Message (InvOrData key contents)
@@ -88,9 +90,10 @@ handleReqL
        , MinRelayWorkMode m
        , MonadGState m
        )
-    => (NodeId -> key -> m (Maybe contents))
+    => OQ.OutboundQ pack NodeId Bucket
+    -> (NodeId -> key -> m (Maybe contents))
     -> (ListenerSpec m, OutSpecs)
-handleReqL handleReq = listenerConv $ \__ourVerInfo nodeId conv ->
+handleReqL oq handleReq = listenerConv oq $ \__ourVerInfo nodeId conv ->
     let handlingLoop = do
             mbMsg <- recvLimited conv
             case mbMsg of
@@ -113,14 +116,15 @@ handleReqL handleReq = listenerConv $ \__ourVerInfo nodeId conv ->
         rmKey
 
 handleMempoolL
-    :: forall m.
+    :: forall pack m.
        ( MinRelayWorkMode m
        , MonadGState m
        )
-    => MempoolParams m
+    => OQ.OutboundQ pack NodeId Bucket
+    -> MempoolParams m
     -> [(ListenerSpec m, OutSpecs)]
-handleMempoolL NoMempool = []
-handleMempoolL (KeyMempool tagP handleMempool) = pure $ listenerConv $
+handleMempoolL _ NoMempool = []
+handleMempoolL oq (KeyMempool tagP handleMempool) = pure $ listenerConv oq $
     \__ourVerInfo __nodeId conv -> do
         mbMsg <- recvLimited conv
         whenJust mbMsg $ \msg@MempoolMsg -> do
@@ -137,7 +141,7 @@ handleMempoolL (KeyMempool tagP handleMempool) = pure $ listenerConv $
     mmP = (const Proxy :: Proxy tag -> Proxy (MempoolMsg tag)) tagP
 
 handleDataOnlyL
-    :: forall contents ctx m .
+    :: forall pack contents ctx m .
        ( Bi (DataMsg contents)
        , Message Void
        , Message (DataMsg contents)
@@ -146,11 +150,12 @@ handleDataOnlyL
        , MonadGState m
        , MessageLimited (DataMsg contents)
        )
-    => EnqueueMsg m
+    => OQ.OutboundQ pack NodeId Bucket
+    -> EnqueueMsg m
     -> (Origin NodeId -> Msg)
     -> (NodeId -> contents -> m Bool)
     -> (ListenerSpec m, OutSpecs)
-handleDataOnlyL enqueue mkMsg handleData = listenerConv $ \__ourVerInfo nodeId conv ->
+handleDataOnlyL oq enqueue mkMsg handleData = listenerConv oq $ \__ourVerInfo nodeId conv ->
     -- First binding is to inform GHC that the send type is Void.
     let msg :: Msg
         msg = mkMsg (OriginForward nodeId)
@@ -259,31 +264,31 @@ handleInvDo handleInv imKey =
         imKey
 
 relayListenersOne
-  :: forall ctx m.
+  :: forall pack ctx m.
      ( RelayWorkMode ctx m
      , MonadGState m
      , Message Void
      )
-  => EnqueueMsg m -> Relay m -> MkListeners m
-relayListenersOne enqueue (InvReqData mP irdP@InvReqDataParams{..}) =
+  => OQ.OutboundQ pack NodeId Bucket -> EnqueueMsg m -> Relay m -> MkListeners m
+relayListenersOne oq enqueue (InvReqData mP irdP@InvReqDataParams{..}) =
     constantListeners $
-    [handleReqL handleReq, invDataListener enqueue irdP] ++ handleMempoolL mP
-relayListenersOne enqueue (Data DataParams{..}) =
+    [handleReqL oq handleReq, invDataListener oq enqueue irdP] ++ handleMempoolL oq mP
+relayListenersOne oq enqueue (Data DataParams{..}) =
     constantListeners $
-    [handleDataOnlyL enqueue dataMsgType (handleDataOnly enqueue)]
+    [handleDataOnlyL oq enqueue dataMsgType (handleDataOnly enqueue)]
 
 relayListeners
-  :: forall ctx m.
+  :: forall pack ctx m.
      ( WithLogger m
      , RelayWorkMode ctx m
      , MonadGState m
      , Message Void
      )
-  => EnqueueMsg m -> [Relay m] -> MkListeners m
-relayListeners enqueue = mconcat . map (relayListenersOne enqueue)
+  => OQ.OutboundQ pack NodeId Bucket -> EnqueueMsg m -> [Relay m] -> MkListeners m
+relayListeners oq enqueue = mconcat . map (relayListenersOne oq enqueue)
 
 invDataListener
-  :: forall key contents ctx m.
+  :: forall pack key contents ctx m.
      ( RelayWorkMode ctx m
      , MonadGState m
      , Message (ReqOrRes key)
@@ -296,10 +301,11 @@ invDataListener
      , MessageLimited (DataMsg contents)
      , Message Void
      )
-  => EnqueueMsg m
+  => OQ.OutboundQ pack NodeId Bucket
+  -> EnqueueMsg m
   -> InvReqDataParams key contents m
   -> (ListenerSpec m, OutSpecs)
-invDataListener enqueue InvReqDataParams{..} = listenerConv $ \__ourVerInfo nodeId conv ->
+invDataListener oq enqueue InvReqDataParams{..} = listenerConv oq $ \__ourVerInfo nodeId conv ->
     let handlingLoop = do
             inv' <- recvLimited conv
             whenJust inv' $ expectInv $ \InvMsg{..} -> do

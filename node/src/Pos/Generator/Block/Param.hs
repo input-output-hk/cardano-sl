@@ -46,7 +46,7 @@ instance Show TxGenParams where
 
 instance Default TxGenParams where
     def = TxGenParams { _tgpTxCountRange = (0,5)
-                      , _tgpMaxOutputs = 4
+                      , _tgpMaxOutputs = 3
                       }
 
 -- | Parameters for blockchain generation. Probably they come from the outside.
@@ -59,6 +59,8 @@ data BlockGenParams = BlockGenParams
     -- ^ Transaction generation parameters.
     , _bgpInplaceDB       :: !Bool
     -- ^ Whether to extend existing DB.
+    , _bgpSkipNoKey       :: !Bool
+    -- ^ Skip block creation procedure if related leader key is not found.
     , _bgpGenStakeholders :: !GenesisWStakeholders
     -- ^ Set of genesis stakeholders. This is needed to properly
     -- generate transaction payload.

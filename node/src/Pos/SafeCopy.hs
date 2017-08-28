@@ -1,4 +1,4 @@
--- | SafeCopy serialization of Pos.Types.* modules, required for wallet
+-- | SafeCopy serialization of the world, required for wallet. ☕
 
 module Pos.SafeCopy
        (
@@ -39,6 +39,7 @@ import           Pos.Crypto.HD                   (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
                                                   RedeemSecretKey (..),
                                                   RedeemSignature (..))
+import           Pos.Crypto.SecretSharing        (SecretProof)
 import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey (..),
                                                   ProxySignature (..), PublicKey (..),
                                                   SecretKey (..), Signature (..),
@@ -51,10 +52,9 @@ import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
                                                   GtPayload (..), GtProof (..),
                                                   Opening (..), VssCertificate (..))
-import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), TxIn (..),
-                                                  TxInWitness (..), TxOut (..),
-                                                  TxOutAux (..), TxPayload (..),
-                                                  TxProof (..))
+import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
+                                                  TxOut (..), TxOutAux (..),
+                                                  TxPayload (..), TxProof (..))
 import           Pos.Update.Core.Types           (BlockVersionModifier (..),
                                                   SystemTag (..), UpdateData (..),
                                                   UpdatePayload (..), UpdateProposal (..),
@@ -92,6 +92,10 @@ deriveSafeCopySimple 0 'base ''EDS25519.Signature
 deriveSafeCopySimple 0 'base ''RedeemPublicKey
 deriveSafeCopySimple 0 'base ''RedeemSecretKey
 
+instance Bi SecretProof => SafeCopy SecretProof where
+    getCopy = Bi.getCopyBi
+    putCopy = Bi.putCopyBi
+
 ----------------------------------------------------------------------------
 -- God tossing
 ----------------------------------------------------------------------------
@@ -125,9 +129,6 @@ deriveSafeCopySimple 0 'base ''AddrAttributes
 deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
--- TODO: in many cases TxDistribution would just be lots of empty lists, so
--- its SafeCopy instance could be optimised
-deriveSafeCopySimple 0 'base ''TxDistribution
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
 deriveSafeCopySimple 0 'base ''TxOutAux

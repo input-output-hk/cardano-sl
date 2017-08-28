@@ -15,8 +15,8 @@ module Pos.Communication.Limits
 import           Universum
 
 import qualified Cardano.Crypto.Wallet              as CC
-import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
-import qualified Crypto.PVSS                        as PVSS
+import           Crypto.Hash.IO                     (HashAlgorithm, hashDigestSize)
+import qualified Crypto.SCRAPE                      as Scrape
 import           Data.Coerce                        (coerce)
 import           GHC.Exts                           (IsList (..))
 
@@ -30,16 +30,15 @@ import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
 import           Pos.Core.Context                   (HasCoreConstants, blkSecurityParam)
-import           Pos.Crypto                         (AbstractHash, EncShare,
+import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
                                                      ProxyCert (..), ProxySecretKey (..),
                                                      ProxySignature (..), PublicKey,
-                                                     Secret, SecretProof,
-                                                     SecretSharingExtra (..), Share,
+                                                     Secret, SecretProof (..),
                                                      Signature (..), VssPublicKey)
 import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
-                                                     Opening, SignedCommitment,
+                                                     Opening (..), SignedCommitment,
                                                      VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
                                                      MCShares (..), MCVssCertificate (..))
@@ -79,9 +78,6 @@ maxAsBinaryOverhead = 64
 instance MessageLimitedPure a => MessageLimitedPure (AsBinary a) where
     msgLenLimit = coerce (msgLenLimit @a) + maxAsBinaryOverhead
 
-instance MessageLimitedPure SecretProof where
-    msgLenLimit = 66
-
 instance MessageLimitedPure VssPublicKey where
     msgLenLimit = 35
 
@@ -91,20 +87,22 @@ instance MessageLimitedPure Secret where
 instance MessageLimitedPure EncShare where
     msgLenLimit = 103
 
-instance MessageLimitedPure Share where
-    msgLenLimit = 103 --4+35+64
+instance MessageLimitedPure DecShare where
+    msgLenLimit = 103 --4+35+64       TODO: might be outdated
 
-instance MessageLimitedPure PVSS.Commitment where
-    msgLenLimit = 33
+instance MessageLimitedPure Scrape.Commitment where
+    msgLenLimit = 35
 
-instance MessageLimitedPure PVSS.ExtraGen where
-    msgLenLimit = 33
+instance MessageLimitedPure Scrape.ExtraGen where
+    msgLenLimit = 35
 
-instance MessageLimitedPure (AbstractHash Blake2b_224 a) where
-    msgLenLimit = 32
+instance MessageLimitedPure Scrape.Proof where
+    msgLenLimit = 35
 
-instance MessageLimitedPure (AbstractHash Blake2b_256 a) where
-    msgLenLimit = 34
+instance HashAlgorithm algo => MessageLimitedPure (AbstractHash algo a) where
+    msgLenLimit = fromInteger $
+        toInteger (hashDigestSize (error "msgLenLimit AbstractHash" :: algo))
+        + 4
 
 instance MessageLimitedPure EpochIndex where
     msgLenLimit = 12
@@ -132,31 +130,46 @@ instance MessageLimited ProxySKLightConfirmation
 ---- GodTossing
 ----------------------------------------------------------------------------
 
--- | Upper bound on number of `PVSS.Commitment`s in single
--- `Commitment`.  Actually it's a maximum number of participants in
--- GodTossing. So it also limits number of shares, for instance.
+-- | Upper bound on number of 'Scrape.Commitment's in single 'Commitment'.
+-- Actually it's a maximum number of participants in GodTossing. So it also
+-- limits number of shares, for instance.
 commitmentsNumLimit :: DB.MonadGState m => m Int
 commitmentsNumLimit =
     -- succ is just in case
     succ . ceiling . recip . coinPortionToDouble . bvdMpcThd <$>
     DB.gsAdoptedBVData
 
-instance MessageLimited SecretSharingExtra where
+instance MessageLimited SecretProof where
     getMsgLenLimit _ = do
         numLimit <- commitmentsNumLimit
-        return $ SecretSharingExtra <$> msgLenLimit <+> vector numLimit
+        parproofsLimit <- getMsgLenLimit (Proxy @Scrape.ParallelProofs)
+        return $ SecretProof
+                   <$> msgLenLimit
+                   <+> msgLenLimit
+                   <+> parproofsLimit
+                   <+> vector numLimit
 
-instance MessageLimited (AsBinary SecretSharingExtra) where
+instance MessageLimited (AsBinary SecretProof) where
     getMsgLenLimit _ =
         coerce . (maxAsBinaryOverhead +) <$>
-        getMsgLenLimit (Proxy @SecretSharingExtra)
+        getMsgLenLimit (Proxy @SecretProof)
+
+instance MessageLimited Scrape.ParallelProofs where
+    getMsgLenLimit _ = do
+        -- ParallelProofs =
+        --   • Challenge (has size 32)
+        --   • as many proofs as there are participants
+        --     (each proof has size 32)
+        numLimit <- fromIntegral <$> commitmentsNumLimit
+        return $ 32 + numLimit * 32 + 100 -- 100 just in case; something like
+                                          -- 20 should be enough
 
 instance MessageLimited Commitment where
     getMsgLenLimit _ = do
-        extraLimit <- getMsgLenLimit (Proxy @(AsBinary SecretSharingExtra))
+        proofLimit <- getMsgLenLimit (Proxy @SecretProof)
         numLimit <- commitmentsNumLimit
         return $
-            Commitment <$> extraLimit <+> msgLenLimit <+> multiMap numLimit
+            Commitment <$> proofLimit <+> multiMap numLimit
 
 instance MessageLimited SignedCommitment where
     getMsgLenLimit _ = do

@@ -107,7 +107,7 @@ runRealModeDo NodeResources {..} outSpecs action =
         runToProd jsonLogConfig oq $
           runServer (simpleNodeEndPoint nrTransport)
                     (const noReceiveDelay)
-                    (allListeners ncTopology)
+                    (allListeners oq ncTopology)
                     outSpecs
                     (startMonitoring oq)
                     stopMonitoring

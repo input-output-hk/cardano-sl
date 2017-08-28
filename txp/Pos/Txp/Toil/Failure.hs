@@ -12,9 +12,10 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting                 (bprint, build, int, shown, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
+import           Serokell.Util              (listJson)
 
-import           Pos.Core                   (HeaderHash, ScriptVersion, TxFeePolicy,
-                                             addressDetailedF)
+import           Pos.Core                   (Address, HeaderHash, ScriptVersion,
+                                             TxFeePolicy, addressDetailedF)
 import           Pos.Data.Attributes        (UnparsedFields)
 import           Pos.Script                 (PlutusError)
 import           Pos.Txp.Core               (TxIn, TxInWitness, TxOut (..))
@@ -65,7 +66,7 @@ data ToilVerFailure
                           , tifMinFee :: !TxFee
                           , tifSize   :: !Byte }
     | ToilUnknownAttributes !UnparsedFields
-    | ToilBootInappropriate !Text
+    | ToilNonBootstrapDistr !(NonEmpty Address)
     | ToilRepeatedInput
     deriving (Show, Eq)
 
@@ -75,7 +76,8 @@ instance Buildable ToilVerFailure where
     build ToilKnown =
         "transaction already is in the mem pool"
     build (ToilTipsMismatch dbTip localTip) =
-        bprint ("tips mismatch, tip from DB is "%build%", local tip is "%build)
+        bprint ("Something is bad with this node, tips mismatch, "%
+                "tip from DB is "%build%", local tip is "%build)
         dbTip localTip
     build ToilSlotUnknown =
         "can't process, current slot is unknown"
@@ -121,8 +123,9 @@ instance Buildable ToilVerFailure where
             tifMinFee
     build (ToilUnknownAttributes uf) =
         bprint ("transaction has unknown attributes: "%shown) uf
-    build (ToilBootInappropriate msg) =
-        bprint ("transaction is not suitable for boot era: "%stext) msg
+    build (ToilNonBootstrapDistr addresses) =
+        bprint ("we are in bootstrap era, but some addresses have distribution"%
+                " which is not 'BootstrapEraDistr': "%listJson) addresses
     build ToilRepeatedInput =
         "transaction tries to spent an unspent input more than once"
     build (ToilUnknownInput inpId txIn) =

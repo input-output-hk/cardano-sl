@@ -8,8 +8,8 @@ import           Universum                       hiding (bracket)
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
 import qualified Data.Set                        as Set
-import           Mockable                        (MonadMockable, Production, bracket,
-                                                  fork, sleepForever)
+import           Mockable                        (MonadMockable, Production, fork,
+                                                  sleepForever)
 import           Network.Transport.Abstract      (Transport)
 import           Node                            (noReceiveDelay, simpleNodeEndPoint)
 import           System.Wlog                     (WithLogger, logDebug, logInfo)
@@ -29,8 +29,6 @@ import           Pos.Wallet.KeyStorage           (keyDataFromFile)
 import           Pos.Wallet.Light.Launcher.Param (WalletParams (..))
 import           Pos.Wallet.Light.Mode           (LightWalletContext (..),
                                                   LightWalletMode)
-import           Pos.Wallet.Light.State          (closeState, openMemState, openState)
-import           Pos.Wallet.WalletMode           (MonadWallet)
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
@@ -63,7 +61,7 @@ runWalletStaticPeers transport peers wp =
     networkConfig = defaultNetworkConfig $ TopologyLightWallet (Set.toList peers)
 
 runWallet
-    :: MonadWallet ssc ctx m
+    :: (MonadMockable m, WithLogger m)
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
@@ -85,31 +83,24 @@ runRawStaticPeersWallet
     -> (ActionSpec LightWalletMode a, OutSpecs)
     -> Production a
 runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
-                        listeners (ActionSpec action, outs) =
-    bracket openDB closeDB $ \db -> do
+                        listeners (ActionSpec action, outs) = do
         keyData <- keyDataFromFile wpKeyFilePath
         oq <- initQueue networkConfig Nothing
         flip Mtl.runReaderT
             ( LightWalletContext
                 keyData
-                db
                 emptyReportingContext
                 peers
                 JsonLogDisabled
                 lpRunnerTag
                 (wpGenesisContext ^. gtcWStakeholders)
+                wpGenesisUtxo
             ) .
             runServer_ transport listeners outs oq . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams
     wpGenesisUtxo = wpGenesisContext ^. gtcUtxo
-    openDB =
-        maybe
-            (openMemState wpGenesisUtxo)
-            (openState wpRebuildDb wpGenesisUtxo)
-            wpDbPath
-    closeDB = closeState
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)

@@ -34,6 +34,8 @@ data SeedError
     | NoSecretFound !StakeholderId
     -- | Secret can't be deserialized
     | BrokenSecret !StakeholderId
+    -- | VSS key can't be deserialized
+    | BrokenVssKey !StakeholderId
     -- | Share can't be deserialized
     | BrokenShare !StakeholderId
 
@@ -58,6 +60,8 @@ instance Buildable SeedError where
         "NoSecretFound " <> build k
     build (BrokenSecret k) =
         "BrokenSecret " <> build k
+    build (BrokenVssKey k) =
+        "BrokenVssKey " <> build k
     build (BrokenShare k) =
         "BrokenShare " <> build k
     build (CommitmentDistrError reason) =

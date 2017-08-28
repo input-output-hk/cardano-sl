@@ -112,7 +112,7 @@ instance HasCoreConstants => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode wh
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     getNewAddress (accId, passphrase) = do
         clientAddress <- L.newAddress RandomSeed passphrase accId
-        (, Nothing) <$> decodeCTypeOrFail (cadId clientAddress)
+        decodeCTypeOrFail (cadId clientAddress)
 
 sendMoney
     :: MonadWalletWebMode m

@@ -1,8 +1,9 @@
-{-# LANGUAGE CPP          #-}
-{-# LANGUAGE GADTs        #-}
-{-# LANGUAGE PolyKinds    #-}
-{-# LANGUAGE RankNTypes   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE PolyKinds       #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Util.Util
        (
@@ -19,6 +20,7 @@ module Pos.Util.Util
        , getKeys
        , sortWithMDesc
        , leftToPanic
+       , dumpSplices
 
        -- * Lenses
        , _neHead
@@ -46,28 +48,6 @@ module Pos.Util.Util
        -- * Asserts
        , inAssertMode
 
-       -- * Instances
-       -- ** Lift Byte
-       -- ** FromJSON Byte
-       -- ** ToJSON Byte
-       -- ** MonadFail (Either s), assuming IsString s
-       -- ** NFData Millisecond
-       -- ** NFData Microsecond
-       -- ** Buildable Attosecond
-       -- ** Buildable Femtosecond
-       -- ** Buildable Picosecond
-       -- ** Buildable Nanosecond
-       -- ** Buildable Millisecond
-       -- ** Buildable Microsecond
-       -- ** Buildable Second
-       -- ** Buildable Minute
-       -- ** Buildable Hour
-       -- ** Buildable Day
-       -- ** Buildable Week
-       -- ** Buildable Fortnight
-
-       , dumpSplices
-
        -- * Filesystem & process utilities
        , ls
        , lstree
@@ -77,6 +57,22 @@ module Pos.Util.Util
        , withTempFile
        , withSystemTempFile
 
+       -- * Instances
+       -- ** Lift Byte
+       -- ** FromJSON Byte
+       -- ** ToJSON Byte
+       -- ** MonadFail (Either s), assuming IsString s
+       -- ** HasLoggerName (MonadPseudoRandom drg)
+
+       -- ** NFData
+       -- *** Millisecond, Microsecond
+
+       -- ** MonadRandom
+       -- *** monad transformers
+       -- *** Gen (from QuickCheck)
+
+       -- ** Buildable
+       -- *** "Data.Time.Units" types
        ) where
 
 import           Universum
@@ -94,6 +90,7 @@ import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
                                                  transResourceT)
+import qualified Crypto.Random                  as Rand
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.Char                      (isAlphaNum)
 import           Data.HashSet                   (fromMap)
@@ -128,6 +125,7 @@ import           System.FilePath                (normalise, pathSeparator, takeD
 import           System.IO                      (hClose, openTempFile)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
+import qualified Test.QuickCheck                as QC
 import           Test.QuickCheck.Monadic        (PropertyM (..))
 
 ----------------------------------------------------------------------------
@@ -188,6 +186,20 @@ instance ToJSON Byte where
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
+
+instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
+    getLoggerName = pure mempty
+    modifyLoggerName = flip const
+
+instance {-# OVERLAPPABLE #-}
+         (MonadTrans t, Functor (t m), Monad (t m), Rand.MonadRandom m)
+         => Rand.MonadRandom (t m) where
+    getRandomBytes = lift . Rand.getRandomBytes
+
+instance Rand.MonadRandom QC.Gen where
+    getRandomBytes n = do
+        [a,b,c,d,e] <- replicateM 5 QC.arbitrary
+        pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 instance NFData Millisecond where
     rnf ms = rnf (toInteger ms)

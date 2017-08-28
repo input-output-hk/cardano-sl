@@ -1,10 +1,9 @@
 module Pos.Security.Workers
-       ( SecurityWorkersClass (..)
+       ( securityWorkers
        ) where
 
 import           Universum
 
-import           Data.Tagged                (Tagged (..))
 import           Data.Time.Units            (Millisecond, convertUnit)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (delay)
@@ -28,27 +27,18 @@ import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
 import           Pos.DB.DB                  (getTipHeader)
 import           Pos.Reporting.Methods      (reportMisbehaviourSilent, reportingFatal)
-import           Pos.Security.Class         (SecurityWorkersClass (..))
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration)
-import           Pos.Ssc.Class              (SscWorkersClass)
-import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.WorkMode.Class         (WorkMode)
 
-instance SecurityWorkersClass SscGodTossing where
-    securityWorkers =
-        Tagged $
-        merge [ checkForReceivedBlocksWorker
-              ]
-      where
-        merge = mconcat . map (first pure)
-
-instance SecurityWorkersClass SscNistBeacon where
-    securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
+-- | Workers which perform security checks.
+securityWorkers :: WorkMode ssc ctx m => ([WorkerSpec m], OutSpecs)
+securityWorkers = merge [checkForReceivedBlocksWorker]
+  where
+    merge = mconcat . map (first pure)
 
 checkForReceivedBlocksWorker ::
-    (SscWorkersClass ssc, WorkMode ssc ctx m)
+    (WorkMode ssc ctx m)
     => (WorkerSpec m, OutSpecs)
 checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
@@ -91,7 +81,7 @@ checkEclipsed ourPk slotId x = notEclipsed x
 
 checkForReceivedBlocksWorkerImpl
     :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+       (WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal . recoveryCommGuard $

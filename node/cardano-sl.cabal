@@ -84,7 +84,6 @@ library
 
                         -- Something
                         Pos.Security
-                        Pos.Security.Class
                         Pos.Security.Workers
 
                         -- SSC

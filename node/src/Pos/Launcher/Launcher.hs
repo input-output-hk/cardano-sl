@@ -13,7 +13,6 @@ import           Pos.Launcher.Param         (NodeParams (..))
 import           Pos.Launcher.Resource      (NodeResources (..), bracketNodeResources)
 import           Pos.Launcher.Runner        (runRealMode)
 import           Pos.Launcher.Scenario      (runNode)
-import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.Class.Types        (SscParams)
 import           Pos.WorkMode               (RealMode)
@@ -26,7 +25,6 @@ import           Pos.WorkMode               (RealMode)
 runNodeReal
     :: forall ssc.
        ( SscConstraint ssc
-       , SecurityWorkersClass ssc
        , HasCoreConstants)
     => NodeParams
     -> SscParams ssc

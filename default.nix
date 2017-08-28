@@ -8,7 +8,7 @@ in
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
 
 with pkgs.lib;
-with (import (pkgs.path + "/pkgs/development/haskell-modules/lib.nix") { inherit pkgs; });
+with pkgs.haskell.lib;
 
 let
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
@@ -78,7 +78,7 @@ in ((import ./pkgs { inherit pkgs; }).override {
   stack2nix = import (pkgs.fetchFromGitHub {
     owner = "input-output-hk";
     repo = "stack2nix";
-    rev = "9e9676b919cc38df203fbfc1316891815e27c37b";
-    sha256 = "0rsfwxrhrq72y2rai4sidpihlnxfjvnaaa7qk94179ghjqs47hvv";
+    rev = "be52e67113332280911bcc4924d42f90e21f1144";
+    sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
   }) { inherit pkgs; };
 }

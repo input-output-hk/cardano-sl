@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 
 -- | Higher-level functions working with GState DB.
 
@@ -22,7 +23,6 @@ import           Pos.DB.GState.Common   (initGStateCommon, isInitialized, setIni
 import           Pos.DB.Rocks           (DB (..), MonadRealDB, NodeDBs (..),
                                          Snapshot (..), gStateDB, getNodeDBs,
                                          usingReadOptions, usingSnapshot)
-import qualified Pos.Explorer.DB        as ExplorerDB
 import           Pos.Genesis            (GenesisUtxo (..))
 import           Pos.GState.BlockExtra  (initGStateBlockExtra)
 import           Pos.Ssc.GodTossing.DB  (initGtDB)
@@ -30,6 +30,10 @@ import           Pos.Txp.DB             (initGStateBalances, initGStateUtxo,
                                          sanityCheckBalances, sanityCheckUtxo)
 import           Pos.Update.DB          (initGStateUS)
 import           Pos.Util.Util          (HasLens', lensOf')
+
+#ifdef WITH_EXPLORER
+import qualified Pos.Explorer.DB        as ExplorerDB
+#endif
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB ::
@@ -67,7 +71,9 @@ sanityCheckGStateDB ::
 sanityCheckGStateDB = do
     sanityCheckBalances
     sanityCheckUtxo =<< getRealTotalStake
+#ifdef WITH_EXPLORER
     ExplorerDB.sanityCheckBalances
+#endif
 
 usingGStateSnapshot :: (MonadRealDB ctx m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do

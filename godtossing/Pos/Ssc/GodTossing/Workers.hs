@@ -449,7 +449,12 @@ checkForIgnoredCommitmentsWorker = localWorker $ do
 -- GodTossing. It's triggered if there are
 -- 'mdNoCommitmentsEpochThreshold' consequent epochs during which we
 -- had to participate in GodTossing, but our commitment didn't appear
--- in blocks.
+-- in blocks. If check fails, warning is printed.
+-- TODO [CSL-1340] It would be good to also report misbehavior, I think.
+--
+-- The first argument is a counter which is incremented every time we
+-- detect unexpected absence of our commitment and is reset to 0 when
+-- our commitment appears in blocks.
 checkForIgnoredCommitmentsWorkerImpl
     :: forall ctx m. (SscMode SscGodTossing ctx m)
     => TVar Word -> SlotId -> m ()
@@ -462,14 +467,16 @@ checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
             ourId <- getOurStakeholderId
             globalCommitments <-
                 getCommitmentsMap . view gsCommitments <$> gtGetGlobalState
-            unless (ourId `HM.member` globalCommitments) $ do
-                -- `modifyTVar'` returns (), hence not used
-                newCounterValue <-
-                    atomically $ do
-                        !x <- succ <$> readTVar counter
-                        x <$ writeTVar counter x
-                when (newCounterValue > mdNoCommitmentsEpochThreshold) $ do
-                    logWarning $ sformat warningFormat newCounterValue
+            case globalCommitments ^. at ourId of
+                Nothing -> do
+                    -- `modifyTVar'` returns (), hence not used
+                    newCounterValue <-
+                        atomically $ do
+                            !x <- succ <$> readTVar counter
+                            x <$ writeTVar counter x
+                    when (newCounterValue > mdNoCommitmentsEpochThreshold) $ do
+                        logWarning $ sformat warningFormat newCounterValue
+                Just _ -> atomically $ writeTVar counter 0
   where
     warningFormat =
         "Our neighbors are likely trying to carry out an eclipse attack! "%

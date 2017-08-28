@@ -7,26 +7,29 @@ module Pos.Wallet.Web.Util
     , getAccountAddrsOrThrow
     , getWalletAddrMetas
     , getWalletAddrs
-    , rewrapTxError
     , decodeCTypeOrFail
-    , coinDistrToOutputs
+    , getWalletAssuredDepth
+    , getWalletThTime
     ) where
 
 import           Universum
 
-import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, stext, (%))
+import           Data.Time.Clock.POSIX      (POSIXTime)
+import           Formatting                 (build, sformat, (%))
 
-import           Pos.Client.Txp.Util        (TxError (..))
-import           Pos.Core.Types             (Coin)
-import           Pos.Txp                    (TxOut (..), TxOutAux (..))
-import           Pos.Util.Servant           (FromCType (..), OriginType)
+import           Pos.Client.Txp.History     (TxHistoryEntry (..))
+import           Pos.Core                   (BlockCount, timestampToPosix)
+import           Pos.Util.Servant           (FromCType (..), OriginType, encodeCType)
 import           Pos.Util.Util              (maybeThrow)
+import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
+                                             assuredBlockDepth)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal)
-import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
+                                             CWAddressMeta (..), Wal, ctmDate,
+                                             cwAssurance)
+import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode, WebWalletModeDB,
-                                             getAccountIds, getAccountWAddresses)
+                                             getAccountIds, getAccountWAddresses,
+                                             getTxMeta, getWalletMeta)
 
 getWalletAccountIds :: WebWalletModeDB ctx m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
@@ -53,27 +56,20 @@ getWalletAddrs
     => AddressLookupMode -> CId Wal -> m [CId Addr]
 getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
 
-rewrapTxError
-    :: forall m a. MonadCatch m
-    => Text -> m a -> m a
-rewrapTxError prefix =
-    rewrapToWalletError (const True) (InternalError . sbuild) .
-    rewrapToWalletError (\TxError{} -> True) (RequestError . sbuild)
-  where
-    sbuild = sformat (stext%": "%build) prefix
-
 decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
-decodeCTypeOrFail = either wrongAddress pure . decodeCType
-  where wrongAddress err = throwM . DecodeError $
-            sformat ("Error while decoding CId: "%stext) err
+decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType
 
-coinDistrToOutputs
-    :: MonadThrow m
-    => NonEmpty (CId Addr, Coin)
-    -> m (NonEmpty TxOutAux)
-coinDistrToOutputs distr = do
-    addrs <- mapM decodeCTypeOrFail cAddrs
-    pure $ NE.zipWith mkTxOut addrs coins
-  where
-    (cAddrs, coins) = NE.unzip distr
-    mkTxOut addr coin = TxOutAux (TxOut addr coin)
+getWalletAssuredDepth
+    :: (WebWalletModeDB ctx m)
+    => CId Wal -> m (Maybe BlockCount)
+getWalletAssuredDepth wid =
+    assuredBlockDepth HighAssurance . cwAssurance <<$>>
+    getWalletMeta wid
+
+getWalletThTime
+    :: (WebWalletModeDB ctx m)
+    => CId Wal -> TxHistoryEntry -> m (Maybe POSIXTime)
+getWalletThTime wid th = do
+    metaTime <- ctmDate <<$>> getTxMeta wid (encodeCType $ _thTxId th)
+    let thTime = timestampToPosix <$> _thTimestamp th
+    return $ metaTime <|> thTime

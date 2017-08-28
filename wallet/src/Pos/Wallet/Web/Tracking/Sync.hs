@@ -71,8 +71,8 @@ import           Pos.DB.Rocks                     (MonadRealDB)
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
 import           Pos.Infra.Semaphore              (BlkSemaphore, withBlkSemaphore)
-import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
-                                                   getSystemStartM)
+import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
+                                                   getSlotStartPure, getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
                                                    flattenTxPayload, toaOut, topsortTxs,
@@ -89,6 +89,7 @@ import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..)
                                                    addressToCId, ctmDate, encToCId,
                                                    isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
+import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
                                                    CustomAddressType (..), WalletTip (..),
                                                    WebWalletModeDB)
@@ -127,8 +128,9 @@ txMempoolToModifier :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m CA
 txMempoolToModifier encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
-        getDiff = const Nothing  -- no difficulty (mempool txs)
-        getTs = const Nothing  -- don't give any timestamp
+        getDiff       = const Nothing  -- no difficulty (mempool txs)
+        getTs         = const Nothing  -- don't give any timestamp
+        getPtxBlkInfo = const Nothing  -- no slot of containing block
     (txs, undoMap) <- getLocalTxsNUndo
 
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
@@ -143,7 +145,7 @@ txMempoolToModifier encSK = do
     case topsortTxs wHash txsWUndo of
         Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
-            trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs $
+            trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs getPtxBlkInfo $
             map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
 ----------------------------------------------------------------------------
@@ -238,14 +240,17 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
           getSlotStartPure systemStart (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
+        -- assuming that transactions are not created until syncing is complete
+        ptxBlkInfo = const Nothing
+
         rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
         rollbackBlock allAddresses (b, u) =
-            trackingRollbackTxs encSK allAddresses $
-            zip3 (gbTxs b) (undoTx u) (repeat $ headerHash b)
+            trackingRollbackTxs encSK allAddresses mDiff blkHeaderTs $
+            zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         applyBlock :: [CWAddressMeta] -> Blund ssc -> m CAccModifier
         applyBlock allAddresses (b, u) = pure $
-            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs $
+            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs ptxBlkInfo $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         computeAccModifier :: BlockHeader ssc -> m CAccModifier
@@ -315,9 +320,10 @@ trackingApplyTxs
     -> [CWAddressMeta]                             -- ^ All addresses in wallet
     -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
     -> (BlockHeader ssc -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
+    -> (BlockHeader ssc -> Maybe PtxBlockInfo)     -- ^ Function to determine pending tx's block info
     -> [(TxAux, TxUndo, BlockHeader ssc)]          -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
-trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
+trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInfo txs =
     foldl' applyTx mempty txs
   where
     toTxInOut txid (idx, out) = (TxInUtxo txid idx, TxOutAux out)
@@ -351,6 +357,13 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
 
             usedAddrs = map cwamId ownOutAddrMetas
             changeAddrs = evalChange allAddresses (map cwamId ownInpAddrMetas) usedAddrs
+
+            mPtxBlkInfo = getPtxBlkInfo blkHeader
+            addedPtxCandidates =
+                if | Just ptxBlkInfo <- mPtxBlkInfo
+                     -> DL.cons (txId, ptxBlkInfo) camAddedPtxCandidates
+                   | otherwise
+                     -> camAddedPtxCandidates
         in CAccModifier
             (deleteAndInsertIMM [] ownOutAddrMetas camAddresses)
             (deleteAndInsertVM [] (zip usedAddrs hhs) camUsed)
@@ -358,24 +371,36 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             (deleteAndInsertMM ownTxIns ownTxOuts camUtxo)
             addedHistory
             camDeletedHistory
+            addedPtxCandidates
+            camDeletedPtxCandidates
 
 -- Process transactions on block rollback.
 -- Like @trackingApplyTx@, but vise versa.
 trackingRollbackTxs
-    :: EncryptedSecretKey -- ^ Wallet's secret key
+    :: forall ssc . (HasCoreConstants, SscHelpersClass ssc)
+    => EncryptedSecretKey -- ^ Wallet's secret key
     -> [CWAddressMeta] -- ^ All adresses
-    -> [(TxAux, TxUndo, HeaderHash)] -- ^ Txs of blocks and corresponding header hash
+    -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
+    -> (BlockHeader ssc -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
+    -> [(TxAux, TxUndo, BlockHeader ssc)] -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
-trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
+trackingRollbackTxs (getEncInfo -> encInfo) allAddress getDiff getTs txs =
     foldl' rollbackTx mempty txs
   where
-    rollbackTx :: CAccModifier -> (TxAux, TxUndo, HeaderHash) -> CAccModifier
-    rollbackTx CAccModifier{..} (TxAux {..}, NE.toList -> undoL, hh) = do
-        let hhs = repeat hh
-            UnsafeTx (toList -> inps) (toList -> outs) _ = taTx
+    rollbackTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader ssc) -> CAccModifier
+    rollbackTx CAccModifier{..} (TxAux {..}, NE.toList -> undoL, blkHeader) = do
+        let hh = headerHash blkHeader
+            hhs = repeat hh
+            mDiff = getDiff blkHeader
+            mTs = getTs blkHeader
+            tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _) = taTx
             !txid = hash taTx
-            -- TODO should we do something with unknown inputs?
-            ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) $ catMaybes undoL
+            undoL' = catMaybes undoL
+            resolvedInputs = zip inps undoL'
+            txOutgoings = map txOutAddress outs
+            txInputs = map (toaOut . snd) resolvedInputs
+
+            ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) undoL'
             ownOutputs = selectOwnAccounts encInfo txOutAddress $ outs
             ownInputMetas = map snd ownInputs
             ownOutputMetas = map snd ownOutputs
@@ -386,10 +411,14 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
             ownTxIns = zip inps $ map fst ownInputs
             ownTxOuts = map (TxInUtxo txid) ([0 .. l - 1] :: [Word32])
 
+            th = THEntry txid tx mDiff txInputs txOutgoings mTs
+
             deletedHistory =
                 if (not $ null ownInputAddrs) || (not $ null ownOutputAddrs)
                 then DL.snoc camDeletedHistory $ hash taTx
                 else camDeletedHistory
+
+            deletedPtxCandidates = DL.cons (txid, th) camDeletedPtxCandidates
 
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
@@ -402,6 +431,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
             (deleteAndInsertMM ownTxOuts ownTxIns camUtxo)
             camAddedHistory
             deletedHistory
+            camAddedPtxCandidates
+            deletedPtxCandidates
 
 applyModifierToWallet
     :: WebWalletModeDB ctx m
@@ -418,6 +449,10 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
     sortedAddedHistory <- sortTxs (DL.toList camAddedHistory)
     WS.updateHistoryCache wid $ sortedAddedHistory <> oldCachedHist
+    -- resubmitting worker can change ptx in db nonatomically, but
+    -- tracker has priority over the resubmiter, thus do not use CAS here
+    forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
+        WS.setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
     WS.setWalletSyncTip wid newTip
   where
     getTxTime tx = ctmDate <<$>> WS.getTxMeta wid (encodeCType $ _thTxId tx)
@@ -428,7 +463,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
         return $ map fst $ sortOn (fmap Down . txRealTime) txsWTime
 
 rollbackModifierFromWallet
-    :: WebWalletModeDB ctx m
+    :: (WebWalletModeDB ctx m, MonadSlots ctx m)
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -439,6 +474,10 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
+    forM_ camDeletedPtxCandidates $ \(txid, poolInfo) -> do
+        curSlot <- getCurrentSlotInaccurate
+        WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
+        WS.setPtxCondition wid txid (PtxApplying poolInfo)
     WS.getHistoryCache wid >>= \case
         Nothing -> pure ()
         Just oldCachedHist -> do

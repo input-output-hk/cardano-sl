@@ -16,9 +16,10 @@ import           Serokell.Aeson.Options (defaultOptions)
 
 -- | Godtossing algorithm settings (a part of the behavior config).
 --
--- The syntax of the config is as follows:
+-- The syntax of this config section is as follows:
 --
 -- @
+-- godTossing:
 --     sendOpening: Normal | None | Wrong
 --     sendShares: Normal | None | Wrong
 -- @

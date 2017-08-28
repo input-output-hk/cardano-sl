@@ -170,6 +170,15 @@ instance Bi U where
 instance Arbitrary U where
     arbitrary = U <$> choose (0, 255) <*> arbitrary
 
+-- | Like `U`, but we expect to read back the Cbor Data Item when decoding.
+data U24 = U24 Word8 BS.ByteString deriving (Show, Eq)
+
+instance Bi U24 where
+    encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
+    decode = do
+        decodeListLenOf 2
+        U24 <$> decode <*> decodeUnknownCborDataItem
+
 ----------------------------------------
 
 data X1 = X1 { x1A :: Int }
@@ -457,7 +466,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState)
                 prop "ProposalState" (soundInstanceProperty @ProposalState)
                 prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState)
-                prop "TxIn" (soundInstanceProperty @TxIn)
+                prop "TxIn" (soundInstanceProperty @TxIn .&&. extensionProperty @TxIn)
                 prop "TxSigData" (soundInstanceProperty @TxSigData)
                 prop "TxProof" (soundInstanceProperty @TxProof)
                 prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData)

@@ -38,8 +38,8 @@ import           Pos.Util.Chrono             (NewestFirst (..))
 -- Global
 ----------------------------------------------------------------------------
 
-type EGlobalApplyToilMode m =
-    ( Txp.GlobalApplyToilMode m
+type EGlobalApplyToilMode ctx m =
+    ( Txp.GlobalApplyToilMode ctx m
     , MonadTxExtra m
     )
 
@@ -51,7 +51,7 @@ type EGlobalVerifyToilMode ctx m =
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 eApplyToil
-    :: EGlobalApplyToilMode m
+    :: EGlobalApplyToilMode ctx m
     => Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
@@ -70,7 +70,7 @@ eApplyToil curTime txun hh = do
         updateAddrBalances balanceUpdate
 
 -- | Rollback transactions from one block.
-eRollbackToil :: EGlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
+eRollbackToil :: EGlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
 eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback $ reverse txun
@@ -161,12 +161,13 @@ delTxExtraWithHistory id addrs = do
         NewestFirst . delete id . getNewestFirst
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
-getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} undo =
-    map txOutAddress _txOutputs `unionNE` map (txOutAddress . toaOut) undo
+getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} (catMaybes . toList -> undo) =
+    map txOutAddress _txOutputs `unionNEnList` map (txOutAddress . toaOut) undo
   where
     toSet = HS.fromList . toList
-    -- Safe here, because union of non-empty sets can't be empty.
-    unionNE lhs rhs = NE.fromList $ toList $ HS.union (toSet lhs) (toSet rhs)
+    -- Safe here, because union of non-empty and maybe empty sets can't be empty.
+    unionNEnList :: NonEmpty Address -> [Address] -> NonEmpty Address
+    unionNEnList lhs rhs = NE.fromList $ toList $ HS.union (toSet lhs) (HS.fromList rhs)
 
 combineBalanceUpdates :: BalanceUpdate -> [(Address, (Sign, Coin))]
 combineBalanceUpdates BalanceUpdate {..} =
@@ -225,6 +226,6 @@ updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate txAux txUndo =
-    let minusBalance = map (view _TxOut . toaOut) $ toList txUndo
+    let minusBalance = map (view _TxOut . toaOut) $ catMaybes $ toList txUndo
         plusBalance = map (view _TxOut) $ toList $ _txOutputs (taTx txAux)
     in BalanceUpdate {..}

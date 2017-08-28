@@ -36,30 +36,30 @@ module Pos.Genesis
 import           Universum
 
 import           Control.Lens               (at, makeLenses)
-import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericReplicate)
-import qualified Data.Map.Strict            as M
+import qualified Data.Map.Strict            as Map
 import qualified Data.Ratio                 as Ratio
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
-import           Serokell.Util              (listJson, pairF)
+import           Serokell.Util              (mapJson)
 
 import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpendingData),
                                              mkInvAddrSpendingData)
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (AddrSpendingData (PubKeyASD), Address (..),
-                                             Coin, HasCoreConstants, SlotLeaders,
+                                             Coin, HasCoreConstants,
+                                             IsBootstrapEraAddr (..), SlotLeaders,
                                              StakeholderId, addressHash,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
-                                             makePubKeyAddress, mkCoin, safeExpStakes,
+                                             makePubKeyAddressBoot, mkCoin, safeExpStakes,
                                              unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
-import           Pos.Lrc.FtsPure            (followTheSatoshi)
+import           Pos.Lrc.FtsPure            (followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil               (GenesisUtxo (..), utxoToStakes)
+import           Pos.Txp.Toil               (GenesisUtxo (..))
 
 -- reexports
 import           Pos.Core.Genesis
@@ -117,21 +117,17 @@ concatAddrDistrs :: [AddrDistribution] -> [(Address, Coin)]
 concatAddrDistrs addrDistrs =
     concatMap (uncurry zip . second stakeDistribution) addrDistrs
 
--- | Generates genesis 'Utxo' given weighted boot stakeholders and
--- address distributions. All the stake is distributed among genesis
--- stakeholders (using 'genesisSplitBoot').
-genesisUtxo :: GenesisWStakeholders -> [AddrDistribution] -> GenesisUtxo
-genesisUtxo gws@(GenesisWStakeholders bootStakeholders) ad
-    | null bootStakeholders =
-        error "genesisUtxo: no stakeholders for the bootstrap era"
-    | otherwise = GenesisUtxo . M.fromList $ map utxoEntry balances
+-- | Generates 'GenesisUtxo' given address distributions (which also
+-- include stake distributions as parts of addresses).
+genesisUtxo :: [AddrDistribution] -> GenesisUtxo
+genesisUtxo ad = GenesisUtxo . Map.fromList $ map utxoEntry balances
   where
     balances :: [(Address, Coin)]
     balances = concatAddrDistrs ad
     utxoEntry (addr, coin) =
-        ( TxIn (unsafeHash addr) 0
-        , TxOutAux (TxOut addr coin) (outDistr coin))
-    outDistr = genesisSplitBoot gws
+        ( TxInUtxo (unsafeHash addr) 0
+        , TxOutAux (TxOut addr coin)
+        )
 
 -- | Same as 'genesisUtxo' but generates 'GenesisWStakeholders' set
 -- using 'generateWStakeholders' inside and wraps it all in
@@ -141,11 +137,11 @@ genesisContextImplicit _ [] = error "genesisContextImplicit: empty list passed"
 genesisContextImplicit invAddrSpendingData addrDistr =
     GenesisContext utxo genStakeholders
   where
-    mergeStakeholders :: HashMap StakeholderId Word16
-                      -> HashMap StakeholderId Word16
-                      -> HashMap StakeholderId Word16
+    mergeStakeholders :: Map StakeholderId Word16
+                      -> Map StakeholderId Word16
+                      -> Map StakeholderId Word16
     mergeStakeholders =
-        HM.unionWithKey $ \_ a b ->
+        Map.unionWithKey $ \_ a b ->
         error $ "genesisContextImplicit: distributions have " <>
                 "common keys which is forbidden " <>
                 pretty a <> ", " <> pretty b
@@ -154,7 +150,7 @@ genesisContextImplicit invAddrSpendingData addrDistr =
         foldr1 mergeStakeholders $
         map (getGenesisWStakeholders .
              generateWStakeholders invAddrSpendingData) addrDistr
-    utxo = genesisUtxo genStakeholders addrDistr
+    utxo = genesisUtxo addrDistr
 
 -- | Generate weighted stakeholders using passed address distribution.
 generateWStakeholders :: InvAddrSpendingData -> AddrDistribution -> GenesisWStakeholders
@@ -171,13 +167,13 @@ generateWStakeholders iasd@(unInvAddrSpendingData -> addrToSpending) (addrs,stak
         CustomStakes coins ->
             GenesisWStakeholders $ assignWeights iasd $ addrs `zip` coins
   where
-    createList = GenesisWStakeholders . HM.fromList
+    createList = GenesisWStakeholders . Map.fromList
     toStakeholderId addr = case addrToSpending ^. at addr of
         Just (PubKeyASD (addressHash -> sId)) -> sId
         _ -> error $ sformat ("generateWStakeholders: "%build%
                               " is not a pubkey addr or not in the map") addr
 
-assignWeights :: InvAddrSpendingData -> [(Address,Coin)] -> HashMap StakeholderId Word16
+assignWeights :: InvAddrSpendingData -> [(Address,Coin)] -> Map StakeholderId Word16
 assignWeights (unInvAddrSpendingData -> addrToSpending) withCoins =
     foldr step mempty withCoins
   where
@@ -191,7 +187,7 @@ assignWeights (unInvAddrSpendingData -> addrToSpending) withCoins =
           error $ "generateWStakeholders can't convert: non-positive coin " <> show i
         | i > fromIntegral targetTotalWeight =
           error $ "generateWStakeholders can't convert: too big " <> show i <>
-                  ", withCoins: " <> sformat listJson (map (sformat pairF) withCoins)
+                  ", withCoins: " <> sformat mapJson withCoins
         | otherwise = fromIntegral i
     calcWeight :: Coin -> Word16
     calcWeight balance =
@@ -201,13 +197,14 @@ assignWeights (unInvAddrSpendingData -> addrToSpending) withCoins =
     step (addr, balance) =
         case addrToSpending ^. at addr of
             Just (PubKeyASD (addressHash -> sId)) ->
-                HM.insertWith (+) sId (calcWeight balance)
+                Map.insertWith (+) sId (calcWeight balance)
             _ -> identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: HasCoreConstants => GenesisUtxo -> SlotLeaders
-genesisLeaders (GenesisUtxo utxo) =
-    followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
+genesisLeaders :: HasCoreConstants => GenesisContext -> SlotLeaders
+genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
+                              , _gtcWStakeholders = gws
+                              } = followTheSatoshiUtxo gws genesisSeed utxo
 
 ----------------------------------------------------------------------------
 -- Production mode genesis
@@ -220,8 +217,7 @@ genesisContextProduction =
   where
     -- 'GenesisUtxo' used in production.
     genesisUtxoProduction :: GenesisUtxo
-    genesisUtxoProduction =
-        genesisUtxo genesisProdBootStakeholders genesisProdAddrDistribution
+    genesisUtxoProduction = genesisUtxo genesisProdAddrDistribution
 
 ----------------------------------------------------------------------------
 -- Development mode genesis
@@ -276,6 +272,7 @@ genesisDevHdwAccountKeyDatas =
     genesisDevHdwSecretKeys <&> \key ->
         fromMaybe (error "Passphrase doesn't match in Genesis") $
         deriveLvl2KeyPair
+            (IsBootstrapEraAddr True)
             emptyPassphrase
             key
             accountGenesisIndex
@@ -289,12 +286,12 @@ genesisDevHdwAccountKeyDatas =
 -- distribution passed, hd keys have no stake in boot era.
 devGenesisContext :: StakeDistribution -> GenesisContext
 devGenesisContext distr =
-    GenesisContext (genesisUtxo gws aDistr) gws
+    GenesisContext (genesisUtxo aDistr) gws
   where
     distrSize = length $ stakeDistribution distr
     tailPks = map (fst . generateGenesisKeyPair) [Const.genesisKeysN ..]
     mainPks = genesisDevPublicKeys <> tailPks
-    mainAddrs = take distrSize $ map makePubKeyAddress mainPks
+    mainAddrs = take distrSize $ map makePubKeyAddressBoot mainPks
     mainSpendingDataList = map PubKeyASD mainPks
     invAddrSpendingData =
         mkInvAddrSpendingData $ mainAddrs `zip` mainSpendingDataList
@@ -310,9 +307,9 @@ devGenesisContext distr =
 
     -- HD wallets
     hdwSize = 2 -- should be positive
-    -- 200 coins split among hdwSize users. Should be small sum enough
-    -- to avoid making wallets slot leaders.
-    hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 200)
+    -- 20 ADA (20 millon coins) split among hdwSize users.
+    -- Shouldn't mess with LRC after CSL-1502
+    hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 20000000)
     -- should be enough for testing.
     hdwAddresses = take hdwSize genesisDevHdwAccountAddresses
     genesisDevHdwAccountAddresses :: [Address]

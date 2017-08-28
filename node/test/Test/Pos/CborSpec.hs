@@ -47,17 +47,7 @@ import           Pos.Core.Context                  (giveStaticConsts)
 import           Pos.Core.Fee
 import           Pos.Core.Genesis.Types
 import           Pos.Core.Types
-import           Pos.Crypto                        (AbstractHash)
-import           Pos.Crypto.HD                     (HDAddressPayload)
-import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
-                                                    RedeemSignature)
-import           Pos.Crypto.SafeSigning            (PassPhrase)
-import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProof,
-                                                    SecretSharingExtra, Share, VssKeyPair,
-                                                    VssPublicKey)
-import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
-                                                    PublicKey, SecretKey, Signature,
-                                                    Signed)
+import           Pos.Crypto
 import           Pos.Data.Attributes
 import           Pos.Delegation.Types
 import           Pos.DHT.Model.Types
@@ -147,9 +137,9 @@ instance Bi T where
                      <> encode bs
 
     decode = decode @Word8 >>= \case
-        0 ->         T1 . deserialize' <$> decode
-        1 -> uncurry T2 . deserialize' <$> decode
-        t -> Unknown t                 <$> decode
+        0 ->         T1 <$> (deserialize' =<< decode)
+        1 -> uncurry T2 <$> (deserialize' =<< decode)
+        t -> Unknown t  <$> decode
 
 data MyScript = MyScript
     { version :: ScriptVersion -- ^ Version
@@ -168,16 +158,26 @@ deriveSimpleBi ''MyScript [
 -- Type to be used to simulate a breaking change in the serialisation
 -- schema, so we can test instances which uses the `UnknownXX` pattern
 -- for extensibility.
+-- Check the `extensionProperty` for more details.
 data U = U Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U where
-    encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encode bs
+    encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
     decode = do
         decodeListLenOf 2
-        U <$> decode <*> decode
+        U <$> decode <*> decodeUnknownCborDataItem
 
 instance Arbitrary U where
     arbitrary = U <$> choose (0, 255) <*> arbitrary
+
+-- | Like `U`, but we expect to read back the Cbor Data Item when decoding.
+data U24 = U24 Word8 BS.ByteString deriving (Show, Eq)
+
+instance Bi U24 where
+    encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
+    decode = do
+        decodeListLenOf 2
+        U24 <$> decode <*> decodeUnknownCborDataItem
 
 ----------------------------------------
 
@@ -198,15 +198,15 @@ instance Arbitrary X2 where
 instance Bi (Attributes X1) where
     encode = encodeAttributes [(0, serialize' . x1A)]
     decode = decodeAttributes (X1 0) $ \n v acc -> case n of
-        0 -> Just $ acc { x1A = deserialize' v }
-        _ -> Nothing
+        0 -> pure $ Just $ acc { x1A = unsafeDeserialize' v }
+        _ -> pure $ Nothing
 
 instance Bi (Attributes X2) where
     encode = encodeAttributes [(0, serialize' . x2A), (1, serialize' . x2B)]
     decode = decodeAttributes (X2 0 []) $ \n v acc -> case n of
-        0 -> Just $ acc { x2A = deserialize' v }
-        1 -> Just $ acc { x2B = deserialize' v }
-        _ -> Nothing
+        0 -> return $ Just $ acc { x2A = unsafeDeserialize' v }
+        1 -> return $ Just $ acc { x2B = unsafeDeserialize' v }
+        _ -> return $ Nothing
 
 ----------------------------------------
 
@@ -217,7 +217,7 @@ hasValidFlatTerm = CBOR.validFlatTerm . CBOR.toFlatTerm . encode
 -- | Given a data type which can be generated randomly and for which the CBOR
 -- encoding is defined, generates the roundtrip tests.
 roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => a -> Property
-roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === input
+roundtripProperty (input :: a) = ((unsafeDeserialize . serialize $ input) :: a) === input
 
 -- | Given a data type which can be extended, verify we can indeed do so
 -- without breaking anything. This should work with every time which adopted
@@ -225,9 +225,51 @@ roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === in
 -- .... | Unknown Word8 ByteString
 extensionProperty :: forall a. (Arbitrary a, Eq a, Show a, Bi a) => Property
 extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
-    let serialized      = serialize input -- We now have a BS blob
-        (u :: U)        = deserialize serialized
-        (encoded :: a)  = deserialize (serialize u)
+{- This function works as follows:
+
+   1. When we call `serialized`, we are implicitly assuming (as contract of this
+      function) that the input type would be of a shape such as:
+
+      data MyType = Constructor1 Int Bool
+                  | Constructor2 String
+                  | UnknownConstructor Word8 ByteString
+
+      Such type will be encoded, roughly, like this:
+
+      encode (Constructor1 a b) = encodeWord 0 <> encodeKnownCborDataItem (a,b)
+      encode (Constructor2 a b) = encodeWord 1 <> encodeKnownCborDataItem a
+      encode (UnknownConstructor tag bs) = encodeWord tag <> encodeUnknownCborDataItem bs
+
+      In CBOR terms, we would produce something like this:
+
+      <tag :: Word32><Tag24><CborDataItem :: ByteString>
+
+   2. Now, when we call `unsafeDeserialize serialized`, we are effectively asking to produce as
+      output a value of type `U`. `U` is defined by only 1 constructor, it
+      being `U Word8 ByteString`, but this is still compatible with our `tag + cborDataItem`
+      format. So now we will have something like:
+
+      U <tag :: Word32> <CborDataItem :: ByteString>
+
+      (The <Tag24> has been removed as part of the decoding process).
+
+   3. We now call `unsafeDeserialize (serialize u)`, which means: Can you produce a CBOR binary
+      from `U`, and finally try to decode it into a value of type `a`? This will work because
+      our intermediate encoding into `U` didn't touch the inital `<tag :: Word32>`, so we will
+      be able to reconstruct the original object back.
+      More specifically, `serialize u` would produce once again:
+
+      <tag :: Word32><Tag24><CborDataItem :: ByteString>
+
+      (The <Tag24> has been added as part of the encoding process).
+
+      `unsafeDeserialize` would then consume the tag (to understand which type constructor this corresponds to),
+      remove the <Tag24> token and finally proceed to deserialise the rest.
+
+-}
+    let serialized      = serialize input             -- Step 1
+        (u :: U)        = unsafeDeserialize serialized      -- Step 2
+        (encoded :: a)  = unsafeDeserialize (serialize u)   -- Step 3
     in encoded === input
 
 soundSerializationAttributesOfAsProperty
@@ -236,8 +278,8 @@ soundSerializationAttributesOfAsProperty
     => Property
 soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
     let serialized      = serialize input
-        (middle  :: ab) = deserialize serialized
-        (encoded :: aa) = deserialize $ serialize middle
+        (middle  :: ab) = unsafeDeserialize serialized
+        (encoded :: aa) = unsafeDeserialize $ serialize middle
     in encoded === input
   where
     arbitraryAttrs :: Gen aa
@@ -310,7 +352,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
             prop "Map Int Int" (soundInstanceProperty @(Map Int Int))
             prop "Set Int" (soundInstanceProperty @(Set Int))
         describe "Test instances are sound" $ do
-            prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
+            prop "User" (let u1 = Login "asd" 34 in (unsafeDeserialize $ serialize u1) === u1)
             prop "MyScript" (soundInstanceProperty @MyScript)
             prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
             describe "Generic deriving is sound" $ do
@@ -373,9 +415,8 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "VssPublicKey" (soundInstanceProperty @VssPublicKey)
                 prop "VssKeyPair" (soundInstanceProperty @VssKeyPair)
                 prop "Secret" (soundInstanceProperty @Secret)
-                prop "Share" (soundInstanceProperty @Share)
+                prop "DecShare" (soundInstanceProperty @DecShare)
                 prop "EncShare" (soundInstanceProperty @EncShare)
-                prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra)
                 prop "SecretProof" (soundInstanceProperty @SecretProof)
                 prop "AsBinary VssPublicKey" (    soundInstanceProperty @(AsBinary VssPublicKey)
                                                  .&&. asBinaryIdempotencyProperty @VssPublicKey
@@ -383,11 +424,9 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "AsBinary Secret" (    soundInstanceProperty @Secret
                                            .&&. asBinaryIdempotencyProperty @Secret
                                        )
-                prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share))
+                prop "AsBinary DecShare" (soundInstanceProperty @(AsBinary DecShare))
                 prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare))
-                prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof))
-                prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra)
-                prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof))
+                -- prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof))
                 prop "PublicKey" (soundInstanceProperty @PublicKey)
                 prop "SecretKey" (soundInstanceProperty @SecretKey)
                 prop "PassPhrase" (soundInstanceProperty @PassPhrase)
@@ -427,9 +466,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
                 prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState)
                 prop "ProposalState" (soundInstanceProperty @ProposalState)
                 prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState)
-                prop "TxIn" (soundInstanceProperty @TxIn)
-                modifyMaxSuccess (const 100) $
-                    prop "TxDistribution" (soundInstanceProperty @TxDistribution)
+                prop "TxIn" (soundInstanceProperty @TxIn .&&. extensionProperty @TxIn)
                 prop "TxSigData" (soundInstanceProperty @TxSigData)
                 prop "TxProof" (soundInstanceProperty @TxProof)
                 prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData)

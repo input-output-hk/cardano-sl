@@ -55,7 +55,7 @@ instance {-# OVERLAPPABLE #-}
 ---------------------------------------------------------------
 
 type MonadWallet ssc ctx m
-    = ( TxMode ssc ctx m
+    = ( TxMode ssc m
       , MonadKeys ctx m
       , MonadBlockchainInfo m
       , MonadUpdates m

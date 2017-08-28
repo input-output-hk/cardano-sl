@@ -8,10 +8,11 @@ module Pos.Block.Network.Retrieval
 
 import           Control.Concurrent.STM     (putTMVar, swapTMVar, tryReadTBQueue,
                                              tryReadTMVar, tryTakeTMVar)
-import           Control.Lens               (_Wrapped)
+import           Control.Lens               (to, _Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
+import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, builder, int, sformat, shown, stext,
@@ -46,7 +47,8 @@ import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
+                                             _NewestFirst, _OldestFirst)
 import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
@@ -107,9 +109,7 @@ retrievalWorkerImpl SendActions {..} =
         (if brtContinues then handleContinues else handleAlternative)
             nodeId
             brtHeader
-    handleContinues nodeId header = do
-        endedRecoveryVar <- newEmptyMVar
-        processContHeader enqueueMsg endedRecoveryVar nodeId header
+    handleContinues nodeId header = processContHeader enqueueMsg nodeId header
     handleAlternative nodeId header = do
         mhrr <- mkHeadersRequest (headerHash header)
         case mhrr of
@@ -120,17 +120,21 @@ retrievalWorkerImpl SendActions {..} =
                 handleHeadersRequest nodeId header mgh
     handleHeadersRequest nodeId header mgh = do
         updateRecoveryHeader nodeId header
-        endedRecoveryVar <- newEmptyMVar
         let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
-                let firstHeader = headers ^. _Wrapped . _neLast
-                in handleCHsValid enqueueMsg endedRecoveryVar nodeId
-                                  firstHeader (headerHash header)
-        void $ enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $ \_ _ -> pure $ Conversation $ \conv ->
+                let oldestHeader = headers ^. _NewestFirst . _neLast
+                    newestHeader = headers ^. _NewestFirst . _neHead
+                in handleCHsValid enqueueMsg nodeId
+                                  oldestHeader (headerHash newestHeader)
+        convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $ \_ _ -> pure $ Conversation $ \conv ->
             requestHeaders cont mgh nodeId conv
-                `finally` void (tryPutMVar endedRecoveryVar False)
-        -- Block until the conversation has ended.
-        whenM (readMVar endedRecoveryVar) $
-            logInfo "Recovery mode exited gracefully"
+        results <- waitForConversations $ fmap (handleAll (\_ -> return (Just False))) convs
+        let Any endedRecovery = fold $ fmap mkAny results
+        when endedRecovery $ logInfo "Recovery mode exited gracefully"
+      where
+        -- If there was an exception, or if requestHeaders didn't even run the
+        -- continuation, then recovery was not ended.
+        mkAny :: Maybe Bool -> Any
+        mkAny = maybe (Any False) Any
     handleBlockRetrievalE nodeId header e = do
         logWarning $ sformat
             ("Error handling nodeId="%build%", header="%build%": "%shown)
@@ -256,16 +260,13 @@ dropRecoveryHeaderAndRepeat enqueue nodeId = do
 processContHeader
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => EnqueueMsg m
-    -> MVar Bool
     -> NodeId
     -> BlockHeader ssc
     -> m ()
-processContHeader enqueue endedRecoveryVar nodeId header = do
+processContHeader enqueue nodeId header = do
     classificationRes <- classifyNewHeader header
     case classificationRes of
-        CHContinues ->
-            handleCHsValid enqueue endedRecoveryVar nodeId
-                           header (headerHash header)
+        CHContinues -> void $ handleCHsValid enqueue nodeId header (headerHash header)
         res -> logDebug $
             "processContHeader: expected header to " <>
              "be continuation, but it's " <> show res
@@ -274,16 +275,20 @@ handleCHsValid
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => EnqueueMsg m
-    -> MVar Bool
     -> NodeId
     -> BlockHeader ssc
     -> HeaderHash
-    -> m ()
-handleCHsValid enqueue endedRecoveryVar nodeId lcaChild newestHash = do
-    let lcaChildHash = headerHash lcaChild
-    logDebug $ sformat validFormat lcaChildHash newestHash
-    its <- enqueue (MsgRequestBlocks (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $
+    -> m Bool
+handleCHsValid enqueue nodeId lcaChild newestHash = do
+    -- The conversation will attempt to retrieve the necessary blocks and apply
+    -- them. Each one gives a 'Bool' where 'True' means that a recovery was
+    -- completed (depends upon the state of the recovery-mode TMVar).
+    convs <- enqueue (MsgRequestBlocks (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $
       \(conv :: ConversationActions MsgGetBlocks (MsgBlock ssc) m) -> do
+        let lcaChildHash = headerHash lcaChild
+        logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
+                           lcaChildHash
+                           newestHash
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -294,9 +299,11 @@ handleCHsValid enqueue endedRecoveryVar nodeId lcaChild newestHash = do
                      " to "%shortHashF%" from peer "%build%": "%stext)
                     lcaChildHash newestHash nodeId e
                 dropRecoveryHeaderAndRepeat enqueue nodeId
+                return False
             Right blocks -> do
                 logDebug $ sformat
-                    ("retrievalWorker: retrieved blocks of size "%builder%": "%listJson)
+                    ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+                    (blocks ^. _OldestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
                     (map (headerHash . view blockHeader) blocks)
                 handleBlocks nodeId blocks enqueue
@@ -305,7 +312,7 @@ handleCHsValid enqueue endedRecoveryVar nodeId lcaChild newestHash = do
                 -- difficulty than ncrecoveryheader, we're
                 -- gracefully exiting recovery mode.
                 let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
-                endedRecovery <- atomically $ do
+                atomically $ do
                     mRecHeader <- tryReadTMVar recHeaderVar
                     case mRecHeader of
                         Nothing -> return False
@@ -313,11 +320,9 @@ handleCHsValid enqueue endedRecoveryVar nodeId lcaChild newestHash = do
                             if any (`isMoreDifficultThan` rHeader) blocks
                                 then isJust <$> tryTakeTMVar recHeaderVar
                                 else return False
-                void $ tryPutMVar endedRecoveryVar endedRecovery
-    void $ waitForConversations its
-  where
-    validFormat =
-        "Requesting blocks from " %shortHashF % " to " %shortHashF
+    results <- waitForConversations $ fmap (handleAll (\_ -> return False)) convs
+    let Any endedRecovery = fold $ fmap Any results
+    return endedRecovery
 
 retrieveBlocks
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
@@ -327,7 +332,7 @@ retrieveBlocks
     -> ExceptT Text m (OldestFirst NE (Block ssc))
 retrieveBlocks conv lcaChild endH = do
     blocks <- retrieveBlocks' 0 conv (lcaChild ^. prevBlockL) endH
-    let b0 = blocks ^. _Wrapped . _neHead
+    let b0 = blocks ^. _OldestFirst . _neHead
     if headerHash b0 == headerHash lcaChild
        then pure blocks
        else throwError $ sformat

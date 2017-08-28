@@ -29,31 +29,30 @@ library
                         Pos.Explorer.Socket.Util
 
                         Pos.Explorer.Web.Transform
-
-  build-depends:        base
-                      , aeson
+  build-depends:        aeson
+                      , base
+                      , base16-bytestring
                       , binary
                       , bytestring
                       , containers
-                      , base16-bytestring
+                      , either
+                      , ether >= 0.5.1
+                      , exceptions
+                      , formatting
+                      , lens
+                      , log-warper
+                      , memory
+                      , node-sketch
+                      , serokell-util
                       , stm
                       , tagged
-                      , text-format
                       , text
+                      , text-format
                       , time
                       , time-units
                       , transformers
                       , universum
                       , unordered-containers
-                      , node-sketch
-                      , serokell-util
-                      , exceptions
-                      , either
-                      , ether >= 0.5.1
-                      , formatting
-                      , lens
-                      , log-warper
-                      , memory
 
                       -- cardano sl
                       , cardano-sl
@@ -129,6 +128,7 @@ executable cardano-explorer
                      , cardano-sl-ssc
                      , cardano-sl-update
                      , containers
+                     , data-default
                      , formatting
                      , lens
                      , log-warper

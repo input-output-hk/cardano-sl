@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP        #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | High-level scenarios which can be launched.
@@ -13,7 +14,6 @@ import           Universum
 
 import           Control.Lens          (views)
 import           Data.Time.Units       (Second)
-import           Development.GitRev    (gitBranch, gitHash)
 import           Ether.Internal        (HasLens (..))
 import           Formatting            (build, int, sformat, shown, (%))
 import           Mockable              (fork)
@@ -25,13 +25,14 @@ import           System.Wlog           (WithLogger, getLoggerName, logError, log
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
 import qualified Pos.Constants         as Const
-import           Pos.Context           (BlkSemaphore (..), getOurPubKeyAddress,
-                                        getOurPublicKey, ncNetworkConfig)
+import           Pos.Context           (getOurPublicKey, ncNetworkConfig)
+import qualified Pos.DB.DB             as DB
 import           Pos.DHT.Real          (KademliaDHTInstance (..),
                                         kademliaJoinNetworkNoThrow,
                                         kademliaJoinNetworkRetry)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
+import           Pos.Infra.Semaphore   (BlkSemaphore (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
 import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
@@ -42,9 +43,19 @@ import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Types             (addressHash)
 import           Pos.Util              (inAssertMode)
+import           Pos.Util.Config       (configName)
 import           Pos.Util.LogSafe      (logInfoS)
 import           Pos.Worker            (allWorkers)
 import           Pos.WorkMode.Class    (WorkMode)
+
+#define QUOTED(x) "/**/x/**/"
+
+gitRev :: Text
+#if !defined(GITREV)
+gitRev = "unknown"
+#else
+gitRev = QUOTED(GITREV)
+#endif
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -58,15 +69,13 @@ runNode'
     -> WorkerSpec m
 runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
 
-    logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
+    logInfo $ "cardano-sl: commit " <> gitRev <> ", configName: " <> configName
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
-    addr <- getOurPubKeyAddress
     let pkHash = addressHash pk
-    logInfoS $ sformat ("My public key is: "%build%
-                        ", address: "%build%
-                        ", pk hash: "%build) pk addr pkHash
+    logInfoS $ sformat ("My public key is: "%build%", pk hash: "%build)
+        pk pkHash
 
     -- Synchronously join the Kademlia network before doing any more.
     --
@@ -94,6 +103,8 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             sformat ("Last known leaders for epoch "%build%" are: "%listJson)
                     lastKnownEpoch leaders
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
+    tipHeader <- DB.getTipHeader @ssc
+    logInfo $ sformat ("Current tip header: "%build) tipHeader
 
     initSemaphore
     waitSystemStart

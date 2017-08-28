@@ -71,6 +71,9 @@ library
                         Pos.Lrc
                         Pos.Lrc.FtsPure
 
+                        -- Behavior
+                        Pos.Behavior
+
                         -- Something
                         Pos.Launcher
                         Pos.Launcher.Resource
@@ -122,6 +125,7 @@ library
                         Pos.Wallet.KeyStorage
                         Pos.Wallet.SscType
                         Pos.Wallet.WalletMode
+                        Pos.Wallet.Web.Assurance
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.ClientTypes.Functions
                         Pos.Wallet.Web.ClientTypes.Instances
@@ -129,6 +133,8 @@ library
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Error.Types
                         Pos.Wallet.Web.Error.Util
+                        Pos.Wallet.Web.Pending.Types
+                        Pos.Wallet.Web.Pending.Updates
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.State
@@ -169,7 +175,6 @@ library
 
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Aeson.Types
-                        Pos.Aeson.Crypto
 
                         -- Binary serialization
                         Pos.Binary.Block
@@ -365,7 +370,6 @@ library
                       , focus
                       , formatting
                       , generic-arbitrary
-                      , gitrev
                       , hashable
                       , http-client
                       , http-client-tls
@@ -429,6 +433,8 @@ library
 
   if !os(windows)
     build-depends:      unix
+                     -- See: https://github.com/input-output-hk/stack2nix/issues/56
+                     ,  systemd
 
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -641,6 +647,7 @@ test-suite cardano-test
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
+                     , text
                      , text-format
                      , time-units
                      , transformers-base

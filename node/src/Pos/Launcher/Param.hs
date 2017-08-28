@@ -12,23 +12,26 @@ module Pos.Launcher.Param
 
 import           Universum
 
-import           Control.Lens           (makeLensesWith)
-import           Ether.Internal         (HasLens (..))
-import qualified Network.Transport.TCP  as TCP
-import           System.Wlog            (LoggerName)
+import           Control.Lens                (makeLensesWith)
+import           Ether.Internal              (HasLens (..))
+import qualified Network.Transport.TCP       as TCP
+import           System.Wlog                 (LoggerName)
 
-import           Pos.Core               (HasPrimaryKey (..), Timestamp)
-import           Pos.Crypto             (SecretKey)
-import           Pos.DHT.Real.Param     (KademliaParams)
-import           Pos.Genesis            (GenesisContext, GenesisUtxo,
-                                         GenesisWStakeholders, gtcUtxo, gtcWStakeholders)
-import           Pos.Network.Types      (NetworkConfig)
-import           Pos.Reporting.MemState (HasReportServers (..))
-import           Pos.Security.Params    (SecurityParams)
-import           Pos.Statistics         (EkgParams, StatsdParams)
-import           Pos.Update.Params      (UpdateParams)
-import           Pos.Util.UserSecret    (UserSecret)
-import           Pos.Util.Util          (postfixLFields)
+import           Pos.Behavior                (BehaviorConfig (..))
+import           Pos.Core                    (HasPrimaryKey (..), Timestamp)
+import           Pos.Crypto                  (SecretKey)
+import           Pos.DHT.Real.Param          (KademliaParams)
+import           Pos.Genesis                 (GenesisContext, GenesisUtxo,
+                                              GenesisWStakeholders, gtcUtxo,
+                                              gtcWStakeholders)
+import           Pos.Network.Types           (NetworkConfig)
+import           Pos.Reporting.MemState      (HasReportServers (..))
+import           Pos.Security.Params         (SecurityParams)
+import           Pos.Ssc.GodTossing.Behavior (GtBehavior)
+import           Pos.Statistics              (EkgParams, StatsdParams)
+import           Pos.Update.Params           (UpdateParams)
+import           Pos.Util.UserSecret         (UserSecret)
+import           Pos.Util.Util               (postfixLFields)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
@@ -62,22 +65,27 @@ data NodeParams = NodeParams
     , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
-    , npSecurityParams :: !SecurityParams       -- ^ Params for "Pos.Security"
     , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
     , npTransport      :: !TransportParams      -- ^ (TCP) transport parameters.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     , npNetworkConfig  :: !(NetworkConfig KademliaParams)
+    , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. GodTossing settings)
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams
+makeLensesWith postfixLFields ''BehaviorConfig
 
 instance HasLens UpdateParams NodeParams UpdateParams where
     lensOf = npUpdateParams_L
 
+instance HasLens BehaviorConfig NodeParams BehaviorConfig where
+    lensOf = npBehaviorConfig_L
 instance HasLens SecurityParams NodeParams SecurityParams where
-    lensOf = npSecurityParams_L
+    lensOf = npBehaviorConfig_L . bcSecurityParams_L
+instance HasLens GtBehavior NodeParams GtBehavior where
+    lensOf = npBehaviorConfig_L . bcGtBehavior_L
 
 instance HasLens GenesisContext NodeParams GenesisContext where
     lensOf = npGenesisCtx_L

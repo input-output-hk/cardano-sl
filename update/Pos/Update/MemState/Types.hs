@@ -12,7 +12,6 @@ module Pos.Update.MemState.Types
 
 import           Universum
 
-import           Control.Concurrent.Lock    (Lock, new)
 import           Data.Default               (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
@@ -49,10 +48,9 @@ data MemState = MemState
     -- ^ Modifier of GState corresponding to 'msPool'.
     }
 
--- | MemVar uses concurrency primitives and stores MemState.
-data MemVar = MemVar
-    { mvState :: !(TVar MemState)  -- ^ MemState itself.
-    , mvLock  :: !Lock             -- ^ Lock for modifting MemState.
+-- | MemVar stores MemState inside 'TVar'.
+newtype MemVar = MemVar
+    { mvState :: TVar MemState  -- ^ MemState itself.
     }
 
 -- | Create new 'MemVar' using slotting and read-only access to DB.
@@ -64,4 +62,4 @@ newMemVar = do
     msSlot <- fromMaybe slot0 <$> getCurrentSlot
     msTip <- getTip
     let ms = MemState { msPool = def, msModifier = mempty, .. }
-    liftIO $ MemVar <$> newTVarIO ms <*> new
+    liftIO $ MemVar <$> newTVarIO ms

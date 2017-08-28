@@ -3,8 +3,8 @@
 -- | Wallet web server.
 
 module Pos.Wallet.Web.Methods.Backup
-       ( importStateJSON
-       , exportStateJSON
+       ( importWalletJSON
+       , exportWalletJSON
        ) where
 
 import           Universum
@@ -14,32 +14,31 @@ import qualified Data.Aeson                   as A
 import qualified Data.ByteString.Lazy         as BSL
 import qualified Data.HashMap.Strict          as HM
 import           Formatting                   (build, sformat, stext, (%))
-import           System.Wlog                  (logWarning)
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
 import           Pos.Wallet.KeyStorage        (addSecretKey)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genUniqueAccountId)
-import           Pos.Wallet.Web.Backup        (AccountMetaBackup (..), StateBackup (..),
+import           Pos.Wallet.Web.Backup        (AccountMetaBackup (..), TotalBackup (..),
                                                WalletBackup (..), WalletMetaBackup (..),
-                                               getStateBackup)
-import           Pos.Wallet.Web.ClientTypes   (CWallet, encToCId)
+                                               getWalletBackup)
+import           Pos.Wallet.Web.ClientTypes   (CId, CWallet, Wal, encToCId)
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.State         (createAccount, getWalletMeta)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
-restoreWalletFromBackup :: MonadWalletWebMode m => WalletBackup -> m (Maybe CWallet)
+restoreWalletFromBackup :: MonadWalletWebMode m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
     let wId = encToCId wbSecretKey
     wExists <- isJust <$> getWalletMeta wId
 
     if wExists
         then do
-            logWarning $
+            throwM . RequestError $
                 sformat ("Wallet with id "%build%" already exists") wId
-            pure Nothing
+
         else do
             let (WalletMetaBackup wMeta) = wbMeta
                 accList = HM.toList wbAccounts
@@ -54,24 +53,20 @@ restoreWalletFromBackup WalletBackup {..} = do
             void $ L.createWalletSafe wId wMeta
             void $ syncWalletOnImport wbSecretKey
             -- Get wallet again to return correct balance and stuff
-            Just <$> L.getWallet wId
+            L.getWallet wId
 
-restoreStateFromBackup :: MonadWalletWebMode m => StateBackup -> m [CWallet]
-restoreStateFromBackup (FullStateBackup walletBackups) =
-    catMaybes <$> forM walletBackups restoreWalletFromBackup
-
-importStateJSON :: MonadWalletWebMode m => Text -> m [CWallet]
-importStateJSON (toString -> fp) = do
+importWalletJSON :: MonadWalletWebMode m => Text -> m CWallet
+importWalletJSON (toString -> fp) = do
     contents <- liftIO $ BSL.readFile fp
-    wState <- either parseErr pure $ A.eitherDecode contents
-    restoreStateFromBackup wState
+    TotalBackup wBackup <- either parseErr pure $ A.eitherDecode contents
+    restoreWalletFromBackup wBackup
   where
     parseErr err = throwM . RequestError $
         sformat ("Error while reading JSON backup file: "%stext) $
         toText err
 
-exportStateJSON :: MonadWalletWebMode m => Text -> m ()
-exportStateJSON (toString -> fp) = do
-    wState <- getStateBackup
-    liftIO $ BSL.writeFile fp $ A.encode wState
+exportWalletJSON :: MonadWalletWebMode m => CId Wal -> Text -> m ()
+exportWalletJSON wid (toString -> fp) = do
+    wBackup <- TotalBackup <$> getWalletBackup wid
+    liftIO $ BSL.writeFile fp $ A.encode wBackup
 

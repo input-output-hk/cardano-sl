@@ -10,7 +10,7 @@ module Pos.Network.CLI (
     NetworkConfigOpts(..)
   , NetworkConfigException(..)
   , networkConfigOption
-  , ipv4ToNodeId
+  , ipv4ToNetworkAddress
   , intNetworkConfigOpts
     -- * Exported primilary for testing
   , readTopology
@@ -23,10 +23,11 @@ import           Control.Exception               (Exception (..))
 import qualified Data.ByteString.Char8           as BS.C8
 import           Data.IP                         (IPv4)
 import qualified Data.Map.Strict                 as M
-import           Data.Maybe                      (fromJust)
+import           Data.Maybe                      (fromJust, mapMaybe)
 import qualified Data.Yaml                       as Yaml
 import           Formatting                      (sformat, shown, (%))
-import           Mockable                        (Catch, Mockable, fork, try)
+import           Mockable                        (Catch, Mockable, Throw, fork, throw,
+                                                  try)
 import           Mockable.Concurrent
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS                     as DNS
@@ -35,11 +36,11 @@ import qualified Pos.DHT.Real.Param              as DHT (KademliaParams,
                                                          MalformedDHTKey (..),
                                                          fromYamlConfig)
 import           Pos.Network.DnsDomains          (DnsDomains (..), NodeAddr (..))
-import           Pos.Network.Types               (NodeId, NodeName(..))
+import           Pos.Network.Types               (NodeId, NodeName (..))
 import qualified Pos.Network.Types               as T
 import           Pos.Network.Yaml                (NodeMetadata (..))
 import qualified Pos.Network.Yaml                as Y
-import           Pos.Util.TimeWarp               (addressToNodeId)
+import           Pos.Util.TimeWarp               (NetworkAddress, addressToNodeId)
 import           System.Wlog.CanLog              (WithLogger, logError, logNotice)
 import           Universum
 
@@ -156,7 +157,7 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
               mParsedTopology <- try $ liftIO $ readTopology fp
               case mParsedTopology of
                 Right (Y.TopologyStatic allPeers) -> do
-                  (newMetadata, newPeers) <-
+                  (newMetadata, newPeers, _) <-
                     liftIO $ fromPovOf cfg allPeers
 
                   unless (nmType newMetadata == nmType origMetadata) $
@@ -214,6 +215,7 @@ intNetworkConfigOpts :: forall m. (
                        , MonadIO        m
                        , Mockable Fork  m
                        , Mockable Catch m
+                       , Mockable Throw m
                        )
                      => NetworkConfigOpts
                      -> m (T.NetworkConfig DHT.KademliaParams)
@@ -223,22 +225,33 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                         Just fp -> liftIO $ readTopology fp
     ourTopology <- case parsedTopology of
       Y.TopologyStatic{..} -> do
-        (md@NodeMetadata{..}, initPeers) <- liftIO $ fromPovOf cfg topologyAllPeers
+        (md@NodeMetadata{..}, initPeers, kademliaPeers) <- liftIO $ fromPovOf cfg topologyAllPeers
         topologyStaticPeers <- monitorStaticConfig cfg md initPeers
+        -- If kademlia is enabled here then we'll try to read the configuration
+        -- file. However it's not necessary that the file exists. If it doesn't,
+        -- we can fill in some sensible defaults using the static routing and
+        -- kademlia flags for other nodes.
         topologyOptKademlia <- if nmKademlia
-                                 then liftIO $ Just <$> getKademliaParams cfg
-                                 else return Nothing
+            then do
+                ekparams <- liftIO $ getKademliaParamsFromFile cfg
+                case ekparams of
+                    Right kparams -> return $ Just kparams
+                    Left MissingKademliaConfig ->
+                        let ekparams' = getKademliaParamsFromStatic kademliaPeers
+                        in  either (throw . CannotParseKademliaConfig . Left) (return . Just) ekparams'
+                    Left err -> throw err
+            else return Nothing
         case nmType of
           T.NodeCore  -> return $ T.TopologyCore{..}
           T.NodeRelay -> return $ T.TopologyRelay{topologyMaxSubscrs = nmMaxSubscrs, ..}
-          T.NodeEdge  -> liftIO $ throwM NetworkConfigSelfEdge
+          T.NodeEdge  -> throw NetworkConfigSelfEdge
       Y.TopologyBehindNAT{..} ->
         return T.TopologyBehindNAT{..}
       Y.TopologyP2P{..} -> do
-        kparams <- liftIO $ getKademliaParams cfg
+        kparams <- either throw return =<< liftIO (getKademliaParamsFromFile cfg)
         return T.TopologyP2P{topologyKademlia = kparams, ..}
       Y.TopologyTraditional{..} -> do
-        kparams <- liftIO $ getKademliaParams cfg
+        kparams <- either throw return =<< liftIO (getKademliaParamsFromFile cfg)
         return T.TopologyTraditional{topologyKademlia = kparams, ..}
 
     (enqueuePolicy, dequeuePolicy, failurePolicy) <- case networkConfigOptsPolicies of
@@ -262,38 +275,79 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
       , ncFailurePolicy = failurePolicy
       }
 
--- | Come up with kademlia parameters, possibly throwing an exception in case
+-- | Come up with kademlia parameters, possibly giving 'Left' in case
 -- there's no configuration file path given, or if it couldn't be parsed.
-getKademliaParams :: NetworkConfigOpts
-                  -> IO DHT.KademliaParams
-getKademliaParams cfg = case networkConfigOptsKademlia cfg of
-    Nothing -> throwM MissingKademliaConfig
+getKademliaParamsFromFile :: NetworkConfigOpts
+                          -> IO (Either NetworkConfigException DHT.KademliaParams)
+getKademliaParamsFromFile cfg = case networkConfigOptsKademlia cfg of
+    Nothing -> return $ Left MissingKademliaConfig
     Just fp -> do
       kconf <- parseKademlia fp
-      either (throwM . DHT.MalformedDHTKey) return (DHT.fromYamlConfig kconf)
+      either (return . Left . CannotParseKademliaConfig . Left . DHT.MalformedDHTKey)
+             (return . Right)
+             (DHT.fromYamlConfig kconf)
+
+-- | Derive kademlia parameters from the set of kademlia-enabled peers. They
+-- are used as the initial peers, and everything else is unspecified, and will
+-- be defaulted.
+getKademliaParamsFromStatic :: [Y.KademliaAddress]
+                            -> Either DHT.MalformedDHTKey DHT.KademliaParams
+-- Since 'Nothing' is given for the kpId, it's impossible to get a 'Left'
+getKademliaParamsFromStatic kpeers = either (Left . DHT.MalformedDHTKey) Right kparams
+  where
+    kparams = DHT.fromYamlConfig $ Y.KademliaParams
+        { Y.kpId              = Nothing
+        , Y.kpPeers           = kpeers
+        , Y.kpAddress         = Nothing
+        , Y.kpBind            = Nothing
+        , Y.kpExplicitInitial = Nothing
+        , Y.kpDumpFile        = Nothing
+        }
 
 -- | Perspective on 'AllStaticallyKnownPeers' from the point of view of
--- a single node
+-- a single node.
+--
+-- First component is this node's metadata.
+-- Second component is the set of all known peers (routes included).
+-- Third component is the set of addresses of peers running kademlia.
+--   If this node runs kademlia, its address will appear as the last entry in
+--   the list.
 fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
-          -> IO (NodeMetadata, Peers NodeId)
+          -> IO (NodeMetadata, Peers NodeId, [Y.KademliaAddress])
 fromPovOf cfg@NetworkConfigOpts{..} allPeers =
     case networkConfigOptsSelf of
       Nothing   -> throwM NetworkConfigSelfUnknown
       Just self -> T.initDnsOnUse $ \resolve -> do
         selfMetadata <- metadataFor allPeers self
         resolved     <- resolvePeers resolve (Y.allStaticallyKnownPeers allPeers)
-        let directory = M.fromList (map (\(a, b) -> (b, a)) (M.elems resolved))
-        routes       <- mkRoutes resolved (Y.nmRoutes selfMetadata)
-        return (selfMetadata, peersFromList directory routes)
+        routes       <- mkRoutes (second addressToNodeId <$> resolved) (Y.nmRoutes selfMetadata)
+        let directory     = M.fromList (map (\(a, b) -> (addressToNodeId b, a)) (M.elems resolved))
+            hasKademlia   = M.filter nmKademlia (Y.allStaticallyKnownPeers allPeers)
+            selfKademlia  = M.member self hasKademlia
+            otherKademlia = M.delete self hasKademlia
+            -- Linter claims that
+            --   [self | selfKademlia]
+            -- is more readable than
+            --   if selfKademlia then [self] else []
+            allKademlia   = M.keys otherKademlia ++ [self | selfKademlia]
+
+            kademliaPeers = mkKademliaAddress . snd <$> mapMaybe (\name -> M.lookup name resolved) allKademlia
+        return (selfMetadata, peersFromList directory routes, kademliaPeers)
   where
+
+    mkKademliaAddress :: NetworkAddress -> Y.KademliaAddress
+    mkKademliaAddress (addr, port) = Y.KademliaAddress
+        { Y.kaHost = BS.C8.unpack addr
+        , Y.kaPort = port
+        }
 
     -- Use the name/metadata association to come up with types and
     -- addresses for each name.
-    resolvePeers :: T.Resolver -> Map NodeName Y.NodeMetadata -> IO (Map NodeName (T.NodeType, NodeId))
+    resolvePeers :: T.Resolver -> Map NodeName Y.NodeMetadata -> IO (Map NodeName (T.NodeType, NetworkAddress))
     resolvePeers resolve = M.traverseWithKey (resolvePeer resolve)
 
-    resolvePeer :: T.Resolver -> NodeName -> Y.NodeMetadata -> IO (T.NodeType, NodeId)
+    resolvePeer :: T.Resolver -> NodeName -> Y.NodeMetadata -> IO (T.NodeType, NetworkAddress)
     resolvePeer resolve name metadata =
       (typ,) <$> resolveNodeAddr cfg resolve (name, addr)
       where
@@ -343,10 +397,10 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers =
 resolveNodeAddr :: NetworkConfigOpts
                 -> T.Resolver
                 -> (NodeName, NodeAddr (Maybe DNS.Domain))
-                -> IO NodeId
+                -> IO NetworkAddress
 resolveNodeAddr cfg _ (_, NodeAddrExact addr mPort) = do
     let port = fromMaybe (networkConfigOptsPort cfg) mPort
-    return $ addressToNodeId (addr, port)
+    return (encodeUtf8 @String . show $ addr, port)
 resolveNodeAddr cfg resolve (name, NodeAddrDNS mHost mPort) = do
     let host = fromMaybe (nameToDomain name)         mHost
         port = fromMaybe (networkConfigOptsPort cfg) mPort
@@ -356,13 +410,13 @@ resolveNodeAddr cfg resolve (name, NodeAddrDNS mHost mPort) = do
       Left err            -> throwM $ NetworkConfigDnsError host err
       Right []            -> throwM $ CannotResolve name
       Right addrs@(_:_:_) -> throwM $ NoUniqueResolution name addrs
-      Right [addr]        -> return $ ipv4ToNodeId addr port
+      Right [addr]        -> return $ ipv4ToNetworkAddress addr port
   where
     nameToDomain :: NodeName -> DNS.Domain
     nameToDomain (NodeName n) = BS.C8.pack (toString n)
 
-ipv4ToNodeId :: IPv4 -> Word16 -> NodeId
-ipv4ToNodeId addr port = addressToNodeId (BS.C8.pack (show addr), port)
+ipv4ToNetworkAddress :: IPv4 -> Word16 -> NetworkAddress
+ipv4ToNetworkAddress addr port = (BS.C8.pack (show addr), port)
 
 metadataFor :: Y.AllStaticallyKnownPeers -> NodeName -> IO Y.NodeMetadata
 metadataFor (Y.AllStaticallyKnownPeers allPeers) node =
@@ -388,7 +442,7 @@ parseKademlia :: FilePath -> IO Y.KademliaParams
 parseKademlia fp = do
     mKademlia <- Yaml.decodeFileEither fp
     case mKademlia of
-      Left  err      -> throwM $ CannotParseKademliaConfig err
+      Left  err      -> throwM $ CannotParseKademliaConfig (Right err)
       Right kademlia -> return kademlia
 
 {-------------------------------------------------------------------------------
@@ -409,7 +463,7 @@ data NetworkConfigException =
   | MissingKademliaConfig
 
     -- | We cannot parse the kademlia .yaml file
-  | CannotParseKademliaConfig Yaml.ParseException
+  | CannotParseKademliaConfig (Either DHT.MalformedDHTKey Yaml.ParseException)
 
     -- | A policy description .yaml was specified but couldn't be parsed.
   | CannotParsePolicies Yaml.ParseException

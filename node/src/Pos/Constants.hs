@@ -36,11 +36,14 @@ module Pos.Constants
 
        -- * Update system constants
        , appSystemTag
+
+       -- * Transaction resubmition constants
+       , pendingTxResubmitionPeriod
        ) where
 
 import           Universum                    hiding (lift)
 
-import           Data.Time.Units              (Microsecond)
+import           Data.Time.Units              (Microsecond, Second)
 import           Language.Haskell.TH.Syntax   (lift, runIO)
 import           Serokell.Util                (ms, sec)
 import           System.Environment           (lookupEnv)
@@ -148,3 +151,10 @@ appSystemTag = $(do
             | otherwise ->
                   fail "Failed to init appSystemTag: \
                        \couldn't find env var \"CSL_SYSTEM_TAG\"")
+
+----------------------------------------------------------------------------
+-- Transactions resubmition
+----------------------------------------------------------------------------
+
+pendingTxResubmitionPeriod :: Second
+pendingTxResubmitionPeriod = fromIntegral . ccPendingTxResubmissionPeriod $ compileConfig

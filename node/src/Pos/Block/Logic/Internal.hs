@@ -26,6 +26,7 @@ module Pos.Block.Logic.Internal
 import           Universum
 
 import           Control.Lens            (each, _Wrapped)
+import qualified Crypto.Random           as Rand
 import           Ether.Internal          (HasLens (..))
 import           Formatting              (sformat, (%))
 import           Mockable                (CurrentTime, Mockable)
@@ -34,8 +35,9 @@ import           Serokell.Util.Text      (listJson)
 import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
                                           mbUpdatePayload)
-import           Pos.Block.Slog          (MonadSlogApply, MonadSlogBase, slogApplyBlocks,
-                                          slogRollbackBlocks, BypassSecurityCheck(..))
+import           Pos.Block.Slog          (BypassSecurityCheck (..), MonadSlogApply,
+                                          MonadSlogBase, slogApplyBlocks,
+                                          slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (GenesisWStakeholders, HasCoreConstants,
                                           IsGenesisHeader, IsMainHeader, epochIndexL,
@@ -89,6 +91,8 @@ type MonadBlockBase ssc ctx m
        , SscGStateClass ssc
        , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        , MonadDelegation ctx m
+       -- 'MonadRandom' for crypto.
+       , Rand.MonadRandom m
        , MonadReader ctx m
        )
 
@@ -131,6 +135,9 @@ type MonadMempoolNormalization ssc ctx m
       , MonadMask m
       , MonadReader ctx m
       , MonadFormatPeers m
+      -- 'MonadRandom' for crypto.
+      , Rand.MonadRandom m
+      , Mockable CurrentTime m
       )
 
 -- | Normalize mempool.

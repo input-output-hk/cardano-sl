@@ -57,6 +57,8 @@ set -o pipefail
 # * Pass -Werror or do `touch .Werror` if you want to compile with -Werror.
 # * Pass --for-installer to enable 'for-installer' flag (which means that most
 #   of executables won't be built).
+# * Pass --no-asserts to disable asserts.
+# * Pass --bench-mode to use the configuration used by modern benchmarks.
 
 # We can't have lwallet, wallet or explorer here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
@@ -77,6 +79,8 @@ explorer=true
 no_code=false
 werror=false
 for_installer=false
+asserts=true
+bench_mode=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -141,6 +145,22 @@ do
   # disabling --fast
   elif [[ $var == "-O2" ]]; then
     no_fast=true
+  # disabling asserts
+  elif [[ $var == "--no-asserts" ]]; then
+    asserts=false
+  # benchmarks config
+  elif [[ $var == "--bench-mode" ]]; then
+    # We want:
+    # • --flag cardano-sl-core:dev-mode (default)
+    # • --flag cardano-sl-core:dev-custom-config ($bench_mode)
+    # • --ghc-options=-DCONFIG=benchmark ($bench_mode)
+    # • --flag cardano-sl-core:-asserts ($asserts)
+    # • compiler optimizations ($no_fast)
+    # • disable explorer ($explorer)
+    bench_mode=true
+    no_fast=true
+    asserts=false
+    explorer=false
   # project name = build only the project
   # (for “godtossing” we allow “gt” as an alias)
   elif [[ $var == "sl" ]]; then
@@ -170,6 +190,13 @@ if [[ $prodModesCounter -gt 1 ]]; then
   exit 23
 fi
 
+if [[ $prodModesCounter -gt 0 ]]; then
+  if [[ $bench_mode == true ]]; then
+    echo "Prod mode can't be used with bench mode" >&2
+    exit 26
+  fi
+fi
+
 commonargs='--test --no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
 
@@ -194,15 +221,27 @@ if [[ $for_installer == true ]]; then
   commonargs="$commonargs --flag cardano-sl-tools:for-installer"
 fi
 
-# CONFIG = dev, prod, or wallet
-dconfig=dev
+if [[ $asserts == false ]]; then
+  commonargs="$commonargs --flag cardano-sl-core:-asserts"
+fi
+
+if [[ $bench_mode == true ]]; then
+  commonargs="$commonargs --flag cardano-sl-core:dev-custom-config"
+fi
+
+# CONFIG
+if [[ $bench_mode == true ]]; then
+  dconfig=benchmark
+else
+  dconfig=dev
+fi
 if [[ "$prodMode" != "" ]]; then
   dconfig=$prodMode
   if [[ $wallet == true ]]; then
     dconfig="${dconfig}_wallet"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig"
+ghc_opts="-DCONFIG=$dconfig -DGITREV=`git rev-parse HEAD`"
 
 if [[ $no_fast == true ]];
   then fast=""

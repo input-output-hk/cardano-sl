@@ -25,11 +25,10 @@ import           Universum
 
 import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
 import           Control.Lens           (views)
-import           Control.Monad.Except   (runExceptT)
+import           Control.Monad.Except   (runExceptT, throwError)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
-import           Ether.Internal         (HasLens (..))
 import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 
@@ -38,9 +37,10 @@ import           Pos.Core               (BlockVersionData (bvdMaxBlockSize),
                                          HasCoreConstants, HeaderHash, SlotId (..),
                                          slotIdF)
 import           Pos.Core.Constants     (memPoolLimitRatio)
-import           Pos.Crypto             (PublicKey)
+import           Pos.Crypto             (PublicKey, shortHashF)
 import           Pos.DB.Class           (MonadDBRead)
 import qualified Pos.DB.GState.Common   as DB
+import           Pos.Infra.Semaphore    (BlkSemaphore)
 import           Pos.Lrc.Context        (LrcContext)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
@@ -51,21 +51,26 @@ import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..)
                                          withUSLock)
 import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          MonadPollRead (getProposal), PollModifier,
-                                         PollVerFailure, evalPollT, execPollT,
+                                         PollVerFailure (..), evalPollT, execPollT,
                                          filterProposalsByThd, modifyPollModifier,
                                          normalizePoll, psVotes, refreshPoll, runDBPoll,
                                          runPollT, verifyAndApplyUSPayload)
+import           Pos.Util.Util          (HasLens (..), HasLens')
 
--- MonadMask is needed because are using Lock. It can be improved later.
 type USLocalLogicMode ctx m =
     ( MonadIO m
     , MonadDBRead m
-    , MonadMask m
     , WithLogger m
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     , HasLens LrcContext ctx LrcContext
     , HasCoreConstants
+    )
+
+type USLocalLogicModeWithLock ctx m =
+    ( USLocalLogicMode ctx m
+    , MonadMask m
+    , HasLens' ctx BlkSemaphore
     )
 
 getMemPool
@@ -98,29 +103,39 @@ getLocalVotes
     => m LocalVotes
 getLocalVotes = mpLocalVotes <$> getMemPool
 
-withCurrentTip
-    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadDBRead m, MonadIO m)
+-- Fetch memory state from 'TVar', modify it, write back. No
+-- synchronization is done, it's caller's responsibility.
+modifyMemState
+    :: (MonadIO m, MonadReader ctx m, HasLens UpdateContext ctx UpdateContext)
     => (MemState -> m MemState) -> m ()
-withCurrentTip action = do
-    tipBefore <- DB.getTip
+modifyMemState action = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms <- atomically $ readTVar stateVar
     newMS <- action ms
-    atomically $ modifyTVar' stateVar $ \cur ->
-      if | tipBefore == msTip cur -> newMS
-         | otherwise -> cur
+    atomically $ writeTVar stateVar newMS
 
 ----------------------------------------------------------------------------
 -- Data exchange in general
 ----------------------------------------------------------------------------
 
 processSkeleton
-    :: (USLocalLogicMode ctx m)
+    :: (USLocalLogicModeWithLock ctx m)
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload =
     withUSLock $
     runExceptT $
-    withCurrentTip $ \ms@MemState {..} -> do
+    modifyMemState $ \ms@MemState {..} -> do
+        dbTip <- DB.getTip
+        -- We must check tip here, because we can't be sure that tip
+        -- in DB is the same as the tip in memory. Normally it will be
+        -- the case, but if normalization fails, it won't be true.
+        --
+        -- If this equality holds, we can be sure that all further
+        -- reads will be done for the same GState, because here we own
+        -- global lock and nobody can modify GState.
+        unless (dbTip == msTip) $
+            throwError $
+            PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
         maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
         let maxMemPoolSize = maxBlockSize * memPoolLimitRatio
         msIntermediate <-
@@ -189,7 +204,7 @@ getLocalProposalNVotes id = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processProposal
-    :: (USLocalLogicMode ctx m)
+    :: (USLocalLogicModeWithLock ctx m)
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
@@ -238,7 +253,7 @@ getLocalVote propId pk decision = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processVote
-    :: (USLocalLogicMode ctx m)
+    :: (USLocalLogicModeWithLock ctx m)
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
@@ -251,13 +266,15 @@ processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 -- tries to leave as much data as possible. It assumes that
 -- 'blkSemaphore' is taken.
 usNormalize :: (USLocalLogicMode ctx m) => m ()
-usNormalize =
-    withUSLock $ do
-        tip <- DB.getTip
-        stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
-        atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
+usNormalize = do
+    tip <- DB.getTip
+    stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
+    atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
 
--- Normalization under lock.
+-- Normalization under lock.  Note that here we don't care whether tip
+-- in mempool is the same as the one is DB, because we take payload
+-- from mempool and apply it to empty mempool, so it depends only on
+-- GState.
 usNormalizeDo
     :: (USLocalLogicMode ctx m)
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
@@ -285,52 +302,70 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: (USLocalLogicMode ctx m) => SlotId -> m ()
-processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
+processNewSlot :: (USLocalLogicModeWithLock ctx m) => SlotId -> m ()
+processNewSlot slotId = withUSLock $ processNewSlotNoLock slotId
+
+processNewSlotNoLock :: (USLocalLogicMode ctx m) => SlotId -> m ()
+processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
        | siEpoch msSlot == siEpoch slotId -> pure $ ms {msSlot = slotId}
        | otherwise -> usNormalizeDo Nothing (Just slotId)
 
 -- | Prepare UpdatePayload for inclusion into new block with given
--- SlotId.  This function assumes that 'blkSemaphore' is taken and
--- nobody can apply/rollback blocks in parallel.
--- Sometimes payload can't be created. It can happen if we are trying to
--- create block for slot which has already passed, for example.
-usPreparePayload :: (USLocalLogicMode ctx m) => SlotId -> m (Maybe UpdatePayload)
-usPreparePayload slotId@SlotId{..} = do
+-- SlotId based on given tip.  This function assumes that
+-- 'blkSemaphore' is taken and nobody can apply/rollback blocks in
+-- parallel or modify US mempool.  Sometimes payload can't be
+-- created. It can happen if we are trying to create block for slot
+-- which has already passed, for example. Or if we have different tip
+-- in mempool because normalization failed earlier.
+--
+-- If we can't obtain payload for block creation, we use empty
+-- payload, because it's important to create blocks for system
+-- maintenance (empty blocks are better than no blocks).
+usPreparePayload ::
+       (USLocalLogicMode ctx m)
+    => HeaderHash
+    -> SlotId
+    -> m UpdatePayload
+usPreparePayload neededTip slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't
     -- be updated, but we don't want to create block in this case
-    -- anyway.  Here 'processNewSlot' can't fail because of tip
-    -- mismatch, because we are under 'blkSemaphore'.
-    processNewSlot slotId
+    -- anyway.  In normal cases 'processNewSlot' can't fail here
+    -- because of tip mismatch, because we are under 'blkSemaphore'.
+    processNewSlotNoLock slotId
     -- After that we normalize payload to be sure it's valid. We try
     -- to keep it valid anyway, but we decided to have an extra
     -- precaution. We also do it because here we need to eliminate all
     -- proposals which don't have enough positive stake for inclusion
     -- into block. We check that payload corresponds to requested slot
-    -- and return it if it does. We take lock to be sure that noone
-    -- can put anything during normalization.
-    withUSLock preparePayloadDo
+    -- and return it if it does.
+    preparePayloadDo
   where
     preparePayloadDo = do
         -- Normalization is done just in case, as said before
         MemState {..} <- usNormalizeDo Nothing (Just slotId)
         -- If slot doesn't match, we can't provide payload for this slot.
-        if | msSlot /= slotId -> Nothing <$
+        if | msSlot /= slotId -> def <$
                logWarning (sformat slotMismatchFmt msSlot slotId)
+           | msTip /= neededTip -> def <$
+               logWarning (sformat tipMismatchFmt msTip neededTip)
            | otherwise -> do
                -- Here we remove proposals which don't have enough
                -- positive stake for inclusion into payload.
                let MemPool {..} = msPool
                (filteredProposals, bad) <- runDBPoll . evalPollT msModifier $
                    filterProposalsByThd siEpoch mpProposals
-               fmap Just . runDBPoll . evalPollT msModifier $
+               runDBPoll . evalPollT msModifier $
                    finishPrepare bad filteredProposals mpLocalVotes
     slotMismatchFmt = "US payload can't be created due to slot mismatch "%
                       "(our payload is for "%
                        slotIdF%", but requested one is "%slotIdF%")"
+    tipMismatchFmt =  "US payload can't be created due to tip mismatch "
+                     %"(our payload is for "
+                     %shortHashF%", but we want to create payload based on tip "
+                     %shortHashF%")"
 
 -- Here we basically choose only one proposal for inclusion and remove
 -- all votes for other proposals.

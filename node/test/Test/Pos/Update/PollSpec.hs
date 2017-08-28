@@ -10,11 +10,12 @@ import           Control.Lens                      (at)
 import qualified Data.HashSet                      as HS
 import           Test.Hspec                        (Spec, describe)
 import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
-import           Test.QuickCheck                   (Arbitrary (..), Property, conjoin,
-                                                    (===))
+import           Test.QuickCheck                   (Arbitrary (..), Gen, Property,
+                                                    conjoin, forAll, (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Core                          (ApplicationName, BlockVersion,
+import           Pos.Core                          (ApplicationName, BlockVersion (..),
+                                                    BlockVersionData (..),
                                                     HasCoreConstants,
                                                     SoftwareVersion (..), StakeholderId,
                                                     addressHash, giveStaticConsts)
@@ -44,6 +45,18 @@ spec = giveStaticConsts $ describe "Poll" $ do
                 \ a poll state is the same as applying the modifications directly to the\
                 \ poll state"
                 applyActions
+            prop "Adding and then deleting a block version's state to 'PollState' is\
+                 \ equivalent to doing nothing"
+                 putDelBVState
+            prop "Setting and then deleting the last confirmed version of an application\
+                 \ is equivalent to doing nothing"
+                 setDeleteConfirmedSV
+            prop "Adding and then deleting a confirmed proposal is the same as doing\
+                 \ nothing"
+                 addDeleteConfirmedProposal
+            prop "Inserting an active proposal and then deleting it is the same as doing\
+                 \ nothing"
+                 insertDeleteProposal
 
 modifyPollFormsMonoid
     :: Poll.PollModifier
@@ -92,7 +105,6 @@ actionToMonad (DeactivateProposal ui)    = Poll.deactivateProposal ui
 actionToMonad (SetSlottingData sd)       = Poll.setSlottingData sd
 actionToMonad (SetEpochProposers hs)     = Poll.setEpochProposers hs
 
-
 applyActionToModifier
     :: PollAction
     -> Poll.PollState
@@ -139,9 +151,7 @@ applyActionToModifier (DeactivateProposal ui) pst = \p ->
 applyActionToModifier (SetSlottingData sd) _   = Poll.pmSlottingDataL .~ (Just sd)
 applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
 
-type PollActions = [PollAction]
-
-applyActions :: Poll.PollState -> PollActions -> Property
+applyActions :: Poll.PollState -> [PollAction] -> Property
 applyActions ps actionList =
     let pollSts = fmap (actionToMonad @Poll.PurePoll) actionList
         -- 'resultModifiers' has a 'mempty' poll modifier up front, so 'newPollStates'
@@ -152,3 +162,64 @@ applyActions ps actionList =
         resultPStates = ps : scanl Poll.execPurePollWithLogger ps pollSts
         newPollStates = scanl (flip Poll.modifyPollState) ps resultModifiers
     in conjoin $ zipWith (===) resultPStates newPollStates
+
+emptyPollSt :: (BlockVersion, BlockVersionData) -> Poll.PollState
+emptyPollSt bvInfo = Poll.PollState
+    mempty
+    bvInfo
+    mempty
+    mempty
+    mempty
+    mempty
+    mempty
+    mempty
+    mempty
+    mempty
+
+perform :: [PollAction] -> Poll.PurePoll ()
+perform = foldl (>>) (return ()) . map actionToMonad
+
+(==^)
+    :: HasCoreConstants
+    => [PollAction]
+    -> [PollAction]
+    -> PollStateTestInfo
+    -> Property
+p1 ==^ p2 = \bvInfo ->
+    forAll (arbitrary :: Gen [PollAction]) $ \prefix ->
+    forAll (arbitrary :: Gen [PollAction]) $ \suffix ->
+        let applyAction x =
+                Poll.execPurePollWithLogger (emptyPollSt bvInfo)
+                                            (perform $ prefix ++ x ++ suffix)
+        in applyAction p1 === applyAction p2
+
+putDelBVState
+    :: HasCoreConstants
+    => BlockVersion
+    -> Poll.BlockVersionState
+    -> PollStateTestInfo
+    -> Property
+putDelBVState bv bvs = [PutBVState bv bvs, DelBVState bv] ==^ []
+
+setDeleteConfirmedSV
+    :: HasCoreConstants
+    => SoftwareVersion
+    -> PollStateTestInfo
+    -> Property
+setDeleteConfirmedSV sv = [SetLastConfirmedSV sv, DelConfirmedSV $ svAppName sv] ==^ []
+
+addDeleteConfirmedProposal
+    :: HasCoreConstants
+    => Poll.ConfirmedProposalState
+    -> PollStateTestInfo
+    -> Property
+addDeleteConfirmedProposal cps =
+    [AddConfirmedProposal cps, DelConfirmedProposal $ Poll.cpsSoftwareVersion cps] ==^ []
+
+insertDeleteProposal
+    :: HasCoreConstants
+    => Poll.ProposalState
+    -> PollStateTestInfo
+    -> Property
+insertDeleteProposal ps =
+    [InsertActiveProposal ps, DeactivateProposal $ hash $ Poll.psProposal ps] ==^ []

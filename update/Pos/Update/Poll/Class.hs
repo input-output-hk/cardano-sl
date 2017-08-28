@@ -7,9 +7,10 @@ module Pos.Update.Poll.Class
        , MonadPoll (..)
        ) where
 
+import           Universum
+
 import           Control.Monad.Trans   (MonadTrans)
 import           System.Wlog           (WithLogger)
-import           Universum
 
 import           Pos.Core              (ApplicationName, BlockVersion, ChainDifficulty,
                                         Coin, EpochIndex, NumSoftwareVersion, SlotId,
@@ -136,4 +137,3 @@ instance {-# OVERLAPPABLE #-}
     deactivateProposal = lift . deactivateProposal
     setSlottingData = lift . setSlottingData
     setEpochProposers = lift . setEpochProposers
-

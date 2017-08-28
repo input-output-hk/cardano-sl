@@ -163,7 +163,13 @@ applyActions ps actionList =
         newPollStates = scanl (flip Poll.modifyPollState) ps resultModifiers
     in conjoin $ zipWith (===) resultPStates newPollStates
 
-emptyPollSt :: (BlockVersion, BlockVersionData) -> Poll.PollState
+-- | Type synonym used for convenience.
+type PollStateTestInfo = (BlockVersion, BlockVersionData)
+
+-- | Empty 'PollState' to be used in tests. Since all fields of the datatype except
+-- the second (psAdoptedBV) have an instance for 'Monoid', it is passed as an argument
+-- that each property will supply.
+emptyPollSt :: PollStateTestInfo -> Poll.PollState
 emptyPollSt bvInfo = Poll.PollState
     mempty
     bvInfo
@@ -179,6 +185,8 @@ emptyPollSt bvInfo = Poll.PollState
 perform :: [PollAction] -> Poll.PurePoll ()
 perform = foldl (>>) (return ()) . map actionToMonad
 
+-- | Operational equivalence operator in the 'PurePoll' monad. To be used when
+-- equivalence between two sequences of actions in 'PurePoll' is to be tested/proved.
 (==^)
     :: HasCoreConstants
     => [PollAction]

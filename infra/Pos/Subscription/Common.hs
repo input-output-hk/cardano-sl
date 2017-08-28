@@ -10,6 +10,7 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
+import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 import           Universum                             hiding (bracket)
 
@@ -80,11 +81,12 @@ subscribeTo sendActions peer = do
 -- peers, annotating it with a given NodeType. Remove that peer from the set
 -- of known peers when the connection is dropped.
 subscriptionListener
-    :: forall m.
+    :: forall pack m.
        (SubscriptionMode m)
-    => NodeType
+    => OQ.OutboundQ pack NodeId Bucket
+    -> NodeType
     -> (ListenerSpec m, OutSpecs)
-subscriptionListener nodeType = listenerConv @Void $ \__ourVerInfo nodeId conv -> do
+subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId conv -> do
     mbMsg <- recvLimited conv
     whenJust mbMsg $ \MsgSubscribe -> do
       let peers = simplePeers [(nodeType, nodeId)]
@@ -96,11 +98,12 @@ subscriptionListener nodeType = listenerConv @Void $ \__ourVerInfo nodeId conv -
           void $ recvLimited conv) -- if not added, close the conversation
 
 subscriptionListeners
-    :: forall m.
+    :: forall pack m.
        (SubscriptionMode m)
-    => NodeType
+    => OQ.OutboundQ pack NodeId Bucket
+    -> NodeType
     -> MkListeners m
-subscriptionListeners nodeType = constantListeners [subscriptionListener nodeType]
+subscriptionListeners oq nodeType = constantListeners [subscriptionListener oq nodeType]
 
 -- | Throw the standard subscription worker OutSpecs onto a given
 -- implementation of a single subscription worker.

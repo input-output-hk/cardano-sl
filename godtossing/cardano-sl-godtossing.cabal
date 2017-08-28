@@ -19,6 +19,8 @@ library
     Pos.Ssc.GodTossing.Core.Types
     Pos.Ssc.GodTossing.Core.Core
 
+    Pos.Ssc.GodTossing.Behavior
+
     Pos.Ssc.GodTossing.Types
     Pos.Ssc.GodTossing.Types.Types
     Pos.Ssc.GodTossing.Types.Message
@@ -85,6 +87,7 @@ library
                      , mono-traversable
                      , mtl
                      , node-sketch
+                     , random
                      , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm

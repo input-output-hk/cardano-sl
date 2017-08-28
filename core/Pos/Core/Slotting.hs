@@ -6,6 +6,7 @@ module Pos.Core.Slotting
        , flattenEpochOrSlot
        , unflattenSlotId
        , diffEpochOrSlot
+       , flatSlotId
        , crucialSlot
        , unsafeMkLocalSlotIndex
        , isBootstrapEra
@@ -17,7 +18,7 @@ module Pos.Core.Slotting
 
 import           Universum
 
-import           Control.Lens           (lens)
+import           Control.Lens           (Iso', iso, lens)
 import           Control.Monad.Except   (MonadError (throwError))
 import           System.Random          (Random (..))
 
@@ -66,6 +67,9 @@ diffEpochOrSlot a b
   where
     a' = toInteger (flattenEpochOrSlot a)
     b' = toInteger (flattenEpochOrSlot b)
+
+flatSlotId :: HasCoreConstants => Iso' SlotId FlatSlotId
+flatSlotId = iso flattenSlotId unflattenSlotId
 
 instance HasCoreConstants => Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral

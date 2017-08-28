@@ -20,48 +20,45 @@ module Pos.Txp.Toil.Logic
        ) where
 
 import           Universum
-import           Unsafe                     (unsafeHead)
 
 import           Control.Monad.Except       (MonadError (..))
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.HashSet               as HS
-import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Text         (mapJson)
 import           System.Wlog                (WithLogger)
 
 import           Pos.Binary.Class           (biSize)
-import           Pos.Core.Address           (isRedeemAddress)
-import           Pos.Core.Coin              (integerToCoin, mkCoin, unsafeGetCoin)
+import           Pos.Core                   (AddrAttributes (..),
+                                             AddrStakeDistribution (..), Address,
+                                             BlockVersionData (..), EpochIndex,
+                                             addrAttributesUnwrapped, isRedeemAddress)
+import           Pos.Core.Coin              (integerToCoin)
 import           Pos.Core.Constants         (memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
-import           Pos.Core.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
-import           Pos.Core.Slotting          (isBootstrapEra)
-import           Pos.Core.Types             (BlockVersionData (..), Coin, EpochIndex,
-                                             StakeholderId)
+import           Pos.Core.Genesis           (GenesisWStakeholders (..))
 import           Pos.Crypto                 (WithHash (..), hash)
-import           Pos.DB.Class               (MonadGState (..))
-import           Pos.Txp.Core               (TxAux (..), TxId, TxOutDistribution, TxUndo,
-                                             TxpUndo, getTxDistribution, toaOut,
-                                             topsortTxs, txInputs, txOutAddress)
+import           Pos.DB.Class               (MonadGState (..), gsIsBootstrapEra)
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOut (..),
+                                             TxUndo, TxpUndo, toaOut, topsortTxs,
+                                             txInputs, txOutAddress)
 import           Pos.Txp.Toil.Balances      (applyTxsToBalances, rollbackTxsBalances)
 import           Pos.Txp.Toil.Class         (MonadBalances (..), MonadTxPool (..),
                                              MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types         (TxFee (..))
 import qualified Pos.Txp.Toil.Utxo          as Utxo
-import           Pos.Util.Util              (HasLens', getKeys, lensOf')
+import           Pos.Util.Util              (HasLens')
 
 ----------------------------------------------------------------------------
 -- Global
 ----------------------------------------------------------------------------
 
-type GlobalApplyToilMode m =
+type GlobalApplyToilMode ctx m =
     ( MonadUtxo m
     , MonadBalances m
     , MonadGState m
-    , WithLogger m)
+    , WithLogger m
+    , MonadReader ctx m
+    , HasLens' ctx GenesisWStakeholders
+    )
 
 type GlobalVerifyToilMode ctx m =
     ( MonadUtxo m
@@ -90,7 +87,7 @@ verifyToil curEpoch verifyAllIsKnown =
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 applyToil
-    :: GlobalApplyToilMode m
+    :: GlobalApplyToilMode ctx m
     => [(TxAux, TxUndo)]
     -> m ()
 applyToil txun = do
@@ -98,7 +95,7 @@ applyToil txun = do
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
-rollbackToil :: GlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
+rollbackToil :: GlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
 rollbackToil txun = do
     rollbackTxsBalances txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
@@ -155,8 +152,8 @@ verifyAndApplyTx
        , MonadReader ctx m)
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
-    (txUndo, txFee) <- Utxo.verifyTxUtxo ctx txAux
-    verifyGState @ctx curEpoch txAux txFee
+    (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
+    verifyGState @ctx curEpoch txAux txFeeMB
     applyTxToUtxo' tx
     pure txUndo
   where
@@ -175,72 +172,37 @@ verifyGState
        , MonadError ToilVerFailure m
        , HasLens' ctx GenesisWStakeholders
        , MonadReader ctx m)
-    => EpochIndex -> TxAux -> TxFee -> m ()
-verifyGState curEpoch txAux txFee = do
+    => EpochIndex -> TxAux -> Maybe TxFee -> m ()
+verifyGState curEpoch txAux txFeeMB = do
     BlockVersionData {..} <- gsAdoptedBVData
-    verifyBootEra @ctx curEpoch bvdUnlockStakeEpoch txAux
+    verifyBootEra curEpoch txAux
     let txSize = biSize txAux
     let limit = bvdMaxTxSize
-    unlessM (isRedeemTx txAux) $
+    unlessM (isRedeemTx txAux) $ whenJust txFeeMB $ \txFee ->
         verifyTxFeePolicy txFee bvdTxFeePolicy txSize
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
 
--- | Checks whether txOutDistribution matches the set of weighted boot
--- stakeholders. Notice: it doesn't use actual txdistr type because
--- it's defined in txp module above.
-bootRelatedDistr :: GenesisWStakeholders -> [(StakeholderId, Coin)] -> Bool
-bootRelatedDistr g@(GenesisWStakeholders bootHolders) txOutDistr
-    | coinSum < unsafeGetCoin (bootDustThreshold g) =
-        -- We allow small outputs to attribute stake in any proportion
-        -- user wants because it's not likely they will shift overall
-        -- stake distribution much. Anyway we require that all
-        -- addresses in txDistr are keys of boot stakeholders.
-        let bootHoldersKeys = getKeys bootHolders
-        in all (`HS.member` bootHoldersKeys) stakeholders
-    | otherwise =
-        -- All addresses in txDistr are from bootHolders and every boot
-        -- stakeholder is mentioned in txOutDistr
-        getKeys bootHolders == HS.fromList stakeholders &&
-        -- Every stakeholder gets his divisor. It's safe to use ! here
-        -- because we're already sure that bootHolders ~ addrs is
-        -- bijective.
-        all (\(a,c) -> c >= (minimumPerStakeholder HM.! a)) txOutDistr
-  where
-    stakeholders = map fst txOutDistr
-    coins = map snd txOutDistr
-    -- It's safe to sum here since txOutDistr is a distribution of
-    -- coins such that their sum is a coin itself.
-    coinSum = sum $ map unsafeGetCoin coins
-    weightSum :: Word64
-    weightSum = sum $ map fromIntegral $ HM.elems bootHolders
-    coinItem = coinSum `div` weightSum
-    -- For each stakeholder the minimum amount of coins the tx should
-    -- send to him (weighted). The multiplication can't overflow
-    -- Word64 because sum of values of minimumPerStakeholder is less
-    -- than coinSum.
-    minimumPerStakeholder :: HashMap StakeholderId Coin
-    minimumPerStakeholder = HM.map (mkCoin . (* coinItem) . fromIntegral) bootHolders
-
 verifyBootEra
-    :: forall ctx m .
+    :: forall m .
        ( MonadError ToilVerFailure m
-       , HasLens' ctx GenesisWStakeholders
-       , MonadReader ctx m)
-    => EpochIndex -> EpochIndex -> TxAux -> m ()
-verifyBootEra curEpoch unlockEpoch txAux = do
-    let bootEra = isBootstrapEra unlockEpoch curEpoch
-    bootHolders <- view (lensOf' @GenesisWStakeholders)
-    let bootRel = notBootRelated bootHolders
-    when (bootEra && not (null bootRel)) $
-        throwError $ ToilBootInappropriate $
-        sformat ("transaction has non-boot stake distr in boot era: "%mapJson)
-                (unsafeHead bootRel)
+       , MonadGState m
+       )
+    => EpochIndex -> TxAux -> m ()
+verifyBootEra curEpoch TxAux {..} = do
+    whenM (gsIsBootstrapEra curEpoch) $
+        whenNotNull notBootstrapDistrAddresses $
+        throwError . ToilNonBootstrapDistr
   where
-    notBootRelated :: GenesisWStakeholders -> [TxOutDistribution]
-    notBootRelated bootHolders =
-        NE.filter (not . bootRelatedDistr bootHolders)
-                  (getTxDistribution $ taDistribution txAux)
+    notBootstrapDistrAddresses :: [Address]
+    notBootstrapDistrAddresses =
+        filter (not . isBootstrapEraDistr) $
+        map txOutAddress $ toList $ _txOutputs taTx
+    isBootstrapEraDistr :: Address -> Bool
+    isBootstrapEraDistr (addrAttributesUnwrapped -> AddrAttributes {..}) =
+        case aaStakeDistribution of
+            BootstrapEraDistr -> True
+            _                 -> False
 
 verifyTxFeePolicy
     :: MonadError ToilVerFailure m
@@ -297,4 +259,4 @@ withTxId :: TxAux -> (TxId, TxAux)
 withTxId aux = (hash (taTx aux), aux)
 
 applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
-applyTxToUtxo' (i, TxAux tx _ distr) = Utxo.applyTxToUtxo (WithHash tx i) distr
+applyTxToUtxo' (i, TxAux tx _) = Utxo.applyTxToUtxo (WithHash tx i)

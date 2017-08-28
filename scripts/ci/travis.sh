@@ -72,6 +72,11 @@ pushd daedalus
   nix-shell --run "npm install && npm run build:prod"
   echo $TRAVIS_BUILD_NUMBER > build-id
   cp ../log-config-prod.yaml .
+  cp ../cardano-sl-tools.root/bin/cardano-launcher .
+  cp ../cardano-sl-wallet.root/bin/cardano-node .
+  # check that binaries exit with 0
+  ./cardano-node --help > /dev/null
+  ./cardano-launcher --help > /dev/null
 popd
 
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing

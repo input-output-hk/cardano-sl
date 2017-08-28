@@ -9,17 +9,17 @@ module Instances.Schema () where
 
 import           Universum
 
-import           Control.Lens          ((?~))
-import           Data.Swagger          (NamedSchema (..), SwaggerType (..),
-                                        ToParamSchema (..), ToSchema (..),
-                                        declareNamedSchema, declareSchemaRef, format,
-                                        properties, required, type_)
-import           Servant.Multipart     (FileData (..))
+import           Control.Lens               ((?~))
+import           Data.Swagger               (NamedSchema (..), SwaggerType (..),
+                                             ToParamSchema (..), ToSchema (..),
+                                             declareNamedSchema, declareSchemaRef, format,
+                                             properties, required, type_)
+import           Servant.Multipart          (FileData (..))
 
-import           Pos.Types             (ApplicationName, BlockCount (..), BlockVersion,
-                                        ChainDifficulty, Coin, SlotCount (..),
-                                        SoftwareVersion)
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Types                  (ApplicationName, BlockCount (..),
+                                             BlockVersion, ChainDifficulty, Coin,
+                                             SlotCount (..), SoftwareVersion)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT
 import qualified Pos.Wallet.Web.Error.Types as ET
@@ -33,6 +33,7 @@ instance ToSchema      CT.CTxId
 instance ToParamSchema CT.CTxId
 instance ToSchema      CT.CTx
 instance ToSchema      CT.CTxMeta
+instance ToSchema      CT.CPtxCondition
 instance ToSchema      CT.CHash
 instance ToParamSchema CT.CHash
 instance ToSchema      (CT.CId CT.Wal)

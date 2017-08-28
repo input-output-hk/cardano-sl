@@ -36,7 +36,7 @@ import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVar
                                                     TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (makeAddress, makePubKeyAddress)
+import           Pos.Core.Address                  (makeAddress, makePubKeyAddressBoot)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Constants                (sharedSeedLength)
 import           Pos.Core.Context                  (HasCoreConstants, epochSlots)
@@ -190,8 +190,43 @@ instance Arbitrary Types.AddrStakeDistribution where
         oneof
             [ pure Types.BootstrapEraDistr
             , Types.SingleKeyDistr <$> arbitrary
-            , Types.MultiKeyDistr <$> scale (min 16) arbitrary
+            , leftToPanic "arbitrary @AddrStakeDistribution: " .
+              Types.mkMultiKeyDistr <$>
+              genMultiKeyDistr
             ]
+      where
+        genMultiKeyDistr :: Gen (Map Types.StakeholderId Types.CoinPortion)
+        -- We don't want to generate too much, hence 'scale'.
+        genMultiKeyDistr =
+            scale (min 16) $ do
+                holder0 <- arbitrary
+                holder1 <- arbitrary `suchThat` (/= holder0)
+                moreHolders <- arbitrary @[Types.StakeholderId]
+                -- Must be at least 2 non-repeating stakeholders.
+                let holders = ordNub (holder0 : holder1 : moreHolders)
+                portions <- genPortions (length holders) []
+                return $ M.fromList $ holders `zip` portions
+        genPortions :: Int -> [Types.CoinPortion] -> Gen [Types.CoinPortion]
+        genPortions 0 res = pure res
+        genPortions n res = do
+            let limit =
+                    foldl' (-) Types.coinPortionDenominator $
+                    map Types.getCoinPortion res
+            let unsafeMkCoinPortion =
+                    leftToPanic @Text "genPortions" . Types.mkCoinPortion
+            case (n, limit) of
+                -- Limit is exhausted, can't create more.
+                (_, 0) -> return res
+                -- The last portion, we must ensure the sum is correct.
+                (1, _) -> return (unsafeMkCoinPortion limit : res)
+                -- We intentionally don't generate 'limit', because we
+                -- want to generate at least 2 portions.  However, if
+                -- 'limit' is 1, we will generate 1, because we must
+                -- have already generated one portion.
+                _ -> do
+                    portion <-
+                        unsafeMkCoinPortion <$> choose (1, max 1 (limit - 1))
+                    genPortions (n - 1) (portion : res)
 
 instance Arbitrary Types.AddrAttributes where
     arbitrary = genericArbitrary
@@ -468,7 +503,8 @@ instance Arbitrary G.GenesisCoreData where
         let chop _ [] = []
             chop n l = taken : chop n dropped
               where (taken, dropped) = splitAt n l
-        allAddrs <- fmap makePubKeyAddress <$> nonrepeating (outerLen * innerLen)
+        allAddrs <- fmap makePubKeyAddressBoot <$>
+            nonrepeating (outerLen * innerLen)
         let listOfAddrList = chop innerLen allAddrs
         -- This may seem like boilerplate but it's necessary to pass the first check in
         -- 'mkGenesisCoreData'. Certain parameters in the generated 'StakeDistribution'
@@ -486,7 +522,7 @@ instance Arbitrary G.GenesisCoreData where
                 , G.CustomStakes <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
-        hashmapOfHolders <- arbitrary :: Gen (HashMap Types.StakeholderId Word16)
+        hashmapOfHolders <- arbitrary :: Gen (Map Types.StakeholderId Word16)
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
             G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
                                 hashmapOfHolders

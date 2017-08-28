@@ -25,18 +25,18 @@ import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
-                                             rollbackBlocksUnsafe, BypassSecurityCheck(..))
-import           Pos.Block.Logic.Util       (withBlkSemaphore_)
+import           Pos.Block.Logic.Internal   (BypassSecurityCheck (..), MonadBlockApply,
+                                             applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
-import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
+import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
-                                             EpochOrSlot (..), HeaderHash, SharedSeed,
-                                             SlotId (..), StakeholderId, crucialSlot,
-                                             epochIndexL, getEpochOrSlot, getSlotIndex,
+                                             EpochOrSlot (..), SharedSeed, SlotId (..),
+                                             StakeholderId, crucialSlot, epochIndexL,
+                                             getEpochOrSlot, getSlotIndex,
                                              slotSecurityParam)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.GState                 as GS
+import           Pos.Infra.Semaphore        (BlkSemaphore, withBlkSemaphore)
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -95,7 +95,7 @@ type LrcModeFull ssc ctx m =
     , HasLens BlkSemaphore ctx BlkSemaphore
     )
 
-type WithBlkSemaphore_ m = (HeaderHash -> m HeaderHash) -> m ()
+type WithBlkSemaphore_ m = m () -> m ()
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
@@ -103,16 +103,14 @@ lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc withBlkSemaphore_ epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc (withBlkSemaphore . const) epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
     :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShotNoLock epoch =
-    lrcSingleShotImpl @ssc withSemaphore epoch (allLrcConsumers @ssc)
-  where
-    withSemaphore action = void . action =<< GS.getTip
+    lrcSingleShotImpl @ssc identity epoch (allLrcConsumers @ssc)
 
 lrcSingleShotImpl
     :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
@@ -161,12 +159,29 @@ tryAcquireExclusiveLock epoch lock action =
 lrcDo
     :: forall ssc ctx m.
        LrcModeFullNoSemaphore ssc ctx m
-    => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
-lrcDo epoch consumers tip = tip <$ do
+    => EpochIndex -> [LrcConsumer m] -> m ()
+lrcDo epoch consumers = do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
     unless (null blundsUpToGenesis) $ throwM LrcAfterGenesis
+    -- We don't calculate the seed inside 'withBlocksRolledBack' because
+    -- there are shares in those ~2k blocks that 'withBlocksRolledBack'
+    -- rolls back.
+    seed <- sscCalculateSeed @ssc epoch >>= \case
+        Right s -> do
+            logInfo $ sformat
+                ("Calculated seed for epoch "%build%" successfully") epoch
+            return s
+        Left err -> do
+            logWarning $ sformat
+                ("SSC couldn't compute seed: "%build%" for epoch "%build%
+                 ", going to reuse seed for previous epoch")
+                err epoch
+            getSeed (epoch - 1) >>=
+                maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
+    putSeed epoch seed
+    -- Roll back to the crucial slot and calculate richmen, etc.
     NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
@@ -175,21 +190,6 @@ lrcDo epoch consumers tip = tip <$ do
                 issuersComputationDo epoch
                 richmenComputationDo epoch consumers
                 DB.sanityCheckDB
-                seed <- sscCalculateSeed @ssc epoch >>= \case
-                    Right s -> do
-                        logInfo $ sformat
-                            ("Calculated seed for epoch "%build%
-                             " successfully") epoch
-                        return s
-                    Left err -> do
-                        logWarning $ sformat
-                            ("SSC couldn't compute seed: "%build%
-                             " for epoch "%build%
-                             ", going to reuse seed for previous epoch")
-                            err epoch
-                        getSeed (epoch - 1) >>=
-                            maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
-                putSeed epoch seed
                 leadersComputationDo epoch seed
   where
     applyBack blunds = applyBlocksUnsafe blunds Nothing

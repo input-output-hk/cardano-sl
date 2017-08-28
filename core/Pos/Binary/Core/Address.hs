@@ -18,9 +18,10 @@ import           Pos.Binary.Core.Types ()
 import           Pos.Binary.Crypto     ()
 import           Pos.Core.Types        (AddrAttributes (..), AddrSpendingData (..),
                                         AddrStakeDistribution (..), AddrType (..),
-                                        Address (..), Address' (..))
+                                        Address (..), Address' (..), mkMultiKeyDistr)
 import           Pos.Data.Attributes   (Attributes (..), decodeAttributes,
                                         encodeAttributes)
+import           Pos.Util.Util         (eitherToFail)
 
 ----------------------------------------------------------------------------
 -- Helper types serialization
@@ -85,14 +86,14 @@ instance Bi AddrStakeDistribution where
         \case
             BootstrapEraDistr -> encodeListLen 0
             SingleKeyDistr id -> encode (w8 0, id)
-            MultiKeyDistr distr -> encode (w8 1, distr)
+            UnsafeMultiKeyDistr distr -> encode (w8 1, distr)
     decode =
         decodeListLen >>= \case
             0 -> pure BootstrapEraDistr
             2 ->
                 decode @Word8 >>= \case
                     0 -> SingleKeyDistr <$> decode
-                    1 -> MultiKeyDistr <$> decode
+                    1 -> eitherToFail . mkMultiKeyDistr =<< decode
                     tag ->
                         fail $
                         "decode @AddrStakeDistribution: unexpected tag " <>
@@ -139,9 +140,9 @@ instance Bi (Attributes AddrAttributes) where
             }
         go n v acc =
             case n of
-                0 -> pure acc {aaStakeDistribution = deserialize' v}
-                1 -> pure acc {aaPkDerivationPath = Just $ deserialize' v}
-                _ -> Nothing
+                0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> deserialize' v
+                1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> deserialize' v
+                _ -> pure Nothing
 
 -- We don't need a special encoding for 'Address'', GND is what we want.
 deriving instance Bi Address'

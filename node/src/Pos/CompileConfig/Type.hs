@@ -40,4 +40,6 @@ data CompileConfig = CompileConfig
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
+    , ccPendingTxResubmissionPeriod   :: !Int
+      -- ^ Minimal delay between pending transactions resubmission
     } deriving (Show)

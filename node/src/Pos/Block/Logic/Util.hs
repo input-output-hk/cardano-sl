@@ -7,8 +7,6 @@ module Pos.Block.Logic.Util
        (
          -- * Common/Utils
          lcaWithMainChain
-       , withBlkSemaphore
-       , withBlkSemaphore_
        , needRecovery
        , calcChainQuality
        , calcChainQualityM
@@ -17,18 +15,15 @@ module Pos.Block.Logic.Util
 import           Universum
 
 import           Control.Lens           (_Wrapped)
-import           Control.Monad.Catch    (bracketOnError)
 import           Data.List.NonEmpty     ((<|))
 import qualified Data.List.NonEmpty     as NE
-import           Ether.Internal         (HasLens (..))
 import           Formatting             (int, sformat, (%))
 import           System.Wlog            (WithLogger)
 
 import           Pos.Block.Core         (BlockHeader)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogContext)
-import           Pos.Context            (BlkSemaphore, blkSecurityParam, putBlkSemaphore,
-                                         slotSecurityParam, takeBlkSemaphore)
+import           Pos.Context            (blkSecurityParam, slotSecurityParam)
 import           Pos.Core               (BlockCount, FlatSlotId, HasCoreConstants,
                                          HeaderHash, diffEpochOrSlot, getEpochOrSlot,
                                          headerHash, prevBlockL)
@@ -62,24 +57,6 @@ lcaWithMainChain headers =
             (_, False)   -> pure prevValue
             ([], True)   -> pure $ Just h
             (x:xs, True) -> lcaProceed (Just h) (x :| xs)
-
--- | Run action acquiring lock on block application. Argument of
--- action is an old tip, result is put as a new tip.
-withBlkSemaphore
-    :: (MonadIO m, MonadMask m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => (HeaderHash -> m (a, HeaderHash)) -> m a
-withBlkSemaphore action =
-    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
-  where
-    doAction tip = do
-        (res, newTip) <- action tip
-        res <$ putBlkSemaphore newTip
-
--- | Version of withBlkSemaphore which doesn't have any result.
-withBlkSemaphore_
-    :: (MonadIO m, MonadMask m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
-    => (HeaderHash -> m HeaderHash) -> m ()
-withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 
 -- | The phrase “we're in recovery mode” is confusing because it can mean two
 -- different things:

@@ -29,9 +29,10 @@ data TossVerFailure
     | NoRichmen !EpochIndex
 
     | CommitmentInvalid !NEStIds
-    | CommitingNoParticipants !NEStIds
+    | CommittingNoParticipants !NEStIds
     | CommitmentAlreadySent !NEStIds
     | CommSharesOnWrongParticipants !NEStIds
+    | CommInvalidShares !NEStIds
     | OpeningAlreadySent !NEStIds
     | OpeningWithoutCommitment !NEStIds
     | OpeningNotMatchCommitment !NEStIds
@@ -67,12 +68,14 @@ instance Buildable TossVerFailure where
 
     build (CommitmentInvalid ids) =
         bprint ("verifySignedCommitment has failed for some commitments: "%listJson) ids
-    build (CommitingNoParticipants ids) =
+    build (CommittingNoParticipants ids) =
         bprint ("some committing nodes can't be participants: "%listJson) ids
     build (CommitmentAlreadySent ids) =
         bprint ("some nodes have already sent their commitments: "%listJson) ids
     build (CommSharesOnWrongParticipants ids) =
         bprint ("some commShares has been generated on wrong participants: "%listJson) ids
+    build (CommInvalidShares ids) =
+        bprint ("some commShares don't pass crypto verification: "%listJson) ids
     build (OpeningAlreadySent ids) =
         bprint ("some nodes have already sent their openings: "%listJson) ids
     build (OpeningWithoutCommitment ids) =

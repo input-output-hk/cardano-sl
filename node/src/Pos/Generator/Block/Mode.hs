@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP       #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP          #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Execution mode used by blockchain generator.
 
@@ -22,6 +23,7 @@ import           Universum
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Crypto.Random               as Rand
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -31,8 +33,10 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogContext (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (HasPrimaryKey (..), IsHeader, SlotId (..),
-                                              HasCoreConstants, GenesisWStakeholders (..),
+import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
+import           Pos.Core                    (Address, GenesisWStakeholders (..),
+                                              HasCoreConstants, HasPrimaryKey (..),
+                                              IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
@@ -52,8 +56,9 @@ import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
-import           Pos.Slotting                (HasSlottingVar (..), MonadSlots(..), MonadSlotsData,
-                                              SlottingData, currentTimeSlottingSimple)
+import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
+                                              MonadSlotsData, SlottingData,
+                                              currentTimeSlottingSimple)
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
@@ -104,6 +109,8 @@ type MonadBlockGen ctx m
        , MonadReader ctx m
        , GS.HasGStateContext ctx
        , HasSlottingVar ctx
+       -- 'MonadRandom' for crypto.
+       , Rand.MonadRandom m
        )
 
 ----------------------------------------------------------------------------
@@ -342,6 +349,10 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode m) where
 instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
+
+instance Monad m => MonadAddresses (BlockGenMode m) where
+    type AddrData (BlockGenMode m) = Address
+    getNewAddress = pure
 
 ----------------------------------------------------------------------------
 -- Utilities

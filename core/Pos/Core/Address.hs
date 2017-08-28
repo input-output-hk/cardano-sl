@@ -21,12 +21,18 @@ module Pos.Core.Address
        , addrSpendingDataToType
        , addrAttributesUnwrapped
        , deriveLvl2KeyPair
+
+       -- * Pattern-matching helpers
        , isRedeemAddress
        , isUnknownAddressType
+       , isBootstrapEraDistrAddress
 
        -- * Construction
+       , IsBootstrapEraAddr (..)
        , makeAddress
        , makePubKeyAddress
+       , makePubKeyAddressBoot
+       , makeRootPubKeyAddress
        , makePubKeyHdwAddress
        , makeScriptAddress
        , makeRedeemAddress
@@ -50,12 +56,13 @@ import           Data.ByteString.Base58  (Alphabet (..), bitcoinAlphabet, decode
 import           Data.Hashable           (Hashable (..))
 import qualified Data.Text.Buildable     as Buildable
 import           Formatting              (Format, bprint, build, builder, int, later, (%))
-import           Serokell.Util           (listJson, pairBuilder)
+import           Serokell.Util           (mapJson)
 
 import           Pos.Binary.Class        (Bi)
 import qualified Pos.Binary.Class        as Bi
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Crypto       ()
+import           Pos.Core.Coin           ()
 import           Pos.Core.Types          (AddrAttributes (..), AddrSpendingData (..),
                                           AddrStakeDistribution (..), AddrType (..),
                                           Address (..), Address' (..), AddressHash,
@@ -90,10 +97,8 @@ instance Buildable AddrStakeDistribution where
             BootstrapEraDistr -> "Bootstrap era distribution"
             SingleKeyDistr id ->
                 bprint ("Single key distribution ("%shortHashF%")") id
-            MultiKeyDistr distr ->
-                bprint
-                    ("Multi key distribution: "%listJson)
-                    (map pairBuilder distr)
+            UnsafeMultiKeyDistr distr ->
+                bprint ("Multi key distribution: "%mapJson) distr
 
 instance Buildable AddrAttributes where
     build (AddrAttributes {..}) =
@@ -164,38 +169,60 @@ makeAddress spendingData attributesUnwrapped =
     attributes = mkAttributes attributesUnwrapped
     address' = Address' (addrType, spendingData, attributes)
 
--- TODO [CSL-1489] Consider stake distribution.
+-- | This newtype exists for clarity. It is used to tell pubkey
+-- address creation functions whether an address is intended for
+-- bootstrap era.
+newtype IsBootstrapEraAddr = IsBootstrapEraAddr Bool
 
 -- | A function for making an address from 'PublicKey'.
-makePubKeyAddress :: PublicKey -> Address
+makePubKeyAddress :: IsBootstrapEraAddr -> PublicKey -> Address
 makePubKeyAddress = makePubKeyAddressImpl Nothing
 
--- | A function for making an HDW address
+-- | A function for making an address from 'PublicKey' for bootstrap era.
+makePubKeyAddressBoot :: PublicKey -> Address
+makePubKeyAddressBoot = makePubKeyAddress (IsBootstrapEraAddr True)
+
+-- | This function creates a root public key address. Stake
+-- distribution doesn't matter for root addresses because by design
+-- nobody should even use these addresses as outputs, so we can put
+-- arbitrary distribution there. We use bootstrap era distribution
+-- because its representation is more compact.
+makeRootPubKeyAddress :: PublicKey -> Address
+makeRootPubKeyAddress = makePubKeyAddressBoot
+
+-- | A function for making an HDW address.
 makePubKeyHdwAddress
-    :: HDAddressPayload    -- ^ Derivation path
+    :: IsBootstrapEraAddr
+    -> HDAddressPayload    -- ^ Derivation path
     -> PublicKey
     -> Address
-makePubKeyHdwAddress path = makePubKeyAddressImpl (Just path)
+makePubKeyHdwAddress ibe path = makePubKeyAddressImpl (Just path) ibe
 
-makePubKeyAddressImpl :: Maybe HDAddressPayload -> PublicKey -> Address
-makePubKeyAddressImpl path key = makeAddress spendingData attrs
+makePubKeyAddressImpl ::
+    Maybe HDAddressPayload -> IsBootstrapEraAddr -> PublicKey -> Address
+makePubKeyAddressImpl path (IsBootstrapEraAddr isBootstrapEra) key =
+    makeAddress spendingData attrs
   where
     spendingData = PubKeyASD key
+    distr
+        | isBootstrapEra = BootstrapEraDistr
+        | otherwise = SingleKeyDistr (addressHash key)
     attrs =
-        AddrAttributes
-        {aaStakeDistribution = BootstrapEraDistr, aaPkDerivationPath = path}
+        AddrAttributes {aaStakeDistribution = distr, aaPkDerivationPath = path}
 
--- | A function for making an address from a validation 'Script'.
-makeScriptAddress :: Bi Script => Script -> Address
-makeScriptAddress scr = makeAddress spendingData attrs
+-- | A function for making an address from a validation 'Script'.  It
+-- takes an optional 'StakeholderId'. If it's given, it will receive
+-- the stake sent to the resulting 'Address'. Otherwise it's assumed
+-- that an 'Address' is created for bootstrap era.
+makeScriptAddress :: Maybe StakeholderId -> Script -> Address
+makeScriptAddress stakeholder scr = makeAddress spendingData attrs
   where
     spendingData = ScriptASD scr
-    attrs =
-        AddrAttributes
-        {aaStakeDistribution = BootstrapEraDistr, aaPkDerivationPath = Nothing}
+    aaStakeDistribution = maybe BootstrapEraDistr SingleKeyDistr stakeholder
+    attrs = AddrAttributes {aaPkDerivationPath = Nothing, ..}
 
 -- | A function for making an address from 'RedeemPublicKey'.
-makeRedeemAddress :: Bi RedeemPublicKey => RedeemPublicKey -> Address
+makeRedeemAddress :: RedeemPublicKey -> Address
 makeRedeemAddress key = makeAddress spendingData attrs
   where
     spendingData = RedeemASD key
@@ -205,24 +232,31 @@ makeRedeemAddress key = makeAddress spendingData attrs
 
 -- | Create address from secret key in hardened way.
 createHDAddressH
-    :: PassPhrase
+    :: IsBootstrapEraAddr
+    -> PassPhrase
     -> HDPassphrase
     -> EncryptedSecretKey
     -> [Word32]
     -> Word32
     -> Maybe (Address, EncryptedSecretKey)
-createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
+createHDAddressH ibea passphrase walletPassphrase parent parentPath childIndex = do
     derivedSK <- deriveHDSecretKey passphrase parent childIndex
     let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
     let pk = encToPublic derivedSK
-    return (makePubKeyHdwAddress addressPayload pk, derivedSK)
+    return (makePubKeyHdwAddress ibea addressPayload pk, derivedSK)
 
 -- | Create address from public key via non-hardened way.
-createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)
-createHDAddressNH passphrase parent parentPath childIndex = do
+createHDAddressNH
+    :: IsBootstrapEraAddr
+    -> HDPassphrase
+    -> PublicKey
+    -> [Word32]
+    -> Word32
+    -> (Address, PublicKey)
+createHDAddressNH ibea passphrase parent parentPath childIndex = do
     let derivedPK = deriveHDPublicKey parent childIndex
     let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
-    (makePubKeyHdwAddress addressPayload derivedPK, derivedPK)
+    (makePubKeyHdwAddress ibea addressPayload derivedPK, derivedPK)
 
 ----------------------------------------------------------------------------
 -- Checks
@@ -276,6 +310,27 @@ addrSpendingDataToType =
         RedeemASD {} -> ATRedeem
         UnknownASD tag _ -> ATUnknown tag
 
+-- | Get 'AddrAttributes' from 'Address'.
+addrAttributesUnwrapped :: Address -> AddrAttributes
+addrAttributesUnwrapped = attrData . addrAttributes
+
+-- | Makes account secret key for given wallet set.
+deriveLvl2KeyPair
+    :: IsBootstrapEraAddr
+    -> PassPhrase
+    -> EncryptedSecretKey -- ^ key of wallet set
+    -> Word32 -- ^ wallet derivation index
+    -> Word32 -- ^ account derivation index
+    -> Maybe (Address, EncryptedSecretKey)
+deriveLvl2KeyPair ibea passphrase wsKey walletIndex accIndex = do
+    wKey <- deriveHDSecretKey passphrase wsKey walletIndex
+    let hdPass = deriveHDPassphrase $ encToPublic wsKey
+    createHDAddressH ibea passphrase hdPass wKey [walletIndex] accIndex
+
+----------------------------------------------------------------------------
+-- Pattern-matching helpers
+----------------------------------------------------------------------------
+
 -- | Check whether an 'Address' is redeem address.
 isRedeemAddress :: Address -> Bool
 isRedeemAddress Address {..} =
@@ -289,18 +344,9 @@ isUnknownAddressType Address {..} =
         ATUnknown {} -> True
         _            -> False
 
--- | Get 'AddrAttributes' from 'Address'.
-addrAttributesUnwrapped :: Address -> AddrAttributes
-addrAttributesUnwrapped = attrData . addrAttributes
-
--- | Makes account secret key for given wallet set.
-deriveLvl2KeyPair
-    :: PassPhrase
-    -> EncryptedSecretKey  -- ^ key of wallet set
-    -> Word32              -- ^ wallet derivation index
-    -> Word32              -- ^ account derivation index
-    -> Maybe (Address, EncryptedSecretKey)
-deriveLvl2KeyPair passphrase wsKey walletIndex accIndex = do
-    wKey <- deriveHDSecretKey passphrase wsKey walletIndex
-    let hdPass = deriveHDPassphrase $ encToPublic wsKey
-    createHDAddressH passphrase hdPass wKey [walletIndex] accIndex
+-- | Check whether an 'Address' has bootstrap era stake distribution.
+isBootstrapEraDistrAddress :: Address -> Bool
+isBootstrapEraDistrAddress (addrAttributesUnwrapped -> AddrAttributes {..}) =
+    case aaStakeDistribution of
+        BootstrapEraDistr -> True
+        _                 -> False

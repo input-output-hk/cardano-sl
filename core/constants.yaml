@@ -28,9 +28,11 @@ dev: &dev
   genesisSoftforkMin: 0.6 # 60% of total stake
   genesisSoftforkDec: 0.05 # 5% of total stake
   genesisTxFeePolicy:
+    # Note: these constants here are provided in lovelaces, not ADA
+    # (1 ADA is 1,000,000 lovelaces)
     txSizeLinear:
-      a: 0.155381 # absolute minimal fees per transaction
-      b: 4.3946e-5 # additional minimal fees per byte of transaction size
+      a: 155381 # absolute minimal fees per transaction
+      b: 43.946 # additional minimal fees per byte of transaction size
   genesisUnlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
 
 
@@ -53,6 +55,9 @@ dev: &dev
 
   # Delegation
   lightDlgConfirmationTimeout: 500
+
+  # Transaction resubmition
+  pendingTxResubmissionPeriod: 7 # seconds
 
   # This value parameterizes size of dlg cache. There are two types of
   # messages: normal messages and confirmation messages. Both of them are

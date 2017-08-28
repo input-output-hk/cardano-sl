@@ -16,23 +16,24 @@ import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Crypto.Random               as Rand
 import           Ether.Internal              (HasLens (..))
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Slog.Types        (HasSlogContext)
-import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
-                                              BlockRetrievalQueueTag, HasSscContext,
-                                              MonadLastKnownHeader, MonadProgressHeader,
-                                              MonadRecoveryHeader, StartTime,
-                                              TxpGlobalSettings)
+import           Pos.Context                 (BlockRetrievalQueue, BlockRetrievalQueueTag,
+                                              HasSscContext, MonadLastKnownHeader,
+                                              MonadProgressHeader, MonadRecoveryHeader,
+                                              StartTime, TxpGlobalSettings)
 import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Real.Types          (KademliaDHTInstance)
 import           Pos.Genesis                 (GenesisUtxo, GenesisWStakeholders)
+import           Pos.Infra.Semaphore         (BlkSemaphore)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
@@ -66,6 +67,7 @@ type TxpExtra_TMP = ()
 type WorkMode ssc ctx m
     = ( MinWorkMode m
       , MonadBaseControl IO m
+      , Rand.MonadRandom m
       , MonadMask m
       , MonadSlots ctx m
       , MonadDB m

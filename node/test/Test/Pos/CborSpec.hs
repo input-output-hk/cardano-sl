@@ -1,4 +1,3 @@
-
 -- | Test.Pos.CborSpec specification
 
 {-# LANGUAGE AllowAmbiguousTypes       #-}
@@ -9,6 +8,8 @@
 
 module Test.Pos.CborSpec
        ( spec
+       , U
+       , extensionProperty
        ) where
 
 import           Universum
@@ -21,8 +22,6 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import qualified Codec.CBOR.FlatTerm               as CBOR
-import           Crypto.Hash.Algorithms            (SHA256)
-import           Node.Message.Class
 
 import           Pos.Arbitrary.Block               ()
 import           Pos.Arbitrary.Core                ()
@@ -40,48 +39,22 @@ import           Pos.Binary.Crypto                 ()
 import           Pos.Binary.GodTossing             ()
 import           Pos.Binary.Infra                  ()
 import           Pos.Binary.Relay                  ()
-import           Pos.Block.Core
-import           Pos.Communication.Protocol
-import           Pos.Communication.Types.Relay     (DataMsg)
 import           Pos.Core.Context                  (giveStaticConsts)
-import           Pos.Core.Fee
-import           Pos.Core.Genesis.Types
-import           Pos.Core.Types
-import           Pos.Crypto                        (AbstractHash)
-import           Pos.Crypto.HD                     (HDAddressPayload)
-import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
-                                                    RedeemSignature)
-import           Pos.Crypto.SafeSigning            (PassPhrase)
-import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProof,
-                                                    SecretSharingExtra, Share, VssKeyPair,
-                                                    VssPublicKey)
-import           Pos.Crypto.Signing                (ProxySecretKey, ProxySignature,
-                                                    PublicKey, SecretKey, Signature,
-                                                    Signed)
-import           Pos.Data.Attributes
-import           Pos.Delegation.Types
-import           Pos.DHT.Model.Types
-import           Pos.Explorer
-import           Pos.Slotting.Types
-import           Pos.Ssc.GodTossing
-import           Pos.Txp                           hiding (Unknown)
-import           Pos.Update.Core
-import           Pos.Update.Poll
-import           Pos.Util.BackupPhrase
-import           Pos.Util.Chrono
+import           Pos.Core.Types                    (ScriptVersion)
+import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
+                                                    encodeAttributes)
+
+import           Test.Pos.Util                     (binaryTest)
 
 ----------------------------------------
 
 data User
-    = Login {
-      login :: String
-    , age   :: Int
-    }
-    | FullName {
-      firstName :: String
-    , lastName  :: String
-    , sex       :: Bool
-    } deriving (Show, Eq)
+    = Login { login :: String
+            , age   :: Int }
+    | FullName { firstName :: String
+               , lastName  :: String
+               , sex       :: Bool }
+    deriving (Show, Eq)
 
 deriveSimpleBi ''User [
     Cons 'Login [
@@ -147,13 +120,13 @@ instance Bi T where
                      <> encode bs
 
     decode = decode @Word8 >>= \case
-        0 ->         T1 . deserialize' <$> decode
-        1 -> uncurry T2 . deserialize' <$> decode
-        t -> Unknown t                 <$> decode
+        0 ->         T1 <$> (deserialize' =<< decode)
+        1 -> uncurry T2 <$> (deserialize' =<< decode)
+        t -> Unknown t  <$> decode
 
 data MyScript = MyScript
     { version :: ScriptVersion -- ^ Version
-    , script  :: ByteString   -- ^ Serialized script
+    , script  :: ByteString    -- ^ Serialized script
     } deriving (Eq, Show, Generic, Typeable)
 
 instance Arbitrary MyScript where
@@ -168,16 +141,26 @@ deriveSimpleBi ''MyScript [
 -- Type to be used to simulate a breaking change in the serialisation
 -- schema, so we can test instances which uses the `UnknownXX` pattern
 -- for extensibility.
+-- Check the `extensionProperty` for more details.
 data U = U Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U where
-    encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encode bs
+    encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
     decode = do
         decodeListLenOf 2
-        U <$> decode <*> decode
+        U <$> decode <*> decodeUnknownCborDataItem
 
 instance Arbitrary U where
     arbitrary = U <$> choose (0, 255) <*> arbitrary
+
+-- | Like `U`, but we expect to read back the Cbor Data Item when decoding.
+data U24 = U24 Word8 BS.ByteString deriving (Show, Eq)
+
+instance Bi U24 where
+    encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
+    decode = do
+        decodeListLenOf 2
+        U24 <$> decode <*> decodeUnknownCborDataItem
 
 ----------------------------------------
 
@@ -198,26 +181,17 @@ instance Arbitrary X2 where
 instance Bi (Attributes X1) where
     encode = encodeAttributes [(0, serialize' . x1A)]
     decode = decodeAttributes (X1 0) $ \n v acc -> case n of
-        0 -> Just $ acc { x1A = deserialize' v }
-        _ -> Nothing
+        0 -> pure $ Just $ acc { x1A = unsafeDeserialize' v }
+        _ -> pure $ Nothing
 
 instance Bi (Attributes X2) where
     encode = encodeAttributes [(0, serialize' . x2A), (1, serialize' . x2B)]
     decode = decodeAttributes (X2 0 []) $ \n v acc -> case n of
-        0 -> Just $ acc { x2A = deserialize' v }
-        1 -> Just $ acc { x2B = deserialize' v }
-        _ -> Nothing
+        0 -> return $ Just $ acc { x2A = unsafeDeserialize' v }
+        1 -> return $ Just $ acc { x2B = unsafeDeserialize' v }
+        _ -> return $ Nothing
 
 ----------------------------------------
-
--- Machinery to test we perform "flat" encoding.
-hasValidFlatTerm :: Bi a => a -> Bool
-hasValidFlatTerm = CBOR.validFlatTerm . CBOR.toFlatTerm . encode
-
--- | Given a data type which can be generated randomly and for which the CBOR
--- encoding is defined, generates the roundtrip tests.
-roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => a -> Property
-roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === input
 
 -- | Given a data type which can be extended, verify we can indeed do so
 -- without breaking anything. This should work with every time which adopted
@@ -225,9 +199,51 @@ roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === in
 -- .... | Unknown Word8 ByteString
 extensionProperty :: forall a. (Arbitrary a, Eq a, Show a, Bi a) => Property
 extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
-    let serialized      = serialize input -- We now have a BS blob
-        (u :: U)        = deserialize serialized
-        (encoded :: a)  = deserialize (serialize u)
+{- This function works as follows:
+
+   1. When we call `serialized`, we are implicitly assuming (as contract of this
+      function) that the input type would be of a shape such as:
+
+      data MyType = Constructor1 Int Bool
+                  | Constructor2 String
+                  | UnknownConstructor Word8 ByteString
+
+      Such type will be encoded, roughly, like this:
+
+      encode (Constructor1 a b) = encodeWord 0 <> encodeKnownCborDataItem (a,b)
+      encode (Constructor2 a b) = encodeWord 1 <> encodeKnownCborDataItem a
+      encode (UnknownConstructor tag bs) = encodeWord tag <> encodeUnknownCborDataItem bs
+
+      In CBOR terms, we would produce something like this:
+
+      <tag :: Word32><Tag24><CborDataItem :: ByteString>
+
+   2. Now, when we call `unsafeDeserialize serialized`, we are effectively asking to produce as
+      output a value of type `U`. `U` is defined by only 1 constructor, it
+      being `U Word8 ByteString`, but this is still compatible with our `tag + cborDataItem`
+      format. So now we will have something like:
+
+      U <tag :: Word32> <CborDataItem :: ByteString>
+
+      (The <Tag24> has been removed as part of the decoding process).
+
+   3. We now call `unsafeDeserialize (serialize u)`, which means: Can you produce a CBOR binary
+      from `U`, and finally try to decode it into a value of type `a`? This will work because
+      our intermediate encoding into `U` didn't touch the inital `<tag :: Word32>`, so we will
+      be able to reconstruct the original object back.
+      More specifically, `serialize u` would produce once again:
+
+      <tag :: Word32><Tag24><CborDataItem :: ByteString>
+
+      (The <Tag24> has been added as part of the encoding process).
+
+      `unsafeDeserialize` would then consume the tag (to understand which type constructor this corresponds to),
+      remove the <Tag24> token and finally proceed to deserialise the rest.
+
+-}
+    let serialized      = serialize input             -- Step 1
+        (u :: U)        = unsafeDeserialize serialized      -- Step 2
+        (encoded :: a)  = unsafeDeserialize (serialize u)   -- Step 3
     in encoded === input
 
 soundSerializationAttributesOfAsProperty
@@ -236,24 +252,13 @@ soundSerializationAttributesOfAsProperty
     => Property
 soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
     let serialized      = serialize input
-        (middle  :: ab) = deserialize serialized
-        (encoded :: aa) = deserialize $ serialize middle
+        (middle  :: ab) = unsafeDeserialize serialized
+        (encoded :: aa) = unsafeDeserialize $ serialize middle
     in encoded === input
   where
     arbitraryAttrs :: Gen aa
     arbitraryAttrs = Attributes <$> arbitrary <*> arbitrary
 
-soundInstanceProperty :: forall a. (Arbitrary a, Eq a, Show a, Bi a) => Property
-soundInstanceProperty = forAll (arbitrary :: Gen a) $ \input ->
-    let itRoundtrips = roundtripProperty input
-        isFlat       = hasValidFlatTerm input === True
-    in itRoundtrips .&&. isFlat
-
-asBinaryIdempotencyProperty ::
-       forall a. (Arbitrary a, AsBinaryClass a, Eq a, Show a)
-    => Property
-asBinaryIdempotencyProperty = forAll (arbitrary :: Gen a) $ \input ->
-    (fromBinary . asBinary $ input) === Right input
 
 testANewtype :: SpecWith ()
 testANewtype = testAgainstFile "a newtype" x rep
@@ -304,197 +309,47 @@ testAgainstFile name x expected =
 spec :: Spec
 spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
-        describe "(Hash)Map and (Hash)Set instances are sound" $ do
-            prop "HashMap Int Int" (soundInstanceProperty @(HashMap Int Int))
-            prop "HashSet Int" (soundInstanceProperty @(HashSet Int))
-            prop "Map Int Int" (soundInstanceProperty @(Map Int Int))
-            prop "Set Int" (soundInstanceProperty @(Set Int))
-        describe "Test instances are sound" $ do
-            prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
-            prop "MyScript" (soundInstanceProperty @MyScript)
+        describe "Test instances" $ do
+            prop "User" (let u1 = Login "asd" 34 in (unsafeDeserialize $ serialize u1) === u1)
+            binaryTest @MyScript
             prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
-            describe "Generic deriving is sound" $ do
-                testARecord
-                testAUnit
-                testANewtype
-                prop "ARecord"  (soundInstanceProperty @ARecord)
-                prop "AUnit"    (soundInstanceProperty @AUnit)
-                prop "ANewtype" (soundInstanceProperty @ANewtype)
-            modifyMaxSuccess (const 20000) $ do
-                describe "Primitive instances are sound" $ do
-                    prop "Int64" (soundInstanceProperty @Int64)
-                    prop "IntMap" (soundInstanceProperty @(Map Int Int))
-                    prop "IntHashMap" (soundInstanceProperty @(HashMap Int Int))
-                    prop "IntSet" (soundInstanceProperty @(Set Int))
-                    prop "IntHashSet" (soundInstanceProperty @(HashSet Int))
-            describe "Plutus Types' instances are sound" $ do
-                prop "Script" (soundInstanceProperty @Script)
-            describe "Core instances are sound" $ do
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int))
-                prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int))
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Int64))
-                prop "SignedVarInt" (soundInstanceProperty @(SignedVarInt Int64))
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Int64))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word))
-                prop "FixedSizeInt" (soundInstanceProperty @(FixedSizeInt Word))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word16))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word32))
-                prop "UnsignedVarInt" (soundInstanceProperty @(UnsignedVarInt Word64))
-                prop "TinyVarInt" (soundInstanceProperty @TinyVarInt)
-                prop "Coeff" (soundInstanceProperty @Coeff)
-                prop "TxSizeLinear" (soundInstanceProperty @TxSizeLinear)
-                prop "TxFeePolicy" (soundInstanceProperty @TxFeePolicy .&&. extensionProperty @TxFeePolicy)
-                prop "Timestamp" (soundInstanceProperty @Timestamp)
-                prop "TimeDiff"  (soundInstanceProperty @TimeDiff)
-                prop "EpochIndex" (soundInstanceProperty @EpochIndex)
-                prop "Attributes" (soundInstanceProperty @(Attributes ()))
-                prop "AddrType" (soundInstanceProperty @AddrType)
-                prop "AddrStakeDistribution" (soundInstanceProperty @AddrStakeDistribution)
-                prop "AddrSpendingData" (soundInstanceProperty @AddrSpendingData)
-                prop "Attributes AddrAttributes" (soundInstanceProperty @(Attributes AddrAttributes))
-                prop "Address'" (soundInstanceProperty @Address')
-                prop "Address" (soundInstanceProperty @Address)
-                prop "Coin" (soundInstanceProperty @Coin)
-                prop "CoinPortion" (soundInstanceProperty @CoinPortion)
-                prop "LocalSlotIndex" (soundInstanceProperty @LocalSlotIndex)
-                prop "SlotId" (soundInstanceProperty @SlotId)
-                prop "EpochOrSlot" (soundInstanceProperty @EpochOrSlot)
-                prop "SharedSeed" (soundInstanceProperty @SharedSeed)
-                prop "ChainDifficulty" (soundInstanceProperty @ChainDifficulty)
-                prop "StakeDistribution" (soundInstanceProperty @StakeDistribution)
-                prop "GenesisCoreData" (soundInstanceProperty @GenesisCoreData)
-                prop "ApplicationName" (soundInstanceProperty @ApplicationName)
-                prop "SoftwareVersion" (soundInstanceProperty @SoftwareVersion)
-                prop "BlockVersion" (soundInstanceProperty @BlockVersion)
-                prop "Attributes X1" (soundInstanceProperty @(Attributes X1))
-                prop "Attributes X2" (soundInstanceProperty @(Attributes X2))
-                prop "AbstractHash " (soundInstanceProperty @(Attributes X2))
-                prop "VssPublicKey" (soundInstanceProperty @VssPublicKey)
-                prop "VssKeyPair" (soundInstanceProperty @VssKeyPair)
-                prop "Secret" (soundInstanceProperty @Secret)
-                prop "Share" (soundInstanceProperty @Share)
-                prop "EncShare" (soundInstanceProperty @EncShare)
-                prop "SecretSharingExtra" (soundInstanceProperty @SecretSharingExtra)
-                prop "SecretProof" (soundInstanceProperty @SecretProof)
-                prop "AsBinary VssPublicKey" (    soundInstanceProperty @(AsBinary VssPublicKey)
-                                                 .&&. asBinaryIdempotencyProperty @VssPublicKey
-                                             )
-                prop "AsBinary Secret" (    soundInstanceProperty @Secret
-                                           .&&. asBinaryIdempotencyProperty @Secret
-                                       )
-                prop "AsBinary Share" (soundInstanceProperty @(AsBinary Share))
-                prop "AsBinary EncShare" (soundInstanceProperty @(AsBinary EncShare))
-                prop "AsBinary SecretProof" (soundInstanceProperty @(AsBinary SecretProof))
-                prop "SecretSharingExtra"   (soundInstanceProperty @SecretSharingExtra)
-                prop "CC.ChainCode" (soundInstanceProperty @(AsBinary SecretProof))
-                prop "PublicKey" (soundInstanceProperty @PublicKey)
-                prop "SecretKey" (soundInstanceProperty @SecretKey)
-                prop "PassPhrase" (soundInstanceProperty @PassPhrase)
-                prop "HDAddressPayload" (soundInstanceProperty @HDAddressPayload)
-                prop "RedeemPublicKey" (soundInstanceProperty @RedeemPublicKey)
-                prop "RedeemSecretKey" (soundInstanceProperty @RedeemSecretKey)
-                prop "Commitment" (soundInstanceProperty @Commitment)
-                prop "CommitmentsMap" (soundInstanceProperty @CommitmentsMap)
-                prop "VssCertificate" (soundInstanceProperty @VssCertificate)
-                prop "Opening" (soundInstanceProperty @Opening)
-                prop "GtPayload" (soundInstanceProperty @GtPayload)
-                prop "GtProof" (soundInstanceProperty @GtProof)
-                prop "DataMsg MCCommitment" (soundInstanceProperty @(DataMsg MCCommitment))
-                prop "DataMsg MCOpening" (soundInstanceProperty @(DataMsg MCOpening))
-                modifyMaxSuccess (const 50) $ prop "DataMsg MCShares" (soundInstanceProperty @(DataMsg MCShares))
-                prop "DataMsg MCVssCertificate" (soundInstanceProperty @(DataMsg MCVssCertificate))
-                prop "DHTKey" (soundInstanceProperty @DHTKey)
-                prop "DHTData" (soundInstanceProperty @DHTData)
-                prop "MessageCode" (soundInstanceProperty @MessageCode)
-                prop "HandlerSpec" (soundInstanceProperty @HandlerSpec .&&. extensionProperty @HandlerSpec)
-                prop "VerInfo" (soundInstanceProperty @VerInfo)
-                prop "DlgPayload" (soundInstanceProperty @DlgPayload)
-                prop "EpochSlottingData" (soundInstanceProperty @EpochSlottingData)
-                prop "SlottingData" (soundInstanceProperty @SlottingData)
-                prop "SystemTag" (soundInstanceProperty @SystemTag)
-                prop "UpdateVote" (soundInstanceProperty @UpdateVote)
-                prop "UpdateData" (soundInstanceProperty @UpdateData)
-                prop "BlockVersionModifier" (soundInstanceProperty @BlockVersionModifier)
-                prop "UpdateProposal" (soundInstanceProperty @UpdateProposal)
-                prop "UpdateProposalToSign" (soundInstanceProperty @UpdateProposalToSign)
-                prop "UpdatePayload" (soundInstanceProperty @UpdatePayload)
-                prop "VoteState" (soundInstanceProperty @VoteState)
-                modifyMaxSuccess (const 50) $ prop "USUndo" (soundInstanceProperty @USUndo)
-                prop "UpsExtra" (soundInstanceProperty @UpsExtra)
-                prop "DpsExtra" (soundInstanceProperty @DpsExtra)
-                prop "UndecidedProposalState" (soundInstanceProperty @UndecidedProposalState)
-                prop "DecidedProposalState" (soundInstanceProperty @DecidedProposalState)
-                prop "ProposalState" (soundInstanceProperty @ProposalState)
-                prop "ConfirmedProposalState" (soundInstanceProperty @ConfirmedProposalState)
-                prop "TxIn" (soundInstanceProperty @TxIn)
-                modifyMaxSuccess (const 100) $
-                    prop "TxDistribution" (soundInstanceProperty @TxDistribution)
-                prop "TxSigData" (soundInstanceProperty @TxSigData)
-                prop "TxProof" (soundInstanceProperty @TxProof)
-                prop "MainExtraHeaderData" (soundInstanceProperty @MainExtraHeaderData)
-                prop "MainExtraBodyData" (soundInstanceProperty @MainExtraBodyData)
-                prop "GenesisExtraHeaderData" (soundInstanceProperty @GenesisExtraHeaderData)
-                prop "GenesisExtraBodyData" (soundInstanceProperty @GenesisExtraBodyData)
-                prop "GtTag" (soundInstanceProperty @GtTag)
-                prop "TossModifier" (soundInstanceProperty @TossModifier)
-                prop "VssCertData" (soundInstanceProperty @VssCertData)
-                prop "GtGlobalState" (soundInstanceProperty @GtGlobalState)
-                prop "GtSecretStorage" (soundInstanceProperty @GtSecretStorage)
-                prop "GenesisGtData" (soundInstanceProperty @GenesisGtData)
-                prop "NewestFirst" (soundInstanceProperty @(NewestFirst NE U))
-                prop "OldestFirst" (soundInstanceProperty @(OldestFirst NE U))
-                modifyMaxSuccess (const 100) $
-                    prop "TxExtra" (soundInstanceProperty @TxExtra)
-                -- This runs extremely slow. For now the quickest course of action is to decrease the number of tests performed.
-                modifyMaxSuccess (const 10) $
-                    prop "TxPayload" (soundInstanceProperty @TxPayload)
-                modifyMaxSuccess (const 100) $
-                    prop "TxAux" (soundInstanceProperty @TxAux)
-                prop "Tx" (soundInstanceProperty @Tx)
-                prop "TxOutAux" (soundInstanceProperty @TxOutAux)
-                prop "TxOut" (soundInstanceProperty @TxOut)
-                modifyMaxSuccess (const 100) $
-                    prop "DataMsg TxMsgContents" (soundInstanceProperty @(DataMsg TxMsgContents))
-                prop "TxInWitness" (soundInstanceProperty @TxInWitness .&&. extensionProperty @TxInWitness)
-                prop "Signature a" (soundInstanceProperty @(Signature U))
-                prop "Signed a"    (soundInstanceProperty @(Signed U))
-                prop "RedeemSignature a"    (soundInstanceProperty @(RedeemSignature U))
-                prop "ProxySecretKey w"     (soundInstanceProperty @(ProxySecretKey U))
-                prop "ProxySignature w a"   (soundInstanceProperty @(ProxySignature U U))
-                prop "AbstractHash SHA256"  (soundInstanceProperty @(AbstractHash SHA256 U))
-                prop "DataMsgSKLight" (soundInstanceProperty @(DataMsg ProxySKLight))
-                prop "DataMsgSKHeavy" (soundInstanceProperty @(DataMsg ProxySKHeavy))
-                prop "DataMsgSKLightConfirmation" (soundInstanceProperty @(DataMsg ProxySKLightConfirmation))
-                prop "BackupPhrase" (soundInstanceProperty @BackupPhrase)
-                prop "PrevValue a"  (soundInstanceProperty @(PrevValue U))
-                -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
-                it "UserSecret" $ pendingWith "No Eq instance defined"
-                it "WalletUserSecret" $ pendingWith "No Eq instance defined"
-                pendingNoArbitrary "Undo"
-                pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
-                pendingNoArbitrary "DataMsg UpdateVote"
-                pendingNoArbitrary "MsgGetHeaders"
-                pendingNoArbitrary "MsgGetBlocks"
-                pendingNoArbitrary "WithHash"
-                pendingNoArbitrary "Pvss.PublicKey"
-                pendingNoArbitrary "Pvss.KeyPair"
-                pendingNoArbitrary "Pvss.Secret"
-                pendingNoArbitrary "Pvss.DecryptedShare"
-                pendingNoArbitrary "Pvss.EncryptedShare"
-                pendingNoArbitrary "Pvss.Proof"
-                pendingNoArbitrary "AsBinary VssKeyPair"
-                pendingNoArbitrary "Ed25519.PointCompressed"
-                pendingNoArbitrary "Ed25519.Scalar"
-                pendingNoArbitrary "Ed25519.Signature"
-                pendingNoArbitrary "CC.ChainCode"
-                pendingNoArbitrary "CC.XPub"
-                pendingNoArbitrary "CC.XPrv"
-                pendingNoArbitrary "CC.XSignature"
-                pendingNoArbitrary "EdStandard.PublicKey"
-                pendingNoArbitrary "EdStandard.SecretKey"
-                pendingNoArbitrary "EdStandard.Signature"
-                pendingNoArbitrary "EncryptedSecretKey"
+        describe "Generic deriving" $ do
+            testARecord
+            testAUnit
+            testANewtype
+            binaryTest @ARecord
+            binaryTest @AUnit
+            binaryTest @ANewtype
+        describe "Lib/core instances" $ do
+            binaryTest @(Attributes X1)
+            binaryTest @(Attributes X2)
+
+            -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
+            it "UserSecret" $ pendingWith "No Eq instance defined"
+            it "WalletUserSecret" $ pendingWith "No Eq instance defined"
+            pendingNoArbitrary "Undo"
+            pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
+            pendingNoArbitrary "DataMsg UpdateVote"
+            pendingNoArbitrary "MsgGetHeaders"
+            pendingNoArbitrary "MsgGetBlocks"
+            pendingNoArbitrary "WithHash"
+            pendingNoArbitrary "Pvss.PublicKey"
+            pendingNoArbitrary "Pvss.KeyPair"
+            pendingNoArbitrary "Pvss.Secret"
+            pendingNoArbitrary "Pvss.DecryptedShare"
+            pendingNoArbitrary "Pvss.EncryptedShare"
+            pendingNoArbitrary "Pvss.Proof"
+            pendingNoArbitrary "Ed25519.PointCompressed"
+            pendingNoArbitrary "Ed25519.Scalar"
+            pendingNoArbitrary "Ed25519.Signature"
+            pendingNoArbitrary "CC.ChainCode"
+            pendingNoArbitrary "CC.XPub"
+            pendingNoArbitrary "CC.XPrv"
+            pendingNoArbitrary "CC.XSignature"
+            pendingNoArbitrary "EdStandard.PublicKey"
+            pendingNoArbitrary "EdStandard.SecretKey"
+            pendingNoArbitrary "EdStandard.Signature"
+            pendingNoArbitrary "EncryptedSecretKey"
 
 pendingNoArbitrary :: String -> Spec
 pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"

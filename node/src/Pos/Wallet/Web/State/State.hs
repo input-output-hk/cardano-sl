@@ -4,6 +4,7 @@ module Pos.Wallet.Web.State.State
        ( WalletState
        , MonadWalletWebDB
        , WalletTip (..)
+       , PtxMetaUpdate (..)
        , getWalletWebState
        , WebWalletModeDB
        , openState
@@ -34,6 +35,8 @@ module Pos.Wallet.Web.State.State
        , getCustomAddress
        , isCustomAddress
        , getWalletUtxo
+       , getPendingTxs
+       , getPendingTx
 
        -- * Setters
        , testReset
@@ -61,6 +64,10 @@ module Pos.Wallet.Web.State.State
        , removeNextUpdate
        , updateHistoryCache
        , setWalletUtxo
+       , setPtxCondition
+       , casPtxCondition
+       , ptxUpdateMeta
+       , addOnlyNewPendingTx
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -70,21 +77,27 @@ import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Txp                      (Utxo)
+import           Pos.Core.Context             (HasCoreConstants)
+import           Pos.Txp                      (TxId, Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
                                                CWAddressMeta, CWalletMeta, PassPhraseLU,
                                                Wal)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
-                                               CustomAddressType (..), WalletStorage,
-                                               WalletTip (..))
+                                               CustomAddressType (..), PtxMetaUpdate (..),
+                                               WalletStorage, WalletTip (..))
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
-type MonadWalletWebDB ctx m = (MonadReader ctx m, HasLens WalletState ctx WalletState)
+type MonadWalletWebDB ctx m =
+    ( MonadReader ctx m
+    , HasLens WalletState ctx WalletState
+    , HasCoreConstants
+    )
 
 getWalletWebState :: MonadWalletWebDB ctx m => m WalletState
 getWalletWebState = view (lensOf @WalletState)
@@ -162,6 +175,12 @@ getCustomAddress = queryDisk ... A.GetCustomAddress
 
 isCustomAddress :: WebWalletModeDB ctx m => CustomAddressType -> CId Addr -> m Bool
 isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
+
+getPendingTxs :: WebWalletModeDB ctx m => m [PendingTx]
+getPendingTxs = queryDisk ... A.GetPendingTxs
+
+getPendingTx :: WebWalletModeDB ctx m => CId Wal -> TxId -> m (Maybe PendingTx)
+getPendingTx = queryDisk ... A.GetPendingTx
 
 createAccount :: WebWalletModeDB ctx m => AccountId -> CAccountMeta -> m ()
 createAccount accId = updateDisk . A.CreateAccount accId
@@ -242,3 +261,22 @@ testReset = updateDisk A.TestReset
 
 updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> [TxHistoryEntry] -> m ()
 updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache cWalId
+
+setPtxCondition
+    :: WebWalletModeDB ctx m
+    => CId Wal -> TxId -> PtxCondition -> m ()
+setPtxCondition = updateDisk ... A.SetPtxCondition
+
+casPtxCondition
+    :: WebWalletModeDB ctx m
+    => CId Wal -> TxId -> PtxCondition -> PtxCondition -> m Bool
+casPtxCondition = updateDisk ... A.CasPtxCondition
+
+ptxUpdateMeta
+    :: WebWalletModeDB ctx m
+    => CId Wal -> TxId -> PtxMetaUpdate -> m ()
+ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
+
+addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
+addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
+

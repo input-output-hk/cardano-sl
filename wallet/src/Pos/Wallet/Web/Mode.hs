@@ -200,7 +200,7 @@ instance HasCoreConstants => MonadBlockchainInfo WalletWebMode where
     connectedPeers = connectedPeersWebWallet
     blockchainSlotDuration = blockchainSlotDurationWebWallet
 
-instance MonadBalances WalletWebMode where
+instance HasCoreConstants => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 

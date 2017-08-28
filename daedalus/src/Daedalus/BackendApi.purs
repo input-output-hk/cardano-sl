@@ -243,8 +243,8 @@ syncProgress tls = getR tls $ noQueryParam ["settings", "sync", "progress"]
 
 --------------------------------------------------------------------------------
 -- JSON BACKUP -----------------------------------------------------------------
-importBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) (Array CWallet)
+importBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet
 importBackupJSON tls = postRBody tls $ noQueryParam ["backup", "import"]
 
-exportBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
-exportBackupJSON tls = postRBody tls $ noQueryParam ["backup", "export"]
+exportBackupJSON :: forall eff. TLSOptions -> CId Wal -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
+exportBackupJSON tls addr = postRBody tls $ noQueryParam ["backup", "export", _address addr]

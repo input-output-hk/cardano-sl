@@ -71,6 +71,9 @@ library
                         Pos.Lrc
                         Pos.Lrc.FtsPure
 
+                        -- Behavior
+                        Pos.Behavior
+
                         -- Something
                         Pos.Launcher
                         Pos.Launcher.Resource
@@ -172,7 +175,6 @@ library
 
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Aeson.Types
-                        Pos.Aeson.Crypto
 
                         -- Binary serialization
                         Pos.Binary.Block

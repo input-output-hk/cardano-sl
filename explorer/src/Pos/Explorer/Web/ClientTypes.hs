@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-{-# LANGUAGE RankNTypes #-}
--- | Types for using in purescript-bridge
+{-# LANGUAGE RankNTypes          #-}
 
+-- | Types for using in purescript-bridge
 module Pos.Explorer.Web.ClientTypes
        ( CHash (..)
        , CAddress (..)
@@ -46,7 +46,6 @@ import           Universum
 import           Control.Arrow              ((&&&))
 import           Control.Lens               (ix, _Left)
 import qualified Data.ByteArray             as BA
-import qualified Data.ByteString.Base16     as B16
 import qualified Data.List.NonEmpty         as NE
 import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Formatting                 (sformat)
@@ -54,8 +53,7 @@ import           Prelude                    ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       as SB16
 import           Servant.API                (FromHttpApiData (..))
-
-import qualified Pos.Binary                 as Bi
+import           Pos.Binary                 (Bi, biSize)
 import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
                                              mcdSlot)
 import           Pos.Block.Types            (Undo (..))
@@ -85,11 +83,19 @@ import           Pos.Types                  (Address, AddressHash, Coin, EpochIn
 -- Hash types
 -------------------------------------------------------------------------------------
 
--- TODO(ks): To explain this a bit better.
+-- See this page for more explanation - https://cardanodocs.com/cardano/addresses/
+-- We have the general type @AbstractHash@ for all hashes we use. It's being parametrized
+-- by two types - AbstractHash algo a - the hashing algorithm and the phantom type for
+-- extra safety (can be a @Tx@, an @Address@ and so on, ...).
+--
+-- The following types explain the situation better:
+--
 -- type AddressHash = AbstractHash Blake2b_224
 -- type Hash        = AbstractHash Blake2b_256
 -- type TxId        = Hash Tx
--- decodeAbstractHash/abstractHash
+--
+-- From there on we have the client types that we use to represent the actual hashes.
+-- The client types are really the hash bytes converted to Base16 address.
 
 -- | Client hash
 newtype CHash = CHash Text
@@ -103,23 +109,36 @@ newtype CAddress = CAddress Text
 newtype CTxId = CTxId CHash
     deriving (Show, Eq, Generic, Buildable, Hashable)
 
+-------------------------------------------------------------------------------------
+-- Client-server, server-client transformation functions
+-------------------------------------------------------------------------------------
+
 -- | Transformation of core hash-types to client representations and vice versa
-encodeHashHex :: Hash a -> Text
-encodeHashHex = decodeUtf8 . B16.encode . BA.convert
+encodeHashHex :: forall a. (Bi a) => Hash a -> Text
+encodeHashHex = SB16.encode . BA.convert
 
 -- | We need this for stakeholders
-encodeAHashHex :: AddressHash a -> Text
-encodeAHashHex = decodeUtf8 . B16.encode . BA.convert
+encodeAHashHex :: forall a. (Bi a) => AddressHash a -> Text
+encodeAHashHex = SB16.encode . BA.convert
 
-decodeHashHex :: forall a. (Bi.Bi (Hash a)) => Text -> Either Text (Hash a)
+-- | A required instance for decoding.
+instance ToString ByteString where
+  toString = toString . SB16.encode
+
+-- | Decoding the text to the original form.
+decodeHashHex :: forall a. (Bi (Hash a)) => Text -> Either Text (Hash a)
 decodeHashHex hashText = do
     hashBinary <- SB16.decode hashText
-    over _Left toText $ Bi.decodeFull $ hashBinary
+    over _Left toText $ readEither hashBinary
 
-toCHash :: Hash a -> CHash
+-------------------------------------------------------------------------------------
+-- Client hashes functions
+-------------------------------------------------------------------------------------
+
+toCHash :: forall a. (Bi a) => Hash a -> CHash
 toCHash = CHash . encodeHashHex
 
-fromCHash :: forall a. (Typeable (Hash a), Bi.Bi (Hash a)) => CHash -> Either Text (Hash a)
+fromCHash :: forall a. (Bi (Hash a)) => CHash -> Either Text (Hash a)
 fromCHash (CHash h) = decodeHashHex h
 
 toCAddress :: Address -> CAddress
@@ -137,7 +156,6 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 -------------------------------------------------------------------------------------
 -- Composite types
 -------------------------------------------------------------------------------------
-
 
 newtype CCoin = CCoin
     { getCoin :: Text
@@ -196,7 +214,7 @@ toBlockEntry (blk, Undo{..}) = do
         addInCoins c  = unsafeAddCoin c . totalTxInMoney
         totalSentCoin = foldl' addOutCoins (mkCoin 0) txs
         cbeTotalSent  = mkCCoin $ totalSentCoin
-        cbeSize       = fromIntegral $ Bi.biSize blk
+        cbeSize       = fromIntegral $ biSize blk
         cbeFees       = mkCCoin $ foldl' addInCoins (mkCoin 0) undoTx `unsafeSubCoin` totalSentCoin
 
         -- A simple reconstruction of the AbstractHash, could be better?
@@ -340,7 +358,7 @@ data CGenesisAddressInfo = CGenesisAddressInfo
 instance FromHttpApiData CHash where
     -- Force the free type @a@ to a type `()` so we can get a witness
     -- for the `Bi` and `Typeable` instances.
-    parseUrlPiece url = toCHash @Text <$> decodeHashHex url
+    parseUrlPiece url = toCHash @() <$> decodeHashHex url
 
 instance FromHttpApiData CAddress where
     parseUrlPiece = pure . CAddress

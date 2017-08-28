@@ -1,31 +1,67 @@
+
 -- | This module is testing the ClientTypes module.
+
+{-# LANGUAGE AllowAmbiguousTypes       #-}
 
 module Test.Pos.Explorer.Web.ClientTypesSpec
        ( spec
        ) where
 
-import           Prelude                      (id)
 import           Universum
 
+import           Prelude                           (id)
+
+import           Pos.Binary                        (Bi)
 import           Pos.Crypto
 import           Pos.Explorer.Web.ClientTypes
-import           Pos.Txp                      (TxId)
-import           Test.Hspec                   (Spec, describe, it, shouldBe,
-                                               shouldSatisfy)
+import           Pos.Txp                           (TxId)
+import           Pos.Types                         (Address)
+import           Test.Hspec                        (Spec, describe, it, shouldBe,
+                                                    shouldSatisfy)
+import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
+import           Test.QuickCheck                   (Arbitrary, Property, Gen, forAll, arbitrary, (===))
 
+----------------------------------------------------------------------------
+-- Utility functions
+----------------------------------------------------------------------------
+
+-- | Copied from `CborSpec`.
+soundInstanceProperty
+    :: forall a. (Arbitrary a, Eq a, Show a, Bi a, Bi (Hash a))
+    => Property
+soundInstanceProperty = forAll (arbitrary :: Gen (Hash a)) $ \input ->
+    decodeEncodeHashHex input === True
+
+-- | A reversable function that we can use to test if the hashing works correctly.
+decodeEncodeHashHex
+    :: forall a. (Bi a, Bi (Hash a))
+    => Hash a
+    -> Bool
+decodeEncodeHashHex hashA = case encodeThenDecode hashA of
+    Left _       -> False
+    Right hashA' -> hashA == hashA'
+  where
+    encodeThenDecode = decodeHashHex . encodeHashHex
+
+----------------------------------------------------------------------------
+-- Spec
+----------------------------------------------------------------------------
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web"
 spec :: Spec
 spec = describe "ClientTypes" $ do
-    describe "CTxId serialization" $ do
-        it "should encode Text into CTxId" $ do
+    unitTests
+    quickcheckTests
+
+----------------------------------------------------------------------------
+-- Unit tests
+----------------------------------------------------------------------------
+
+unitTests :: Spec
+unitTests = do
+    describe "TxId serialization" $ do
+        it "should encode Text into TxId and back" $ do
             let cTxIdText = "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-
-  -- Serokell.Util.Base16.encode "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-  -- "62323966613137313536323735613835383938353733373662666165656566343766313834366638326561343932613830386535633631353562343530653032"
-
-  -- Serokell.Util.Base16.decode "62323966613137313536323735613835383938353733373662666165656566343766313834366638326561343932613830386535633631353562343530653032"
-  -- Right "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
 
             let decodedCTxId :: Either Text TxId
                 decodedCTxId = decodeHash cTxIdText
@@ -35,25 +71,20 @@ spec = describe "ClientTypes" $ do
             let result :: Text
                 result = either id encodeHashHex decodedCTxId
 
-            -- encodeHashHex . decodeHashHex $ "TEXT" == "TEXT"
-            -- The gist is - (either id encodeHashHex $ decodeHashHex @TxId cTxIdText) `shouldBe` cTxIdText
             result `shouldBe` "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
 
-            -- Uncomment next lines and prepare to be amazed! AFAIU it fails at `Bi.decodeFull`.
-            -- decodeHashHex "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02" =
-            -- Left "decodeFull failed for AbstractHash Blake2b_256 Tx: DeserialiseFailure 0 \"expected bytes\""
-
-{-
             let decodedResult :: Either Text TxId
                 decodedResult = decodeHashHex result
 
             decodedResult `shouldBe` decodedCTxId
--}
-    describe "TxId serialization" $ do
-        it "should encode Text into TxId" $ do
-            let cTxIdText = "bd019a7759900ebc400830ec72fac3c2b1a6128fb71e94520cb60798360c1f13"
 
-            let decodedCTxId :: Either Text TxId
-                decodedCTxId = decodeHash cTxIdText
+----------------------------------------------------------------------------
+-- Quickcheck tests
+----------------------------------------------------------------------------
 
-            decodedCTxId `shouldSatisfy` isRight
+quickcheckTests :: Spec
+quickcheckTests =
+    describe "Hash serialization" $ do
+        modifyMaxSuccess (const 10000) $ do
+            prop "TxId" (soundInstanceProperty @TxId)
+            prop "Address" (soundInstanceProperty @Address)

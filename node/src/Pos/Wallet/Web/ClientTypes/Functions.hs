@@ -7,6 +7,7 @@ module Pos.Wallet.Web.ClientTypes.Functions
       , encToCId
       , mkCTxs
       , mkCTxId
+      , ptxCondToCPtxCond
       , txIdToCTxId
       , toCUpdateInfo
       , addrMetaToAccount
@@ -36,9 +37,11 @@ import           Pos.Update.Core                  (BlockVersionModifier (..),
                                                    isPositiveVote)
 import           Pos.Update.Poll                  (ConfirmedProposalState (..))
 import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin (..),
-                                                   CHash (..), CId (..), CTx (..),
+                                                   CHash (..), CId (..),
+                                                   CPtxCondition (..), CTx (..),
                                                    CTxId (..), CTxMeta, CTxs (..),
                                                    CUpdateInfo (..), CWAddressMeta (..))
+import           Pos.Wallet.Web.Pending.Types     (PtxCondition (..))
 
 
 -- TODO: this is not completely safe. If someone changes
@@ -65,6 +68,13 @@ mkCTxId = CTxId . CHash
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat hashHexF
+
+ptxCondToCPtxCond :: Maybe PtxCondition -> CPtxCondition
+ptxCondToCPtxCond = maybe CPtxNotTracked $ \case
+    PtxApplying{}       -> CPtxApplying
+    PtxInNewestBlocks{} -> CPtxInBlocks
+    PtxPersisted{}      -> CPtxInBlocks
+    PtxWontApply{}      -> CPtxWontApply
 
 -- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.
@@ -111,9 +121,10 @@ mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
+    -> CPtxCondition      -- ^ State of resubmission
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTxs
-mkCTxs diff th@THEntry {..} meta wAddrMetas = do
+mkCTxs diff th@THEntry {..} meta pc wAddrMetas = do
     let isOurTxOutput = flip S.member wAddrsSet . addressToCId . txOutAddress
 
         ownInputs = filter isOurTxOutput inputs
@@ -145,6 +156,7 @@ mkCTxs diff th@THEntry {..} meta wAddrMetas = do
     ctOutputAddrs = map addressToCId _thOutputAddrs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta
+    ctCondition = pc
     wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
 addrMetaToAccount :: CWAddressMeta -> AccountId

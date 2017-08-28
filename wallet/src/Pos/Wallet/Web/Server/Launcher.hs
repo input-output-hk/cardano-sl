@@ -23,10 +23,12 @@ import           Servant.Server                   (Handler, Server, serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
+import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Server.Handlers   (servantHandlers)
 import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
@@ -63,12 +65,14 @@ walletServer
     -> m (Server WalletApi)
 walletServer sendActions nat = do
     syncWalletsWithGState @WalletSscType =<< mapM findKey =<< myRootAddresses
+    startPendingTxsResubmitter sendActions
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
 bracketWalletWebDB
     :: ( MonadIO m
        , MonadMask m
+       , HasCoreConstants
        )
     => FilePath  -- ^ Path to wallet acid-state
     -> Bool      -- ^ Rebuild flag for acid-state

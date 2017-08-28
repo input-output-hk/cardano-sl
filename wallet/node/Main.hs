@@ -9,35 +9,32 @@ module Main
        ( main
        ) where
 
-import           Universum                  hiding (over)
+import           Universum           hiding (over)
 
-import           Data.Maybe                 (fromJust)
-import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (Production, currentTime, runProduction)
-import           System.Wlog                (logInfo)
+import           Data.Maybe          (fromJust)
+import           Formatting          (sformat, shown, (%))
+import           Mockable            (Production, currentTime, runProduction)
+import           System.Wlog         (logInfo)
 
-import           Pos.Binary                 ()
-import           Pos.Client.CLI             (CommonNodeArgs (..))
-import qualified Pos.Client.CLI             as CLI
-import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
-                                             worker)
-import           Pos.Context                (HasNodeContext)
-import           Pos.Core                   (HasCoreConstants, Timestamp (..),
-                                             giveStaticConsts)
-import           Pos.Launcher               (NodeParams (..), NodeResources (..),
-                                             bracketNodeResources, runNode)
-import           Pos.Ssc.Class              (SscParams)
-import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Util.UserSecret        (usVss)
-import           Pos.Wallet.Web             (WalletWebMode, bracketWalletWS,
-                                             bracketWalletWebDB, runWRealMode,
-                                             walletServeWebFull, walletServerOuts)
-import           Pos.Web                    (serveWebGT)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.Binary          ()
+import           Pos.Client.CLI      (CommonNodeArgs (..))
+import qualified Pos.Client.CLI      as CLI
+import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Context         (HasNodeContext)
+import           Pos.Core            (HasCoreConstants, Timestamp (..), giveStaticConsts)
+import           Pos.Launcher        (NodeParams (..), NodeResources (..),
+                                      bracketNodeResources, runNode)
+import           Pos.Ssc.Class       (SscParams)
+import           Pos.Ssc.GodTossing  (SscGodTossing)
+import           Pos.Util.UserSecret (usVss)
+import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
+                                      runWRealMode, walletServeWebFull, walletServerOuts)
+import           Pos.Web             (serveWebGT)
+import           Pos.WorkMode        (WorkMode)
 
-import           NodeOptions                (WalletArgs (..), WalletNodeArgs (..),
-                                             getWalletNodeOptions)
-import           Params                     (getNodeParams)
+import           NodeOptions         (WalletArgs (..), WalletNodeArgs (..),
+                                      getWalletNodeOptions)
+import           Params              (getNodeParams)
 
 actionWithWallet :: HasCoreConstants => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
@@ -80,7 +77,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = gi
     putText $ "Wallet is enabled!"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = CLI.gtSscParams cArgs vssSK
+    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
     actionWithWallet gtParams currentParams wArgs
 

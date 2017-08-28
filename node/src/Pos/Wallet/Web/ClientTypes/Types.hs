@@ -16,6 +16,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CTxId (..)
       , CTxMeta (..)
       , CTExMeta (..)
+      , CPtxCondition (..)
       , CInitialized (..)
       , AccountId (..)
       , CAccountId (..)
@@ -254,6 +255,17 @@ data CTxMeta = CTxMeta
     { ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
+-- | State of transaction, corresponding to
+-- 'Pos.Wallet.Web.Pending.Types.PtxCondition'.
+-- @PtxInNewestBlocks@ and @PtxPersisted@ states are merged into one
+-- not to provide information which conflicts with 'ctConfirmations'.
+data CPtxCondition
+    = CPtxApplying
+    | CPtxInBlocks
+    | CPtxWontApply
+    | CPtxNotTracked  -- ^ tx was made not in this life
+    deriving (Show, Eq, Generic, Typeable)
+
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.
 -- It includes meta data which are not part of Cardano, too
@@ -266,6 +278,7 @@ data CTx = CTx
     , ctInputAddrs    :: [CId Addr]
     , ctOutputAddrs   :: [CId Addr]
     , ctIsOutgoing    :: Bool
+    , ctCondition     :: CPtxCondition
     } deriving (Show, Generic, Typeable)
 
 -- | In case of A -> A tranaction, we have to return two similar 'CTx's:
@@ -309,7 +322,7 @@ data CUpdateInfo = CUpdateInfo
     } deriving (Show, Generic, Typeable)
 
 ----------------------------------------------------------------------------
--- Reportin
+-- Reporting
 ----------------------------------------------------------------------------
 
 -- | Represents a knowledge about how much time did it take for client

@@ -56,6 +56,9 @@ dev: &dev
   # Delegation
   lightDlgConfirmationTimeout: 500
 
+  # Transaction resubmition
+  pendingTxResubmissionPeriod: 7 # seconds
+
   # This value parameterizes size of dlg cache. There are two types of
   # messages: normal messages and confirmation messages. Both of them are
   # limited in size by this value multiplied by some constant. You are

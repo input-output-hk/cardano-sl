@@ -69,7 +69,7 @@ import           Pos.Ssc.GodTossing.Core.Types (Commitment (..),
                                                 GtPayload (..), GtProof (..),
                                                 Opening (..), SignedCommitment,
                                                 VssCertificate (vcExpiryEpoch),
-                                                VssCertificatesMap,
+                                                VssCertificatesMap (..),
                                                 mkCommitmentsMapUnsafe)
 import           Pos.Util.Limits               (stripHashMap)
 
@@ -277,10 +277,10 @@ instance Buildable GtPayload where
         formatIfNotNull formatter l
             | null l = mempty
             | otherwise = bprint formatter l
-        formatCommitments comms =
+        formatCommitments (getCommitmentsMap -> comms) =
             formatIfNotNull
                 ("  commitments from: " %listJson % "\n")
-                (HM.keys $ getCommitmentsMap comms)
+                (HM.keys comms)
         formatOpenings openings =
             formatIfNotNull
                 ("  openings from: " %listJson % "\n")
@@ -289,7 +289,7 @@ instance Buildable GtPayload where
             formatIfNotNull
                 ("  shares from: " %listJson % "\n")
                 (HM.keys shares)
-        formatCertificates certs =
+        formatCertificates (getVssCertificatesMap -> certs) =
             formatIfNotNull
                 ("  certificates from: " %listJson % "\n")
                 (map formatVssCert $ HM.toList certs)
@@ -318,22 +318,26 @@ mkGtProof payload =
 stripGtPayload :: Byte -> GtPayload -> Maybe GtPayload
 stripGtPayload lim payload | biSize payload <= lim = Just payload
 stripGtPayload lim payload = case payload of
-    (CertificatesPayload vssmap) -> CertificatesPayload <$> stripHashMap lim vssmap
+    (CertificatesPayload vssmap) ->
+        CertificatesPayload <$> stripVss lim vssmap
     (CommitmentsPayload (getCommitmentsMap -> comms0) certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let comms = stripHashMap (lim - biSize certs) comms0
         CommitmentsPayload <$> (mkCommitmentsMapUnsafe <$> comms) <*> certs
     (OpeningsPayload openings0 certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let openings = stripHashMap (lim - biSize certs) openings0
         OpeningsPayload <$> openings <*> certs
     (SharesPayload shares0 certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let shares = stripHashMap (lim - biSize certs) shares0
         SharesPayload <$> shares <*> certs
   where
     limCerts = lim `div` 3 -- certificates are 1/3 less important than everything else
                            -- this is a random choice in fact
+    stripVss l = fmap VssCertificatesMap .
+                 stripHashMap l .
+                 getVssCertificatesMap
 
 -- | Default godtossing payload depending on local slot index.
 defaultGtPayload :: HasCoreConstants => LocalSlotIndex -> GtPayload

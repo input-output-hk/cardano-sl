@@ -10,7 +10,6 @@ module Pos.Arbitrary.Ssc.GodTossing
 
 import           Universum
 
-import qualified Data.HashMap.Strict               as HM
 import qualified Data.List.NonEmpty                as NE
 import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
@@ -23,18 +22,20 @@ import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
-                                                    SlotId (..), addressHash)
+                                                    SlotId (..))
 import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
                                                     Opening (..), SignedCommitment,
                                                     VssCertificate (..),
+                                                    VssCertificatesMap,
                                                     genCommitmentAndOpening,
                                                     isCommitmentId, isOpeningId,
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment,
-                                                    mkVssCertificate)
+                                                    mkVssCertificate,
+                                                    mkVssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.Genesis.Types  as G
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type           (SscGodTossing)
@@ -151,14 +152,11 @@ instance Arbitrary GtPayload where
     arbitrary =
         makeSmall $
         oneof
-            [ CommitmentsPayload <$> arbitrary <*> genVssCerts
-            , OpeningsPayload <$> arbitrary <*> genVssCerts
-            , SharesPayload <$> arbitrary <*> genVssCerts
-            , CertificatesPayload <$> genVssCerts
+            [ CommitmentsPayload <$> arbitrary <*> arbitrary
+            , OpeningsPayload <$> arbitrary <*> arbitrary
+            , SharesPayload <$> arbitrary <*> arbitrary
+            , CertificatesPayload <$> arbitrary
             ]
-      where
-        genVssCerts = HM.fromList . map toCertPair <$> arbitrary
-        toCertPair vc = (addressHash $ vcSigningKey vc, vc)
     shrink = genericShrink
 
 instance HasCoreConstants => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
@@ -179,9 +177,15 @@ instance HasCoreConstants => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) w
             arbitrary
         genValidComm SlotId{..} (sk, c) = mkSignedCommitment sk siEpoch c
 
-        genVssCerts slot = HM.fromList . map (toCertPair . genValidCert slot) <$> arbitrary
-        toCertPair vc = (addressHash $ vcSigningKey vc, vc)
+        genVssCerts slot =
+            mkVssCertificatesMap .
+            map (genValidCert slot) <$>
+            arbitrary
         genValidCert SlotId{..} (sk, pk) = mkVssCertificate sk pk $ siEpoch + 5
+
+instance Arbitrary VssCertificatesMap where
+    arbitrary = mkVssCertificatesMap <$> arbitrary
+    shrink = genericShrink
 
 instance HasCoreConstants => Arbitrary VssCertData where
     arbitrary = makeSmall genericArbitrary

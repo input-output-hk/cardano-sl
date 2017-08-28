@@ -8,7 +8,6 @@ module Pos.Ssc.GodTossing.Genesis
        , genesisDevVssKeyPairs
        ) where
 
-import qualified Data.HashMap.Strict               as HM
 import           Data.List                         (zipWith3)
 import qualified Data.Text                         as T
 import           Formatting                        (int, sformat, (%))
@@ -16,13 +15,13 @@ import           Universum
 
 import           Pos.Binary.Class                  (asBinary)
 import           Pos.Core                          (EpochIndex (..), genesisDevKeyPairs)
-import           Pos.Core.Address                  (addressHash)
 import           Pos.Core.Constants                (genesisKeysN, isDevelopment)
 import           Pos.Crypto                        (VssKeyPair, VssPublicKey,
                                                     deterministicVssKeyGen,
                                                     toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
-import           Pos.Ssc.GodTossing.Core.Types     (VssCertificatesMap, mkVssCertificate)
+import           Pos.Ssc.GodTossing.Core.Types     (VssCertificatesMap, mkVssCertificate,
+                                                    mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.Genesis.Parser (compileGenGtData)
 import           Pos.Ssc.GodTossing.Genesis.Types  (GenesisGtData (..))
 
@@ -45,7 +44,7 @@ genesisDevVssPublicKeys = map toVssPublicKey genesisDevVssKeyPairs
 genesisCertificates :: VssCertificatesMap
 genesisCertificates
     | isDevelopment = case certEntries of
-          c0:c1:_:cs -> HM.fromList $ c0 : c1 : cs
+          c0:c1:_:cs -> mkVssCertificatesMap (c0 : c1 : cs)
           _          -> error "genesisCertificates: can't happen"
     | otherwise     = ggdVssCertificates compileGenGtData
   where
@@ -53,8 +52,8 @@ genesisCertificates
     ttlExp 1 = EpochIndex vssMinTTL - 1
     ttlExp _ = vssMaxTTL - 1
 
-    mkCertEntry i (pk, sk) vssPk =
-        (addressHash pk, mkVssCertificate sk (asBinary vssPk) (ttlExp i))
+    mkCertEntry i (_, sk) vssPk =
+        mkVssCertificate sk (asBinary vssPk) (ttlExp i)
 
     certEntries = zipWith3 mkCertEntry
                     [0..]

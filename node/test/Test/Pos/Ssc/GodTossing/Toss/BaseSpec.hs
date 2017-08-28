@@ -30,12 +30,13 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         MultiRichmenStakes, Opening, OpeningsMap,
                                         PureTossWithEnv, SharesMap, SignedCommitment,
                                         TossVerFailure (..), VssCertData (..),
-                                        VssCertificate (vcSigningKey), VssCertificatesMap,
-                                        checkCertificatesPayload, checkCommitmentsPayload,
-                                        checkOpeningsPayload, checkSharesPayload,
-                                        gsCommitments, gsOpenings, gsShares,
-                                        gsVssCertificates, mkCommitmentsMapUnsafe,
-                                        runPureToss, supplyPureTossEnv, verifyCommitment,
+                                        VssCertificate (vcSigningKey),
+                                        VssCertificatesMap (..), checkCertificatesPayload,
+                                        checkCommitmentsPayload, checkOpeningsPayload,
+                                        checkSharesPayload, gsCommitments, gsOpenings,
+                                        gsShares, gsVssCertificates, insertVss,
+                                        mkCommitmentsMapUnsafe, runPureToss,
+                                        supplyPureTossEnv, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
@@ -170,7 +171,9 @@ instance HasCoreConstants => Arbitrary GoodCommsPayload where
         richmenWithCerts <- sublistOf richmenIds
         richmenWithComms <- sublistOf richmenWithCerts
 
-        stableCerts <- HM.fromList <$>
+        -- TODO: this generates an invalid VssCertificatesMap because the
+        -- stakeholders don't match the certificates
+        stableCerts <- VssCertificatesMap . HM.fromList <$>
             mapM (\r -> (,) <$> pure r <*> (arbitrary :: Gen VssCertificate))
                  richmenWithCerts
 
@@ -368,7 +371,7 @@ instance HasCoreConstants => Arbitrary GoodSharesPayload where
         richmenWithShares <- sublistOf richmenWithCerts
         let n = length richmenWithShares
 
-        stableCerts <- HM.fromList <$>
+        stableCerts <- VssCertificatesMap . HM.fromList <$>
             mapM (\r -> (,) <$> pure r <*> (arbitrary :: Gen VssCertificate))
                  richmenWithCerts
 
@@ -457,7 +460,7 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) sid ne ce
         newestSharesMap = HM.insert sid mempty sharesMap
         gtgs' = gtgs & (gsShares %~ HM.insert sid mempty) .
                        (gsVssCertificates %~ \vcd@VssCertData{..} ->
-                           vcd { certs = HM.insert sid cert certs})
+                           vcd { certs = insertVss cert certs})
         mrs' = HM.update (Just . HM.insert sid (mkCoin 0)) epoch mrs
         sharesAlreadySent =
             tossRunner mrs' gtgs' $ checkSharesPayload epoch newestSharesMap
@@ -490,8 +493,8 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
             richmenPks = map fst richKeys
             richmen :: RichmenStakes
             richmen = HM.fromList $ map (over _1 addressHash) richKeys
-            -- The 'epoch' epoch is guaranteed to exist in 'richmen', so we can use '(!)'
-            -- to search for it in later tests.
+            -- The 'epoch' epoch is guaranteed to exist in 'richmen', so we
+            -- can use '(!)' to search for it in later tests.
             gpMultiRichmenStakes :: MultiRichmenStakes
             gpMultiRichmenStakes = HM.insert gpEpoch richmen m
 
@@ -504,7 +507,7 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
         --    'StakeholderId' in 'mrs HM.! epoch'
         --   * The set of its 'StakeholderId' keys is a subset of all the
         --    'StakeholderId's in 'mrs'
-        gpPayload <- do
+        gpPayload <- VssCertificatesMap <$> do
             let vssGen :: Gen VssCertificate
                 vssGen = do
                     -- This list is guaranteed to be non-empty
@@ -519,9 +522,11 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
 
         -- The 'VssCertificatesMap' field of this 'VssCertData' value satisfies:
         --   * None of its 'StakeholderId' keys is a richman
-        --    (i.e. is a  member of 'richmen')
+        --    (i.e. is a member of 'richmen')
+        -- TODO: this generates an invalid VssCertificatesMap because the
+        -- stakeholders don't match the certificates
         _gsVssCertificates <- do
-            certs <- customHashMapGen
+            certs <- VssCertificatesMap <$> customHashMapGen
                 (arbitrary `suchThat` (not . flip HM.member richmen))
                 arbitrary
             vssData <- arbitrary
@@ -543,10 +548,9 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =
             Left (NoRichmen e) -> e == epoch
             _                  -> False
 
-        insCert = HM.insert sid cert
-        newCertsMap = insCert certsMap
-        newGtgs = gtgs & gsVssCertificates %~ (\vcd -> let crt = insCert $ certs vcd
-                                                       in vcd { certs = crt })
+        newCertsMap = insertVss cert certsMap
+        newGtgs = gtgs & gsVssCertificates %~
+            \vcd -> vcd { certs = insertVss cert (certs vcd) }
         certAlreadySent =
             tossRunner mrs newGtgs  $ checkCertificatesPayload epoch newCertsMap
         res2 = case certAlreadySent of
@@ -554,7 +558,7 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =
             _                                 -> False
 
         sid' = addressHash . vcSigningKey $ cert
-        newerCertsMap = HM.insert sid' cert certsMap
+        newerCertsMap = insertVss cert certsMap
         certNoRichmen = tossRunner mrs gtgs $ checkCertificatesPayload epoch newerCertsMap
         res3 = case certNoRichmen of
             Left (CertificateNotRichmen nes) -> sid' `elem` nes

@@ -51,7 +51,8 @@ import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (.
 import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
                                                   GtPayload (..), GtProof (..),
-                                                  Opening (..), VssCertificate (..))
+                                                  Opening (..), VssCertificate (..),
+                                                  VssCertificatesMap)
 import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
                                                   TxOut (..), TxOutAux (..),
                                                   TxPayload (..), TxProof (..))
@@ -104,6 +105,7 @@ deriveSafeCopySimple 0 'base ''VssCertificate
 deriveSafeCopySimple 0 'base ''Opening
 deriveSafeCopySimple 0 'base ''Commitment
 deriveSafeCopySimple 0 'base ''CommitmentsMap
+deriveSafeCopySimple 0 'base ''VssCertificatesMap
 
 deriveSafeCopySimple 0 'base ''GtPayload
 deriveSafeCopySimple 0 'base ''GtProof

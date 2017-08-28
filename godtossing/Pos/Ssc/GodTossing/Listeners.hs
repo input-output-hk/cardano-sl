@@ -30,7 +30,8 @@ import           Pos.Core                              (HasCoreConstants, Stakeh
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
-import           Pos.Ssc.GodTossing.Core               (getCertId, getCommitmentsMap)
+import           Pos.Ssc.GodTossing.Core               (getCertId, getCommitmentsMap,
+                                                        lookupVss)
 import           Pos.Ssc.GodTossing.LocalData          (ldModifier, sscIsDataUseful,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
@@ -87,7 +88,7 @@ vssCertRelay
 vssCertRelay =
     sscRelay VssCertificateMsg
              (\(MCVssCertificate vc) -> getCertId vc)
-             (\id tm -> MCVssCertificate <$> tm ^. tmCertificates . at id)
+             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
              (\(MCVssCertificate cert) -> sscProcessCertificate cert)
 
 sscRelay

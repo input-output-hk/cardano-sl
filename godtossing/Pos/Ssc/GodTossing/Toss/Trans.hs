@@ -10,14 +10,13 @@ module Pos.Ssc.GodTossing.Toss.Trans
        ) where
 
 import           Control.Lens                  (at, (%=), (.=))
-import qualified Data.HashMap.Strict           as HM
 import qualified Ether
 import           Mockable                      (ChannelT, Promise, SharedAtomicT,
                                                 ThreadId)
 import           Universum
 
-import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment, getCertId,
-                                                insertSignedCommitment)
+import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment,
+                                                insertSignedCommitment, insertVss)
 import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossEnv (..),
                                                 MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Types (TossModifier (..), tmCertificates,
@@ -74,7 +73,7 @@ instance MonadToss m =>
     putShares id sh =
         ether $ tmShares . at id .= Just sh
     putCertificate cert =
-        ether $ tmCertificates %= HM.insert (getCertId cert) cert
+        ether $ tmCertificates %= insertVss cert
     delCommitment id =
         ether $ tmCommitments %= deleteSignedCommitment id
     delOpening id =

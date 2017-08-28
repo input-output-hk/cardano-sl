@@ -26,8 +26,9 @@ import           Universum               hiding (empty, filter)
 
 import           Pos.Core                (EpochIndex (..), EpochOrSlot (..), SlotId (..),
                                           StakeholderId)
-import           Pos.Ssc.GodTossing.Core (VssCertificate (..), VssCertificatesMap,
-                                          getCertId)
+import           Pos.Ssc.GodTossing.Core (VssCertificate (..), VssCertificatesMap (..),
+                                          deleteVss, getCertId, insertVss, lookupVss,
+                                          memberVss)
 
 -- | Wrapper around 'VssCertificate' with TTL.
 -- Every 'VssCertificate' has own TTL.
@@ -70,7 +71,7 @@ insert (first getCertId . join (,) -> (id, cert)) mp@VssCertData{..}
 
 -- | Lookup certificate corresponding to the specified 'StakeholderId'.
 lookup :: StakeholderId -> VssCertData -> Maybe VssCertificate
-lookup id VssCertData{..} = HM.lookup id certs
+lookup id VssCertData{..} = lookupVss id certs
 
 -- | Lookup expiry epoch of certificate corresponding to the specified
 -- 'StakeholderId'.
@@ -84,7 +85,7 @@ delete :: StakeholderId -> VssCertData -> VssCertData
 delete id mp@VssCertData{..}
     | Just (ins, expiry) <- lookupEoSes id mp = VssCertData
           lastKnownEoS
-          (HM.delete id certs)
+          (deleteVss id certs)
           (HM.delete id whenInsMap)
           (S.delete (ins, id) whenInsSet)
           (S.delete (expiry, id) whenExpire)
@@ -107,7 +108,7 @@ setLastKnownSlot = setLastKnownEoS . EpochOrSlot . Right
 
 -- | Ids of stakeholders issued certificates.
 keys :: VssCertData -> [StakeholderId]
-keys VssCertData{..} = HM.keys certs
+keys VssCertData{..} = HM.keys (getVssCertificatesMap certs)
 
 -- | Filtering the certificates.
 -- This function is dangerous, because after you using it you can't rollback
@@ -118,7 +119,7 @@ filter predicate vcd =
 
 -- | Return True if the specified address hash is present in the map, False otherwise.
 member :: StakeholderId -> VssCertData -> Bool
-member id VssCertData{..} = HM.member id certs
+member id VssCertData{..} = memberVss id certs
 
 -- | This function is dangerous, because after you using it you can't rollback
 -- deleted certificates. Use carefully.
@@ -140,7 +141,7 @@ addInt id cert vcd =
   where
     insertRaw VssCertData{..} = VssCertData
         lastKnownEoS
-        (HM.insert id cert certs)
+        (insertVss cert certs)
         (HM.insert id lastKnownEoS whenInsMap)
         (S.insert (lastKnownEoS, id) whenInsSet)
         (S.insert (expiryEoS cert, id) whenExpire)
@@ -153,9 +154,9 @@ addInt id cert vcd =
 expireById :: Bool -> StakeholderId -> EpochOrSlot -> VssCertData -> VssCertData
 expireById contains id wExp vcd@VssCertData{..}
     | Just (ins, expiry) <- lookupEoSes id vcd
-    , Just cert <- HM.lookup id certs = VssCertData
+    , Just cert <- HM.lookup id (getVssCertificatesMap certs) = VssCertData
         lastKnownEoS
-        (HM.delete id certs)
+        (deleteVss id certs)
         (HM.delete id whenInsMap)
         (S.delete (ins, id) whenInsSet)
         (S.delete (expiry, id) whenExpire)
@@ -180,18 +181,18 @@ setSmallerLKS lks vcd@VssCertData{..}
     | Just ((sl, id), rest) <- S.maxView whenInsSet
     , sl > lks = setSmallerLKS lks $ VssCertData
           lastKnownEoS
-          (HM.delete id certs)
+          (deleteVss id certs)
           (HM.delete id whenInsMap)
           rest
           (S.delete
              (fromMaybe (error "No such id in VCD")
-                        (expiryEoS <$> HM.lookup id certs), id)
+                        (expiryEoS <$> lookupVss id certs), id)
              whenExpire)
           expiredCerts
     | Just ((sl, (id, insSlot, cert)), restExp) <- S.maxView expiredCerts
     , sl > addEpoch lks = setSmallerLKS lks $ VssCertData
           lastKnownEoS
-          (HM.insert id cert certs)
+          (insertVss cert certs)
           (HM.insert id insSlot whenInsMap)
           (S.insert (insSlot, id) whenInsSet)
           (S.insert (expiryEoS cert, id) whenExpire)
@@ -214,4 +215,4 @@ expiryEoS = EpochOrSlot . Left . expiryEpoch
 lookupEoSes :: StakeholderId -> VssCertData -> Maybe (EpochOrSlot, EpochOrSlot)
 lookupEoSes id VssCertData{..} =
     (,) <$> HM.lookup id whenInsMap
-        <*> (expiryEoS <$> HM.lookup id certs)
+        <*> (expiryEoS <$> lookupVss id certs)

@@ -14,8 +14,9 @@ import           Pos.Crypto                    (PublicKey)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap (..),
                                                 GtPayload (..), GtProof (..),
                                                 Opening (..), SignedCommitment,
-                                                VssCertificate (..), VssCertificatesMap,
-                                                mkCommitmentsMap, mkVssCertificatesMap,
+                                                VssCertificate (..),
+                                                VssCertificatesMap (..), mkCommitmentsMap,
+                                                mkVssCertificatesMap,
                                                 recreateVssCertificate)
 import           Serokell.Util                 (allDistinct)
 
@@ -47,6 +48,8 @@ instance Bi VssCertificate where
     case recreateVssCertificate key epo sig sky of
       Left e  -> fail e
       Right v -> pure v
+
+deriving instance Bi VssCertificatesMap
 
 instance Bi Opening where
   encode = encode . getOpening

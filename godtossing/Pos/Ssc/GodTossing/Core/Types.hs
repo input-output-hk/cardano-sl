@@ -27,8 +27,12 @@ module Pos.Ssc.GodTossing.Core.Types
        , mkVssCertificate
        , recreateVssCertificate
        , getCertId
-       , VssCertificatesMap
+       , VssCertificatesMap(..)
        , mkVssCertificatesMap
+       , memberVss
+       , lookupVss
+       , insertVss
+       , deleteVss
 
        -- * Payload
        , GtPayload (..)
@@ -244,11 +248,28 @@ getCertId = addressHash . vcSigningKey
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
-type VssCertificatesMap = HashMap StakeholderId VssCertificate
+newtype VssCertificatesMap = VssCertificatesMap
+    { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
+    deriving (Eq, Show, Generic, NFData, Monoid, Container, NontrivialContainer)
 
--- | Safe constructor of 'VssCertificatesMap'. TODO: wrap into newtype.
+type instance Element VssCertificatesMap = VssCertificate
+
+memberVss :: StakeholderId -> VssCertificatesMap -> Bool
+memberVss id (VssCertificatesMap m) = HM.member id m
+
+lookupVss :: StakeholderId -> VssCertificatesMap -> Maybe VssCertificate
+lookupVss id (VssCertificatesMap m) = HM.lookup id m
+
+insertVss :: VssCertificate -> VssCertificatesMap -> VssCertificatesMap
+insertVss c (VssCertificatesMap m) =
+    VssCertificatesMap (HM.insert (getCertId c) c m)
+
+deleteVss :: StakeholderId -> VssCertificatesMap -> VssCertificatesMap
+deleteVss id (VssCertificatesMap m) = VssCertificatesMap (HM.delete id m)
+
+-- | Safe constructor of 'VssCertificatesMap'.
 mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
-mkVssCertificatesMap = HM.fromList . map toCertPair
+mkVssCertificatesMap = VssCertificatesMap . HM.fromList . map toCertPair
   where
     toCertPair vc = (getCertId vc, vc)
 

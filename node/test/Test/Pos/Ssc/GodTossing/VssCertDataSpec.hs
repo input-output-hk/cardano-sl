@@ -20,9 +20,10 @@ import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts,
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..),
                                         VssCertificate (..), delete, empty, expiryEoS,
-                                        filter, getCertId, gsVssCertificates, insert,
-                                        keys, lookup, member, mkVssCertificate,
-                                        rollbackGT, runPureToss, setLastKnownSlot)
+                                        filter, getCertId, getVssCertificatesMap,
+                                        gsVssCertificates, insert, keys, lookup, member,
+                                        mkVssCertificate, rollbackGT, runPureToss,
+                                        setLastKnownSlot)
 import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
                                         SlotId (..))
 import           Pos.Util.Chrono       (NewestFirst (..))
@@ -128,12 +129,12 @@ isConsistent (getVssCertData -> VssCertData{..}) =
     expirySlotSetPairs        = S.toList whenExpire
     insertedSlots             = map fst insSlotSetPairs
     expiredSlots              = map fst expirySlotSetPairs
-    certsStakeholders         = S.fromList $ HM.keys certs
+    certsStakeholders         = S.fromList $ HM.keys $ getVssCertificatesMap certs
     certsInsStakeholders      = S.fromList $ HM.keys whenInsMap
     slotsFromCertsIns         = S.fromList $ map swap $ HM.toList whenInsMap
     insSlotSetStakeholders    = S.fromList $ map snd insSlotSetPairs
     expirySlotSetStakeholders = S.fromList $ map snd expirySlotSetPairs
-    notExpiredCertificates    = S.fromList $ HM.elems certs
+    notExpiredCertificates    = S.fromList $ toList certs
     expiredCertificatesData   = S.toList expiredCerts
     expiredCertificatesSlots  = map fst expiredCertificatesData
     expiredCertificates       = S.fromList $ map (view _3 . snd) expiredCertificatesData

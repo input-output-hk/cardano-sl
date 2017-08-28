@@ -25,6 +25,7 @@ import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
                                                   InnerSharesMap, Opening,
                                                   SignedCommitment, VssCertificate,
+                                                  VssCertificatesMap (..),
                                                   getCommitmentsMap,
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
@@ -120,7 +121,7 @@ normalizeToss epoch TossModifier {..} =
         ( HM.toList (getCommitmentsMap _tmCommitments)
         , HM.toList _tmOpenings
         , HM.toList _tmShares
-        , HM.toList _tmCertificates)
+        , HM.toList (getVssCertificatesMap _tmCertificates))
 
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
@@ -132,7 +133,7 @@ refreshToss epoch TossModifier {..} = do
         takeMostValuable epoch (HM.toList (getCommitmentsMap _tmCommitments))
     opens <- takeMostValuable epoch (HM.toList _tmOpenings)
     shares <- takeMostValuable epoch (HM.toList _tmShares)
-    certs <- takeMostValuable epoch (HM.toList _tmCertificates)
+    certs <- takeMostValuable epoch (HM.toList (getVssCertificatesMap _tmCertificates))
     normalizeTossDo epoch (comms, opens, shares, certs)
 
 takeMostValuable
@@ -163,7 +164,7 @@ normalizeTossDo epoch (comms, opens, shares, certs) = do
         comms
     putsUseful $ map (flip OpeningsPayload mempty . one) opens
     putsUseful $ map (flip SharesPayload mempty . one) shares
-    putsUseful $ map (CertificatesPayload . one) certs
+    putsUseful $ map (CertificatesPayload . VssCertificatesMap . one) certs
   where
     putsUseful :: [GtPayload] -> m ()
     putsUseful entries = do

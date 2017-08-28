@@ -43,8 +43,8 @@ import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
 import           Pos.Core                              (EpochIndex, HasCoreConstants,
                                                         SlotId (..), StakeholderId,
-                                                        Timestamp (..), addressHash,
-                                                        bvdMpcThd, getOurSecretKey,
+                                                        Timestamp (..), bvdMpcThd,
+                                                        getOurSecretKey,
                                                         getOurStakeholderId, getSlotIndex,
                                                         mkLocalSlotIndex,
                                                         slotSecurityParam)
@@ -70,11 +70,12 @@ import           Pos.Ssc.GodTossing.Constants          (mdNoCommitmentsEpochThre
                                                         mpcSendInterval, vssMaxTTL)
 import           Pos.Ssc.GodTossing.Core               (Commitment (..), SignedCommitment,
                                                         VssCertificate (..),
-                                                        VssCertificatesMap,
+                                                        VssCertificatesMap (..),
                                                         genCommitmentAndOpening,
                                                         getCommitmentsMap,
                                                         isCommitmentIdx, isOpeningIdx,
-                                                        isSharesIdx, mkSignedCommitment,
+                                                        isSharesIdx, lookupVss, memberVss,
+                                                        mkSignedCommitment,
                                                         mkVssCertificate)
 import           Pos.Ssc.GodTossing.Functions          (hasCommitment, hasOpening,
                                                         hasShares, vssThreshold)
@@ -170,7 +171,7 @@ checkNSendOurCert sendActions = do
         Nothing -> pass
         Just sl -> do
             globalCerts <- getGlobalCerts sl
-            let ourCertMB = HM.lookup ourId globalCerts
+            let ourCertMB = lookupVss ourId globalCerts
             case ourCertMB of
                 Just ourCert
                     | vcExpiryEpoch ourCert >= siEpoch sl ->
@@ -187,7 +188,7 @@ checkNSendOurCert sendActions = do
     getOurVssCertificateDo :: SlotId -> VssCertificatesMap -> m VssCertificate
     getOurVssCertificateDo slot certs = do
         ourId <- getOurStakeholderId
-        case HM.lookup ourId certs of
+        case lookupVss ourId certs of
             Just c -> return c
             Nothing -> do
                 ourSk <- getOurSecretKey
@@ -211,7 +212,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
         ourId <- getOurStakeholderId
         shouldSendCommitment <- andM
             [ not . hasCommitment ourId <$> gtGetGlobalState
-            , HM.member ourId <$> getStableCerts siEpoch]
+            , memberVss ourId <$> getStableCerts siEpoch]
         logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
         when shouldSendCommitment $ do
             ourCommitment <- SS.getOurCommitment siEpoch
@@ -355,13 +356,13 @@ generateAndSetNewSecret sk SlotId {..} = do
     certs <- getStableCerts siEpoch
     inAssertMode $ do
         let participantIds =
-                map (addressHash . vcSigningKey) $
+                HM.keys . getVssCertificatesMap $
                 computeParticipants (getKeys richmen) certs
         logDebug $
             sformat ("generating secret for: " %listJson) $ participantIds
     let participants = nonEmpty $
                        map (second vcVssKey) $
-                       HM.toList $
+                       HM.toList . getVssCertificatesMap $
                        computeParticipants (getKeys richmen) certs
     maybe (Nothing <$ warnNoPs) (generateAndSetNewSecretDo richmen) participants
   where

@@ -32,4 +32,3 @@ instance Bi SlottingData where
             if isValidSlottingDataMap slottingData
                 then pure $ createSlottingDataUnsafe slottingData
                 else fail "Invalid slotting data state!"
-

@@ -6,10 +6,10 @@ module Test.Pos.Explorer.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec     (Spec, describe)
+import           Test.Hspec    (Spec, describe)
 
-import           Pos.Explorer   (TxExtra)
-import           Test.Pos.Util  (binaryTest)
+import           Pos.Explorer  (TxExtra)
+import           Test.Pos.Util (binaryTest)
 
 
 spec :: Spec

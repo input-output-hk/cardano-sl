@@ -29,6 +29,7 @@ import           Universum
 
 import           Pos.Core                       (EpochIndex)
 import           Pos.Crypto                     (VssKeyPair)
+import           Pos.Ssc.GodTossing.Behavior    (GtBehavior)
 import           Pos.Ssc.GodTossing.Core        (CommitmentsMap (getCommitmentsMap),
                                                  Opening, OpeningsMap, SharesMap,
                                                  SignedCommitment)
@@ -97,9 +98,11 @@ instance Buildable GtGlobalState where
                 (VCD.keys _gsVssCertificates)
 
 data GtParams = GtParams
-    { gtpSscEnabled :: !Bool              -- ^ Whether node should participate in SSC
-                                          -- in case SSC requires participation.
-    , gtpVssKeyPair :: !VssKeyPair        -- ^ Key pair used for secret sharing
+    { gtpSscEnabled :: !Bool        -- ^ Whether node should participate in
+                                    --    SSC in case SSC requires
+                                    --    participation.
+    , gtpVssKeyPair :: !VssKeyPair  -- ^ Key pair used for secret sharing
+    , gtpBehavior   :: !GtBehavior  -- ^ Settings for the algorithm
     }
 
 data GtContext = GtContext
@@ -107,12 +110,17 @@ data GtContext = GtContext
       -- | Vss key pair used for MPC.
       gtcVssKeyPair     :: !VssKeyPair
     , -- | Flag which determines whether we want to participate in SSC.
+      -- TODO: consider putting it into GtBehavior?
       gtcParticipateSsc :: !(TVar Bool)
+    , -- | Settings for the algorithm
+      gtcBehavior       :: !(TVar GtBehavior)
     }
 
 createGtContext :: MonadIO m => GtParams -> m GtContext
 createGtContext GtParams {..} =
-    GtContext gtpVssKeyPair <$> newTVarIO gtpSscEnabled
+    GtContext gtpVssKeyPair
+          <$> newTVarIO gtpSscEnabled
+          <*> newTVarIO gtpBehavior
 
 ----------------------------------------------------------------------------
 -- Secret storage

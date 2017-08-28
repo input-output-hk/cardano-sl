@@ -10,7 +10,8 @@ import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 
 import           Pos.Arbitrary.Core    ()
-import           Pos.Core              (makePubKeyAddress, makePubKeyHdwAddress)
+import           Pos.Core              (IsBootstrapEraAddr (..), makePubKeyAddress,
+                                        makePubKeyHdwAddress)
 import           Pos.Crypto            (PublicKey)
 import           Pos.Crypto.HD         (HDAddressPayload (..))
 
@@ -19,7 +20,8 @@ spec = describe "Address" $ modifyMaxSuccess (min 10) $ do
     prop "PK and HDW addresses with same public key are shown differently"
          pkAndHdwAreShownDifferently
 
-pkAndHdwAreShownDifferently :: PublicKey -> Bool
-pkAndHdwAreShownDifferently pk =
-    (show (makePubKeyAddress pk)) /=
-    (show @_ @Text (makePubKeyHdwAddress (HDAddressPayload "pataq") pk))
+pkAndHdwAreShownDifferently :: Bool -> PublicKey -> Bool
+pkAndHdwAreShownDifferently isBootstrap pk =
+    show (makePubKeyAddress (IsBootstrapEraAddr isBootstrap) pk) /=
+    (show @_ @Text (makePubKeyHdwAddress (IsBootstrapEraAddr isBootstrap)
+                    (HDAddressPayload "pataq") pk))

@@ -18,9 +18,10 @@ import           Pos.Binary.Core.Types ()
 import           Pos.Binary.Crypto     ()
 import           Pos.Core.Types        (AddrAttributes (..), AddrSpendingData (..),
                                         AddrStakeDistribution (..), AddrType (..),
-                                        Address (..), Address' (..))
+                                        Address (..), Address' (..), mkMultiKeyDistr)
 import           Pos.Data.Attributes   (Attributes (..), decodeAttributes,
                                         encodeAttributes)
+import           Pos.Util.Util         (eitherToFail)
 
 ----------------------------------------------------------------------------
 -- Helper types serialization
@@ -85,14 +86,14 @@ instance Bi AddrStakeDistribution where
         \case
             BootstrapEraDistr -> encodeListLen 0
             SingleKeyDistr id -> encode (w8 0, id)
-            MultiKeyDistr distr -> encode (w8 1, distr)
+            UnsafeMultiKeyDistr distr -> encode (w8 1, distr)
     decode =
         decodeListLen >>= \case
             0 -> pure BootstrapEraDistr
             2 ->
                 decode @Word8 >>= \case
                     0 -> SingleKeyDistr <$> decode
-                    1 -> MultiKeyDistr <$> decode
+                    1 -> eitherToFail . mkMultiKeyDistr =<< decode
                     tag ->
                         fail $
                         "decode @AddrStakeDistribution: unexpected tag " <>

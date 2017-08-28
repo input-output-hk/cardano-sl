@@ -28,7 +28,7 @@ data AttackTarget
     | PubKeyAddressTarget { attPkAddr :: StakeholderId}
     deriving (Eq, Show)
 
--- TODO Move to Pos.Secirity.Types
+-- TODO Move to Pos.Security.Types
 
 data NodeAttackedError = AttackNoBlocksTriggered
     deriving Show

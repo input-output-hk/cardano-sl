@@ -5,32 +5,33 @@ module Testnet
        , rearrangeKeyfile
        ) where
 
-import           Control.Lens         ((?~))
-import qualified Serokell.Util.Base64 as B64
-import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
-                                       verifyGeneric)
-import           System.Random        (randomRIO)
-import           System.Wlog          (WithLogger)
 import           Universum
 
-import           Pos.Binary           (asBinary)
-import qualified Pos.Constants        as Const
-import           Pos.Core             (deriveLvl2KeyPair)
-import           Pos.Crypto           (EncryptedSecretKey, PublicKey, RedeemPublicKey,
-                                       SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
-                                       redeemDeterministicKeyGen, safeKeyGen,
-                                       secureRandomBS, toPublic, toVssPublicKey,
-                                       vssKeyGen)
-import           Pos.Genesis          (StakeDistribution (..), accountGenesisIndex,
-                                       wAddressGenesisIndex)
-import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
-import           Pos.Types            (Address, coinPortionToDouble, unsafeIntegerToCoin)
-import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
-                                       usPrimKey, usVss, usWalletSet,
-                                       writeUserSecretRelease)
+import           Control.Lens          ((?~))
+import qualified Serokell.Util.Base64  as B64
+import           Serokell.Util.Verify  (VerificationRes (..), formatAllErrors,
+                                        verifyGeneric)
+import           System.Random         (randomRIO)
+import           System.Wlog           (WithLogger)
+
+import           Pos.Binary            (asBinary)
+import qualified Pos.Constants         as Const
+import           Pos.Core              (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPublicKey,
+                                        SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
+                                        redeemDeterministicKeyGen, safeKeyGen,
+                                        secureRandomBS, toPublic, toVssPublicKey,
+                                        vssKeyGen)
+import           Pos.Genesis           (StakeDistribution (..), accountGenesisIndex,
+                                        wAddressGenesisIndex)
+import           Pos.Ssc.GodTossing    (VssCertificate, mkVssCertificate)
+import           Pos.Types             (Address, coinPortionToDouble, unsafeIntegerToCoin)
+import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
+                                        usPrimKey, usVss, usWalletSet,
+                                        writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
 
-import           KeygenOptions        (TestStakeOptions (..))
+import           KeygenOptions         (TestStakeOptions (..))
 
 rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
@@ -44,7 +45,8 @@ generateKeyfile
     => Bool
     -> Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
     -> FilePath
-    -> m (PublicKey, VssCertificate, Address)  -- ^ plain key, certificate & hd wallet account address
+    -> m (PublicKey, VssCertificate, Address)  -- ^ plain key, certificate & hd wallet
+                                               -- account address with bootstrap era distribution
 generateKeyfile isPrim mbSk fp = do
     initializeUserSecret fp
     (sk, hdwSk) <- case mbSk of
@@ -65,9 +67,11 @@ generateKeyfile isPrim mbSk fp = do
         randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
+        -- This address is used only to create genesis data. We don't
+        -- put it into a keyfile.
         hdwAccountPk =
             fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
-            deriveLvl2KeyPair emptyPassphrase hdwSk
+            deriveLvl2KeyPair (IsBootstrapEraAddr True) emptyPassphrase hdwSk
                 accountGenesisIndex wAddressGenesisIndex
     return (toPublic sk, vssCert, hdwAccountPk)
 

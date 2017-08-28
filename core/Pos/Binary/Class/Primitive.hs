@@ -10,6 +10,7 @@ module Pos.Binary.Class.Primitive
        -- * Unsafe deserialization
        , unsafeDeserialize
        , unsafeDeserialize'
+       , CBOR.Write.toStrictByteString
        , putCopyBi
        , getCopyBi
        , Raw(..)
@@ -24,9 +25,15 @@ module Pos.Binary.Class.Primitive
        -- * Low-level, fine-grained functions
        , deserializeOrFail
        , deserializeOrFail'
+       -- * CBOR in CBOR
+       , encodeKnownCborDataItem
+       , encodeUnknownCborDataItem
+       , decodeKnownCborDataItem
+       , decodeUnknownCborDataItem
        ) where
 
 import qualified Codec.CBOR.Decoding           as D
+import qualified Codec.CBOR.Encoding           as E
 import qualified Codec.CBOR.Read               as CBOR.Read
 import qualified Codec.CBOR.Write              as CBOR.Write
 import           Control.Exception             (throw)
@@ -185,3 +192,51 @@ fromBinaryM = either (fail . toString) return . fromBinary
 biSize :: Bi a => a -> Byte
 biSize = fromIntegral . BS.length . serialize'
 {-# INLINE biSize #-}
+
+----------------------------------------------------------------------------
+-- CBORDataItem
+-- https://tools.ietf.org/html/rfc7049#section-2.4.4.1
+----------------------------------------------------------------------------
+
+-- | Encode and serialise the given `a` and sorrounds it with the semantic tag 24.
+-- In CBOR diagnostic notation:
+-- >>> 24(h'DEADBEEF')
+encodeKnownCborDataItem :: Bi a => a -> E.Encoding
+encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize'
+
+-- | Like `encodeKnownCborDataItem`, but assumes nothing about the shape of
+-- input object, so that it must be passed as a binary `ByteString` blob.
+-- It's the caller responsibility to ensure the input `ByteString` correspond
+-- indeed to valid, previously-serialised CBOR data.
+encodeUnknownCborDataItem :: ByteString -> E.Encoding
+encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
+
+-- | Remove the the semantic tag 24 from the enclosed CBOR data item,
+-- failing if the tag cannot be found.
+decodeCborDataItemTag :: D.Decoder s ()
+decodeCborDataItemTag = do
+    t <- D.decodeTag
+    when (t /= 24) $ fail $
+        "decodeCborDataItem: expected a bytestring with \
+        \CBOR (marked by tag 24), found tag: " <> show t
+
+-- | Remove the the semantic tag 24 from the enclosed CBOR data item,
+-- decoding back the inner `ByteString` as a proper Haskell type.
+-- Consume its input in full.
+decodeKnownCborDataItem :: Bi a => D.Decoder s a
+decodeKnownCborDataItem = do
+    bs <- decodeUnknownCborDataItem
+    case decodeFull bs of
+        Left e  -> fail (toString e)
+        Right v -> pure v
+
+-- | Like `decodeKnownCborDataItem`, but assumes nothing about the Haskell
+-- type we want to deserialise back, therefore it yields the `ByteString`
+-- Tag 24 sorrounded (stripping such tag away).
+-- In CBOR notation, if the data was serialised as:
+-- >>> 24(h'DEADBEEF')
+-- then `decodeUnknownCborDataItem` yields the inner 'DEADBEEF', unchanged.
+decodeUnknownCborDataItem :: D.Decoder s ByteString
+decodeUnknownCborDataItem = do
+    decodeCborDataItemTag
+    D.decodeBytes

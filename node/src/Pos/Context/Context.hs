@@ -25,45 +25,42 @@ module Pos.Context.Context
        , RecoveryHeader
        , MonadRecoveryHeader
        , ConnectedPeers(..)
-       , BlkSemaphore(..)
        ) where
 
 import           Universum
 
-import qualified Control.Concurrent.STM        as STM
-import           Control.Lens                  (lens, makeLensesWith)
-import           Data.Time.Clock               (UTCTime)
-import           Ether.Internal                (HasLens (..))
-import           System.Wlog                   (LoggerConfig)
+import qualified Control.Concurrent.STM   as STM
+import           Control.Lens             (lens, makeLensesWith)
+import           Data.Time.Clock          (UTCTime)
+import           Ether.Internal           (HasLens (..))
+import           System.Wlog              (LoggerConfig)
 
-import           Pos.Block.Core                (BlockHeader)
-import           Pos.Block.RetrievalQueue      (BlockRetrievalQueue,
-                                                BlockRetrievalQueueTag)
-import           Pos.Block.Slog.Types          (HasSlogContext (..), SlogContext (..))
-import           Pos.Communication.Types       (NodeId)
-import           Pos.Core                      (GenesisWStakeholders (..),
-                                                HasPrimaryKey (..), HeaderHash, Timestamp)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance)
-import           Pos.DHT.Real.Param            (KademliaParams)
-import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
-import           Pos.Lrc.Context               (LrcContext)
-import           Pos.Network.Types             (NetworkConfig (..))
-import           Pos.Reporting.MemState        (HasLoggerConfig (..),
-                                                HasReportServers (..),
-                                                HasReportingContext (..),
-                                                ReportingContext (..))
-import           Pos.Security.Params           (SecurityParams)
-import           Pos.Shutdown                  (HasShutdownContext (..),
-                                                ShutdownContext (..))
-import           Pos.Slotting                  (HasSlottingVar (..), SlottingContextSum,
-                                                SlottingData)
-import           Pos.Ssc.Class.Types           (HasSscContext (..), Ssc (SscNodeContext))
-import           Pos.Txp.Settings              (TxpGlobalSettings)
-import           Pos.Txp.Toil.Types            (GenesisUtxo (..))
-import           Pos.Update.Context            (UpdateContext)
-import           Pos.Update.Params             (UpdateParams)
-import           Pos.Util.UserSecret           (HasUserSecret (..), UserSecret)
-import           Pos.Util.Util                 (postfixLFields)
+import           Pos.Block.Core           (BlockHeader)
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
+import           Pos.Block.Slog.Types     (HasSlogContext (..), SlogContext (..))
+import           Pos.Communication.Types  (NodeId)
+import           Pos.Core                 (GenesisWStakeholders (..), HasPrimaryKey (..),
+                                           Timestamp)
+import           Pos.DHT.Real.Param       (KademliaParams)
+import           Pos.DHT.Real.Types       (KademliaDHTInstance)
+import           Pos.Infra.Semaphore      (BlkSemaphore)
+import           Pos.Launcher.Param       (BaseParams (..), NodeParams (..))
+import           Pos.Lrc.Context          (LrcContext)
+import           Pos.Network.Types        (NetworkConfig (..))
+import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
+                                           HasReportingContext (..),
+                                           ReportingContext (..))
+import           Pos.Security.Params      (SecurityParams)
+import           Pos.Shutdown             (HasShutdownContext (..), ShutdownContext (..))
+import           Pos.Slotting             (HasSlottingVar (..), SlottingContextSum,
+                                           SlottingData)
+import           Pos.Ssc.Class.Types      (HasSscContext (..), Ssc (SscNodeContext))
+import           Pos.Txp.Settings         (TxpGlobalSettings)
+import           Pos.Txp.Toil.Types       (GenesisUtxo (..))
+import           Pos.Update.Context       (UpdateContext)
+import           Pos.Update.Params        (UpdateParams)
+import           Pos.Util.UserSecret      (HasUserSecret (..), UserSecret)
+import           Pos.Util.Util            (postfixLFields)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -85,7 +82,6 @@ type MonadRecoveryHeader ssc ctx m
      = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc))
 
 newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
-newtype BlkSemaphore = BlkSemaphore { unBlkSemaphore :: MVar HeaderHash }
 newtype StartTime = StartTime { unStartTime :: UTCTime }
 
 data SscContextTag

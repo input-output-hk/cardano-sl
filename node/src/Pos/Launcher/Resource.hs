@@ -45,8 +45,8 @@ import           Pos.Binary                 ()
 import           Pos.Block.Slog             (mkSlogContext)
 import           Pos.Client.CLI.Util        (readLoggerConfig)
 import qualified Pos.Constants              as Const
-import           Pos.Context                (BlkSemaphore (..), ConnectedPeers (..),
-                                             NodeContext (..), StartTime (..))
+import           Pos.Context                (ConnectedPeers (..), NodeContext (..),
+                                             StartTime (..))
 import           Pos.Core                   (HasCoreConstants, Timestamp)
 import           Pos.DB                     (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                  (initNodeDBs)
@@ -54,6 +54,7 @@ import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
+import           Pos.Infra.Semaphore        (BlkSemaphore (..))
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)

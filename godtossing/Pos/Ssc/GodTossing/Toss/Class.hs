@@ -103,7 +103,7 @@ class MonadTossRead m =>
     putCommitment :: SignedCommitment -> m ()
 
     -- | Put 'Opening' from given stakeholder into state.
-    putOpening :: StakeholderId -> Opening  -> m ()
+    putOpening :: StakeholderId -> Opening -> m ()
 
     -- | Put 'InnerShares' from given stakeholder into state.
     putShares :: StakeholderId -> InnerSharesMap -> m ()

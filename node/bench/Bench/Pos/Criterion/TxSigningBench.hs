@@ -5,31 +5,26 @@ module Bench.Pos.Criterion.TxSigningBench
 import           Criterion.Main           (Benchmark, bench, defaultConfig,
                                            defaultMainWith, env, whnf)
 import           Criterion.Types          (Config (..))
-import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import           Test.QuickCheck          (generate)
 import           Universum
 
 import           Pos.Arbitrary.Txp.Unsafe ()
-import           Pos.Crypto               (SecretKey, SignTag (SignTx), hash, sign)
+import           Pos.Crypto               (SecretKey, SignTag (SignTx), sign)
 import           Pos.Ssc.GodTossing       ()
-import           Pos.Txp                  (TxDistribution (..), TxId, TxOut, TxSig,
-                                           TxSigData (..))
+import           Pos.Txp                  (TxId, TxSig, TxSigData (..))
 import           Pos.Util                 (arbitraryUnsafe)
 
-signTx :: (SecretKey, TxId, NonEmpty TxOut) -> TxSig
-signTx (sk, thash, touts) = sign SignTx sk txSigData
+signTx :: (SecretKey, TxId) -> TxSig
+signTx (sk, thash) = sign SignTx sk txSigData
   where
-    distr = TxDistribution ([] :| replicate (length touts - 1) [])
     txSigData = TxSigData
         { txSigTxHash = thash
-        , txSigTxDistrHash = hash distr
         }
 
 txSignBench :: Benchmark
 txSignBench = env genArgs $ bench "Transactions signing" . whnf signTx
-  where genArgs = generate $ (,,)
+  where genArgs = generate $ (,)
                   <$> arbitraryUnsafe
-                  <*> arbitraryUnsafe
                   <*> arbitraryUnsafe
 
 txSignConfig :: Config

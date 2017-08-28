@@ -2,13 +2,14 @@ let
   fixedNixpkgs = (import ./lib.nix).fetchNixPkgs;
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
-  , scrubJobs ? true
+  , scrubJobs ? false
   , dconfigs ? [ "testnet_staging" ]
   , cardano ? { outPath = ./.; rev = "abcdef"; }
 }:
 with import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; packageSet = import ./.; };
 with builtins;
 let
+  rlib = import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; };
   lib = import ./lib.nix;
   pkgs = import lib.fetchNixPkgs { config={}; };
   mkJob = dconfig: system: let
@@ -28,3 +29,4 @@ let
     value = jobs;
   };
 in (listToAttrs (map mkDconfigs dconfigs))
+   // (rlib.mapTestOn { purescript = supportedSystems; })

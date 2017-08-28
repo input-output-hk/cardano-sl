@@ -8,8 +8,11 @@ import           Universum
 
 import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
-                                                   deriveSimpleBi, deserialize',
-                                                   encodeListLen, enforceSize, serialize')
+                                                   decodeKnownCborDataItem,
+                                                   decodeUnknownCborDataItem,
+                                                   deriveSimpleBi,
+                                                   encodeKnownCborDataItem, encodeListLen,
+                                                   encodeUnknownCborDataItem, enforceSize)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
@@ -60,14 +63,14 @@ instance Bi MsgSubscribe where
 
 instance Bi HandlerSpec where
   encode input = case input of
-    ConvHandler mname        -> encodeListLen 2 <> encode (0 :: Word8) <> encode (serialize' mname)
-    UnknownHandler word8 bs  -> encodeListLen 2 <> encode word8 <> encode bs
+    ConvHandler mname        -> encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
+    UnknownHandler word8 bs  -> encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
   decode = do
     enforceSize "HandlerSpec" 2
     tag <- decode @Word8
     case tag of
-      0 -> ConvHandler        <$> (deserialize' =<< decode)
-      _ -> UnknownHandler tag <$> decode
+      0 -> ConvHandler        <$> decodeKnownCborDataItem
+      _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

@@ -49,7 +49,7 @@ import qualified Data.Map                   as M
 import qualified Data.Text.Buildable        as B
 import qualified Data.Text.Encoding         as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
-import           Formatting                 (bprint, build, hex, sformat, (%))
+import           Formatting                 (bprint, build, hex, shown, sformat, (%))
 -- TODO should not have to import outboundqueue stuff here. MsgType and
 -- NodeType should be a cardano-sl notion.
 import           Mockable.Class             (Mockable)
@@ -177,7 +177,7 @@ instance Buildable PeerId where
     build (PeerId bs) = buildBS bs
 
 instance Buildable NodeId where
-    build (NodeId (EndPointAddress bs)) = buildBS bs
+    build (NodeId (EndPointAddress bs)) = bprint shown bs
 
 buildBS :: ByteString -> B.Builder
 buildBS = bprint base16F

@@ -24,20 +24,17 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                value)
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
-import qualified Text.Parsec.Char             as P
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
 
-import           Pos.Client.CLI.Options       (CommonArgs(..), commonArgsParser,
+import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
                                                externalNetworkAddressOption,
                                                listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
-import           Pos.Client.CLI.Util          (attackTypeParser, attackTargetParser)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
-import           Pos.Security                 (AttackTarget, AttackType)
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
@@ -46,32 +43,31 @@ import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
                                                addressToNodeId)
 
 data CommonNodeArgs = CommonNodeArgs
-    { dbPath                    :: !FilePath
-    , rebuildDB                 :: !Bool
+    { dbPath              :: !FilePath
+    , rebuildDB           :: !Bool
     -- these two arguments are only used in development mode
-    , devSpendingGenesisI       :: !(Maybe Int)
-    , devVssGenesisI            :: !(Maybe Int)
-    , keyfilePath               :: !FilePath
-    , backupPhrase              :: !(Maybe BackupPhrase)
-    , externalAddress           :: !NetworkAddress
+    , devSpendingGenesisI :: !(Maybe Int)
+    , devVssGenesisI      :: !(Maybe Int)
+    , keyfilePath         :: !FilePath
+    , backupPhrase        :: !(Maybe BackupPhrase)
+    , externalAddress     :: !(Maybe NetworkAddress)
       -- ^ A node must be addressable on the network.
-    , bindAddress               :: !NetworkAddress
+    , bindAddress         :: !(Maybe NetworkAddress)
       -- ^ A node may have a bind address which differs from its external
       -- address.
-    , nodeType                  :: !NodeType
-    , peers                     :: ![(NodeId, NodeType)]
+    , peers               :: ![(NodeId, NodeType)]
       -- ^ Known peers (addresses with classification).
-    , networkConfigOpts         :: !NetworkConfigOpts
+    , networkConfigOpts   :: !NetworkConfigOpts
       -- ^ Network configuration
-    , jlPath                    :: !(Maybe FilePath)
-    , kademliaDumpPath          :: !FilePath
-    , commonArgs                :: !CommonArgs
-    , updateLatestPath          :: !FilePath
-    , updateWithPackage         :: !Bool
-    , noNTP                     :: !Bool
-    , enableMetrics             :: !Bool
-    , ekgParams                 :: !(Maybe EkgParams)
-    , statsdParams              :: !(Maybe StatsdParams)
+    , jlPath              :: !(Maybe FilePath)
+    , kademliaDumpPath    :: !FilePath
+    , commonArgs          :: !CommonArgs
+    , updateLatestPath    :: !FilePath
+    , updateWithPackage   :: !Bool
+    , noNTP               :: !Bool
+    , enableMetrics       :: !Bool
+    , ekgParams           :: !(Maybe EkgParams)
+    , statsdParams        :: !(Maybe StatsdParams)
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -109,10 +105,9 @@ commonNodeArgsParser = do
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet. Words should be separated by spaces.")
     externalAddress <-
-        externalNetworkAddressOption (Just ("0.0.0.0", 0))
+        optional $ externalNetworkAddressOption Nothing
     bindAddress <-
-        listenNetworkAddressOption (Just ("0.0.0.0", 0))
-    nodeType <- nodeTypeOption
+        optional $ listenNetworkAddressOption Nothing
     peers <- (++) <$> corePeersList <*> relayPeersList
     networkConfigOpts <- networkConfigOption
     jlPath <-
@@ -149,44 +144,26 @@ commonNodeArgsParser = do
     corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
     relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
 
-
 data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
 
 data NodeArgs = NodeArgs
-    { sscAlgo                   :: !SscAlgo
-    , maliciousEmulationAttacks :: ![AttackType]
-    , maliciousEmulationTargets :: ![AttackTarget]
+    { sscAlgo            :: !SscAlgo
+    , behaviorConfigPath :: !(Maybe FilePath)
     } deriving Show
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser = do
     commonNodeArgs <- commonNodeArgsParser
     sscAlgo <- sscAlgoOption
-    maliciousEmulationAttacks <-
-        many $ option (fromParsec attackTypeParser) $
-        long    "attack" <>
-        metavar "NoBlocks | NoCommitments" <>
-        help    "Attack type to emulate. This option can be defined more than once."
-    maliciousEmulationTargets <-
-        many $ option (fromParsec attackTargetParser) $
-        long    "attack-target" <>
-        metavar "HOST:PORT | PUBKEYHASH" <>
-        help    "Node for attack. This option can be defined more than once."
-
+    behaviorConfigPath <- behaviorConfigOption
     pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
 
-nodeTypeOption :: Parser NodeType
-nodeTypeOption =
-    option (fromParsec nodeTypeParser) $
-        long "node-type" <>
-        value NodeCore <>
-        metavar "core|relay|edge" <>
-        help "The type of this node (core, relay, edge), default core"
-  where
-    nodeTypeParser =
-            (NodeCore  <$ P.string "core")
-        <|> (NodeRelay <$ P.string "relay")
-        <|> (NodeEdge  <$ P.string "edge")
+behaviorConfigOption :: Parser (Maybe FilePath)
+behaviorConfigOption =
+    optional $ strOption $
+        long "behavior" <>
+        metavar "FILE" <>
+        help "Path to the behavior config"
 
 peerOption :: String -> (NetworkAddress -> (NodeId, NodeType)) -> Parser (NodeId, NodeType)
 peerOption longName mk =

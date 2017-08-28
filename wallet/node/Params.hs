@@ -6,7 +6,8 @@ module Params
 
 import           Universum
 
-import           Mockable            (Catch, Fork, Mockable)
+import           Data.Default        (def)
+import           Mockable            (Catch, Fork, Mockable, Throw)
 import           System.Wlog         (WithLogger)
 
 import           Pos.Client.CLI      (CommonNodeArgs (..))
@@ -17,7 +18,6 @@ import           Pos.Genesis         (devGenesisContext, devStakesDistr,
                                       genesisContextProduction)
 import           Pos.Launcher        (NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
-import           Pos.Security        (SecurityParams (..))
 import           Pos.Update.Params   (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
 
@@ -28,6 +28,7 @@ getNodeParams ::
        , WithLogger m
        , Mockable Fork m
        , Mockable Catch m
+       , Mockable Throw m
        )
     => CommonNodeArgs
     -> Timestamp
@@ -38,8 +39,8 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             CLI.updateUserSecretVSS args =<<
                 peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    let npTransport = CLI.getTransportParams args npNetworkConfig
-        devStakeDistr =
+    npTransport <- CLI.getTransportParams args npNetworkConfig
+    let devStakeDistr =
             devStakesDistr
                 (CLI.flatDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
@@ -61,10 +62,7 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             , upUpdateWithPkg = updateWithPackage
             , upUpdateServers = CLI.updateServers commonArgs
             }
-        , npSecurityParams = SecurityParams
-            { spAttackTypes   = []
-            , spAttackTargets = []
-            }
+        , npBehaviorConfig = def
         , npUseNTP = not noNTP
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams

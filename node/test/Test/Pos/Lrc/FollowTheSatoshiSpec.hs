@@ -8,26 +8,23 @@ module Test.Pos.Lrc.FollowTheSatoshiSpec
 import           Universum
 
 import           Data.List             (scanl1)
-import qualified Data.Map              as M (fromList, insert, singleton)
-import qualified Data.Set              as S (deleteFindMin, fromList, size)
+import qualified Data.Set              as S (deleteFindMin, fromList)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
 
-import           Pos.Core              (Coin, HasCoreConstants, SharedSeed, addressHash,
-                                        blkSecurityParam, epochSlots, giveStaticConsts,
-                                        makePubKeyAddress, mkCoin, sumCoins,
+import           Pos.Core              (Coin, HasCoreConstants, SharedSeed, StakeholderId,
+                                        StakesList, addressHash, blkSecurityParam,
+                                        epochSlots, giveStaticConsts, mkCoin, sumCoins,
                                         unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Crypto            (PublicKey, unsafeHash)
-import           Pos.Lrc               (followTheSatoshiUtxo)
-import           Pos.Txp               (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
-                                        txOutStake)
+import           Pos.Crypto            (PublicKey)
+import           Pos.Lrc               (followTheSatoshi)
 
 spec :: Spec
 spec = giveStaticConsts $ do
     let smaller = modifyMaxSuccess (const 1)
-    describe "FollowTheSatoshi" $ do
-        describe "followTheSatoshiUtxo" $ do
+    describe "Pos.Lrc.FtsPure" $ do
+        describe "followTheSatoshi" $ do
             describe "deterministic" $ do
                 prop description_ftsListLength ftsListLength
                 prop description_ftsNoStake ftsNoStake
@@ -59,24 +56,16 @@ spec = giveStaticConsts $ do
         acceptable present (1 - (1 - highStake) ^ pLen) &&
         acceptable chosen highStake
 
--- | Type used to generate random Utxo and a 'PublicKey' that is not
--- in this map, meaning it does not hold any stake in the system's
--- current state.
+-- | Type used to generate random stakes and a 'PublicKey' that
+-- doesn't have any stake.
 --
 -- Two necessarily different public keys are generated, as well as a list of
 -- public keys who will be our other stakeholders. To guarantee a non-empty
--- utxo map, one of these public keys is inserted in the list, which is
--- converted to a set and then to a map, where each public key is given as key
--- a random pair (TxId, Coin).
+-- stakes map, one of these public keys is inserted in the list, which is
+-- converted to a set and then to a map.
 newtype StakeAndHolder = StakeAndHolder
-    { getNoStake :: (PublicKey, Utxo)
+    { getNoStake :: (PublicKey, StakesList)
     } deriving Show
-
-toTxOutAux :: PublicKey -> Coin -> TxOutAux
-toTxOutAux pk v = TxOutAux (TxOut addr v) distr
-  where
-    addr = makePubKeyAddress pk
-    distr = [(addressHash pk, v)]
 
 instance Arbitrary StakeAndHolder where
     arbitrary = StakeAndHolder <$> do
@@ -85,44 +74,38 @@ instance Arbitrary StakeAndHolder where
         listPks <- do
             n <- choose (2, 10)
             replicateM n arbitrary
-        txId <- arbitrary
         coins <- mkCoin <$> choose (1, 1000)
         let setPks :: Set PublicKey
             setPks = S.fromList $ pk1 : pk2 : listPks
-            (myPk, setUtxo) = S.deleteFindMin setPks
-            nAdr = S.size setUtxo
-            values = scanl1 unsafeAddCoin $ replicate nAdr coins
-            utxoList =
-                (zipWith TxIn (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
-                (zipWith toTxOutAux (toList setUtxo) values)
-        return (myPk, M.fromList utxoList)
+            (myPk, restPks) = S.deleteFindMin setPks
+            nRest = length restPks
+            values = scanl1 unsafeAddCoin $ replicate nRest coins
+            stakesList = map addressHash (toList restPks) `zip` values
+        return (myPk, stakesList)
 
 ftsListLength :: HasCoreConstants => SharedSeed -> StakeAndHolder -> Bool
-ftsListLength fts (getNoStake -> (_, utxo)) =
-    length (followTheSatoshiUtxo fts utxo) == fromIntegral epochSlots
+ftsListLength seed (getNoStake -> (_, stakes)) =
+    length (followTheSatoshi seed stakes) == fromIntegral epochSlots
 
 ftsNoStake
     :: HasCoreConstants
     => SharedSeed
     -> StakeAndHolder
     -> Bool
-ftsNoStake fts (getNoStake -> (addressHash -> sId, utxo)) =
-    not (sId `elem` followTheSatoshiUtxo fts utxo)
+ftsNoStake seed (getNoStake -> (addressHash -> sId, stakes)) =
+    not (sId `elem` followTheSatoshi seed stakes)
 
--- | This test looks useless, but since transactions with zero coins are not
--- allowed, the Utxo map will never have any addresses with 0 coins to them,
--- meaning a situation where a stakeholder has 100% of stake is one where the
--- map has a single element.
+-- It will be broken if 'Coin' is 0, but 'arbitrary' can't generate 0
+-- for unknown reason.
 ftsAllStake
     :: HasCoreConstants
     => SharedSeed
-    -> TxIn
     -> PublicKey
     -> Coin
     -> Bool
-ftsAllStake fts input pk v =
-    let utxo = M.singleton input (toTxOutAux pk v)
-    in all (== addressHash pk) $ followTheSatoshiUtxo fts utxo
+ftsAllStake seed pk v =
+    let stakes = [(addressHash pk, v)]
+    in all (== addressHash pk) $ followTheSatoshi seed stakes
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
@@ -138,20 +121,20 @@ newtype FtsStream = Stream
 instance HasCoreConstants => Arbitrary FtsStream where
     arbitrary = Stream . take numberOfRuns <$> infiniteListOf arbitrary
 
-newtype UtxoStream = UtxoStream
-    { getUtxoStream :: [StakeAndHolder]
+newtype StakesStream = StakesStream
+    { getStakesStream :: [StakeAndHolder]
     } deriving Show
 
-instance HasCoreConstants => Arbitrary UtxoStream where
-    arbitrary = UtxoStream . take numberOfRuns <$> infiniteListOf arbitrary
+instance HasCoreConstants => Arbitrary StakesStream where
+    arbitrary = StakesStream . take numberOfRuns <$> infiniteListOf arbitrary
 
--- | This test is a sanity check to verify that 'followTheSatoshiUtxo' does not
+-- | This test is a sanity check to verify that 'followTheSatoshi' does not
 -- behave too extremely, i.e. someone with 2% of stake won't be chosen a
 -- disproportionate number of times, and someone with 98% of it will be
 -- chosen almost every time.
 --
--- For an infinite list of Utxo maps and an infinite list of 'SharedSeed's, the
--- 'followTheSatoshiUtxo' function will be ran many times with a different seed and
+-- For an infinite list of stakes and an infinite list of 'SharedSeed's, the
+-- 'followTheSatoshi' function will be ran many times with a different seed and
 -- map each time and the absolute frequency of the choice of a given address
 -- as stakeholder will be compared to a low/high threshold, depending on whether
 -- the address has a low/high stake, respectively.
@@ -162,19 +145,17 @@ ftsReasonableStake
     => Double
     -> ((Int, Double, Double) -> Bool)
     -> FtsStream
-    -> UtxoStream
+    -> StakesStream
     -> Bool
 ftsReasonableStake
     stakeProbability
     threshold
     (getStream     -> ftsList)
-    (getUtxoStream -> utxoList)
+    (getStakesStream -> utxoList)
   =
     let result = go numberOfRuns (0, 0, 0) ftsList utxoList
     in threshold result
   where
-    key = TxIn (unsafeHash ("this is unsafe" :: Text)) 0
-
     -- We count how many times someone was present in selection and how many
     -- times someone was chosen overall.
     go :: Int
@@ -185,18 +166,20 @@ ftsReasonableStake
     go 0 (pl, p, c)  _  _ = (pl, p, c)
     go _ (pl, p, c) []  _ = (pl, p, c)
     go _ (pl, p, c)  _ [] = (pl, p, c)
-    go total (_, !present, !chosen) (fts : nextSeed) (u : nextUtxo) =
-        go (total - 1) (pLen, newPresent, newChosen) nextSeed nextUtxo
+    go total (_, !present, !chosen) (seed : nextSeed) (u : nextStakes) =
+        go (total - 1) (pLen, newPresent, newChosen) nextSeed nextStakes
       where
-        (pk, utxo) = getNoStake u
-        stId = addressHash pk
-        totalStake   = fromIntegral . sumCoins . map snd $
-                       concatMap txOutStake (toList utxo)
+        (pk, stakes) = getNoStake u
+        stId         = addressHash pk
+        totalStake   :: Double
+        totalStake   = fromIntegral . sumCoins $ map snd stakes
+        newStake     :: Coin
         newStake     = unsafeIntegerToCoin . round $
                            (stakeProbability * totalStake) /
                            (1 - stakeProbability)
-        newUtxo      = M.insert key (toTxOutAux pk newStake) utxo
-        picks        = followTheSatoshiUtxo fts newUtxo
+        newStakes    :: [(StakeholderId, Coin)]
+        newStakes    = (addressHash pk, newStake) : stakes
+        picks        = followTheSatoshi seed newStakes
         pLen         = length picks
         newPresent   = present +
             if stId `elem` picks then 1 / (fromIntegral numberOfRuns) else 0

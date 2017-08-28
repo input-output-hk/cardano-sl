@@ -10,7 +10,8 @@ module Params
 
 import           Universum
 
-import           Mockable              (Catch, Fork, Mockable)
+import           Data.Default          (def)
+import           Mockable              (Catch, Fork, Mockable, Throw)
 import           System.Wlog           (LoggerName, WithLogger)
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
@@ -25,7 +26,6 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
-import           Pos.Security.Params   (SecurityParams (..))
 import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.TimeWarp     (NetworkAddress, readAddrFile)
@@ -42,6 +42,7 @@ gtSscParams Args {..} vssSK =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
+    , gtpBehavior   = def
     }
 
 getBaseParams :: LoggerName -> Args -> BaseParams
@@ -80,6 +81,7 @@ getNodeParams
        , WithLogger     m
        , Mockable Fork  m
        , Mockable Catch m
+       , Mockable Throw m
        )
     => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
@@ -115,13 +117,10 @@ getNodeParams args@Args {..} systemStart = do
             , upUpdateServers = CLI.updateServers commonArgs
             }
         , npReportServers = CLI.reportServers commonArgs
-        , npSecurityParams = SecurityParams
-            { spAttackTypes   = []
-            , spAttackTargets = []
-            }
-          , npUseNTP = not noNTP
-          , npEnableMetrics = enableMetrics
-          , npEkgParams = ekgParams
-          , npStatsdParams = statsdParams
-          , ..
+        , npBehaviorConfig = def
+        , npUseNTP = not noNTP
+        , npEnableMetrics = enableMetrics
+        , npEkgParams = ekgParams
+        , npStatsdParams = statsdParams
+        , ..
         }

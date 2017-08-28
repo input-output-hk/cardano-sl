@@ -20,16 +20,14 @@ import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap 
 import           Serokell.Util                 (allDistinct)
 
 instance Bi Commitment where
-  encode Commitment{..} = encodeListLen 3 <> encode commShares
-                                          <> encode commExtra
+  encode Commitment{..} = encodeListLen 2 <> encode commShares
                                           <> encode commProof
   decode = do
-    enforceSize "Commitment" 3
+    enforceSize "Commitment" 2
     commShares <- decode
     when (null commShares) $ fail "decode@Commitment: no shares"
-    commExtra <- decode
     commProof <- decode
-    return $ Commitment commExtra commProof commShares
+    return $ Commitment commProof commShares
 
 instance Bi CommitmentsMap where
   encode = encodeCommitments

@@ -7,6 +7,7 @@ module Test.Pos.Ssc.GodTossing.Toss.BaseSpec
 import           Universum
 
 import           Control.Lens          (ix)
+import qualified Crypto.Random         as Rand
 import qualified Data.HashMap.Strict   as HM
 import           System.Random         (mkStdGen, randomR)
 import           Test.Hspec            (Spec, describe)
@@ -19,23 +20,22 @@ import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
 import           Pos.Constants         (genesisBlockVersionData)
 import           Pos.Core              (HasCoreConstants, giveStaticConsts)
-import           Pos.Crypto            (PublicKey, SecretKey, Share,
+import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
-import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
-                                        BadSignedCommitment (..), Commitment,
-                                        CommitmentOpening (..), CommitmentSignature,
-                                        CommitmentsMap (..), GtGlobalState (..),
-                                        InnerSharesMap, MultiRichmenStakes, Opening,
-                                        OpeningsMap, PureTossWithEnv, SharesMap,
-                                        SignedCommitment, TossVerFailure (..),
-                                        VssCertData (..), VssCertificate (vcSigningKey),
-                                        VssCertificatesMap, checkCertificatesPayload,
-                                        checkCommitmentsPayload, checkOpeningsPayload,
-                                        checkSharesPayload, gsCommitments, gsOpenings,
-                                        gsShares, gsVssCertificates,
-                                        mkCommitmentsMapUnsafe, runPureToss,
-                                        supplyPureTossEnv, verifyCommitment,
+import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitment (..),
+                                        Commitment, CommitmentOpening (..),
+                                        CommitmentSignature, CommitmentsMap (..),
+                                        GtGlobalState (..), InnerSharesMap,
+                                        MultiRichmenStakes, Opening, OpeningsMap,
+                                        PureTossWithEnv, SharesMap, SignedCommitment,
+                                        TossVerFailure (..), VssCertData (..),
+                                        VssCertificate (vcSigningKey), VssCertificatesMap,
+                                        checkCertificatesPayload, checkCommitmentsPayload,
+                                        checkOpeningsPayload, checkSharesPayload,
+                                        gsCommitments, gsOpenings, gsShares,
+                                        gsVssCertificates, mkCommitmentsMapUnsafe,
+                                        runPureToss, supplyPureTossEnv, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
@@ -44,7 +44,6 @@ spec :: Spec
 spec = giveStaticConsts $ describe "Ssc.GodTossing.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
-        prop description_notVerifiesBadComm notVerifiesBadComm
     describe "verifyCommitmentSignature" $ do
         prop description_verifiesOkCommSig verifiesOkCommSig
         prop description_notVerifiesBadSig notVerifiesBadCommSig
@@ -72,8 +71,6 @@ spec = giveStaticConsts $ describe "Ssc.GodTossing.Base" $ do
   where
     description_verifiesOkComm =
         "successfully verifies a correct commitment commitment"
-    description_notVerifiesBadComm =
-        "unsuccessfully verifies an incorrect commitment"
     description_verifiesOkCommSig =
         "successfully verifies a signed commitment for a given epoch and secret key"
     description_notVerifiesBadSig =
@@ -109,10 +106,6 @@ spec = giveStaticConsts $ describe "Ssc.GodTossing.Base" $ do
 verifiesOkComm :: CommitmentOpening -> Bool
 verifiesOkComm CommitmentOpening{..} =
     verifyCommitment coCommitment
-
-notVerifiesBadComm :: BadCommitment -> Bool
-notVerifiesBadComm (getBadComm -> badComm) =
-    not . verifyCommitment $ badComm
 
 verifiesOkCommSig :: SecretKey -> Commitment -> EpochIndex -> Bool
 verifiesOkCommSig sk comm epoch =
@@ -234,11 +227,11 @@ checksBadCommsPayload
         commMember k = HM.member k . getCommitmentsMap
 
         newCommsMap = wrapCMap (HM.insert sid comm) commsMap
-        commitingNoParticipants =
+        committingNoParticipants =
             tossRunner mrs gtgs $ checkCommitmentsPayload epoch newCommsMap
-        res2 = case commitingNoParticipants of
-            Left (CommitingNoParticipants (s :| [])) -> s == sid
-            _                                        -> False
+        res2 = case committingNoParticipants of
+            Left (CommittingNoParticipants (s :| [])) -> s == sid
+            _                                         -> False
 
         -- Inserting a random stakeholder would perturb the valid richmen stake we already
         -- have, so an existing one must be picked to avoid failing to calculate the
@@ -427,7 +420,7 @@ checksBadSharesPayload
     :: HasCoreConstants
     => GoodSharesPayload
     -> StakeholderId
-    -> NonEmpty (AsBinary Share)
+    -> NonEmpty (AsBinary DecShare)
     -> VssCertificate
     -> Property
 checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) sid ne cert =
@@ -573,13 +566,18 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =
 -- Utility functions for this module
 ----------------------------------------------------------------------------
 
+-- Going to use fake randomness here because threading MonadRandom through
+-- everything is annoying
 tossRunner :: MultiRichmenStakes
            -> GtGlobalState
            -> ExceptT e PureTossWithEnv a
            -> Either e a
 tossRunner mrs gtgs =
-    view _1 . runPureToss gtgs .
-    supplyPureTossEnv (mrs, genesisBlockVersionData) . runExceptT
+    view _1 .
+    fst . Rand.withDRG (Rand.drgNewTest (123,456,789,12345,67890)) .
+    runPureToss gtgs .
+    supplyPureTossEnv (mrs, genesisBlockVersionData) .
+    runExceptT
 
 customHashMapGen
     :: (Hashable k, Eq k)

@@ -14,19 +14,9 @@ let
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
     configureFlags = flags;
   });
-  cleanSource2 = builtins.filterSource (name: type: let
-      f1 = cleanSourceFilter name type;
-      baseName = baseNameOf (toString name);
-      f2 = ! (type == "symlink" && hasSuffix ".root" baseName);
-      f3 = ! (hasSuffix ".root" baseName);
-      f4 = ! (baseName == ".stack-work");
-      f5 = ! (hasSuffix ".nix" baseName);
-      f6 = ! (hasSuffix ".swp" baseName);
-    in f1 && f2 && f3 && f4 && f5 && f6);
 in ((import ./pkgs { inherit pkgs; }).override {
   overrides = self: super: {
     cardano-sl = overrideCabal super.cardano-sl (drv: {
-      src = cleanSource2 drv.src;
       patchPhase = ''
        export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
       '';
@@ -36,11 +26,21 @@ in ((import ./pkgs { inherit pkgs; }).override {
         "-f-dev-mode"
         "--ghc-option=-optl-lm"
       ];
+      testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
+      preCheck = ''
+        mkdir -p dist/test
+        touch dist/test/test.log
+        tail -F dist/test/test.log &
+        export TAILPID=$!
+      '';
+      postCheck = ''
+        sleep 10
+        kill $TAILPID
+      '';
       # waiting on load-command size fix in dyld
       doCheck = ! pkgs.stdenv.isDarwin;
     });
     cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
-      src = cleanSource2 drv.src;
       configureFlags = [
         "-f-embed-config"
         "-f-asserts"
@@ -49,23 +49,12 @@ in ((import ./pkgs { inherit pkgs; }).override {
         "--ghc-options=-DGITREV=${gitrev}"
       ];
     });
-    cardano-sl-tools = overrideCabal super.cardano-sl-tools (drv: {
-      src = cleanSource2 drv.src;
-      # We want to build the `cardano-post-mortem` tool when we are on Linux only,
-      # to make sure it won't bitrot.
-      configureFlags = optionals pkgs.stdenv.isLinux [ "-fwith-post-mortem" ];
+    cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
+    cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
       # waiting on load-command size fix in dyld
       doCheck = ! pkgs.stdenv.isDarwin;
-    });
+    }));
     # TODO: patch cabal2nix to allow this
-    cardano-sl-db = overrideCabal super.cardano-sl-db (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-infra = overrideCabal super.cardano-sl-infra (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-lrc = overrideCabal super.cardano-sl-lrc (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-ssc = overrideCabal super.cardano-sl-ssc (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-txp = overrideCabal super.cardano-sl-txp (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-update = overrideCabal super.cardano-sl-update (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-godtossing = overrideCabal super.cardano-sl-godtossing (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-lwallet = overrideCabal super.cardano-sl-lwallet (drv: { src = cleanSource2 drv.src; });
 
     cardano-sl-static = justStaticExecutables self.cardano-sl;
     cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;

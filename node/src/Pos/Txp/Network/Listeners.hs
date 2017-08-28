@@ -72,9 +72,9 @@ handleTxDo
 handleTxDo txAux = do
     let txId = hash (taTx txAux)
 #ifdef WITH_EXPLORER
-    res <- runExceptT $ eTxProcessTransaction (txId, txAux)
+    res <- eTxProcessTransaction (txId, txAux)
 #else
-    res <- runExceptT $ txProcessTransaction (txId, txAux)
+    res <- txProcessTransaction (txId, txAux)
 #endif
     let json me = jsonLog $ JLTxReceived $ JLTxR
             { jlrTxId     = sformat build txId

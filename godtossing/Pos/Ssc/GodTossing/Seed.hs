@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Calculate shared seed using info sent by nodes participating in the
 -- protocol.
 module Pos.Ssc.GodTossing.Seed
@@ -6,38 +8,40 @@ module Pos.Ssc.GodTossing.Seed
 
 import           Universum
 
-import           Control.Lens                 (_Left)
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.HashSet                 as HS
+import           Control.Lens             (_Left)
+import qualified Data.HashMap.Strict      as HM
+import qualified Data.HashSet             as HS
 
-import           Pos.Binary.Class             (fromBinary, fromBinaryM)
-import           Pos.Core                     (SharedSeed, StakeholderId, addressHash,
-                                               mkCoin, sumCoins, unsafeIntegerToCoin)
-import           Pos.Crypto                   (Secret, Share, unsafeRecoverSecret,
-                                               verifySecretProof)
-import           Pos.Lrc.Types                (RichmenStakes)
-import           Pos.Ssc.GodTossing.Core      (Commitment (..),
-                                               CommitmentsMap (getCommitmentsMap),
-                                               OpeningsMap, SharesMap, getOpening,
-                                               secretToSharedSeed, verifyOpening)
-import           Pos.Ssc.GodTossing.Error     (SeedError (..))
-import           Pos.Ssc.GodTossing.Functions (vssThreshold)
-import           Pos.Util.Util                (getKeys)
-
+import           Pos.Binary.Class         (AsBinary, fromBinaryM)
+import           Pos.Core                 (SharedSeed, StakeholderId, addressHash, mkCoin,
+                                           sumCoins, unsafeIntegerToCoin)
+import           Pos.Crypto               (DecShare, Secret, VssPublicKey, recoverSecret,
+                                           verifySecret)
+import           Pos.Lrc.Types            (RichmenStakes)
+import           Pos.Ssc.GodTossing.Core  (Commitment (..), CommitmentsMap (..),
+                                           Opening (..), OpeningsMap, SharesMap,
+                                           SignedCommitment, getCommShares,
+                                           secretToSharedSeed, verifyOpening,
+                                           vssThreshold)
+import           Pos.Ssc.GodTossing.Error (SeedError (..))
+import           Pos.Util.Util            (getKeys)
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
 -- nodes generate together and agree on.
---
--- TODO: do we need to check secrets' lengths? Probably not.
 calculateSeed
-    :: CommitmentsMap        -- ^ All participating nodes
-    -> OpeningsMap           -- ^ Openings sent by those nodes
-    -> SharesMap             -- ^ Decrypted shares
-    -> RichmenStakes          -- ^ How much stake nodes have
+    :: CommitmentsMap                         -- ^ All participating nodes
+    -> HashMap StakeholderId (AsBinary VssPublicKey) -- ^ Nodes' VSS keys
+    -> OpeningsMap                            -- ^ Openings sent by the nodes
+    -> SharesMap                              -- ^ Decrypted shares
+    -> RichmenStakes                          -- ^ How much stake nodes have
     -> Either SeedError SharedSeed
-calculateSeed commitments' openings lShares richmen = do
-    let commitments = getCommitmentsMap commitments' -- just unwrapping
-    let participants = getKeys commitments
+calculateSeed commitments' binVssKeys openings lShares richmen = do
+    let commitments :: HashMap StakeholderId SignedCommitment
+        commitments = getCommitmentsMap commitments' -- just unwrapping
+    let participants :: HashSet StakeholderId
+        participants = getKeys commitments
+    -- vssKeys :: HashMap StakeholderId VssPublicKey
+    vssKeys <- over _Left BrokenVssKey $ mapFailing fromBinaryM binVssKeys
 
     -- First let's do some sanity checks.
     let nonRichmen :: HashSet StakeholderId
@@ -75,45 +79,46 @@ calculateSeed commitments' openings lShares richmen = do
     let mustBeRecovered :: HashSet StakeholderId
         mustBeRecovered = HS.difference participants (getKeys openings)
 
+    -- A 'SharesMap' with decoded shares:
+    --
+    -- shares :: HashMap StakeholderId
+    --                   (HashMap StakeholderId (NonEmpty DecShare))
     shares <- over _Left BrokenShare $
               mapFailing (traverse (traverse fromBinaryM)) lShares
+    -- Get shares of some particular stakeholder's secret
+    let getShares :: StakeholderId -> HashMap VssPublicKey (NonEmpty DecShare)
+        getShares sender = HM.fromList $ catMaybes $ do
+            (recipient, innerShareMap) <- HM.toList shares
+            pure $ (,) <$> HM.lookup recipient vssKeys
+                       <*> HM.lookup sender innerShareMap
 
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
     let recovered :: HashMap StakeholderId (Maybe Secret)
-        -- NB. magical mystery list monad is used here
-        recovered = HM.fromList $ do
-            -- We are now trying to recover a secret for key 'k'
-            id <- toList mustBeRecovered
-            -- We collect all shares that 'k' has sent to other nodes
-            let decryptedShares :: [Share]
-                decryptedShares = concatMap toList $
-                                  mapMaybe (HM.lookup id) (toList shares)
-            let t = fromIntegral . vssThreshold . sum .
-                    HM.map length . commShares $ (commitments HM.! id) ^. _2
-            -- Then we recover the secret.
+        recovered = HM.fromList $
+            map (identity &&& recover) (toList mustBeRecovered)
+        recover :: StakeholderId -> Maybe Secret
+        recover key = do
+            -- When we recover the secret, the following conditions are true:
             --   * All encrypted shares in commitments are valid, because we
-            --     have checked them with 'verifyEncShare'. (I'm not sure how
-            --     much 'verifyEncShare' actually checks, though.)
+            --     have checked them with 'verifyEncShares'.
             --   * All decrypted shares match the shares in the commitments,
-            --     because we have checked them with 'verifyShare'.
-            --   * All shares have been encrypted for different nodes (and
-            --     hence have different IDs), because if the block creator
-            --     tries to lie that X's share sent to A was actually sent
-            --     to B, we would notice that the share sent “to B” doesn't
-            --     match the encrypted share in X's commitment.
-            let mbSecret = do
-                    -- We must have enough shares to even try recovering
-                    guard (length decryptedShares >= t)
-                    let secret = unsafeRecoverSecret (take t decryptedShares)
-                    -- Recovered secret must match the commitment
-                    (_, Commitment{..}, _) <- HM.lookup id commitments
-                    commExtra' <- rightToMaybe $ fromBinary commExtra
-                    commProof' <- rightToMaybe $ fromBinary commProof
-                    guard (verifySecretProof commExtra' secret commProof')
-                    -- All checks passed
-                    return secret
-            return (id, mbSecret)
+            --     because we have checked them with 'verifyDecShare'.
+            --
+            -- Okay, here goes. Get the commitment:
+            (_, comm@Commitment{..}, _) <- HM.lookup key commitments
+            -- Calculate the threshold from amount of shares:
+            let threshold = vssThreshold $ sum (HM.map length commShares)
+            -- Get shareholders and their amounts of shares:
+            shareholders <- map (over _2 length) <$> getCommShares comm
+            -- Recover the secret
+            secret <- recoverSecret
+                        threshold
+                        shareholders
+                        (fmap toList (getShares key))
+            -- Verify the recovered secret against the commitment
+            guard (verifySecret threshold commProof secret)
+            pure secret
 
     secrets0 <- over _Left BrokenSecret $
                 mapFailing (fromBinaryM . getOpening) openings

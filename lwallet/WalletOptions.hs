@@ -13,11 +13,11 @@ import           Universum
 
 import           Data.Version                 (showVersion)
 import           NeatInterpolation            (text)
-import           Options.Applicative          (CommandFields, Mod, Parser, auto, command,
+import           Options.Applicative          (CommandFields, Mod, Parser, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, subparser,
-                                               switch, value)
+                                               metavar, progDesc, subparser, switch,
+                                               value)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
@@ -38,13 +38,9 @@ data WalletOptions = WalletOptions
 
 data WalletAction = Repl
                   | Cmd { cmd :: !Text }
-                  | Serve { webPort           :: !Word16
-                          , webDaedalusDbPath :: !FilePath
-                          }
 
 actionParser :: Parser WalletAction
 actionParser = subparser $ replParser <> cmdParser
-                        <> serveParser
 
 replParser :: Mod CommandFields WalletAction
 replParser = command "repl" $ info (pure Repl) $
@@ -56,16 +52,6 @@ cmdParser = command "cmd" $ info opts desc
                                <> metavar "CMD"
                                <> help "Commands to execute, comma-separated.")
         desc = progDesc "Execute a list of predefined commands."
-
-serveParser :: Mod CommandFields WalletAction
-serveParser = command "serve" $ info opts desc
-  where opts = Serve <$> CLI.webPortOption 8090    -- to differ from node's default port
-                                           "Port for web server."
-                     <*> option auto (long "daedalus-db-path"
-                                   <> metavar "FILEPATH"
-                                   <> value "run/daedalus-db"
-                                   <> help "Path to the wallet database.")
-        desc = progDesc "Serve HTTP Daedalus API on given port."
 
 argsParser :: Parser WalletOptions
 argsParser = do

@@ -6,13 +6,12 @@ module Pos.Core.Context.PrimaryKey
        , getOurPublicKey
        , getOurKeys
        , getOurStakeholderId
-       , getOurPubKeyAddress
        ) where
 
 import           Universum
 
-import           Pos.Core.Address (addressHash, makePubKeyAddress)
-import           Pos.Core.Types   (Address, StakeholderId)
+import           Pos.Core.Address (addressHash)
+import           Pos.Core.Types   (StakeholderId)
 import           Pos.Crypto       (PublicKey, SecretKey, toPublic)
 
 -- | Access to primary key of the node.
@@ -30,6 +29,3 @@ getOurKeys = (identity &&& toPublic) <$> getOurSecretKey
 
 getOurStakeholderId :: (MonadReader ctx m, HasPrimaryKey ctx) => m StakeholderId
 getOurStakeholderId = addressHash <$> getOurPublicKey
-
-getOurPubKeyAddress :: (MonadReader ctx m, HasPrimaryKey ctx) => m Address
-getOurPubKeyAddress = makePubKeyAddress <$> getOurPublicKey

@@ -21,11 +21,15 @@ defaultEnqueuePolicyCore = go
     go :: EnqueuePolicy nid
     go (MsgAnnounceBlockHeader _) = [
         EnqueueAll NodeCore  (MaxAhead 0) PHighest
-      , EnqueueAll NodeRelay (MaxAhead 0) PHigh
+      , EnqueueAll NodeRelay (MaxAhead 0) PHighest
       ]
-    go (MsgRequestBlockHeaders _) = [
+    go (MsgRequestBlockHeaders Nothing) = [
         EnqueueAll NodeCore  (MaxAhead 2) PHigh
       , EnqueueAll NodeRelay (MaxAhead 2) PHigh
+      ]
+    go (MsgRequestBlockHeaders (Just _)) = [
+        -- We never ask for data from edge nodes
+        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 3) PHigh
       ]
     go (MsgRequestBlocks _) = [
         -- We never ask for data from edge nodes
@@ -48,12 +52,16 @@ defaultEnqueuePolicyRelay = go
     go :: EnqueuePolicy nid
     go (MsgAnnounceBlockHeader _) = [
         EnqueueAll NodeRelay (MaxAhead 0) PHighest
-      , EnqueueAll NodeCore  (MaxAhead 0) PHigh
+      , EnqueueAll NodeCore  (MaxAhead 0) PHighest
       , EnqueueAll NodeEdge  (MaxAhead 0) PMedium
       ]
-    go (MsgRequestBlockHeaders _) = [
+    go (MsgRequestBlockHeaders Nothing) = [
         EnqueueAll NodeCore  (MaxAhead 2) PHigh
       , EnqueueAll NodeRelay (MaxAhead 2) PHigh
+      ]
+    go (MsgRequestBlockHeaders (Just _)) = [
+        -- We never ask for data from edge nodes
+        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 3) PHigh
       ]
     go (MsgRequestBlocks _) = [
         -- We never ask for blocks from edge nodes
@@ -83,8 +91,11 @@ defaultEnqueuePolicyEdgeBehindNat = go
     go (MsgAnnounceBlockHeader _) = [
         -- not forwarded
       ]
-    go (MsgRequestBlockHeaders _) = [
+    go (MsgRequestBlockHeaders Nothing) = [
         EnqueueAll NodeRelay (MaxAhead 1) PHigh
+      ]
+    go (MsgRequestBlockHeaders (Just _)) = [
+        EnqueueOne [NodeRelay] (MaxAhead 2) PHigh
       ]
     go (MsgRequestBlocks _) = [
         -- Edge nodes can only talk to relay nodes

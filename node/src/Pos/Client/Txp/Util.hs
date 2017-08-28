@@ -7,11 +7,12 @@ module Pos.Client.Txp.Util
          TxCreateMode
        , makeAbstractTx
        , runTxCreator
-       , overrideTxDistrBoot
        , makePubKeyTx
        , makeMPubKeyTx
+       , makeMPubKeyTxAddrs
        , makeMOfNTx
        , makeRedemptionTx
+       , createGenericTx
        , createTx
        , createMTx
        , createMOfNTx
@@ -36,29 +37,25 @@ import qualified Data.List.NonEmpty       as NE
 import qualified Data.Map                 as M
 import qualified Data.Text.Buildable
 import qualified Data.Vector              as V
-import           Ether.Internal           (HasLens (..))
 import           Formatting               (bprint, build, sformat, stext, (%))
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
                                            calculateTxSizeLinear, integerToCoin,
-                                           integerToCoin, isRedeemAddress, siEpoch,
-                                           unsafeAddCoin, unsafeAddressHash,
+                                           integerToCoin, isRedeemAddress, unsafeAddCoin,
                                            unsafeSubCoin)
-import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SignTag (SignTx),
+import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
+                                           SignTag (SignRedeemTx, SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
                                            redeemSign, redeemToPublic, safeSign,
                                            safeToPublic)
 import           Pos.Data.Attributes      (mkAttributes)
-import           Pos.DB                   (MonadGState, gsAdoptedBVData, gsIsBootstrapEra)
-import           Pos.Genesis              (GenesisWStakeholders, genesisSplitBoot)
+import           Pos.DB                   (MonadGState, gsAdoptedBVData)
 import           Pos.Script               (Script)
 import           Pos.Script.Examples      (multisigRedeemer, multisigValidator)
-import           Pos.Slotting.Class       (MonadSlots (getCurrentSlotBlocking))
-import           Pos.Txp                  (Tx (..), TxAux (..), TxDistribution (..),
-                                           TxFee (..), TxIn (..), TxInWitness (..),
-                                           TxOut (..), TxOutAux (..), TxOutDistribution,
+import           Pos.Txp                  (Tx (..), TxAux (..), TxFee (..), TxIn (..),
+                                           TxInWitness (..), TxOut (..), TxOutAux (..),
                                            TxSigData (..), Utxo)
 import           Pos.Types                (Address, Coin, StakeholderId, mkCoin, sumCoins)
 
@@ -69,18 +66,12 @@ type TxWithSpendings = (TxAux, NonEmpty TxOut)
 
 -- This datatype corresponds to raw transaction.
 data TxRaw = TxRaw
-    { trInputs             :: !(TxOwnedInputs TxOut)
+    { trInputs         :: !(TxOwnedInputs TxOut)
     -- ^ Selected inputs from Utxo
-    , trOutputs            :: !TxOutputs
-    -- ^ Output addresses of tx (without remaing output)
-    , trRemainingMoney     :: !Coin
+    , trOutputs        :: !TxOutputs
+    -- ^ Output addresses of tx (without remaining output)
+    , trRemainingMoney :: !Coin
     -- ^ Remaining money
-    , trRemainingFakeDistr :: !TxOutDistribution
-    -- ^ Fake distribution for remaining money. It's fake because it
-    -- doesn't necessary use correct stakeholders. However, its size
-    -- is correct. It's primarily needed to compute tx fees correctly.
-    -- Note that it will removed after CSL-1489, because
-    -- 'TxOutDistribution' will be removed altogether.
     }
 
 data TxError
@@ -101,18 +92,13 @@ throwTxError = throwError . TxError
 -- Tx creation
 -----------------------------------------------------------------------------
 
--- | Mode for creating transactions. We need to know the bootstrap era
--- status and have access to generic stakeholders to distribute
--- txdistr accordingly.
-type TxDistrMode ctx m
+-- | Mode for creating transactions. We need to know fee policy.
+type TxDistrMode m
      = ( MonadGState m
-       , MonadReader ctx m
-       , MonadSlots ctx m
-       , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        )
 
-type TxCreateMode ctx m
-    = ( TxDistrMode ctx m
+type TxCreateMode m
+    = ( TxDistrMode m
       , MonadAddresses m
       )
 
@@ -122,24 +108,21 @@ makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
                -> TxOwnedInputs owner
                -> TxOutputs
                -> TxAux
-makeAbstractTx mkWit txInputs outputs = TxAux tx txWitness txDistr
+makeAbstractTx mkWit txInputs outputs = TxAux tx txWitness
   where
     tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
-    txDistr = TxDistribution (map toaDistr outputs)
     txWitness = V.fromList $ toList $ txInputs <&>
         \(addr, _) -> mkWit addr txSigData
     txSigData = TxSigData
         { txSigTxHash = hash tx
-        , txSigTxDistrHash = hash txDistr }
+        }
 
 -- | Datatype which contains all data from DB which is necessary
 -- to create transactions
 data TxCreatorData = TxCreatorData
-    { _tcdBootEra      :: !Bool
-    , _tcdStakeholders :: !GenesisWStakeholders
-    , _tcdFeePolicy    :: !TxFeePolicy
+    { _tcdFeePolicy    :: !TxFeePolicy
     }
 
 makeLenses ''TxCreatorData
@@ -148,43 +131,12 @@ makeLenses ''TxCreatorData
 type TxCreator m = ReaderT TxCreatorData (ExceptT TxError m)
 
 runTxCreator
-    :: TxDistrMode ctx m
+    :: TxDistrMode m
     => TxCreator m a
     -> m (Either TxError a)
 runTxCreator action = runExceptT $ do
-    -- Blocking here should be fine for now (@volhovm)
-    -- 1. Code in tx generator must have current slot.
-    -- 2. Code in wallet will block on "synchronizing" on the
-    --    frontend so it's fine too.
-    epoch <- siEpoch <$> lift getCurrentSlotBlocking
-    _tcdBootEra <- lift $ gsIsBootstrapEra epoch
-    _tcdStakeholders <- view (lensOf @GenesisWStakeholders)
     _tcdFeePolicy <- bvdTxFeePolicy <$> gsAdoptedBVData
     runReaderT action TxCreatorData{..}
-
--- | Overrides 'txDistr' with correct ones (according to the boot era
--- stake distribution) or leaves it as it is if in post-boot era.
-overrideTxOutDistrBoot
-    :: Monad m
-    => Coin
-    -> TxOutDistribution
-    -> TxCreator m TxOutDistribution
-overrideTxOutDistrBoot c oldDistr = do
-    bootEra <- view tcdBootEra
-    genStakeholders <- view tcdStakeholders
-    pure $ if bootEra
-           then genesisSplitBoot genStakeholders c
-           else oldDistr
-
--- | Same as 'overrideTxOutDistrBoot' but changes 'TxOutputs' all at once
-overrideTxDistrBoot
-    :: Monad m
-    => TxOutputs
-    -> TxCreator m TxOutputs
-overrideTxDistrBoot outputs = do
-    forM outputs $ \TxOutAux{..} -> do
-        newStakeDistr <- overrideTxOutDistrBoot (txOutValue toaOut) toaDistr
-        pure $ TxOutAux toaOut newStakeDistr
 
 -- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx
@@ -231,7 +183,7 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
   where rpk = redeemToPublic rsk
         mkWit _ sigData = RedeemWitness
             { twRedeemKey = rpk
-            , twRedeemSig = redeemSign rsk sigData
+            , twRedeemSig = redeemSign SignRedeemTx rsk sigData
             }
 
 type FlatUtxo = [(TxIn, TxOutAux)]
@@ -270,13 +222,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
             totalTxAmount <- sumTxOuts $ map snd inputsNE
             let trInputs = map formTxInputs inputsNE
                 trRemainingMoney = totalTxAmount `unsafeSubCoin` totalMoneyWithFee
-            trOutputs <- overrideTxDistrBoot outputs
-            -- Note: in benchmarks we have a custom distribution with
-            -- 1 element.  In other cases we don't have custom
-            -- distribution, but we have bootstrap era, so this fake
-            -- distribution will be overridden.
-            let fakeDistr = [(unsafeAddressHash (), trRemainingMoney)]
-            trRemainingFakeDistr <- overrideTxOutDistrBoot trRemainingMoney fakeDistr
+            let trOutputs = outputs
             pure TxRaw {..}
   where
     sumTxOuts = either throwTxError pure .
@@ -294,13 +240,13 @@ prepareTxRaw utxo outputs (TxFee fee) = do
                 mNextOut <- head <$> use ipsAvailableOutputs
                 case mNextOut of
                     Nothing -> throwTxError $
-                        sformat ("Not enough money to send (need "%build%" coins more)") moneyLeft
-                    Just inp@(_, (TxOutAux (TxOut {..}) _)) -> do
+                        sformat ("Not enough money to send (need "%build%" more)") moneyLeft
+                    Just inp@(_, (TxOutAux (TxOut {..}))) -> do
                         ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         ipsAvailableOutputs %= tail
                         pickInputs (inp : inps)
 
-    formTxInputs (inp, TxOutAux txOut _) = (txOut, inp)
+    formTxInputs (inp, TxOutAux txOut) = (txOut, inp)
 
     checkIsNotRedeemAddr outAddr =
         when (isRedeemAddress outAddr) $
@@ -308,22 +254,19 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
-    :: TxCreateMode ctx m
+    :: TxCreateMode m
     => AddrData m
     -> TxRaw
     -> TxCreator m TxOutputs
 mkOutputsWithRem addrData TxRaw {..}
     | trRemainingMoney == mkCoin 0 = pure trOutputs
     | otherwise = do
-        (changeAddr, changeStakeholder) <- lift . lift $ getNewAddress addrData
-        let outDistrPre =
-                maybe [] (one . (, trRemainingMoney)) changeStakeholder
-        outDistr <- overrideTxOutDistrBoot trRemainingMoney outDistrPre
+        changeAddr <- lift . lift $ getNewAddress addrData
         let txOut = TxOut changeAddr trRemainingMoney
-        pure $ (TxOutAux txOut outDistr) :| toList trOutputs
+        pure $ TxOutAux txOut :| toList trOutputs
 
 prepareInpsOuts
-    :: TxCreateMode ctx m
+    :: TxCreateMode m
     => Utxo
     -> TxOutputs
     -> AddrData m
@@ -334,60 +277,60 @@ prepareInpsOuts utxo outputs addrData = do
     pure (trInputs, outputsWithRem)
 
 createGenericTx
-    :: TxCreateMode ctx m
+    :: TxCreateMode m
     => (TxOwnedInputs TxOut -> TxOutputs -> TxAux)
     -> Utxo
     -> TxOutputs
     -> AddrData m
-    -> TxCreator m TxWithSpendings
-createGenericTx creator utxo outputs addrData = do
+    -> m (Either TxError TxWithSpendings)
+createGenericTx creator utxo outputs addrData = runTxCreator $ do
     (inps, outs) <- prepareInpsOuts utxo outputs addrData
     pure (creator inps outs, map fst inps)
 
 createGenericTxSingle
-    :: TxCreateMode ctx m
+    :: TxCreateMode m
     => (TxInputs -> TxOutputs -> TxAux)
     -> Utxo
     -> TxOutputs
     -> AddrData m
-    -> TxCreator m TxWithSpendings
+    -> m (Either TxError TxWithSpendings)
 createGenericTxSingle creator = createGenericTx (creator . map snd)
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx
-    :: TxCreateMode ctx m
+    :: TxCreateMode m
     => Utxo
     -> NonEmpty (SafeSigner, Address)
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMTx utxo hdwSigners outputs addrData = runTxCreator $
+createMTx utxo hdwSigners outputs addrData =
     createGenericTx (makeMPubKeyTxAddrs hdwSigners)
     utxo outputs addrData
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
 createTx
-    :: TxCreateMode ctx m
+    :: TxCreateMode m
     => Utxo
     -> SafeSigner
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createTx utxo ss outputs addrData = runTxCreator $
+createTx utxo ss outputs addrData =
     createGenericTxSingle (makePubKeyTx ss)
     utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
-    :: TxCreateMode ctx m
+    :: TxCreateMode m
     => Utxo
     -> [(StakeholderId, Maybe SafeSigner)]
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMOfNTx utxo keys outputs addrData = runTxCreator $
+createMOfNTx utxo keys outputs addrData =
     createGenericTxSingle (makeMOfNTx validator sks)
     utxo outputs addrData
   where
@@ -398,7 +341,7 @@ createMOfNTx utxo keys outputs addrData = runTxCreator $
 
 -- | Make a transaction for retrieving money from redemption address
 createRedemptionTx
-    :: TxCreateMode ctx m
+    :: TxCreateMode m
     => Utxo
     -> RedeemSecretKey
     -> TxOutputs
@@ -487,7 +430,7 @@ createFakeTxFromRawTx TxRaw{..} =
             | trRemainingMoney == mkCoin 0 = Nothing
             | otherwise =
                 Just $
-                TxOutAux (TxOut fakeAddr trRemainingMoney) trRemainingFakeDistr
+                TxOutAux (TxOut fakeAddr trRemainingMoney)
         txOutsWithRem = maybe trOutputs (\remTx -> remTx :| toList trOutputs) fakeOutMB
 
         -- We create fake signers instead of safe signers,

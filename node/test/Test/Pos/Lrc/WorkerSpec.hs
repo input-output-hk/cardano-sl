@@ -21,26 +21,25 @@ import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck           (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic   (pick)
 
-import           Pos.AllSecrets            (HasAllSecrets (..), InvAddrSpendingData,
-                                            mkAllSecretsSimple, unInvAddrSpendingData)
+import           Pos.AllSecrets            (HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
-import           Pos.Core                  (AddrDistribution, AddrSpendingData (..),
-                                            Address (..), Coin, EpochIndex,
+import           Pos.Core                  (AddrDistribution, Coin, EpochIndex,
                                             GenesisWStakeholders (..), HasCoreConstants,
-                                            StakeholderId, addressHash,
-                                            applyCoinPortionUp, blkSecurityParam, coinF,
-                                            divCoin, makePubKeyAddress, mkCoin,
-                                            unsafeAddCoin, unsafeMulCoin, unsafeSubCoin)
+                                            IsBootstrapEraAddr (..), StakeholderId,
+                                            addressHash, applyCoinPortionUp,
+                                            blkSecurityParam, coinF, divCoin,
+                                            makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                            unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic, unsafeHash)
 import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..),
                                             StakeDistribution (..), concatAddrDistrs)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutAux (..),
-                                            TxOutDistribution, mkTxPayload)
+                                            mkTxPayload)
 import           Pos.Util.Arbitrary        (nonrepeating)
-import           Pos.Util.Util             (getKeys)
+import           Pos.Util.Util             (getKeys, lensOf)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
                                             blockPropertyToProperty)
@@ -87,7 +86,6 @@ genTestParams = do
     secretKeys <- nonrepeating stakeholdersNum
     let _tpAllSecrets = mkAllSecretsSimple secretKeys
     let invSecretsMap = _tpAllSecrets ^. asSecretKeys
-    let invAddrSD = _tpAllSecrets ^. asSpendingData
     let minTotalStake = mkCoin 100000
     -- Total stake inside one group.
     totalStakeGroup <-
@@ -100,22 +98,15 @@ genTestParams = do
         mapM (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
              (enumerate allRichmenComponents)
     let _tpStakeDistributions = snd <$> addressesAndDistrs
-    let _tpGenesisContext = genesisContextSimple invAddrSD addressesAndDistrs
+    let _tpGenesisContext = genesisContextSimple addressesAndDistrs
     return TestParams {..}
   where
-    identityDistr :: InvAddrSpendingData -> Address -> Coin -> TxOutDistribution
-    identityDistr (unInvAddrSpendingData -> addrToSpending) addr coin =
-        case addrToSpending ^. at addr of
-            Just (PubKeyASD (addressHash -> sId)) -> [(sId, coin)]
-            _ -> error $ "identityDistr failed for address " <> pretty addr
-
-    genesisContextSimple :: InvAddrSpendingData -> [AddrDistribution] -> GenesisContext
-    genesisContextSimple invAddrSpendingData addrDistr = do
+    genesisContextSimple :: [AddrDistribution] -> GenesisContext
+    genesisContextSimple addrDistr = do
         let balances = concatAddrDistrs addrDistr
         let utxoEntry (addr, coin) =
                 ( TxInUtxo (unsafeHash addr) 0
                 , TxOutAux (TxOut addr coin)
-                           (identityDistr invAddrSpendingData addr coin)
                 )
         -- We don't care about genesis stakeholders, because in this
         -- test we don't make any txs.  If we add txs, we will need to
@@ -132,7 +123,12 @@ genTestParams = do
         -> Gen AddrDistribution
     genAddressesAndDistrs totalStakeGroup allSecretKeys (i, Lrc.SomeRichmenComponent proxy) = do
         let secretKeysRange = subList (4 * i, 4 * (i + 1)) allSecretKeys
-        let skToAddr = makePubKeyAddress . toPublic
+        -- We set single key distribution (not bootstrap era) despite
+        -- generating genesis utxo (which conceptually should contain
+        -- bootstrap era addresses only). That's fine in these
+        -- particular tests, because we just want to assign concrete
+        -- stakes to nodes.
+        let skToAddr = makePubKeyAddress (IsBootstrapEraAddr False) . toPublic
         let addresses = map skToAddr secretKeysRange
         let totalStake = totalStakeGroup `unsafeMulCoin` groupsNumber
         let thresholdCoin =
@@ -182,12 +178,13 @@ lrcCorrectnessProp = do
     lift $ Lrc.lrcSingleShotNoLock 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
+    gws <- view (lensOf @GenesisWStakeholders)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
     -- epoch) because we have a contract that if there is no ssc
     -- payload the previous seed must be reused (which is the case in
     -- this test).
     let expectedLeadersUtxo =
-            Lrc.followTheSatoshiUtxo Lrc.genesisSeed stableUtxo
+            Lrc.followTheSatoshiUtxo gws Lrc.genesisSeed stableUtxo
     let expectedLeadersStakes =
             Lrc.followTheSatoshi Lrc.genesisSeed (HM.toList stableStakes)
     unless (expectedLeadersUtxo /= leaders1) $
@@ -270,14 +267,11 @@ checkRichmen = do
                 poorGuyStake totalStake
 
 genAndApplyBlockFixedTxs :: HasCoreConstants => [TxAux] -> BlockProperty ()
-genAndApplyBlockFixedTxs txs =
-    case mkTxPayload txs of
-        Left err -> stopProperty err
-        Right txPayload -> do
-            emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)
-            let blund =
-                    emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
-            lift $ applyBlocksUnsafe (one blund) Nothing
+genAndApplyBlockFixedTxs txs = do
+    let txPayload = mkTxPayload txs
+    emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)
+    let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
+    lift $ applyBlocksUnsafe (one blund) Nothing
 
 -- TODO: we can't change stake in bootstrap era!
 -- This part should be implemented in CSL-1450.

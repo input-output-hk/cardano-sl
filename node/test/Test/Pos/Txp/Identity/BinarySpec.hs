@@ -28,7 +28,6 @@ spec =
           binaryTest @T.TxOutAux
           binaryTest @T.Tx
           binaryTest @T.TxInWitness
-          binaryTest @T.TxDistribution
           binaryTest @T.TxSigData
           binaryTest @T.TxAux
           binaryTest @T.TxProof

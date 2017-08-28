@@ -193,7 +193,7 @@ encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize'
 -- It's the caller responsibility to ensure the input `ByteString` correspond
 -- indeed to valid, previously-serialised CBOR data.
 encodeUnknownCborDataItem :: ByteString -> E.Encoding
-encodeUnknownCborDataItem = mappend (E.encodeTag 24) . encode
+encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
 
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
 -- failing if the tag cannot be found.
@@ -223,4 +223,4 @@ decodeKnownCborDataItem = do
 decodeUnknownCborDataItem :: D.Decoder s ByteString
 decodeUnknownCborDataItem = do
     decodeCborDataItemTag
-    decode @ByteString
+    D.decodeBytes

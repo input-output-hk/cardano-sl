@@ -30,10 +30,10 @@ import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBloc
 import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              normalizeMempool)
-import           Pos.Block.Logic.Util       (calcChainQualityM, withBlkSemaphore)
+import           Pos.Block.Logic.Util       (calcChainQualityM)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Slog             (HasSlogContext (..))
-import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
+import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              EpochOrSlot (..), HasCoreConstants,
@@ -41,7 +41,7 @@ import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              chainQualityThreshold, epochIndexL,
                                              epochSlots, flattenSlotId, getEpochOrSlot,
                                              headerHash)
-import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
+import           Pos.Crypto                 (SecretKey)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
@@ -49,6 +49,7 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
+import           Pos.Infra.Semaphore        (BlkSemaphore, modifyBlkSemaphore)
 import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)
@@ -56,9 +57,8 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
-import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload,
-                                             topsortTxs)
-import           Pos.Txp.MemState           (MonadTxpMem, clearTxpMemPool, getLocalTxs)
+import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
+import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
@@ -123,7 +123,7 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> withBlkSemaphore (createGenesisBlockDo epoch leaders)
+        Right leaders -> modifyBlkSemaphore (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -132,14 +132,14 @@ createGenesisBlockDo
     => EpochIndex
     -> SlotLeaders
     -> HeaderHash
-    -> m (Maybe (GenesisBlock ssc), HeaderHash)
+    -> m (HeaderHash, Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch leaders tip = do
     let noHeaderMsg =
             "There is no header is DB corresponding to tip from semaphore"
     tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.blkGetHeader tip
     logDebug $ sformat msgTryingFmt epoch tipHeader
     shouldCreate tipHeader >>= \case
-        False -> (Nothing, tip) <$ logShouldNot
+        False -> (tip, Nothing) <$ logShouldNot
         True -> actuallyCreate tipHeader
   where
     shouldCreate (Left _) = pure False
@@ -160,7 +160,7 @@ createGenesisBlockDo epoch leaders tip = do
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier)
                 normalizeMempool
-                pure (Just blk, newTip)
+                pure (newTip, Just blk)
     logShouldNot =
         logDebug
             "After we took lock for genesis block creation, we noticed that we shouldn't create it"
@@ -193,13 +193,13 @@ createMainBlockAndApply ::
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ withBlkSemaphore createAndApply
+    reportingFatal $ modifyBlkSemaphore createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case
-            Left reason -> pure (Left reason, tip)
+            Left reason -> pure (tip, Left reason)
             Right blk -> convertRes <$> applyCreatedBlock pske blk
-    convertRes createdBlk = (Right createdBlk, headerHash createdBlk)
+    convertRes createdBlk = (headerHash createdBlk, Right createdBlk)
 
 ----------------------------------------------------------------------------
 -- MainBlock creation
@@ -225,7 +225,7 @@ createMainBlockInternal sId pske = do
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockFinish :: BlockHeader ssc -> ExceptT Text m (MainBlock ssc)
     createMainBlockFinish prevHeader = do
-        rawPay <- getRawPayload sId
+        rawPay <- lift $ getRawPayload (headerHash prevHeader) sId
         sk <- getOurSecretKey
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
@@ -360,29 +360,24 @@ data RawPayload ssc = RawPayload
     , rpUpdate :: !UpdatePayload
     }
 
-getRawPayload
-    :: forall ssc ctx m.
-       (MonadCreateBlock ssc ctx m)
-    => SlotId
-    -> ExceptT Text m (RawPayload ssc)
-getRawPayload slotId = do
-    localTxs <- lift getLocalTxs
-    sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
+getRawPayload ::
+       forall ssc ctx m. (MonadCreateBlock ssc ctx m)
+    => HeaderHash
+    -> SlotId
+    -> m (RawPayload ssc)
+getRawPayload tip slotId = do
+    localTxs <- txGetPayload tip -- result is topsorted
     sscData <- sscGetLocalPayload @ssc slotId
-    usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-    dlgPayload <- lift getDlgMempool
+    usPayload <- usPreparePayload tip slotId
+    dlgPayload <- getDlgMempool
     let rawPayload =
             RawPayload
-            { rpTxp = map snd sortedTxs
+            { rpTxp = localTxs
             , rpSsc = sscData
             , rpDlg = dlgPayload
             , rpUpdate = usPayload
             }
     return rawPayload
-  where
-    convertTx (txId, txAux) = WithHash (taTx txAux) txId
-    onBrokenTopo = throwError "Topology of local transactions is broken!"
-    onNoUS = "can't obtain US payload to create block"
 
 -- Main purpose of this function is to create main block's body taking
 -- limit into account. Usually this function doesn't fail, but we
@@ -427,7 +422,7 @@ createMainBody bodyLimit sId payload =
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block
-        txPayload <- either throwError pure $ mkTxPayload txs'
+        let txPayload = mkTxPayload txs'
         let body = BC.MainBody txPayload sscPayload dlgPay' usPayload'
         return body
   where

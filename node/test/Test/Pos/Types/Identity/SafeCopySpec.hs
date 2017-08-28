@@ -22,7 +22,6 @@ spec = giveStaticConsts $ describe "Types" $ do
         safeCopyTest @T.Coin
         safeCopyTest @T.Address
         safeCopyTest @T.TxInWitness
-        safeCopyTest @T.TxDistribution
         safeCopyTest @T.TxIn
         safeCopyTest @T.TxOut
         safeCopyTest @T.Tx

@@ -34,9 +34,9 @@ import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (serialize')
-import           Pos.Core                     (Coin, StakeholderId, StakesMap, coinF,
-                                               mkCoin, sumCoins, unsafeAddCoin,
-                                               unsafeIntegerToCoin)
+import           Pos.Core                     (Coin, GenesisWStakeholders, StakeholderId,
+                                               StakesMap, coinF, mkCoin, sumCoins,
+                                               unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),
@@ -44,7 +44,6 @@ import           Pos.DB                       (DBError (..), DBTag (GStateDB), I
 import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumKey,
                                                getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
-import           Pos.Txp.Core                 (txOutStake)
 import           Pos.Txp.Toil.Types           (GenesisUtxo (..))
 import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 
@@ -75,17 +74,18 @@ instance RocksBatchOp BalancesOp where
 initGStateBalances
     :: forall m.
        MonadDB m
-    => GenesisUtxo -> m ()
-initGStateBalances (GenesisUtxo genesisUtxo) = do
+    => GenesisUtxo -> GenesisWStakeholders -> m ()
+initGStateBalances (GenesisUtxo genesisUtxo) gws = do
     putFtsStakes
     putGenesisTotalStake
   where
     putTotalFtsStake = gsPutBi ftsSumKey
-    totalCoins = sumCoins $ map snd $ concatMap txOutStake $ toList genesisUtxo
+    genesisStakes = utxoToStakes gws genesisUtxo
+    totalCoins = sumCoins genesisStakes
     -- Will 'error' if the result doesn't fit into 'Coin' (which should never
     -- happen)
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
-    putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
+    putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ genesisStakes
 
 ----------------------------------------------------------------------------
 -- Iteration

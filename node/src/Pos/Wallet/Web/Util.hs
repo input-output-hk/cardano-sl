@@ -76,4 +76,4 @@ coinDistrToOutputs distr = do
     pure $ NE.zipWith mkTxOut addrs coins
   where
     (cAddrs, coins) = NE.unzip distr
-    mkTxOut addr coin = TxOutAux (TxOut addr coin) []
+    mkTxOut addr coin = TxOutAux (TxOut addr coin)

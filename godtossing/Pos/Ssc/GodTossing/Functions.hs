@@ -14,11 +14,12 @@ module Pos.Ssc.GodTossing.Functions
        , getStableCertsPure
        ) where
 
+import           Universum
+
 import           Control.Lens                    (to)
 import           Control.Monad.Except            (MonadError (throwError))
 import qualified Data.HashMap.Strict             as HM
 import           Serokell.Util.Verify            (isVerSuccess)
-import           Universum
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
@@ -26,12 +27,11 @@ import           Pos.Core                        (EpochIndex (..), HasCoreConsta
                                                   IsMainHeader, SlotId (..),
                                                   StakeholderId, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
-import           Pos.Crypto                      (Threshold)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), VssCertificatesMap,
                                                   checkCertTTL, isCommitmentId,
                                                   isOpeningId, isSharesId,
-                                                  verifySignedCommitment)
+                                                  verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -64,8 +64,8 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --
 -- For each DS datum we check:
 --
---   1. Whether it's stored in the correct block (e.g. commitments have to be in
---      first 2 * blkSecurityParam blocks, etc.)
+--   1. Whether it's stored in the correct block (e.g. commitments have to be
+--      in first 2 * blkSecurityParam blocks, etc.)
 --
 --   2. Whether the message itself is correct (e.g. commitment signature is
 --      valid, etc.)
@@ -114,9 +114,7 @@ sanityChecksGtPayload eoh payload = case payload of
     --
     -- #verifySignedCommitment
     commChecks commitments = do
-        let checkComm =
-                 isVerSuccess .
-                 (verifySignedCommitment epochId)
+        let checkComm = isVerSuccess . verifySignedCommitment epochId
         verifyEntriesGuardM fst snd CommitmentInvalid
                             (pure . checkComm)
                             (HM.toList . getCommitmentsMap $ commitments)
@@ -135,11 +133,6 @@ sanityChecksGtPayload eoh payload = case payload of
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
-
--- | Figure out the threshold (i.e. how many secret shares would be required
--- to recover each node's secret) using number of participants.
-vssThreshold :: Integral a => a -> Threshold
-vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 
 getStableCertsPure :: HasCoreConstants => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs

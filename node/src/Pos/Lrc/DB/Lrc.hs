@@ -6,9 +6,7 @@ module Pos.Lrc.DB.Lrc
 
 import           Universum
 
-import           Ether.Internal     (HasLens (..))
-
-import           Pos.Core           (HasCoreConstants)
+import           Pos.Core           (GenesisWStakeholders, HasCoreConstants)
 import           Pos.DB.Class       (MonadDB)
 import           Pos.DB.Error       (DBError (..))
 import           Pos.Genesis        (GenesisUtxo)
@@ -17,12 +15,13 @@ import           Pos.Lrc.DB.Issuers (prepareLrcIssuers)
 import           Pos.Lrc.DB.Leaders (prepareLrcLeaders)
 import           Pos.Lrc.DB.Richmen (getRichmenUS, prepareLrcRichmen)
 import           Pos.Lrc.DB.Seed    (prepareLrcSeed)
-import           Pos.Util           (maybeThrow)
+import           Pos.Util           (HasLens', maybeThrow)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB
     :: ( MonadReader ctx m
-       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens' ctx GenesisUtxo
+       , HasLens' ctx GenesisWStakeholders
        , MonadDB m
        , HasCoreConstants
        )

@@ -178,6 +178,13 @@
       display: block;
     }
 
+    &__empty {
+      font-family: var(--fontFamily0-Regular);
+      font-size: 10px;
+      color: var(--color8);
+      padding-bottom: 12px;
+    }
+
     &__amounts {
       lost-column: 4/12;
       text-align: right;
@@ -282,6 +289,10 @@
     background-repeat: no-repeat;
     background-position: right center;
     background-size: 8px 7px;
+  }
+
+  .empty-amount {
+    padding-right: 10px;
   }
 
   .amount {

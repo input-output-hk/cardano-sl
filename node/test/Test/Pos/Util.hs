@@ -38,8 +38,8 @@ import           Data.Typeable            (typeRep)
 import           Formatting               (formatToString, int, (%))
 import           Prelude                  (read)
 
-import           Pos.Binary               (AsBinaryClass (..), Bi (..), deserialize,
-                                           serialize, serialize')
+import           Pos.Binary               (AsBinaryClass (..), Bi (..), serialize,
+                                           serialize', unsafeDeserialize)
 import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
 import           Pos.Core                 (CoreConstants (..), HasCoreConstants,
                                            giveConsts)
@@ -62,7 +62,7 @@ instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-binaryEncodeDecode a = (deserialize . serialize $ a) === a
+binaryEncodeDecode a = (unsafeDeserialize . serialize $ a) === a
 
 -- | This check is intended to be used for all messages sent via
 -- networking.
@@ -70,7 +70,7 @@ binaryEncodeDecode a = (deserialize . serialize $ a) === a
 -- TODO [CSL-1122] this test used to test that the message doesn't encode
 --      into an empty string, but after pva's changes it doesn't
 networkBinaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-networkBinaryEncodeDecode a = (deserialize . serialize $ a) === a
+networkBinaryEncodeDecode a = (unsafeDeserialize . serialize $ a) === a
 
 msgLenLimitedCheck
     :: (Show a, Bi a) => Limit a -> a -> Property

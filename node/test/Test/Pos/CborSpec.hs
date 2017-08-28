@@ -137,9 +137,9 @@ instance Bi T where
                      <> encode bs
 
     decode = decode @Word8 >>= \case
-        0 ->         T1 . deserialize' <$> decode
-        1 -> uncurry T2 . deserialize' <$> decode
-        t -> Unknown t                 <$> decode
+        0 ->         T1 <$> (deserialize' =<< decode)
+        1 -> uncurry T2 <$> (deserialize' =<< decode)
+        t -> Unknown t  <$> decode
 
 data MyScript = MyScript
     { version :: ScriptVersion -- ^ Version
@@ -198,15 +198,15 @@ instance Arbitrary X2 where
 instance Bi (Attributes X1) where
     encode = encodeAttributes [(0, serialize' . x1A)]
     decode = decodeAttributes (X1 0) $ \n v acc -> case n of
-        0 -> Just $ acc { x1A = deserialize' v }
-        _ -> Nothing
+        0 -> pure $ Just $ acc { x1A = unsafeDeserialize' v }
+        _ -> pure $ Nothing
 
 instance Bi (Attributes X2) where
     encode = encodeAttributes [(0, serialize' . x2A), (1, serialize' . x2B)]
     decode = decodeAttributes (X2 0 []) $ \n v acc -> case n of
-        0 -> Just $ acc { x2A = deserialize' v }
-        1 -> Just $ acc { x2B = deserialize' v }
-        _ -> Nothing
+        0 -> return $ Just $ acc { x2A = unsafeDeserialize' v }
+        1 -> return $ Just $ acc { x2B = unsafeDeserialize' v }
+        _ -> return $ Nothing
 
 ----------------------------------------
 
@@ -217,7 +217,7 @@ hasValidFlatTerm = CBOR.validFlatTerm . CBOR.toFlatTerm . encode
 -- | Given a data type which can be generated randomly and for which the CBOR
 -- encoding is defined, generates the roundtrip tests.
 roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => a -> Property
-roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === input
+roundtripProperty (input :: a) = ((unsafeDeserialize . serialize $ input) :: a) === input
 
 -- | Given a data type which can be extended, verify we can indeed do so
 -- without breaking anything. This should work with every time which adopted
@@ -244,7 +244,7 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 
       <tag :: Word32><Tag24><CborDataItem :: ByteString>
 
-   2. Now, when we call `deserialize serialized`, we are effectively asking to produce as
+   2. Now, when we call `unsafeDeserialize serialized`, we are effectively asking to produce as
       output a value of type `U`. `U` is defined by only 1 constructor, it
       being `U Word8 ByteString`, but this is still compatible with our `tag + cborDataItem`
       format. So now we will have something like:
@@ -253,7 +253,7 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 
       (The <Tag24> has been removed as part of the decoding process).
 
-   3. We now call `deserialize (serialize u)`, which means: Can you produce a CBOR binary
+   3. We now call `unsafeDeserialize (serialize u)`, which means: Can you produce a CBOR binary
       from `U`, and finally try to decode it into a value of type `a`? This will work because
       our intermediate encoding into `U` didn't touch the inital `<tag :: Word32>`, so we will
       be able to reconstruct the original object back.
@@ -263,13 +263,13 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 
       (The <Tag24> has been added as part of the encoding process).
 
-      `deserialize` would then consume the tag (to understand which type constructor this corresponds to),
+      `unsafeDeserialize` would then consume the tag (to understand which type constructor this corresponds to),
       remove the <Tag24> token and finally proceed to deserialise the rest.
 
 -}
     let serialized      = serialize input             -- Step 1
-        (u :: U)        = deserialize serialized      -- Step 2
-        (encoded :: a)  = deserialize (serialize u)   -- Step 3
+        (u :: U)        = unsafeDeserialize serialized      -- Step 2
+        (encoded :: a)  = unsafeDeserialize (serialize u)   -- Step 3
     in encoded === input
 
 soundSerializationAttributesOfAsProperty
@@ -278,8 +278,8 @@ soundSerializationAttributesOfAsProperty
     => Property
 soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
     let serialized      = serialize input
-        (middle  :: ab) = deserialize serialized
-        (encoded :: aa) = deserialize $ serialize middle
+        (middle  :: ab) = unsafeDeserialize serialized
+        (encoded :: aa) = unsafeDeserialize $ serialize middle
     in encoded === input
   where
     arbitraryAttrs :: Gen aa
@@ -352,7 +352,7 @@ spec = giveStaticConsts $ describe "Cbor.Bi instances" $ do
             prop "Map Int Int" (soundInstanceProperty @(Map Int Int))
             prop "Set Int" (soundInstanceProperty @(Set Int))
         describe "Test instances are sound" $ do
-            prop "User" (let u1 = Login "asd" 34 in (deserialize $ serialize u1) === u1)
+            prop "User" (let u1 = Login "asd" 34 in (unsafeDeserialize $ serialize u1) === u1)
             prop "MyScript" (soundInstanceProperty @MyScript)
             prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
             describe "Generic deriving is sound" $ do

@@ -20,7 +20,7 @@ import           Text.Parsec.Char           (alphaNum, anyChar, digit, noneOf, o
 import           Text.Parsec.Combinator     (eof, manyTill)
 import           Text.Parsec.Text           (Parser)
 
-import           Pos.Binary                 (deserialize')
+import           Pos.Binary                 (decodeFull)
 import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (Hash, PublicKey, decodeHash)
@@ -121,7 +121,7 @@ base58PkParser = do
     token <- some $ noneOf " "
     bs <- maybe (fail "Incorrect base58") pure $
         decodeBase58 bitcoinAlphabet (encodeUtf8 $ toText token)
-    pure (deserialize' bs)
+    eitherToFail (decodeFull bs)
 
 delegateL, delegateH :: Parser Command
 delegateL = DelegateLight <$> num <*> base58PkParser <*> num <*> optional num

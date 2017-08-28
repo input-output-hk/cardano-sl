@@ -140,9 +140,9 @@ instance Bi (Attributes AddrAttributes) where
             }
         go n v acc =
             case n of
-                0 -> pure acc {aaStakeDistribution = deserialize' v}
-                1 -> pure acc {aaPkDerivationPath = Just $ deserialize' v}
-                _ -> Nothing
+                0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> deserialize' v
+                1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> deserialize' v
+                _ -> pure Nothing
 
 -- We don't need a special encoding for 'Address'', GND is what we want.
 deriving instance Bi Address'

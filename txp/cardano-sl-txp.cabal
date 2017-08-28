@@ -59,6 +59,7 @@ library
     Pos.Script.Examples
 
     Pos.StateLock
+    Pos.StateLock.PrioLock
 
     Pos.Binary.Txp.Core
 

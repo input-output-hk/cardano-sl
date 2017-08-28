@@ -23,6 +23,7 @@ import           Pos.Core.Constants.Raw (protocolMagic)
 data SignTag
     = SignForTestingOnly  -- ^ Anything (to be used for testing only)
     | SignTx              -- ^ Tx:               @TxSigData@
+    | SignRedeemTx        -- ^ Redeem tx:        @TxSigData@
     | SignVssCert         -- ^ Vss certificate:  @(VssPublicKey, EpochIndex)@
     | SignUSProposal      -- ^ Update proposal:  @UpdateProposalToSign@
     | SignCommitment      -- ^ Commitment:       @(EpochIndex, Commitment)@
@@ -45,13 +46,14 @@ signTag :: SignTag -> ByteString
 signTag = \case
     SignForTestingOnly -> "\x00"
     SignTx             -> "\x01" <> network
-    SignVssCert        -> "\x02" <> network
-    SignUSProposal     -> "\x03" <> network
-    SignCommitment     -> "\x04" <> network
-    SignUSVote         -> "\x05" <> network
-    SignMainBlock      -> "\x06" <> network
-    SignMainBlockLight -> "\x07" <> network
-    SignMainBlockHeavy -> "\x08" <> network
-    SignProxySK        -> "\x09" <> network
+    SignRedeemTx       -> "\x02" <> network
+    SignVssCert        -> "\x03" <> network
+    SignUSProposal     -> "\x04" <> network
+    SignCommitment     -> "\x05" <> network
+    SignUSVote         -> "\x06" <> network
+    SignMainBlock      -> "\x07" <> network
+    SignMainBlockLight -> "\x08" <> network
+    SignMainBlockHeavy -> "\x09" <> network
+    SignProxySK        -> "\x0a" <> network
   where
     network = Bi.serialize' protocolMagic

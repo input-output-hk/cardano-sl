@@ -43,24 +43,23 @@ import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
 import           Formatting                       (build, sformat, (%))
+import           Serokell.Util                    (enumerate)
 import           System.Wlog                      (HasLoggerName, WithLogger, logError,
                                                    logInfo, logWarning, modifyLoggerName)
 
 import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
                                                    mainBlockTxPayload)
-import           Pos.Block.Logic                  (withBlkSemaphore_)
 import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Constants                    (genesisHash)
-import           Pos.Context                      (BlkSemaphore, GenesisUtxo (..),
-                                                   genesisUtxoM)
+import           Pos.Context                      (GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                         (Address (..), BlockHeaderStub,
                                                    ChainDifficulty, HasCoreConstants,
                                                    HasDifficulty (..), HeaderHash,
                                                    Timestamp, aaPkDerivationPath,
                                                    addrAttributesUnwrapped,
                                                    blkSecurityParam, headerHash,
-                                                   headerSlotL, makePubKeyAddress,
+                                                   headerSlotL, makeRootPubKeyAddress,
                                                    timestampToPosix)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
@@ -71,12 +70,13 @@ import qualified Pos.DB.DB                        as DB
 import           Pos.DB.Rocks                     (MonadRealDB)
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
+import           Pos.Infra.Semaphore              (BlkSemaphore, withBlkSemaphore)
 import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
                                                    getSystemStartM)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
-                                                   flattenTxPayload, getTxDistribution,
-                                                   toaOut, topsortTxs, txOutAddress)
+                                                   flattenTxPayload, toaOut, topsortTxs,
+                                                   txOutAddress)
 import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
@@ -197,10 +197,10 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
                 syncWalletWithGStateUnsafe encSK wTipH bh
                 pure $ Just bh
             else pure wTipH
-        withBlkSemaphore_ $ \tip -> do
+        withBlkSemaphore $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
             tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.blkGetHeader tip
-            tip <$ syncWalletWithGStateUnsafe encSK wNewTip tipH
+            syncWalletWithGStateUnsafe encSK wNewTip tipH
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.
@@ -320,8 +320,7 @@ trackingApplyTxs
 trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
     foldl' applyTx mempty txs
   where
-    snd3 (_, x, _) = x
-    toTxInOut txid (idx, out, dist) = (TxInUtxo  txid idx, TxOutAux out dist)
+    toTxInOut txid (idx, out) = (TxInUtxo txid idx, TxOutAux out)
 
     applyTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader ssc) -> CAccModifier
     applyTx CAccModifier{..} (TxAux {..}, undo, blkHeader) =
@@ -337,8 +336,8 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             txInputs = map (toaOut . snd) resolvedInputs
 
             ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
-            ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
-                         zip3 [0..] outs (NE.toList $ getTxDistribution taDistribution)
+            ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd) $
+                enumerate outs
             ownInpAddrMetas = map snd ownInputs
             ownOutAddrMetas = map snd ownOutputs
             ownTxIns = map (fst . fst) ownInputs
@@ -469,7 +468,7 @@ getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CId Wal)
 getEncInfo encSK = do
     let pubKey = encToPublic encSK
     let hdPass = deriveHDPassphrase pubKey
-    let wCId = addressToCId $ makePubKeyAddress pubKey
+    let wCId = addressToCId $ makeRootPubKeyAddress pubKey
     (hdPass, wCId)
 
 selectOwnAccounts

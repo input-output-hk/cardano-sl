@@ -2,57 +2,56 @@
 
 module Pos.Explorer.Txp.Local
        ( eTxProcessTransaction
+       , eTxProcessTransactionNoLock
        , eTxNormalize
        ) where
 
 import           Universum
 
-import           Control.Lens                (makeLenses)
-import           Control.Monad.Except        (MonadError (..))
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Default                (def)
-import qualified Data.HashMap.Strict         as HM
-import qualified Data.List.NonEmpty          as NE
-import qualified Data.Map                    as M (fromList)
-import           Ether.Internal              (HasLens (..))
-import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (WithLogger, logDebug)
+import           Control.Lens          (makeLenses)
+import           Control.Monad.Except  (MonadError (..))
+import           Data.Default          (def)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.List.NonEmpty    as NE
+import qualified Data.Map              as M (fromList)
+import           Formatting            (build, sformat, (%))
+import           Mockable              (CurrentTime, Mockable)
+import           System.Wlog           (WithLogger, logDebug)
 
-import           Pos.Core                    (BlockVersionData, EpochIndex,
-                                              GenesisWStakeholders, HeaderHash, Timestamp,
-                                              siEpoch)
-import           Pos.DB.Class                (MonadDBRead, MonadGState (..))
-import qualified Pos.Explorer.DB             as ExDB
-import qualified Pos.GState                  as GS
-import           Pos.Slotting                (MonadSlots (currentTimeSlotting, getCurrentSlot))
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, toaOut,
-                                              txOutAddress)
-import           Pos.Txp.MemState            (GenericTxpLocalDataPure, MonadTxpMem,
-                                              getLocalTxsMap, getTxpExtra,
-                                              getUtxoModifier, modifyTxpLocalData,
-                                              setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..),
-                                              MonadUtxoRead (..), ToilT,
-                                              ToilVerFailure (..), Utxo, runDBToil,
-                                              runDBToil, runToilTLocalExtra, utxoGet,
-                                              utxoGetReader)
-import           Pos.Util.Chrono             (NewestFirst (..))
-import qualified Pos.Util.Modifier           as MM
+import           Pos.Core              (BlockVersionData, EpochIndex,
+                                        GenesisWStakeholders, HeaderHash, Timestamp,
+                                        siEpoch)
+import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
+import qualified Pos.Explorer.DB       as ExDB
+import qualified Pos.GState            as GS
+import           Pos.Infra.Semaphore   (BlkSemaphore, withBlkSemaphore)
+import           Pos.Slotting          (MonadSlots (currentTimeSlotting, getCurrentSlot))
+import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
+import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
+                                        getLocalTxsMap, getTxpExtra, getUtxoModifier,
+                                        modifyTxpLocalData, setTxpLocalData)
+import           Pos.Txp.Toil          (GenericToilModifier (..), MonadUtxoRead (..),
+                                        ToilT, ToilVerFailure (..), Utxo, runDBToil,
+                                        runDBToil, runToilTLocalExtra, utxoGet,
+                                        utxoGetReader)
+import           Pos.Util.Chrono       (NewestFirst (..))
+import qualified Pos.Util.Modifier     as MM
+import           Pos.Util.Util         (HasLens (..), HasLens')
 
-import           Pos.Explorer.Core           (TxExtra (..))
-import           Pos.Explorer.Txp.Toil       (ExplorerExtra, ExplorerExtraTxp (..),
-                                              MonadTxExtraRead (..), eNormalizeToil,
-                                              eProcessTx, eeLocalTxsExtra)
+import           Pos.Explorer.Core     (TxExtra (..))
+import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
+                                        MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
+                                        eeLocalTxsExtra)
 
 type ETxpLocalWorkMode ctx m =
     ( MonadIO m
-    , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
     , MonadSlots ctx m
-    , HasLens GenesisWStakeholders ctx GenesisWStakeholders
+    , HasLens' ctx GenesisWStakeholders
+    , Mockable CurrentTime m
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -91,19 +90,35 @@ instance MonadTxExtraRead EProcessTxMode where
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
 
 eTxProcessTransaction
-    :: ETxpLocalWorkMode ctx m
-    => (TxId, TxAux) -> ExceptT ToilVerFailure m ()
-eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
+    :: (ETxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
+    => (TxId, TxAux) -> m (Either ToilVerFailure ())
+eTxProcessTransaction itw =
+    withBlkSemaphore $ \__tip -> eTxProcessTransactionNoLock itw
+
+eTxProcessTransactionNoLock
+    :: (ETxpLocalWorkMode ctx m)
+    => (TxId, TxAux) -> m (Either ToilVerFailure ())
+eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
+    let UnsafeTx {..} = taTx txAux
+    -- Note: we need to read tip from the DB and check that it's the
+    -- same as the one in mempool. That's because mempool state is
+    -- valid only with respect to the tip stored there. Normally tips
+    -- will match, because whenever we apply/rollback blocks we
+    -- normalize mempool. However, there is a corner case when we
+    -- receive an unexpected exception after modifying GState and
+    -- before normalization. In this case normalization can fail and
+    -- tips will differ. Rejecting transactions in this case should be
+    -- fine, because the fact that we receive exceptions likely
+    -- indicates that something is bad and we have more serious issues.
+    --
+    -- Also note that we don't need to use a snapshot here and can be
+    -- sure that GState won't change, because changing it requires
+    -- 'BlkSemaphore' which we own inside this function.
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     genStks <- view (lensOf @GenesisWStakeholders)
     bvd <- gsAdoptedBVData
-    -- Note: snapshot isn't used here, because it's not necessary.  If
-    -- tip changes after 'getTip' and before resolving all inputs, it's
-    -- possible that invalid transaction will appear in
-    -- mempool. However, in this case it will be removed by
-    -- normalization before releasing lock on block application.
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.

@@ -12,11 +12,13 @@ module Pos.Ssc.GodTossing.Toss.Pure
        , supplyPureTossEnv
        ) where
 
+import           Universum
+
 import           Control.Lens                   (at, sequenceAOf, (%=), (.=))
+import qualified Crypto.Random                  as Rand
 import           System.Wlog                    (CanLog, HasLoggerName (..), LogEvent,
                                                  NamedPureLogger (..), WithLogger,
                                                  launchNamedPureLog, runNamedPureLog)
-import           Universum
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
                                                  HasCoreConstants, crucialSlot)
@@ -33,15 +35,21 @@ import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 type MultiRichmenStakes = HashMap EpochIndex RichmenStakes
 type MultiRichmenSet   = HashMap EpochIndex RichmenSet
 
+-- 'MonadPseudoRandom' is needed because some cryptographic algorithms
+-- require randomness even though they are deterministic. Note that running
+-- them with the same seed every time is insecure and must not be done.
 newtype PureToss a = PureToss
-    { getPureToss ::
-          NamedPureLogger (State GtGlobalState) a
-    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
+    { getPureToss :: NamedPureLogger (
+                     StateT GtGlobalState (
+                     Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    } deriving (Functor, Applicative, Monad,
+                CanLog, HasLoggerName, Rand.MonadRandom)
 
 newtype PureTossWithEnv a = PureTossWithEnv
     { getPureTossWithEnv ::
           ReaderT (MultiRichmenStakes, BlockVersionData) PureToss a
-    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
+    } deriving (Functor, Applicative, Monad, Rand.MonadRandom,
+                CanLog, HasLoggerName)
 
 deriving instance HasCoreConstants => MonadTossRead PureTossWithEnv
 deriving instance HasCoreConstants => MonadToss PureTossWithEnv
@@ -80,35 +88,40 @@ instance HasCoreConstants => MonadToss PureToss where
     setEpochOrSlot eos = PureToss $ gsVssCertificates %= VCD.setLastKnownEoS eos
 
 runPureToss
-    :: GtGlobalState
+    :: Rand.MonadRandom m
+    => GtGlobalState
     -> PureToss a
-    -> (a, GtGlobalState, [LogEvent])
-runPureToss gs =
-    reorder . (`runState` gs) . runNamedPureLog . getPureToss
-  where
-    reorder :: ((a, [LogEvent]), GtGlobalState)
-            -> (a, GtGlobalState, [LogEvent])
-    reorder ((res, logEvents), newGs) = (res, newGs, logEvents)
+    -> m (a, GtGlobalState, [LogEvent])
+runPureToss gs (PureToss act) = do
+    seed <- Rand.drgNew
+    let ((res, events), newGS) =
+            fst . Rand.withDRG seed $    -- run MonadRandom
+            (`runStateT` gs) $           -- run State
+            runNamedPureLog act          -- run NamedPureLogger
+    pure (res, newGS, events)
 
 runPureTossWithLogger
-    :: WithLogger m
+    :: (WithLogger m, Rand.MonadRandom m)
     => GtGlobalState
     -> PureToss a
     -> m (a, GtGlobalState)
-runPureTossWithLogger gs action = do
-    let unwrapLower a = return $ sequenceAOf _1 $ runState a gs
-    (res, newGS) <- launchNamedPureLog unwrapLower $ getPureToss action
+runPureTossWithLogger gs (PureToss act) = do
+    seed <- Rand.drgNew
+    let unwrapLower a = pure $ sequenceAOf _1 $     -- (f a, b) -> f (a, b)
+                        fst $ Rand.withDRG seed $   -- run MonadRandom
+                        runStateT a gs              -- run State
+    (res, newGS) <- launchNamedPureLog unwrapLower act
     return (res, newGS)
 
 evalPureTossWithLogger
-    :: WithLogger m
+    :: (WithLogger m, Rand.MonadRandom m)
     => GtGlobalState
     -> PureToss a
     -> m a
 evalPureTossWithLogger g = fmap fst . runPureTossWithLogger g
 
 execPureTossWithLogger
-    :: WithLogger m
+    :: (WithLogger m, Rand.MonadRandom m)
     => GtGlobalState
     -> PureToss a
     -> m GtGlobalState

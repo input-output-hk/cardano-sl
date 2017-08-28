@@ -196,27 +196,28 @@ executable cardano-keygen
   if !flag(for-installer)
    build-depends:      QuickCheck >= 2.9
                      , Glob
-                     , base
                      , aeson
+                     , base
+                     , bytestring >= 0.10
                      , ansi-wl-pprint
                      , cardano-sl-core
                      , cardano-sl-txp
                      , cardano-sl
+                     , containers
+                     , directory
                      , ed25519
                      , formatting
-                     , universum >= 0.1
+                     , lens
                      , serokell-util >= 0.1
                      , text
-                     , lens
                      , neat-interpolation
                      , optparse-applicative >= 0.12
                      , parsec
-                     , unordered-containers
-                     , bytestring >= 0.10
                      , random >= 1.1
                      , filepath
-                     , directory
                      , log-warper
+                     , universum >= 0.1
+                     , unordered-containers
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

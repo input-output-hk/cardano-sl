@@ -53,6 +53,12 @@ library
                       Pos.Wallet.Web.Sockets.Connection
                       Pos.Wallet.Web.Sockets.Notifier
                       Pos.Wallet.Web.Sockets.Types
+                      Pos.Wallet.Web.Swagger
+                      Pos.Wallet.Web.Swagger.CustomSwagger
+                      Pos.Wallet.Web.Swagger.Description
+                      Pos.Wallet.Web.Swagger.Instances
+                      Pos.Wallet.Web.Swagger.Instances.Schema
+                      Pos.Wallet.Web.Swagger.Instances.Swagger
                       Pos.Wallet.Web.Tracking
                       Pos.Wallet.Web.Tracking.BListener
                       Pos.Wallet.Web.Tracking.Sync
@@ -94,9 +100,11 @@ library
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
+                      , servant-swagger
                       , string-qq
                       , stm
                       , stm-containers
+                      , swagger2
                       , text-format
                       , time
                       , time-units
@@ -140,6 +148,7 @@ library
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        TypeOperators
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -185,6 +194,7 @@ executable cardano-node
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
+                      , servant-swagger
                       , string-qq
                       , stm
                       , stm-containers
@@ -286,11 +296,6 @@ executable cardano-wallet-hs2purs
 executable cardano-swagger
   hs-source-dirs:      web-api-swagger
   main-is:             Main.hs
-  other-modules:       CustomSwagger
-                       Description
-                       Instances
-                       Instances.Schema
-                       Instances.Swagger
   if !flag(for-installer)
     build-depends:       aeson
                        , base

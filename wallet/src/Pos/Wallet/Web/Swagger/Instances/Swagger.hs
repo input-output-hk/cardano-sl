@@ -2,7 +2,7 @@
 
 -- | Swagger instances
 
-module Instances.Swagger () where
+module Pos.Wallet.Web.Swagger.Instances.Swagger () where
 
 import           Universum
 
@@ -26,4 +26,3 @@ instance HasSwagger (apiType a :> res) =>
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (WithDefaultApiArg apiType a :> res) where
     toSwagger _ = toSwagger (Proxy @(apiType a :> res))
-

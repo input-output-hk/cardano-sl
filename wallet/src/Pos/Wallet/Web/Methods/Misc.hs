@@ -14,9 +14,21 @@ module Pos.Wallet.Web.Methods.Misc
        , syncProgress
 
        , testResetAll
+
+       , swaggerSpec
        ) where
 
 import           Universum
+
+import           Control.Lens               ((?~))
+import           Data.Swagger               (Swagger, description, info,
+                                             title, version)
+import           Servant.Swagger            (toSwagger)
+
+import           Data.Version               (showVersion)
+import qualified Paths_cardano_sl           as CSL
+
+import           Pos.Wallet.Web.Swagger     (toCustomSwagger)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Core                   (decodeTextAddress)
@@ -24,6 +36,7 @@ import           Pos.Util                   (maybeThrow)
 import           Pos.Wallet.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
+import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CProfile, CProfile (..), CUpdateInfo (..),
                                              SyncProgress (..))
 import           Pos.Wallet.Web.Error       (WalletError (..))
@@ -68,7 +81,7 @@ applyUpdate = removeNextUpdate >> applyLastUpdate
 ----------------------------------------------------------------------------
 
 syncProgress :: MonadWalletWebMode m => m SyncProgress
-syncProgress = do
+syncProgress =
     SyncProgress
     <$> localChainDifficulty
     <*> networkChainDifficulty
@@ -84,3 +97,10 @@ testResetAll = deleteAllKeys >> testReset
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
         replicateM_ keyNum $ deleteSecretKey 0
+
+-- | Build Swagger-specification from 'walletApi'.
+swaggerSpec :: Swagger
+swaggerSpec = toCustomSwagger walletApi
+    & info . title       .~ "Cardano SL Wallet Web API"
+    & info . version     .~ toText (showVersion CSL.version)
+    & info . description ?~ "This is an API for Cardano SL wallet."

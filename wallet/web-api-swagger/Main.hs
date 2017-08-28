@@ -24,8 +24,7 @@ import qualified Paths_cardano_sl           as CSL
 import qualified Pos.Wallet.Web.Error.Types as ET
 import           Pos.Wallet.Web.Api         (walletApi)
 
-import           CustomSwagger              (toCustomSwagger)
-import           Description                ()
+import           Pos.Wallet.Web.Swagger
 
 showProgramInfoIfRequired :: FilePath -> IO ()
 showProgramInfoIfRequired generatedJSON = void $ execParser programInfo

@@ -58,10 +58,14 @@ module Pos.Wallet.Web.Api
 
        , ImportBackupJSON
        , ExportBackupJSON
+
+       , WalletSwaggerApi
+       , swaggerWalletApi
        ) where
 
 
 import           Control.Monad.Catch        (try)
+import           Data.Swagger
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody, Verb)
 import           Servant.Multipart          (MultipartForm)
@@ -461,3 +465,18 @@ type WalletApi = ApiPrefix :> (
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi
 walletApi = Proxy
+
+-------------------------------------------------------------------------
+-- Swagger
+-------------------------------------------------------------------------
+
+-- | API for serving @wallet-web-api-swagger.json@.
+type SwaggerApi = ApiPrefix :> "wallet-web-api-swagger.json" :> Get '[JSON] Swagger
+
+type WalletSwaggerApi =
+  SwaggerApi
+  :<|> WalletApi
+
+-- | Helper Proxy.
+swaggerWalletApi :: Proxy WalletSwaggerApi
+swaggerWalletApi = Proxy

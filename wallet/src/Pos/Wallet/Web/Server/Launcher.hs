@@ -26,7 +26,7 @@ import           Pos.Communication                (OutSpecs, SendActions (..), s
 import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
-import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
+import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Server.Handlers   (servantHandlers)
@@ -51,18 +51,18 @@ walletServeImpl app =
 
 walletApplication
     :: MonadWalletWebMode m
-    => m (Server WalletApi)
+    => m (Server WalletSwaggerApi)
     -> m Application
 walletApplication serv = do
     wsConn <- getWalletWebSockets
-    upgradeApplicationWS wsConn . serve walletApi <$> serv
+    upgradeApplicationWS wsConn . serve swaggerWalletApi <$> serv
 
 walletServer
     :: forall m.
        ( MonadWalletWebMode m )
     => SendActions m
     -> m (m :~> Handler)
-    -> m (Server WalletApi)
+    -> m (Server WalletSwaggerApi)
 walletServer sendActions nat = do
     syncWalletsWithGState @WalletSscType =<< mapM findKey =<< myRootAddresses
     startPendingTxsResubmitter sendActions

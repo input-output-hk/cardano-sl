@@ -72,7 +72,7 @@ in {
     node5 = mkMachine 5;
   };
   testScript = ''
-    startAll
+    startAll;
     $node1->waitForUnit("cardano-node.service");
     # TODO, implement sd_notify?
     $node1->waitForOpenPort(3000);

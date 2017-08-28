@@ -36,7 +36,6 @@ import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              slotSecurityParam)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.GState                 as GS
-import           Pos.Infra.Semaphore        (BlkSemaphore, withBlkSemaphore)
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -50,6 +49,7 @@ import           Pos.Reporting              (reportMisbehaviourSilent)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
+import           Pos.StateLock              (StateLock, withStateLock)
 import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
@@ -92,10 +92,10 @@ type LrcModeFullNoSemaphore ssc ctx m =
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ssc ctx m =
     ( LrcModeFullNoSemaphore ssc ctx m
-    , HasLens BlkSemaphore ctx BlkSemaphore
+    , HasLens StateLock ctx StateLock
     )
 
-type WithBlkSemaphore_ m = m () -> m ()
+type WithStateLock_ m = m () -> m ()
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
@@ -103,7 +103,7 @@ lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc (withBlkSemaphore . const) epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc (withStateLock . const) epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
@@ -114,7 +114,7 @@ lrcSingleShotNoLock epoch =
 
 lrcSingleShotImpl
     :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
-    => WithBlkSemaphore_ m -> EpochIndex -> [LrcConsumer m] -> m ()
+    => WithStateLock_ m -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
     lock <- views (lensOf @LrcContext) lcLrcSync
     tryAcquireExclusiveLock epoch lock onAcquiredLock

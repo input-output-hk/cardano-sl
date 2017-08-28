@@ -33,7 +33,6 @@ import           Pos.DHT.Real          (KademliaDHTInstance (..),
                                         kademliaJoinNetworkRetry)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
-import           Pos.Infra.Semaphore   (BlkSemaphore (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
 import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
@@ -41,6 +40,7 @@ import           Pos.Reporting         (reportMisbehaviourSilent)
 import           Pos.Shutdown          (waitForWorkers)
 import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
+import           Pos.StateLock         (StateLock (..))
 import           Pos.Util              (inAssertMode)
 import           Pos.Util.Config       (configName)
 import           Pos.Util.LogSafe      (logInfoS)
@@ -178,8 +178,8 @@ nodeStartMsg = logInfo msg
 
 initSemaphore :: (WorkMode ssc ctx m) => m ()
 initSemaphore = do
-    semaphore <- views (lensOf @BlkSemaphore) unBlkSemaphore
+    semaphore <- views (lensOf @StateLock) unStateLock
     whenJustM (tryReadMVar semaphore) $ const $
-        logError "ncBlkSemaphore is not empty at the very beginning"
+        logError "ncStateLock is not empty at the very beginning"
     tip <- GS.getTip
     putMVar semaphore tip

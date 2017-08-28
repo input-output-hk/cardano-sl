@@ -96,13 +96,13 @@ library
                         Pos.Binary.Infra.Slotting
                         Pos.Binary.Infra.Relay
 
+                        -- Pos.StateLock
+                        Pos.StateLock
+
                         -- Pos.Util
                         Pos.Util.LogSafe
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
-
-                        -- Everything else that is too small to have a special group
-                        Pos.Infra.Semaphore
 
   if os(windows)
     exposed-modules:    Pos.Network.Windows.DnsDomains

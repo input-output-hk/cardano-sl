@@ -1,11 +1,11 @@
--- | 'BlkSemaphore' primitive used for synchronization of threads in
+-- | 'StateLock' primitive used for synchronization of threads in
 -- the application.
 
-module Pos.Infra.Semaphore
-       ( BlkSemaphore (..)
-       , modifyBlkSemaphore
-       , modifyBlkSemaphore_
-       , withBlkSemaphore
+module Pos.StateLock
+       ( StateLock (..)
+       , modifyStateLock
+       , modifyStateLock_
+       , withStateLock
        ) where
 
 import           Universum
@@ -19,52 +19,52 @@ import           Pos.Util.Util       (HasLens', lensOf)
 -- | A simple wrapper over 'MVar' which stores 'HeaderHash' (our
 -- current tip) and is taken whenever we want to update GState or
 -- other data dependent on GState.
-newtype BlkSemaphore = BlkSemaphore
-    { unBlkSemaphore :: MVar HeaderHash
+newtype StateLock = StateLock
+    { unStateLock :: MVar HeaderHash
     }
 
--- | Run an action acquiring 'BlkSemaphore' lock. Argument of
+-- | Run an action acquiring 'StateLock' lock. Argument of
 -- action is an old tip, result is put as a new tip.
-modifyBlkSemaphore ::
+modifyStateLock ::
        ( MonadIO m
        , MonadMask m
        , MonadReader ctx m
-       , HasLens' ctx BlkSemaphore
+       , HasLens' ctx StateLock
        )
     => (HeaderHash -> m (HeaderHash, a))
     -> m a
-modifyBlkSemaphore action = blkSemaphoreHelper (flip modifyMVar action)
+modifyStateLock action = blkSemaphoreHelper (flip modifyMVar action)
 
--- | Version of 'modifyBlkSemaphore' which doesn't have any result.
-modifyBlkSemaphore_ ::
+-- | Version of 'modifyStateLock' which doesn't have any result.
+modifyStateLock_ ::
        ( MonadIO m
        , MonadMask m
        , MonadReader ctx m
-       , HasLens' ctx BlkSemaphore
+       , HasLens' ctx StateLock
        )
     => (HeaderHash -> m HeaderHash)
     -> m ()
-modifyBlkSemaphore_ action = blkSemaphoreHelper (flip modifyMVar_ action)
+modifyStateLock_ action = blkSemaphoreHelper (flip modifyMVar_ action)
 
--- | Run an action acquiring 'BlkSemaphore' lock without modifying tip.
-withBlkSemaphore ::
+-- | Run an action acquiring 'StateLock' lock without modifying tip.
+withStateLock ::
        ( MonadIO m
        , MonadMask m
        , MonadReader ctx m
-       , HasLens' ctx BlkSemaphore
+       , HasLens' ctx StateLock
        )
     => (HeaderHash -> m a)
     -> m a
-withBlkSemaphore action = blkSemaphoreHelper (flip withMVar action)
+withStateLock action = blkSemaphoreHelper (flip withMVar action)
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 blkSemaphoreHelper ::
-       (MonadReader ctx m, HasLens' ctx BlkSemaphore)
+       (MonadReader ctx m, HasLens' ctx StateLock)
     => (MVar HeaderHash -> m a)
     -> m a
 blkSemaphoreHelper action = do
-    BlkSemaphore mvar <- view (lensOf @BlkSemaphore)
+    StateLock mvar <- view (lensOf @StateLock)
     action mvar

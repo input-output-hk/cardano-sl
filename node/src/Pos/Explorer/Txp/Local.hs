@@ -24,8 +24,8 @@ import           Pos.Core              (BlockVersionData, EpochIndex,
 import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
 import qualified Pos.GState            as GS
-import           Pos.Infra.Semaphore   (BlkSemaphore, withBlkSemaphore)
 import           Pos.Slotting          (MonadSlots (currentTimeSlotting, getCurrentSlot))
+import           Pos.StateLock         (StateLock, withStateLock)
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
@@ -90,10 +90,10 @@ instance MonadTxExtraRead EProcessTxMode where
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
 
 eTxProcessTransaction
-    :: (ETxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
+    :: (ETxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
-    withBlkSemaphore $ \__tip -> eTxProcessTransactionNoLock itw
+    withStateLock $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)
@@ -113,7 +113,7 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
     --
     -- Also note that we don't need to use a snapshot here and can be
     -- sure that GState won't change, because changing it requires
-    -- 'BlkSemaphore' which we own inside this function.
+    -- 'StateLock' which we own inside this function.
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)

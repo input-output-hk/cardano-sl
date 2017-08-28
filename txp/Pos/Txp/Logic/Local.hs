@@ -27,8 +27,8 @@ import           Pos.Core             (BlockVersionData, EpochIndex, GenesisWSta
 import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Infra.Semaphore  (BlkSemaphore, withBlkSemaphore)
 import           Pos.Slotting         (MonadSlots (..))
+import           Pos.StateLock        (StateLock, withStateLock)
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
 import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
                                        TxpLocalDataPure, askTxpMem, getLocalTxs,
@@ -79,10 +79,10 @@ instance MonadGState ProcessTxMode where
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: (TxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
+    :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withBlkSemaphore $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
@@ -104,7 +104,7 @@ txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
     --
     -- Also note that we don't need to use a snapshot here and can be
     -- sure that GState won't change, because changing it requires
-    -- 'BlkSemaphore' which we own inside this function.
+    -- 'StateLock' which we own inside this function.
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)

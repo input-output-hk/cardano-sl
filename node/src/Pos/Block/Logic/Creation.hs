@@ -49,7 +49,6 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
-import           Pos.Infra.Semaphore        (BlkSemaphore, modifyBlkSemaphore)
 import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)
@@ -57,6 +56,7 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
+import           Pos.StateLock              (StateLock, modifyStateLock)
 import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
@@ -111,7 +111,7 @@ createGenesisBlockAndApply ::
        forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasLens StateLock ctx StateLock
        )
     => EpochIndex
     -> m (Maybe (GenesisBlock ssc))
@@ -123,7 +123,7 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> modifyBlkSemaphore (createGenesisBlockDo epoch leaders)
+        Right leaders -> modifyStateLock (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -187,13 +187,13 @@ createMainBlockAndApply ::
        forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasLens StateLock ctx StateLock
        )
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ modifyBlkSemaphore createAndApply
+    reportingFatal $ modifyStateLock createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case

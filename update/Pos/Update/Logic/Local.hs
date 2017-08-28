@@ -40,8 +40,8 @@ import           Pos.Core.Constants     (memPoolLimitRatio)
 import           Pos.Crypto             (PublicKey, shortHashF)
 import           Pos.DB.Class           (MonadDBRead)
 import qualified Pos.DB.GState.Common   as DB
-import           Pos.Infra.Semaphore    (BlkSemaphore)
 import           Pos.Lrc.Context        (LrcContext)
+import           Pos.StateLock          (StateLock)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
@@ -70,7 +70,7 @@ type USLocalLogicMode ctx m =
 type USLocalLogicModeWithLock ctx m =
     ( USLocalLogicMode ctx m
     , MonadMask m
-    , HasLens' ctx BlkSemaphore
+    , HasLens' ctx StateLock
     )
 
 getMemPool

@@ -13,7 +13,7 @@ import qualified Data.HashMap.Strict       as HM
 import           Pos.Binary.Class          (biSize)
 import           Pos.Binary.Update         ()
 import           Pos.Crypto                (PublicKey, hash)
-import           Pos.Infra.Semaphore       (BlkSemaphore, withBlkSemaphore)
+import           Pos.StateLock             (StateLock, withStateLock)
 import           Pos.Update.Core.Types     (LocalVotes, UpdatePayload (..),
                                             UpdateVote (..))
 import           Pos.Update.MemState.Types (MemPool (..))
@@ -24,11 +24,11 @@ type UpdateVotes = HashMap PublicKey UpdateVote
 -- | Use a lock to perform operation on in-memory state of update system.
 --
 -- Currently we are using a single lock for everything, so this
--- function is just an alias for 'withBlkSemaphoreIgnoreTip'.
+-- function is just an alias for 'withStateLock'.
 withUSLock
-    :: (MonadReader ctx m, HasLens' ctx BlkSemaphore, MonadIO m, MonadMask m)
+    :: (MonadReader ctx m, HasLens' ctx StateLock, MonadIO m, MonadMask m)
     => m a -> m a
-withUSLock = withBlkSemaphore . const
+withUSLock = withStateLock . const
 
 -- | Add given payload to MemPool. Size is updated assuming that all added
 -- data is new (is not in MemPool). This assumption is fine, because

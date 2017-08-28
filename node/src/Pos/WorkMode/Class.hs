@@ -33,7 +33,6 @@ import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Real.Types          (KademliaDHTInstance)
 import           Pos.Genesis                 (GenesisUtxo, GenesisWStakeholders)
-import           Pos.Infra.Semaphore         (BlkSemaphore)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
@@ -51,6 +50,7 @@ import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
+import           Pos.StateLock               (StateLock)
 import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
@@ -92,7 +92,7 @@ type WorkMode ssc ctx m
       , MonadKnownPeers m
       , MonadFormatPeers m
       , HasLens StartTime ctx StartTime
-      , HasLens BlkSemaphore ctx BlkSemaphore
+      , HasLens StateLock ctx StateLock
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateContext ctx UpdateContext
       , HasLens UpdateParams ctx UpdateParams

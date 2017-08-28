@@ -182,6 +182,7 @@ emptyPollSt bvInfo = Poll.PollState
     mempty
     mempty
 
+-- | Apply a sequence of 'PollAction's from left to right.
 perform :: [PollAction] -> Poll.PurePoll ()
 perform = foldl (>>) (return ()) . map actionToMonad
 

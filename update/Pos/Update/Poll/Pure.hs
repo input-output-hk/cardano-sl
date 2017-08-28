@@ -117,9 +117,9 @@ instance Bi UpdateProposal => MonadPoll PurePoll where
           uProp = psProposal p
           uId = hash uProp
           appName = svAppName . upSoftwareVersion $ uProp
-    deactivateProposal ui =
-        PurePoll $ (Poll.psActiveProposals . at ui .= Nothing) >>
-                   (Poll.psActivePropsIdx . mapped . at ui .= Nothing) >>
-                   (Poll.psActivePropsIdx %= HM.filter (not . null))
+    deactivateProposal ui = PurePoll $ do
+         Poll.psActiveProposals . at ui .= Nothing
+         Poll.psActivePropsIdx . mapped . at ui .= Nothing
+         Poll.psActivePropsIdx %= HM.filter (not . null)
     setSlottingData sd = PurePoll $ Poll.psSlottingData .= sd
     setEpochProposers hs = PurePoll $ Poll.psEpochProposers .= hs

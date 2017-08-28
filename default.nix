@@ -18,7 +18,6 @@ let
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
       cardano-sl = overrideCabal super.cardano-sl (drv: {
-        doHaddock = false;
         patchPhase = ''
           export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
         '';
@@ -28,7 +27,6 @@ let
           "-f-dev-mode"
           "--ghc-option=-optl-lm"
         ];
-        doCoverage = false;
         testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
         preCheck = ''
           mkdir -p dist/test
@@ -74,24 +72,24 @@ let
         '';
       });
       cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
-      cardano-sl-tools = overrideCabal super.cardano-sl-tools (drv: {
+      cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
-      });
-      cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
+      }));
 
       cardano-sl-static = justStaticExecutables self.cardano-sl;
-      cardano-without-explorer = disableCabalFlag self.cardano-sl "with-explorer";
-      cardano-with-explorer = disableCabalFlag self.cardano-sl "with-explorer";
+      cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
 
       # Gold linker fixes
       cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
+
       # Darwin fixes upstreamed in nixpkgs commit 71bebd52547f4486816fd320bb3dc6314f139e67
       hinotify = if pkgs.stdenv.isDarwin then self.hfsevents else super.hinotify;
       hfsevents = self.callPackage ./pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
       fsnotify = if pkgs.stdenv.isDarwin
         then addBuildDepend (dontCheck super.fsnotify) pkgs.darwin.apple_sdk.frameworks.Cocoa
         else dontCheck super.fsnotify;
+
       mkDerivation = args: super.mkDerivation (args // {
         #enableLibraryProfiling = true;
       });

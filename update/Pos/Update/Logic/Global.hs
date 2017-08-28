@@ -1,4 +1,3 @@
-
 -- | Logic of local data processing in Update System.
 
 module Pos.Update.Logic.Global
@@ -24,7 +23,7 @@ import           Pos.Core             (ApplicationName, BlockVersion, HasCoreCon
 import qualified Pos.DB.BatchOp       as DB
 import qualified Pos.DB.Class         as DB
 import           Pos.Lrc.Context      (LrcContext)
-import           Pos.Slotting         (SlottingData)
+import           Pos.Slotting         (MonadSlotsData, SlottingData, slottingVar)
 import           Pos.Update.Constants (lastKnownBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId, UpdateBlock)
 import           Pos.Update.DB        (UpdateOp (..))
@@ -46,7 +45,9 @@ type USGlobalApplyMode ctx m =
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
     , HasCoreConstants
+    , MonadSlotsData ctx m
     )
+
 type USGlobalVerifyMode ctx m =
     ( WithLogger m
     , MonadIO m
@@ -66,23 +67,34 @@ withUSLogger = modifyLoggerName (<> "us")
 -- block is current tip.  If verification is done prior to
 -- application, one can pass 'PollModifier' obtained from verification
 -- to this function.
+--
+-- This function also updates in-memory state of slotting
+-- ('MonadSlotsData') whenever it should be updated. Note that at this
+-- point we can't be sure that blocks will be eventually applied to
+-- DB. So it can happen that we update in-memory data, but don't
+-- update DB. However, it's not a problem, because slotting data is
+-- stable, i. e. once we know it for some epoch, we can be sure it
+-- will never change. Also note that we store slotting data for all
+-- epochs in memory, so adding new one can't make anything worse.
 usApplyBlocks
     :: (MonadThrow m, USGlobalApplyMode ctx m)
     => OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks blocks modifierMaybe = withUSLogger $
+usApplyBlocks blocks modifierMaybe =
+    withUSLogger $
+    processModifier =<<
     case modifierMaybe of
         Nothing -> do
             verdict <- runExceptT $ usVerifyBlocks False blocks
-            either onFailure (return . modifierToBatch . fst) verdict
+            either onFailure (return . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
                 verdict <- runExceptT $ usVerifyBlocks False blocks
                 whenLeft verdict $ \v -> onFailure v
-            return $ modifierToBatch modifier
+            return modifier
   where
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
@@ -96,9 +108,24 @@ usRollbackBlocks
     :: forall ctx m.
        USGlobalApplyMode ctx m
     => NewestFirst NE (UpdateBlock, USUndo) -> m [DB.SomeBatchOp]
-usRollbackBlocks blunds = withUSLogger $
-    modifierToBatch <$>
+usRollbackBlocks blunds =
+    withUSLogger $
+    processModifier =<<
     (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
+
+-- This function takes a 'PollModifier' corresponding to a sequence of
+-- blocks, updates in-memory slotting data and converts this modifier
+-- to '[SomeBatchOp]'.
+processModifier ::
+       forall ctx m. (HasCoreConstants, MonadSlotsData ctx m)
+    => PollModifier
+    -> m [DB.SomeBatchOp]
+processModifier pm@PollModifier {pmSlottingData = newSlottingData} =
+    modifierToBatch pm <$ whenJust newSlottingData setNewSlottingData
+  where
+    setNewSlottingData newSD = do
+        var <- view slottingVar
+        atomically $ writeTVar var newSD
 
 -- | Verify whether sequence of blocks can be applied to US part of
 -- current GState DB.  This function doesn't make pure checks, they

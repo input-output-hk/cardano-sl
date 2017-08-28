@@ -9,10 +9,11 @@ import           Pos.Wallet.Web.ClientTypes   (Addr, CAccount, CAccountId, CAcco
                                                CAccountMeta, CAddress, CCoin, CHash, CId,
                                                CInitialized, CInitialized,
                                                CPaperVendWalletRedeem, CProfile, CProfile,
-                                               CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                               CWAddressMeta, CWallet, CWalletAssurance,
-                                               CWalletInit, CWalletMeta, CWalletRedeem,
-                                               SyncProgress, Wal)
+                                               CPtxCondition, CTExMeta, CTx, CTxId,
+                                               CTxMeta, CUpdateInfo, CWAddressMeta,
+                                               CWallet, CWalletAssurance, CWalletInit,
+                                               CWalletMeta, CWalletRedeem, SyncProgress,
+                                               Wal)
 import           Pos.Wallet.Web.Error         (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
 
@@ -42,6 +43,7 @@ deriveToJSON defaultOptions ''CTxId
 deriveToJSON defaultOptions ''CAddress
 deriveToJSON defaultOptions ''CAccount
 deriveToJSON defaultOptions ''CWallet
+deriveToJSON defaultOptions ''CPtxCondition
 deriveToJSON defaultOptions ''CTx
 deriveToJSON defaultOptions ''CTExMeta
 deriveToJSON defaultOptions ''SoftwareVersion

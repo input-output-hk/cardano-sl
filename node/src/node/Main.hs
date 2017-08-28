@@ -66,13 +66,13 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = give
     putText "Wallet is disabled, because software is built w/o it"
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = CLI.gtSscParams cArgs vssSK
+    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
-        sscParams = bool (Left ()) (Right gtParams) (sscAlgo == GodTossingAlgo)
-    case (sscParams) of
-        Left par  -> actionWithoutWallet @SscNistBeacon par currentParams
-        Right par -> actionWithoutWallet @SscGodTossing par currentParams
+    case sscAlgo of
+        NistBeaconAlgo ->
+            actionWithoutWallet @SscNistBeacon () currentParams
+        GodTossingAlgo ->
+            actionWithoutWallet @SscGodTossing gtParams currentParams
 
 main :: IO ()
 main = do

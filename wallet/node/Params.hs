@@ -6,6 +6,7 @@ module Params
 
 import           Universum
 
+import           Data.Default        (def)
 import           Mockable            (Catch, Fork, Mockable, Throw)
 import           System.Wlog         (WithLogger)
 
@@ -17,7 +18,6 @@ import           Pos.Genesis         (devGenesisContext, devStakesDistr,
                                       genesisContextProduction)
 import           Pos.Launcher        (NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
-import           Pos.Security        (SecurityParams (..))
 import           Pos.Update.Params   (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
 
@@ -62,10 +62,7 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             , upUpdateWithPkg = updateWithPackage
             , upUpdateServers = CLI.updateServers commonArgs
             }
-        , npSecurityParams = SecurityParams
-            { spAttackTypes   = []
-            , spAttackTargets = []
-            }
+        , npBehaviorConfig = def
         , npUseNTP = not noNTP
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams

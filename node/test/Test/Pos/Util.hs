@@ -46,8 +46,8 @@ import           Data.Typeable            (typeRep)
 import           Formatting               (formatToString, int, (%))
 import           Prelude                  (read)
 
-import           Pos.Binary               (AsBinaryClass (..), Bi (..), deserialize,
-                                           serialize, serialize')
+import           Pos.Binary               (AsBinaryClass (..), Bi (..), serialize,
+                                           serialize', unsafeDeserialize)
 import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
 import           Pos.Core                 (CoreConstants (..), HasCoreConstants,
                                            giveConsts)
@@ -75,7 +75,7 @@ instance Arbitrary a => Arbitrary (Tagged s a) where
 
 -- | Basic binary serialization/deserialization identity.
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-binaryEncodeDecode a = (deserialize . serialize $ a) === a
+binaryEncodeDecode a = (unsafeDeserialize . serialize $ a) === a
 
 -- | Machinery to test we perform "flat" encoding.
 cborFlatTermValid :: (Show a, Bi a) => a -> Property

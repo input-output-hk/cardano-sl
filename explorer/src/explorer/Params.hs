@@ -26,7 +26,6 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
-import           Pos.Security.Params   (SecurityParams (..))
 import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.TimeWarp     (NetworkAddress, readAddrFile)
@@ -118,13 +117,10 @@ getNodeParams args@Args {..} systemStart = do
             , upUpdateServers = CLI.updateServers commonArgs
             }
         , npReportServers = CLI.reportServers commonArgs
-        , npSecurityParams = SecurityParams
-            { spAttackTypes   = []
-            , spAttackTargets = []
-            }
-          , npUseNTP = not noNTP
-          , npEnableMetrics = enableMetrics
-          , npEkgParams = ekgParams
-          , npStatsdParams = statsdParams
-          , ..
+        , npBehaviorConfig = def
+        , npUseNTP = not noNTP
+        , npEnableMetrics = enableMetrics
+        , npEkgParams = ekgParams
+        , npStatsdParams = statsdParams
+        , ..
         }

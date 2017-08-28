@@ -6,6 +6,7 @@ module Pos.Core.Timestamp
        , getCurrentTimestamp
        , diffTimestamp
        , addMicrosecondsToTimestamp
+       , timestampToPosix
 
        , TimeDiff (..)
        , addTimeDiffToTimestamp
@@ -14,11 +15,12 @@ module Pos.Core.Timestamp
 
 import           Universum
 
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
-import           Data.Time.Units     (Microsecond)
-import           Formatting          (Format, build)
-import           Mockable            (CurrentTime, Mockable, currentTime)
+import           Data.Text.Buildable   (Buildable)
+import qualified Data.Text.Buildable   as Buildable
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           Data.Time.Units       (Microsecond)
+import           Formatting            (Format, build)
+import           Mockable              (CurrentTime, Mockable, currentTime)
 import qualified Prelude
 
 -- | Timestamp is a number which represents some point in time. It is
@@ -58,6 +60,9 @@ diffTimestamp t1 t2 = getTimestamp t1 - getTimestamp t2
 
 addMicrosecondsToTimestamp :: Microsecond -> Timestamp -> Timestamp
 addMicrosecondsToTimestamp m t = Timestamp { getTimestamp = (getTimestamp t) + m }
+
+timestampToPosix :: Timestamp -> POSIXTime
+timestampToPosix (Timestamp ts) = fromIntegral ts / 1000000
 
 -- | Difference between two timestamps
 newtype TimeDiff = TimeDiff

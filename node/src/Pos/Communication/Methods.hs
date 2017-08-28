@@ -1,6 +1,7 @@
 -- | Wrappers on top of communication methods
 
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Communication.Methods
        ( sendTx
@@ -17,7 +18,7 @@ import           Pos.Binary.Core            ()
 import           Pos.Binary.Relay           ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
-import           Pos.Communication.Relay    (invReqDataFlowTK)
+import           Pos.Communication.Relay    (invReqDataFlowTK, resOk)
 import           Pos.Crypto                 (hash, hashHexF)
 import           Pos.DB.Class               (MonadGState)
 import           Pos.Txp.Core.Types         (TxAux (..))
@@ -27,16 +28,24 @@ import           Pos.WorkMode.Class         (MinWorkMode)
 
 
 -- | Send Tx to given addresses.
+-- Returns 'True' if any peer accepted and applied this transaction.
 sendTx
     :: (MinWorkMode m, MonadGState m)
-    => EnqueueMsg m -> TxAux -> m ()
-sendTx enqueue txAux =
-    void $ invReqDataFlowTK
+    => EnqueueMsg m -> TxAux -> m Bool
+sendTx enqueue txAux = do
+    anySucceeded <$> invReqDataFlowTK
         "tx"
         enqueue
         (MsgTransaction OriginSender)
         (hash $ taTx txAux)
         (TxMsgContents txAux)
+  where
+    anySucceeded outcome =
+        not $ null
+        [ ()
+        | Right (Just peerResponse) <- toList outcome
+        , resOk peerResponse
+        ]
 
 -- Send UpdateVote to given addresses.
 sendVote

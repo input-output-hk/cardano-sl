@@ -28,15 +28,13 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
 
-import           Pos.Client.CLI.Options       (CommonArgs(..), commonArgsParser,
+import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
                                                externalNetworkAddressOption,
                                                listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
-import           Pos.Client.CLI.Util          (attackTypeParser, attackTargetParser)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
-import           Pos.Security                 (AttackTarget, AttackType)
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
@@ -45,31 +43,31 @@ import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
                                                addressToNodeId)
 
 data CommonNodeArgs = CommonNodeArgs
-    { dbPath                    :: !FilePath
-    , rebuildDB                 :: !Bool
+    { dbPath              :: !FilePath
+    , rebuildDB           :: !Bool
     -- these two arguments are only used in development mode
-    , devSpendingGenesisI       :: !(Maybe Int)
-    , devVssGenesisI            :: !(Maybe Int)
-    , keyfilePath               :: !FilePath
-    , backupPhrase              :: !(Maybe BackupPhrase)
-    , externalAddress           :: !(Maybe NetworkAddress)
+    , devSpendingGenesisI :: !(Maybe Int)
+    , devVssGenesisI      :: !(Maybe Int)
+    , keyfilePath         :: !FilePath
+    , backupPhrase        :: !(Maybe BackupPhrase)
+    , externalAddress     :: !(Maybe NetworkAddress)
       -- ^ A node must be addressable on the network.
-    , bindAddress               :: !(Maybe NetworkAddress)
+    , bindAddress         :: !(Maybe NetworkAddress)
       -- ^ A node may have a bind address which differs from its external
       -- address.
-    , peers                     :: ![(NodeId, NodeType)]
+    , peers               :: ![(NodeId, NodeType)]
       -- ^ Known peers (addresses with classification).
-    , networkConfigOpts         :: !NetworkConfigOpts
+    , networkConfigOpts   :: !NetworkConfigOpts
       -- ^ Network configuration
-    , jlPath                    :: !(Maybe FilePath)
-    , kademliaDumpPath          :: !FilePath
-    , commonArgs                :: !CommonArgs
-    , updateLatestPath          :: !FilePath
-    , updateWithPackage         :: !Bool
-    , noNTP                     :: !Bool
-    , enableMetrics             :: !Bool
-    , ekgParams                 :: !(Maybe EkgParams)
-    , statsdParams              :: !(Maybe StatsdParams)
+    , jlPath              :: !(Maybe FilePath)
+    , kademliaDumpPath    :: !FilePath
+    , commonArgs          :: !CommonArgs
+    , updateLatestPath    :: !FilePath
+    , updateWithPackage   :: !Bool
+    , noNTP               :: !Bool
+    , enableMetrics       :: !Bool
+    , ekgParams           :: !(Maybe EkgParams)
+    , statsdParams        :: !(Maybe StatsdParams)
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -146,31 +144,26 @@ commonNodeArgsParser = do
     corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
     relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
 
-
 data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
 
 data NodeArgs = NodeArgs
-    { sscAlgo                   :: !SscAlgo
-    , maliciousEmulationAttacks :: ![AttackType]
-    , maliciousEmulationTargets :: ![AttackTarget]
+    { sscAlgo            :: !SscAlgo
+    , behaviorConfigPath :: !(Maybe FilePath)
     } deriving Show
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser = do
     commonNodeArgs <- commonNodeArgsParser
     sscAlgo <- sscAlgoOption
-    maliciousEmulationAttacks <-
-        many $ option (fromParsec attackTypeParser) $
-        long    "attack" <>
-        metavar "NoBlocks | NoCommitments" <>
-        help    "Attack type to emulate. This option can be defined more than once."
-    maliciousEmulationTargets <-
-        many $ option (fromParsec attackTargetParser) $
-        long    "attack-target" <>
-        metavar "HOST:PORT | PUBKEYHASH" <>
-        help    "Node for attack. This option can be defined more than once."
-
+    behaviorConfigPath <- behaviorConfigOption
     pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
+
+behaviorConfigOption :: Parser (Maybe FilePath)
+behaviorConfigOption =
+    optional $ strOption $
+        long "behavior" <>
+        metavar "FILE" <>
+        help "Path to the behavior config"
 
 peerOption :: String -> (NetworkAddress -> (NodeId, NodeType)) -> Parser (NodeId, NodeType)
 peerOption longName mk =

@@ -4,9 +4,10 @@
 
 module Pos.Communication.Tx
        ( TxMode
+       , submitAndSaveTx
        , submitTx
-       , submitMTx
-       , submitRedemptionTx
+       , prepareMTx
+       , prepareRedemptionTx
        , submitTxRaw
        , sendTxOuts
        ) where
@@ -48,28 +49,26 @@ type TxMode ssc m
       , TxCreateMode m
       )
 
-submitAndSave
+submitAndSaveTx
     :: TxMode ssc m
-    => EnqueueMsg m -> TxAux -> m TxAux
-submitAndSave enqueue txAux@TxAux {..} = do
+    => EnqueueMsg m -> TxAux -> m Bool
+submitAndSaveTx enqueue txAux@TxAux {..} = do
     let txId = hash taTx
-    submitTxRaw enqueue txAux
+    accepted <- submitTxRaw enqueue txAux
     saveTx (txId, txAux)
-    return txAux
+    return accepted
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
-submitMTx
+prepareMTx
     :: TxMode ssc m
-    => EnqueueMsg m
-    -> NonEmpty (SafeSigner, Address)
+    => NonEmpty (SafeSigner, Address)
     -> NonEmpty TxOutAux
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
-submitMTx enqueue hdwSigner outputs addrData = do
+prepareMTx hdwSigner outputs addrData = do
     let addrs = map snd $ toList hdwSigner
     utxo <- getOwnUtxos addrs
-    txWSpendings <- eitherToThrow =<< createMTx utxo hdwSigner outputs addrData
-    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
+    eitherToThrow =<< createMTx utxo hdwSigner outputs addrData
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
@@ -83,16 +82,15 @@ submitTx enqueue ss outputs addrData = do
     let ourPk = safeToPublic ss
     utxo <- getOwnUtxoForPk ourPk
     txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
-    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
+    txWSpendings <$ submitAndSaveTx enqueue (fst txWSpendings)
 
 -- | Construct redemption Tx using redemption secret key and a output address
-submitRedemptionTx
+prepareRedemptionTx
     :: TxMode ssc m
-    => EnqueueMsg m
-    -> RedeemSecretKey
+    => RedeemSecretKey
     -> Address
     -> m (TxAux, Address, Coin)
-submitRedemptionTx enqueue rsk output = do
+prepareRedemptionTx rsk output = do
     let redeemAddress = makeRedeemAddress $ redeemToPublic rsk
     utxo <- getOwnUtxo redeemAddress
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
@@ -100,14 +98,13 @@ submitRedemptionTx enqueue rsk output = do
         txOuts = one $
             TxOutAux {toaOut = TxOut output redeemBalance}
     when (redeemBalance == mkCoin 0) $ throwM . TxError $ "Redeem balance is 0"
-    txw <- eitherToThrow =<< createRedemptionTx utxo rsk txOuts
-    txAux <- submitAndSave enqueue txw
+    txAux <- eitherToThrow =<< createRedemptionTx utxo rsk txOuts
     pure (txAux, redeemAddress, redeemBalance)
 
 -- | Send the ready-to-use transaction
 submitTxRaw
     :: (MinWorkMode m, MonadGState m)
-    => EnqueueMsg m -> TxAux -> m ()
+    => EnqueueMsg m -> TxAux -> m Bool
 submitTxRaw enqueue txAux@TxAux {..} = do
     let txId = hash taTx
     logInfo $ sformat ("Submitting transaction: "%txaF) txAux

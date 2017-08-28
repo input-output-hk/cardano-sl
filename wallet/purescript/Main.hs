@@ -60,6 +60,7 @@ main = do
       , mkSumType (Proxy @(CT.CId A))
       , mkSumType (Proxy @CT.CHash)
       , mkSumType (Proxy @CT.CTxId)
+      , mkSumType (Proxy @CT.CPtxCondition)
       , mkSumType (Proxy @CT.CTx)
       , mkSumType (Proxy @WS.NotifyEvent)
       , mkSumType (Proxy @CT.SyncProgress)

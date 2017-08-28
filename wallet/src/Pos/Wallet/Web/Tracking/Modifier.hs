@@ -22,19 +22,20 @@ module Pos.Wallet.Web.Tracking.Modifier
 
 import           Universum
 
-import           Data.DList                 (DList)
+import           Data.DList                   (DList)
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, build, (%))
-import           Serokell.Util              (listJson, listJsonIndent)
+import           Formatting                   (bprint, build, (%))
+import           Serokell.Util                (listJson, listJsonIndent)
 
-import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (HeaderHash)
-import           Pos.Txp.Core               (TxId)
-import           Pos.Txp.Toil               (UtxoModifier)
-import           Pos.Util.Modifier          (MapModifier)
-import qualified Pos.Util.Modifier          as MM
+import           Pos.Client.Txp.History       (TxHistoryEntry (..))
+import           Pos.Core                     (HeaderHash)
+import           Pos.Txp.Core                 (TxId)
+import           Pos.Txp.Toil                 (UtxoModifier)
+import           Pos.Util.Modifier            (MapModifier)
+import qualified Pos.Util.Modifier            as MM
 
-import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta)
+import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CWAddressMeta)
+import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo)
 
 -- VoidModifier describes a difference between two states.
 -- It's (set of added k, set of deleted k) essentially.
@@ -57,18 +58,20 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
         IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
 
 data CAccModifier = CAccModifier
-    { camAddresses      :: !(IndexedMapModifier CWAddressMeta)
-    , camUsed           :: !(VoidModifier (CId Addr, HeaderHash))
-    , camChange         :: !(VoidModifier (CId Addr, HeaderHash))
-    , camUtxo           :: !UtxoModifier
-    , camAddedHistory   :: !(DList TxHistoryEntry)
-    , camDeletedHistory :: !(DList TxId)
+    { camAddresses            :: !(IndexedMapModifier CWAddressMeta)
+    , camUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
+    , camChange               :: !(VoidModifier (CId Addr, HeaderHash))
+    , camUtxo                 :: !UtxoModifier
+    , camAddedHistory         :: !(DList TxHistoryEntry)
+    , camDeletedHistory       :: !(DList TxId)
+    , camAddedPtxCandidates   :: !(DList (TxId, PtxBlockInfo))
+    , camDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
     }
 
 instance Monoid CAccModifier where
-    mempty = CAccModifier mempty mempty mempty mempty mempty mempty
-    (CAccModifier a b c d ah dh) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1) =
-        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1)
+    mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty mempty
+    (CAccModifier a b c d ah dh aptx dptx) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
+        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (aptx <> aptx1) (dptx <> dptx1)
 
 instance Buildable CAccModifier where
     build CAccModifier{..} =
@@ -79,7 +82,9 @@ instance Buildable CAccModifier where
             %",\n    change addresses: "%listJson
             %",\n    local utxo (difference): "%build
             %",\n    added history entries: "%listJsonIndent 8
-            %",\n    deleted history entries: "%listJsonIndent 8)
+            %",\n    deleted history entries: "%listJsonIndent 8
+            %",\n    added pending candidates: "%listJson
+            %",\n    deleted pending candidates: "%listJson)
         (sortedInsertions camAddresses)
         (indexedDeletions camAddresses)
         (map (fst . fst) $ MM.insertions camUsed)
@@ -87,6 +92,8 @@ instance Buildable CAccModifier where
         camUtxo
         camAddedHistory
         camDeletedHistory
+        (map fst camAddedPtxCandidates)
+        (map fst camDeletedPtxCandidates)
 
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.

@@ -8,7 +8,7 @@ import           Universum
 
 import           Data.Tagged             (Tagged)
 import           Test.Hspec              (Spec, describe)
-import           Test.Hspec.QuickCheck   (modifyMaxSuccess, prop)
+import           Test.Hspec.QuickCheck   (prop)
 
 import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()

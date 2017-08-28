@@ -7,7 +7,7 @@
 , ghc ? pkgs.haskell.compiler.ghc802
 }:
 
-with (import <nixpkgs/pkgs/development/haskell-modules/lib.nix> { inherit pkgs; });
+with pkgs.haskell.lib;
 
 let
   stackPackages = { callPackage, pkgs, stdenv }:
@@ -1692,18 +1692,20 @@ self: {
           description = "Cardano SL - Light wallet";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-ssc = callPackage ({ QuickCheck, base, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cpphs, cryptonite, ether, exceptions, formatting, lens, log-warper, memory, mkDerivation, mmorph, mtl, node-sketch, serokell-util, stdenv, stm, tagged, text-format, universum }:
+      cardano-sl-ssc = callPackage ({ QuickCheck, aeson, base, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cpphs, cryptonite, data-default, ether, exceptions, formatting, lens, log-warper, memory, mkDerivation, mmorph, mtl, node-sketch, parsec, serokell-util, stdenv, stm, tagged, text-format, universum }:
       mkDerivation {
           pname = "cardano-sl-ssc";
           version = "0.5.1";
           src = ./../ssc;
           libraryHaskellDepends = [
+            aeson
             base
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
             cardano-sl-lrc
             cryptonite
+            data-default
             ether
             exceptions
             formatting
@@ -1713,6 +1715,7 @@ self: {
             mmorph
             mtl
             node-sketch
+            parsec
             QuickCheck
             serokell-util
             stm

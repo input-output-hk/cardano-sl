@@ -6,6 +6,7 @@ module Test.Pos.CryptoSpec
 
 import           Crypto.Hash             (Blake2b_224, Blake2b_256)
 import qualified Data.ByteString         as BS
+import qualified Data.HashMap.Strict     as HM
 import           Formatting              (sformat)
 import           Prelude                 ((!!))
 import           Test.Hspec              (Expectation, Spec, describe, it, shouldBe,
@@ -21,6 +22,7 @@ import           Pos.Binary              (AsBinary, Bi)
 import qualified Pos.Crypto              as Crypto
 import           Pos.Ssc.GodTossing      ()
 
+import           Test.Pos.CborSpec       (U)
 import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
                                           msgLenLimitedTest, safeCopyEncodeDecode,
                                           safeCopyTest, serDeserId, (.=.))
@@ -44,22 +46,12 @@ spec = describe "Crypto" $ do
 
     describe "Hashing" $ do
         describe "Hash instances" $ do
-            prop
-                "Bi"
-                (binaryEncodeDecode @(Crypto.Hash Word64))
-            prop
-                "SafeCopy"
-                (safeCopyEncodeDecode @(Crypto.Hash Word64))
+            prop "Bi" (binaryEncodeDecode @(Crypto.Hash Word64))
+            prop "SafeCopy" (safeCopyEncodeDecode @(Crypto.Hash Word64))
         describe "hashes of different values are different" $ do
-            prop
-                "Bool"
-                (hashInequality @Bool)
-            prop
-                "[()]"
-                (hashInequality @[()])
-            prop
-                "[[Maybe Integer]]"
-                (hashInequality @[[Maybe Integer]])
+            prop "Bool" (hashInequality @Bool)
+            prop "[()]" (hashInequality @[()])
+            prop "[[Maybe Integer]]" (hashInequality @[[Maybe Integer]])
         -- Let's protect ourselves against *accidental* hash changes
         describe "check hash sample" $ do
             specify "1 :: Word64" $
@@ -78,46 +70,45 @@ spec = describe "Crypto" $ do
 
     describe "Signing" $ do
         describe "SafeSigning" $ do
-            prop
-                "passphrase matches"
-                matchingPassphraseWorks
-            prop
-                "passphrase doesn't match"
-                mismatchingPassphraseFails
-            prop
-                -- if you see this case failing, then passphrase changing endpoint
-                -- in wallets have to be reconsidered
-                "passphrase change doesn't modify key address"
-                passphraseChangeLeavesAddressUnmodified
+            prop "passphrase matches" matchingPassphraseWorks
+            prop "passphrase doesn't match" mismatchingPassphraseFails
+            prop -- if you see this case failing, then passphrase changing endpoint
+                 -- in wallets have to be reconsidered
+                 "passphrase change doesn't modify key address"
+                 passphraseChangeLeavesAddressUnmodified
 
         describe "Identity testing" $ do
             describe "Bi instances" $ do
                 binaryTest @Crypto.SecretKey
                 binaryTest @Crypto.PublicKey
                 binaryTest @(Crypto.Signature ())
+                binaryTest @(Crypto.Signature U)
                 binaryTest @(Crypto.ProxyCert Int32)
                 binaryTest @(Crypto.ProxySecretKey Int32)
+                binaryTest @(Crypto.ProxySecretKey U)
                 binaryTest @(Crypto.ProxySignature Int32 Int32)
+                binaryTest @(Crypto.ProxySignature U U)
                 binaryTest @(Crypto.Signed Bool)
+                binaryTest @(Crypto.Signed U)
                 binaryTest @Crypto.RedeemSecretKey
                 binaryTest @Crypto.RedeemPublicKey
                 binaryTest @(Crypto.RedeemSignature Bool)
+                binaryTest @(Crypto.RedeemSignature U)
                 binaryTest @Crypto.Threshold
                 binaryTest @Crypto.VssPublicKey
                 binaryTest @Crypto.PassPhrase
                 binaryTest @Crypto.VssKeyPair
                 binaryTest @Crypto.Secret
-                binaryTest @Crypto.Share
+                binaryTest @Crypto.DecShare
                 binaryTest @Crypto.EncShare
                 binaryTest @Crypto.SecretProof
-                binaryTest @Crypto.SecretSharingExtra
+                binaryTest @Crypto.HDAddressPayload
+                binaryTest @(Crypto.AbstractHash Blake2b_224 U)
+                binaryTest @(Crypto.AbstractHash Blake2b_256 U)
                 binaryTest @(AsBinary Crypto.VssPublicKey)
                 binaryTest @(AsBinary Crypto.Secret)
-                binaryTest @(AsBinary Crypto.Share)
+                binaryTest @(AsBinary Crypto.DecShare)
                 binaryTest @(AsBinary Crypto.EncShare)
-                binaryTest @(AsBinary Crypto.SecretProof)
-                binaryTest @(AsBinary Crypto.SecretSharingExtra)
-                binaryTest @Crypto.HDAddressPayload
             describe "SafeCopy instances" $ do
                 safeCopyTest @Crypto.SecretKey
                 safeCopyTest @Crypto.PublicKey
@@ -133,35 +124,28 @@ spec = describe "Crypto" $ do
                 safeCopyTest @Crypto.Threshold
                 safeCopyTest @(AsBinary Crypto.VssPublicKey)
                 safeCopyTest @(AsBinary Crypto.Secret)
-                safeCopyTest @(AsBinary Crypto.Share)
+                safeCopyTest @(AsBinary Crypto.DecShare)
                 safeCopyTest @(AsBinary Crypto.EncShare)
-                safeCopyTest @(AsBinary Crypto.SecretProof)
-                safeCopyTest @(AsBinary Crypto.SecretSharingExtra)
             describe "msgLenLimitedTest" $ do
                 msgLenLimitedTest @Crypto.PublicKey
                 msgLenLimitedTest @Crypto.EncShare
                 msgLenLimitedTest @Crypto.Secret
-                -- msgLenLimitedTest @(C.MaxSize SecretSharingExtra)
+                -- msgLenLimitedTest @(C.MaxSize SecretProof)
                 msgLenLimitedTest @(Crypto.Signature ())
                 msgLenLimitedTest @(Crypto.AbstractHash Blake2b_224 Void)
                 msgLenLimitedTest @(Crypto.AbstractHash Blake2b_256 Void)
-                msgLenLimitedTest @Crypto.SecretProof
                 msgLenLimitedTest @Crypto.VssPublicKey
-                msgLenLimitedTest @Crypto.Share
+                msgLenLimitedTest @Crypto.DecShare
 
         describe "AsBinaryClass" $ do
             prop "VssPublicKey <-> AsBinary VssPublicKey"
                 (serDeserId @Crypto.VssPublicKey)
             prop "Secret <-> AsBinary Secret"
                 (serDeserId @Crypto.Secret)
-            prop "Share <-> AsBinary Share"
-                (serDeserId @Crypto.Share)
+            prop "DecShare <-> AsBinary DecShare"
+                (serDeserId @Crypto.DecShare)
             prop "EncShare <-> AsBinary EncShare"
                 (serDeserId @Crypto.EncShare)
-            prop "SecretProof <-> AsBinary SecretProof"
-                (serDeserId @Crypto.SecretProof)
-            prop "SecretSharingExtra <-> AsBinary SecretSharingExtra"
-                (serDeserId @Crypto.SecretSharingExtra)
         describe "keys" $ do
             it  "derived pubkey equals to generated pubkey"
                 keyDerivation
@@ -231,11 +215,13 @@ spec = describe "Crypto" $ do
 
         describe "Secret Sharing" $ do
             prop
-                " VSS key pairs generated from different 'ByteString' seeds are different"
+                "VSS key pairs generated from different 'ByteString' seeds are different"
                 keygenInequality
             prop
                 "successfully verifies correct decryption of an encrypted share"
                 goodShareIsDecrypted
+            {- we can't verify shares one-by-one after switching to SCRAPE
+            --------------------
             prop
                 "verifying an encrypted share with a valid VSS public key and valid extra\
                 \ secret information works"
@@ -247,6 +233,7 @@ spec = describe "Crypto" $ do
             prop
                 "verifying an encrypted share with a mismatching VSS public key fails"
                 verifyEncShareMismatchShareKey
+            -}
             prop
                 "successfully verifies a properly decrypted share"
                 verifyShareGoodData
@@ -260,10 +247,6 @@ spec = describe "Crypto" $ do
             prop
                 "successfully verifies a secret proof with its secret"
                 verifyProofGoodData
-            prop
-                "unsuccessfully verifies a valid secret with a valid proof when given\
-                \ invalid secret sharing extra data"
-                verifyProofBadSecShare
             prop
                 "unsuccessfully verifies an invalid secret with an unrelated secret\
                 \ proof"
@@ -362,22 +345,26 @@ proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
 
 redeemSignCheck :: Bi a => Crypto.RedeemSecretKey -> a -> Bool
 redeemSignCheck redeemerSK a =
-    Crypto.redeemCheckSig redeemerPK a $ Crypto.redeemSign redeemerSK a
-  where redeemerPK = Crypto.redeemToPublic redeemerSK
+    Crypto.redeemCheckSig Crypto.SignForTestingOnly redeemerPK a $
+    Crypto.redeemSign Crypto.SignForTestingOnly redeemerSK a
+  where
+    redeemerPK = Crypto.redeemToPublic redeemerSK
 
 redeemThenCheckDifferentKey
     :: Bi a
     => Crypto.RedeemSecretKey -> Crypto.RedeemPublicKey -> a -> Property
 redeemThenCheckDifferentKey sk1 pk2 a =
     (Crypto.redeemToPublic sk1 /= pk2) ==>
-    not (Crypto.redeemCheckSig pk2 a $ Crypto.redeemSign sk1 a)
+    not (Crypto.redeemCheckSig Crypto.SignForTestingOnly pk2 a $
+         Crypto.redeemSign Crypto.SignForTestingOnly sk1 a)
 
 redeemThenCheckDifferentData
     :: (Eq a, Bi a)
     => Crypto.RedeemSecretKey -> a -> a -> Property
 redeemThenCheckDifferentData sk a b =
     (a /= b) ==>
-    not (Crypto.redeemCheckSig (Crypto.redeemToPublic sk) b $ Crypto.redeemSign sk a)
+    not (Crypto.redeemCheckSig Crypto.SignForTestingOnly (Crypto.redeemToPublic sk) b $
+         Crypto.redeemSign Crypto.SignForTestingOnly sk a)
 
 packUnpackHDAddress :: Crypto.HDPassphrase -> [Word32] -> Bool
 packUnpackHDAddress passphrase path =
@@ -467,9 +454,9 @@ skToSafeSigner :: Crypto.SecretKey -> Property
 skToSafeSigner =
     Crypto.safeToPublic . Crypto.fakeSigner .=. Crypto.toPublic
 
--- | It appears 'Crypto.deterministicVSsKeyGen' ignores all consecutive null characters
---starting from the beginning of the 'ByteString' seed, so for this property to make sense
--- they need to be dropped.
+-- | It appears 'Crypto.deterministicVSsKeyGen' ignores all consecutive null
+-- characters starting from the beginning of the 'ByteString' seed, so for
+-- this property to make sense they need to be dropped.
 keygenInequality :: ByteString -> ByteString -> Property
 keygenInequality a b =
     (a' /= b') ==> Crypto.deterministicVssKeyGen a' /= Crypto.deterministicVssKeyGen b'
@@ -481,18 +468,19 @@ keygenInequality a b =
 goodShareIsDecrypted :: Crypto.VssKeyPair -> Crypto.EncShare -> Property
 goodShareIsDecrypted vssKP encShare = monadicIO $ do
     decShare <- run $ Crypto.decryptShare vssKP encShare
-    assert $ Crypto.verifyShare encShare (Crypto.toVssPublicKey vssKP) decShare
+    assert $ Crypto.verifyDecShare (Crypto.toVssPublicKey vssKP) encShare decShare
 
+{-
 verifyEncShareGoodData :: SharedSecrets -> Bool
 verifyEncShareGoodData SharedSecrets {..} =
     Crypto.verifyEncShare ssSecShare
                           (ssVSSPKs !! ssPos)
                           (fst $ ssShares !! ssPos)
 
-verifyEncShareBadSecShare :: SharedSecrets -> Crypto.SecretSharingExtra -> Property
-verifyEncShareBadSecShare SharedSecrets {..} secShare =
-    (ssSecShare /= secShare) ==>
-    not $ Crypto.verifyEncShare secShare (ssVSSPKs !! ssPos) (fst $ ssShares !! ssPos)
+verifyEncShareBadSecShare :: SharedSecrets -> Crypto.SecretProof -> Property
+verifyEncShareBadSecShare SharedSecrets {..} secProof =
+    (ssSecProof /= secProof) ==>
+    not $ Crypto.verifyEncShare secProof (ssVSSPKs !! ssPos) (fst $ ssShares !! ssPos)
 
 verifyEncShareMismatchShareKey :: SharedSecrets -> Int -> Property
 verifyEncShareMismatchShareKey SharedSecrets {..} p =
@@ -502,10 +490,11 @@ verifyEncShareMismatchShareKey SharedSecrets {..} p =
   where
     len = length ssVSSPKs
     pos = abs $ p `mod` len
+-}
 
 verifyShareGoodData :: SharedSecrets -> Bool
 verifyShareGoodData SharedSecrets {..} =
-    Crypto.verifyShare encShare vssPK decShare
+    Crypto.verifyDecShare vssPK encShare decShare
   where
     (encShare, decShare) = ssShares !! ssPos
     vssPK = ssVSSPKs !! ssPos
@@ -513,8 +502,8 @@ verifyShareGoodData SharedSecrets {..} =
 verifyShareBadShare :: SharedSecrets -> Int -> Property
 verifyShareBadShare SharedSecrets {..} p =
     (s1 /= s2 || vssPK1 /= vssPK2) ==>
-    not (Crypto.verifyShare encShare1 vssPK1 decShare1) &&
-    not (Crypto.verifyShare encShare2 vssPK2 decShare2)
+    not (Crypto.verifyDecShare vssPK1 encShare1 decShare1) &&
+    not (Crypto.verifyDecShare vssPK2 encShare2 decShare2)
   where
     len = length ssVSSPKs
     pos = abs $ p `mod` len
@@ -526,7 +515,7 @@ verifyShareBadShare SharedSecrets {..} p =
 verifyShareMismatchingShares :: SharedSecrets -> Int -> Property
 verifyShareMismatchingShares SharedSecrets {..} p =
     (vssPK1 /= vssPK2) ==>
-    not (Crypto.verifyShare encShare1 vssPK1 decShare2)
+    not (Crypto.verifyDecShare vssPK1 encShare1 decShare2)
   where
     len = length ssVSSPKs
     pos = abs $ p `mod` len
@@ -537,38 +526,35 @@ verifyShareMismatchingShares SharedSecrets {..} p =
 
 verifyProofGoodData :: SharedSecrets -> Bool
 verifyProofGoodData SharedSecrets {..} =
-    Crypto.verifySecretProof ssSecShare ssSecret ssSecProof
-
-verifyProofBadSecShare :: SharedSecrets -> Crypto.SecretSharingExtra -> Property
-verifyProofBadSecShare SharedSecrets {..} secShare =
-    (ssSecShare /= secShare) ==>
-    not (Crypto.verifySecretProof secShare ssSecret ssSecProof)
+    Crypto.verifySecret ssThreshold ssSecProof ssSecret
 
 verifyProofBadSecret :: SharedSecrets -> Crypto.Secret -> Property
 verifyProofBadSecret SharedSecrets {..} secret =
     (ssSecret /= secret) ==>
-    not (Crypto.verifySecretProof ssSecShare secret ssSecProof)
+    not (Crypto.verifySecret ssThreshold ssSecProof secret)
 
 verifyProofBadSecProof :: SharedSecrets -> Crypto.SecretProof -> Property
 verifyProofBadSecProof SharedSecrets {..} secProof =
     (ssSecProof /= secProof) ==>
-    not (Crypto.verifySecretProof ssSecShare ssSecret secProof)
+    not (Crypto.verifySecret ssThreshold secProof ssSecret)
 
 recoverSecretSuccessfully :: SharedSecrets -> Property
 recoverSecretSuccessfully SharedSecrets {..} =
-    Crypto.recoverSecret ssThreshold triplesList === Just ssSecret
+    Crypto.recoverSecret ssThreshold keys shares === Just ssSecret
   where
-    triplesList = zipWith (\(a,c) b -> (a,b,c)) ssShares ssVSSPKs
+    keys = map (,1) ssVSSPKs
+    shares = HM.fromList $ zip ssVSSPKs (map (one . snd) ssShares)
 
 recoverSecBadThreshold :: SharedSecrets -> Integer -> Property
 recoverSecBadThreshold SharedSecrets {..} rnd =
     (badThreshold > ssThreshold) ==>
-    isNothing (Crypto.recoverSecret badThreshold triplesList)
+    isNothing (Crypto.recoverSecret badThreshold keys shares)
   where
-    maxThreshold = genericLength triplesList
+    maxThreshold = genericLength ssShares
     -- badThreshold is in ]actualThreshold, actualThreshold * 2]
     badThreshold = maxThreshold + (succ . abs $ rnd `mod` maxThreshold)
-    triplesList = zipWith (\(a,c) b -> (a,b,c)) ssShares ssVSSPKs
+    keys = map (,1) ssVSSPKs
+    shares = HM.fromList $ zip ssVSSPKs (map (one . snd) ssShares)
 
 matchingPassphraseWorks :: Crypto.PassPhrase -> Property
 matchingPassphraseWorks passphrase = ioProperty $ do

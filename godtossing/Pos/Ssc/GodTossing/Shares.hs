@@ -15,7 +15,7 @@ import           Universum
 import           Pos.Binary.Class         (AsBinary, asBinary, fromBinaryM)
 import           Pos.Core.Address         (addressHash)
 import           Pos.Core.Types           (StakeholderId)
-import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
+import           Pos.Crypto               (DecShare, EncShare, VssKeyPair, VssPublicKey,
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
@@ -29,7 +29,7 @@ type GSQuery a = SscGlobalQuery SscGodTossing a
 -- decrypt.
 getOurShares
     :: (MonadSscMem SscGodTossing ctx m, MonadIO m, WithLogger m)
-    => VssKeyPair -> m (HashMap StakeholderId (NonEmpty Share))
+    => VssKeyPair -> m (HashMap StakeholderId (NonEmpty DecShare))
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey

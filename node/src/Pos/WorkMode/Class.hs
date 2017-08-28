@@ -16,6 +16,7 @@ import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Crypto.Random               as Rand
 import           Ether.Internal              (HasLens (..))
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
@@ -66,6 +67,7 @@ type TxpExtra_TMP = ()
 type WorkMode ssc ctx m
     = ( MinWorkMode m
       , MonadBaseControl IO m
+      , Rand.MonadRandom m
       , MonadMask m
       , MonadSlots ctx m
       , MonadDB m

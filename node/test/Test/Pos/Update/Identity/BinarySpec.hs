@@ -15,8 +15,8 @@ import qualified Pos.Communication.Relay as R
 import           Pos.Core                (giveStaticConsts)
 import qualified Pos.Update              as U
 
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          networkBinaryTest)
+import           Test.Pos.CborSpec       (U)
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
@@ -37,6 +37,7 @@ spec = giveStaticConsts $
                 binaryTest @U.UpId
             describe "Poll" $ do
                 binaryTest @(U.PrevValue ())
+                binaryTest @(U.PrevValue U)
                 binaryTest @U.USUndo
                 binaryTest @U.UpsExtra
                 binaryTest @U.DpsExtra
@@ -46,14 +47,14 @@ spec = giveStaticConsts $
                 binaryTest @U.ConfirmedProposalState
                 binaryTest @U.BlockVersionState
             describe "Network" $ do
-                networkBinaryTest @(R.InvMsg VoteId')
-                networkBinaryTest @(R.ReqMsg VoteId')
-                networkBinaryTest @(R.MempoolMsg U.UpdateVote)
-                networkBinaryTest @(R.DataMsg U.UpdateVote)
-                networkBinaryTest @(R.InvMsg UpId')
-                networkBinaryTest @(R.ReqMsg UpId')
-                networkBinaryTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
-                networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
+                binaryTest @(R.InvMsg VoteId')
+                binaryTest @(R.ReqMsg VoteId')
+                binaryTest @(R.MempoolMsg U.UpdateVote)
+                binaryTest @(R.DataMsg U.UpdateVote)
+                binaryTest @(R.InvMsg UpId')
+                binaryTest @(R.ReqMsg UpId')
+                binaryTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
+                binaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
             describe "Message length limit" $ do
                 msgLenLimitedTest @(R.InvMsg VoteId')
                 msgLenLimitedTest @(R.ReqMsg VoteId')

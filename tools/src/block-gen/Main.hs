@@ -18,7 +18,8 @@ import           Pos.Core                    (genesisDevSecretKeys, giveStaticCo
                                               isDevelopment, mkCoin, unsafeMulCoin)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (StakeDistribution (FlatStakes),
+import           Pos.Genesis                 (GenesisContext (..),
+                                              StakeDistribution (FlatStakes),
                                               devGenesisContext, genesisContextProduction,
                                               gtcUtxo, gtcWStakeholders)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
@@ -54,8 +55,8 @@ main = flip catch catchEx $ giveStaticConsts $ do
             | otherwise = genesisContextProduction
 
     let bootStakeholders = npGenesisCtx ^. gtcWStakeholders
-
     let genUtxo = npGenesisCtx ^. gtcUtxo
+    let genCtx = GenesisContext genUtxo bootStakeholders
     when (M.null $ unGenesisUtxo genUtxo) $ throwM EmptyUtxo
 
     let bgenParams =
@@ -69,7 +70,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
                 }
     bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
-        initTBlockGenMode db genUtxo $
+        initTBlockGenMode db genCtx $
             void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.

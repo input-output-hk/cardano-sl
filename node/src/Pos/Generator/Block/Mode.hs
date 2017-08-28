@@ -23,6 +23,7 @@ import           Universum
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Crypto.Random               as Rand
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -35,7 +36,7 @@ import           Pos.Block.Types             (Undo)
 import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
 import           Pos.Core                    (Address, GenesisWStakeholders (..),
                                               HasCoreConstants, HasPrimaryKey (..),
-                                              IsHeader, SlotId (..), StakeholderId,
+                                              IsHeader, SlotId (..),
                                               Timestamp, epochOrSlotToSlot,
                                               getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
@@ -108,6 +109,8 @@ type MonadBlockGen ctx m
        , MonadReader ctx m
        , GS.HasGStateContext ctx
        , HasSlottingVar ctx
+       -- 'MonadRandom' for crypto.
+       , Rand.MonadRandom m
        )
 
 ----------------------------------------------------------------------------
@@ -348,7 +351,7 @@ instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onRollbackBlocks = onRollbackBlocksStub
 
 instance Monad m => MonadAddresses (BlockGenMode m) where
-    type AddrData (BlockGenMode m) = (Address, Maybe StakeholderId)
+    type AddrData (BlockGenMode m) = Address
     getNewAddress = pure
 
 ----------------------------------------------------------------------------

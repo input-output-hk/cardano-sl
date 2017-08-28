@@ -165,17 +165,16 @@ txBodyView lang (TxBodyViewProps props) =
         lInputs = length inputs
         outputs = props ^. txbOutputs
         lOutputs = length outputs
-        amounts = if (lOutputs >= lInputs) then outputs else inputs
     in
     S.div ! S.className "transaction-body" $ do
         S.div ! S.className "from-hash__container" $ do
               S.div ! S.className "from-hash__wrapper"
-                    $ for_ inputs txFromView
+                    $ for_ inputs (txMaybeFromView lang)
               -- On mobile devices we wan't to show amounts of `inputs`.
               -- This view is hidden on desktop by CSS.
               S.div ! S.className "from-hash__amounts"
                     $ if (lInputs > lOutputs)
-                          then for_ inputs (txBodyAmountView lang)
+                          then for_ inputs (txBodyMaybeAmountView lang)
                           else mempty
         S.div ! S.className "to-hash__container bg-transaction-arrow" $ do
               S.div ! S.className "to-hash__wrapper"
@@ -189,7 +188,9 @@ txBodyView lang (TxBodyViewProps props) =
         -- On desktop we do show amounts within an extra column.
         -- This column is hidden on mobile by CSS.
         S.div ! S.className "amounts-container"
-              $ for_ amounts (txBodyAmountView lang)
+              $ if (lOutputs >= lInputs)
+                then for_ outputs (txBodyAmountView lang)
+                else for_ inputs (txBodyMaybeAmountView lang)
 
         -- On mobile we do show an extra row of total amount
         -- This view is hidden on desktop by CSS.
@@ -200,6 +201,10 @@ emptyTxBodyView =
     S.div ! S.className "transaction-body"
           $ mempty
 
+txMaybeFromView :: Language -> Maybe (Tuple CAddress CCoin) -> P.HTML Action
+txMaybeFromView _ (Just tuple) = txFromView tuple
+txMaybeFromView lang Nothing = txFromEmptyView lang
+
 txFromView :: Tuple CAddress CCoin -> P.HTML Action
 txFromView (Tuple (CAddress cAddress) _) =
     let addressRoute = Address $ mkCAddress cAddress in
@@ -207,6 +212,11 @@ txFromView (Tuple (CAddress cAddress) _) =
         #! P.onClick (Navigate $ toUrl addressRoute)
         ! S.className "from-hash__value"
         $ S.text cAddress
+
+txFromEmptyView :: Language -> P.HTML Action
+txFromEmptyView lang =
+    S.p ! S.className "from-hash__empty"
+        $ S.text noData
 
 txToView :: Tuple CAddress CCoin -> P.HTML Action
 txToView (Tuple (CAddress cAddress) _) =
@@ -216,11 +226,21 @@ txToView (Tuple (CAddress cAddress) _) =
         ! S.className "to-hash__value"
         $ S.text cAddress
 
+txBodyMaybeAmountView :: Language -> Maybe (Tuple CAddress CCoin) -> P.HTML Action
+txBodyMaybeAmountView lang (Just tuple) = txBodyAmountView lang tuple
+txBodyMaybeAmountView lang Nothing = txBodyAmountEmptyView lang
+
 txBodyAmountView :: Language -> Tuple CAddress CCoin -> P.HTML Action
 txBodyAmountView lang (Tuple _ coin) =
     S.div ! S.className "amount-wrapper"
           $ S.span  ! S.className "plain-amount bg-ada-dark"
                     $ S.text (formatADA coin lang)
+
+txBodyAmountEmptyView :: Language -> P.HTML Action
+txBodyAmountEmptyView lang =
+    S.div ! S.className "amount-wrapper"
+          $ S.span  ! S.className "empty-amount"
+                    $ S.text noData
 
 -- -----------------
 -- pagination

@@ -4,8 +4,12 @@
 module Pos.Binary.Class.Primitive
        ( serialize
        , serialize'
+       -- * Deserialize inside the Decoder monad
        , deserialize
        , deserialize'
+       -- * Unsafe deserialization
+       , unsafeDeserialize
+       , unsafeDeserialize'
        , CBOR.Write.toStrictByteString
        , putCopyBi
        , getCopyBi
@@ -64,11 +68,23 @@ serialize' = BSL.toStrict . serialize
 -- /Throws/: @'CBOR.Read.DeserialiseFailure'@ if the given external
 -- representation is invalid or does not correspond to a value of the
 -- expected type.
-deserialize :: Bi a => BSL.ByteString -> a
-deserialize = either throw identity . bimap fst fst . deserializeOrFail
+unsafeDeserialize :: Bi a => BSL.ByteString -> a
+unsafeDeserialize = either throw identity . bimap fst fst . deserializeOrFail
 
 -- | Strict variant of 'deserialize'.
-deserialize' :: Bi a => BS.ByteString -> a
+unsafeDeserialize' :: Bi a => BS.ByteString -> a
+unsafeDeserialize' = unsafeDeserialize . BSL.fromStrict
+
+-- | Run `decodeFull` in the `Decoder` monad, failing (using Decoder.fail) in
+-- case the process failed or not the whole input was consumed.
+-- We are not generalising this function to any monad as doing so would allow
+-- us to cheat, as not all the monads have a sensible `fail` implementation.
+-- Expect the whole input to be consumed.
+deserialize :: Bi a => BSL.ByteString -> D.Decoder s a
+deserialize = either (fail . toString) return . decodeFull . BSL.toStrict
+
+-- | Strict version of `deserialize`.
+deserialize' :: Bi a => BS.ByteString -> D.Decoder s a
 deserialize' = deserialize . BSL.fromStrict
 
 -- | Deserialize a Haskell value from the external binary representation,

@@ -21,7 +21,7 @@ import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
 import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
-import           Pos.Communication              (SendActions (..), submitMTx)
+import           Pos.Communication              (SendActions (..), prepareMTx)
 import           Pos.Core                       (Coin, HasCoreConstants, addressF,
                                                  getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, hash, withSafeSigners)
@@ -36,11 +36,14 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress 
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
+import           Pos.Wallet.Web.Methods.Txp     (coinDistrToOutputs, rewrapTxError,
+                                                 submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode, WalletWebMode)
+import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
-import           Pos.Wallet.Web.Util            (coinDistrToOutputs, decodeCTypeOrFail,
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
-                                                 getWalletAccountIds, rewrapTxError)
+                                                 getWalletAccountIds)
 
 
 newPayment
@@ -112,7 +115,7 @@ instance HasCoreConstants => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode wh
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     getNewAddress (accId, passphrase) = do
         clientAddress <- L.newAddress RandomSeed passphrase accId
-        (, Nothing) <$> decodeCTypeOrFail (cadId clientAddress)
+        decodeCTypeOrFail (cadId clientAddress)
 
 sendMoney
     :: MonadWalletWebMode m
@@ -130,17 +133,28 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     withSafeSigners sks (pure passphrase) $ \mss -> do
         ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
+
         let hdwSigner = NE.zip ss srcAddrs
+            srcWallet = getMoneySourceWallet moneySource
+
         relatedAccount <- getSomeMoneySourceAccount moneySource
         outputs <- coinDistrToOutputs dstDistr
-        (TxAux {taTx = tx}, inpTxOuts') <- rewrapTxError "Cannot send transaction" $
-            submitMTx enqueueMsg hdwSigner outputs (relatedAccount, passphrase)
+        (th, dstAddrs) <-
+            rewrapTxError "Cannot send transaction" $ do
+                (txAux, inpTxOuts') <-
+                    prepareMTx hdwSigner outputs (relatedAccount, passphrase)
 
-        let inpTxOuts = toList inpTxOuts'
-            txHash    = hash tx
-            dstAddrs  = map txOutAddress . toList $
-                        _txOutputs tx
-            srcWallet = getMoneySourceWallet moneySource
+                ts <- Just <$> getCurrentTimestamp
+                let tx = taTx txAux
+                    txHash = hash tx
+                    inpTxOuts = toList inpTxOuts'
+                    dstAddrs  = map txOutAddress . toList $
+                                _txOutputs tx
+                    th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+                ptx <- mkPendingTx srcWallet txHash txAux th
+
+                (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
+
         logInfo $
             sformat ("Successfully spent money from "%
                      listF ", " addressF % " addresses on " %
@@ -148,9 +162,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
             (toList srcAddrs)
             dstAddrs
 
-        ts <- Just <$> getCurrentTimestamp
-        ctxs <- addHistoryTx srcWallet $
-            THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+        ctxs <- addHistoryTx srcWallet th
         ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
      noOutgoingTx = InternalError "Can't report outgoing transaction"

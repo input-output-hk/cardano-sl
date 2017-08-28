@@ -9,14 +9,21 @@ module Pos.Client.CLI.Params
        , gtSscParams
        ) where
 
-import           Base                  (Show (..))
-import           Universum             hiding (show)
+import           Universum
 
 import qualified Data.ByteString.Char8      as BS8 (unpack)
+import           Data.Default               (def)
+import qualified Data.Yaml                  as Yaml
 import           Mockable                   (Catch, Fork, Mockable, Throw, throw)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
+import qualified Prelude
 import           System.Wlog                (LoggerName, WithLogger)
 
+import           Pos.Behavior               (BehaviorConfig (..))
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
+import           Pos.Client.CLI.Options     (CommonArgs (..))
+import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
+                                             userSecretWithGenesisKey)
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
@@ -26,18 +33,9 @@ import           Pos.Launcher               (BaseParams (..), LoggingParams (..)
                                              NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
 import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
-import           Pos.Security               (SecurityParams (..))
 import           Pos.Ssc.GodTossing         (GtParams (..))
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.UserSecret        (peekUserSecret)
-
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..),
-                                             maliciousEmulationAttacks,
-                                             maliciousEmulationTargets)
-import           Pos.Client.CLI.Options     (CommonArgs (..))
-import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
-                                             userSecretWithGenesisKey)
-
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams tag CommonNodeArgs{..} =
@@ -51,11 +49,12 @@ getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams
 getBaseParams loggingTag args@CommonNodeArgs {..} =
     BaseParams { bpLoggingParams = loggingParams loggingTag args }
 
-gtSscParams :: CommonNodeArgs -> VssKeyPair -> GtParams
-gtSscParams CommonNodeArgs {..} vssSK =
+gtSscParams :: CommonNodeArgs -> VssKeyPair -> BehaviorConfig -> GtParams
+gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
+    , gtpBehavior   = bcGtBehavior
     }
 
 getKeyfilePath :: CommonNodeArgs -> FilePath
@@ -79,6 +78,9 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
                 peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     npTransport <- getTransportParams cArgs npNetworkConfig
+    npBehaviorConfig <- case behaviorConfigPath of
+        Nothing -> pure def
+        Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
     let devStakeDistr =
             devStakesDistr
                 (flatDistr commonArgs)
@@ -100,10 +102,6 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
             { upUpdatePath    = updateLatestPath
             , upUpdateWithPkg = updateWithPackage
             , upUpdateServers = updateServers commonArgs
-            }
-        , npSecurityParams = SecurityParams
-            { spAttackTypes   = maliciousEmulationAttacks
-            , spAttackTargets = maliciousEmulationTargets
             }
         , npUseNTP = not noNTP
         , npEnableMetrics = enableMetrics

@@ -93,9 +93,8 @@ commonConfig state actionChannel = do
         , foldp: Ex.update
         , view
         , inputs:
-              [
-              -- clockSignal
-              actionSignal
+              [ clockSignal
+              , actionSignal
               -- Important note:
               -- routeSignal has to be the last signal in row !!!
               , routeSignal

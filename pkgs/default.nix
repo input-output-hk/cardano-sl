@@ -1395,7 +1395,7 @@ self: {
           description = "Cardano SL - basic DB interfaces";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-explorer = callPackage ({ aeson, base, base16-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-update, containers, cpphs, data-default, either, engine-io, engine-io-wai, ether, exceptions, formatting, http-types, lens, lifted-base, log-warper, memory, mkDerivation, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-simple, purescript-bridge, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, socket-io, stdenv, stm, swagger2, tagged, text, text-format, time, time-units, transformers, universum, unordered-containers, wai, wai-cors, warp }:
+      cardano-sl-explorer = callPackage ({ MonadRandom, QuickCheck, aeson, base, base16-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-update, cborg, cereal, containers, cpphs, cryptonite, data-default, either, engine-io, engine-io-wai, ether, exceptions, formatting, generic-arbitrary, hspec, http-types, kademlia, lens, lifted-base, log-warper, memory, mkDerivation, mmorph, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-simple, purescript-bridge, pvss, quickcheck-instances, random, reflection, regex-tdfa, regex-tdfa-text, safecopy, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, socket-io, stdenv, stm, swagger2, tagged, text, text-format, time, time-units, transformers, transformers-base, universum, unordered-containers, vector, wai, wai-cors, warp }:
       mkDerivation {
           pname = "cardano-sl-explorer";
           version = "0.2.0";
@@ -1481,6 +1481,48 @@ self: {
           executableToolDepends = [
             cpphs
           ];
+          testHaskellDepends = [
+            base
+            bytestring
+            cardano-sl
+            cardano-sl-core
+            cborg
+            cereal
+            containers
+            cryptonite
+            data-default
+            ether
+            exceptions
+            formatting
+            generic-arbitrary
+            hspec
+            kademlia
+            lens
+            log-warper
+            memory
+            mmorph
+            monad-control
+            MonadRandom
+            mtl
+            node-sketch
+            pvss
+            QuickCheck
+            quickcheck-instances
+            random
+            reflection
+            regex-tdfa
+            regex-tdfa-text
+            safecopy
+            serokell-util
+            tagged
+            text-format
+            time-units
+            transformers-base
+            universum
+            unordered-containers
+            vector
+          ];
+          testToolDepends = [ cpphs ];
           doHaddock = false;
           doCheck = true;
           description = "Cardano explorer";

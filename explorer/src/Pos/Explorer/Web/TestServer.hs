@@ -98,12 +98,26 @@ sampleAddressSummary = CAddressSummary
     , caTxList  = []
     }
 
+cTxId :: CTxId
+cTxId = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+
 cTxEntry :: CTxEntry
 cTxEntry = CTxEntry
-    { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+    { cteId         = cTxId
     , cteTimeIssued = posixTime
     , cteAmount     = mkCCoin $ mkCoin 33333
     }
+
+cTxBrief :: CTxBrief
+cTxBrief = CTxBrief
+    { ctbId         = cTxId
+    , ctbTimeIssued = posixTime
+    , ctbInputs     = [Just (CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333), Nothing]
+    , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
+    , ctbInputSum   = mkCCoin $ mkCoin 33333
+    , ctbOutputSum  = mkCCoin $ mkCoin 33333
+    }
+
 ----------------------------------------------------------------
 -- Test handlers
 ----------------------------------------------------------------
@@ -154,14 +168,7 @@ testBlocksTxs
     -> Maybe Word
     -> Maybe Word
     -> Handler (Either ExplorerError [CTxBrief])
-testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
-    { ctbId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-    , ctbTimeIssued = posixTime
-    , ctbInputs     = [Just (CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333), Nothing]
-    , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
-    , ctbInputSum   = mkCCoin $ mkCoin 33333
-    , ctbOutputSum  = mkCCoin $ mkCoin 33333
-    }]
+testBlocksTxs _ _ _ = pure . pure $ [cTxBrief]
 
 testTxsLast :: Handler (Either ExplorerError [CTxEntry])
 testTxsLast         = pure . pure $ [cTxEntry]
@@ -247,6 +254,4 @@ testStatsTxs
     :: Maybe Word
     -> Handler (Either ExplorerError (Integer, [(CTxId, Byte)]))
 testStatsTxs _ = pure . pure $ (1, [(cTxId, 200)])
-  where
-    cTxId :: CTxId
-    cTxId = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+

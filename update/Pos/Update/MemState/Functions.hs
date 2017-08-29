@@ -29,7 +29,7 @@ type UpdateVotes = HashMap PublicKey UpdateVote
 withUSLock
     :: (MonadReader ctx m, HasLens' ctx StateLock, MonadIO m, MonadMask m)
     => m a -> m a
-withUSLock = (withStateLockNoMetrics HighPriority) . const
+withUSLock = (withStateLockNoMetrics LowPriority) . const
 
 -- | Add given payload to MemPool. Size is updated assuming that all added
 -- data is new (is not in MemPool). This assumption is fine, because

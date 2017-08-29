@@ -22,10 +22,12 @@ import           System.Exit        (ExitCode (..))
 import           System.Wlog        (getLoggerName, logError, logInfo, logWarning)
 import           Universum
 
+import           Pos.Block.Core     (Block)
 import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
                                      wrapActionSpec)
 import           Pos.Context        (BlkSemaphore (..), getOurPubKeyAddress,
                                      getOurPublicKey)
+import qualified Pos.DB.DB          as DB
 import qualified Pos.DB.GState      as GS
 import           Pos.Delegation     (initDelegation)
 import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
@@ -68,6 +70,8 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
             sformat ("Last known leaders for epoch "%build%" are: "%listJson)
                     lastKnownEpoch leaders
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
+    tipHeader <- DB.getTipHeader @(Block ssc)
+    logInfo $ sformat ("Current tip header: "%build) tipHeader
 
     initDelegation @ssc
     initLrc

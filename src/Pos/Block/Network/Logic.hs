@@ -25,11 +25,11 @@ import           Universum
 import           Control.Concurrent.STM     (isFullTBQueue, readTVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (_Wrapped)
+import           Control.Lens               (to, _Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
 import qualified Ether
-import           Formatting                 (bprint, build, builder, sformat, shown,
+import           Formatting                 (bprint, build, builder, int, sformat, shown,
                                              stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
@@ -270,16 +270,19 @@ requestHeaders
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
 requestHeaders cont mgh nodeId _ conv = do
-    logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
+    logDebug $ sformat ("requestHeaders: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
     inRecovery <- recoveryInProgress
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
-            ("requestHeaders: withConnection: received "%listJson%
-             " from nodeId "%build%" of total size "%builder)
-            (map headerHash headers) nodeId (unitBuilder $ biSize headers)
+            ("requestHeaders: received "%int%" headers of total size "%builder%
+             " from nodeId "%build%": "%listJson)
+            (headers ^. _Wrapped . to NE.length)
+            (unitBuilder $ biSize headers)
+            nodeId
+            (map headerHash headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
                 handleRequestedHeaders cont inRecovery headers

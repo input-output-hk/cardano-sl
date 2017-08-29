@@ -12,18 +12,17 @@ import           Pos.Communication       (SendActions (..))
 import           Pos.Constants           (curSoftwareVersion)
 import           Pos.Wallet.WalletMode   (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account  (GenSeed (RandomSeed))
-import           Pos.Wallet.Web.Api      (WalletSwaggerApi)
+import           Pos.Wallet.Web.Api      (WalletApi)
 import qualified Pos.Wallet.Web.Methods  as M
 import           Pos.Wallet.Web.Mode     (MonadWalletWebMode)
 import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
 import           Servant.API             ((:<|>) ((:<|>)))
 import           Servant.Server          (ServerT)
-import           Servant.Swagger.UI      (swaggerSchemaUIServer)
 
 servantHandlers
     :: MonadWalletWebMode m
     => SendActions m
-    -> ServerT WalletSwaggerApi m
+    -> ServerT WalletApi m
 servantHandlers sendActions =
      M.testResetAll
     :<|>
@@ -100,6 +99,3 @@ servantHandlers sendActions =
      M.importWalletJSON
     :<|>
      M.exportWalletJSON
-    
-    :<|>
-     swaggerSchemaUIServer M.swaggerSpec

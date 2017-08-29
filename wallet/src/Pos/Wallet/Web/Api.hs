@@ -474,9 +474,9 @@ type SwaggerApi =
     SwaggerSchemaUI "docs" "swagger.json"
 
 type WalletSwaggerApi =
-     SwaggerApi
-    :<|>
      WalletApi
+    :<|>
+     SwaggerApi
 
 -- | Helper Proxy.
 swaggerWalletApi :: Proxy WalletSwaggerApi

@@ -24,14 +24,14 @@ case "$1" in
                 case "$2" in 'nix' ) true;; 'stack' ) true;; * ) error "--build-mode should be either 'nix' or 'stack'";; esac;
                 BUILD_MODE="$2"; shift;;
         --install-as-suffix )
-                case "$2" in 'tns' ) true;; 'tn' ) true;; 'qanet' ) true;; * ) error "--install-as-suffix should be either 'tn', 'tns' or 'qanet'";; esac;
+                case "$2" in 'tns' ) true;; 'tn' ) true;; 'qa' ) true;; * ) error "--install-as-suffix should be either 'tn', 'tns' or 'qa'";; esac;
                 INSTALL_AS_SUFFIX="$2"; shift;;
         "--"* ) error "unknown option: $1";;
         * ) break;; esac; shift; done
 
 scriptsDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
 echo $scriptsDir
-outputDir="genesis-qanet-$(date +%F_%H-%M)"
+outputDir="genesis-$INSTALL_AS_SUFFIX-$(date +%F_%H-%M)"
 
 if [[ -d "./$outputDir" ]]; then
   echo "./$outputDir exists already" >&2

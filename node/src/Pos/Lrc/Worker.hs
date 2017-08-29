@@ -46,7 +46,7 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
 import           Pos.Lrc.Mode               (LrcMode)
-import           Pos.Reporting              (reportError)
+import           Pos.Reporting              (reportError, reportMisbehaviour)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
@@ -175,7 +175,11 @@ lrcDo epoch consumers = do
                 ("Calculated seed for epoch "%build%" successfully") epoch
             return s
         Left err -> do
-            logWarning $ sformat
+            let isCritical = True
+            -- Critical error means that the system is in dangerous state.
+            -- For now let's consider all errors critical, maybe we'll revise it later.
+            -- REPORT:MISBEHAVIOUR(T) Couldn't compute seed.
+            reportMisbehaviour isCritical $ sformat
                 ("SSC couldn't compute seed: "%build%" for epoch "%build%
                  ", going to reuse seed for previous epoch")
                 err epoch

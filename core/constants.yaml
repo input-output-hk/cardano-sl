@@ -160,7 +160,7 @@ testnet_public_full: &testnet_public_full
   recoveryHeadersMessage: 2200
   networkWaitLogInterval: 32 # 32s
 
-  protocolMagic: 55550003 
+  protocolMagic: 60987900
   genesisBinSuffix: tn 
 
 testnet_staging_full: &testnet_staging_full

@@ -32,7 +32,6 @@ module Pos.Constants
 
        -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
-       , mdNoCommitmentsEpochThreshold
 
        -- * Update system constants
        , appSystemTag
@@ -128,11 +127,6 @@ dlgCacheParam = fromIntegral . ccDlgCacheParam $ compileConfig
 -- we are not receiving generated blocks.
 mdNoBlocksSlotThreshold :: Integral i => i
 mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ compileConfig
-
--- | Number of epochs used by malicious actions detection to check if
--- our commitments are not included in blockchain.
-mdNoCommitmentsEpochThreshold :: Integral i => i
-mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Update system

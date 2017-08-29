@@ -26,6 +26,7 @@ import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
 import qualified Pos.Constants         as Const
 import           Pos.Context           (getOurPublicKey, ncNetworkConfig)
+import           Pos.Core              (addressHash)
 import qualified Pos.DB.DB             as DB
 import           Pos.DHT.Real          (KademliaDHTInstance (..),
                                         kademliaJoinNetworkNoThrow,
@@ -37,11 +38,9 @@ import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
 import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
 import           Pos.Reporting         (reportMisbehaviourSilent)
-import           Pos.Security          (SecurityWorkersClass)
 import           Pos.Shutdown          (waitForWorkers)
 import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Types             (addressHash)
 import           Pos.Util              (inAssertMode)
 import           Pos.Util.Config       (configName)
 import           Pos.Util.LogSafe      (logInfoS)
@@ -132,7 +131,6 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
 -- Initialization, running of workers, running of plugins.
 runNode ::
        ( SscConstraint ssc
-       , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
        )
     => NodeResources ssc m

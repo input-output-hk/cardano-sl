@@ -57,6 +57,7 @@ let
 
       cardano-sl-static = justStaticExecutables self.cardano-sl;
       cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
+      cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
       # Gold linker fixes
       cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;

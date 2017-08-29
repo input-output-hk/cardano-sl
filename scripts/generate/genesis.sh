@@ -2,13 +2,33 @@
 
 # This script generates genesis files.
 # Launch it from the project root directory.
-# It will create a directory with all needed data inside. It will not 
+# It will create a directory with all needed data inside. It will not
 # copy generated genesis files into the project, this is to be done
 # manually.
 
+set -e
+
+BUILD_MODE=stack
+INSTALL_TOO=
+FAKE_AVVM_ENTRIES=100
+RICHMEN_SHARE=0.94
+TESTNET_STAKE=19072918462000000
+fail() { echo "ERROR: $*" >&2; exit 1;
+}
+while test $# -ge 1; do
+case "$1" in
+        --build-mode )
+                case "$2" in 'nix' ) true;; 'stack' ) true;; * ) error "--build-mode should be either 'nix' or 'stack'";; esac;
+                BUILD_MODE="$2"; shift;;
+        --install-as-suffix )
+                case "$2" in 'tns' ) true;; 'tn' ) true;; 'qa' ) true;; * ) error "--install-as-suffix should be either 'tn', 'tns' or 'qa'";; esac;
+                INSTALL_AS_SUFFIX="$2"; shift;;
+        "--"* ) error "unknown option: $1";;
+        * ) break;; esac; shift; done
+
 scriptsDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
 echo $scriptsDir
-outputDir="genesis-qanet-$(date +%F_%H-%M)"
+outputDir="genesis-$INSTALL_AS_SUFFIX-$(date +%F_%H-%M)"
 
 if [[ -d "./$outputDir" ]]; then
   echo "./$outputDir exists already" >&2
@@ -20,26 +40,45 @@ mkdir $outputDir
 utxo_file=$scriptsDir/avvm-files/utxo-dump-last-new.json
 blacklisted=$scriptsDir/avvm-files/full_blacklist.js
 
-if [[ "$M" == "" ]]; then 
+if [[ "$M" == "" ]]; then
     echo "You didn't set M (rich keys amount)";
     exit 1
 fi
-if [[ "$N" == "" ]]; then 
+if [[ "$N" == "" ]]; then
     echo "You didn't set N (poor keys amount)";
     exit 1
 fi
 
-F=100 # fake avvm keys
+case "${BUILD_MODE}" in
+nix )
+        keygen="$(nix-build -A cardano-sl-tools --no-out-link $scriptsDir/../)/bin/cardano-keygen";;
+stack ) keygen="stack exec cardano-keygen --";;
+esac
 
 # print commit
 git show HEAD --oneline | tee $outputDir/genesisCreation.log
 
-keygenCmd="stack exec cardano-keygen -- generate-genesis --genesis-dir $outputDir -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries $F"
+keygenCmd="${keygen} generate-genesis --genesis-dir $outputDir -m $M -n $N --richmen-share ${RICHMEN_SHARE} --testnet-stake ${TESTNET_STAKE} --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries ${FAKE_AVVM_ENTRIES}"
 echo "Running command: $keygenCmd"
 $keygenCmd |& tee -a $outputDir/genesisCreation.log
 
 echo "Cleaning up"
-find $outputDir -name "*.lock" | xargs rm 
+find $outputDir -name "*.lock" | xargs rm
 
 echo "Creating archive"
 tar -czf "$outputDir.tgz" $outputDir
+
+if test -z "${INSTALL_AS_SUFFIX}"; then exit 0; fi
+echo "Installing genesis with suffix '${INSTALL_AS_SUFFIX}'"
+
+gencore="core/genesis-core-${INSTALL_AS_SUFFIX}.bin"
+gentoss="godtossing/genesis-godtossing-${INSTALL_AS_SUFFIX}.bin"
+geninfo="genesis-info/${INSTALL_AS_SUFFIX}.log"
+cp "${outputDir}"/genesis-core.bin       "${gencore}"
+cp "${outputDir}"/genesis-godtossing.bin "${gentoss}"
+cp "${outputDir}"/genesisCreation.log    "${geninfo}"
+
+echo "Genesis installed:"
+ls -l "${gencore}"
+ls -l "${gentoss}"
+ls -l "${geninfo}"

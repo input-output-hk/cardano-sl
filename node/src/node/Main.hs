@@ -24,7 +24,6 @@ import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec, worker)
 import           Pos.Core            (HasCoreConstants, Timestamp (..), giveStaticConsts)
 import           Pos.Launcher        (NodeParams (..), runNodeReal)
-import           Pos.Security        (SecurityWorkersClass)
 import           Pos.Shutdown        (triggerShutdown)
 import           Pos.Ssc.Class       (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
@@ -37,7 +36,6 @@ import           Pos.WorkMode        (RealMode)
 actionWithoutWallet
     :: forall ssc.
        ( SscConstraint ssc
-       , SecurityWorkersClass ssc
        , HasCoreConstants)
     => SscParams ssc
     -> NodeParams

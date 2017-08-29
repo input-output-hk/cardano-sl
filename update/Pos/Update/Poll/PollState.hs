@@ -72,7 +72,7 @@ modifyPollState PollModifier {..} PollState {..} =
               (modifyHashMap pmConfirmed _psConfirmedANs)
               (modifyHashMap pmConfirmedProps _psConfirmedProposals)
               (modifyHashMap pmActiveProps _psActiveProposals)
-              (resultActiveProposals _psActivePropsIdx)
+              (HM.filter (not . null) $ resultActiveProposals _psActivePropsIdx)
               (fromMaybe _psSlottingData pmSlottingData)
               _psFullRichmenData
               _psIssuersStakes

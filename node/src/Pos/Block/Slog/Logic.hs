@@ -25,7 +25,6 @@ import           Universum
 import           Control.Lens           (_Wrapped)
 import           Control.Monad.Except   (MonadError (throwError))
 import qualified Data.List.NonEmpty     as NE
-import qualified Data.Map.Strict        as M
 import           Formatting             (build, sformat, (%))
 import           Serokell.Util          (Color (Red), colorize)
 import           Serokell.Util.Verify   (formatAllErrors, verResToMonadError)
@@ -52,8 +51,7 @@ import           Pos.Exception          (assertionFailed, reportFatalError)
 import qualified Pos.GState             as GS
 import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
-import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlottingDataMap,
-                                         putEpochSlottingDataM)
+import           Pos.Slotting           (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass (..))
 import           Pos.Util               (HasLens (..), HasLens', inAssertMode, _neHead,
                                          _neLast)
@@ -328,9 +326,3 @@ slogCommon
     -> m ()
 slogCommon newLastSlots = do
     slogPutLastSlots newLastSlots
-    -- We read from the database and write in the memory.
-    -- TODO(ks): This is unsafe! We don't have control over sequentiality and
-    -- use explicit indexing. It would be better if we have sorted EpochSlotData and
-    -- pass it without the index.
-    slotData <- M.toList . getSlottingDataMap <$> GS.getSlottingData
-    forM_ slotData (uncurry putEpochSlottingDataM)

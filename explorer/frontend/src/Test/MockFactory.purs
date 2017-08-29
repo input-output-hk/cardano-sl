@@ -86,19 +86,27 @@ mkCTxBrief :: Int -> CTxBrief
 mkCTxBrief index = CTxBrief
     { ctbId: mkCTxId $ show index
     , ctbTimeIssued: mkTime 0.0
-    , ctbInputs: mkCtbInOutputs [index]
-    , ctbOutputs: mkCtbInOutputs ((index + 1)..(index + 2))
+    , ctbInputs: mkCtbInputs [index]
+    , ctbOutputs: mkCtbOutputs ((index + 1)..(index + 2))
     , ctbInputSum: mkCoin "0"
     , ctbOutputSum: mkCoin "0"
     }
 
-mkCtbInOutput :: Int -> Int -> Tuple CAddress CCoin
-mkCtbInOutput addr coin =
+mkCtbInput :: Int -> Int -> Maybe (Tuple CAddress CCoin)
+mkCtbInput addr coin =
+    Just $ Tuple (mkCAddress $ "address-" <> show addr) (mkCoin $ show coin)
+
+mkCtbInputs :: Array Int -> Array (Maybe (Tuple CAddress CCoin))
+mkCtbInputs indexes =
+    map (\index -> mkCtbInput index index) indexes
+
+mkCtbOutput :: Int -> Int -> Tuple CAddress CCoin
+mkCtbOutput addr coin =
     Tuple (mkCAddress $ "address-" <> show addr) (mkCoin $ show coin)
 
-mkCtbInOutputs :: Array Int -> Array (Tuple CAddress CCoin)
-mkCtbInOutputs indexes =
-    map (\index -> mkCtbInOutput index index) indexes
+mkCtbOutputs :: Array Int -> Array (Tuple CAddress CCoin)
+mkCtbOutputs indexes =
+    map (\index -> mkCtbOutput index index) indexes
 
 mkCGenesisSummary :: CGenesisSummary
 mkCGenesisSummary = CGenesisSummary

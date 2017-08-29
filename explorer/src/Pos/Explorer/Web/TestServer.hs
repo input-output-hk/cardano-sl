@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
 
 module Pos.Explorer.Web.TestServer
@@ -99,12 +98,26 @@ sampleAddressSummary = CAddressSummary
     , caTxList  = []
     }
 
+cTxId :: CTxId
+cTxId = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+
 cTxEntry :: CTxEntry
 cTxEntry = CTxEntry
-    { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+    { cteId         = cTxId
     , cteTimeIssued = posixTime
     , cteAmount     = mkCCoin $ mkCoin 33333
     }
+
+cTxBrief :: CTxBrief
+cTxBrief = CTxBrief
+    { ctbId         = cTxId
+    , ctbTimeIssued = posixTime
+    , ctbInputs     = [Just (CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333), Nothing]
+    , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
+    , ctbInputSum   = mkCCoin $ mkCoin 33333
+    , ctbOutputSum  = mkCCoin $ mkCoin 33333
+    }
+
 ----------------------------------------------------------------
 -- Test handlers
 ----------------------------------------------------------------
@@ -122,7 +135,7 @@ testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
-    , cbeTimeIssued = Nothing
+    , cbeTimeIssued = Just posixTime
     , cbeTxNum      = 0
     , cbeTotalSent  = mkCCoin $ mkCoin 0
     , cbeSize       = 390
@@ -138,7 +151,7 @@ testBlocksSummary _ = pure . pure $ CBlockSummary
                         { cbeEpoch      = 37294
                         , cbeSlot       = 10
                         , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
-                        , cbeTimeIssued = Nothing
+                        , cbeTimeIssued = Just posixTime
                         , cbeTxNum      = 0
                         , cbeTotalSent  = mkCCoin $ mkCoin 0
                         , cbeSize       = 390
@@ -155,14 +168,7 @@ testBlocksTxs
     -> Maybe Word
     -> Maybe Word
     -> Handler (Either ExplorerError [CTxBrief])
-testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
-    { ctbId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-    , ctbTimeIssued = posixTime
-    , ctbInputs     = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333)]
-    , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
-    , ctbInputSum   = mkCCoin $ mkCoin 33333
-    , ctbOutputSum  = mkCCoin $ mkCoin 33333
-    }]
+testBlocksTxs _ _ _ = pure . pure $ [cTxBrief]
 
 testTxsLast :: Handler (Either ExplorerError [CTxEntry])
 testTxsLast         = pure . pure $ [cTxEntry]
@@ -182,7 +188,10 @@ testTxsSummary _       = pure . pure $ CTxSummary
     , ctsTotalInput      = mkCCoin $ mkCoin 33333
     , ctsTotalOutput     = mkCCoin $ mkCoin 33333
     , ctsFees            = mkCCoin $ mkCoin 0
-    , ctsInputs          = [(CAddress "19HxN7PseAPT93RftAh7bBmbnJU5gtH6QzvUyZXnbz9Y1UtYwPDdiCGkB2gwvC8CjBUtHXBij9j9Qb6JYgHPi6LtevDcFQ", mkCCoin $ mkCoin 97)]
+    , ctsInputs          =  [ Just (CAddress "19HxN7PseAPT93RftAh7bBmbnJU5gtH6QzvUyZXnbz9Y1UtYwPDdiCGkB2gwvC8CjBUtHXBij9j9Qb6JYgHPi6LtevDcFQ", mkCCoin $ mkCoin 97)
+                            , Nothing
+                            , Just (CAddress "LaVWPVaMHxNVtqJ1uvVZ8FyQmeRam5avHE1Uv9iwRivCKTN83CUW", mkCCoin $ mkCoin 3333)
+                            ]
     , ctsOutputs         =  [ (CAddress "19F6U1Go5B4KakVoCZfzCtqNAWhUBprxVzL3JsGu74TEwQnXPvAKPUbvG8o4Qe5RaY8Z7WKLfxmNFwBqPV1NQ2hRpKkdEN", mkCCoin $ mkCoin 94)
                             , (CAddress "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", mkCCoin $ mkCoin 3)
                             ]
@@ -201,7 +210,7 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
-    , cbeTimeIssued = Nothing
+    , cbeTimeIssued = Just posixTime
     , cbeTxNum      = 0
     , cbeTotalSent  = mkCCoin $ mkCoin 0
     , cbeSize       = 390
@@ -245,6 +254,4 @@ testStatsTxs
     :: Maybe Word
     -> Handler (Either ExplorerError (Integer, [(CTxId, Byte)]))
 testStatsTxs _ = pure . pure $ (1, [(cTxId, 200)])
-  where
-    cTxId :: CTxId
-    cTxId = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+

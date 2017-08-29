@@ -34,8 +34,7 @@ import           Pos.Communication          (ActionSpec (..), NodeId, OutSpecs,
 import           Pos.Constants              (isDevelopment)
 import           Pos.Context                (MonadNodeContext)
 import           Pos.Core.Types             (Timestamp (..))
-import           Pos.DHT.Real               (KademliaDHTInstance (..),
-                                             foreverRejoinNetwork)
+import           Pos.DHT.Real               (KademliaDHTInstance (..))
 import           Pos.DHT.Workers            (dhtWorkers)
 import           Pos.Discovery              (DiscoveryContextSum (..))
 import           Pos.Launcher               (NodeParams (..), bracketResources,
@@ -100,7 +99,10 @@ action peerHolder args@Args {..} transport = do
             currentPluginsGT = pluginsGT args
         bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
             bracketWalletWS $ \conn -> do
-                let discoveryCtx = either DCKademlia DCStatic peerHolder
+                let (discoveryCtx, mKinst) = either
+                        (DCKademlia &&& Just)
+                        (DCStatic   &&& const Nothing)
+                        peerHolder
                 let almostAllPlugins :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m)
                                      => ([WorkerSpec m], OutSpecs)
                     almostAllPlugins = either
@@ -113,7 +115,7 @@ action peerHolder args@Args {..} transport = do
                     NistBeaconAlgo -> logError "Wallet does not support NIST beacon!"
                     GodTossingAlgo ->
                         runWRealMode db conn discoveryCtx transportW currentParams gtParams
-                            (runNode @SscGodTossing $ allPlugins)
+                            (runNode @SscGodTossing mKinst allPlugins)
 #endif
 #ifdef WITH_WALLET
     let userWantsWallet = enableWallet
@@ -123,7 +125,10 @@ action peerHolder args@Args {..} transport = do
     unless userWantsWallet $ do
         let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
             sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
-        let discoveryCtx = either DCKademlia DCStatic peerHolder
+        let (discoveryCtx, mKinst) = either
+                (DCKademlia &&& Just)
+                (DCStatic   &&& const Nothing)
+                peerHolder
         let plugins :: forall ssc .
                 (SscConstraint ssc, SecurityWorkersClass ssc)
                 => ([WorkerSpec (RealMode ssc)], OutSpecs)
@@ -134,7 +139,7 @@ action peerHolder args@Args {..} transport = do
         let runner :: forall ssc .
                 (SscConstraint ssc, SecurityWorkersClass ssc)
                 => SscParams ssc -> Production ()
-            runner = runNodeReal @ssc discoveryCtx transport
+            runner = runNodeReal @ssc discoveryCtx transport mKinst
                         (plugins @ssc) currentParams
         either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
 #ifdef WITH_WEB
@@ -242,4 +247,4 @@ main = do
             let transport' = hoistTransport
                     (powerLift :: forall ssc t . Production t -> RealMode ssc t)
                     transport
-            in  foreverRejoinNetwork kademliaInstance (action (Left kademliaInstance) args transport')
+            in action (Left kademliaInstance) args transport'

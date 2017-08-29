@@ -8,6 +8,7 @@ module Pos.Discovery.Holders
        , DiscoveryConstT
        , runDiscoveryConstT
        , DiscoveryKademliaT
+       , DiscoveryKademliaEnv
        , askDHTInstance
        , runDiscoveryKademliaT
 

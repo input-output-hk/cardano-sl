@@ -5,7 +5,7 @@
 
 -- | Instances of `ToSchema` & `ToParamSchema`
 
-module Pos.Wallet.Web.Swagger.Instances.Schema () where
+module Pos.Wallet.Web.Swagger.Instances.Schema where
 
 import           Universum
 

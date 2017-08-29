@@ -2,7 +2,7 @@
 
 -- | Swagger instances
 
-module Pos.Wallet.Web.Swagger.Instances.Swagger () where
+module Pos.Wallet.Web.Swagger.Instances.Swagger where
 
 import           Universum
 

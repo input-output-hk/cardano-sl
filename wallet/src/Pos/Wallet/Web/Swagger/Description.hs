@@ -15,8 +15,9 @@ import           Servant                            ((:>))
 import           Servant.Swagger                    (HasSwagger, subOperations)
 import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
 
-import           Pos.Wallet.Web.Swagger.CustomSwagger   (HasCustomSwagger (..))
-import           Pos.Wallet.Web.Swagger.Instances       ()
+import           Pos.Wallet.Web.Swagger.CustomSwagger     (HasCustomSwagger (..))
+import           Pos.Wallet.Web.Swagger.Instances.Schema  ()
+import           Pos.Wallet.Web.Swagger.Instances.Swagger ()
 import           Pos.Wallet.Web.Api
 
 -- | Wallet API operations, i.e. modifier of part of api related to

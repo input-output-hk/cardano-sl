@@ -41,7 +41,9 @@ import           Pos.Crypto             (PublicKey, shortHashF)
 import           Pos.DB.Class           (MonadDBRead)
 import qualified Pos.DB.GState.Common   as DB
 import           Pos.Infra.Semaphore    (BlkSemaphore)
+import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Lrc.Context        (LrcContext)
+import           Pos.Reporting          (HasReportingContext, reportError)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
@@ -118,10 +120,15 @@ modifyMemState action = do
 -- Data exchange in general
 ----------------------------------------------------------------------------
 
-processSkeleton
-    :: (USLocalLogicModeWithLock ctx m)
-    => UpdatePayload -> m (Either PollVerFailure ())
+processSkeleton ::
+       ( USLocalLogicModeWithLock ctx m
+       , MonadFormatPeers m
+       , HasReportingContext ctx
+       )
+    => UpdatePayload
+    -> m (Either PollVerFailure ())
 processSkeleton payload =
+    reportTipMismatch $
     withUSLock $
     runExceptT $
     modifyMemState $ \ms@MemState {..} -> do
@@ -129,13 +136,14 @@ processSkeleton payload =
         -- We must check tip here, because we can't be sure that tip
         -- in DB is the same as the tip in memory. Normally it will be
         -- the case, but if normalization fails, it won't be true.
+        -- If tips are different, we report error, because it's suspicious.
         --
         -- If this equality holds, we can be sure that all further
         -- reads will be done for the same GState, because here we own
         -- global lock and nobody can modify GState.
-        unless (dbTip == msTip) $
-            throwError $
-            PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
+        unless (dbTip == msTip) $ do
+            let err = PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
+            throwError err
         maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
         let maxMemPoolSize = maxBlockSize * memPoolLimitRatio
         msIntermediate <-
@@ -150,6 +158,12 @@ processSkeleton payload =
         let newModifier = modifyPollModifier msModifier modifier
         let newPool = addToMemPool payload msPool
         pure $ ms {msModifier = newModifier, msPool = newPool}
+    -- REPORT:ERROR Tips mismatch in update system.
+    reportTipMismatch action = do
+        res <- action
+        res <$ case res of
+            (Left err@(PollTipMismatch {})) -> reportError (pretty err)
+            _                               -> pass
 
 -- Remove most useless data from mem pool to make it smaller.
 refreshMemPool
@@ -204,7 +218,10 @@ getLocalProposalNVotes id = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processProposal
-    :: (USLocalLogicModeWithLock ctx m)
+    :: ( USLocalLogicModeWithLock ctx m
+       , MonadFormatPeers m
+       , HasReportingContext ctx
+       )
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
@@ -253,7 +270,10 @@ getLocalVote propId pk decision = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processVote
-    :: (USLocalLogicModeWithLock ctx m)
+    :: ( USLocalLogicModeWithLock ctx m
+       , MonadFormatPeers m
+       , HasReportingContext ctx
+       )
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 

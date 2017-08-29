@@ -59,6 +59,8 @@ import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.Genesis                  (GenesisUtxo (..), GenesisWStakeholders)
 import qualified Pos.GState                   as GS
 import           Pos.Infra.Semaphore          (BlkSemaphore)
+import           Pos.KnownPeers               (MonadFormatPeers)
+import           Pos.Reporting                (HasReportingContext)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
@@ -239,6 +241,8 @@ type TxHistoryEnv ctx m =
     , HasLens' ctx BlkSemaphore
     , MonadBaseControl IO m
     , Mockable CurrentTime m
+    , MonadFormatPeers m
+    , HasReportingContext ctx
     )
 
 type TxHistoryEnv' ssc ctx m =

@@ -106,7 +106,6 @@ library
 
   if os(windows)
     exposed-modules:    Pos.Network.Windows.DnsDomains
-    extra-libraries:    iphlpapi
     c-sources:          Pos/Network/Windows/defaultdns.c
 
 

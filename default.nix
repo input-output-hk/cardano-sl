@@ -42,7 +42,6 @@ let
       });
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = [
-          "-f-embed-config"
           "-f-asserts"
           "-f-dev-mode"
           "--ghc-options=-DCONFIG=${dconfig}"

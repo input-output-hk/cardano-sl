@@ -8,11 +8,10 @@ module Pos.Util.Config.Get
 
 import           Universum
 
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.Yaml                as Y
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.Yaml            as Y
 
-import           Pos.Util.Config.Contents (cslConfigFile)
-import           Pos.Util.Config.Path     (cslConfigFilePath)
+import           Pos.Util.Config.Path (cslConfigFilePath)
 
 #define QUOTED(x) "/**/x/**/"
 
@@ -28,7 +27,7 @@ configName = QUOTED(CONFIG)
 -- | Parse @constants.yaml@ and pick the right config according to @CONFIG@.
 getCslConfig :: IO (Either String Y.Value)
 getCslConfig = do
-    let mbRes = Y.decodeEither' @Y.Object (encodeUtf8 cslConfigFile)
+    mbRes <- Y.decodeFileEither @Y.Object cslConfigFilePath
     pure $ do
         val <- case mbRes of
             Right x  -> pure x

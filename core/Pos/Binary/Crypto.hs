@@ -130,16 +130,16 @@ BiMacro(C.EncShare, encShareBytes)
 ----------------------------------------------------------------------------
 
 instance Bi Ed25519.PointCompressed where
-  encode (Ed25519.unPointCompressed -> k) = encode k
-  decode = Ed25519.pointCompressed <$> decode
+    encode (Ed25519.unPointCompressed -> k) = encode k
+    decode = Ed25519.pointCompressed <$> decode
 
 instance Bi Ed25519.Scalar where
-  encode (Ed25519.unScalar -> k) = encode k
-  decode = Ed25519.scalar <$> decode
+    encode (Ed25519.unScalar -> k) = encode k
+    decode = Ed25519.scalar <$> decode
 
 instance Bi Ed25519.Signature where
-  encode (Ed25519.Signature s) = encode s
-  decode = Ed25519.Signature <$> decode
+    encode (Ed25519.Signature s) = encode s
+    decode = Ed25519.Signature <$> decode
 
 instance Bi CC.ChainCode where
     encode (CC.ChainCode c) = encode c

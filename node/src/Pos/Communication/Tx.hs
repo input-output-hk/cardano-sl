@@ -97,7 +97,7 @@ prepareRedemptionTx rsk output = do
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
         txOuts = one $
             TxOutAux {toaOut = TxOut output redeemBalance}
-    when (redeemBalance == mkCoin 0) $ throwM . TxError $ "Redeem balance is 0"
+    when (redeemBalance == mkCoin 0) $ throwM RedemptionDepleted
     txAux <- eitherToThrow =<< createRedemptionTx utxo rsk txOuts
     pure (txAux, redeemAddress, redeemBalance)
 

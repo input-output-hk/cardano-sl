@@ -21,7 +21,7 @@ import           Pos.Launcher.Resource   (NodeResources (..))
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
 import           Pos.Network.Types       (NetworkConfig (..), SubscriptionWorker (..),
                                           topologyRunKademlia, topologySubscriptionWorker)
-import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
+import           Pos.Security.Workers    (securityWorkers)
 import           Pos.Slotting            (logNewSlotWorker, slottingWorkers)
 import           Pos.Ssc.Class           (SscListenersClass (sscRelays),
                                           SscWorkersClass (sscWorkers))
@@ -38,8 +38,6 @@ import           Pos.WorkMode            (WorkMode)
 allWorkers
     :: forall ssc ctx m .
        ( SscListenersClass ssc
-       , SscWorkersClass ssc
-       , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
        )
     => NodeResources ssc m -> ([WorkerSpec m], OutSpecs)
@@ -49,7 +47,7 @@ allWorkers NodeResources {..} = mconcatPair
       -- I have no idea what this ↑ comment means (@gromak).
 
       wrap' "ssc"        $ sscWorkers
-    , wrap' "security"   $ untag securityWorkers
+    , wrap' "security"   $ securityWorkers
     , wrap' "lrc"        $ first one lrcOnNewSlotWorker
     , wrap' "us"         $ usWorkers
 

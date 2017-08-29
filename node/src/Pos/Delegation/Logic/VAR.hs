@@ -19,11 +19,10 @@ import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import           Data.List                    (partition, (\\))
 import qualified Data.Text.Buildable          as B
-import           Ether.Internal               (HasLens (..))
-import           Formatting                   (bprint, build, sformat, (%))
+import           Formatting                   (bprint, build, sformat, shown, (%))
 import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util                (listJson, mapJson)
-import           System.Wlog                  (WithLogger, logDebug)
+import           System.Wlog                  (WithLogger, logDebug, logError)
 
 import           Pos.Binary.Communication     ()
 import           Pos.Block.Core               (Block, BlockSignature (..),
@@ -52,13 +51,15 @@ import           Pos.Delegation.Class         (MonadDelegation, dwEpochId, dwPro
 import           Pos.Delegation.Helpers       (isRevokePsk)
 import           Pos.Delegation.Logic.Common  (DelegationError (..),
                                                runDelegationStateAction)
-import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
-                                               deleteFromDlgMemPool, processProxySKHeavy)
+import           Pos.Delegation.Logic.Mempool (PskHeavyVerdict (..),
+                                               clearDlgMemPoolAction,
+                                               deleteFromDlgMemPool,
+                                               processProxySKHeavyInternal)
 import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo (..))
 import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
-import           Pos.Util                     (getKeys, _neHead)
+import           Pos.Util                     (HasLens', getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
 
@@ -299,7 +300,7 @@ getNoLongerRichmen ::
        , MonadIO m
        , MonadDBRead m
        , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
+       , HasLens' ctx LrcContext
        )
     => EpochIndex
     -> m [StakeholderId]
@@ -335,7 +336,7 @@ dlgVerifyBlocks ::
        ( DB.MonadBlockDB ssc m
        , MonadIO m
        , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
+       , HasLens' ctx LrcContext
        , HasCoreConstants
        )
     => OldestFirst NE (Block ssc)
@@ -564,8 +565,9 @@ dlgNormalizeOnRollback ::
        , DB.MonadGState m
        , MonadIO m
        , MonadMask m
-       , HasLens LrcContext ctx LrcContext
+       , HasLens' ctx LrcContext
        , Mockable CurrentTime m
+       , WithLogger m
        )
     => m ()
 dlgNormalizeOnRollback = do
@@ -575,4 +577,10 @@ dlgNormalizeOnRollback = do
         pool <- uses dwProxySKPool toList
         dwProxySKPool .= mempty
         pure pool
-    forM_ oldPool (processProxySKHeavy @ssc)
+    forM_ oldPool $ \psk -> do
+      res <- processProxySKHeavyInternal @ssc psk
+      -- should we throw error here also?
+      when (res /= PHAdded) $ logError $
+          sformat ("dlgNormalizeOnRollback: got psk verdict "%shown%" for psk "%build)
+                  res
+                  psk

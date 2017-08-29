@@ -14,6 +14,7 @@ module Pos.Delegation.Logic.Mempool
 
        , PskHeavyVerdict (..)
        , processProxySKHeavy
+       , processProxySKHeavyInternal
 
        -- * Lightweight psks handling
        , PskLightVerdict (..)
@@ -28,47 +29,47 @@ module Pos.Delegation.Logic.Mempool
 
 import           Universum
 
-import           Control.Lens                (at, uses, (%=), (+=), (-=), (.=))
-import qualified Data.Cache.LRU              as LRU
-import qualified Data.HashMap.Strict         as HM
-import qualified Data.HashSet                as HS
-import           Ether.Internal              (HasLens (..))
-import           Mockable                    (CurrentTime, Mockable, currentTime)
+import           Control.Lens                     (at, uses, (%=), (+=), (-=), (.=))
+import qualified Data.Cache.LRU                   as LRU
+import qualified Data.HashMap.Strict              as HM
+import qualified Data.HashSet                     as HS
+import           Mockable                         (CurrentTime, Mockable, currentTime)
 
-import           Pos.Binary.Class            (biSize)
-import           Pos.Binary.Communication    ()
-import           Pos.Constants               (memPoolLimitRatio)
-import           Pos.Context                 (lrcActionOnEpochReason)
-import           Pos.Core                    (HasPrimaryKey (..), ProxySKHeavy,
-                                              ProxySKLight, ProxySigLight, addressHash,
-                                              bvdMaxBlockSize, epochIndexL,
-                                              getOurPublicKey)
-import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
-                                              SignTag (SignProxySK), proxyVerify,
-                                              verifyPsk)
-import           Pos.DB                      (MonadDB, MonadDBRead, MonadGState,
-                                              MonadRealDB)
-import qualified Pos.DB                      as DB
-import           Pos.DB.Block                (MonadBlockDB)
-import qualified Pos.DB.DB                   as DB
-import qualified Pos.DB.Misc                 as Misc
-import           Pos.Delegation.Cede         (detectCycleOnAddition, evalMapCede,
-                                              pskToDlgEdgeAction)
-import           Pos.Delegation.Class        (DlgMemPool, MonadDelegation,
-                                              askDelegationState, dwConfirmationCache,
-                                              dwEpochId, dwMessageCache, dwPoolSize,
-                                              dwProxySKPool)
-import           Pos.Delegation.Helpers      (isRevokePsk)
-import           Pos.Delegation.Logic.Common (DelegationStateAction,
-                                              runDelegationStateAction)
-import           Pos.Delegation.Types        (DlgPayload, mkDlgPayload)
-import qualified Pos.GState                  as GS
-import           Pos.Lrc.Context             (LrcContext)
-import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Util                    (leftToPanic, microsecondsToUTC)
-import qualified Pos.Util.Concurrent.RWLock  as RWL
-import qualified Pos.Util.Concurrent.RWVar   as RWV
-
+import           Pos.Binary.Class                 (biSize)
+import           Pos.Binary.Communication         ()
+import           Pos.Constants                    (memPoolLimitRatio)
+import           Pos.Context                      (lrcActionOnEpochReason)
+import           Pos.Core                         (HasPrimaryKey (..), ProxySKHeavy,
+                                                   ProxySKLight, ProxySigLight,
+                                                   addressHash, bvdMaxBlockSize,
+                                                   epochIndexL, getOurPublicKey)
+import           Pos.Crypto                       (ProxySecretKey (..), PublicKey,
+                                                   SignTag (SignProxySK), proxyVerify,
+                                                   verifyPsk)
+import           Pos.DB                           (MonadDB, MonadDBRead, MonadGState,
+                                                   MonadRealDB)
+import qualified Pos.DB                           as DB
+import           Pos.DB.Block                     (MonadBlockDB)
+import qualified Pos.DB.DB                        as DB
+import qualified Pos.DB.Misc                      as Misc
+import           Pos.Delegation.Cede              (detectCycleOnAddition, evalMapCede,
+                                                   pskToDlgEdgeAction)
+import           Pos.Delegation.Class             (DlgMemPool, MonadDelegation,
+                                                   dwConfirmationCache, dwEpochId,
+                                                   dwMessageCache, dwPoolSize,
+                                                   dwProxySKPool)
+import           Pos.Delegation.Helpers           (isRevokePsk)
+import           Pos.Delegation.Logic.Common      (DelegationStateAction,
+                                                   runDelegationStateAction)
+import           Pos.Delegation.Types             (DlgPayload, mkDlgPayload)
+import qualified Pos.GState                       as GS
+import           Pos.Lrc.Context                  (LrcContext)
+import qualified Pos.Lrc.DB                       as LrcDB
+import           Pos.StateLock                    (StateLock, withStateLockNoMetrics)
+import           Pos.Util                         (HasLens', leftToPanic,
+                                                   microsecondsToUTC)
+import           Pos.Util.Concurrent.PriorityLock (Priority (..))
+import qualified Pos.Util.Concurrent.RWLock       as RWL
 
 ----------------------------------------------------------------------------
 -- Delegation mempool
@@ -88,7 +89,7 @@ clearDlgMemPool
     => m ()
 clearDlgMemPool = runDelegationStateAction clearDlgMemPoolAction
 
-clearDlgMemPoolAction :: (Monad m) => DelegationStateAction m ()
+clearDlgMemPoolAction :: DelegationStateAction ()
 clearDlgMemPoolAction = do
     dwProxySKPool .= mempty
     dwPoolSize .= 1
@@ -96,12 +97,12 @@ clearDlgMemPoolAction = do
 -- Put value into Proxy SK Pool. Value must not exist in pool.
 -- Caller must ensure it.
 -- Caller must also ensure that size limit allows to put more data.
-putToDlgMemPool :: (Monad m) => PublicKey -> ProxySKHeavy -> DelegationStateAction m ()
+putToDlgMemPool :: PublicKey -> ProxySKHeavy -> DelegationStateAction ()
 putToDlgMemPool pk psk = do
     dwProxySKPool . at pk .= Just psk
     dwPoolSize += biSize pk + biSize psk
 
-deleteFromDlgMemPool :: (Monad m) => PublicKey -> DelegationStateAction m ()
+deleteFromDlgMemPool :: PublicKey -> DelegationStateAction ()
 deleteFromDlgMemPool pk =
     use (dwProxySKPool . at pk) >>= \case
         Nothing -> pass
@@ -111,7 +112,7 @@ deleteFromDlgMemPool pk =
 
 -- Caller must ensure that there won't be too much data (more than limit) as
 -- a result of transformation.
-modifyDlgMemPool :: (Monad m) => (DlgMemPool -> DlgMemPool) -> DelegationStateAction m ()
+modifyDlgMemPool :: (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
 modifyDlgMemPool f = do
     memPool <- use dwProxySKPool
     let newPool = f memPool
@@ -147,11 +148,32 @@ processProxySKHeavy
        , MonadGState m
        , MonadDelegation ctx m
        , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
+       , HasLens' ctx LrcContext
+       , HasLens' ctx StateLock
        , Mockable CurrentTime m
        )
     => ProxySKHeavy -> m PskHeavyVerdict
-processProxySKHeavy psk = do
+processProxySKHeavy psk =
+    withStateLockNoMetrics LowPriority $ \_stateLockHeader ->
+        processProxySKHeavyInternal @ssc psk
+
+-- | Main logic of heavy psk processing, doesn't have
+-- synchronization. Should be called __only__ if you are sure that
+-- 'StateLock' is taken already.
+processProxySKHeavyInternal
+    :: forall ssc ctx m.
+       ( MonadIO m
+       , MonadMask m
+       , MonadDBRead m
+       , MonadBlockDB ssc m
+       , MonadGState m
+       , MonadDelegation ctx m
+       , MonadReader ctx m
+       , HasLens' ctx LrcContext
+       , Mockable CurrentTime m
+       )
+    => ProxySKHeavy -> m PskHeavyVerdict
+processProxySKHeavyInternal psk = do
     curTime <- microsecondsToUTC <$> currentTime
     headEpoch <- view epochIndexL <$> DB.getTipHeader @ssc
     richmen <-
@@ -167,24 +189,33 @@ processProxySKHeavy psk = do
         -- even if you don't have money anymore.
         enoughStake = isRevokePsk psk || addressHash iPk `HS.member` richmen
         omegaCorrect = headEpoch == pskOmega psk
+
+    -- DB related checks
+    alreadyPosted <- GS.isIssuerPostedThisEpoch $ addressHash iPk
+    hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
+
+    -- Retrieve psk pool and perform another db check. It's
+    -- guaranteed that pool is not changed when we're under
+    -- 'withStateLock' lock.
+    cyclePool <- runDelegationStateAction $ use dwProxySKPool
+    producesCycle <-
+        -- This is inefficient. Consider supporting this map
+        -- in-memory or changing mempool key to stakeholderId.
+        let cedeModifier =
+                HM.fromList $
+                map (bimap addressHash pskToDlgEdgeAction) $
+                HM.toList cyclePool
+        in evalMapCede cedeModifier $ detectCycleOnAddition psk
+
+    -- Here the memory state is the same.
     runDelegationStateAction $ do
         memPoolSize <- use dwPoolSize
         posted <- uses dwProxySKPool (\m -> isJust $ HM.lookup iPk m)
         existsSame <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
-        alreadyPosted <- GS.isIssuerPostedThisEpoch $ addressHash iPk
         epochMatches <- (headEpoch ==) <$> use dwEpochId
-        hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
         let isRevoke = isRevokePsk psk
         let rerevoke = isRevoke && not hasPskInDB
-        producesCycle <- use dwProxySKPool >>= \pool ->
-            -- This is inefficient. Consider supporting this map
-            -- in-memory or changing mempool key to stakeholderId.
-            let cedeModifier =
-                    HM.fromList $
-                    map (bimap addressHash pskToDlgEdgeAction) $
-                    HM.toList pool
-            in lift $ evalMapCede cedeModifier $ detectCycleOnAddition psk
         dwMessageCache %= LRU.insert msg curTime
         let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
             -- Here it would be good to add size of data we want to insert
@@ -195,7 +226,8 @@ processProxySKHeavy psk = do
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
                      | alreadyPosted -> PHInvalid "issuer has already posted PSK this epoch"
                      | rerevoke ->
-                         PHInvalid "can't accept revoke cert, user doesn't have any psk in db"
+                         PHInvalid $ "can't accept revoke cert, user doesn't " <>
+                                     "have any psk in db"
                      | isJust producesCycle ->
                          PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
                      | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
@@ -295,6 +327,6 @@ processConfirmProxySk psk proof = do
 isProxySKConfirmed
     :: (MonadIO m, MonadMask m, MonadDelegation ctx m)
     => ProxySKLight -> m Bool
-isProxySKConfirmed psk = do
-    var <- askDelegationState
-    RWV.with var $ \v -> pure $ isJust $ snd $ LRU.lookup psk (v ^. dwConfirmationCache)
+isProxySKConfirmed psk =
+    runDelegationStateAction $
+        uses dwConfirmationCache $ isJust . snd . LRU.lookup psk

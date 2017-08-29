@@ -27,7 +27,6 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core                   (EpochIndex, ProxySKHeavy, ProxySKLight)
 import           Pos.Delegation.Types       (DlgMemPool)
-import           Pos.Util.Concurrent.RWVar  (RWVar)
 import           Pos.Util.Util              (HasLens (..))
 
 ---------------------------------------------------------------------------
@@ -57,7 +56,10 @@ data DelegationWrap = DelegationWrap
 
 makeLenses ''DelegationWrap
 
-type DelegationVar = RWVar DelegationWrap
+-- This variable is not used to actually lock on something. We use
+-- 'StateLock' for thread communication, this is used mostly as
+-- 'IORef' with atomic updates.
+type DelegationVar = TVar DelegationWrap
 
 ----------------------------------------------------------------------------
 -- Class definition

@@ -19,31 +19,30 @@ module Pos.Delegation.Logic.Common
 
 import           Universum
 
-import           Control.Exception         (Exception (..))
-import           Control.Lens              ((%=))
-import qualified Data.Cache.LRU            as LRU
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.Text.Buildable       as B
-import           Data.Time.Clock           (UTCTime, addUTCTime)
-import           Formatting                (bprint, build, sformat, stext, (%))
+import           Control.Exception    (Exception (..))
+import           Control.Lens         ((%=))
+import qualified Data.Cache.LRU       as LRU
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.Text.Buildable  as B
+import           Data.Time.Clock      (UTCTime, addUTCTime)
+import           Formatting           (bprint, build, sformat, stext, (%))
 
-import           Pos.Constants             (dlgCacheParam, lightDlgConfirmationTimeout,
-                                            messageCacheTimeout)
-import           Pos.Core                  (ProxySKHeavy, StakeholderId, addressHash,
-                                            epochIndexL)
-import           Pos.Crypto                (ProxySecretKey (..), PublicKey)
-import           Pos.DB                    (DBError (DBMalformed), MonadDBRead)
-import qualified Pos.DB.Block              as DB
-import qualified Pos.DB.DB                 as DB
-import           Pos.Delegation.Cede       (getPskChain, runDBCede)
-import           Pos.Delegation.Class      (DelegationVar, DelegationWrap (..),
-                                            MonadDelegation, askDelegationState,
-                                            dwConfirmationCache, dwMessageCache)
-import           Pos.Delegation.DB         (getDlgTransitive)
-import           Pos.Exception             (cardanoExceptionFromException,
-                                            cardanoExceptionToException)
-import qualified Pos.Util.Concurrent.RWVar as RWV
-import           Pos.Util.LRU              (filterLRU)
+import           Pos.Constants        (dlgCacheParam, lightDlgConfirmationTimeout,
+                                       messageCacheTimeout)
+import           Pos.Core             (ProxySKHeavy, StakeholderId, addressHash,
+                                       epochIndexL)
+import           Pos.Crypto           (ProxySecretKey (..), PublicKey)
+import           Pos.DB               (DBError (DBMalformed), MonadDBRead)
+import qualified Pos.DB.Block         as DB
+import qualified Pos.DB.DB            as DB
+import           Pos.Delegation.Cede  (getPskChain, runDBCede)
+import           Pos.Delegation.Class (DelegationVar, DelegationWrap (..),
+                                       MonadDelegation, askDelegationState,
+                                       dwConfirmationCache, dwMessageCache)
+import           Pos.Delegation.DB    (getDlgTransitive)
+import           Pos.Exception        (cardanoExceptionFromException,
+                                       cardanoExceptionToException)
+import           Pos.Util.LRU         (filterLRU)
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -68,22 +67,24 @@ instance B.Buildable DelegationError where
 ----------------------------------------------------------------------------
 
 -- | Convenient monad to work in 'DelegationWrap' state context.
-type DelegationStateAction m = StateT DelegationWrap m
+type DelegationStateAction = State DelegationWrap
 
 -- Misha knows better probably.
-{-# ANN runDelegationStateAction ("HLint: ignore Use fmap" :: Text) #-}
--- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
--- allows you to run some computation producing updated ProxyCaches
--- and return value. Will put MVar back on exception.
+-- {-# ANN runDelegationStateAction ("HLint: ignore Use fmap" :: Text) #-}
+-- | Executes atomic action on delegation variable.
 runDelegationStateAction
     :: (MonadIO m, MonadMask m, MonadDelegation ctx m)
-    => DelegationStateAction m a -> m a
+    => DelegationStateAction a -> m a
 runDelegationStateAction action = do
     var <- askDelegationState
-    RWV.modify var $ \startState -> swap <$> runStateT action startState
+    atomically $ do
+        v0 <- readTVar var
+        let (r,v1) = runState action v0
+        writeTVar var v1
+        pure r
 
 -- | Invalidates proxy caches using built-in constants.
-invalidateProxyCaches :: (Monad m) => UTCTime -> DelegationStateAction m ()
+invalidateProxyCaches :: UTCTime -> DelegationStateAction ()
 invalidateProxyCaches curTime = do
     dwMessageCache %=
         filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
@@ -105,12 +106,12 @@ mkDelegationVar ::
     => m DelegationVar
 mkDelegationVar = do
     tip <- DB.getTipHeader @ssc
-    RWV.new
+    liftIO $ newTVarIO
         DelegationWrap
         { _dwMessageCache = LRU.newLRU msgCacheLimit
         , _dwConfirmationCache = LRU.newLRU confCacheLimit
         , _dwProxySKPool = HM.empty
-        , _dwPoolSize = 1
+        , _dwPoolSize = 1 -- approximate size of the empty mempool.
         , _dwEpochId = tip ^. epochIndexL
         }
   where

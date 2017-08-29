@@ -111,6 +111,7 @@ library
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
+                       Pos.Util.Queue
                        Pos.Util.Util
 
   other-modules:

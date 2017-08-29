@@ -16,15 +16,17 @@ module Pos.Util.Concurrent.PriorityLock
 import           Control.Concurrent.STM      (TMVar, newEmptyTMVar
                                              , putTMVar, takeTMVar)
 import           Control.Monad.Catch         (MonadMask)
-import           Universum
+import           Universum                   hiding (empty)
+
+import           Pos.Util.Queue              (Q, empty, queue, enqueue, dequeue)
 
 newtype PriorityLock = PriorityLock (TVar PriorityLockState)
 
 data PriorityLockState =
     Unlocked
-    | Locked [TMVar ()] [TMVar ()] -- TODO: consider using queues instead of lists
-    -- ^ locked, with a list of contenders with high precedence, and a
-    -- second list with contenders of low precedence
+    | Locked (Q (TMVar ())) (Q (TMVar ()))
+    -- ^ locked, with a queue of contenders with high precedence, and
+    -- a second queuewith contenders of low precedence
 
 data Priority = HighPriority
               | LowPriority
@@ -38,7 +40,7 @@ lockP (PriorityLock vstate) prio = do
         readTVar vstate >>= \case
             Unlocked -> do
                 -- uncontended, acquire lock, no one is waiting on the lock
-                writeTVar vstate (Locked [] [])
+                writeTVar vstate (Locked (queue []) (queue []))
                 return Nothing
 
             Locked hwaiters lwaiters -> do
@@ -46,9 +48,9 @@ lockP (PriorityLock vstate) prio = do
                 waitvar <- newEmptyTMVar
                 case prio of
                     HighPriority ->
-                        writeTVar vstate $ Locked (hwaiters ++ [waitvar]) lwaiters
+                        writeTVar vstate $ Locked (enqueue hwaiters waitvar) lwaiters
                     LowPriority ->
-                        writeTVar vstate $ Locked hwaiters (lwaiters ++ [waitvar])
+                        writeTVar vstate $ Locked hwaiters (enqueue lwaiters waitvar)
                 return (Just waitvar)
 
     case mbwait of
@@ -65,17 +67,25 @@ unlockP (PriorityLock vstate) =
     atomically $ readTVar vstate >>= \case
         Unlocked -> error "Pos.Util.PriorityLock.unlockP: lock is already unlocked"
 
-        Locked [] [] ->
-            -- no one is waiting on the lock, so it will be unlocked now
-            writeTVar vstate Unlocked
+        Locked hwaiters lwaiters
+            | empty hwaiters && empty lwaiters ->
+              -- no one is waiting on the lock, so it will be unlocked now
+              writeTVar vstate Unlocked
 
-        Locked (waiter:hwaiters) lwaiters -> do
-            writeTVar vstate (Locked hwaiters lwaiters)
-            putTMVar waiter ()
+        Locked hwaiters lwaiters
+            | empty hwaiters -> do
+                  -- no one is waiting with high priority, so we
+                  -- dequeue from the low priority waiters
+                  let (waiter, lwaiters') = dequeue' lwaiters
+                  writeTVar vstate (Locked hwaiters lwaiters')
+                  putTMVar waiter ()
 
-        Locked [] (waiter:lwaiters) -> do
-            writeTVar vstate (Locked [] lwaiters)
+        Locked hwaiters lwaiters -> do
+            -- dequeue from the high priority waiters
+            let (waiter, hwaiters') = dequeue' hwaiters
+            writeTVar vstate (Locked hwaiters' lwaiters)
             putTMVar waiter ()
+    where dequeue' q = fromMaybe (error "Logic error in PriorityLock") (dequeue q)
 
 withPriorityLock
     :: (MonadMask m, MonadIO m)

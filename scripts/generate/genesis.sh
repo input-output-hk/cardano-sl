@@ -9,7 +9,6 @@
 set -e
 
 BUILD_MODE=stack
-IOHKOPS_DIR=..
 INSTALL_TOO=
 FAKE_AVVM_ENTRIES=100
 RICHMEN_SHARE=0.94
@@ -18,8 +17,6 @@ fail() { echo "ERROR: $*" >&2; exit 1;
 }
 while test $# -ge 1; do
 case "$1" in
-        --iohkops-dir )
-                IOHKOPS_DIR="$2"; shift;;
         --build-mode )
                 case "$2" in 'nix' ) true;; 'stack' ) true;; * ) error "--build-mode should be either 'nix' or 'stack'";; esac;
                 BUILD_MODE="$2"; shift;;
@@ -54,16 +51,7 @@ fi
 
 case "${BUILD_MODE}" in
 nix )
-        IOHKOPS_NIX=${IOHKOPS_DIR}/default.nix
-        test -f "${IOHKOPS_NIX}" ||
-                { echo "'${IOHKOPS_NIX}' doesn't exist, please supply a fitting --iohkops-dir" >&2; exit 1; }
-        KEYGEN_STOREPATH="$(nix-build --no-out-link --cores 0 --max-jobs 4 -A cardano-sl-tools-static ${IOHKOPS_NIX})"
-        test -d "${KEYGEN_STOREPATH}" ||
-                { echo "$KEYGEN_STOREPATH doesn't exist" >&2; exit 1; }
-        KEYGEN="${KEYGEN_STOREPATH}"/bin/cardano-keygen
-        test -x ${KEYGEN} ||
-                { echo "$KEYGEN doesn't exist" >&2; exit 1; }
-        keygen=${KEYGEN};;
+        keygen="$(nix-build -A cardano-sl-tools --no-out-link $scriptsDir/../)/bin/cardano-keygen";;
 stack ) keygen="stack exec cardano-keygen --";;
 esac
 

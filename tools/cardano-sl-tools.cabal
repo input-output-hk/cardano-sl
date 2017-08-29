@@ -11,6 +11,11 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
+Flag with-post-mortem
+  default:     False
+  manual:      True
+
+  description: Build the post-mortem tool.
 -- Note: for components that we don't want to build, we add both "buildable:
 -- False" *and* wrap build-depends into "if !flag(for-installer)". This is
 -- because stack doesn't seem to take "buildable: False" into account when
@@ -464,7 +469,8 @@ executable cardano-post-mortem
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe
-  if !flag(for-installer)
+  if os(linux) || flag(with-post-mortem)
+    -- See: https://github.com/input-output-hk/cardano-sl/pull/1305#issuecomment-323761982
     buildable: True
     build-depends:       base
                        , aeson

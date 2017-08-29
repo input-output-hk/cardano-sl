@@ -40,16 +40,41 @@ instance Buildable ProxySKLightConfirmation where
 delegationRelays
     :: forall ssc ctx m. WorkMode ssc ctx m
     => [Relay m]
-delegationRelays =
-        [ pskLightRelay
-        , pskHeavyRelay
-        , confirmPskRelay
-        ]
+delegationRelays = [ pskHeavyRelay ]
 
-pskLightRelay
+pskHeavyRelay
     :: WorkMode ssc ctx m
     => Relay m
-pskLightRelay = Data $ DataParams MsgTransaction $ \enqueue _ pSk -> do
+pskHeavyRelay = Data $ DataParams MsgTransaction $ \_ _ -> handlePsk
+  where
+    handlePsk :: forall ssc ctx m. WorkMode ssc ctx m => ProxySKHeavy -> m Bool
+    handlePsk pSk = do
+        logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
+        verdict <- processProxySKHeavy @ssc pSk
+        logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
+        case verdict of
+            PHIncoherent -> do
+                -- We're probably updating state over epoch, so leaders
+                -- can be calculated incorrectly.
+                blkSemaphore <- views (lensOf @BlkSemaphore) unBlkSemaphore
+                void $ readMVar blkSemaphore
+                handlePsk pSk
+            PHAdded -> pure True
+            PHRemoved -> pure True
+            _ -> pure False
+
+
+-- CSL-1545 note: currently light delegation endpoints are turned off
+-- because we might want to rework them later. They should be
+-- maintained properly though, please do not delete or comment this
+-- code without having @georgeee's (for example) agreement.
+--
+-- @volhovm
+
+_pskLightRelay
+    :: WorkMode ssc ctx m
+    => Relay m
+_pskLightRelay = Data $ DataParams MsgTransaction $ \enqueue _ pSk -> do
     logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
     verdict <- processProxySKLight pSk
     logResult pSk verdict
@@ -82,31 +107,10 @@ pskLightRelay = Data $ DataParams MsgTransaction $ \enqueue _ pSk -> do
         logDebug $
         sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
 
-pskHeavyRelay
+_confirmPskRelay
     :: WorkMode ssc ctx m
     => Relay m
-pskHeavyRelay = Data $ DataParams MsgTransaction $ \_ _ -> handlePsk
-  where
-    handlePsk :: forall ssc ctx m. WorkMode ssc ctx m => ProxySKHeavy -> m Bool
-    handlePsk pSk = do
-        logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
-        verdict <- processProxySKHeavy @ssc pSk
-        logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
-        case verdict of
-            PHIncoherent -> do
-                -- We're probably updating state over epoch, so leaders
-                -- can be calculated incorrectly.
-                blkSemaphore <- views (lensOf @BlkSemaphore) unBlkSemaphore
-                void $ readMVar blkSemaphore
-                handlePsk pSk
-            PHAdded -> pure True
-            PHRemoved -> pure True
-            _ -> pure False
-
-confirmPskRelay
-    :: WorkMode ssc ctx m
-    => Relay m
-confirmPskRelay = Data $ DataParams MsgTransaction $ \_ _ (pSk, proof) -> do
+_confirmPskRelay = Data $ DataParams MsgTransaction $ \_ _ (pSk, proof) -> do
     verdict <- processConfirmProxySk pSk proof
     pure $ case verdict of
         CPValid -> True

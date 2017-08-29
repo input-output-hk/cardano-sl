@@ -12,8 +12,7 @@ import           Universum
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
 import           Ether.Internal       (HasLens (..))
-import           Serokell.Util        (Color (Red), colorize)
-import           System.Wlog          (WithLogger, logError, modifyLoggerName)
+import           System.Wlog          (WithLogger, modifyLoggerName)
 
 import           Pos.Core             (ApplicationName, BlockVersion, HasCoreConstants,
                                        NumSoftwareVersion, SoftwareVersion (..),
@@ -22,13 +21,13 @@ import           Pos.Core             (ApplicationName, BlockVersion, HasCoreCon
                                        headerSlotL)
 import qualified Pos.DB.BatchOp       as DB
 import qualified Pos.DB.Class         as DB
+import           Pos.Exception        (reportFatalError)
 import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Reporting        (MonadReporting)
 import           Pos.Slotting         (MonadSlotsData, SlottingData, slottingVar)
 import           Pos.Update.Constants (lastKnownBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId, UpdateBlock)
 import           Pos.Update.DB        (UpdateOp (..))
-import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
                                        MonadPoll, PollModifier (..), PollVerFailure,
                                        ProposalState, USUndo, canCreateBlockBV, execPollT,
@@ -95,8 +94,7 @@ usApplyBlocks blocks modifierMaybe =
   where
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
-        logError $ colorize Red msg
-        throwM $ USInternalError msg
+        reportFatalError msg
 
 -- | Revert application of given blocks to US part of GState DB and US local
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of

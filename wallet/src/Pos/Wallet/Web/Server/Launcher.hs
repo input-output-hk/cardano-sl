@@ -21,7 +21,7 @@ import           Network.Wai                      (Application)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server                   (Handler, Server, serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
-import           Servant.Swagger.UI               (swaggerSchemaUIServer)
+import           Servant.Swagger.UI               (SwaggerSchemaUI, swaggerSchemaUIServer)
 
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
 import           Pos.Core.Context                 (HasCoreConstants)
@@ -57,9 +57,7 @@ walletApplication
     -> m Application
 walletApplication serv = do
     wsConn <- getWalletWebSockets
-    walletServer <- serv
-    let server = (swaggerSchemaUIServer swaggerSpec) :<|> walletServer
-    upgradeApplicationWS wsConn . serve swaggerWalletApi server
+    upgradeApplicationWS wsConn $ serve swaggerWalletApi serv
 
 walletServer
     :: forall m.
@@ -71,8 +69,7 @@ walletServer sendActions nat = do
     syncWalletsWithGState @WalletSscType =<< mapM findKey =<< myRootAddresses
     startPendingTxsResubmitter sendActions
     nat >>= launchNotifier
-    -- swaggerSchemaUIServer swaggerSpec :<|> ((`enter` servantHandlers sendActions) <$> nat)
-    (`enter` servantHandlers sendActions) <$> nat
+    ((`enter` servantHandlers sendActions) <$> nat) :<|> (swaggerSchemaUIServer swaggerSpec)
 
 bracketWalletWebDB
     :: ( MonadIO m

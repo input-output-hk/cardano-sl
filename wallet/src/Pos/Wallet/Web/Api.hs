@@ -65,9 +65,8 @@ module Pos.Wallet.Web.Api
 
 
 import           Control.Monad.Catch        (try)
-import           Data.Swagger
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post, Put, QueryParam, Raw, ReqBody, Verb)
+                                             Post, Put, QueryParam, ReqBody, Verb)
 import           Servant.Multipart          (MultipartForm)
 import           Servant.Server             (Handler (..))
 import           Servant.Swagger.UI         (SwaggerSchemaUI)
@@ -475,9 +474,9 @@ type SwaggerApi =
     SwaggerSchemaUI "docs" "swagger.json"
 
 type WalletSwaggerApi =
-    SwaggerApi
+     SwaggerApi
     :<|>
-    WalletApi
+     WalletApi
 
 -- | Helper Proxy.
 swaggerWalletApi :: Proxy WalletSwaggerApi

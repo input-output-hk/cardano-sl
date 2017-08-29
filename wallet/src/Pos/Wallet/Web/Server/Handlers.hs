@@ -18,15 +18,13 @@ import           Pos.Wallet.Web.Mode     (MonadWalletWebMode)
 import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
 import           Servant.API             ((:<|>) ((:<|>)))
 import           Servant.Server          (ServerT)
+import           Servant.Swagger.UI      (swaggerSchemaUIServer)
 
 servantHandlers
     :: MonadWalletWebMode m
     => SendActions m
     -> ServerT WalletSwaggerApi m
 servantHandlers sendActions =
-     return M.swaggerSpec
-    :<|>
-
      M.testResetAll
     :<|>
 
@@ -102,3 +100,6 @@ servantHandlers sendActions =
      M.importWalletJSON
     :<|>
      M.exportWalletJSON
+    
+    :<|>
+     swaggerSchemaUIServer M.swaggerSpec

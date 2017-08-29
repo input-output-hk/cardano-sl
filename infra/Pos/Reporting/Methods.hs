@@ -19,7 +19,8 @@ module Pos.Reporting.Methods
 
 import           Universum
 
-import           Control.Exception                     (ErrorCall (..), SomeException)
+import           Control.Exception                     (ErrorCall (..), SomeException,
+                                                        displayException)
 import           Control.Lens                          (each, to)
 import           Control.Monad.Catch                   (try)
 import           Data.Aeson                            (encode)
@@ -29,7 +30,8 @@ import           Data.List                             (isSuffixOf)
 import qualified Data.List.NonEmpty                    as NE
 import qualified Data.Text.IO                          as TIO
 import           Data.Time.Clock                       (getCurrentTime)
-import           Formatting                            (sformat, shown, stext, (%))
+import           Formatting                            (sformat, shown, stext, string,
+                                                        (%))
 import           Network.HTTP.Client                   (httpLbs, newManager,
                                                         parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
@@ -188,7 +190,8 @@ reportNode sendLogs extendWithNodeInfo reportType =
     handler e =
         logError $
         sformat ("Didn't manage to report "%shown%
-                 " because of exception '"%shown%"' raised while sending") reportType e
+                 " because of exception '"%string%"' raised while sending")
+        reportType (displayException e)
 
 -- | Report «misbehavior», i. e. a situation when something is globally
 -- wrong, not only with our node. 'Bool' argument determines whether

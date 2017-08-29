@@ -579,6 +579,7 @@ test-suite cardano-test
                        Test.Pos.Explorer.Identity.BinarySpec
                        Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
+                       Test.Pos.Network.Windows.DnsDomainsSpec
                        Test.Pos.Slotting.TypesSpec
                        Test.Pos.Slotting.BinarySpec
                        Test.Pos.Ssc.GodTossing.ComputeSharesSpec
@@ -605,6 +606,7 @@ test-suite cardano-test
                        Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec
+
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
@@ -637,6 +639,7 @@ test-suite cardano-test
                      , monad-control
                      , mtl
                      , mmorph
+                     , network-uri
                      , node-sketch
                      , pvss
                      , quickcheck-instances
@@ -654,6 +657,7 @@ test-suite cardano-test
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
+
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

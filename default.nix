@@ -78,8 +78,8 @@ let
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "be52e67113332280911bcc4924d42f90e21f1144";
-      sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
+      rev = "830db754ee3c7139454930881d9cd92996b3a149";
+      sha256 = "1d7k9vb7z4z518l8middnr94x5p2w2xnzbv981j0fgp43r5y5zqb";
     }) { inherit pkgs; };
   };
 in cardanoPkgs // other

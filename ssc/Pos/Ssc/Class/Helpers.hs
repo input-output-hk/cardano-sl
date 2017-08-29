@@ -23,3 +23,5 @@ class Ssc ssc => SscHelpersClass ssc where
     sscStripPayload :: Byte -> SscPayload ssc -> Maybe (SscPayload ssc)
     -- | Returns default payload for the given local slot index.
     sscDefaultPayload :: LocalSlotIndex -> (SscPayload ssc)
+    -- | Returns 'True' if the error must be reported.
+    sscIsCriticalError :: SscVerifyError ssc -> Bool

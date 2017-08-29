@@ -167,7 +167,9 @@ extendRTDesc _ x = x
 -- FIXME catch and squelch *all* exceptions? Probably a bad idea.
 -- georgeee: I don't think it's a bad idea, reporting shouldn't be
 --           an operation, exceptions of which we would like to consider
--- | Report misbehaviour, but catch all errors inside
+-- gromak: it should use `catchAny` fron `safe-exceptions`. I will fix it.
+-- I made a PR to 'universum'. If it's merged soon, I will use 'Universum'
+-- version, otherwise will use 'safe-exceptions' one.
 reportNode
     :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Bool -> ReportType -> m ()
@@ -188,16 +190,22 @@ reportNode sendLogs extendWithNodeInfo reportType =
         sformat ("Didn't manage to report "%shown%
                  " because of exception '"%shown%"' raised while sending") reportType e
 
+-- | Report «misbehavior», i. e. a situation when something is globally
+-- wrong, not only with our node. 'Bool' argument determines whether
+-- misbehavior is critical and requires immediate response.
 reportMisbehaviour
     :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Text -> m ()
 reportMisbehaviour isCritical = reportNode True True . RMisbehavior isCritical
 
+-- | Report some general information.
 reportInfo
     :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Text -> m ()
 reportInfo sendLogs = reportNode sendLogs True . RInfo
 
+-- | Report «error», i. e. a situation when something is wrong with our
+-- node, e. g. an assertion failed.
 reportError
     :: forall ctx m . (MonadReporting ctx m)
     => Text -> m ()

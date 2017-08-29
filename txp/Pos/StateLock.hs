@@ -62,7 +62,7 @@ modifyStateLock ::
     -> String
     -> (HeaderHash -> m (HeaderHash, a))
     -> m a
-modifyStateLock = stateLockHelper modifyMVar -- blkSemaphoreHelper (flip modifyMVar action)
+modifyStateLock = stateLockHelper modifyMVar
 
 -- | Run an action acquiring 'StateLock' lock without modifying tip.
 withStateLock ::
@@ -78,7 +78,7 @@ withStateLock ::
     -> String
     -> (HeaderHash -> m a)
     -> m a
-withStateLock = stateLockHelper withMVar -- blkSemaphoreHelper (flip withMVar action)
+withStateLock = stateLockHelper withMVar
 
 -- | Version of 'withStateLock' that does not gather metrics
 withStateLockNoMetrics ::

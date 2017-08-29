@@ -264,7 +264,7 @@ processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 -- | Remove local data from memory state to make it consistent with
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
--- 'blkSemaphore' is taken.
+-- 'stateLock' is taken.
 usNormalize :: (USLocalLogicMode ctx m) => m ()
 usNormalize = do
     tip <- DB.getTip
@@ -314,7 +314,7 @@ processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
 
 -- | Prepare UpdatePayload for inclusion into new block with given
 -- SlotId based on given tip.  This function assumes that
--- 'blkSemaphore' is taken and nobody can apply/rollback blocks in
+-- 'stateLock' is taken and nobody can apply/rollback blocks in
 -- parallel or modify US mempool.  Sometimes payload can't be
 -- created. It can happen if we are trying to create block for slot
 -- which has already passed, for example. Or if we have different tip
@@ -333,7 +333,7 @@ usPreparePayload neededTip slotId@SlotId{..} = do
     -- slot.  If mem state corresponds to newer slot already, it won't
     -- be updated, but we don't want to create block in this case
     -- anyway.  In normal cases 'processNewSlot' can't fail here
-    -- because of tip mismatch, because we are under 'blkSemaphore'.
+    -- because of tip mismatch, because we are under 'stateLock'.
     processNewSlotNoLock slotId
     -- After that we normalize payload to be sure it's valid. We try
     -- to keep it valid anyway, but we decided to have an extra

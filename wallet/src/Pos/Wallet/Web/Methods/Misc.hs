@@ -23,7 +23,6 @@ import           Universum
 import           Control.Lens               ((?~))
 import           Data.Swagger               (Swagger, description, info,
                                              title, version)
-import           Servant.Swagger            (toSwagger)
 
 import           Data.Version               (showVersion)
 import qualified Paths_cardano_sl           as CSL

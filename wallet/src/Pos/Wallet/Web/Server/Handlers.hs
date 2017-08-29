@@ -24,7 +24,7 @@ servantHandlers
     => SendActions m
     -> ServerT WalletSwaggerApi m
 servantHandlers sendActions =
-    return M.swaggerSpec
+     return M.swaggerSpec
     :<|>
 
      M.testResetAll

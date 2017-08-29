@@ -101,6 +101,7 @@ library
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
                       , servant-swagger
+                      , servant-swagger-ui
                       , string-qq
                       , stm
                       , stm-containers

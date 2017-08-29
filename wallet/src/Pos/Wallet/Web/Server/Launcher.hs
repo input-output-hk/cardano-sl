@@ -21,12 +21,14 @@ import           Network.Wai                      (Application)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server                   (Handler, Server, serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
+import           Servant.Swagger.UI               (swaggerSchemaUIServer)
 
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
 import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
+import           Pos.Wallet.Web.Methods.Misc      (swaggerSpec)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Server.Handlers   (servantHandlers)
@@ -55,7 +57,9 @@ walletApplication
     -> m Application
 walletApplication serv = do
     wsConn <- getWalletWebSockets
-    upgradeApplicationWS wsConn . serve swaggerWalletApi <$> serv
+    walletServer <- serv
+    let server = (swaggerSchemaUIServer swaggerSpec) :<|> walletServer
+    upgradeApplicationWS wsConn . serve swaggerWalletApi server
 
 walletServer
     :: forall m.
@@ -67,6 +71,7 @@ walletServer sendActions nat = do
     syncWalletsWithGState @WalletSscType =<< mapM findKey =<< myRootAddresses
     startPendingTxsResubmitter sendActions
     nat >>= launchNotifier
+    -- swaggerSchemaUIServer swaggerSpec :<|> ((`enter` servantHandlers sendActions) <$> nat)
     (`enter` servantHandlers sendActions) <$> nat
 
 bracketWalletWebDB

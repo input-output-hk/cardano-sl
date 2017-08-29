@@ -6,16 +6,16 @@ module Pos.Wallet.KeyStorage
        ( MonadKeys
        , getPrimaryKey
        , getSecretKeys
-       , addSecretKey
-       , deleteSecretKey
-       , newSecretKey
+--        , addSecretKey
+--        , deleteSecretKey
+--        , newSecretKey
        , KeyData
        , KeyError (..)
        , keyDataFromFile
        ) where
 
 import qualified Control.Concurrent.STM as STM
-import           Control.Lens           ((<>~))
+import           Control.Lens           ((<>~), mapped)
 import           Control.Monad.Catch    (MonadThrow)
 import           System.Wlog            (WithLogger)
 import           Universum
@@ -25,7 +25,8 @@ import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, SecretK
                                          safeKeyGen)
 import           Pos.Util               ()
 import           Pos.Util.UserSecret    (HasUserSecret (..), UserSecret, peekUserSecret,
-                                         usKeys, usPrimKey, writeUserSecret)
+                                         usWallets, usPrimKey, writeUserSecret)
+import           Pos.Wallet.Web.Secret  (wusRootKey)
 
 type KeyData = TVar UserSecret
 
@@ -43,24 +44,29 @@ getPrimaryKey :: MonadKeys ctx m => m (Maybe SecretKey)
 getPrimaryKey = view usPrimKey <$> getSecret
 
 getSecretKeys :: MonadKeys ctx m => m [EncryptedSecretKey]
-getSecretKeys = view usKeys <$> getSecret
+getSecretKeys = over mapped (view wusRootKey) . view usWallets <$> getSecret
 
-addSecretKey :: MonadKeys ctx m => EncryptedSecretKey -> m ()
-addSecretKey sk = do
-    us <- getSecret
-    unless (view usKeys us `containsKey` sk) $
-        putSecret (us & usKeys <>~ [sk])
+deleteWalletSet :: MonadKeys ctx m => Word -> m ()
+deleteWalletSet (fromIntegral -> i) =
+    modifySecret (usWallets %~ deleteAt i)
 
-deleteSecretKey :: MonadKeys ctx m => Word -> m ()
-deleteSecretKey (fromIntegral -> i) =
-    modifySecret (usKeys %~ deleteAt i)
-
--- | Helper for generating a new secret key
-newSecretKey :: MonadKeys ctx m => PassPhrase -> m EncryptedSecretKey
-newSecretKey pp = do
-    (_, sk) <- safeKeyGen pp
-    addSecretKey sk
-    return sk
+-- AJ: Restore similar functionality.
+-- addSecretKey :: MonadKeys ctx m => EncryptedSecretKey -> m ()
+-- addSecretKey sk = do
+--     us <- getSecret
+--     unless (fmap (view wusRootKey) (view usWallets us) `containsKey` sk) $
+--         putSecret (us & usKeys <>~ [sk])
+--
+-- deleteSecretKey :: MonadKeys ctx m => Word -> m ()
+-- deleteSecretKey (fromIntegral -> i) =
+--     modifySecret (usKeys %~ deleteAt i)
+--
+-- -- | Helper for generating a new secret key
+-- newSecretKey :: MonadKeys ctx m => PassPhrase -> m EncryptedSecretKey
+-- newSecretKey pp = do
+--     (_, sk) <- safeKeyGen pp
+--     addSecretKey sk
+--     return sk
 
 ------------------------------------------------------------------------
 -- Common functions

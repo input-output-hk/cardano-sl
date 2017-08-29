@@ -5,7 +5,7 @@ module Pos.Wallet.Web.Account
        , getAddrIdx
        , getSKById
        , getSKByAccAddr
-       , genSaveRootKey
+       , genRootKey
        , genUniqueAccountId
        , genUniqueAccountAddress
        , deriveAccountSK
@@ -28,7 +28,7 @@ import           Pos.Core                   (Address (..), IsBootstrapEraAddr (.
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, isHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
-import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
+import           Pos.Wallet.KeyStorage      (MonadKeys, getSecretKeys)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
                                              addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
@@ -76,15 +76,14 @@ getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
         then throwM . InternalError $ "Account is contradictory!"
         else return accKey
 
-genSaveRootKey
+genRootKey
     :: AccountMode ctx m
     => PassPhrase
     -> BackupPhrase
     -> m EncryptedSecretKey
-genSaveRootKey passphrase ph = do
+genRootKey passphrase ph = do
     sk <- either keyFromPhraseFailed (pure . fst) $
         safeKeysFromPhrase passphrase ph
-    addSecretKey sk
     return sk
   where
     keyFromPhraseFailed msg =

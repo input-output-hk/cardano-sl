@@ -9,9 +9,8 @@
 
 module Pos.Util.UserSecret
        ( UserSecret
-       , usKeys
        , usVss
-       , usWalletSet
+       , usWallets
        , usPrimKey
        , HasUserSecret(..)
        , getUSPath
@@ -43,7 +42,7 @@ import           Universum
 import           Pos.Binary.Class      (Bi (..), decodeFull, encodeListLen, enforceSize,
                                         serialize')
 import           Pos.Binary.Crypto     ()
-import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
+import           Pos.Crypto            (SecretKey, VssKeyPair)
 
 import           Pos.Types             (Address)
 import           System.Directory      (renameFile)
@@ -66,12 +65,11 @@ import           System.Wlog           (logWarning)
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
 data UserSecret = UserSecret
-    { _usKeys      :: [EncryptedSecretKey]
-    , _usPrimKey   :: Maybe SecretKey
-    , _usVss       :: Maybe VssKeyPair
-    , _usWalletSet :: Maybe WalletUserSecret
-    , _usPath      :: FilePath
-    , _usLock      :: Maybe FileLock
+    { _usPrimKey :: Maybe SecretKey
+    , _usVss     :: Maybe VssKeyPair
+    , _usWallets :: [WalletUserSecret]
+    , _usPath    :: FilePath
+    , _usLock    :: Maybe FileLock
     }
 
 makeLenses ''UserSecret
@@ -84,12 +82,11 @@ class HasUserSecret ctx where
 instance Bi Address => Show UserSecret where
     show UserSecret {..} =
         formatToString
-            ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%
-             ", _usPath = "%build%", _usWalletSet = "%build%"}")
-            _usKeys
+            ("UserSecret { _usVss = "%build%
+             ", _usPath = "%build%", _usWallets = "%listJson%"}")
             _usVss
             _usPath
-            _usWalletSet
+            _usWallets
 
 newtype UserSecretDecodingError = UserSecretDecodingError Text
     deriving (Show)
@@ -119,26 +116,23 @@ simpleUserSecret :: SecretKey -> FilePath -> UserSecret
 simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 
 instance Default UserSecret where
-    def = UserSecret [] Nothing Nothing Nothing "" Nothing
+    def = UserSecret Nothing Nothing [] "" Nothing
 
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
   encode us = encodeListLen 4 <> encode (_usVss us) <>
                                       encode (_usPrimKey us) <>
-                                      encode (_usKeys us) <>
-                                      encode (_usWalletSet us)
+                                      encode (_usWallets us)
   decode = do
     enforceSize "UserSecret" 4
     vss  <- decode
     pkey <- decode
-    keys <- decode
-    wset <- decode
+    wss <- decode
     return $ def
         & usVss .~ vss
         & usPrimKey .~ pkey
-        & usKeys .~ keys
-        & usWalletSet .~ wset
+        & usWallets .~ wss
 
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).

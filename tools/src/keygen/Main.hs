@@ -1,4 +1,3 @@
-
 module Main
        ( main
        ) where
@@ -30,8 +29,7 @@ import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
                                         GenesisGtData (..), StakeDistribution (..),
                                         genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                         mkGenesisCoreData)
-import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
-                                        usWalletSet)
+import           Pos.Util.UserSecret   (readUserSecret, usPrimKey, usVss, usWallets)
 import           Pos.Wallet.Web.Secret (wusRootKey)
 
 import           Avvm                  (aeCoin, applyBlacklisted, avvmAddrDistribution,
@@ -162,12 +160,9 @@ readKey path = do
     logInfo $ maybe "No Pimary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
-    logInfo $ maybe "No wallet set"
-                    (("Wallet set: " <>) . showKeyWithAddressHash . decryptESK . view wusRootKey) $
-                    view usWalletSet us
     logInfo $ "Keys: " <> (T.concat $ L.intersperse "\n" $
-                           map (showKeyWithAddressHash . decryptESK) $
-                           view usKeys us)
+                           map (showKeyWithAddressHash . decryptESK . view wusRootKey) $
+                           view usWallets us)
     logInfo $ maybe "No vss"
                     (("Vss PK: " <>) . showPvssKey) $
                     view usVss us

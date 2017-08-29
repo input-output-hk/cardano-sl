@@ -38,7 +38,7 @@ import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
 import           Pos.Util                   (maybeThrow)
 import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Servant           (encodeCType)
-import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey, getSecretKeys)
+import           Pos.Wallet.KeyStorage      (getSecretKeys)
 import           Pos.Wallet.WalletMode      (getBalance)
 import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountAddress,
                                              genUniqueAccountId, getAddrIdx, getSKById)
@@ -194,7 +194,8 @@ deleteWallet wid = do
     removeWallet wid
     removeTxMetas wid
     removeHistoryCache wid
-    deleteSecretKey . fromIntegral =<< getAddrIdx wid
+    -- AJ: Need to delete secret key
+    -- deleteSecretKey . fromIntegral =<< getAddrIdx wid
 
 deleteAccount :: MonadWalletWebMode m => AccountId -> m ()
 deleteAccount = removeAccount
@@ -221,16 +222,16 @@ changeWalletPassphrase wid oldPass newPass = do
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
-        deleteSK oldPass
-        addSecretKey newSK
+        -- AJ: TODO: NEED TO DELETE THIS KEY
+        -- deleteSK oldPass
+        -- AJ: TODO: NEED TO SAVE THIS KEY SOMEWHERE
+        -- addSecretKey newSK
         setWalletPassLU wid =<< liftIO getPOSIXTime
   where
     badPass = RequestError "Invalid old passphrase given"
-    deleteSK passphrase = do
-        let nice k = encToCId k == wid && isJust (checkPassMatches passphrase k)
-        midx <- findIndex nice <$> getSecretKeys
-        idx  <- RequestError "No key with such address and pass found"
-                `maybeThrow` midx
-        deleteSecretKey (fromIntegral idx)
-
-
+    -- deleteSK passphrase = do
+    --     let nice k = encToCId k == wid && isJust (checkPassMatches passphrase k)
+    --     midx <- findIndex nice <$> getSecretKeys
+    --     idx  <- RequestError "No key with such address and pass found"
+    --             `maybeThrow` midx
+    --     deleteSecretKey (fromIntegral idx)

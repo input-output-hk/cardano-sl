@@ -18,6 +18,8 @@ import           Formatting                   (build, sformat, (%))
 import           System.IO.Error              (isDoesNotExistError)
 import           System.Wlog                  (logDebug)
 
+import           Data.Maybe                   (listToMaybe)
+
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
 import           Pos.Constants                (isDevelopment)
@@ -27,9 +29,9 @@ import           Pos.Genesis                  (genesisDevHdwSecretKeys)
 import           Pos.Infra.Semaphore          (withBlkSemaphore)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
-                                               readUserSecret, usWalletSet)
-import           Pos.Wallet.KeyStorage        (addSecretKey)
-import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
+                                               readUserSecret, usWallets)
+import           Pos.Wallet.KeyStorage        -- (addSecretKey)
+import           Pos.Wallet.Web.Account       (GenSeed (..), genRootKey,
                                                genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..),
                                                CAccountMeta (..), CId, CWallet (..),
@@ -57,7 +59,8 @@ newWalletFromBackupPhrase
 newWalletFromBackupPhrase passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
 
-    skey <- genSaveRootKey passphrase cwBackupPhrase
+    -- AJ: TODO: This needs to save the key somewhere (earlier done by getSaveRootKey)
+    skey <- genRootKey passphrase cwBackupPhrase
     let cAddr = encToCId skey
 
     CWallet{..} <- L.createWalletSafe cAddr cwInitMeta
@@ -94,7 +97,8 @@ importWallet passphrase (toString -> fp) = do
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
         readUserSecret fp
-    wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
+    -- AJ: TODO: CURRENTLY WE TAKE THE FIRST WALLETSET, BUT WE NEED TO SPECIFY THE WALLETSET WE WANT TO IMPORT THE WALLET INTO
+    wSecret <- maybeThrow noWalletSecret (listToMaybe (secret ^. usWallets))
     wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
     L.changeWalletPassphrase wId emptyPassphrase passphrase
     L.getWallet wId
@@ -112,7 +116,8 @@ importWalletSecret passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
         wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
-    addSecretKey key
+    -- AJ: TODO: Do this
+    -- addSecretKey key
     importedWallet <- L.createWalletSafe wid wMeta
 
     for_ _wusAccounts $ \(walletIndex, walletName) -> do

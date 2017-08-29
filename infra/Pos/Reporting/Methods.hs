@@ -2,10 +2,17 @@
 -- | Methods of reporting different unhealthy behaviour to server.
 
 module Pos.Reporting.Methods
-       ( reportError
-       , reportInfo
+       (
+         -- * Report single event.
+         reportError
        , reportMisbehaviour
+       , reportInfo
+
+       -- * Questionable wrapper.
        , reportingFatal
+
+       -- * Internals, exported for custom usages.
+       -- E. g. to report crash from launcher.
        , sendReport
        , retrieveLogFiles
        ) where

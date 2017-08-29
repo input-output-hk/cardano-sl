@@ -44,10 +44,10 @@ import           Data.Yaml                  (FromJSON)
 import qualified Data.Yaml                  as Y
 import           Universum
 
-#if EMBED_CONFIG
-import qualified Language.Haskell.TH.Syntax as TH
-#else
+#ifdef NO_EMBED_CONFIG
 import           System.IO.Unsafe           (unsafePerformIO)
+#else
+import qualified Language.Haskell.TH.Syntax as TH
 #endif
 
 import           Pos.Util.Config.Get        (configName, getCslConfig)
@@ -241,14 +241,14 @@ instance FromJSON (ConfigSet '[]) where
 --
 -- TODO: allow overriding config values via an env var?
 cslConfig :: Y.Value
-#ifdef EMBED_CONFIG
+#ifdef NO_EMBED_CONFIG
+cslConfig = unsafePerformIO $ either fail pure =<< getCslConfig
+{-# NOINLINE cslConfig #-}
+#else
 cslConfig = $(do
     TH.qAddDependentFile cslConfigFilePath
     either fail TH.lift =<< TH.runIO getCslConfig
   )
-#else
-cslConfig = unsafePerformIO $ either fail pure =<< getCslConfig
-{-# NOINLINE cslConfig #-}
 #endif
 
 -- | Read a value from 'cslConfig'.

@@ -29,11 +29,11 @@ flag dev-custom-config
 
   description: Enable this to allow setting CONFIG manually, as in --ghc-options=-DCONFIG=benchmark
 
-flag embed-config
+flag no-embed-config
   default:     False
   manual:      True
 
-  description: Embed the config even if Development mode is enabled
+  description: Read constants.yaml in runtime instead of embedding them
 
 library
   exposed-modules:
@@ -122,7 +122,6 @@ library
                        Pos.Core.Context.Const
                        Pos.Core.Context.PrimaryKey
                        Pos.Util.Config.Path
-                       Pos.Util.Config.Contents
                        Pos.Util.Config.Get
 
   build-depends:       QuickCheck
@@ -223,5 +222,5 @@ library
     cpp-options: -DDEV_MODE
     if !flag(dev-custom-config)
       cpp-options: -DCONFIG=dev
-  if flag(embed-config) || !flag(dev-mode)
-    cpp-options: -DEMBED_CONFIG
+  if flag(no-embed-config)
+    cpp-options: -DNO_EMBED_CONFIG

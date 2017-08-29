@@ -37,7 +37,6 @@ import           Network.HTTP.Client.TLS               (tlsManagerSettings)
 import           Network.Info                          (IPv4 (..), getNetworkInterfaces,
                                                         ipv4)
 import           Pos.ReportServer.Report               (ReportInfo (..), ReportType (..))
-import           Serokell.Util.Exceptions              (TextException (..))
 import           Serokell.Util.Text                    (listBuilderJSON)
 import           System.Directory                      (doesFileExist)
 import           System.FilePath                       (takeFileName)
@@ -80,32 +79,32 @@ sendReportNode
     => ReportType -> m ()
 sendReportNode reportType = do
     noServers <- null <$> view (reportingContext . reportServers)
-    if noServers then onNoServers else do
-        logConfig <- view (reportingContext . loggerConfig)
-        let allFiles = map snd $ retrieveLogFiles logConfig
-        logFile <-
-            maybeThrow (TextException onNoPubfiles)
-                       (head $ filter (".pub" `isSuffixOf`) allFiles)
-        logContent <-
-            takeGlobalSize charsConst <$>
-            retrieveLogContent logFile (Just 5000)
-        sendReportNodeImpl (reverse logContent) reportType
-
+    if noServers
+        then onNoServers
+        else do
+            logConfig <- view (reportingContext . loggerConfig)
+            let allFiles = map snd $ retrieveLogFiles logConfig
+            logFile <-
+                maybeThrow
+                    NoPubFiles
+                    (head $ filter (".pub" `isSuffixOf`) allFiles)
+            logContent <-
+                takeGlobalSize charsConst <$>
+                retrieveLogContent logFile (Just 5000)
+            sendReportNodeImpl (reverse logContent) reportType
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2
     takeGlobalSize :: Int -> [Text] -> [Text]
-    takeGlobalSize _ []            = []
+    takeGlobalSize _ [] = []
     takeGlobalSize curLimit (t:xs) =
         let delta = curLimit - length t
-        in bool [] (t:(takeGlobalSize delta xs)) (delta > 0)
+        in bool [] (t : (takeGlobalSize delta xs)) (delta > 0)
     onNoServers =
-        logInfo $ "sendReportNode: not sending report " <>
-                  "because no reporting servers are specified"
-    onNoPubfiles = "sendReportNode: can't find any .pub file in logconfig. " <>
-        "Most probably public logging is misconfigured. Either set reporting " <>
-        "servers to [] or include .pub files in log config"
+        logInfo $
+        "sendReportNode: not sending report " <>
+        "because no reporting servers are specified"
 
 -- | Same as 'sendReportNode', but doesn't attach any logs.
 sendReportNodeNologs :: (MonadReporting ctx m) => ReportType -> m ()
@@ -267,7 +266,7 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
 
         -- Actually perform the HTTP `Request`.
         e  <- try $ httpLbs rq reportManager
-        whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
+        whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError e'
   where
     partFile' fp = Form.partFile (toFileName fp) fp
     toFileName = toText . takeFileName

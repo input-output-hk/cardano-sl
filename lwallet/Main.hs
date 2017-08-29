@@ -42,7 +42,7 @@ import           Serokell.Util                    (ms, sec)
 import           Pos.Binary                       (Raw, serialize')
 import qualified Pos.Client.CLI                   as CLI
 import           Pos.Client.Txp.Balances          (getOwnUtxoForPk)
-import           Pos.Client.Txp.Util              (TxError (..), createTx)
+import           Pos.Client.Txp.Util              (createTx)
 import           Pos.Communication                (NodeId, OutSpecs, SendActions, Worker,
                                                    WorkerSpec, dataFlow, delegationRelays,
                                                    immediateConcurrentConversations,
@@ -227,9 +227,9 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                           utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)
                           etx <- createTx utxo (fakeSigner key) txOuts (toPublic key)
                           case etx of
-                              Left (TxError err) -> do
+                              Left err -> do
                                   addTxFailed tpsMVar
-                                  logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
+                                  logError (sformat ("Error: "%build%" while trying to send to "%shown) err neighbours)
                               Right (tx, _) -> do
                                   res <- submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
                                   addTxSubmit tpsMVar

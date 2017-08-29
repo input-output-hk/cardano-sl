@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
+set -xe
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
-name=genesis-qanet-`date +%F`
+IOHKOPS_DIR="$DIR/../.."
+name=${1:-genesis-qanet-`date +%F`}
 
 if [[ -d "$DIR/../$name" ]]; then
   echo "$name exists" >&2
@@ -24,7 +27,7 @@ fi
 F=100 # fake avvm keys
 
 function abc {
-  cmd="stack exec cardano-keygen -- -f $DIR/../secrets/secret-{}.key -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --randcerts --blacklisted $blacklist --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries $F"
+  cmd="$(nix-build -A cardano-sl-static $IOHKOPS_DIR/default.nix)/bin/cardano-keygen -f $DIR/../secrets/secret-{}.key -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --randcerts --blacklisted $blacklist --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries $F"
   echo "Running command: $cmd"
   $cmd
   rm $DIR/../secrets/*.lock

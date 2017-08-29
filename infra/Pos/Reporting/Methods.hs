@@ -152,9 +152,9 @@ logReportType (RCrash i) = logError $ "Reporting crash with code " <> show i
 logReportType (RError reason) =
     logError $ "Reporting error with reason \"" <> reason <> "\""
 logReportType (RMisbehavior True reason) =
-    logError $ "Reporting critical misbehavour with reason \"" <> reason <> "\""
+    logError $ "Reporting critical misbehavior with reason \"" <> reason <> "\""
 logReportType (RMisbehavior False reason) =
-    logWarning $ "Reporting non-critical misbehavour with reason \"" <> reason <> "\""
+    logWarning $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
 logReportType (RInfo text) =
     logInfo $ "Reporting info with text \"" <> text <> "\""
 

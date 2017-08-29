@@ -123,7 +123,7 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> modifyStateLock High "createGenesisBlockAndApply" (createGenesisBlockDo epoch leaders)
+        Right leaders -> modifyStateLock HighPriority "createGenesisBlockAndApply" (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -193,7 +193,7 @@ createMainBlockAndApply ::
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ modifyStateLock High "createMainBlockAndApply" createAndApply
+    reportingFatal $ modifyStateLock HighPriority "createMainBlockAndApply" createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case

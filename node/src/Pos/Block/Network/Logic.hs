@@ -455,7 +455,7 @@ applyWithoutRollback
 applyWithoutRollback enqueue blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
-    modifyStateLock High "applyWithoutRollback" applyWithoutRollbackDo >>= \case
+    modifyStateLock HighPriority "applyWithoutRollback" applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -499,7 +499,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
-    res <- modifyStateLock High "applyWithRollback" $ \curTip -> do
+    res <- modifyStateLock HighPriority "applyWithRollback" $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of

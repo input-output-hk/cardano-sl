@@ -105,7 +105,7 @@ lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc ((withStateLock High "lrcSingleShot") . const) epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc ((withStateLock HighPriority "lrcSingleShot") . const) epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock

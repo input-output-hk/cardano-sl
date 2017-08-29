@@ -82,7 +82,7 @@ txProcessTransaction
     :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withStateLock Low "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.

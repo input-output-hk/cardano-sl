@@ -93,7 +93,7 @@ eTxProcessTransaction
     :: (ETxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
-    withStateLock Low "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
+    withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)

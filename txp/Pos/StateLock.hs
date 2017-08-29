@@ -12,6 +12,7 @@ how long the action takes.
 module Pos.StateLock
        ( Priority (..)
        , StateLock (..)
+       , newStateLock
        , modifyStateLock
        , withStateLock
        , withStateLockNoMetrics
@@ -25,7 +26,9 @@ import           System.Wlog            (WithLogger, getLoggerName, usingLoggerN
                                         )
 
 import           Pos.Core               (HeaderHash)
-import           Pos.StateLock.PrioLock (PrioLock, Priority (..), withPrioLock)
+import           Pos.Util.Concurrent.PriorityLock
+                                        (PriorityLock, Priority (..)
+                                        , newPriorityLock, withPriorityLock)
 import           Pos.Txp.MemState       (GenericTxpLocalData (..), MonadTxpMem
                                         , TxpMetrics (..), askTxpMemAndMetrics)
 import           Pos.Txp.Toil.Types     (MemPool (..))
@@ -38,8 +41,11 @@ import           Pos.Util.Util          (HasLens', lensOf)
 -- other data dependent on GState.
 data StateLock = StateLock
     { slTip  :: !(MVar HeaderHash)
-    , slLock :: !PrioLock
+    , slLock :: !PriorityLock
     }
+
+newStateLock :: MonadIO m => m StateLock
+newStateLock = StateLock <$> newEmptyMVar <*> newPriorityLock
 
 -- | Run an action acquiring 'StateLock' lock. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -86,7 +92,7 @@ withStateLockNoMetrics ::
     -> m a
 withStateLockNoMetrics prio action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
-    withPrioLock prioLock prio $ withMVar mvar action
+    withPriorityLock prioLock prio $ withMVar mvar action
 
 stateLockHelper
     :: ( MonadIO m
@@ -108,7 +114,7 @@ stateLockHelper doWithMVar prio reason action =
         lname <- getLoggerName
         liftIO . usingLoggerName lname $ txpMetricsWait reason
         timeBeginWait <- currentTime
-        withPrioLock prioLock prio $ doWithMVar mvar $ \hh -> do
+        withPriorityLock prioLock prio $ doWithMVar mvar $ \hh -> do
             timeEndWait <- currentTime
             liftIO . usingLoggerName lname $
                 txpMetricsAcquire (timeEndWait - timeBeginWait)

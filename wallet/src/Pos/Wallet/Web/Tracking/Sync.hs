@@ -199,7 +199,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
                 syncWalletWithGStateUnsafe encSK wTipH bh
                 pure $ Just bh
             else pure wTipH
-        withStateLockNoMetrics High $ \tip -> do
+        withStateLockNoMetrics HighPriority $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
             tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.blkGetHeader tip
             syncWalletWithGStateUnsafe encSK wNewTip tipH

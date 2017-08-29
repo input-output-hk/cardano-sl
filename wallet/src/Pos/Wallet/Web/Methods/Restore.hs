@@ -75,7 +75,7 @@ newWallet passphrase cwInit = do
     updateHistoryCache wId []
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
-    withStateLockNoMetrics High $ \tip -> setWalletSyncTip wId tip
+    withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip
     L.getWallet wId
 
 restoreWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet

@@ -49,17 +49,8 @@ import           Pos.Reporting.Exceptions              (ReportingError (..))
 import           Pos.Reporting.MemState                (HasLoggerConfig (..),
                                                         HasReportServers (..),
                                                         HasReportingContext (..))
-import           Pos.Util.Util                         (maybeThrow, withSystemTempFile)
-
--- TODO From Pos.Util, remove after refactoring.
--- | Concatenates two url part using regular slash '/'.
--- E.g. @"./dir/" <//> "/file" = "./dir/file"@.
-(<//>) :: String -> String -> String
-(<//>) lhs rhs = lhs' ++ "/" ++ rhs'
-  where
-    isSlash = (== '/')
-    lhs' = reverse $ dropWhile isSlash $ reverse lhs
-    rhs' = dropWhile isSlash rhs
+import           Pos.Util.Util                         (maybeThrow, withSystemTempFile,
+                                                        (<//>))
 
 type MonadReporting ctx m =
        ( MonadIO m

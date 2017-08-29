@@ -69,7 +69,11 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     -- can happen there we don't know recent blocks. That's because if
     -- we don't know them, we should be in recovery mode and this
     -- worker should be turned off.
-    onLrcError e@UnknownBlocksForLrc = reportE e -- FIX why we don't throw here?
+    --
+    -- We don't rethrow it though, because probably it can happen in
+    -- some corner cases but it doesn't indicate an error (maybe only
+    -- 'recoveryCommGuard' error).
+    onLrcError e@UnknownBlocksForLrc = reportE e
     onLrcError e                     = reportE e >> throwM e
 
     -- REPORT:ERROR LRC worker failed with some LRC-related error

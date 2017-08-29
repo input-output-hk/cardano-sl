@@ -3,8 +3,10 @@
 
 module Pos.Reporting.Methods
        (
+         MonadReporting
+
          -- * Report single event.
-         reportError
+       , reportError
        , reportMisbehaviour
        , reportInfo
 

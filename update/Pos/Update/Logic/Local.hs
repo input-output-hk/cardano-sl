@@ -43,7 +43,7 @@ import qualified Pos.DB.GState.Common   as DB
 import           Pos.Infra.Semaphore    (BlkSemaphore)
 import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Lrc.Context        (LrcContext)
-import           Pos.Reporting          (HasReportingContext, reportError)
+import           Pos.Reporting          (HasReportingContext)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
@@ -55,8 +55,9 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          MonadPollRead (getProposal), PollModifier,
                                          PollVerFailure (..), evalPollT, execPollT,
                                          filterProposalsByThd, modifyPollModifier,
-                                         normalizePoll, psVotes, refreshPoll, runDBPoll,
-                                         runPollT, verifyAndApplyUSPayload)
+                                         normalizePoll, psVotes, refreshPoll,
+                                         reportUnexpectedError, runDBPoll, runPollT,
+                                         verifyAndApplyUSPayload)
 import           Pos.Util.Util          (HasLens (..), HasLens')
 
 type USLocalLogicMode ctx m =
@@ -128,7 +129,7 @@ processSkeleton ::
     => UpdatePayload
     -> m (Either PollVerFailure ())
 processSkeleton payload =
-    reportTipMismatch $
+    reportUnexpectedError $
     withUSLock $
     runExceptT $
     modifyMemState $ \ms@MemState {..} -> do
@@ -136,7 +137,6 @@ processSkeleton payload =
         -- We must check tip here, because we can't be sure that tip
         -- in DB is the same as the tip in memory. Normally it will be
         -- the case, but if normalization fails, it won't be true.
-        -- If tips are different, we report error, because it's suspicious.
         --
         -- If this equality holds, we can be sure that all further
         -- reads will be done for the same GState, because here we own
@@ -158,12 +158,6 @@ processSkeleton payload =
         let newModifier = modifyPollModifier msModifier modifier
         let newPool = addToMemPool payload msPool
         pure $ ms {msModifier = newModifier, msPool = newPool}
-    -- REPORT:ERROR Tips mismatch in update system.
-    reportTipMismatch action = do
-        res <- action
-        res <$ case res of
-            (Left err@(PollTipMismatch {})) -> reportError (pretty err)
-            _                               -> pass
 
 -- Remove most useless data from mem pool to make it smaller.
 refreshMemPool

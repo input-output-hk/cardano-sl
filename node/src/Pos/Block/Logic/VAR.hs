@@ -26,10 +26,11 @@ import           Pos.Block.Core           (Block)
 import           Pos.Block.Error          (ApplyBlocksException (..),
                                            RollbackException (..),
                                            VerifyBlocksException (..))
-import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
-                                           MonadMempoolNormalization, applyBlocksUnsafe,
-                                           normalizeMempool, rollbackBlocksUnsafe,
-                                           toTxpBlock, toUpdateBlock, BypassSecurityCheck(..))
+import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
+                                           MonadBlockVerify, MonadMempoolNormalization,
+                                           applyBlocksUnsafe, normalizeMempool,
+                                           rollbackBlocksUnsafe, toTxpBlock,
+                                           toUpdateBlock)
 import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
@@ -80,7 +81,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
     pskUndo <- withExceptT VerifyBlocksError . ExceptT $ dlgVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
-        usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
+        ExceptT $ usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
         throwError $ VerifyBlocksError "Internal error of verifyBlocksPrefix: lengths of undos don't match"

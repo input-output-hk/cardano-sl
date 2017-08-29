@@ -13,7 +13,7 @@ import qualified Data.HashMap.Strict       as HM
 import           Pos.Binary.Class          (biSize)
 import           Pos.Binary.Update         ()
 import           Pos.Crypto                (PublicKey, hash)
-import           Pos.StateLock             (StateLock, withStateLock)
+import           Pos.StateLock             (StateLock, withStateLockNoMetrics)
 import           Pos.Update.Core.Types     (LocalVotes, UpdatePayload (..),
                                             UpdateVote (..))
 import           Pos.Update.MemState.Types (MemPool (..))
@@ -28,7 +28,7 @@ type UpdateVotes = HashMap PublicKey UpdateVote
 withUSLock
     :: (MonadReader ctx m, HasLens' ctx StateLock, MonadIO m, MonadMask m)
     => m a -> m a
-withUSLock = withStateLock . const
+withUSLock = withStateLockNoMetrics . const
 
 -- | Add given payload to MemPool. Size is updated assuming that all added
 -- data is new (is not in MemPool). This assumption is fine, because

@@ -82,7 +82,7 @@ txProcessTransaction
     :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withStateLock $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
@@ -126,7 +126,7 @@ txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
             }
     pRes <-
         lift $
-        modifyTxpLocalData "txProcessTransaction" $
+        modifyTxpLocalData $
         processTxDo epoch ctx tipDB itw
     case pRes of
         Left er -> do
@@ -169,13 +169,13 @@ txNormalize = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
-        setTxpLocalData "txNormalize" (mempty, def, mempty, tip, def)
+        setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
         localTxs <- getLocalTxs
         ToilModifier {..} <-
             runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
-        setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+        setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
 
 -- | Get 'TxPayload' from mempool to include into a new block which
 -- will be based on the given tip. In something goes wrong, empty

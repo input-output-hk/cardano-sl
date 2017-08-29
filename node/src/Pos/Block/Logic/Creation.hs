@@ -123,7 +123,7 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> modifyStateLock (createGenesisBlockDo epoch leaders)
+        Right leaders -> modifyStateLock "createGenesisBlockAndApply" (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -193,7 +193,7 @@ createMainBlockAndApply ::
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ modifyStateLock createAndApply
+    reportingFatal $ modifyStateLock "createMainBlockAndApply" createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case
@@ -326,7 +326,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do
-        clearTxpMemPool "fallback@applyCreatedBlock"
+        clearTxpMemPool
         sscResetLocal
         clearUSMemPool
         clearDlgMemPool

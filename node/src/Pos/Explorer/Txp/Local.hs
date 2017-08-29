@@ -93,7 +93,7 @@ eTxProcessTransaction
     :: (ETxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
-    withStateLock $ \__tip -> eTxProcessTransactionNoLock itw
+    withStateLock "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)
@@ -148,7 +148,7 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
             }
     pRes <-
         lift $
-        modifyTxpLocalData "eTxProcessTransaction" $
+        modifyTxpLocalData $
         processTxDo epoch ctx tipBefore itw curTime
     case pRes of
         Left er -> do
@@ -207,7 +207,7 @@ eTxNormalize = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
-        setTxpLocalData "eTxNormalize" (mempty, def, mempty, tip, def)
+        setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
         localTxs <- getLocalTxsMap
@@ -218,4 +218,4 @@ eTxNormalize = getCurrentSlot >>= \case
             runDBToil $
             snd <$>
             runToilTLocalExtra mempty def mempty def (eNormalizeToil epoch toNormalize)
-        setTxpLocalData "eTxNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+        setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

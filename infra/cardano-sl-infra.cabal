@@ -96,9 +96,6 @@ library
                         Pos.Binary.Infra.Slotting
                         Pos.Binary.Infra.Relay
 
-                        -- Pos.StateLock
-                        Pos.StateLock
-
                         -- Pos.Util
                         Pos.Util.LogSafe
                         Pos.Util.TimeLimit

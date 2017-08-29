@@ -50,15 +50,16 @@ import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
 import           Pos.StateLock              (StateLock, withStateLock)
+import           Pos.Txp.MemState           (MonadTxpMem)
 import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
 import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
-import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode, TxpExtra_TMP)
 
 lrcOnNewSlotWorker
     :: forall ssc ctx m.
-       (WorkMode ssc ctx m, SscWorkersClass ssc)
+       (WorkMode ssc ctx m, SscWorkersClass ssc, MonadTxpMem TxpExtra_TMP ctx m)
     => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     recoveryCommGuard $
@@ -93,6 +94,7 @@ type LrcModeFullNoSemaphore ssc ctx m =
 type LrcModeFull ssc ctx m =
     ( LrcModeFullNoSemaphore ssc ctx m
     , HasLens StateLock ctx StateLock
+    , MonadTxpMem TxpExtra_TMP ctx m
     )
 
 type WithStateLock_ m = m () -> m ()
@@ -103,7 +105,7 @@ lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc (withStateLock . const) epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc ((withStateLock "lrcSingleShot") . const) epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock

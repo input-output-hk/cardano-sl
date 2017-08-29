@@ -72,7 +72,7 @@ import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
                                                    getSlotStartPure, getSystemStartM)
-import           Pos.StateLock                    (StateLock, withStateLock)
+import           Pos.StateLock                    (StateLock, withStateLockNoMetrics)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
                                                    flattenTxPayload, toaOut, topsortTxs,
@@ -199,7 +199,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
                 syncWalletWithGStateUnsafe encSK wTipH bh
                 pure $ Just bh
             else pure wTipH
-        withStateLock $ \tip -> do
+        withStateLockNoMetrics $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
             tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.blkGetHeader tip
             syncWalletWithGStateUnsafe encSK wNewTip tipH

@@ -49,7 +49,7 @@ import           Pos.Reporting              (reportMisbehaviourSilent)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
-import           Pos.StateLock              (StateLock, withStateLock)
+import           Pos.StateLock              (Priority (..), StateLock, withStateLock)
 import           Pos.Txp.MemState           (MonadTxpMem)
 import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
@@ -105,7 +105,7 @@ lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc ((withStateLock "lrcSingleShot") . const) epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc ((withStateLock High "lrcSingleShot") . const) epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock

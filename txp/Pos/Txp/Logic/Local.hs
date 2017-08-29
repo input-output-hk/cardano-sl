@@ -28,7 +28,7 @@ import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Slotting         (MonadSlots (..))
-import           Pos.StateLock        (StateLock, withStateLock)
+import           Pos.StateLock        (Priority (..), StateLock, withStateLock)
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
 import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
                                        TxpLocalDataPure, askTxpMem, getLocalTxs,
@@ -82,7 +82,7 @@ txProcessTransaction
     :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withStateLock "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock Low "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.

@@ -56,7 +56,7 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
-import           Pos.StateLock              (StateLock, modifyStateLock)
+import           Pos.StateLock              (Priority (..), StateLock, modifyStateLock)
 import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
@@ -123,7 +123,7 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> modifyStateLock "createGenesisBlockAndApply" (createGenesisBlockDo epoch leaders)
+        Right leaders -> modifyStateLock High "createGenesisBlockAndApply" (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -193,7 +193,7 @@ createMainBlockAndApply ::
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ modifyStateLock "createMainBlockAndApply" createAndApply
+    reportingFatal $ modifyStateLock High "createMainBlockAndApply" createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case

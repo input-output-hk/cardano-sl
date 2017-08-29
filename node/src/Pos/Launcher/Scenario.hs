@@ -178,7 +178,7 @@ nodeStartMsg = logInfo msg
 
 initSemaphore :: (WorkMode ssc ctx m) => m ()
 initSemaphore = do
-    semaphore <- views (lensOf @StateLock) unStateLock
+    semaphore <- views (lensOf @StateLock) slTip
     whenJustM (tryReadMVar semaphore) $ const $
         logError "ncStateLock is not empty at the very beginning"
     tip <- GS.getTip

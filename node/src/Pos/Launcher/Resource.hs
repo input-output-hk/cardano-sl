@@ -65,6 +65,7 @@ import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
 import           Pos.StateLock              (StateLock (..))
+import           Pos.StateLock.PrioLock     (newPrioLock)
 import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
@@ -244,7 +245,7 @@ allocateNodeContext
     -> InitMode ssc (NodeContext ssc)
 allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncStateLock <- StateLock <$> newEmptyMVar
+    ncStateLock <- StateLock <$> newEmptyMVar <*> newPrioLock
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar
     ncSlottingContext <-

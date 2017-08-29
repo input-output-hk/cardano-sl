@@ -25,7 +25,7 @@ import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
 import qualified Pos.GState            as GS
 import           Pos.Slotting          (MonadSlots (currentTimeSlotting, getCurrentSlot))
-import           Pos.StateLock         (StateLock, withStateLock)
+import           Pos.StateLock         (Priority (..), StateLock, withStateLock)
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
@@ -93,7 +93,7 @@ eTxProcessTransaction
     :: (ETxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
-    withStateLock "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
+    withStateLock Low "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)

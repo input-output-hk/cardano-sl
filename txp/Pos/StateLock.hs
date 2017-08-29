@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-|
 Module:      Pos.StateLock
 Description: A lock on the local state of a node
@@ -9,7 +10,8 @@ It collects metrics on how long a given action waits on the lock, and
 how long the action takes.
 -}
 module Pos.StateLock
-       ( StateLock (..)
+       ( Priority (..)
+       , StateLock (..)
        , modifyStateLock
        , withStateLock
        , withStateLockNoMetrics
@@ -17,24 +19,26 @@ module Pos.StateLock
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
-import           Mockable            (CurrentTime, Mockable, currentTime)
-import           System.Wlog         (WithLogger, getLoggerName, usingLoggerName
-                                     )
+import           Control.Monad.Catch    (MonadMask)
+import           Mockable               (CurrentTime, Mockable, currentTime)
+import           System.Wlog            (WithLogger, getLoggerName, usingLoggerName
+                                        )
 
-import           Pos.Core            (HeaderHash)
-import           Pos.Txp.MemState    (GenericTxpLocalData (..), MonadTxpMem
-                                     , TxpMetrics (..), askTxpMemAndMetrics)
-import           Pos.Txp.Toil.Types  (MemPool (..))
-import           Pos.Util.Concurrent (modifyMVar, withMVar)
-import           Pos.Util.Util       (HasLens', lensOf)
+import           Pos.Core               (HeaderHash)
+import           Pos.StateLock.PrioLock (PrioLock, Priority (..), withPrioLock)
+import           Pos.Txp.MemState       (GenericTxpLocalData (..), MonadTxpMem
+                                        , TxpMetrics (..), askTxpMemAndMetrics)
+import           Pos.Txp.Toil.Types     (MemPool (..))
+import           Pos.Util.Concurrent    (modifyMVar, withMVar)
+import           Pos.Util.Util          (HasLens', lensOf)
 
 
 -- | A simple wrapper over 'MVar' which stores 'HeaderHash' (our
 -- current tip) and is taken whenever we want to update GState or
 -- other data dependent on GState.
-newtype StateLock = StateLock
-    { unStateLock :: MVar HeaderHash
+data StateLock = StateLock
+    { slTip  :: !(MVar HeaderHash)
+    , slLock :: !PrioLock
     }
 
 -- | Run an action acquiring 'StateLock' lock. Argument of
@@ -48,7 +52,8 @@ modifyStateLock ::
        , MonadReader ctx m
        , HasLens' ctx StateLock
        )
-    => String
+    => Priority
+    -> String
     -> (HeaderHash -> m (HeaderHash, a))
     -> m a
 modifyStateLock = stateLockHelper modifyMVar -- blkSemaphoreHelper (flip modifyMVar action)
@@ -63,7 +68,8 @@ withStateLock ::
        , MonadReader ctx m
        , HasLens' ctx StateLock
        )
-    => String
+    => Priority
+    -> String
     -> (HeaderHash -> m a)
     -> m a
 withStateLock = stateLockHelper withMVar -- blkSemaphoreHelper (flip withMVar action)
@@ -75,11 +81,12 @@ withStateLockNoMetrics ::
        , MonadReader ctx m
        , HasLens' ctx StateLock
        )
-    => (HeaderHash -> m a)
+    => Priority
+    -> (HeaderHash -> m a)
     -> m a
-withStateLockNoMetrics action = do
-    StateLock mvar <- view (lensOf @StateLock)
-    withMVar mvar action
+withStateLockNoMetrics prio action = do
+    StateLock mvar prioLock <- view (lensOf @StateLock)
+    withPrioLock prioLock prio $ withMVar mvar action
 
 stateLockHelper
     :: ( MonadIO m
@@ -91,16 +98,17 @@ stateLockHelper
        , HasLens' ctx StateLock
        )
     => (MVar HeaderHash -> (HeaderHash -> m b) -> m a)
+    -> Priority
     -> String
     -> (HeaderHash -> m b)
     -> m a
-stateLockHelper doWithMVar reason action =
+stateLockHelper doWithMVar prio reason action =
     askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> do
-        StateLock mvar <- view (lensOf @StateLock)
+        StateLock mvar prioLock <- view (lensOf @StateLock)
         lname <- getLoggerName
         liftIO . usingLoggerName lname $ txpMetricsWait reason
         timeBeginWait <- currentTime
-        doWithMVar mvar $ \hh -> do
+        withPrioLock prioLock prio $ doWithMVar mvar $ \hh -> do
             timeEndWait <- currentTime
             liftIO . usingLoggerName lname $
                 txpMetricsAcquire (timeEndWait - timeBeginWait)

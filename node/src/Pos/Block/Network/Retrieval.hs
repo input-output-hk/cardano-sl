@@ -17,7 +17,7 @@ import qualified Data.Set                   as S
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, builder, int, sformat, shown, stext,
                                              (%))
-import           Mockable                   (delay, handleAll, throw)
+import           Mockable                   (delay, handleAll)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util              (listJson, sec)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -101,7 +101,8 @@ retrievalWorkerImpl SendActions {..} =
         mainLoop
     mainLoopE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
-        throw e
+        delay (30 & sec)
+        mainLoop
     --
     handleBlockRetrieval nodeId BlockRetrievalTask{..} =
         handleAll (handleBlockRetrievalE nodeId brtHeader) $

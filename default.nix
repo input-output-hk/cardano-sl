@@ -3,7 +3,7 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, dconfig ? "testnet_staging"
+, dconfig ? "testnet_staging_full"
 , gitrev ? "unknown"
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
 

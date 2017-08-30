@@ -70,7 +70,6 @@
     "postcss-inline-svg": "^3.0.0",
     "postcss-loader": "^2.0.6",
     "postcss-media-minmax": "^3.0.0",
-    "postcss-neat": "2.5.2",
     "postcss-nested": "^2.1.2",
     "postcss-svgo": "^2.1.6",
     "purescript-psa": "^0.5.1",

@@ -10,9 +10,6 @@ module.exports = {
     require('postcss-inline-svg'),
     require('postcss-svgo'),
     require('postcss-flexbox'),
-    require('postcss-neat')({
-      neatMaxWidth: '1200px'
-    }),
     require('lost'),
     require('postcss-custom-media'),
     require('postcss-media-minmax'),

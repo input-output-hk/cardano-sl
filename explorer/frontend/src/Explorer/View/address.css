@@ -82,13 +82,13 @@
         font-weight: normal;
 
         &.label {
-          @neat-span-columns 4;
+          lost-column: 4/12;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
         &.amount {
-          @neat-span-columns 8;
+          lost-column: 8/12;
           padding-left: 0;
           overflow: hidden;
           text-overflow: ellipsis;

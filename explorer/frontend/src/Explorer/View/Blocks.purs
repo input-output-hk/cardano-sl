@@ -13,7 +13,6 @@ import Data.Array (length, null, slice)
 import Data.DateTime (diff)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
-import Data.Monoid (mempty)
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.String (take)
 import Data.Time.Duration (Milliseconds)
@@ -91,7 +90,7 @@ emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =
     S.div ! S.className "blocks-message"
           ! P.dangerouslySetInnerHTML message
-          $ mempty
+          $ S.text ""
 
 failureView :: Language -> P.HTML Action
 failureView lang =

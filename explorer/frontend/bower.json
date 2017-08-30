@@ -15,17 +15,17 @@
     "tests"
   ],
   "dependencies": {
-    "purescript-pux": "10.0.0",
+    "purescript-pux": "11.0.0",
     "purescript-maybe": "3.0.0",
     "purescript-affjax": "4.0.0",
-    "purescript-maps": "3.3.1",
-    "purescript-profunctor-lenses": "3.2.0",
-    "purescript-argonaut-generic-codecs": "6.0.3",
-    "purescript-formatters": "1.0.1",
-    "purescript-remotedata": "2.1.0",
-    "purescript-parsing": "4.2.2",
+    "purescript-maps": "3.5.2",
+    "purescript-profunctor-lenses": "3.6.0",
+    "purescript-argonaut-generic-codecs": "6.0.4",
+    "purescript-formatters": "2.1.0",
+    "purescript-remotedata": "2.1.1",
+    "purescript-parsing": "4.3.1",
     "purescript-now": "v3.0.0",
-    "purescript-strings": "3.2.1"
+    "purescript-strings": "3.3.1"
   },
   "devDependencies": {
     "purescript-debug": "3.0.0",

@@ -6,7 +6,6 @@ import Data.Array (length, null, slice)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
-import Data.Monoid (mempty)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance, tx, txEmpty, txNotFound) as I18nL
 import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
@@ -71,7 +70,7 @@ addressQr _ lang =
         S.div ! S.className "address-qr__wrapper" $ do
             S.div ! S.className "address-qr__image"
                   ! S.id addressQRImageId
-                  $ mempty
+                  $ S.text ""
             S.p ! S.className "address-qr__description"
                 $ S.text (translate (I18nL.address <<< I18nL.addScan) lang)
 
@@ -120,7 +119,7 @@ emptyAddressDetail :: String -> P.HTML Action
 emptyAddressDetail message =
     S.div ! S.className "message"
           $ S.div ! P.dangerouslySetInnerHTML message
-                  $ mempty
+                  $ S.text ""
 
 maxTxRows :: Int
 maxTxRows = 5

@@ -4,7 +4,6 @@ import Prelude
 
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.Monoid (mempty)
 import Data.Foldable (for_)
 
 import Explorer.I18n.Lang (Language, translate)
@@ -135,13 +134,13 @@ textTxHeaderView :: String -> P.HTML Action
 textTxHeaderView message =
     S.div ! S.className "explorer-transaction__message"
           $ S.div ! P.dangerouslySetInnerHTML message
-                  $ mempty
+                  $ S.text ""
 
 
 emptySummaryView :: P.HTML Action
 emptySummaryView =
     S.div ! S.className "explorer-transaction__container"
-          $ mempty
+          $ S.text ""
 
 failureView :: Language -> P.HTML Action
 failureView lang =

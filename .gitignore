@@ -18,8 +18,8 @@ b
 # Various DBs
 node-db*
 wallet-db/
-db-qanet/
-wdb-qanet/
+db-*/
+wdb-*/
 
 # Keys
 *.key

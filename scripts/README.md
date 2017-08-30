@@ -16,7 +16,7 @@ mode, it will run in `dev` mode as well, and if you built it in `prod` mode, it 
 * `launch/demo.sh` - run nodes in `tmux`-session (3 nodes by default).
 * `launch/demo-with-wallet-api.sh` - run nodes in `tmux`-session, with enabled wallet web API (3 nodes by default).
 * `launch/kill-demo.sh` - kill `tmux`-session with running nodes.
-* `launch/qa.sh` - run one node, qanet.
+* `launch/testnet-{public,staging}.sh` - connect one node to the cluster (testnet or testnet staging
 * `launch/update-scenario.sh` - scenario for testing of update mechanism.
 * `launch/wallet.sh` - helper script for `launch/update-scenario.sh`.
 

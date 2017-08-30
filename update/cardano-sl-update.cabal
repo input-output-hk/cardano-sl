@@ -16,9 +16,6 @@ library
                        -- Arbitrary
                        Pos.Arbitrary.Update
 
-                       -- Errors
-                       Pos.Update.Error
-
                        -- Core
                        Pos.Update.Core
                        Pos.Update.Core.BlockVersion

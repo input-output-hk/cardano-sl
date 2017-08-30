@@ -14,6 +14,7 @@ module Pos.Util.Util
        , liftLensSome
        , liftGetterSome
 
+       -- * Something
        , maybeThrow
        , eitherToFail
        , eitherToThrow
@@ -21,6 +22,7 @@ module Pos.Util.Util
        , sortWithMDesc
        , leftToPanic
        , dumpSplices
+       , (<//>)
 
        -- * Lenses
        , _neHead
@@ -396,6 +398,15 @@ inAssertMode x = x *> pure ()
 inAssertMode _ = pure ()
 #endif
 {-# INLINE inAssertMode #-}
+
+-- | Concatenates two url parts using regular slash '/'.
+-- E.g. @"./dir/" <//> "/file" = "./dir/file"@.
+(<//>) :: String -> String -> String
+(<//>) lhs rhs = lhs' ++ "/" ++ rhs'
+  where
+    isSlash = (== '/')
+    lhs' = reverse $ dropWhile isSlash $ reverse lhs
+    rhs' = dropWhile isSlash rhs
 
 ----------------------------------------------------------------------------
 -- Lenses

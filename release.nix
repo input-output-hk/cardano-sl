@@ -3,7 +3,7 @@ let
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? false
-  , dconfigs ? [ "testnet_staging" ]
+  , dconfigs ? [ "testnet_staging_full" "testnet_staging_wallet" ]
   , cardano ? { outPath = ./.; rev = "abcdef"; }
 }:
 with import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; packageSet = import ./.; };

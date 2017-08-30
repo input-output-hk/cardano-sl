@@ -36,14 +36,12 @@ import           Pos.Exception          (CardanoException)
 import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
 import           Pos.Reporting.MemState (HasReportingContext)
-import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
+import           Pos.Reporting.Methods  (reportError, reportingFatal)
 import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
-import           Pos.Slotting.MemState  (MonadSlotsData,
-
-                                         getCurrentNextEpochSlottingDataM,
-                                         getEpochSlottingDataM, getSystemStartM)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
+import           Pos.Slotting.MemState  (MonadSlotsData, getCurrentNextEpochSlottingDataM,
+                                         getEpochSlottingDataM, getSystemStartM)
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData,
                                          computeSlotStart, lookupEpochSlottingData)
 import           Pos.Util.Util          (maybeThrow)
@@ -137,9 +135,8 @@ onNewSlotImpl withLogging startImmediately action =
     workerHandler :: CardanoException -> m ()
     workerHandler e = do
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
-        logError $ msg
-        -- [CSL-1340] FIXME: it's not misbehavior, it should be reported as 'RError'.
-        reportMisbehaviourSilent False msg
+        -- REPORT:ERROR on any CardanoException caught within onNewSlot action
+        reportError msg
         delay =<< getNextEpochSlotDuration
         onNewSlotImpl withLogging startImmediately action
 

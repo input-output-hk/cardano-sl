@@ -45,7 +45,7 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
 import           Pos.Lrc.Mode               (LrcMode)
-import           Pos.Reporting              (reportMisbehaviourSilent)
+import           Pos.Reporting              (reportError, reportMisbehaviour)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
@@ -70,14 +70,15 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     -- can happen there we don't know recent blocks. That's because if
     -- we don't know them, we should be in recovery mode and this
     -- worker should be turned off.
-    onLrcError e@UnknownBlocksForLrc = do
-        reportError e
-        logWarning
-            "LRC worker can't do anything, because recent blocks aren't known"
-    onLrcError e = reportError e >> throwM e
-    -- FIXME [CSL-1340]: it should be reported as 'RError'.
-    reportError e =
-        reportMisbehaviourSilent False $
+    --
+    -- We don't rethrow it though, because probably it can happen in
+    -- some corner cases but it doesn't indicate an error (maybe only
+    -- 'recoveryCommGuard' error).
+    onLrcError e@UnknownBlocksForLrc = reportE e
+    onLrcError e                     = reportE e >> throwM e
+
+    -- REPORT:ERROR LRC worker failed with some LRC-related error
+    reportE e = reportError $
         "Lrc worker failed with error: " <> show e
 
 type LrcModeFullNoSemaphore ssc ctx m =
@@ -176,7 +177,11 @@ lrcDo epoch consumers = do
                 ("Calculated seed for epoch "%build%" successfully") epoch
             return s
         Left err -> do
-            logWarning $ sformat
+            let isCritical = True
+            -- Critical error means that the system is in dangerous state.
+            -- For now let's consider all errors critical, maybe we'll revise it later.
+            -- REPORT:MISBEHAVIOUR(T) Couldn't compute seed.
+            reportMisbehaviour isCritical $ sformat
                 ("SSC couldn't compute seed: "%build%" for epoch "%build%
                  ", going to reuse seed for previous epoch")
                 err epoch

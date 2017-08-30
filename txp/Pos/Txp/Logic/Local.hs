@@ -27,6 +27,8 @@ import           Pos.Core             (BlockVersionData, EpochIndex, GenesisWSta
 import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
+import           Pos.KnownPeers       (MonadFormatPeers)
+import           Pos.Reporting        (HasReportingContext, reportError)
 import           Pos.Slotting         (MonadSlots (..))
 import           Pos.StateLock        (Priority (..), StateLock, withStateLock)
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
@@ -49,6 +51,9 @@ type TxpLocalWorkMode ctx m =
     , WithLogger m
     , HasLens' ctx GenesisWStakeholders
     , Mockable CurrentTime m
+    , MonadMask m
+    , MonadFormatPeers m
+    , HasReportingContext ctx
     )
 
 -- Base context for tx processing in.
@@ -89,7 +94,7 @@ txProcessTransaction itw =
 txProcessTransactionNoLock
     :: (TxpLocalWorkMode ctx m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
+txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     let UnsafeTx {..} = taTx txAux
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
@@ -128,6 +133,8 @@ txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
         lift $
         modifyTxpLocalData $
         processTxDo epoch ctx tipDB itw
+    -- We report 'ToilTipsMismatch' as an error, because usually it
+    -- should't happen. If it happens, it's better to look at logs.
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: " %build) txId
@@ -157,6 +164,12 @@ txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
                    (Right _, ToilModifier {..}) ->
                        ( Right ()
                        , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
+    -- REPORT:ERROR Tips mismatch in txp.
+    reportTipMismatch action = do
+        res <- action
+        res <$ case res of
+            (Left err@(ToilTipsMismatch {})) -> reportError (pretty err)
+            _                                -> pass
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool

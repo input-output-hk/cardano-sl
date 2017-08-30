@@ -125,8 +125,9 @@ retrievalWorkerImpl SendActions {..} =
                     newestHeader = headers ^. _NewestFirst . _neHead
                 in handleCHsValid enqueueMsg nodeId
                                   oldestHeader (headerHash newestHeader)
-        convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $ \_ _ -> pure $ Conversation $ \conv ->
-            requestHeaders cont mgh nodeId conv
+        convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $
+            \_ _ -> pure $ Conversation $ \conv ->
+                requestHeaders cont mgh nodeId conv
         results <- waitForConversations $ fmap (handleAll (\_ -> return (Just False))) convs
         let Any endedRecovery = fold $ fmap mkAny results
         when endedRecovery $ logInfo "Recovery mode exited gracefully"

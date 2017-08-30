@@ -6,6 +6,7 @@ import Data.Array (length, null, slice)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
+import Data.Monoid (mempty)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance, tx, txEmpty, txNotFound) as I18nL
 import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
@@ -21,7 +22,6 @@ import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxBrief, _CTxId
 import Pux.DOM.Events (onClick) as P
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
-import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 import Text.Smolder.HTML (a, div, span, h3, p) as S
 import Text.Smolder.HTML.Attributes (className, href, id) as S
 import Text.Smolder.Markup ((#!), (!))
@@ -118,8 +118,7 @@ addressDetailRow item =
 emptyAddressDetail :: String -> P.HTML Action
 emptyAddressDetail message =
     S.div ! S.className "message"
-          $ S.div ! P.dangerouslySetInnerHTML message
-                  $ S.text ""
+          $ S.div $ S.text message
 
 maxTxRows :: Int
 maxTxRows = 5

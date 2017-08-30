@@ -38,7 +38,6 @@ import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeBl
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
 import Pux.DOM.Events (onClick) as P
-import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 
 import Text.Smolder.HTML (a, div, span, h3, p) as S
 import Text.Smolder.HTML.Attributes (className, href) as S
@@ -89,8 +88,7 @@ blocksView state =
 emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =
     S.div ! S.className "blocks-message"
-          ! P.dangerouslySetInnerHTML message
-          $ S.text ""
+          $ S.text message
 
 failureView :: Language -> P.HTML Action
 failureView lang =

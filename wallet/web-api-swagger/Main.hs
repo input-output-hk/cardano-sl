@@ -5,13 +5,10 @@ module Main
     ( main
     ) where
 
-import           Control.Lens               (mapped, (?~))
+import           Control.Lens               ((?~))
 import           Data.Aeson                 (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (ToSchema (..), declareNamedSchema,
-                                             defaultSchemaOptions, genericDeclareNamedSchema,
-                                             host, name)
-import           Data.Typeable              (Typeable, typeRep)
+import           Data.Swagger               (host)
 import           Data.Version               (showVersion)
 import           Options.Applicative        (execParser, footer, fullDesc, header, help,
                                              helper, infoOption, long, progDesc)
@@ -20,9 +17,8 @@ import           Universum
 
 import qualified Paths_cardano_sl           as CSL
 
-import qualified Pos.Wallet.Web.Error.Types as ET
-
 import           Pos.Wallet.Web.Swagger
+import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 showProgramInfoIfRequired :: FilePath -> IO ()
 showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
@@ -37,16 +33,6 @@ showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
     versionOption = infoOption
         ("cardano-swagger-" <> showVersion CSL.version)
         (long "version" <> help "Show version.")
-
--- | Instance for Either-based types (types we return as 'Right') in responses.
--- Due 'typeOf' these types must be 'Typeable'.
--- We need this instance for correct Swagger-specification.
-instance {-# OVERLAPPING #-}
-         (Typeable a, ToSchema a) =>
-         ToSchema (Either ET.WalletError a) where
-    declareNamedSchema proxy =
-        genericDeclareNamedSchema defaultSchemaOptions proxy
-            & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))
 
 main :: IO ()
 main = do

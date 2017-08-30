@@ -9,11 +9,14 @@ module Pos.Wallet.Web.Swagger.Instances.Schema where
 
 import           Universum
 
-import           Control.Lens               ((?~))
+import           Control.Lens               (mapped, (?~))
 import           Data.Swagger               (NamedSchema (..), SwaggerType (..),
                                              ToParamSchema (..), ToSchema (..),
-                                             declareNamedSchema, declareSchemaRef, format,
-                                             properties, required, type_)
+                                             declareNamedSchema, declareSchemaRef,
+                                             defaultSchemaOptions,
+                                             format, genericDeclareNamedSchema,
+                                             name, properties, required, type_)
+import           Data.Typeable              (Typeable, typeRep)
 import           Servant.Multipart          (FileData (..))
 
 import           Pos.Types                  (ApplicationName, BlockCount (..),
@@ -86,3 +89,14 @@ instance ToSchema FileData where
                 , ("fdFilePath", filepathSchema)
                 ]
             & required .~ [ "fdInputFile", "fdFileName", "fdFileCType", "fdFilePath"]
+
+
+-- | Instance for Either-based types (types we return as 'Right') in responses.
+-- Due 'typeOf' these types must be 'Typeable'.
+-- We need this instance for correct Swagger-specification.
+instance {-# OVERLAPPING #-}
+         (Typeable a, ToSchema a) =>
+         ToSchema (Either ET.WalletError a) where
+    declareNamedSchema proxy =
+        genericDeclareNamedSchema defaultSchemaOptions proxy
+            & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))

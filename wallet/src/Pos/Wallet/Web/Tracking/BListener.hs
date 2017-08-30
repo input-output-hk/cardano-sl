@@ -28,6 +28,7 @@ import           Pos.Core                         (HasCoreConstants, HeaderHash,
 import           Pos.DB.BatchOp                   (SomeBatchOp)
 import           Pos.DB.Class                     (MonadDBRead)
 import qualified Pos.GState                       as GS
+import           Pos.Reporting                    (MonadReporting, reportOrLogW)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
                                                    getSlotStartPure, getSystemStartM)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
@@ -67,6 +68,7 @@ onApplyTracking
     , AccountMode ctx m
     , MonadSlotsData ctx m
     , MonadDBRead m
+    , MonadReporting ctx m
     , HasCoreConstants
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
@@ -108,6 +110,7 @@ onRollbackTracking
     , MonadDBRead m
     , MonadSlots ctx m
     , SscHelpersClass ssc
+    , MonadReporting ctx m
     , HasCoreConstants
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
@@ -177,9 +180,11 @@ logMsg action (NE.length -> bNums) wid accModifier =
              action bNums wid accModifier
 
 catchInSync
-    :: (MonadCatch m, WithLogger m)
+    :: (MonadReporting ctx m)
     => Text -> (CId Wal -> m ()) -> CId Wal -> m ()
 catchInSync desc syncWallet wId =
-    syncWallet wId `catchAll` (logWarning . sformat fmt wId desc)
+    syncWallet wId `catchAll` reportOrLogW prefix
   where
-    fmt = "Failed to sync wallet "%build%" in BListener ("%build%"): "%build
+    -- REPORT:ERROR 'reportOrLogW' in wallet sync.
+    fmt = "Failed to sync wallet "%build%" in BListener ("%build%"): "
+    prefix = sformat fmt wId desc

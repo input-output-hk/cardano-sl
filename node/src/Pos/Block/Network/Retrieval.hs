@@ -21,7 +21,7 @@ import           Formatting                 (build, builder, int, sformat, stext
 import           Mockable                   (delay, handleAll)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util              (listJson, sec)
-import           System.Wlog                (logDebug, logError, logInfo, logWarning)
+import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
@@ -254,9 +254,10 @@ dropRecoveryHeaderAndRepeat enqueue nodeId = do
         delay $ sec 2
         handleAll handleRecoveryTriggerE $ triggerRecovery enqueue
         logDebug "Attempting to restart recovery over"
-    handleRecoveryTriggerE e =
-        logError $ "Exception happened while trying to trigger " <>
-                   "recovery inside recoveryWorker: " <> show e
+    handleRecoveryTriggerE =
+        -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.
+        reportOrLogE $ "Exception happened while trying to trigger " <>
+                       "recovery inside recoveryWorker: "
 
 -- | Process header that was thought to be continuation. If it's not
 -- now, it is discarded.

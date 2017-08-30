@@ -331,12 +331,14 @@ type GetSyncProgress =
 type ImportBackupJSON =
        "backup"
     :> "import"
+    :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
     :> WRes Post CWallet
 
 type ExportBackupJSON =
        "backup"
     :> "export"
+    :> DCQueryParam "passphrase" CPassPhrase
     :> Capture "walletId" (CId Wal)
     :> ReqBody '[JSON] Text
     :> WRes Post ()

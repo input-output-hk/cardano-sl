@@ -889,11 +889,15 @@ syncProgress = mkEffFn1 $ fromAff <<< map encodeJson <<< B.syncProgress
 
 --------------------------------------------------------------------------------
 -- JSON backup -----------------------------------------------------------------
-importBackupJSON :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Json)
-importBackupJSON = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.importBackupJSON tls
+importBackupJSON :: forall eff. EffFn3 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String Foreign (Promise Json)
+importBackupJSON = mkEffFn3 \tls wid pass -> do
+    pass' <- mkCPassPhrase pass
+    fromAff $ map encodeJson $ B.importBackupJSON tls pass' wid
 
-exportBackupJSON :: forall eff. EffFn3 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String String (Promise Unit)
-exportBackupJSON = mkEffFn3 $ \tls wId -> fromAff <<< B.exportBackupJSON tls (mkCId wId)
+exportBackupJSON :: forall eff. EffFn4 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String String Foreign (Promise Unit)
+exportBackupJSON = mkEffFn4 $ \tls wId file pass -> do
+    pass' <- mkCPassPhrase pass
+    fromAff $ B.exportBackupJSON tls pass' (mkCId wId) file
 
 --------------------------------------------------------------------------------
 -- Mnemonics ---------------------------------------------------------------------

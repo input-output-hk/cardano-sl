@@ -9,6 +9,7 @@ module Pos.Crypto.SafeSigning
        , noPassEncrypt
        , checkPassMatches
        , changeEncPassphrase
+       , removeEncPassphrase
        , encToPublic
        , safeSign
        , safeToPublic
@@ -99,6 +100,14 @@ changeEncPassphrase
 changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _) = do
     checkPassMatches oldPass esk
     return $ mkEncSecret newPass $ CC.xPrvChangePass oldPass newPass sk
+
+removeEncPassphrase
+    :: Bi PassPhrase
+    => PassPhrase
+    -> EncryptedSecretKey
+    -> Maybe SecretKey
+removeEncPassphrase curPass esk =
+    SecretKey . eskPayload <$> changeEncPassphrase curPass emptyPassphrase esk
 
 signRaw' :: Maybe SignTag
          -> PassPhrase

@@ -106,7 +106,7 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
         reportEclipse
     repeatOnInterval delF action = runIfNotShutdown $ do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
-        () <$ action `catchAll` \e -> reportOrLogE "Security worker" e >> throwM e
+        () <$ action `catchAll` \e -> reportOrLogE "Security worker" e
         getNextEpochSlotDuration >>= delay . delF
         repeatOnInterval delF action
     reportEclipse = do

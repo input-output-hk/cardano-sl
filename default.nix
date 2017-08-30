@@ -3,7 +3,7 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, dconfig ? "testnet_staging"
+, dconfig ? "testnet_staging_full"
 , gitrev ? "unknown"
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
 
@@ -26,7 +26,7 @@ let
           "-f-dev-mode"
           "--ghc-option=-optl-lm"
         ];
-        testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
+        testTarget = "--test-option='--skip=Test.Pos.Update.Poll.Poll.PollState.PurePoll' --log=test.log || (sleep 10 && kill $TAILPID && false)";
         preCheck = ''
           mkdir -p dist/test
           touch dist/test/test.log

@@ -152,9 +152,9 @@ instance ( HasServer (apiType a :> res) ctx
          OriginType (ApiArg apiType a) -> ServerT res m
     route _ ctx del =
         route (Proxy @(apiType a :> res)) ctx $
-        del <&> \f a -> decodeCType a & either reportError f
+        del <&> \f a -> decodeCType a & either reportE f
       where
-        reportError err =
+        reportE err =
             reportDecodeError (Proxy @res) $
             sformat ("(in "%string%") "%stext)
                 (apiArgName $ Proxy @apiType)

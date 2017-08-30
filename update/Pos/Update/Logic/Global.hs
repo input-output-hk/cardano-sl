@@ -12,8 +12,7 @@ import           Universum
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
 import           Ether.Internal       (HasLens (..))
-import           Serokell.Util        (Color (Red), colorize)
-import           System.Wlog          (WithLogger, logError, modifyLoggerName)
+import           System.Wlog          (WithLogger, modifyLoggerName)
 
 import           Pos.Core             (ApplicationName, BlockVersion, HasCoreConstants,
                                        NumSoftwareVersion, SoftwareVersion (..),
@@ -22,31 +21,23 @@ import           Pos.Core             (ApplicationName, BlockVersion, HasCoreCon
                                        headerSlotL)
 import qualified Pos.DB.BatchOp       as DB
 import qualified Pos.DB.Class         as DB
+import           Pos.Exception        (reportFatalError)
 import           Pos.Lrc.Context      (LrcContext)
+import           Pos.Reporting        (MonadReporting)
 import           Pos.Slotting         (MonadSlotsData, SlottingData, slottingVar)
 import           Pos.Update.Constants (lastKnownBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId, UpdateBlock)
 import           Pos.Update.DB        (UpdateOp (..))
-import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
                                        MonadPoll, PollModifier (..), PollVerFailure,
                                        ProposalState, USUndo, canCreateBlockBV, execPollT,
                                        execRollT, processGenesisBlock,
-                                       recordBlockIssuance, rollbackUS, runDBPoll,
-                                       runPollT, verifyAndApplyUSPayload)
+                                       recordBlockIssuance, reportUnexpectedError,
+                                       rollbackUS, runDBPoll, runPollT,
+                                       verifyAndApplyUSPayload)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier    as MM
 import           Pos.Util.Util        (inAssertMode)
-
-type USGlobalApplyMode ctx m =
-    ( WithLogger m
-    , MonadIO m
-    , DB.MonadDBRead m
-    , MonadReader ctx m
-    , HasLens LrcContext ctx LrcContext
-    , HasCoreConstants
-    , MonadSlotsData ctx m
-    )
 
 type USGlobalVerifyMode ctx m =
     ( WithLogger m
@@ -54,8 +45,13 @@ type USGlobalVerifyMode ctx m =
     , DB.MonadDBRead m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
-    , MonadError PollVerFailure m
     , HasCoreConstants
+    )
+
+type USGlobalApplyMode ctx m =
+    ( USGlobalVerifyMode ctx m
+    , MonadSlotsData ctx m
+    , MonadReporting ctx m
     )
 
 withUSLogger :: WithLogger m => m a -> m a
@@ -86,20 +82,19 @@ usApplyBlocks blocks modifierMaybe =
     processModifier =<<
     case modifierMaybe of
         Nothing -> do
-            verdict <- runExceptT $ usVerifyBlocks False blocks
+            verdict <- usVerifyBlocks False blocks
             either onFailure (return . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
-                verdict <- runExceptT $ usVerifyBlocks False blocks
+                verdict <- usVerifyBlocks False blocks
                 whenLeft verdict $ \v -> onFailure v
             return modifier
   where
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
-        logError $ colorize Red msg
-        throwM $ USInternalError msg
+        reportFatalError msg
 
 -- | Revert application of given blocks to US part of GState DB and US local
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of
@@ -137,17 +132,19 @@ processModifier pm@PollModifier {pmSlottingData = newSlottingData} =
 -- only known attributes, but I can't guarantee this comment will
 -- always be up-to-date.
 usVerifyBlocks
-    :: (USGlobalVerifyMode ctx m)
+    :: (USGlobalVerifyMode ctx m, MonadReporting ctx m)
     => Bool
     -> OldestFirst NE UpdateBlock
-    -> m (PollModifier, OldestFirst NE USUndo)
+    -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
 usVerifyBlocks verifyAllIsKnown blocks =
-    withUSLogger $ swap <$> run (mapM (verifyBlock verifyAllIsKnown) blocks)
+    withUSLogger $
+    reportUnexpectedError $
+    runExceptT (swap <$> run (mapM (verifyBlock verifyAllIsKnown) blocks))
   where
     run = runDBPoll . runPollT def
 
 verifyBlock
-    :: (USGlobalVerifyMode ctx m, MonadPoll m)
+    :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m)
     => Bool -> UpdateBlock -> m USUndo
 verifyBlock _ (Left genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)

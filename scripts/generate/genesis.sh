@@ -2,9 +2,13 @@
 
 # This script generates genesis files.
 # Launch it from the project root directory.
-# It will create a directory with all needed data inside. It will not
-# copy generated genesis files into the project, this is to be done
-# manually.
+#
+# It will create a directory with all needed data inside. 
+#
+# (!) Make sure you compile project with a appropriate mode 
+# (see constants.yaml or scripts/build/cardano-sl.sh MODES).
+# Script will also copy generated genesis files depending on the 
+# --install-as-suffix flag. 
 
 set -e
 
@@ -21,7 +25,7 @@ case "$1" in
                 case "$2" in 'nix' ) true;; 'stack' ) true;; * ) error "--build-mode should be either 'nix' or 'stack'";; esac;
                 BUILD_MODE="$2"; shift;;
         --install-as-suffix )
-                case "$2" in 'tns' ) true;; 'tn' ) true;; 'qa' ) true;; * ) error "--install-as-suffix should be either 'tn', 'tns' or 'qa'";; esac;
+                case "$2" in 'tn' ) true;; 'dn' ) true;; * ) error "--install-as-suffix should be either 'tn' or 'dn'";; esac;
                 INSTALL_AS_SUFFIX="$2"; shift;;
         "--"* ) error "unknown option: $1";;
         * ) break;; esac; shift; done

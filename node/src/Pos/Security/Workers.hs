@@ -26,7 +26,7 @@ import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
 import           Pos.DB.DB                  (getTipHeader)
-import           Pos.Reporting.Methods      (reportMisbehaviour, reportingFatal)
+import           Pos.Reporting              (reportMisbehaviour, reportOrLogE)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration)
 import           Pos.WorkMode.Class         (WorkMode)
@@ -85,9 +85,9 @@ checkForReceivedBlocksWorkerImpl
        (WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . reportingFatal . recoveryCommGuard $
+    repeatOnInterval (const (sec' 4)) . recoveryCommGuard $
         whenM (needRecovery @ctx @ssc) $ triggerRecovery enqueueMsg
-    repeatOnInterval (min (sec' 20)) . reportingFatal . recoveryCommGuard $ do
+    repeatOnInterval (min (sec' 20)) . recoveryCommGuard $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
                 header <- getTipHeader @ssc
@@ -105,7 +105,8 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
             "by ourselves"
         reportEclipse
     repeatOnInterval delF action = runIfNotShutdown $ do
-        () <- action
+        -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
+        () <$ action `catchAll` \e -> reportOrLogE "Security worker" e >> throwM e
         getNextEpochSlotDuration >>= delay . delF
         repeatOnInterval delF action
     reportEclipse = do

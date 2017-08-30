@@ -6,6 +6,8 @@ module Pos.Block.Network.Retrieval
        ( retrievalWorker
        ) where
 
+import           Universum
+
 import           Control.Concurrent.STM     (putTMVar, swapTMVar, tryReadTBQueue,
                                              tryReadTMVar, tryTakeTMVar)
 import           Control.Lens               (to, _Wrapped)
@@ -15,13 +17,11 @@ import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S
 import           Ether.Internal             (HasLens (..))
-import           Formatting                 (build, builder, int, sformat, shown, stext,
-                                             (%))
+import           Formatting                 (build, builder, int, sformat, stext, (%))
 import           Mockable                   (delay, handleAll)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util              (listJson, sec)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
-import           Universum
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
@@ -43,7 +43,7 @@ import           Pos.Context                (BlockRetrievalQueueTag, ProgressHea
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.Reporting.Methods      (reportingFatal)
+import           Pos.Reporting              (reportOrLogE, reportOrLogW)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
@@ -84,7 +84,7 @@ retrievalWorkerImpl SendActions {..} =
         logDebug "Starting retrievalWorker loop"
         mainLoop
   where
-    mainLoop = runIfNotShutdown $ reportingFatal $ do
+    mainLoop = runIfNotShutdown $ do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
@@ -100,13 +100,13 @@ retrievalWorkerImpl SendActions {..} =
         thingToDoNext
         mainLoop
     mainLoopE e = do
-        logError $ sformat ("retrievalWorker: error caught "%shown) e
+        -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
+        reportOrLogE "retrievalWorker: error caught " e
         delay (30 & sec)
         mainLoop
     --
     handleBlockRetrieval nodeId BlockRetrievalTask{..} =
         handleAll (handleBlockRetrievalE nodeId brtHeader) $
-        reportingFatal $
         (if brtContinues then handleContinues else handleAlternative)
             nodeId
             brtHeader
@@ -138,9 +138,10 @@ retrievalWorkerImpl SendActions {..} =
         mkAny :: Maybe Bool -> Any
         mkAny = maybe (Any False) Any
     handleBlockRetrievalE nodeId header e = do
-        logWarning $ sformat
-            ("Error handling nodeId="%build%", header="%build%": "%shown)
-            nodeId (headerHash header) e
+        -- REPORT:ERROR 'reportOrLogW' in block retrieval worker.
+        reportOrLogW (sformat
+            ("Error handling nodeId="%build%", header="%build%": ")
+            nodeId (headerHash header)) e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat enqueueMsg nodeId
 

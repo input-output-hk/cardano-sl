@@ -4,21 +4,17 @@ module Pos.Delegation.Worker
        ( dlgWorkers
        ) where
 
-import           Control.Monad.Catch        (catch)
-import           Formatting                 (build, sformat, (%))
+import           Universum
+
 import           Mockable                   (CurrentTime, Delay, Mockable, currentTime,
                                              delay)
 import           Serokell.Util              (sec)
-import           System.Wlog                (WithLogger, logError)
-import           Universum
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
 import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
-import           Pos.KnownPeers             (MonadFormatPeers)
-import           Pos.Reporting              (HasReportingContext)
-import           Pos.Reporting.Methods      (reportingFatal)
+import           Pos.Reporting              (MonadReporting, reportOrLogE)
 import           Pos.Shutdown               (HasShutdownContext, runIfNotShutdown)
 import           Pos.Util                   (microsecondsToUTC)
 import           Pos.WorkMode.Class         (WorkMode)
@@ -32,24 +28,20 @@ dlgInvalidateCaches
     :: ( MonadIO m
        , MonadDelegation ctx m
        , MonadMask m
-       , WithLogger m
        , Mockable Delay m
-       , HasReportingContext ctx
        , HasShutdownContext ctx
        , MonadDelegation ctx m
-       , MonadFormatPeers m
+       , MonadReporting ctx m
        , MonadReader ctx m
        , Mockable CurrentTime m
        )
     => m ()
 dlgInvalidateCaches = runIfNotShutdown $ do
-    reportingFatal invalidate `catch` handler
+    -- REPORT:ERROR 'reportOrLogE' in delegation worker.
+    invalidate `catchAll` reportOrLogE "Delegation worker, error occurred: "
     delay (sec 1)
     dlgInvalidateCaches
   where
-    handler :: WithLogger m => SomeException -> m ()
-    handler =
-        logError . sformat ("Delegation worker, error occurred: "%build)
     invalidate = do
         curTime <- microsecondsToUTC <$> currentTime
         runDelegationStateAction $ invalidateProxyCaches curTime

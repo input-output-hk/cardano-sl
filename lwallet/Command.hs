@@ -23,6 +23,7 @@ import           Text.Parsec.Combinator     (eof, manyTill)
 import           Text.Parsec.Text           (Parser)
 
 import           Pos.Binary                 (decodeFull)
+import           Pos.Client.CLI             (stakeholderIdParser)
 import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (AbstractHash, HashAlgorithm, PublicKey,
@@ -30,9 +31,8 @@ import           Pos.Crypto                 (AbstractHash, HashAlgorithm, Public
 import           Pos.Txp                    (TxOut (..))
 import           Pos.Types                  (AddrStakeDistribution (..), Address (..),
                                              BlockVersion, Coin, CoinPortion, EpochIndex,
-                                             SoftwareVersion, StakeholderId,
-                                             decodeTextAddress, mkCoin, mkMultiKeyDistr,
-                                             unsafeCoinPortionFromDouble)
+                                             SoftwareVersion, decodeTextAddress, mkCoin,
+                                             mkMultiKeyDistr, unsafeCoinPortionFromDouble)
 import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
 import           Pos.Util.Util              (eitherToFail)
 
@@ -163,15 +163,12 @@ proposeUpdate =
     lexeme parseSoftwareVersion <*>
     many1 parseProposeUpdateSystem
 
-stakeholderIdP :: Parser StakeholderId
-stakeholderIdP = hash
-
 coinPortionP :: Parser CoinPortion
 coinPortionP = do
     (token, modifier) <- anyText <&> \s -> case Text.stripSuffix "%" s of
         Nothing -> (s, identity)
         Just s' -> (s', (/100))
-    case readMaybe (toString token) of
+    case readMaybe @Double (toString token) of
         Just (modifier -> a) | a >= 0, a <= 1 -> return $ unsafeCoinPortionFromDouble a
         _                    -> fail "Expected a coin portion"
 
@@ -181,10 +178,9 @@ addrStakeDistrP =
     multiKeyDistrP
   where
     multiKeyDistrP = do
-        parts <- many1 ((,) <$> stakeholderIdP <* text ":" <*> coinPortionP)
+        parts <- many1 ((,) <$> stakeholderIdParser <* text ":" <*> coinPortionP)
         case parts of
-            [(sId, coinPortion)] | coinPortion == unsafeCoinPortionFromDouble 1 ->
-                                   return $ SingleKeyDistr sId
+            [(sId, coinPortion)] | coinPortion == maxBound -> return $ SingleKeyDistr sId
             _ -> eitherToFail $ mkMultiKeyDistr (Map.fromList parts)
 
 addrDistrP :: Parser Command

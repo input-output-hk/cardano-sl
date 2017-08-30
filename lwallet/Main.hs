@@ -134,9 +134,9 @@ Avaliable commands:
 
    addr-distr <N> boot
    addr-distr <N> [<M>:<coinPortion>]+
-                                  -- address of pk <N> (encoded in base58) with provided distribution, where <M> is
-                                  -- stakeholder id (pk hash), and the coin portion can be a coefficient in [0..1]
-                                  -- or a percentage (ex. 42%)
+                                  -- print the address for pk <N> (encoded in base58) with the specified distribution,
+                                  -- where <M> is stakeholder id (pk hash), and the coin portion can be a coefficient
+                                  -- in [0..1] or a percentage (ex. 42%)
 
    help                           -- show this message
    quit                           -- shutdown node wallet
@@ -355,7 +355,7 @@ runCmd _ (AddKeyFromFile f) _ = do
     secret <- readUserSecret f
     mapM_ addSecretKey $ secret ^. usKeys
 runCmd _ (AddrDistr pk asd) _ = do
-    putText $ sformat build addr
+    putText $ pretty addr
   where
     addr = makeAddress (PubKeyASD pk) (AddrAttributes Nothing asd)
 runCmd _ Quit _ = pure ()

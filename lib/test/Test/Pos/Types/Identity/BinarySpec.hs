@@ -15,7 +15,7 @@ import           Pos.Data.Attributes   (Attributes (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.Chrono       (NE, NewestFirst, OldestFirst)
 
-import           Test.Pos.CborSpec     (U)
+import           Test.Pos.Cbor.CborSpec (U)
 import           Test.Pos.Helpers      (binaryTest, msgLenLimitedTest)
 import           Test.Pos.Util         (withDefConfiguration, withDefInfraConfiguration)
 

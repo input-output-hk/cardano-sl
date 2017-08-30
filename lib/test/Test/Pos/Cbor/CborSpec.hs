@@ -1,11 +1,12 @@
--- | Test.Pos.CborSpec specification
+-- | Test.Pos.Cbor.CborSpec specification
 
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE TemplateHaskell           #-}
 
-module Test.Pos.CborSpec
+module Test.Pos.Cbor.CborSpec
        ( spec
        , U
        , extensionProperty
@@ -16,7 +17,7 @@ import           Universum
 import qualified Data.ByteString                   as BS
 import           Test.Hspec                        (Arg, Expectation, Spec, SpecWith,
                                                     describe, it, pendingWith, shouldBe)
-import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
+import           Test.Hspec.QuickCheck             (modifyMaxSuccess, modifyMaxSize, prop)
 import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
@@ -40,11 +41,9 @@ import           Pos.Binary.Relay                  ()
 import           Pos.Core.Types                    (ScriptVersion)
 import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
                                                     encodeAttributes)
-
+import qualified Test.Pos.Cbor.ReferenceImplementation as R
 import           Test.Pos.Helpers                  (binaryTest)
 import           Test.Pos.Util                     (withDefConfiguration)
-
-----------------------------------------
 
 data User
     = Login { login :: String
@@ -145,7 +144,7 @@ data U = U Word8 BS.ByteString deriving (Show, Eq)
 instance Bi U where
     encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
     decode = do
-        decodeListLenOf 2
+        decodeListLenCanonicalOf 2
         U <$> decode <*> decodeUnknownCborDataItem
 
 instance Arbitrary U where
@@ -157,7 +156,7 @@ data U24 = U24 Word8 BS.ByteString deriving (Show, Eq)
 instance Bi U24 where
     encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
     decode = do
-        decodeListLenOf 2
+        decodeListLenCanonicalOf 2
         U24 <$> decode <*> decodeUnknownCborDataItem
 
 ----------------------------------------
@@ -305,8 +304,24 @@ testAgainstFile name x expected =
               Right actual -> x `shouldBe` actual
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Cbor.Bi instances" $ do
-    modifyMaxSuccess (const 1000) $ do
+spec = withDefConfiguration $ do
+    describe "Reference implementation" $ do
+        describe "properties" $ do
+            prop "encoding/decoding initial byte"    R.prop_InitialByte
+            prop "encoding/decoding additional info" R.prop_AdditionalInfo
+            prop "encoding/decoding token header"    R.prop_TokenHeader
+            prop "encoding/decoding token header 2"  R.prop_TokenHeader2
+            prop "encoding/decoding tokens"          R.prop_Token
+            modifyMaxSuccess (const 1000) . modifyMaxSize (const 150) $ do
+                prop "encoding/decoding terms"           R.prop_Term
+        describe "internal properties" $ do
+            prop "Integer to/from bytes"             R.prop_integerToFromBytes
+            prop "Word16 to/from network byte order" R.prop_word16ToFromNet
+            prop "Word32 to/from network byte order" R.prop_word32ToFromNet
+            prop "Word64 to/from network byte order" R.prop_word64ToFromNet
+            prop "Numeric.Half to/from Float"        R.prop_halfToFromFloat
+
+    describe "Cbor.Bi instances" $ modifyMaxSuccess (const 1000) $ do
         describe "Test instances" $ do
             prop "User" (let u1 = Login "asd" 34 in (unsafeDeserialize $ serialize u1) === u1)
             binaryTest @MyScript

@@ -15,18 +15,13 @@ reversing on the enqueue side.
 module Pos.Util.Queue
     ( Q
     , queue
-    , empty
     , enqueue
     , dequeue
     ) where
 
-import Universum hiding (empty)
+import Universum
 
 data Q a = Q [a] [a]
-
-empty :: Q a -> Bool
-empty (Q [] []) = True
-empty _ = False
 
 queue :: [a] -> Q a
 queue xs = Q xs []

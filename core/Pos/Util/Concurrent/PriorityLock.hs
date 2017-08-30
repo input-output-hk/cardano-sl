@@ -16,9 +16,9 @@ module Pos.Util.Concurrent.PriorityLock
 import           Control.Concurrent.STM      (TMVar, newEmptyTMVar
                                              , putTMVar, takeTMVar)
 import           Control.Monad.Catch         (MonadMask)
-import           Universum                   hiding (empty)
+import           Universum
 
-import           Pos.Util.Queue              (Q, empty, queue, enqueue, dequeue)
+import           Pos.Util.Queue              (Q, queue, enqueue, dequeue)
 
 newtype PriorityLock = PriorityLock (TVar PriorityLockState)
 
@@ -68,24 +68,20 @@ unlockP (PriorityLock vstate) =
         Unlocked -> error "Pos.Util.PriorityLock.unlockP: lock is already unlocked"
 
         Locked hwaiters lwaiters
-            | empty hwaiters && empty lwaiters ->
-              -- no one is waiting on the lock, so it will be unlocked now
-              writeTVar vstate Unlocked
 
-        Locked hwaiters lwaiters
-            | empty hwaiters -> do
-                  -- no one is waiting with high priority, so we
-                  -- dequeue from the low priority waiters
-                  let (waiter, lwaiters') = dequeue' lwaiters
+            -- dequeue from the high priority waiters if possible
+            | Just (waiter, hwaiters') <- dequeue hwaiters -> do
+                  writeTVar vstate (Locked hwaiters' lwaiters)
+                  putTMVar waiter ()
+
+            -- dequeue from the low priority waiters
+            | Just (waiter, lwaiters') <- dequeue lwaiters -> do
                   writeTVar vstate (Locked hwaiters lwaiters')
                   putTMVar waiter ()
 
-        Locked hwaiters lwaiters -> do
-            -- dequeue from the high priority waiters
-            let (waiter, hwaiters') = dequeue' hwaiters
-            writeTVar vstate (Locked hwaiters' lwaiters)
-            putTMVar waiter ()
-    where dequeue' q = fromMaybe (error "Logic error in PriorityLock") (dequeue q)
+            -- no one is waiting on the lock, so it will be unlocked now
+            | otherwise ->
+                  writeTVar vstate Unlocked
 
 withPriorityLock
     :: (MonadMask m, MonadIO m)

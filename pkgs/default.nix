@@ -2815,11 +2815,15 @@ self: {
           description = "Difference lists";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      dns = callPackage ({ attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, iproute, mkDerivation, mtl, network, random, resourcet, safe, stdenv }:
+      dns = callPackage ({ attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, fetchgit, iproute, mkDerivation, mtl, network, random, resourcet, safe, stdenv }:
       mkDerivation {
           pname = "dns";
           version = "2.0.12";
-          sha256 = "0c5w2s8cvid9nk9ldd759k0p54pnb10ld3iin1w1b4lqi08cnnwk";
+          src = fetchgit {
+            url = "https://github.com/input-output-hk/dns.git";
+            sha256 = "13qknwpg9fxh99fzf03r3jpfmhgk7ahzm228aqf1pg1zdsh6nvy4";
+            rev = "6da3cd051bd6f6415c8ec3b53f1c0372a80a4376";
+          };
           libraryHaskellDepends = [
             attoparsec
             base

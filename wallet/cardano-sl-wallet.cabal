@@ -58,6 +58,7 @@ library
                       Pos.Wallet.Web.Swagger.Description
                       Pos.Wallet.Web.Swagger.Instances.Schema
                       Pos.Wallet.Web.Swagger.Instances.Swagger
+                      Pos.Wallet.Web.Swagger.Spec
                       Pos.Wallet.Web.Tracking
                       Pos.Wallet.Web.Tracking.BListener
                       Pos.Wallet.Web.Tracking.Sync

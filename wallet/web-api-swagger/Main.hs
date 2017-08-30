@@ -8,10 +8,9 @@ module Main
 import           Control.Lens               (mapped, (?~))
 import           Data.Aeson                 (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (Swagger, ToSchema (..), declareNamedSchema,
-                                             defaultSchemaOptions, description,
-                                             genericDeclareNamedSchema, host, info, name,
-                                             title, version)
+import           Data.Swagger               (ToSchema (..), declareNamedSchema,
+                                             defaultSchemaOptions, genericDeclareNamedSchema,
+                                             host, name)
 import           Data.Typeable              (Typeable, typeRep)
 import           Data.Version               (showVersion)
 import           Options.Applicative        (execParser, footer, fullDesc, header, help,
@@ -22,7 +21,6 @@ import           Universum
 import qualified Paths_cardano_sl           as CSL
 
 import qualified Pos.Wallet.Web.Error.Types as ET
-import           Pos.Wallet.Web.Api         (walletApi)
 
 import           Pos.Wallet.Web.Swagger
 
@@ -50,19 +48,11 @@ instance {-# OVERLAPPING #-}
         genericDeclareNamedSchema defaultSchemaOptions proxy
             & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))
 
--- | Build Swagger-specification from 'walletApi'.
-swaggerSpecForWalletApi :: Swagger
-swaggerSpecForWalletApi = toCustomSwagger walletApi
-    & info . title       .~ "Cardano SL Wallet Web API"
-    & info . version     .~ (toText $ showVersion CSL.version)
-    & info . description ?~ "This is an API for Cardano SL wallet."
-    & host               ?~ "localhost:8090" -- Default node's port for wallet web API.
-
-
 main :: IO ()
 main = do
     showProgramInfoIfRequired jsonFile
-    BSL8.writeFile jsonFile $ encode swaggerSpecForWalletApi
+    BSL8.writeFile jsonFile $ encode spec
     putStrLn $ "Done. See " <> jsonFile <> "."
   where
     jsonFile = "wallet-web-api-swagger.json"
+    spec = swaggerSpecForWalletApi & host ?~ "localhost:8090" -- Default node's port for wallet web API.

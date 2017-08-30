@@ -29,7 +29,6 @@ import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
-import           Pos.Wallet.Web.Methods.Misc      (swaggerSpec)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Server.Handlers   (servantHandlers)
@@ -38,6 +37,7 @@ import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnec
                                                    launchNotifier, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (closeState, openState)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
+import           Pos.Wallet.Web.Swagger.Spec      (swaggerSpecForWalletApi)
 import           Pos.Wallet.Web.Tracking          (syncWalletsWithGState)
 import           Pos.Web                          (TlsParams, serveImpl)
 
@@ -76,7 +76,7 @@ walletServer sendActions natM = do
     walletSwaggerHandlers nat =
         nat `enter` servantHandlers sendActions
        :<|>
-        swaggerSchemaUIServer swaggerSpec
+        swaggerSchemaUIServer swaggerSpecForWalletApi
 
 bracketWalletWebDB
     :: ( MonadIO m

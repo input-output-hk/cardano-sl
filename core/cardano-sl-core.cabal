@@ -29,11 +29,11 @@ flag dev-custom-config
 
   description: Enable this to allow setting CONFIG manually, as in --ghc-options=-DCONFIG=benchmark
 
-flag no-embed-config
+flag no-embed
   default:     False
   manual:      True
 
-  description: Read constants.yaml in runtime instead of embedding them
+  description: Read constants.yaml and the genesis in runtime (from the folder determined by CSL_RES_PATH env var) instead of embedding them. If you set this flag, you should also set the same flag for cardano-sl-godtossing
 
 library
   exposed-modules:
@@ -218,5 +218,5 @@ library
     cpp-options: -DDEV_MODE
     if !flag(dev-custom-config)
       cpp-options: -DCONFIG=dev
-  if flag(no-embed-config)
-    cpp-options: -DNO_EMBED_CONFIG
+  if flag(no-embed)
+    cpp-options: -DNO_EMBED

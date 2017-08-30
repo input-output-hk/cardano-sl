@@ -32,9 +32,9 @@ module Pos.Util.Config
        , cslConfig
        , parseFromCslConfig
        -- ** Internal functions
-       , cslConfigFilePath
+       , cslConfigPath
        , getCslConfig
-       , configName
+       , cslConfigName
        ) where
 
 import           Control.Lens               (Getting, _Left)
@@ -44,14 +44,14 @@ import           Data.Yaml                  (FromJSON)
 import qualified Data.Yaml                  as Y
 import           Universum
 
-#ifdef NO_EMBED_CONFIG
+#ifdef NO_EMBED
 import           System.IO.Unsafe           (unsafePerformIO)
 #else
 import qualified Language.Haskell.TH.Syntax as TH
 #endif
 
-import           Pos.Util.Config.Get        (configName, getCslConfig)
-import           Pos.Util.Config.Path       (cslConfigFilePath)
+import           Pos.Util.Config.Get        (cslConfigName, getCslConfig)
+import           Pos.Util.Config.Path       (cslConfigPath)
 import           Pos.Util.HVect             (HVect)
 import qualified Pos.Util.HVect             as HVect
 
@@ -241,12 +241,12 @@ instance FromJSON (ConfigSet '[]) where
 --
 -- TODO: allow overriding config values via an env var?
 cslConfig :: Y.Value
-#ifdef NO_EMBED_CONFIG
+#ifdef NO_EMBED
 cslConfig = unsafePerformIO $ either fail pure =<< getCslConfig
 {-# NOINLINE cslConfig #-}
 #else
 cslConfig = $(do
-    TH.qAddDependentFile cslConfigFilePath
+    TH.qAddDependentFile cslConfigPath
     either fail TH.lift =<< TH.runIO getCslConfig
   )
 #endif

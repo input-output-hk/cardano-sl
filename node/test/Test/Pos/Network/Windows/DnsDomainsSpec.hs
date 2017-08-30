@@ -29,7 +29,7 @@ testLookupFor :: ByteString -> Expectation
 testLookupFor dnsDomain = do
     initDnsOnUse $ \resolve -> do
       res <- resolve dnsDomain
-      isRight res `shouldBe` True
+      (> 1) . length <$> res `shouldBe` Right True
 
 spec :: Spec
 #if defined(POSIX)
@@ -41,9 +41,7 @@ spec = do
             prop "Successfully retrieves this Windows machine's DNS server"
                  prop_GetWindowsDefDnsServer
     describe "Multi-value lookups" $ do
-        it "www.google.it resolves correctly" $ testLookupFor "www.google.it"
-        it "cardano-node-0.aws.iohkdev.io resolves correctly" $ testLookupFor "cardano-node-0.aws.iohkdev.io"
-        it "cardano-node-1.aws.iohkdev.io resolves correctly" $ testLookupFor "cardano-node-1.aws.iohkdev.io"
+        it "pool.ntp.org resolves correctly to more than 1 address" $ testLookupFor "pool.ntp.org"
 
 prop_GetWindowsDefDnsServer :: Expectation
 prop_GetWindowsDefDnsServer = do

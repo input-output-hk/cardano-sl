@@ -51,7 +51,7 @@ footerView state =
                 S.span  ! S.className "version"
                         $ S.text ("v. " <> version)
                 S.a ! S.className "commit"
-                    ! S.href ("https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash)
+                    ! S.href ("https://github.com/input-output-hk/cardano-sl/commit/" <> commitHash)
                     $ S.text $ "( " <> (take 7 $ commitHash) <> " )"
 
 -- nav

@@ -7181,6 +7181,8 @@ self: {
           pname = "vector-binary-instances";
           version = "0.2.3.5";
           sha256 = "0niad09lbxz3cj20qllyj92lwbc013ihw4lby8fv07x5xjx5a4p1";
+          revision = "1";
+          editedCabalFile = "0yk61mifvcc31vancsfsd0vskqh5k3a3znx1rbz8wzcs4ijjzh48";
           libraryHaskellDepends = [
             base
             binary

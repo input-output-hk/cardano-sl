@@ -25,11 +25,6 @@ if [[ "$n" == "" ]]; then
   n=$DEFAULT_NODES_N
 fi
 
-if [[ "$n" != 4 ]]; then
-  echo "Currently we don't support any amount of nodes in demo that's not 4. See CSL-1580"
-  exit
-fi
-
 # RICH_NODES specifies how many nodes should be core nodes, i.e., have non-negligible stake in the rich_poor_distr
 if [[ "$RICH_NODES" == "" ]]; then
   RICH_NODES == 3

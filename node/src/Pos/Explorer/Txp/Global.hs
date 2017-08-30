@@ -11,7 +11,7 @@ import qualified Data.HashMap.Strict   as HM
 
 import           Pos.Core              (HeaderHash, headerHash)
 import           Pos.DB                (SomeBatchOp (..))
-import           Pos.Slotting          (MonadSlots, currentTimeSlotting)
+import           Pos.Slotting          (MonadSlots, getSlotStart, getCurrentSlotBlocking)
 import           Pos.Txp               (ApplyBlocksSettings (..), TxpBlund,
                                         TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                         applyBlocksWith, blundToAuxNUndo,
@@ -24,6 +24,7 @@ import qualified Pos.Util.Modifier     as MM
 import qualified Pos.Explorer.DB       as GS
 import           Pos.Explorer.Txp.Toil (EGlobalApplyToilMode, ExplorerExtra (..),
                                         eApplyToil, eRollbackToil)
+
 
 -- | Settings used for global transactions data processing used by explorer.
 explorerTxpGlobalSettings :: TxpGlobalSettings
@@ -52,14 +53,16 @@ extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
     map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
     map GS.DelAddrBalance (MM.deletions balances)
 
--- CSE-203 FIXME Current time is used as timestamp, are you serious?
 applyBlund
     :: (MonadSlots ctx m, EGlobalApplyToilMode ctx m)
     => TxpBlund
     -> m ()
 applyBlund blund = do
-    curTime <- currentTimeSlotting
-    uncurry (eApplyToil curTime) $ blundToAuxNUndoWHash blund
+    -- First get the current @SlotId@ so we can calculate the time.
+    -- Then get when that @SlotId@ started and use that as a time for @Tx@.
+    mTxTimestamp <- getCurrentSlotBlocking >>= getSlotStart
+
+    uncurry (eApplyToil mTxTimestamp) $ blundToAuxNUndoWHash blund
 
 rollbackBlocks
     :: TxpGlobalRollbackMode ctx m

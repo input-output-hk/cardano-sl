@@ -25,7 +25,8 @@ import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
 import qualified Pos.GState            as GS
 import           Pos.Infra.Semaphore   (BlkSemaphore, withBlkSemaphore)
-import           Pos.Slotting          (MonadSlots (currentTimeSlotting, getCurrentSlot))
+import           Pos.Slotting          (MonadSlots (getCurrentSlotBlocking, getCurrentSlot),
+                                        getSlotStart)
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
@@ -42,6 +43,8 @@ import           Pos.Explorer.Core     (TxExtra (..))
 import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
                                         MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
                                         eeLocalTxsExtra)
+
+
 
 type ETxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -126,7 +129,10 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
             M.fromList $
             catMaybes $
             toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    curTime <- currentTimeSlotting
+    -- First get the current @SlotId@ so we can calculate the time.
+    -- Then get when that @SlotId@ started and use that as a time for @Tx@.
+    mTxTimestamp <- getCurrentSlotBlocking >>= getSlotStart
+
     let txInAddrs =
             map (txOutAddress . toaOut) $ catMaybes $ toList resolvedOuts
         txOutAddrs = toList $ map txOutAddress _txOutputs
@@ -149,7 +155,7 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
     pRes <-
         lift $
         modifyTxpLocalData "eTxProcessTransaction" $
-        processTxDo epoch ctx tipBefore itw curTime
+        processTxDo epoch ctx tipBefore itw mTxTimestamp
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: " %build) txId
@@ -163,10 +169,10 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
         -> EProcessTxContext
         -> HeaderHash
         -> (TxId, TxAux)
-        -> Timestamp
+        -> Maybe Timestamp
         -> ETxpLocalDataPure
         -> (Either ToilVerFailure (), ETxpLocalDataPure)
-    processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx curTime txld@(uv, mp, undo, tip, extra)
+    processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx mTxTimestamp txld@(uv, mp, undo, tip, extra)
         | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
             let runToil ::
@@ -177,7 +183,7 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
                 -- We strictly rely on verifyAllIsKnown = True here
                 action ::
                        ExceptT ToilVerFailure (ToilT ExplorerExtra EProcessTxMode) ()
-                action = eProcessTx curEpoch tx (TxExtra Nothing curTime txUndo)
+                action = eProcessTx curEpoch tx (TxExtra Nothing mTxTimestamp txUndo)
                 -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
                 -- wouldn't save extra value, thus wouldn't reduce it to NF
                 txUndo = NE.fromList $ map Just $ toList _eptcUtxoBase

@@ -70,7 +70,7 @@ class TxHeaderViewPropsFactory a where
 instance cTxEntryTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxEntry where
     mkTxHeaderViewProps (CTxEntry entry) = TxHeaderViewProps
         { txhHash: entry ^. cteId
-        , txhTimeIssued: Just $ entry ^. cteTimeIssued
+        , txhTimeIssued: entry ^. cteTimeIssued
         , txhAmount: entry . cteAmount
         }
 
@@ -78,7 +78,7 @@ instance cTxEntryTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxEntry w
 instance cTxBriefTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxBrief where
     mkTxHeaderViewProps (CTxBrief txBrief) = TxHeaderViewProps
         { txhHash: txBrief ^. ctbId
-        , txhTimeIssued: Just $ txBrief ^. ctbTimeIssued
+        , txhTimeIssued: txBrief ^. ctbTimeIssued
         , txhAmount: txBrief ^. ctbOutputSum
         }
 

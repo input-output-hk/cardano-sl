@@ -17,12 +17,17 @@ if [[ ! -d "$base/../../.stack-work" ]]; then
 fi
 
 # Define the default amount of nodes to run
-DEFAULT_NODES_N=3
+DEFAULT_NODES_N=4
 
 # Detect node number or use default
 n=$1
 if [[ "$n" == "" ]]; then
   n=$DEFAULT_NODES_N
+fi
+
+if [[ "$n" != 4 ]]; then
+  echo "Currently we don't support any amount of nodes in demo that's not 4. See CSL-1580"
+  exit
 fi
 
 # RICH_NODES specifies how many nodes should be core nodes, i.e., have non-negligible stake in the rich_poor_distr

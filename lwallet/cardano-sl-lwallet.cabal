@@ -41,8 +41,8 @@ executable cardano-wallet
                      , cardano-sl
                      , data-default
                      , dlist
-                     , either
                      , ether
+                     , exceptions
                      , containers
                      , formatting
                      , lens

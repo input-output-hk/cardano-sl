@@ -25,8 +25,8 @@ ignoreTxpMetrics = TxpMetrics
 recordTxpMetrics :: Metrics.Store -> IO TxpMetrics
 recordTxpMetrics ekgStore = do
     ekgMemPoolSize        <- Metrics.createGauge (withCardanoNamespace "MemPoolSize") ekgStore
-    ekgMemPoolWaitTime    <- Metrics.createGauge (withCardanoNamespace "MemPoolWaitTime_μs") ekgStore
-    ekgMemPoolModifyTime  <- Metrics.createGauge (withCardanoNamespace "MemPoolModifyTime_μs") ekgStore
+    ekgMemPoolWaitTime    <- Metrics.createGauge (withCardanoNamespace "MemPoolWaitTime_microseconds") ekgStore
+    ekgMemPoolModifyTime  <- Metrics.createGauge (withCardanoNamespace "MemPoolModifyTime_microseconds") ekgStore
     ekgMemPoolQueueLength <- Metrics.createGauge (withCardanoNamespace "MemPoolQueueLength") ekgStore
 
     -- An exponential moving average is used for the time gauges (wait

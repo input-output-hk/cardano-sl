@@ -42,10 +42,10 @@ setupMonitor lowerIO node store = do
     liftIO $ flip (Monitoring.registerGauge (withCardanoNamespace "handlers.initiated_locally")) store $ lowerIO $ do
         stats <- nodeStatistics node
         Metrics.readGauge (stRunningHandlersLocal stats)
-    liftIO $ flip (Monitoring.registerDistribution (withCardanoNamespace "handlers.finished_normally.elapsed_time_μs")) store $ lowerIO $ do
+    liftIO $ flip (Monitoring.registerDistribution (withCardanoNamespace "handlers.finished_normally.elapsed_time_microseconds")) store $ lowerIO $ do
         stats <- nodeStatistics node
         liftIO $ Monitoring.Distribution.read (stHandlersFinishedNormally stats)
-    liftIO $ flip (Monitoring.registerDistribution (withCardanoNamespace "handlers.finished_exceptionally.elapsed_time_μs")) store $ lowerIO $ do
+    liftIO $ flip (Monitoring.registerDistribution (withCardanoNamespace "handlers.finished_exceptionally.elapsed_time_microseconds")) store $ lowerIO $ do
         stats <- nodeStatistics node
         liftIO $ Monitoring.Distribution.read (stHandlersFinishedExceptionally stats)
     return store

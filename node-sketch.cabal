@@ -101,7 +101,6 @@ Library
                       , unordered-containers
                       , semigroups
                       , ekg-core
-                      , ekg
                       , mwc-random
                       , statistics
                       , vector

@@ -4,18 +4,14 @@
 {-# LANGUAGE GADTs #-}
 
 module Node.Util.Monitor (
-
       setupMonitor
-    , startMonitor
-    , stopMonitor
-
     ) where
 
 import Control.Monad.IO.Class
-import Control.Concurrent (killThread)
 import Mockable.Class
+import qualified Data.Text as T
+import Data.Monoid ((<>))
 import qualified Mockable.Metrics as Metrics
-import qualified System.Remote.Monitoring as Monitoring
 import qualified System.Metrics as Monitoring
 import qualified System.Metrics.Distribution as Monitoring.Distribution
 import Node
@@ -28,44 +24,27 @@ setupMonitor
        , Metrics.Distribution m ~ Monitoring.Distribution.Distribution
        , MonadIO m
        )
-    => (forall t . m t -> IO t)
+    => Maybe T.Text
+    -> (forall t . m t -> IO t)
     -> Node m
     -> Monitoring.Store
     -> m Monitoring.Store
-setupMonitor lowerIO node store = do
-    liftIO $ flip (Monitoring.registerGauge "Remotely-initated handlers") store $ lowerIO $ do
+setupMonitor mbNamespace lowerIO node store = do
+    liftIO $ flip (Monitoring.registerGauge (withNamespace "handlers.initiated_remotely")) store $ lowerIO $ do
         stats <- nodeStatistics node
         Metrics.readGauge (stRunningHandlersRemote stats)
-    liftIO $ flip (Monitoring.registerGauge "Locally-initated handlers") store $ lowerIO $ do
+    liftIO $ flip (Monitoring.registerGauge (withNamespace "handlers.initiated_locally")) store $ lowerIO $ do
         stats <- nodeStatistics node
         Metrics.readGauge (stRunningHandlersLocal stats)
-    liftIO $ flip (Monitoring.registerDistribution "Handler elapsed time (normal)") store $ lowerIO $ do
+    liftIO $ flip (Monitoring.registerDistribution (withNamespace "handlers.finished_normally.elapsed_time_microseconds")) store $ lowerIO $ do
         stats <- nodeStatistics node
         liftIO $ Monitoring.Distribution.read (stHandlersFinishedNormally stats)
-    liftIO $ flip (Monitoring.registerDistribution "Handler elapsed time (exceptional)") store $ lowerIO $ do
+    liftIO $ flip (Monitoring.registerDistribution (withNamespace "handlers.finished_exceptionally.elapsed_time_microseconds")) store $ lowerIO $ do
         stats <- nodeStatistics node
         liftIO $ Monitoring.Distribution.read (stHandlersFinishedExceptionally stats)
     return store
-
-startMonitor
-    :: ( Mockable Metrics.Metrics m
-       , Metrics.Distribution m ~ Monitoring.Distribution.Distribution
-       , MonadIO m
-       )
-    => Int
-    -> (forall t . m t -> IO t)
-    -> Node m
-    -> m Monitoring.Server
-startMonitor port lowerIO node = do
-    store <- liftIO Monitoring.newStore
-    store' <- setupMonitor lowerIO node store
-    liftIO $ Monitoring.registerGcMetrics store'
-    server <- liftIO $ Monitoring.forkServerWith store "127.0.0.1" port
-    liftIO . putStrLn $ "Forked EKG server on port " ++ show port
-    return server
-
-stopMonitor
-    :: ( MonadIO m )
-    => Monitoring.Server
-    -> m ()
-stopMonitor server = liftIO $ killThread (Monitoring.serverThreadId server)
+  where
+      withNamespace :: T.Text -> T.Text
+      withNamespace name = case mbNamespace of
+          Nothing -> name
+          Just ns -> ns <> "." <> name

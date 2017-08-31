@@ -656,17 +656,16 @@ registerQueueMetrics namespaceMb OutQ{..} store = do
 
     metric :: [String] -> Text
     metric =
-        let initialList = ["queue", qSelf]
-            -- If we have a namespace, add it to the beginning of the
-            -- initial list, so that the final metric name will be
-            -- correctly namespaced.
-            -- E.g.
-            -- let namespaceMb = Just "mynamespace"
-            -- let qSelf       = "test"
-            -- metric ["InFlight"]
-            -- >>> mynamespace.queue.test.InFlight
-            tokens      = maybe initialList (: initialList) namespaceMb
-        in T.pack . intercalate "." . (tokens ++)
+        -- If we have a namespace, add it to the beginning of the
+        -- initial list, so that the final metric name will be
+        -- correctly namespaced.
+        -- E.g.
+        -- let namespaceMb = Just "mynamespace"
+        -- let qSelf       = "test"
+        -- metric ["InFlight"]
+        -- >>> mynamespace.queue.test.InFlight
+        let prefix = maybeToList namespaceMb ++ ["queue", qSelf]
+        in T.pack . intercalate "." . (prefix ++)
 
 countInFlight :: InFlight nid -> Int
 countInFlight = sum . fmap sum

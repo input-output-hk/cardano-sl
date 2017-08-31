@@ -3,7 +3,7 @@
 
 -- | Allows to automatically generate custom swagger documentation.
 
-module CustomSwagger
+module Pos.Wallet.Web.Swagger.CustomSwagger
     ( HasCustomSwagger (..)
     , toCustomSwagger
     ) where

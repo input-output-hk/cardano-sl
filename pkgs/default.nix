@@ -1992,9 +1992,12 @@ self: {
             servant
             servant-multipart
             servant-server
+            servant-swagger
+            servant-swagger-ui
             stm
             stm-containers
             string-qq
+            swagger2
             text-format
             time
             time-units

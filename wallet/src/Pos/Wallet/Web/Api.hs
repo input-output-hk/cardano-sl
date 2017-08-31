@@ -57,6 +57,9 @@ module Pos.Wallet.Web.Api
 
        , ImportBackupJSON
        , ExportBackupJSON
+
+       , WalletSwaggerApi
+       , swaggerWalletApi
        ) where
 
 
@@ -64,6 +67,7 @@ import           Control.Monad.Catch        (try)
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody, Verb)
 import           Servant.Server             (Handler (..))
+import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
@@ -451,3 +455,19 @@ type WalletApi = ApiPrefix :> (
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi
 walletApi = Proxy
+
+-------------------------------------------------------------------------
+-- Swagger
+-------------------------------------------------------------------------
+type SwaggerApi =
+    -- this serves both: swagger.json and swagger-ui
+    SwaggerSchemaUI "docs" "swagger.json"
+
+type WalletSwaggerApi =
+     WalletApi
+    :<|>
+     SwaggerApi
+
+-- | Helper Proxy.
+swaggerWalletApi :: Proxy WalletSwaggerApi
+swaggerWalletApi = Proxy

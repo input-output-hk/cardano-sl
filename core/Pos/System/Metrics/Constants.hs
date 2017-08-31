@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Pos.System.Metrics.Constants (
       cardanoNamespace
     , withCardanoNamespace

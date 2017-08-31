@@ -4,7 +4,7 @@
 {-# LANGUAGE GADTs #-}
 
 module Node.Util.Monitor (
-      setupMonitor
+      registerMetrics
     ) where
 
 import Control.Monad.IO.Class
@@ -19,7 +19,7 @@ import Node
 -- | Put time-warp related metrics into an EKG store.
 --   You must indicate how to run the monad into IO, so that EKG can produce
 --   the metrics (it works in IO).
-setupMonitor
+registerMetrics
     :: ( Mockable Metrics.Metrics m
        , Metrics.Distribution m ~ Monitoring.Distribution.Distribution
        , MonadIO m
@@ -29,7 +29,7 @@ setupMonitor
     -> Node m
     -> Monitoring.Store
     -> m ()
-setupMonitor mbNamespace lowerIO node store = do
+registerMetrics mbNamespace lowerIO node store = do
     liftIO $ flip (Monitoring.registerGauge (withNamespace "handlers.initiated_remotely")) store $ lowerIO $ do
         stats <- nodeStatistics node
         Metrics.readGauge (stRunningHandlersRemote stats)

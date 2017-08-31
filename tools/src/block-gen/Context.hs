@@ -16,7 +16,7 @@ import           Ether.Internal       (HasLens (..))
 import           Mockable             (Production, currentTime)
 
 import           Pos.Block.Core       (Block, BlockHeader)
-import           Pos.Block.Slog       (SlogContext, mkSlogContext)
+import           Pos.Block.Slog       (HasSlogGState (..), mkSlogGState)
 import           Pos.Block.Types      (Undo)
 import           Pos.Context          (GenesisUtxo (..))
 import           Pos.Core             (GenesisWStakeholders, HasCoreConstants,
@@ -61,7 +61,7 @@ initTBlockGenMode ::
     -> Production a
 initTBlockGenMode nodeDBs genesisCtx action = do
     let _gscDB = RealDB nodeDBs
-    (_gscSlogContext, putSlogContext) <- newInitFuture
+    (_gscSlogGState, putSlogGState) <- newInitFuture
     (_gscLrcContext, putLrcCtx) <- newInitFuture
     (_gscSlottingVar, putSlottingVar) <- newInitFuture
     let tbgcGState = GStateContext {..}
@@ -77,8 +77,8 @@ initTBlockGenMode nodeDBs genesisCtx action = do
         lcLrcSync <- mkLrcSyncData >>= newTVarIO
         putLrcCtx $ LrcContext {..}
 
-        slogContext <- mkSlogContext
-        putSlogContext slogContext
+        slogGS <- mkSlogGState
+        putSlogGState slogGS
         action
 
 ----------------------------------------------------------------------------
@@ -93,8 +93,8 @@ instance GS.HasGStateContext TBlockGenContext where
 instance HasLens DBSum TBlockGenContext DBSum where
     lensOf = tbgcGState_L . GS.gscDB
 
-instance HasLens SlogContext TBlockGenContext SlogContext where
-    lensOf = tbgcGState_L . GS.gscSlogContext
+instance HasSlogGState TBlockGenContext where
+    slogGState = tbgcGState_L . slogGState
 
 instance HasLens LrcContext TBlockGenContext LrcContext where
     lensOf = tbgcGState_L . GS.gscLrcContext

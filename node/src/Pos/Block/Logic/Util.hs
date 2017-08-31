@@ -22,7 +22,7 @@ import           System.Wlog            (WithLogger)
 
 import           Pos.Block.Core         (BlockHeader)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
-import           Pos.Block.Slog.Types   (HasSlogContext)
+import           Pos.Block.Slog.Types   (HasSlogGState)
 import           Pos.Context            (blkSecurityParam, slotSecurityParam)
 import           Pos.Core               (BlockCount, FlatSlotId, HasCoreConstants,
                                          HeaderHash, diffEpochOrSlot, getEpochOrSlot,
@@ -105,7 +105,7 @@ calcChainQuality blockCount deepSlot newSlot =
 -- the monadic context.
 calcChainQualityM ::
        ( MonadReader ctx m
-       , HasSlogContext ctx
+       , HasSlogGState ctx
        , MonadIO m
        , MonadThrow m
        , WithLogger m

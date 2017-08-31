@@ -232,7 +232,6 @@ reportingFatal action =
     handler2 = andThrow $ \(ErrorCall reason) ->
         reportError ("FatalError/error: " <> show reason)
 
-
 ----------------------------------------------------------------------------
 -- General purpose
 ----------------------------------------------------------------------------

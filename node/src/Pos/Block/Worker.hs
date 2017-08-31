@@ -12,9 +12,11 @@ import           Universum
 
 import           Control.Lens                (ix)
 import qualified Data.List.NonEmpty          as NE
-import           Formatting                  (bprint, build, fixed, sformat, shown, (%))
+import           Formatting                  (Format, bprint, build, fixed, int, now,
+                                              sformat, shown, (%))
 import           Mockable                    (concurrently, delay)
 import           Serokell.Util               (listJson, pairF)
+import           System.Metrics.Distribution (Distribution)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
@@ -23,16 +25,17 @@ import           Pos.Block.Logic             (calcChainQualityM,
                                               createMainBlockAndApply)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Block.Slog              (slogGetLastSlots)
+import           Pos.Block.Slog              (scCQDistribution, slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
                                               networkDiameter, nonCriticalCQ,
                                               nonCriticalCQBootstrap)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
-import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
-                                              blkSecurityParam, flattenSlotId, gbHeader,
-                                              getSlotIndex, slotIdF)
+import           Pos.Core                    (HasCoreConstants, SlotId (..),
+                                              Timestamp (Timestamp), blkSecurityParam,
+                                              flattenSlotId, gbHeader, getSlotIndex,
+                                              slotIdF, unflattenSlotId)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
@@ -42,7 +45,7 @@ import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.GState                  (getPskByIssuer)
 import           Pos.Lrc.DB                  (getLeaders)
-import           Pos.Reporting               (reportMisbehaviour)
+import           Pos.Reporting               (DistrMonitor (..), recordValue)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
@@ -232,35 +235,46 @@ chainQualityChecker curSlot = do
             | length slotsNE < fromIntegral blkSecurityParam -> pass
             | otherwise -> chainQualityCheckerDo (NE.head slotsNE)
   where
-    chainQualityCheckerDo __kThSlot = do
+    chainQualityCheckerDo kThSlot = do
+        logDebug $ sformat ("Block with depth 'k' ("%int%
+                            ") was created during slot "%slotIdF)
+            blkSecurityParam (unflattenSlotId kThSlot)
         let curFlatSlot = flattenSlotId curSlot
         -- We use monadic version here, because it also does sanity
         -- check and we don't want to copy-paste it and it's easier
         -- and cheap.
         chainQuality :: Double <- calcChainQualityM curFlatSlot
-        let cqF = fixed 3 -- chain quality formatter
-        isBootstrap <- gsIsBootstrapEra (siEpoch curSlot)
-        let nonCriticalThreshold
-                | isBootstrap = nonCriticalCQBootstrap
-                | otherwise = nonCriticalCQ
-        let criticalThreshold
-                | isBootstrap = criticalCQBootstrap
-                | otherwise = criticalCQ
-        let formatCQWarning thd =
-                sformat
-                    ("Poor chain quality for the last 'k' blocks, "%
-                     "less than " %cqF % ": " %cqF)
-                                   thd         chainQuality
-        if | chainQuality < criticalThreshold ->
-               do let msg = formatCQWarning criticalThreshold
-                  -- REPORT:MISBEHAVIOUR(T) Chain quality is critically low
-                  reportMisbehaviour True msg
-           | chainQuality < nonCriticalThreshold ->
-               do let msg = formatCQWarning nonCriticalThreshold
-                  -- REPORT:MISBEHAVIOUR(F) Chain quality is non-critically low
-                  reportMisbehaviour False msg
-           | otherwise ->
-               logDebug $
-               sformat
-                   ("Chain quality for the last 'k' blocks is " %cqF)
-                   chainQuality
+        isBootstrapEra <- gsIsBootstrapEra (siEpoch curSlot)
+        ekgDistribution <- view scCQDistribution
+        let monitor = cqDistrMonitor ekgDistribution isBootstrapEra
+        recordValue monitor chainQuality
+
+cqDistrMonitor ::
+       HasCoreConstants => Maybe Distribution -> Bool -> DistrMonitor
+cqDistrMonitor distr isBootstrapEra =
+    DistrMonitor
+    { dmDistr = distr
+    , dmReportMisbehaviour = classifier
+    , dmMisbehFormat =
+          "Poor chain quality for the last 'k' ("%kFormat%") blocks, "%
+          "less than "%now (bprint cqF criticalThreshold)%": "%cqF
+    , dmDebugFormat =
+          Just $ "Chain quality for the last 'k' ("%kFormat% ") blocks is "%cqF
+    }
+  where
+    classifier v
+        | v < criticalThreshold = Just True
+        | v < nonCriticalThreshold = Just False
+        | otherwise = Nothing
+    criticalThreshold
+        | isBootstrapEra = criticalCQBootstrap
+        | otherwise = criticalCQ
+    nonCriticalThreshold
+        | isBootstrapEra = nonCriticalCQBootstrap
+        | otherwise = nonCriticalCQ
+    -- Chain quality formatter.
+    cqF :: Format r (Double -> r)
+    cqF = fixed 3
+    -- Can be used to insert the value of 'blkSecurityParam' into a 'Format'.
+    kFormat :: Format r r
+    kFormat = now (bprint int blkSecurityParam)

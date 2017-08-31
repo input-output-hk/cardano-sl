@@ -143,7 +143,21 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             futureLrcContext
     runInitMode initModeContext $ do
         initNodeDBs @ssc
-        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting networkConfig
+
+        -- EKG monitoring stuff.
+        --
+        -- Relevant even if monitoring is turned off (no port given). The
+        -- gauge and distribution can be sampled by the server dispatcher
+        -- and used to inform a policy for delaying the next receive event.
+        --
+        -- TODO implement this. Requires time-warp-nt commit
+        --   275c16b38a715264b0b12f32c2f22ab478db29e9
+        -- in addition to the non-master
+        --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
+        -- for flexible EKG setup.
+        nrEkgStore <- liftIO $ Metrics.newStore
+
+        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting networkConfig nrEkgStore
         putLrcContext ncLrcContext
         setupLoggers $ bpLoggingParams npBaseParams
         dlgVar <- mkDelegationVar @ssc
@@ -158,18 +172,6 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
                     liftIO $ hSetBuffering h NoBuffering
                     return $ Just h
 
-        -- EKG monitoring stuff.
-        --
-        -- Relevant even if monitoring is turned off (no port given). The
-        -- gauge and distribution can be sampled by the server dispatcher
-        -- and used to inform a policy for delaying the next receive event.
-        --
-        -- TODO implement this. Requires time-warp-nt commit
-        --   275c16b38a715264b0b12f32c2f22ab478db29e9
-        -- in addition to the non-master
-        --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
-        -- for flexible EKG setup.
-        nrEkgStore <- liftIO $ Metrics.newStore
         txpMetrics <- liftIO $ recordTxpMetrics nrEkgStore
 
         return NodeResources
@@ -241,8 +243,9 @@ allocateNodeContext
     -> SscParams ssc
     -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
     -> NetworkConfig KademliaDHTInstance
+    -> Metrics.Store
     -> InitMode ssc (NodeContext ssc)
-allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig = do
+allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig store = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncStateLock <- newStateLock
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
@@ -261,7 +264,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig = do
     ncLastKnownHeader <- newTVarIO Nothing
     ncUpdateContext <- mkUpdateContext
     ncSscContext <- untag @ssc sscCreateNodeContext sscnp
-    ncSlogContext <- mkSlogContext
+    ncSlogContext <- mkSlogContext (Just store)
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty

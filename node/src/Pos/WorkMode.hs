@@ -28,7 +28,7 @@ import           System.Wlog            (HasLoggerName (..), LoggerName)
 import           Pos.Block.BListener    (MonadBListener (..), onApplyBlocksStub,
                                          onRollbackBlocksStub)
 import           Pos.Block.Core         (Block, BlockHeader)
-import           Pos.Block.Slog.Types   (HasSlogContext (..))
+import           Pos.Block.Slog.Types   (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Block.Types        (Undo)
 import           Pos.Context            (HasNodeContext (..), HasPrimaryKey (..),
                                          HasSscContext (..), NodeContext)
@@ -125,7 +125,10 @@ instance HasSlottingVar (RealModeContext ssc) where
     slottingVar = rmcNodeContext_L . slottingVar
 
 instance HasSlogContext (RealModeContext ssc) where
-    slogContextL = rmcNodeContext_L . slogContextL
+    slogContext = rmcNodeContext_L . slogContext
+
+instance HasSlogGState (RealModeContext ssc) where
+    slogGState = slogContext . scGState
 
 instance HasNodeContext ssc (RealModeContext ssc) where
     nodeContext = rmcNodeContext_L

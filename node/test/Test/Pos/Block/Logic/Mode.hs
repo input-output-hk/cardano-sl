@@ -43,7 +43,7 @@ import           Pos.AllSecrets                 (AllSecrets (..), HasAllSecrets 
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
                                                  onRollbackBlocksStub)
 import           Pos.Block.Core                 (Block, BlockHeader)
-import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
+import           Pos.Block.Slog                 (HasSlogGState (..), mkSlogGState)
 import           Pos.Block.Types                (Undo)
 import           Pos.Core                       (AddrSpendingData (..), HasCoreConstants,
                                                  IsHeader, SlotId, StakeDistribution (..),
@@ -270,7 +270,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             putLrcCtx _gscLrcContext
             btcUpdateContext <- mkUpdateContext
             btcSscState <- mkSscState @SscGodTossing
-            _gscSlogContext <- mkSlogContext
+            _gscSlogGState <- mkSlogGState
             btcTxpMem <- (, ignoreTxpMetrics) <$> mkTxpLocalData
 #ifdef WITH_EXPLORER
             let btcTxpGlobalSettings = explorerTxpGlobalSettings
@@ -429,8 +429,8 @@ instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
-instance HasSlogContext BlockTestContext where
-    slogContextL = GS.gStateContext . GS.gscSlogContext
+instance HasSlogGState BlockTestContext where
+    slogGState = GS.gStateContext . GS.gscSlogGState
 
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L

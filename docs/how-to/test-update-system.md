@@ -28,9 +28,9 @@ Should have name like `genesis-dn-2017-08-31_15-28.tgz`
 2.
 
 ```
-cp -R <genesis_directory>/nodes nodes2
+cp -R <genesis_directory>/keys-testnet/rich nodes2
 cd nodes2
-for i in {0..4}; do stack exec -- cardano-keygen rearrange --mask key$i.sk; done
+for i in {0..4}; do stack exec -- cardano-keygen rearrange --mask testnet$i.key; done
 ```
 
 ### Cardano-wallet
@@ -50,10 +50,10 @@ Then you will appear in `repl` mode and would need to perform few actions:
 #### Import keys
 
 ```
-add-key nodes2/key1.sk
-add-key nodes2/key2.sk
-add-key nodes2/key3.sk
-add-key nodes2/key4.sk
+add-key nodes2/testnet1.key
+add-key nodes2/testnet2.key
+add-key nodes2/testnet3.key
+add-key nodes2/testnet4.key
 ```
 
 Then if you execute

@@ -104,5 +104,6 @@ let
     }) { inherit pkgs; };
     make-genesis = pkgs.callPackage ./tests/make-genesis.nix { inherit (cardanoPkgs) cardano-sl-tools; };
     testjob = (import ./default.nix { inherit pkgs; genesis = make-genesis; }).cardano-sl-static;
+    check-logs = pkgs.callPackage ./tests/check-logs.nix {};
   };
 in cardanoPkgs // other

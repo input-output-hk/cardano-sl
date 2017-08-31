@@ -72,36 +72,35 @@ in {
     node5 = mkMachine 5;
   };
   testScript = ''
-    startAll;
-    $node1->waitForUnit("cardano-node.service");
-    # TODO, implement sd_notify?
-    $node1->waitForOpenPort(3000);
-    $node2->waitForOpenPort(3000);
-    $node3->waitForOpenPort(3000);
-    $node4->waitForOpenPort(3000);
-    $node5->waitForOpenPort(3000);
-    $node1->sleep(600);
     my @list = ($node1, $node2, $node3, $node4, $node5);
+    my @names = ("node1", "node2", "node3", "node4", "node4");
     my $x;
+
+    startAll;
+
     foreach $x (@list) {
-      $x->execute("systemctl stop cardano-node");
+      $x->waitForUnit("cardano-node.service");
+      $x->waitForOpenPort(3000);
     }
+    $node1->sleep(600);
     foreach $x (@list) {
-      print STDERR $x->execute("journalctl -u cardano-node | egrep 'Created a new block|MainBlockHeader|  slot:|Current slot leader|difficulty' -C2 --color=always");
+      $x->execute("systemctl stop cardano-node --no-block");
+    }
+    sleep(5);
+    foreach $x (@list) {
       $x->execute("journalctl -u cardano-node > /tmp/shared/`hostname`.log");
+      $x->execute("journalctl -u cardano-node -o json > /tmp/shared/`hostname`.json");
     }
     system("ls -ltrh xchg-shared");
     system('mkdir $out/logs');
-    system('mv -v xchg-shared/node*log $out/logs');
+    system('mv -v xchg-shared/node* $out/logs');
     my $out = $ENV{'out'};
     my $fname = "$out/nix-support/hydra-build-products";
     open(my $fh, '>', $fname) or die "unable to open $fname";
+    for $x (@names) {
+      print $fh "file journal $out/logs/$x.log\n";
+    }
     print $fh <<"EOF";
-    file journal $out/logs/node1.log
-    file journal $out/logs/node2.log
-    file journal $out/logs/node3.log
-    file journal $out/logs/node4.log
-    file journal $out/logs/node5.log
     file pcap $out/capture-1-1.pcap
     file pcap $out/capture-1-2.pcap
     file pcap $out/capture-1-3.pcap

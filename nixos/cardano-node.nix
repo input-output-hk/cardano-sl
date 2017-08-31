@@ -215,6 +215,7 @@ in {
         KillSignal = "SIGINT";
         WorkingDirectory = stateDir;
         PrivateTmp = true;
+        Type = "notify";
       };
     };
   };

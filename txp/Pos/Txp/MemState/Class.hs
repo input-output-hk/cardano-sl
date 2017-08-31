@@ -25,8 +25,6 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import           Ether.Internal         (HasLens (..))
-import           Mockable               (CurrentTime, Mockable, currentTime)
-import           System.Wlog            (WithLogger, getLoggerName, usingLoggerName)
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxUndo)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
@@ -83,57 +81,37 @@ getTxpExtra :: (MonadIO m, MonadTxpMem e ctx m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
 modifyTxpLocalData
-    :: (WithLogger m, MonadIO m, MonadTxpMem ext ctx m, Mockable CurrentTime m)
-    => String
-    -> (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
+    :: (MonadIO m, MonadTxpMem ext ctx m)
+    => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
     -> m a
-modifyTxpLocalData reason f =
-    askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> do
-        lname <- getLoggerName
-        liftIO . usingLoggerName lname $ txpMetricsWait reason
-        timeBeginWait <- currentTime
-        (res, logMetricsRelease) <- do
-            timeEndWait <- currentTime
-            liftIO . usingLoggerName lname $
-                txpMetricsAcquire (timeEndWait - timeBeginWait)
-            timeBeginModify <- currentTime
-            (res, newSize) <- atomically $ do
-                curUM  <- STM.readTVar txpUtxoModifier
-                curMP  <- STM.readTVar txpMemPool
-                curUndos <- STM.readTVar txpUndos
-                curTip <- STM.readTVar txpTip
-                curExtra <- STM.readTVar txpExtra
-                let (res, (newUM, newMP, newUndos, newTip, newExtra))
-                      = f (curUM, curMP, curUndos, curTip, curExtra)
-                STM.writeTVar txpUtxoModifier newUM
-                STM.writeTVar txpMemPool newMP
-                STM.writeTVar txpUndos newUndos
-                STM.writeTVar txpTip newTip
-                STM.writeTVar txpExtra newExtra
-                pure (res, _mpSize newMP)
-            timeEndModify <- currentTime
-            let logMetricsRelease = liftIO . usingLoggerName lname $ do
-                    txpMetricsRelease (timeEndModify - timeBeginModify) newSize
-            pure (res, logMetricsRelease)
-        logMetricsRelease
+modifyTxpLocalData f =
+    askTxpMem >>= \TxpLocalData{..} -> atomically $ do
+        curUM <- STM.readTVar txpUtxoModifier
+        curMP <- STM.readTVar txpMemPool
+        curUndos <- STM.readTVar txpUndos
+        curTip <- STM.readTVar txpTip
+        curExtra <- STM.readTVar txpExtra
+        let (res,(newUM,newMP,newUndos,newTip,newExtra)) =
+                f (curUM, curMP, curUndos, curTip, curExtra)
+        STM.writeTVar txpUtxoModifier newUM
+        STM.writeTVar txpMemPool newMP
+        STM.writeTVar txpUndos newUndos
+        STM.writeTVar txpTip newTip
+        STM.writeTVar txpExtra newExtra
         pure res
 
 setTxpLocalData ::
-       (WithLogger m, MonadIO m, MonadTxpMem ext ctx m, Mockable CurrentTime m)
-    => String
-    -> GenericTxpLocalDataPure ext
+       (MonadIO m, MonadTxpMem ext ctx m)
+    => GenericTxpLocalDataPure ext
     -> m ()
-setTxpLocalData reason x = modifyTxpLocalData reason (const ((), x))
+setTxpLocalData x = modifyTxpLocalData (const ((), x))
 
 clearTxpMemPool ::
-       ( WithLogger m
-       , MonadIO m
+       ( MonadIO m
        , MonadTxpMem ext ctx m
        , Default ext
-       , Mockable CurrentTime m
        )
-    => String
-    -> m ()
-clearTxpMemPool reason = modifyTxpLocalData reason clearF
+    => m ()
+clearTxpMemPool = modifyTxpLocalData clearF
   where
     clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))

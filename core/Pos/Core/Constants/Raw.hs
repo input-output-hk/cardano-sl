@@ -28,6 +28,7 @@ module Pos.Core.Constants.Raw
        , criticalCQBootstrap
        , nonCriticalCQ
        , criticalCQ
+       , criticalForkThreshold
 
        , webLoggingEnabled
        ) where
@@ -119,7 +120,8 @@ data CoreConfig = CoreConfig
       -- | Eligibility threshold for MPC
     , ccGenesisMpcThd                :: !Double
 
-       -- Chain quality thresholds.
+       -- Chain quality thresholds and other constants to detect
+       -- suspicious things.
 
       -- | If chain quality in bootstrap era is less than this value,
       -- non critical misbehavior will be reported.
@@ -133,6 +135,9 @@ data CoreConfig = CoreConfig
       -- | If chain quality after bootstrap era is less than this
       -- value, critical misbehavior will be reported.
     , ccCriticalCQ                   :: !Double
+      -- | Number of blocks such that if so many blocks are rolled
+      -- back, it requires immediate reaction.
+    , ccCriticalForkThreshold        :: !Int
 
        -- Web settings
 
@@ -233,6 +238,11 @@ nonCriticalCQ = ccNonCriticalCQ coreConfig
 -- value, critical misbehavior will be reported.
 criticalCQ :: Double
 criticalCQ = ccCriticalCQ coreConfig
+
+-- | If chain quality after bootstrap era is less than this
+-- value, critical misbehavior will be reported.
+criticalForkThreshold :: Integral i => i
+criticalForkThreshold = fromIntegral . ccCriticalForkThreshold $ coreConfig
 
 -- | Web logging might be disabled for security concerns.
 webLoggingEnabled :: Bool

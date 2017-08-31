@@ -24,8 +24,10 @@ import           Pos.Core              (BlockVersionData, EpochIndex,
 import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
 import qualified Pos.GState            as GS
-import           Pos.Infra.Semaphore   (BlkSemaphore, withBlkSemaphore)
+import           Pos.KnownPeers        (MonadFormatPeers)
+import           Pos.Reporting         (HasReportingContext, reportError)
 import           Pos.Slotting          (MonadSlots (currentTimeSlotting, getCurrentSlot))
+import           Pos.StateLock         (Priority (..), StateLock, withStateLock)
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
@@ -52,6 +54,9 @@ type ETxpLocalWorkMode ctx m =
     , MonadSlots ctx m
     , HasLens' ctx GenesisWStakeholders
     , Mockable CurrentTime m
+    , MonadMask m
+    , MonadFormatPeers m
+    , HasReportingContext ctx
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -90,15 +95,15 @@ instance MonadTxExtraRead EProcessTxMode where
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
 
 eTxProcessTransaction
-    :: (ETxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
+    :: (ETxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
-    withBlkSemaphore $ \__tip -> eTxProcessTransactionNoLock itw
+    withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
+eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     let UnsafeTx {..} = taTx txAux
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
@@ -113,7 +118,7 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
     --
     -- Also note that we don't need to use a snapshot here and can be
     -- sure that GState won't change, because changing it requires
-    -- 'BlkSemaphore' which we own inside this function.
+    -- 'StateLock' which we own inside this function.
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
@@ -148,15 +153,17 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
             }
     pRes <-
         lift $
-        modifyTxpLocalData "eTxProcessTransaction" $
+        modifyTxpLocalData $
         processTxDo epoch ctx tipBefore itw curTime
+    -- We report 'ToilTipsMismatch' as an error, because usually it
+    -- should't happen. If it happens, it's better to look at logs.
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: " %build) txId
             throwError er
         Right _ ->
-            logDebug $
-            sformat ("Transaction is processed successfully: " %build) txId
+            logDebug
+                (sformat ("Transaction is processed successfully: " %build) txId)
   where
     processTxDo ::
            EpochIndex
@@ -194,6 +201,12 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
     buildMap keys maybeValues =
         HM.fromList $
         catMaybes $ toList $ zipWith (liftM2 (,) . Just) keys maybeValues
+    -- REPORT:ERROR Tips mismatch in txp.
+    reportTipMismatch action = do
+        res <- action
+        res <$ case res of
+            (Left err@(ToilTipsMismatch {})) -> reportError (pretty err)
+            _                                -> pass
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool
@@ -207,7 +220,7 @@ eTxNormalize = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
-        setTxpLocalData "eTxNormalize" (mempty, def, mempty, tip, def)
+        setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
         localTxs <- getLocalTxsMap
@@ -218,4 +231,4 @@ eTxNormalize = getCurrentSlot >>= \case
             runDBToil $
             snd <$>
             runToilTLocalExtra mempty def mempty def (eNormalizeToil epoch toNormalize)
-        setTxpLocalData "eTxNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+        setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

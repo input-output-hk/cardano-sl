@@ -19,7 +19,7 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, default
 import           Pos.Ssc.GodTossing.Error           (SeedError)
 import           Pos.Ssc.GodTossing.Functions       (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
-import           Pos.Ssc.GodTossing.Toss.Failure    (TossVerFailure)
+import           Pos.Ssc.GodTossing.Toss.Failure    (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, GtParams,
                                                      createGtContext)
 
@@ -47,3 +47,7 @@ instance HasCoreConstants => SscHelpersClass SscGodTossing where
     sscVerifyPayload = sanityChecksGtPayload
     sscStripPayload = stripGtPayload
     sscDefaultPayload = defaultGtPayload
+    sscIsCriticalError =
+        \case
+            TossInternallError {} -> True
+            _ -> False

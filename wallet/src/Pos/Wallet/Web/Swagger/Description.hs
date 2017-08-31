@@ -161,11 +161,6 @@ instance HasCustomSwagger ReportingInitialized where
     swaggerModifier = modifyDescription
         "Send node's report on initialization time."
 
-instance HasCustomSwagger ReportingElectroncrash where
-    swaggerModifier = modifyDescription
-        "Send node's report on electron crash info."
-
-
 instance HasCustomSwagger GetSlotsDuration where
     swaggerModifier = modifyDescription
         "Get blockchain slot duration in milliseconds."

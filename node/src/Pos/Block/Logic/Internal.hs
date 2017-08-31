@@ -50,9 +50,8 @@ import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback
                                           dlgRollbackBlocks)
 import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
-import           Pos.KnownPeers          (MonadFormatPeers)
 import           Pos.Lrc.Context         (LrcContext)
-import           Pos.Reporting           (HasReportingContext, reportingFatal)
+import           Pos.Reporting           (MonadReporting, reportingFatal)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage   (SscGStateClass)
@@ -93,7 +92,8 @@ type MonadBlockBase ssc ctx m
        , MonadDelegation ctx m
        -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
-       , MonadReader ctx m
+       -- To report bad things.
+       , MonadReporting ctx m
        )
 
 -- | Set of constraints necessary for high-level block verification.
@@ -110,10 +110,6 @@ type MonadBlockApply ssc ctx m
        , MonadMask m
        -- Needed to embed custom logic.
        , MonadBListener m
-       -- Needed for error reporting.
-       , HasReportingContext ctx
-       , MonadReader ctx m
-       , MonadFormatPeers m
        -- Needed for rollback
        , Mockable CurrentTime m
        )
@@ -131,10 +127,7 @@ type MonadMempoolNormalization ssc ctx m
       , MonadSscBlockDB ssc m
       , MonadGState m
       -- Needed for error reporting.
-      , HasReportingContext ctx
-      , MonadMask m
-      , MonadReader ctx m
-      , MonadFormatPeers m
+      , MonadReporting ctx m
       -- 'MonadRandom' for crypto.
       , Rand.MonadRandom m
       , Mockable CurrentTime m

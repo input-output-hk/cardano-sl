@@ -50,7 +50,6 @@ module Pos.Wallet.Web.Api
        , RedeemADAPaperVend
 
        , ReportingInitialized
-       , ReportingElectroncrash
 
        , GetSlotsDuration
        , GetVersion
@@ -67,7 +66,6 @@ module Pos.Wallet.Web.Api
 import           Control.Monad.Catch        (try)
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody, Verb)
-import           Servant.Multipart          (MultipartForm)
 import           Servant.Server             (Handler (..))
 import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Universum
@@ -78,7 +76,7 @@ import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
                                              ReportDecodeError (..), VerbMod)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
                                              CAccountMeta, CAddress, CCoin,
-                                             CElectronCrashReport, CId, CInitialized,
+                                             CId, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase,
                                              CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
                                              CWallet, CWalletInit, CWalletMeta,
@@ -309,12 +307,6 @@ type ReportingInitialized =
     :> ReqBody '[JSON] CInitialized
     :> WRes Post ()
 
-type ReportingElectroncrash =
-       "reporting"
-    :> "electroncrash"
-    :> MultipartForm CElectronCrashReport
-    :> WRes Post ()
-
 -------------------------------------------------------------------------
 -- Settings
 -------------------------------------------------------------------------
@@ -442,8 +434,6 @@ type WalletApi = ApiPrefix :> (
      -- Reporting
      -------------------------------------------------------------------------
      ReportingInitialized
-    :<|>
-     ReportingElectroncrash
     :<|>
      -------------------------------------------------------------------------
      -- Settings

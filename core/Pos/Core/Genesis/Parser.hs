@@ -30,12 +30,13 @@ import           Pos.Core.Genesis.Types  (GenesisCoreData (..))
 -- from the folder determined by the @CSL_RES_PATH@ environment variable.
 compileGenCoreData :: GenesisCoreData
 compileGenCoreData = do
-    let name = "genesis-core-" <> genesisBinSuffix <> ".bin"
 #ifdef NO_EMBED
     let path = unsafePerformIO $ getEnv "CSL_RES_PATH"
-    let file = unsafePerformIO $ BS.readFile (path </> name)
+    let file = unsafePerformIO $ BS.readFile $ path </>
+          ("genesis-core-" <> genesisBinSuffix <> ".bin")
 #else
-    let file = $(embedFile =<< makeRelativeToProject name)
+    let file = $(embedFile =<< makeRelativeToProject
+          ("genesis-core-" <> genesisBinSuffix <> ".bin"))
 #endif
     case decodeFull file of
         Left a  -> error $ "Failed to read genesis: " <> toText a

@@ -27,12 +27,13 @@ import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
 -- from the folder determined by the @CSL_RES_PATH@ environment variable.
 compileGenGtData :: GenesisGtData
 compileGenGtData = do
-    let name = "genesis-godtossing-" <> genesisBinSuffix <> ".bin"
 #ifdef NO_EMBED
     let path = unsafePerformIO $ getEnv "CSL_RES_PATH"
-    let file = unsafePerformIO $ BS.readFile (path </> name)
+    let file = unsafePerformIO $ BS.readFile $ path </>
+          ("genesis-godtossing-" <> genesisBinSuffix <> ".bin")
 #else
-    let file = $(embedFile =<< makeRelativeToProject name)
+    let file = $(embedFile =<< makeRelativeToProject
+          ("genesis-godtossing-" <> genesisBinSuffix <> ".bin"))
 #endif
     case decodeFull file of
         Left a  -> error $ toText a

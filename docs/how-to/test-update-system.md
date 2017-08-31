@@ -25,7 +25,9 @@
 
 1. Take genesis folder corresponding to `devnet_shortep_full`
 Should have name like `genesis-dn-2017-08-31_15-28.tgz`
-2. ```
+2.
+
+```
 cp -R <genesis_directory>/nodes nodes2
 cd nodes2
 for i in {0..4}; do stack exec -- cardano-keygen rearrange --mask key$i.sk; done

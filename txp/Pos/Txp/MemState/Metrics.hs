@@ -3,13 +3,14 @@ module Pos.Txp.MemState.Metrics
     , recordTxpMetrics
     ) where
 
-import           Formatting             (sformat, shown, (%))
-import qualified System.Metrics         as Metrics
-import qualified System.Metrics.Gauge   as Metrics.Gauge
-import           System.Wlog            (logDebug)
+import           Formatting                   (sformat, shown, (%))
+import qualified System.Metrics               as Metrics
+import qualified System.Metrics.Gauge         as Metrics.Gauge
+import           System.Wlog                  (logDebug)
 import           Universum
 
-import           Pos.Txp.MemState.Types (TxpMetrics (..))
+import           Pos.System.Metrics.Constants (withCardanoNamespace)
+import           Pos.Txp.MemState.Types       (TxpMetrics (..))
 
 -- | A TxpMetrics that never does any writes. Use it if you don't care about
 -- metrics.
@@ -23,10 +24,10 @@ ignoreTxpMetrics = TxpMetrics
 -- | Record MemPool metrics.
 recordTxpMetrics :: Metrics.Store -> IO TxpMetrics
 recordTxpMetrics ekgStore = do
-    ekgMemPoolSize        <- Metrics.createGauge "MemPoolSize" ekgStore
-    ekgMemPoolWaitTime    <- Metrics.createGauge "MemPoolWaitTime" ekgStore
-    ekgMemPoolModifyTime  <- Metrics.createGauge "MemPoolModifyTime" ekgStore
-    ekgMemPoolQueueLength <- Metrics.createGauge "MemPoolQueueLength" ekgStore
+    ekgMemPoolSize        <- Metrics.createGauge (withCardanoNamespace "MemPoolSize") ekgStore
+    ekgMemPoolWaitTime    <- Metrics.createGauge (withCardanoNamespace "MemPoolWaitTime_μs") ekgStore
+    ekgMemPoolModifyTime  <- Metrics.createGauge (withCardanoNamespace "MemPoolModifyTime_μs") ekgStore
+    ekgMemPoolQueueLength <- Metrics.createGauge (withCardanoNamespace "MemPoolQueueLength") ekgStore
 
     -- An exponential moving average is used for the time gauges (wait
     -- and modify durations). The parameter alpha is chosen somewhat

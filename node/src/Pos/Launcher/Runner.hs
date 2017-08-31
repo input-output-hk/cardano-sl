@@ -32,7 +32,9 @@ import           Node                            (Node, NodeAction (..), NodeEnd
                                                   node, simpleNodeEndPoint)
 import qualified Node.Conversation               as N (Conversation, Converse,
                                                        converseWith)
-import           Pos.Util.Monitor                (setupMonitor, stopMonitor)
+import           Node.Util.Monitor               (registerMetrics)
+import           Pos.System.Metrics.Constants    (cardanoNamespace)
+import           Pos.Util.Monitor                (stopMonitor)
 import qualified System.Metrics                  as Metrics
 import           System.Random                   (newStdGen)
 import qualified System.Remote.Monitoring.Statsd as Monitoring
@@ -122,8 +124,8 @@ runRealModeDo NodeResources {..} outSpecs action =
         case npEnableMetrics of
             False -> return Nothing
             True  -> Just <$> do
-                ekgStore' <- setupMonitor
-                    (runProduction . runToProd JsonLogDisabled oq) node' nrEkgStore
+                let ekgStore' = nrEkgStore
+                registerMetrics (Just cardanoNamespace) (runProduction . runToProd JsonLogDisabled oq) node' ekgStore'
                 liftIO $ Metrics.registerGcMetrics ekgStore'
                 mEkgServer <- case npEkgParams of
                     Nothing -> return Nothing

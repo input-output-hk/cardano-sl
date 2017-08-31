@@ -1086,7 +1086,7 @@ self: {
           description = "Reporting server for CSL";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      cardano-sl = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, ansi-terminal, ansi-wl-pprint, async, base, base58-bytestring, base64-bytestring, binary, bytestring, cardano-crypto, cardano-report-server, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cborg, cereal, conduit, containers, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, dlist, dns, ed25519, ekg, ekg-core, ekg-statsd, ether, exceptions, file-embed, filelock, filepath, focus, formatting, generic-arbitrary, hashable, hspec, http-client, http-client-tls, http-conduit, http-types, iproute, kademlia, lens, list-t, log-warper, lrucache, memory, mkDerivation, mmorph, monad-control, monad-loops, mono-traversable, mtl, neat-interpolation, network-info, network-transport, network-transport-tcp, network-uri, node-sketch, optparse-applicative, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, regex-tdfa, regex-tdfa-text, resourcet, rocksdb-haskell, safecopy, serokell-util, servant, servant-multipart, servant-server, stdenv, stm, stm-containers, string-qq, systemd, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers, vector, wai, wai-extra, warp, warp-tls, yaml }:
+      cardano-sl = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, ansi-terminal, ansi-wl-pprint, async, base, base58-bytestring, base64-bytestring, binary, bytestring, cardano-crypto, cardano-report-server, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cborg, cereal, conduit, containers, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, dlist, dns, ed25519, ekg-core, ekg-statsd, ekg-wai, ether, exceptions, file-embed, filelock, filepath, focus, formatting, generic-arbitrary, hashable, hspec, http-client, http-client-tls, http-conduit, http-types, iproute, kademlia, lens, list-t, log-warper, lrucache, memory, mkDerivation, mmorph, monad-control, monad-loops, mono-traversable, mtl, neat-interpolation, network-info, network-transport, network-transport-tcp, network-uri, node-sketch, optparse-applicative, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, regex-tdfa, regex-tdfa-text, resourcet, rocksdb-haskell, safecopy, serokell-util, servant, servant-multipart, servant-server, stdenv, stm, stm-containers, string-qq, systemd, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers, vector, wai, wai-extra, warp, warp-tls, yaml }:
       mkDerivation {
           pname = "cardano-sl";
           version = "0.5.1";
@@ -1128,9 +1128,9 @@ self: {
             dlist
             dns
             ed25519
-            ekg
             ekg-core
             ekg-statsd
+            ekg-wai
             ether
             exceptions
             file-embed
@@ -2949,34 +2949,6 @@ self: {
           description = "An either monad transformer";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      ekg = callPackage ({ aeson, base, bytestring, ekg-core, ekg-json, filepath, mkDerivation, network, snap-core, snap-server, stdenv, text, time, transformers, unordered-containers }:
-      mkDerivation {
-          pname = "ekg";
-          version = "0.4.0.14";
-          sha256 = "1n0l5lpkgkln9jmwwx2p2m2mbm7pr66w7lggj0yw4ay7ipjxjrrd";
-          revision = "1";
-          editedCabalFile = "152b4w3qld6jmwir3a06h6sc1girahla8cc1y2g23bwv6nnhxapp";
-          libraryHaskellDepends = [
-            aeson
-            base
-            bytestring
-            ekg-core
-            ekg-json
-            filepath
-            network
-            snap-core
-            snap-server
-            text
-            time
-            transformers
-            unordered-containers
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "https://github.com/tibbe/ekg";
-          description = "Remote monitoring of processes";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
       ekg-core = callPackage ({ base, containers, ghc-prim, mkDerivation, stdenv, text, unordered-containers }:
       mkDerivation {
           pname = "ekg-core";
@@ -3031,6 +3003,34 @@ self: {
           doCheck = false;
           homepage = "https://github.com/tibbe/ekg-statsd";
           description = "Push metrics to statsd";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      ekg-wai = callPackage ({ aeson, base, bytestring, ekg-core, ekg-json, filepath, http-types, mkDerivation, network, stdenv, text, time, transformers, unordered-containers, wai, wai-app-static, warp }:
+      mkDerivation {
+          pname = "ekg-wai";
+          version = "0.1.0.2";
+          sha256 = "1ridcn930lf8gjj7lqdbhzzmz0i6r668bhid72anbq3v1h6fnhnw";
+          libraryHaskellDepends = [
+            aeson
+            base
+            bytestring
+            ekg-core
+            ekg-json
+            filepath
+            http-types
+            network
+            text
+            time
+            transformers
+            unordered-containers
+            wai
+            wai-app-static
+            warp
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/tvh/ekg-wai";
+          description = "Remote monitoring of processes";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       engine-io = callPackage ({ aeson, async, attoparsec, base, base64-bytestring, bytestring, either, fetchgit, free, mkDerivation, monad-loops, mwc-random, stdenv, stm, stm-delay, text, transformers, unordered-containers, vector, websockets }:
@@ -4120,51 +4120,6 @@ self: {
           description = "Interval Arithmetic";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      io-streams = callPackage ({ attoparsec, base, bytestring, bytestring-builder, mkDerivation, network, primitive, process, stdenv, text, time, transformers, vector, zlib-bindings }:
-      mkDerivation {
-          pname = "io-streams";
-          version = "1.4.1.0";
-          sha256 = "0d6m7hq6l3zabqm2kga9qs1742vh5rnhfsa76svpkyn32z8n1i1w";
-          libraryHaskellDepends = [
-            attoparsec
-            base
-            bytestring
-            bytestring-builder
-            network
-            primitive
-            process
-            text
-            time
-            transformers
-            vector
-            zlib-bindings
-          ];
-          doHaddock = false;
-          doCheck = false;
-          description = "Simple, composable, and easy-to-use stream I/O";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
-      io-streams-haproxy = callPackage ({ attoparsec, base, bytestring, io-streams, mkDerivation, network, stdenv, transformers }:
-      mkDerivation {
-          pname = "io-streams-haproxy";
-          version = "1.0.0.1";
-          sha256 = "0zwjdsg1pcxzd8s0d308q4jhx0pfrk2aq8q039gs8k9y8h9cbh64";
-          revision = "2";
-          editedCabalFile = "1zm580jcncmh667k51k47xwwhd171r3f0h00d25hi6isq812ia40";
-          libraryHaskellDepends = [
-            attoparsec
-            base
-            bytestring
-            io-streams
-            network
-            transformers
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "http://snapframework.com/";
-          description = "HAProxy protocol 1.5 support for io-streams";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
       iproute = callPackage ({ appar, base, byteorder, containers, mkDerivation, network, stdenv }:
       mkDerivation {
           pname = "iproute";
@@ -4867,14 +4822,14 @@ self: {
           description = "A typeclass and set of functions for working with newtypes, with generics support";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      node-sketch = callPackage ({ aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
+      node-sketch = callPackage ({ aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "0gwr1n6mp6n70mwgczf8pblq1l2085nmyll5wl19dg1ic0dnmbh2";
-            rev = "40f4235cda65c746c6edc2a3455242d96d7175bf";
+            sha256 = "1b74lvdc5a5yyyiylkzasbr6xxd2ww2gjh90q66bv8s1m0hfhli6";
+            rev = "51ce7d0f54c6232fb0c27f2edbe25a338535d02d";
           };
           isLibrary = true;
           isExecutable = true;
@@ -4889,7 +4844,6 @@ self: {
             cryptonite
             data-default
             deepseq
-            ekg
             ekg-core
             exceptions
             formatting
@@ -5459,22 +5413,6 @@ self: {
           description = "Random shuffle implementation";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      readable = callPackage ({ base, bytestring, mkDerivation, stdenv, text }:
-      mkDerivation {
-          pname = "readable";
-          version = "0.3.1";
-          sha256 = "1ja39cg26wy2fs00gi12x7iq5k8i366pbqi3p916skfa5jnkfc3h";
-          libraryHaskellDepends = [
-            base
-            bytestring
-            text
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "https://github.com/mightybyte/readable";
-          description = "Reading from Text and ByteString";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
       reflection = callPackage ({ base, mkDerivation, stdenv, template-haskell }:
       mkDerivation {
           pname = "reflection";
@@ -5501,24 +5439,6 @@ self: {
             bytestring
             containers
             mtl
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "http://sourceforge.net/projects/lazy-regex";
-          description = "Replaces/Enhances Text.Regex";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
-      regex-posix = callPackage ({ array, base, bytestring, containers, mkDerivation, regex-base, stdenv }:
-      mkDerivation {
-          pname = "regex-posix";
-          version = "0.95.2";
-          sha256 = "0gkhzhj8nvfn1ija31c7xnl6p0gadwii9ihyp219ck2arlhrj0an";
-          libraryHaskellDepends = [
-            array
-            base
-            bytestring
-            containers
-            regex-base
           ];
           doHaddock = false;
           doCheck = false;
@@ -6031,82 +5951,6 @@ self: {
           doHaddock = false;
           doCheck = false;
           description = "Cross platform library for the sendfile system call";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
-      snap-core = callPackage ({ HUnit, attoparsec, base, bytestring, bytestring-builder, case-insensitive, containers, directory, filepath, hashable, io-streams, lifted-base, mkDerivation, monad-control, mtl, network, network-uri, old-locale, random, readable, regex-posix, stdenv, text, time, transformers, transformers-base, unix-compat, unordered-containers, vector }:
-      mkDerivation {
-          pname = "snap-core";
-          version = "1.0.3.0";
-          sha256 = "0vkla7rfrwyhk31nign8ccjfhp7f0nqjhmg6hb7rq7ggblgwgnr4";
-          libraryHaskellDepends = [
-            attoparsec
-            base
-            bytestring
-            bytestring-builder
-            case-insensitive
-            containers
-            directory
-            filepath
-            hashable
-            HUnit
-            io-streams
-            lifted-base
-            monad-control
-            mtl
-            network
-            network-uri
-            old-locale
-            random
-            readable
-            regex-posix
-            text
-            time
-            transformers
-            transformers-base
-            unix-compat
-            unordered-containers
-            vector
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "http://snapframework.com/";
-          description = "Snap: A Haskell Web Framework (core interfaces and types)";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
-      snap-server = callPackage ({ attoparsec, base, blaze-builder, bytestring, bytestring-builder, case-insensitive, clock, containers, filepath, io-streams, io-streams-haproxy, lifted-base, mkDerivation, mtl, network, old-locale, snap-core, stdenv, text, time, unix, unix-compat, vector }:
-      mkDerivation {
-          pname = "snap-server";
-          version = "1.0.3.0";
-          sha256 = "1lvwfrirf6gq6nr6ias0i0xynq62s9myrj4203wdwq0y4c40nhqc";
-          isLibrary = true;
-          isExecutable = true;
-          libraryHaskellDepends = [
-            attoparsec
-            base
-            blaze-builder
-            bytestring
-            bytestring-builder
-            case-insensitive
-            clock
-            containers
-            filepath
-            io-streams
-            io-streams-haproxy
-            lifted-base
-            mtl
-            network
-            old-locale
-            snap-core
-            text
-            time
-            unix
-            unix-compat
-            vector
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "http://snapframework.com/";
-          description = "A web server for the Snap Framework";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       socket-io = callPackage ({ aeson, attoparsec, base, bytestring, engine-io, fetchgit, mkDerivation, mtl, stdenv, stm, text, transformers, unordered-containers, vector }:
@@ -7749,24 +7593,6 @@ self: {
           description = "Compression and decompression in the gzip and zlib formats";
           license = stdenv.lib.licenses.bsd3;
         }) { zlib = pkgs.zlib; };
-      zlib-bindings = callPackage ({ base, bytestring, mkDerivation, stdenv, zlib }:
-      mkDerivation {
-          pname = "zlib-bindings";
-          version = "0.1.1.5";
-          sha256 = "02ciywlz4wdlymgc3jsnicz9kzvymjw1www2163gxidnz4wb8fy8";
-          revision = "2";
-          editedCabalFile = "0fq49694gqkab8m0vq4i879blswczwd66n7xh4r4gwiahf0ryvqc";
-          libraryHaskellDepends = [
-            base
-            bytestring
-            zlib
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "http://github.com/snapframework/zlib-bindings";
-          description = "Low-level bindings to the zlib package";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
     };
 in
 compiler.override {

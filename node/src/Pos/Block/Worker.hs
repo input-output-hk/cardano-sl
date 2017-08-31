@@ -12,11 +12,11 @@ import           Universum
 
 import           Control.Lens                (ix)
 import qualified Data.List.NonEmpty          as NE
+import           Data.Time.Units             (Microsecond)
 import           Formatting                  (Format, bprint, build, fixed, int, now,
                                               sformat, shown, (%))
 import           Mockable                    (concurrently, delay)
-import           Serokell.Util               (listJson, pairF)
-import           System.Metrics.Distribution (Distribution)
+import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
@@ -25,7 +25,7 @@ import           Pos.Block.Logic             (calcChainQualityM,
                                               createMainBlockAndApply)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Block.Slog              (scCQDistribution, slogGetLastSlots)
+import           Pos.Block.Slog              (scCQMonitorState, slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
@@ -45,7 +45,8 @@ import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.GState                  (getPskByIssuer)
 import           Pos.Lrc.DB                  (getLeaders)
-import           Pos.Reporting               (DistrMonitor (..), recordValue)
+import           Pos.Reporting               (DistrMonitor (..), DistrMonitorState,
+                                              recordValue)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
@@ -245,15 +246,15 @@ chainQualityChecker curSlot = do
         -- and cheap.
         chainQuality :: Double <- calcChainQualityM curFlatSlot
         isBootstrapEra <- gsIsBootstrapEra (siEpoch curSlot)
-        ekgDistribution <- view scCQDistribution
-        let monitor = cqDistrMonitor ekgDistribution isBootstrapEra
+        monitorState <- view scCQMonitorState
+        let monitor = cqDistrMonitor monitorState isBootstrapEra
         recordValue monitor chainQuality
 
 cqDistrMonitor ::
-       HasCoreConstants => Maybe Distribution -> Bool -> DistrMonitor
-cqDistrMonitor distr isBootstrapEra =
+       HasCoreConstants => DistrMonitorState -> Bool -> DistrMonitor
+cqDistrMonitor st isBootstrapEra =
     DistrMonitor
-    { dmDistr = distr
+    { dmState = st
     , dmReportMisbehaviour = classifier
     , dmMisbehFormat =
           "Poor chain quality for the last 'k' ("%kFormat%") blocks, "%
@@ -262,10 +263,15 @@ cqDistrMonitor distr isBootstrapEra =
           Just $ "Chain quality for the last 'k' ("%kFormat% ") blocks is "%cqF
     }
   where
-    classifier v
-        | v < criticalThreshold = Just True
-        | v < nonCriticalThreshold = Just False
+    classifier :: Microsecond -> Maybe Double -> Double -> Maybe Bool
+    classifier timePassed prevVal newVal
+        -- report at most once per 400 sec, unless decreased
+        | not decreased && timePassed < sec 400 = Nothing
+        | newVal < criticalThreshold = Just True
+        | newVal < nonCriticalThreshold = Just False
         | otherwise = Nothing
+      where
+        decreased = maybe False (newVal <) prevVal
     criticalThreshold
         | isBootstrapEra = criticalCQBootstrap
         | otherwise = criticalCQ

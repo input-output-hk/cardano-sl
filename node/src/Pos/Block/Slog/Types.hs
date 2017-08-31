@@ -15,14 +15,14 @@ module Pos.Block.Slog.Types
 
 import           Universum
 
-import           Control.Lens                (makeClassy)
+import           Control.Lens          (makeClassy)
 import qualified Data.Text.Buildable
-import           Formatting                  (bprint)
-import           System.Metrics.Distribution (Distribution)
+import           Formatting            (bprint)
 
-import           Pos.Core                    (FlatSlotId, HasCoreConstants, slotIdF,
-                                              unflattenSlotId)
-import           Pos.Util.Chrono             (OldestFirst (..))
+import           Pos.Core              (FlatSlotId, HasCoreConstants, slotIdF,
+                                        unflattenSlotId)
+import           Pos.Reporting.Metrics (DistrMonitorState)
+import           Pos.Util.Chrono       (OldestFirst (..))
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
@@ -50,8 +50,8 @@ data SlogContext = SlogContext
     -- ^ Slots for which last blocks in our chain were created. This
     -- information is also stored in DB, but we don't want to read it
     -- every time.
-    , _scCQDistribution :: !(Maybe Distribution)
-    -- ^ Optional distribution to keep track of chain quality.
+    , _scCQMonitorState :: !DistrMonitorState
+    -- ^ Internal state of 'DistrMonitor' to keep track of chain quality.
     }
 
 makeClassy ''SlogContext

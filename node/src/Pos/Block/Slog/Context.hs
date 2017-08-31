@@ -20,6 +20,7 @@ import           Pos.Block.Slog.Types  (HasSlogGState (..), LastBlkSlots,
                                         sgsLastBlkSlots)
 import           Pos.DB.Class          (MonadDBRead)
 import           Pos.GState.BlockExtra (getLastSlots)
+import           Pos.Reporting         (mkDistrMonitorState)
 
 -- | Make new 'SlogGState' using data from DB.
 mkSlogGState :: (MonadIO m, MonadDBRead m) => m SlogGState
@@ -31,14 +32,8 @@ mkSlogGState = do
 mkSlogContext :: (MonadIO m, MonadDBRead m) => Maybe Ekg.Store -> m SlogContext
 mkSlogContext storeMaybe = do
     _scGState <- mkSlogGState
-    -- [CSL-1464] TODO: use modified namespace after CSL-1585 is merged!
-    _scCQDistribution <-
-        case storeMaybe of
-            Nothing -> return Nothing
-            Just store ->
-                liftIO $
-                Just <$>
-                Ekg.createDistribution "Chain quality for last k blocks" store
+    _scCQMonitorState <-
+        mkDistrMonitorState "Chain quality for last k blocks" storeMaybe
     return SlogContext {..}
 
 -- | Make a copy of existing 'SlogGState'.

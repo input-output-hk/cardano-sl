@@ -20,12 +20,14 @@ import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (calcChainQualityM, calcOverallChainQuality,
+import           Pos.Block.Logic             (calcChainQualityFixedTime,
+                                              calcChainQualityM, calcOverallChainQuality,
                                               createGenesisBlockAndApply,
                                               createMainBlockAndApply)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Block.Slog              (scCQOverallMonitorState, scCQkMonitorState,
+import           Pos.Block.Slog              (scCQFixedMonitorState,
+                                              scCQOverallMonitorState, scCQkMonitorState,
                                               slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
@@ -35,8 +37,8 @@ import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (HasCoreConstants, SlotId (..),
                                               Timestamp (Timestamp), blkSecurityParam,
-                                              flattenSlotId, gbHeader, getSlotIndex,
-                                              slotIdF, unflattenSlotId)
+                                              fixedTimeCQSec, flattenSlotId, gbHeader,
+                                              getSlotIndex, slotIdF, unflattenSlotId)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
@@ -248,11 +250,12 @@ chainQualityChecker curSlot = do
         chainQualityK :: Double <- calcChainQualityM curFlatSlot
         isBootstrapEra <- gsIsBootstrapEra (siEpoch curSlot)
         monitorStateK <- view scCQkMonitorState
-        monitorStateOverall <- view scCQOverallMonitorState
         let monitorK = cqkDistrMonitor monitorStateK isBootstrapEra
-        let monitorOverall = cqOverallDistrMonitor monitorStateOverall
+        monitorOverall <- cqOverallDistrMonitor <$> view scCQOverallMonitorState
+        monitorFixed <- cqFixedDistrMonitor <$> view scCQFixedMonitorState
         recordValue monitorK chainQualityK
         whenJustM (calcOverallChainQuality @ssc) $ recordValue monitorOverall
+        whenJustM calcChainQualityFixedTime $ recordValue monitorFixed
 
 -- Monitor for chain quality for last k blocks.
 cqkDistrMonitor ::
@@ -294,6 +297,18 @@ cqOverallDistrMonitor st =
     , dmReportMisbehaviour = classifier
     , dmMisbehFormat = cqF -- won't be used due to classifier
     , dmDebugFormat = Just $ "Overall chain quality is " %cqF
+    }
+  where
+    classifier _ _ _ = Nothing
+
+cqFixedDistrMonitor :: DistrMonitorState -> DistrMonitor
+cqFixedDistrMonitor st =
+    DistrMonitor
+    { dmState = st
+    , dmReportMisbehaviour = classifier
+    , dmMisbehFormat = cqF -- won't be used due to classifier
+    , dmDebugFormat = Just $ "Chain quality for last "%
+                             now (bprint build fixedTimeCQSec)%" is "%cqF
     }
   where
     classifier _ _ _ = Nothing

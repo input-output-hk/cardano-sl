@@ -13,13 +13,14 @@ module Pos.Block.Slog.Context
 
 import           Universum
 
-import           Formatting            (int, sformat, (%))
+import           Formatting            (build, int, sformat, (%))
 import qualified System.Metrics        as Ekg
 
 import           Pos.Block.Slog.Types  (HasSlogGState (..), LastBlkSlots,
                                         SlogContext (..), SlogGState (..),
                                         sgsLastBlkSlots)
-import           Pos.Core              (HasCoreConstants, blkSecurityParam)
+import           Pos.Core              (HasCoreConstants, blkSecurityParam,
+                                        fixedTimeCQSec)
 import           Pos.DB.Class          (MonadDBRead)
 import           Pos.GState.BlockExtra (getLastSlots)
 import           Pos.Reporting         (mkDistrMonitorState)
@@ -41,8 +42,12 @@ mkSlogContext storeMaybe = do
             sformat ("Chain quality for last k ("%int%") blocks")
                 blkSecurityParam
     let metricNameOverall = "Overall chain quality"
+    let metricNameFixed =
+            sformat ("Chain quality for last "%build)
+                fixedTimeCQSec
     _scCQkMonitorState <- mkDistrMonitorState metricNameK storeMaybe
     _scCQOverallMonitorState <- mkDistrMonitorState metricNameOverall storeMaybe
+    _scCQFixedMonitorState <- mkDistrMonitorState metricNameFixed storeMaybe
     return SlogContext {..}
 
 -- | Make a copy of existing 'SlogGState'.

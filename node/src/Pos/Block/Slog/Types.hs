@@ -56,6 +56,9 @@ data SlogContext = SlogContext
     , _scCQOverallMonitorState :: !DistrMonitorState
     -- ^ Internal state of 'DistrMonitor' to keep track of overall chain
     -- quality.
+    , _scCQFixedMonitorState   :: !DistrMonitorState
+    -- ^ Internal state of 'DistrMonitor' to keep track of chain
+    -- quality for fixed amount of time.
     }
 
 makeClassy ''SlogContext

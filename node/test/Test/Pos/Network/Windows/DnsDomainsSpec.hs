@@ -5,6 +5,12 @@
 #define POSIX
 #endif
 
+-- This warning is disabled because it is not possible to have modules in the test suite
+-- that are compiled only on certain operating systems using the 'if os(os_name)' in the
+-- project's cabal file.
+--
+-- As such, on Linux, for example, during compilation there will be warnings on unused
+--imports which are not really relevant.
 {-# OPTIONS_GHC -Wno-unused-imports   #-}
 
 -- | Specification of 'Pos.Network.Windows.DnsDomains'

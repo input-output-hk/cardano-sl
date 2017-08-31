@@ -32,11 +32,11 @@ import           Node                            (Node, NodeAction (..), NodeEnd
                                                   node, simpleNodeEndPoint)
 import qualified Node.Conversation               as N (Conversation, Converse,
                                                        converseWith)
-import           Node.Util.Monitor               (setupMonitor, stopMonitor)
+import           Pos.Util.Monitor                (setupMonitor, stopMonitor)
 import qualified System.Metrics                  as Metrics
 import           System.Random                   (newStdGen)
-import qualified System.Remote.Monitoring        as Monitoring
 import qualified System.Remote.Monitoring.Statsd as Monitoring
+import qualified System.Remote.Monitoring.Wai    as Monitoring
 import           System.Wlog                     (WithLogger, logInfo)
 
 import           Pos.Binary                      ()

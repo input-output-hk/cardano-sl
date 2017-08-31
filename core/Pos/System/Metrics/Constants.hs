@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Pos.System.Metrics.Constants (
-    withCardanoNamespace
+      cardanoNamespace
+    , withCardanoNamespace
                                         ) where
 
 import           Universum

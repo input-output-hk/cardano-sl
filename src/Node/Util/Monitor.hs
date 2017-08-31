@@ -28,7 +28,7 @@ setupMonitor
     -> (forall t . m t -> IO t)
     -> Node m
     -> Monitoring.Store
-    -> m Monitoring.Store
+    -> m ()
 setupMonitor mbNamespace lowerIO node store = do
     liftIO $ flip (Monitoring.registerGauge (withNamespace "handlers.initiated_remotely")) store $ lowerIO $ do
         stats <- nodeStatistics node
@@ -42,7 +42,6 @@ setupMonitor mbNamespace lowerIO node store = do
     liftIO $ flip (Monitoring.registerDistribution (withNamespace "handlers.finished_exceptionally.elapsed_time_microseconds")) store $ lowerIO $ do
         stats <- nodeStatistics node
         liftIO $ Monitoring.Distribution.read (stHandlersFinishedExceptionally stats)
-    return store
   where
       withNamespace :: T.Text -> T.Text
       withNamespace name = case mbNamespace of

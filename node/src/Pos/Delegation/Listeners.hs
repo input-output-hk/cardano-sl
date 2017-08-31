@@ -53,7 +53,7 @@ pskHeavyRelay = Data $ DataParams MsgTransaction $ \_ _ -> handlePsk
         verdict <- processProxySKHeavy @ssc pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
         case verdict of
-            PHIncoherent -> do
+            PHTipMismatch -> do
                 -- We're probably updating state over epoch, so leaders
                 -- can be calculated incorrectly.
                 stateLock <- views (lensOf @StateLock) slTip

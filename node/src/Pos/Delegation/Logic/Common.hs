@@ -29,8 +29,8 @@ import           Formatting           (bprint, build, sformat, stext, (%))
 
 import           Pos.Constants        (dlgCacheParam, lightDlgConfirmationTimeout,
                                        messageCacheTimeout)
-import           Pos.Core             (ProxySKHeavy, StakeholderId, addressHash,
-                                       epochIndexL)
+import           Pos.Core             (HasCoreConstants, ProxySKHeavy, StakeholderId,
+                                       addressHash, headerHash)
 import           Pos.Crypto           (ProxySecretKey (..), PublicKey)
 import           Pos.DB               (DBError (DBMalformed), MonadDBRead)
 import qualified Pos.DB.Block         as DB
@@ -69,8 +69,6 @@ instance B.Buildable DelegationError where
 -- | Convenient monad to work in 'DelegationWrap' state context.
 type DelegationStateAction = State DelegationWrap
 
--- Misha knows better probably.
--- {-# ANN runDelegationStateAction ("HLint: ignore Use fmap" :: Text) #-}
 -- | Executes atomic action on delegation variable.
 runDelegationStateAction
     :: (MonadIO m, MonadMask m, MonadDelegation ctx m)
@@ -102,17 +100,17 @@ invalidateProxyCaches curTime = do
 -- * Sets '_dwEpochId' to epoch of tip.
 -- * Initializes mempools/LRU caches.
 mkDelegationVar ::
-       forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m)
+       forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m, HasCoreConstants)
     => m DelegationVar
 mkDelegationVar = do
     tip <- DB.getTipHeader @ssc
-    liftIO $ newTVarIO
+    newTVarIO
         DelegationWrap
         { _dwMessageCache = LRU.newLRU msgCacheLimit
         , _dwConfirmationCache = LRU.newLRU confCacheLimit
         , _dwProxySKPool = HM.empty
         , _dwPoolSize = 1 -- approximate size of the empty mempool.
-        , _dwEpochId = tip ^. epochIndexL
+        , _dwTip = headerHash tip
         }
   where
     msgCacheLimit = Just dlgCacheParam

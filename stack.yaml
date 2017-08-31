@@ -81,6 +81,12 @@ packages:
     - engine-io
     - engine-io-wai
 
+# Forked version of "dns" with proper Windows support
+- location:
+    git: https://github.com/input-output-hk/dns.git
+    commit: 6da3cd051bd6f6415c8ec3b53f1c0372a80a4376
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 

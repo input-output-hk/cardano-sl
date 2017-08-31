@@ -5,7 +5,7 @@
 
 -- | Descriptions for each endpoint, for Swagger-documentation.
 
-module Description () where
+module Pos.Wallet.Web.Swagger.Description where
 
 import           Universum
 
@@ -15,175 +15,171 @@ import           Servant                            ((:>))
 import           Servant.Swagger                    (HasSwagger, subOperations)
 import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
 
-import           CustomSwagger                      (HasCustomSwagger (..))
-import           Instances                          ()
-import qualified Pos.Wallet.Web                     as W
+import           Pos.Wallet.Web.Swagger.CustomSwagger     (HasCustomSwagger (..))
+import           Pos.Wallet.Web.Swagger.Instances.Schema  ()
+import           Pos.Wallet.Web.Swagger.Instances.Swagger ()
+import           Pos.Wallet.Web.Api
 
 -- | Wallet API operations, i.e. modifier of part of api related to
 -- single endpoint.
 wop
     :: forall sub.
-       ( IsSubAPI (W.ApiPrefix :> sub) W.WalletApi
-       , HasSwagger (W.ApiPrefix :> sub)
+       ( IsSubAPI (ApiPrefix :> sub) WalletApi
+       , HasSwagger (ApiPrefix :> sub)
        )
     => Proxy sub -> Traversal' Swagger Operation
-wop _ = subOperations (Proxy @(W.ApiPrefix :> sub)) W.walletApi
+wop _ = subOperations (Proxy @(ApiPrefix :> sub)) walletApi
 
 modifyDescription
-    :: (IsSubAPI (W.ApiPrefix :> api) W.WalletApi
+    :: (IsSubAPI (ApiPrefix :> api) WalletApi
        , HasSwagger api
        )
     => Text -> Proxy api -> Swagger -> Swagger
 modifyDescription desc api = wop api . description ?~ desc
 
 
-instance HasCustomSwagger api => HasCustomSwagger (W.ApiPrefix :> api) where
+instance HasCustomSwagger api => HasCustomSwagger (ApiPrefix :> api) where
     swaggerModifier _ = swaggerModifier (Proxy @api)
 
-instance HasCustomSwagger W.TestReset where
+instance HasCustomSwagger TestReset where
     swaggerModifier = modifyDescription
         "Delete all secret keys. It works in development mode only, \
         \returns HTTP 403 otherwise."
 
-instance HasCustomSwagger W.GetWallet where
+instance HasCustomSwagger GetWallet where
     swaggerModifier = modifyDescription
         "Get information about a wallet by its ID (address)."
 
-instance HasCustomSwagger W.GetWallets where
+instance HasCustomSwagger GetWallets where
     swaggerModifier = modifyDescription
         "Get information about all available wallets."
 
-instance HasCustomSwagger W.NewWallet where
+instance HasCustomSwagger NewWallet where
     swaggerModifier = modifyDescription
         "Create a new wallet."
 
-instance HasCustomSwagger W.UpdateWallet where
+instance HasCustomSwagger UpdateWallet where
     swaggerModifier = modifyDescription
         "Update wallet's meta information."
 
-instance HasCustomSwagger W.RestoreWallet where
+instance HasCustomSwagger RestoreWallet where
     swaggerModifier = modifyDescription
         "Create a new wallet."
 
-instance HasCustomSwagger W.DeleteWallet where
+instance HasCustomSwagger DeleteWallet where
     swaggerModifier = modifyDescription
         "Delete given wallet with all contained accounts."
 
-instance HasCustomSwagger W.ImportWallet where
+instance HasCustomSwagger ImportWallet where
     swaggerModifier = modifyDescription
         "Import user's secret key from the path to generate wallet."
 
-instance HasCustomSwagger W.ChangeWalletPassphrase where
+instance HasCustomSwagger ChangeWalletPassphrase where
     swaggerModifier = modifyDescription
         "Change passphrase of given wallet."
 
 
-instance HasCustomSwagger W.GetAccount where
+instance HasCustomSwagger GetAccount where
     swaggerModifier = modifyDescription
         "Get information about a account by account's ID \
         \(address + index of account in wallet)."
 
-instance HasCustomSwagger W.GetAccounts where
+instance HasCustomSwagger GetAccounts where
     swaggerModifier = modifyDescription
         "Get information about all available accounts."
 
-instance HasCustomSwagger W.UpdateAccount where
+instance HasCustomSwagger UpdateAccount where
     swaggerModifier = modifyDescription
         "Update account's meta information."
 
-instance HasCustomSwagger W.NewAccount where
+instance HasCustomSwagger NewAccount where
     swaggerModifier = modifyDescription
         "Create a new account in given wallet."
 
-instance HasCustomSwagger W.DeleteAccount where
+instance HasCustomSwagger DeleteAccount where
     swaggerModifier = modifyDescription
         "Delete a account by account's ID (address + index of \
         \account in wallet)."
 
 
-instance HasCustomSwagger W.NewAddress where
+instance HasCustomSwagger NewAddress where
     swaggerModifier = modifyDescription
         "Create a new address in given account."
 
 
-instance HasCustomSwagger W.IsValidAddress where
+instance HasCustomSwagger IsValidAddress where
     swaggerModifier = modifyDescription
         "Returns True if given address is valid, False otherwise."
 
 
-instance HasCustomSwagger W.GetProfile where
+instance HasCustomSwagger GetProfile where
     swaggerModifier = modifyDescription
         "Get user profile's meta data."
 
-instance HasCustomSwagger W.UpdateProfile where
+instance HasCustomSwagger UpdateProfile where
     swaggerModifier = modifyDescription
         "Update user profile."
 
 
-instance HasCustomSwagger W.NewPayment where
+instance HasCustomSwagger NewPayment where
     swaggerModifier = modifyDescription
         "Create a new payment transaction."
 
-instance HasCustomSwagger W.TxFee where
+instance HasCustomSwagger TxFee where
     swaggerModifier = modifyDescription
         "Estimate fees for performing given transaction. \
         \Transaction will not be created."
 
-instance HasCustomSwagger W.UpdateTx where
+instance HasCustomSwagger UpdateTx where
     swaggerModifier = modifyDescription
         "Update payment transaction."
 
-instance HasCustomSwagger W.GetHistory where
+instance HasCustomSwagger GetHistory where
     swaggerModifier = modifyDescription
         "Get the history of transactions."
 
 
-instance HasCustomSwagger W.NextUpdate where
+instance HasCustomSwagger NextUpdate where
     swaggerModifier = modifyDescription
         "Get information about the next update."
 
-instance HasCustomSwagger W.ApplyUpdate where
+instance HasCustomSwagger ApplyUpdate where
     swaggerModifier = modifyDescription
         "Apply last update."
 
 
-instance HasCustomSwagger W.RedeemADA where
+instance HasCustomSwagger RedeemADA where
     swaggerModifier = modifyDescription
         "Redeem ADA."
 
-instance HasCustomSwagger W.RedeemADAPaperVend where
+instance HasCustomSwagger RedeemADAPaperVend where
     swaggerModifier = modifyDescription
         "Redeem ADA, paper vending."
 
 
-instance HasCustomSwagger W.ReportingInitialized where
+instance HasCustomSwagger ReportingInitialized where
     swaggerModifier = modifyDescription
         "Send node's report on initialization time."
 
-instance HasCustomSwagger W.ReportingElectroncrash where
-    swaggerModifier = modifyDescription
-        "Send node's report on electron crash info."
-
-
-instance HasCustomSwagger W.GetSlotsDuration where
+instance HasCustomSwagger GetSlotsDuration where
     swaggerModifier = modifyDescription
         "Get blockchain slot duration in milliseconds."
 
-instance HasCustomSwagger W.GetVersion where
+instance HasCustomSwagger GetVersion where
     swaggerModifier = modifyDescription
         "Get current version of the node."
 
-instance HasCustomSwagger W.GetSyncProgress where
+instance HasCustomSwagger GetSyncProgress where
     swaggerModifier = modifyDescription
         "Sync progress, with info about local chain difficulty,\
         \network chain difficulty and connected peers."
 
 
-instance HasCustomSwagger W.ImportBackupJSON where
+instance HasCustomSwagger ImportBackupJSON where
     swaggerModifier = modifyDescription
         "Import full information about wallet from a given file."
 
-instance HasCustomSwagger W.ExportBackupJSON where
+instance HasCustomSwagger ExportBackupJSON where
     swaggerModifier = modifyDescription
         "Export full information about wallet in JSON format into a file under \
         \given path. Wallet may be later restored from this file with \

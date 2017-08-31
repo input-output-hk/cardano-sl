@@ -31,8 +31,8 @@ rewrapTxError
     :: forall m a. MonadCatch m
     => Text -> m a -> m a
 rewrapTxError prefix =
-    rewrapToWalletError (\SomeException{} -> True) (InternalError . sbuild) .
-    rewrapToWalletError (\TxError{} -> True) (RequestError . sbuild)
+    rewrapToWalletError (\(_ :: SomeException) -> True) (InternalError . sbuild) .
+    rewrapToWalletError (\(_ :: TxError) -> True) (RequestError . sbuild)
   where
     sbuild :: Buildable e => e -> Text
     sbuild = sformat (stext%": "%build) prefix

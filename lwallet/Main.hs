@@ -42,7 +42,7 @@ import           Serokell.Util                    (ms, sec)
 import           Pos.Binary                       (Raw, serialize')
 import qualified Pos.Client.CLI                   as CLI
 import           Pos.Client.Txp.Balances          (getOwnUtxoForPk)
-import           Pos.Client.Txp.Util              (TxError (..), createTx)
+import           Pos.Client.Txp.Util              (createTx)
 import           Pos.Communication                (NodeId, OutSpecs, SendActions, Worker,
                                                    WorkerSpec, dataFlow, delegationRelays,
                                                    immediateConcurrentConversations,
@@ -51,15 +51,18 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    submitVote, txRelays, usRelays, worker)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
-import           Pos.Core                         (coinF)
+import           Pos.Core                         (addressHash, coinF)
+import           Pos.Core.Address                 (makeAddress)
 import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
-import           Pos.Core.Types                   (Timestamp (..), mkCoin)
+import           Pos.Core.Types                   (AddrAttributes (..),
+                                                   AddrSpendingData (..), Timestamp (..),
+                                                   mkCoin)
 import           Pos.Crypto                       (Hash, SecretKey, SignTag (SignUSVote),
                                                    emptyPassphrase, encToPublic,
-                                                   fakeSigner, hash, hashHexF,
-                                                   noPassEncrypt, safeCreatePsk, safeSign,
-                                                   safeToPublic, toPublic, unsafeHash,
-                                                   withSafeSigner)
+                                                   fakeSigner, fullPublicKeyHexF, hash,
+                                                   hashHexF, noPassEncrypt, safeCreatePsk,
+                                                   safeSign, safeToPublic, toPublic,
+                                                   unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
 import           Pos.Genesis                      (StakeDistribution (..),
                                                    devGenesisContext, devStakesDistr,
@@ -128,6 +131,13 @@ Avaliable commands:
                                      e is current epoch.
    add-key-pool <N>               -- add key from intial pool
    add-key <file>                 -- add key from file
+
+   addr-distr <N> boot
+   addr-distr <N> [<M>:<coinPortion>]+
+                                  -- print the address for pk <N> (encoded in base58) with the specified distribution,
+                                  -- where <M> is stakeholder id (pk hash), and the coin portion can be a coefficient
+                                  -- in [0..1] or a percentage (ex. 42%)
+
    help                           -- show this message
    quit                           -- shutdown node wallet
 |]
@@ -227,9 +237,9 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
                           utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)
                           etx <- createTx utxo (fakeSigner key) txOuts (toPublic key)
                           case etx of
-                              Left (TxError err) -> do
+                              Left err -> do
                                   addTxFailed tpsMVar
-                                  logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
+                                  logError (sformat ("Error: "%build%" while trying to send to "%shown) err neighbours)
                               Right (tx, _) -> do
                                   res <- submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
                                   addTxSubmit tpsMVar
@@ -315,8 +325,11 @@ runCmd _ ListAddresses _ = do
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
        addr <- makePubKeyAddressLWallet pk
-       putText $ sformat ("    #"%int%":   "%build%" (PK: "%stext%")")
-                    i addr (toBase58Text pk)
+       putText $ sformat ("    #"%int%":   addr:      "%build%"\n"%
+                          "          pk base58: "%stext%"\n"%
+                          "          pk hex:    "%fullPublicKeyHexF%"\n"%
+                          "          pk hash:   "%hashHexF)
+                    i addr (toBase58Text pk) pk (addressHash pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na} = do
@@ -341,6 +354,10 @@ runCmd _ (AddKeyFromPool i) CmdCtx{..} = do
 runCmd _ (AddKeyFromFile f) _ = do
     secret <- readUserSecret f
     mapM_ addSecretKey $ secret ^. usKeys
+runCmd _ (AddrDistr pk asd) _ = do
+    putText $ pretty addr
+  where
+    addr = makeAddress (PubKeyASD pk) (AddrAttributes Nothing asd)
 runCmd _ Quit _ = pure ()
 
 dummyHash :: Hash Raw

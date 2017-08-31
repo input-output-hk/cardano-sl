@@ -101,6 +101,7 @@ library
                        Pos.Util.Arbitrary
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.LockedTVar
+                       Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
@@ -110,6 +111,7 @@ library
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
+                       Pos.Util.Queue
                        Pos.Util.Util
 
   other-modules:

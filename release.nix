@@ -3,7 +3,7 @@ let
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? false
-  , dconfigs ? [ "testnet_staging" ]
+  , dconfigs ? [ "testnet_staging_full" "testnet_staging_wallet" ]
   , cardano ? { outPath = ./.; rev = "abcdef"; }
 }:
 with import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; packageSet = import ./.; };
@@ -17,7 +17,7 @@ let
   in {
     name = system;
     value = {
-      inherit (jobs) cardano-sl cardano-sl-static cardano-sl-tools cardano-sl-explorer-static stack2nix;
+      inherit (jobs) cardano-sl cardano-sl-static cardano-sl-tools cardano-sl-explorer-static stack2nix cardano-report-server-static;
     };
   };
   mkJobs = dconfig: systems: listToAttrs (map (mkJob dconfig) systems);

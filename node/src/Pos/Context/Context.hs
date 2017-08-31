@@ -43,7 +43,6 @@ import           Pos.Core                 (GenesisWStakeholders (..), HasPrimary
                                            Timestamp)
 import           Pos.DHT.Real.Param       (KademliaParams)
 import           Pos.DHT.Real.Types       (KademliaDHTInstance)
-import           Pos.Infra.Semaphore      (BlkSemaphore)
 import           Pos.Launcher.Param       (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context          (LrcContext)
 import           Pos.Network.Types        (NetworkConfig (..))
@@ -55,6 +54,7 @@ import           Pos.Shutdown             (HasShutdownContext (..), ShutdownCont
 import           Pos.Slotting             (HasSlottingVar (..), SlottingContextSum,
                                            SlottingData)
 import           Pos.Ssc.Class.Types      (HasSscContext (..), Ssc (SscNodeContext))
+import           Pos.StateLock            (StateLock)
 import           Pos.Txp.Settings         (TxpGlobalSettings)
 import           Pos.Txp.Toil.Types       (GenesisUtxo (..))
 import           Pos.Update.Context       (UpdateContext)
@@ -102,7 +102,7 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for Shutdown
     , ncSlogContext         :: !SlogContext
     -- ^ Context needed for Slog.
-    , ncBlkSemaphore        :: !BlkSemaphore
+    , ncStateLock           :: !StateLock
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
     , ncUserSecret          :: !(TVar UserSecret)
@@ -162,8 +162,8 @@ instance HasLens SlottingContextSum (NodeContext ssc) SlottingContextSum where
 instance HasLens ProgressHeaderTag (NodeContext ssc) (ProgressHeader ssc) where
     lensOf = ncProgressHeader_L
 
-instance HasLens BlkSemaphore (NodeContext ssc) BlkSemaphore where
-    lensOf = ncBlkSemaphore_L
+instance HasLens StateLock (NodeContext ssc) StateLock where
+    lensOf = ncStateLock_L
 
 instance HasLens LastKnownHeaderTag (NodeContext ssc) (LastKnownHeader ssc) where
     lensOf = ncLastKnownHeader_L

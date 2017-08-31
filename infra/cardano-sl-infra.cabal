@@ -101,11 +101,10 @@ library
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
-                        -- Everything else that is too small to have a special group
-                        Pos.Infra.Semaphore
-
   if os(windows)
     exposed-modules:    Pos.Network.Windows.DnsDomains
+    c-sources:          Pos/Network/Windows/defaultdns.c
+
 
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants
@@ -169,9 +168,6 @@ library
     build-depends:     unix
 
   default-language:    Haskell2010
-
-  if os(windows)
-    C-sources:         Pos/Network/Windows/defaultdns.c
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric

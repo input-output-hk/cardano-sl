@@ -1,80 +1,14 @@
-72ad41a42 Merge remote-tracking branch 'origin/master' into neongreen/csl-1527-redeem
+bd001efab Merge remote-tracking branch 'origin/master' into slightly-better-genesis
 
-diff --cc txp/Pos/Txp/Toil/Utxo/Functions.hs
-index 18f9e00f6,06834a7b5..e350e4457
---- a/txp/Pos/Txp/Toil/Utxo/Functions.hs
-+++ b/txp/Pos/Txp/Toil/Utxo/Functions.hs
-@@@ -209,40 -219,26 +219,26 @@@ verifyInputs VTxContext {..} resolvedIn
-              _                 -> False
-  
-      -- the first argument here includes local context, can be used for scripts
--     validateTxIn :: TxOutAux -> TxInWitness -> Either Text ()
--     validateTxIn _txOutAux wit =
--         let txSigData = TxSigData
--                 { txSigTxHash      = txHash
--                 , txSigTxDistrHash = distrHash
--                 }
--         in
--         case wit of
--             PkWitness{..}
--                 | checkSig SignTx twKey txSigData twSig ->
--                       Right ()
--                 | otherwise ->
--                       Left "signature check failed"
-- 
--             ScriptWitness{..}
--                 | scrVersion twValidator /= scrVersion twRedeemer ->
--                       Left "validator and redeemer have different versions"
--                 | not (isKnownScriptVersion (scrVersion twValidator)) ->
--                       when vtcVerifyAllIsKnown $
--                       Left ("unknown script version " <> show (scrVersion twValidator))
--                 | otherwise ->
--                       first toText (txScriptCheck txSigData twValidator twRedeemer)
-- 
--             RedeemWitness{..}
--                 | redeemCheckSig SignRedeemTx twRedeemKey txSigData twRedeemSig ->
--                       Right ()
--                 | otherwise ->
--                       Left "signature check failed"
-- 
--             UnknownWitnessType t _
--                 | vtcVerifyAllIsKnown ->
--                       Left ("unknown witness type: " <> show t)
--                 | otherwise ->
--                       Right ()
-+     checkWitness :: TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
-+     checkWitness _txOutAux witness = case witness of
-+         PkWitness{..} ->
-+             unless (checkSig SignTx twKey txSigData twSig) $
-+                 throwError WitnessWrongSignature
-+         RedeemWitness{..} ->
- -            unless (redeemCheckSig twRedeemKey txSigData twRedeemSig) $
-++            unless (redeemCheckSig SignRedeemTx twRedeemKey txSigData twRedeemSig) $
-+                 throwError WitnessWrongSignature
-+         ScriptWitness{..} -> do
-+             let valVer = scrVersion twValidator
-+                 redVer = scrVersion twRedeemer
-+             when (valVer /= redVer) $
-+                 throwError $ WitnessScriptVerMismatch valVer redVer
-+             when (vtcVerifyAllIsKnown && not (isKnownScriptVersion valVer)) $
-+                 throwError $ WitnessUnknownScriptVer valVer
-+             over _Left WitnessScriptError $
-+                 txScriptCheck txSigData twValidator twRedeemer
-+         UnknownWitnessType t _ ->
-+             when vtcVerifyAllIsKnown $
-+                 throwError $ WitnessUnknownType t
-  
-  verifyAttributesAreKnown
-      :: (MonadError ToilVerFailure m)
 [94m[keygen:INFO:ThreadId 4] [0mProcessing command
 [94m[keygen:INFO:ThreadId 4] [0mGenerating requested raw data
 [94m[keygen:INFO:ThreadId 4] [0mGenerating avvm data
 [94m[keygen:INFO:ThreadId 4] [0mRemoving 101 entries from utxo (out of 188 total entries in the blacklist)
 [94m[keygen:INFO:ThreadId 4] [0mTotal avvm stake after applying blacklist: 25927070538000000
-[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-qanet-2017-08-27_11-54/keys-fakeavvm
+[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-qa-2017-08-29_13-25/keys-fakeavvm
 [94m[keygen:INFO:ThreadId 4] [0m100 fake avvm seeds are generated
-[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-qanet-2017-08-27_11-54/keys-testnet
+[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-qa-2017-08-29_13-25/keys-testnet
 [94m[keygen:INFO:ThreadId 4] [0m1204 keyfiles are generated
-[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKey address with root f9bcf17408332258f872450889203558493abcc62ab0bb04d8d59872, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root d788acc193201714326abfa2b3e9f5cfdd29be127711e98736f55c3f, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 818c91f06597f42f0b7c8f337c7608867c45b1d61833fbe0e6d605ba, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root b007fbccda48fa3fbcc9dbd8746a1de4499d4e5f1501f6cd7d853cd1, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root b0cdc924b617eea21231ea775979709e5b48bcc26f08762a2d8838ef, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 7a6937e6033c5656a515a6b4cae2a89ab73b47a2fe39193c6d8e6954, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 18a93cbe078322515f47dd071c694e85b1ff28f5c945d8bace2985a6, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 96b13029ee45def0999bc69338e0dade93e0b363553de58994395e8d, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 23b727bb22ad599c7203917b23dbe59737f84385b607618796c6105a, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 392640b7748be5e81758c38320b043d438b88cafe546f9021c981e35, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2400, sdPoorStake = Coin {getCoin = 476822961550}}
+[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKey address with root 7c5f87a4c7e0cf2a56d237bcc02abe67d35aab267e1cb4b9c019b8aa, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 248d5cc16bf4cb5148562e3358d5085b4c49ddd6dfa2f52ddd63b97d, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 2fecaaa40a10b2330d8067f68902b07bd9f77535f5b7ed4c5839a15e, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root aa50d439ca57e3b4666d12a69b1762cd8d1f21361131be2b57465b22, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root e7e1031d5f8cf0891773f2bd6ceb0769a4306d36bc9f4c945f464b42, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 8428813ad4363d369880c3eeb990604b76b73f7c6d4127cda1b3441a, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root a42aaa60992321ed22f4baba3976ea8b5e87f655f71cae4d541ba579, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 238bd65beab6aa78af5677c823a4be6f96231b4aefa05b51015cfbea, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 696491c1774d25ee0264c6508eed68ab9e77b4a1dfd9756a34197e19, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 31baf49a9cda841a9e13c44cbf00751ad39f205fb9910c1414a8e136, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2400, sdPoorStake = Coin {getCoin = 476822961550}}
 [94m[keygen:INFO:ThreadId 4] [0mgenesis-core.bin generated successfully
 [94m[keygen:INFO:ThreadId 4] [0mgenesis-godtossing.bin generated successfully

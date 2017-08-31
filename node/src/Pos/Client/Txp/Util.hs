@@ -74,19 +74,27 @@ data TxRaw = TxRaw
     -- ^ Remaining money
     }
 
-data TxError
-    = TxError { unTxError :: !Text }
+data TxError =
+      NotEnoughMoney !Coin    -- ^ Parameter: how much more money is needed
+    | FailedToStabilize !Int  -- ^ Parameter: how many attempts were performed
+    | OutputIsRedeem !Address -- ^ One of the tx outputs is a redemption address
+    | RedemptionDepleted      -- ^ Redemption address has already been used
+    | GeneralTxError !Text    -- ^ Parameter: description of the problem
     deriving (Show, Generic)
 
 instance Exception TxError
 
 instance Buildable TxError where
-    build (TxError msg) = bprint ("Transaction creation error ("%stext%")") msg
-
-throwTxError
-    :: MonadError TxError m
-    => Text -> m a
-throwTxError = throwError . TxError
+    build (NotEnoughMoney coin) =
+        bprint ("Transaction creation error: not enough money, need "%build%" more") coin
+    build (FailedToStabilize iters) =
+        bprint ("Transaction creation error: failed to stabilize fee after "%build%" iterations") iters
+    build (OutputIsRedeem addr) =
+        bprint ("Destination address "%build%" is a redemption address") addr
+    build RedemptionDepleted =
+        bprint "Redemption address balance is 0"
+    build (GeneralTxError msg) =
+        bprint ("Transaction creation error: "%stext) msg
 
 -----------------------------------------------------------------------------
 -- Tx creation
@@ -211,13 +219,13 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
     totalMoney <- sumTxOuts outputs
     when (totalMoney == mkCoin 0) $
-        throwTxError "Attempted to send 0 money"
+        throwError $ GeneralTxError "Attempted to send 0 money"
 
     let totalMoneyWithFee = totalMoney `unsafeAddCoin` fee
     futxo <- either throwError pure $
         evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedUnspent)
     case nonEmpty futxo of
-        Nothing       -> throwTxError "Failed to prepare inputs!"
+        Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
         Just inputsNE -> do
             totalTxAmount <- sumTxOuts $ map snd inputsNE
             let trInputs = map formTxInputs inputsNE
@@ -225,7 +233,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
             let trOutputs = outputs
             pure TxRaw {..}
   where
-    sumTxOuts = either throwTxError pure .
+    sumTxOuts = either (throwError . GeneralTxError) pure .
         integerToCoin . sumCoins . map (txOutValue . toaOut)
     allUnspent = M.toList utxo
     sortedUnspent =
@@ -239,8 +247,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
             else do
                 mNextOut <- head <$> use ipsAvailableOutputs
                 case mNextOut of
-                    Nothing -> throwTxError $
-                        sformat ("Not enough money to send (need "%build%" more)") moneyLeft
+                    Nothing -> throwError $ NotEnoughMoney moneyLeft
                     Just inp@(_, (TxOutAux (TxOut {..}))) -> do
                         ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         ipsAvailableOutputs %= tail
@@ -250,7 +257,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
     checkIsNotRedeemAddr outAddr =
         when (isRedeemAddress outAddr) $
-            throwTxError "Destination address can't be redeem address"
+            throwError $ OutputIsRedeem outAddr
 
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
@@ -361,7 +368,7 @@ withLinearFeePolicy
     => (TxSizeLinear -> TxCreator m a)
     -> TxCreator m a
 withLinearFeePolicy action = view tcdFeePolicy >>= \case
-    TxFeePolicyUnknown w _ -> throwTxError $
+    TxFeePolicyUnknown w _ -> throwError $ GeneralTxError $
         sformat ("Unknown fee policy, tag: "%build) w
     TxFeePolicyTxSizeLinear linearPolicy ->
         action linearPolicy
@@ -398,7 +405,7 @@ stabilizeTxFee linearPolicy utxo outputs =
     stabilizeTxFeeDo 5 (TxFee $ mkCoin 0)
   where
     stabilizeTxFeeDo :: Int -> TxFee -> TxCreator m TxRaw
-    stabilizeTxFeeDo 0 _ = throwTxError "Couldn't stabilize tx fee after 5 attempts"
+    stabilizeTxFeeDo 0 _ = throwError $ FailedToStabilize 5
     stabilizeTxFeeDo attempt expectedFee = do
         txRaw <- prepareTxRaw utxo outputs expectedFee
         txFee <- txToLinearFee linearPolicy $
@@ -419,7 +426,7 @@ txToLinearFee linearPolicy =
     calculateTxSizeLinear linearPolicy .
     biSize @TxAux
   where
-    invalidFee reason = TxError ("Invalid fee: " <> reason)
+    invalidFee reason = GeneralTxError ("Invalid fee: " <> reason)
 
 -- | Function is used to calculate intermediate fee amounts
 -- when forming a transaction

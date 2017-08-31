@@ -27,8 +27,10 @@ import           Pos.Core             (BlockVersionData, EpochIndex, GenesisWSta
 import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Infra.Semaphore  (BlkSemaphore, withBlkSemaphore)
+import           Pos.KnownPeers       (MonadFormatPeers)
+import           Pos.Reporting        (HasReportingContext, reportError)
 import           Pos.Slotting         (MonadSlots (..))
+import           Pos.StateLock        (Priority (..), StateLock, withStateLock)
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
 import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
                                        TxpLocalDataPure, askTxpMem, getLocalTxs,
@@ -49,6 +51,9 @@ type TxpLocalWorkMode ctx m =
     , WithLogger m
     , HasLens' ctx GenesisWStakeholders
     , Mockable CurrentTime m
+    , MonadMask m
+    , MonadFormatPeers m
+    , HasReportingContext ctx
     )
 
 -- Base context for tx processing in.
@@ -79,17 +84,17 @@ instance MonadGState ProcessTxMode where
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: (TxpLocalWorkMode ctx m, HasLens' ctx BlkSemaphore, MonadMask m)
+    :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withBlkSemaphore $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
 txProcessTransactionNoLock
     :: (TxpLocalWorkMode ctx m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
+txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     let UnsafeTx {..} = taTx txAux
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
@@ -104,7 +109,7 @@ txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
     --
     -- Also note that we don't need to use a snapshot here and can be
     -- sure that GState won't change, because changing it requires
-    -- 'BlkSemaphore' which we own inside this function.
+    -- 'StateLock' which we own inside this function.
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
@@ -126,8 +131,10 @@ txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
             }
     pRes <-
         lift $
-        modifyTxpLocalData "txProcessTransaction" $
+        modifyTxpLocalData $
         processTxDo epoch ctx tipDB itw
+    -- We report 'ToilTipsMismatch' as an error, because usually it
+    -- should't happen. If it happens, it's better to look at logs.
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: " %build) txId
@@ -157,6 +164,12 @@ txProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
                    (Right _, ToilModifier {..}) ->
                        ( Right ()
                        , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
+    -- REPORT:ERROR Tips mismatch in txp.
+    reportTipMismatch action = do
+        res <- action
+        res <$ case res of
+            (Left err@(ToilTipsMismatch {})) -> reportError (pretty err)
+            _                                -> pass
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
@@ -169,13 +182,13 @@ txNormalize = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
-        setTxpLocalData "txNormalize" (mempty, def, mempty, tip, def)
+        setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
         localTxs <- getLocalTxs
         ToilModifier {..} <-
             runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
-        setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+        setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
 
 -- | Get 'TxPayload' from mempool to include into a new block which
 -- will be based on the given tip. In something goes wrong, empty

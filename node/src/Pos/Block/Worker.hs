@@ -253,11 +253,11 @@ chainQualityChecker curSlot = do
                                    thd         chainQuality
         if | chainQuality < criticalThreshold ->
                do let msg = formatCQWarning criticalThreshold
-                  logWarning msg
+                  -- REPORT:MISBEHAVIOUR(T) Chain quality is critically low
                   reportMisbehaviour True msg
            | chainQuality < nonCriticalThreshold ->
                do let msg = formatCQWarning nonCriticalThreshold
-                  logWarning msg
+                  -- REPORT:MISBEHAVIOUR(F) Chain quality is non-critically low
                   reportMisbehaviour False msg
            | otherwise ->
                logDebug $

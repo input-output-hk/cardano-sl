@@ -23,8 +23,7 @@ import           System.Random              (RandomGen (..))
 
 import           Pos.AllSecrets             (asSecretKeys, asSpendingData,
                                              unInvAddrSpendingData, unInvSecretsMap)
-import           Pos.Client.Txp.Util        (createGenericTx, makeMPubKeyTxAddrs,
-                                             unTxError)
+import           Pos.Client.Txp.Util        (createGenericTx, makeMPubKeyTxAddrs)
 import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
                                              SlotId (..), addressHash, coinToInteger,
                                              makePubKeyAddressBoot, unsafeIntegerToCoin)
@@ -212,7 +211,7 @@ genTxPayload = do
 
         eTx <- lift . lift $
             createGenericTx makeTestTx ownUtxo txOutAuxs changeAddrData
-        (txAux, _) <- either (throwM . BGFailedToCreate . unTxError) pure eTx
+        (txAux, _) <- either (throwM . BGFailedToCreate . pretty) pure eTx
 
         let tx = taTx txAux
         let txId = hash tx

@@ -22,7 +22,7 @@ import           Data.Default               (Default (def))
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
+import           System.Wlog                (WithLogger, logDebug, logInfo)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
@@ -49,14 +49,14 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
-import           Pos.Infra.Semaphore        (BlkSemaphore, modifyBlkSemaphore)
 import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)
+import           Pos.Reporting              (reportError, reportingFatal)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
+import           Pos.StateLock              (Priority (..), StateLock, modifyStateLock)
 import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
@@ -111,7 +111,7 @@ createGenesisBlockAndApply ::
        forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasLens StateLock ctx StateLock
        )
     => EpochIndex
     -> m (Maybe (GenesisBlock ssc))
@@ -123,7 +123,7 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> modifyBlkSemaphore (createGenesisBlockDo epoch leaders)
+        Right leaders -> modifyStateLock HighPriority "createGenesisBlockAndApply" (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -187,13 +187,13 @@ createMainBlockAndApply ::
        forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasLens StateLock ctx StateLock
        )
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ modifyBlkSemaphore createAndApply
+    reportingFatal $ modifyStateLock HighPriority "createMainBlockAndApply" createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case
@@ -326,16 +326,15 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do
-        clearTxpMemPool "fallback@applyCreatedBlock"
+        clearTxpMemPool
         sscResetLocal
         clearUSMemPool
         clearDlgMemPool
     fallback :: Text -> m (MainBlock ssc)
     fallback reason = do
         let message = sformat ("We've created bad main block: "%stext) reason
-        logError message
-        -- FIXME [CSL-1340]: it should be reported as 'RError'.
-        reportMisbehaviourSilent False message
+        -- REPORT:ERROR Created bad main block
+        reportError message
         logDebug $ "Clearing mempools"
         clearMempools
         logDebug $ "Creating empty block"

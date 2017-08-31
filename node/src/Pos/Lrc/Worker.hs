@@ -36,7 +36,6 @@ import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              slotSecurityParam)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.GState                 as GS
-import           Pos.Infra.Semaphore        (BlkSemaphore, withBlkSemaphore)
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -46,19 +45,21 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
 import           Pos.Lrc.Mode               (LrcMode)
-import           Pos.Reporting              (reportMisbehaviourSilent)
+import           Pos.Reporting              (reportError, reportMisbehaviour)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
+import           Pos.StateLock              (Priority (..), StateLock, withStateLock)
+import           Pos.Txp.MemState           (MonadTxpMem)
 import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
 import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
-import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode, TxpExtra_TMP)
 
 lrcOnNewSlotWorker
     :: forall ssc ctx m.
-       (WorkMode ssc ctx m, SscWorkersClass ssc)
+       (WorkMode ssc ctx m, SscWorkersClass ssc, MonadTxpMem TxpExtra_TMP ctx m)
     => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     recoveryCommGuard $
@@ -69,14 +70,15 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     -- can happen there we don't know recent blocks. That's because if
     -- we don't know them, we should be in recovery mode and this
     -- worker should be turned off.
-    onLrcError e@UnknownBlocksForLrc = do
-        reportError e
-        logWarning
-            "LRC worker can't do anything, because recent blocks aren't known"
-    onLrcError e = reportError e >> throwM e
-    -- FIXME [CSL-1340]: it should be reported as 'RError'.
-    reportError e =
-        reportMisbehaviourSilent False $
+    --
+    -- We don't rethrow it though, because probably it can happen in
+    -- some corner cases but it doesn't indicate an error (maybe only
+    -- 'recoveryCommGuard' error).
+    onLrcError e@UnknownBlocksForLrc = reportE e
+    onLrcError e                     = reportE e >> throwM e
+
+    -- REPORT:ERROR LRC worker failed with some LRC-related error
+    reportE e = reportError $
         "Lrc worker failed with error: " <> show e
 
 type LrcModeFullNoSemaphore ssc ctx m =
@@ -92,10 +94,11 @@ type LrcModeFullNoSemaphore ssc ctx m =
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ssc ctx m =
     ( LrcModeFullNoSemaphore ssc ctx m
-    , HasLens BlkSemaphore ctx BlkSemaphore
+    , HasLens StateLock ctx StateLock
+    , MonadTxpMem TxpExtra_TMP ctx m
     )
 
-type WithBlkSemaphore_ m = m () -> m ()
+type WithStateLock_ m = m () -> m ()
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
@@ -103,7 +106,7 @@ lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc (withBlkSemaphore . const) epoch (allLrcConsumers @ssc)
+    lrcSingleShotImpl @ssc ((withStateLock HighPriority "lrcSingleShot") . const) epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
@@ -114,7 +117,7 @@ lrcSingleShotNoLock epoch =
 
 lrcSingleShotImpl
     :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
-    => WithBlkSemaphore_ m -> EpochIndex -> [LrcConsumer m] -> m ()
+    => WithStateLock_ m -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
     lock <- views (lensOf @LrcContext) lcLrcSync
     tryAcquireExclusiveLock epoch lock onAcquiredLock
@@ -174,7 +177,11 @@ lrcDo epoch consumers = do
                 ("Calculated seed for epoch "%build%" successfully") epoch
             return s
         Left err -> do
-            logWarning $ sformat
+            let isCritical = True
+            -- Critical error means that the system is in dangerous state.
+            -- For now let's consider all errors critical, maybe we'll revise it later.
+            -- REPORT:MISBEHAVIOUR(T) Couldn't compute seed.
+            reportMisbehaviour isCritical $ sformat
                 ("SSC couldn't compute seed: "%build%" for epoch "%build%
                  ", going to reuse seed for previous epoch")
                 err epoch

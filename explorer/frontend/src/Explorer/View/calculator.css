@@ -3,7 +3,7 @@
   background-color: var(--color4);
 
   &__container {
-    @neat-outer-container;
+    @extend .outer-container;
   }
 
 }

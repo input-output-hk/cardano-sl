@@ -17,7 +17,7 @@ if [[ ! -d "$base/../../.stack-work" ]]; then
 fi
 
 # Define the default amount of nodes to run
-DEFAULT_NODES_N=3
+DEFAULT_NODES_N=4
 
 # Detect node number or use default
 n=$1

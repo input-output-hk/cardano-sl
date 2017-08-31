@@ -604,9 +604,22 @@ logFailure OutQ{..} failure fmt = do
   EKG metrics
 -------------------------------------------------------------------------------}
 
+type Namespace = String
+
+-- | Register queue-related metrics to EKG.
 registerQueueMetrics :: forall msg nid buck. (Enum buck, Bounded buck, Show buck)
-                     => OutboundQ msg nid buck -> Monitoring.Store -> IO ()
-registerQueueMetrics OutQ{..} store = do
+                     => Maybe Namespace
+                     -- ^ An optional namespace the metrics should be prefixed with.
+                     -- Passing nothing won't touch the names assigned to the metrics,
+                     -- whereas `Just ns` will prefix each name with `ns`. Example:
+                     --
+                     -- ns.InFlight
+                     -- ...
+                     --
+                     -> OutboundQ msg nid buck
+                     -> Monitoring.Store
+                     -> IO ()
+registerQueueMetrics namespaceMb OutQ{..} store = do
     -- Gauges showing queue internal state
     regGauge ["InFlight"]  $ countInFlight <$> readMVar qInFlight
     regGauge ["Failures"]  $ readMVar qFailures >>= countRecentFailures
@@ -642,7 +655,17 @@ registerQueueMetrics OutQ{..} store = do
                                 store
 
     metric :: [String] -> Text
-    metric = T.pack . intercalate "." . (["queue", qSelf] ++)
+    metric =
+        -- If we have a namespace, add it to the beginning of the
+        -- initial list, so that the final metric name will be
+        -- correctly namespaced.
+        -- E.g.
+        -- let namespaceMb = Just "mynamespace"
+        -- let qSelf       = "test"
+        -- metric ["InFlight"]
+        -- >>> mynamespace.queue.test.InFlight
+        let prefix = maybeToList namespaceMb ++ ["queue", qSelf]
+        in T.pack . intercalate "." . (prefix ++)
 
 countInFlight :: InFlight nid -> Int
 countInFlight = sum . fmap sum

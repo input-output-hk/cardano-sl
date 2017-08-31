@@ -45,6 +45,8 @@ Library
                         Node.Message.Class
                         Node.Message.Binary
 
+                        Node.Util.Monitor
+
                         NTP.Client
                         NTP.Example
 
@@ -99,6 +101,7 @@ Library
                       , unordered-containers
                       , semigroups
                       , ekg-core
+                      , ekg
                       , mwc-random
                       , statistics
                       , vector

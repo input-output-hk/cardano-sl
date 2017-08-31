@@ -4,12 +4,12 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Main where
 
@@ -20,14 +20,14 @@ import qualified Data.ByteString.Char8      as B8
 import           Data.Data                  (Data)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           GHC.Generics               (Generic)
-import           Mockable.Concurrent        (delay, forConcurrently, fork,
-                                             killThread)
+import           Mockable.Concurrent        (delay, fork, killThread, forConcurrently)
 import           Mockable.Production
 import           Network.Transport.Abstract (closeTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node
 import           Node.Message.Binary        (BinaryP, binaryPacking)
+import           Node.Util.Monitor          (startMonitor)
 import           System.Random
 
 -- | Type for messages from the workers to the listeners.
@@ -107,9 +107,11 @@ main = runProduction $ do
     node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
          prng1 binaryPacking (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
         NodeAction (listeners . nodeId $ node1) $ \converse1 -> do
+            _ <- startMonitor 8000 runProduction node1
             node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
                   prng2 binaryPacking (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
                 NodeAction (listeners . nodeId $ node2) $ \converse2 -> do
+                    _ <- startMonitor 8001 runProduction node2
                     tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] converse1
                     tid2 <- fork $ worker (nodeId node2) prng4 [nodeId node1] converse2
                     liftIO . putStrLn $ "Hit return to stop"

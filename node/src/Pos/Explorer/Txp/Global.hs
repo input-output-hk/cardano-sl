@@ -9,9 +9,10 @@ import           Universum
 
 import qualified Data.HashMap.Strict   as HM
 
-import           Pos.Core              (HeaderHash, headerHash)
+import           Pos.Core              (HeaderHash, SlotId (..), LocalSlotIndex(..),
+                                        epochIndexL, headerHash, headerSlotL)
 import           Pos.DB                (SomeBatchOp (..))
-import           Pos.Slotting          (MonadSlots, getSlotStart, getCurrentSlotBlocking)
+import           Pos.Slotting          (MonadSlots, getSlotStart)
 import           Pos.Txp               (ApplyBlocksSettings (..), TxpBlund,
                                         TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                         applyBlocksWith, blundToAuxNUndo,
@@ -24,6 +25,7 @@ import qualified Pos.Util.Modifier     as MM
 import qualified Pos.Explorer.DB       as GS
 import           Pos.Explorer.Txp.Toil (EGlobalApplyToilMode, ExplorerExtra (..),
                                         eApplyToil, eRollbackToil)
+
 
 
 -- | Settings used for global transactions data processing used by explorer.
@@ -57,12 +59,29 @@ applyBlund
     :: (MonadSlots ctx m, EGlobalApplyToilMode ctx m)
     => TxpBlund
     -> m ()
-applyBlund blund = do
-    -- First get the current @SlotId@ so we can calculate the time.
-    -- Then get when that @SlotId@ started and use that as a time for @Tx@.
-    mTxTimestamp <- getCurrentSlotBlocking >>= getSlotStart
+applyBlund txpBlund = do
+    -- @TxpBlund@ is a block/blund with a reduced set of information required for
+    -- transaction processing. We use it to determine at which slot did a transaction
+    -- occur. TxpBlund has TxpBlock inside. If it's Left, it's a genesis block which
+    -- doesn't contain transactions. It doesn't have a slot, only epoch, but you can
+    -- use e. g. SlotId epoch minBound. If it's Right, you can use headerSlotL lens.
+    --
+    -- type TxpBlund = (TxpBlock, TxpUndo)
+    -- type TxpBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, TxPayload)
 
-    uncurry (eApplyToil mTxTimestamp) $ blundToAuxNUndoWHash blund
+    let txpBlock = txpBlund ^. _1
+    let slotId   = case txpBlock of
+            Left gensisBlock -> SlotId
+                                  { siEpoch = gensisBlock ^. epochIndexL
+                                  , siSlot  = UnsafeLocalSlotIndex 0
+                                  -- ^ Genesis block doesn't have a slot
+                                  }
+            Right mainBlock   -> mainBlock ^. _1 . headerSlotL
+
+    -- Get the timestamp from that information.
+    mTxTimestamp <- getSlotStart slotId
+
+    uncurry (eApplyToil mTxTimestamp) $ blundToAuxNUndoWHash txpBlund
 
 rollbackBlocks
     :: TxpGlobalRollbackMode ctx m

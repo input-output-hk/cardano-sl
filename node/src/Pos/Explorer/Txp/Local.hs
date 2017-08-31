@@ -25,8 +25,7 @@ import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
 import qualified Pos.GState            as GS
 import           Pos.Infra.Semaphore   (BlkSemaphore, withBlkSemaphore)
-import           Pos.Slotting          (MonadSlots (getCurrentSlotBlocking, getCurrentSlot),
-                                        getSlotStart)
+import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
@@ -119,7 +118,6 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
     -- 'BlkSemaphore' which we own inside this function.
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
-    epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     genStks <- view (lensOf @GenesisWStakeholders)
     bvd <- gsAdoptedBVData
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
@@ -131,7 +129,9 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = runExceptT $ do
             toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     -- First get the current @SlotId@ so we can calculate the time.
     -- Then get when that @SlotId@ started and use that as a time for @Tx@.
-    mTxTimestamp <- getCurrentSlotBlocking >>= getSlotStart
+    slot         <- note ToilSlotUnknown =<< getCurrentSlot
+    let epoch     = siEpoch slot
+    mTxTimestamp <- getSlotStart slot
 
     let txInAddrs =
             map (txOutAddress . toaOut) $ catMaybes $ toList resolvedOuts

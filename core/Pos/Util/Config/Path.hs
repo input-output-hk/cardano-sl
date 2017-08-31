@@ -3,12 +3,16 @@
 -- | This is a separate module due to the TH stage restriction
 module Pos.Util.Config.Path
        ( cslConfigPath
+#ifdef NO_EMBED
+       , cslResPath
+#endif
        ) where
 
-import           Universum                  hiding (lift)
+import           Universum                  hiding (die, lift)
 
 #ifdef NO_EMBED
-import           System.Environment         (getEnv)
+import           System.Environment         (lookupEnv)
+import           System.Exit                (die)
 import           System.FilePath            ((</>))
 import           System.IO.Unsafe           (unsafePerformIO)
 #else
@@ -27,9 +31,17 @@ import           System.FilePath            (takeDirectory, takeFileName, (</>))
 #ifdef NO_EMBED
 
 cslConfigPath :: FilePath
-cslConfigPath = unsafePerformIO $
-    getEnv "CSL_RES_PATH" <&> (</> "constants.yaml")
-{-# NOINLINE cslConfigPath #-}
+cslConfigPath = cslResPath </> "constants.yaml"
+
+cslResPath :: FilePath
+cslResPath = unsafePerformIO $
+    lookupEnv "CSL_RES_PATH" >>= \case
+        Just x  -> pure x
+        Nothing -> die "Error: when compiled with 'no-embed', the \
+                       \'CSL_RES_PATH' environment variable should be \
+                       \present to provide the path to constants.yaml \
+                       \and genesis files"
+{-# NOINLINE cslResPath #-}
 
 #else
 

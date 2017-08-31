@@ -8,9 +8,10 @@ import           Universum
 
 #ifdef NO_EMBED
 import qualified Data.ByteString                  as BS
-import           System.Environment               (getEnv)
 import           System.FilePath                  ((</>))
 import           System.IO.Unsafe                 (unsafePerformIO)
+
+import           Pos.Util.Config.Path             (cslResPath)
 #else
 import           Data.FileEmbed                   (embedFile, makeRelativeToProject)
 #endif
@@ -28,8 +29,7 @@ import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
 compileGenGtData :: GenesisGtData
 compileGenGtData = do
 #ifdef NO_EMBED
-    let path = unsafePerformIO $ getEnv "CSL_RES_PATH"
-    let file = unsafePerformIO $ BS.readFile $ path </>
+    let file = unsafePerformIO $ BS.readFile $ cslResPath </>
           ("genesis-godtossing-" <> genesisBinSuffix <> ".bin")
 #else
     let file = $(embedFile =<< makeRelativeToProject

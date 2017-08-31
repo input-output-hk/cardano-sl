@@ -37,10 +37,12 @@ mkSlogContext ::
     -> m SlogContext
 mkSlogContext storeMaybe = do
     _scGState <- mkSlogGState
-    let metricName =
+    let metricNameK =
             sformat ("Chain quality for last k ("%int%") blocks")
                 blkSecurityParam
-    _scCQMonitorState <- mkDistrMonitorState metricName storeMaybe
+    let metricNameOverall = "Overall chain quality"
+    _scCQkMonitorState <- mkDistrMonitorState metricNameK storeMaybe
+    _scCQOverallMonitorState <- mkDistrMonitorState metricNameOverall storeMaybe
     return SlogContext {..}
 
 -- | Make a copy of existing 'SlogGState'.

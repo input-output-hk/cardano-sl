@@ -20,12 +20,13 @@ import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (calcChainQualityM,
+import           Pos.Block.Logic             (calcChainQualityM, calcOverallChainQuality,
                                               createGenesisBlockAndApply,
                                               createMainBlockAndApply)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Block.Slog              (scCQMonitorState, slogGetLastSlots)
+import           Pos.Block.Slog              (scCQOverallMonitorState, scCQkMonitorState,
+                                              slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
@@ -221,7 +222,7 @@ onNewSlotWhenLeader slotId pske SendActions {..} = do
 -- chain quality assumption, but to produce warnings when this
 -- assumption is close to being violated.
 chainQualityChecker
-    :: WorkMode ssc ctx m
+    :: forall ssc ctx m. WorkMode ssc ctx m
     => SlotId -> m ()
 chainQualityChecker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
@@ -244,15 +245,19 @@ chainQualityChecker curSlot = do
         -- We use monadic version here, because it also does sanity
         -- check and we don't want to copy-paste it and it's easier
         -- and cheap.
-        chainQuality :: Double <- calcChainQualityM curFlatSlot
+        chainQualityK :: Double <- calcChainQualityM curFlatSlot
         isBootstrapEra <- gsIsBootstrapEra (siEpoch curSlot)
-        monitorState <- view scCQMonitorState
-        let monitor = cqDistrMonitor monitorState isBootstrapEra
-        recordValue monitor chainQuality
+        monitorStateK <- view scCQkMonitorState
+        monitorStateOverall <- view scCQOverallMonitorState
+        let monitorK = cqkDistrMonitor monitorStateK isBootstrapEra
+        let monitorOverall = cqOverallDistrMonitor monitorStateOverall
+        recordValue monitorK chainQualityK
+        whenJustM (calcOverallChainQuality @ssc) $ recordValue monitorOverall
 
-cqDistrMonitor ::
+-- Monitor for chain quality for last k blocks.
+cqkDistrMonitor ::
        HasCoreConstants => DistrMonitorState -> Bool -> DistrMonitor
-cqDistrMonitor st isBootstrapEra =
+cqkDistrMonitor st isBootstrapEra =
     DistrMonitor
     { dmState = st
     , dmReportMisbehaviour = classifier
@@ -278,9 +283,21 @@ cqDistrMonitor st isBootstrapEra =
     nonCriticalThreshold
         | isBootstrapEra = nonCriticalCQBootstrap
         | otherwise = nonCriticalCQ
-    -- Chain quality formatter.
-    cqF :: Format r (Double -> r)
-    cqF = fixed 3
     -- Can be used to insert the value of 'blkSecurityParam' into a 'Format'.
     kFormat :: Format r r
     kFormat = now (bprint int blkSecurityParam)
+
+cqOverallDistrMonitor :: DistrMonitorState -> DistrMonitor
+cqOverallDistrMonitor st =
+    DistrMonitor
+    { dmState = st
+    , dmReportMisbehaviour = classifier
+    , dmMisbehFormat = cqF -- won't be used due to classifier
+    , dmDebugFormat = Just $ "Overall chain quality is " %cqF
+    }
+  where
+    classifier _ _ _ = Nothing
+
+-- Private chain quality formatter.
+cqF :: Format r (Double -> r)
+cqF = fixed 3

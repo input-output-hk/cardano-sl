@@ -10,6 +10,7 @@ module Pos.Block.Logic.Util
        , needRecovery
        , calcChainQuality
        , calcChainQualityM
+       , calcOverallChainQuality
        ) where
 
 import           Universum
@@ -25,14 +26,14 @@ import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogGState)
 import           Pos.Context            (blkSecurityParam, slotSecurityParam)
 import           Pos.Core               (BlockCount, FlatSlotId, HasCoreConstants,
-                                         HeaderHash, diffEpochOrSlot, getEpochOrSlot,
-                                         headerHash, prevBlockL)
+                                         HeaderHash, diffEpochOrSlot, difficultyL,
+                                         getEpochOrSlot, headerHash, prevBlockL)
 import           Pos.DB                 (MonadDBRead)
 import           Pos.DB.Block           (MonadBlockDB)
 import qualified Pos.DB.DB              as DB
 import           Pos.Exception          (reportFatalError)
 import qualified Pos.GState             as GS
-import           Pos.Slotting.Class     (MonadSlots, getCurrentSlot)
+import           Pos.Slotting           (MonadSlots, getCurrentSlot, getCurrentSlotFlat)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Util               (_neHead)
 import           Pos.Util.Chrono        (NE, OldestFirst (..))
@@ -102,7 +103,8 @@ calcChainQuality blockCount deepSlot newSlot =
     realToFrac blockCount / realToFrac (newSlot - deepSlot)
 
 -- | Version of 'calcChainQuality' which takes last blocks' slots from
--- the monadic context.
+-- the monadic context. It computes chain quality for last
+-- 'blkSecurityParam' blocks.
 calcChainQualityM ::
        ( MonadReader ctx m
        , HasSlogGState ctx
@@ -129,3 +131,20 @@ calcChainQualityM newSlot = do
                          (fromIntegral len)
                          (NE.head slotsNE)
                          newSlot)
+
+-- | Compute overall chain quality, i. e. number of main blocks
+-- divided by number of slots so far. Returns 'Nothing' if current
+-- slot is unknown.
+calcOverallChainQuality ::
+       forall ssc ctx m res.
+       (Fractional res, MonadSlots ctx m, MonadBlockDB ssc m, HasCoreConstants)
+    => m (Maybe res)
+calcOverallChainQuality =
+    getCurrentSlotFlat >>= \case
+        Nothing -> pure Nothing
+        Just curFlatSlot ->
+            calcOverallChainQualityDo curFlatSlot <$> DB.getTipHeader @ssc
+  where
+    calcOverallChainQualityDo curFlatSlot tipHeader =
+        Just $
+        calcChainQuality (fromIntegral $ tipHeader ^. difficultyL) 0 curFlatSlot

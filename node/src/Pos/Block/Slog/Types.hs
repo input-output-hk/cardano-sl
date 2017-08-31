@@ -46,12 +46,16 @@ makeClassy ''SlogGState
 
 -- | All in-memory data used by Slog.
 data SlogContext = SlogContext
-    { _scGState         :: !SlogGState
+    { _scGState                :: !SlogGState
     -- ^ Slots for which last blocks in our chain were created. This
     -- information is also stored in DB, but we don't want to read it
     -- every time.
-    , _scCQMonitorState :: !DistrMonitorState
-    -- ^ Internal state of 'DistrMonitor' to keep track of chain quality.
+    , _scCQkMonitorState       :: !DistrMonitorState
+    -- ^ Internal state of 'DistrMonitor' to keep track of chain
+    -- quality for last 'k' blocks.
+    , _scCQOverallMonitorState :: !DistrMonitorState
+    -- ^ Internal state of 'DistrMonitor' to keep track of overall chain
+    -- quality.
     }
 
 makeClassy ''SlogContext

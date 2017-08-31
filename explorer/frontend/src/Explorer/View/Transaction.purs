@@ -4,7 +4,6 @@ import Prelude
 
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.Monoid (mempty)
 import Data.Foldable (for_)
 
 import Explorer.I18n.Lang (Language, translate)
@@ -24,7 +23,6 @@ import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (ctsBlockEpoch, ctsBlockHash, ctsBlockSlot, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
 
 import Pux.DOM.HTML (HTML) as P
-import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 import Pux.DOM.Events (onClick) as P
 
 import Text.Smolder.HTML (a, div, h3, p, span, table, tr, td) as S
@@ -134,14 +132,13 @@ summaryRow item =
 textTxHeaderView :: String -> P.HTML Action
 textTxHeaderView message =
     S.div ! S.className "explorer-transaction__message"
-          $ S.div ! P.dangerouslySetInnerHTML message
-                  $ mempty
+          $ S.div $ S.text message
 
 
 emptySummaryView :: P.HTML Action
 emptySummaryView =
     S.div ! S.className "explorer-transaction__container"
-          $ mempty
+          $ S.text ""
 
 failureView :: Language -> P.HTML Action
 failureView lang =

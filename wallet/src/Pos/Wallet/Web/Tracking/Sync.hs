@@ -70,9 +70,9 @@ import qualified Pos.DB.DB                        as DB
 import           Pos.DB.Rocks                     (MonadRealDB)
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
-import           Pos.Infra.Semaphore              (BlkSemaphore, withBlkSemaphore)
 import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
                                                    getSlotStartPure, getSystemStartM)
+import           Pos.StateLock                    (Priority (..), StateLock, withStateLockNoMetrics)
 import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
                                                    TxOutAux (..), TxUndo,
                                                    flattenTxPayload, toaOut, topsortTxs,
@@ -104,7 +104,7 @@ import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
 type BlockLockMode ssc ctx m =
      ( WithLogger m
      , MonadReader ctx m
-     , HasLens BlkSemaphore ctx BlkSemaphore
+     , HasLens StateLock ctx StateLock
      , MonadRealDB ctx m
      , DB.MonadBlockDB ssc m
      , MonadMask m
@@ -199,7 +199,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
                 syncWalletWithGStateUnsafe encSK wTipH bh
                 pure $ Just bh
             else pure wTipH
-        withBlkSemaphore $ \tip -> do
+        withStateLockNoMetrics HighPriority $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
             tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.blkGetHeader tip
             syncWalletWithGStateUnsafe encSK wNewTip tipH

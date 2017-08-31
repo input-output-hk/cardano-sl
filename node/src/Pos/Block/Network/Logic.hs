@@ -67,9 +67,9 @@ import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
-import           Pos.Infra.Semaphore        (modifyBlkSemaphore)
 import           Pos.Reporting.Methods      (reportMisbehaviour)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.StateLock              (Priority (..), modifyStateLock)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.JsonLog           (jlAdoptedBlock)
@@ -456,7 +456,7 @@ applyWithoutRollback
 applyWithoutRollback enqueue blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
-    modifyBlkSemaphore applyWithoutRollbackDo >>= \case
+    modifyStateLock HighPriority "applyWithoutRollback" applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -500,7 +500,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
-    res <- modifyBlkSemaphore $ \curTip -> do
+    res <- modifyStateLock HighPriority "applyWithRollback" $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of

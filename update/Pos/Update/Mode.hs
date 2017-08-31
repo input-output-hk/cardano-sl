@@ -11,10 +11,10 @@ import           System.Wlog         (WithLogger)
 
 import           Pos.Core.Context    (HasCoreConstants)
 import           Pos.DB.Class        (MonadDB, MonadGState)
-import           Pos.Infra.Semaphore (BlkSemaphore)
 import           Pos.KnownPeers      (MonadFormatPeers)
 import           Pos.Lrc.Context     (LrcContext)
 import           Pos.Reporting       (HasReportingContext)
+import           Pos.StateLock       (StateLock)
 import           Pos.Update.Context  (UpdateContext)
 import           Pos.Update.Params   (UpdateParams)
 
@@ -29,7 +29,7 @@ type UpdateMode ctx m
       , HasLens UpdateContext ctx UpdateContext
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateParams ctx UpdateParams
-      , HasLens BlkSemaphore ctx BlkSemaphore
+      , HasLens StateLock ctx StateLock
       , HasCoreConstants
       , HasReportingContext ctx
       , MonadFormatPeers m

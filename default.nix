@@ -26,7 +26,7 @@ let
           "-f-dev-mode"
           "--ghc-option=-optl-lm"
         ];
-        testTarget = "--test-option='--skip=Test.Pos.Update.Poll.Poll.PollState.PurePoll' --log=test.log || (sleep 10 && kill $TAILPID && false)";
+        testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
         preCheck = ''
           mkdir -p dist/test
           touch dist/test/test.log

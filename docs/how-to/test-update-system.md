@@ -1,80 +1,34 @@
 # Testing update system
 
-## Prepare initial version of `cardano-sl`
+## Prepare CSL binaries, cluster
 
-THIS SECTION IS OUTDATED AND MOST PROBABLY CAN BE SKIPPED
-
-These steps should be done to prepare configuration for QA cluster, suitable for US testing. There is no need to perform these steps every time you want to launch a cluster, only if you want to launch it form different release branch used as base
-
-1. Branch out `csl-xx` (`csl-xx` is reference to task in YT) out of release branch `cardano-sl-Y.Z`
-2. Change `core/constants-prod.yaml`, `core/constants-wallet-prod.yaml`:
-     1. `k: 9`
-     2. `genesisSlotDurationSec: 15`
-     3. `networkDiameter: 10`
-3. Generate `genesis.bin` for US testing cluster:
-
-   (!) Ensure you compiled branch `csl-xx` in prod mode, e.g. with `./util-scripts/build.sh --prod`
-
-   ```
-M=4 N=200 ./util-scripts/generate-genesis.sh
-cp genesis-qanet-<current_date>/genesis.* .
-   ```
-4. Commit changes:
-```
-git add genesis.info genesis.bin core/constants*prod.yaml
-git commit -m "Updated constants, genesis"
-git push --set-upstream origin csl-xx
-```
-
-5. Build `csl-xx` branch in `--prod` mode
-
-   This is needed for later steps.
-
-## Cluster for US testing, installers
-
-You need launch cluster with name `csl-xx` on `staging` user of cardano-deployer. This process is described in different place (**insert_link_here**).
-
-Use HEAD of `csl-xx` branch as commit for `cardano-sl`.
-
-After launching deployment, you will have:
-* `system-start` value
-* `ip-dht-mappings` file
-
-After build of `csl-xx` branch is finished in CI, you need to update `daedalus` for installers to be built:
-1. Use same branch `cardano-sl-Y.Z` of daedalus, branch out `csl-xx`
-2. Change branch from `cardano-sl-Y.Z` to `csl-xx` in `.travis.yml`, `appveyor.yaml`
-3. Update `system-start` in `installers/Launcher.hs`
-4. Replace `ip-dht-mappings` in `installers/data/`
-5. Commit & push changes
-
-Then wait for CI to build installers for base version.
+* Launch cluster using `devnet_shortep_full` config, on:
+   * 4 core nodes (full connectivity)
+   * 1 relay (connected to all core nodes)
+* Generate *before* installer, use `devnet_shortep_wallet`
+   * set appropriate `system-start`, `ipdhtmappings` for daedalus
+* Generate *after* installer, use `devnet_shortep_updated_wallet`
+   * set appropriate `system-start`, `ipdhtmappings` for daedalus
+* Build cardano-sl with `devnet_shortep_full` (`./scripts/build/cardano-sl.sh --dn`)
 
 ## Test base version
 
-1. Download installers for `csl-xx`
+1. Download *before* installers
 2. Install & launch daedalus
 3. Check:
     * blocks are retrieved
     * transactions are sent
 
-## Prepare updated version
-
-1. Update `constants.yaml`:
-    * increment `lastKnownBVMinor`
-    * increment `applicationVersion`
-2. Commit changes
-3. Wait for `cardano-sl` to be built
-4. Trigger `daedalus` build (installers)
-
 ## Propose update & vote for it
 
 ### Prepare node keys
 
-1. Take genesis deployed to `csl-xx` cluster
+1. Take genesis folder corresponding to `devnet_shortep_full`
+Should have name like `genesis-dn-2017-08-31_15-28.tgz`
 2. ```
 cp -R <genesis_directory>/nodes nodes2
 cd nodes2
-for i in {0..4}; do stack exec -- cardano-keygen --rearrange-mask key$i.sk; done
+for i in {0..4}; do stack exec -- cardano-keygen rearrange --mask key$i.sk; done
 ```
 
 ### Cardano-wallet
@@ -82,13 +36,12 @@ for i in {0..4}; do stack exec -- cardano-keygen --rearrange-mask key$i.sk; done
 Launch `cardano-wallet` with CLI:
 
 ```
-stack exec -- cardano-wallet --system-start 1498572075 --log-config log-config-prod.yaml --logs-prefix "logs/abc4" --db-path db-abc4 --peer 52.57.33.126:3000 --peer 52.57.215.206:3000 --peer 34.253.40.70:3000 --peer 52.211.96.220:3000 repl
+stack exec -- cardano-wallet --system-start 0 --log-config log-config-prod.yaml --logs-prefix "logs/abc4" --db-path db-abc4 --peer {relayHost}:3000 repl
 ```
 
 (!) Replace:
 
-1. `--peer` parameters with ips of the `csl-xx` cluster nodes
-2. `--system-start` parameter with system start for `csl-xx` cluster
+`{relayHost}` with address of actual relay node
 
 Then you will appear in `repl` mode and would need to perform few actions:
 
@@ -124,13 +77,11 @@ Available addresses:
 propose-update 0 0.1.0 1 15 2000000 csl-daedalus:1 win64 daedalus1.exe
 ```
 
-Replace second argument, `0.1.0`, with actual block version from `core/constants-prod.yaml` (i.e. `lastKnownBVMajor.lastKnownBVMinor.lastKnownBVAlt`).
+Replace second argument, `0.1.0`, with actual block version from config (i.e. `lastKnownBVMajor.lastKnownBVMinor.lastKnownBVAlt`), if needed.
 
 Replace third argument, `1` with actual script version.
 
-Replace `csl-daedalus:1` with `applicationName:applicationVersion` as for `core/constants-prod.yaml`.
-
-Note that currently `cardano-wallet` is suitable for testing with only one system tag provided along installer for it (it's `win64` and `daedalus1.exe` here).
+Replace `csl-daedalus:1` with `applicationName:applicationVersion` as for config.
 
 After launching `propose-update` command you'll see output like this:
 
@@ -146,7 +97,7 @@ Update proposal submitted, upId: b66ae7e037ca3503224e8d5b716443b6480df97be114c89
 Note `e0dae787e163a973ef4e1260dfcf094431046ae3e17d67d601bce4d92eb7da27`, it's hash of installer. It would be referenced later as `installer_hash`.
 
 Note `b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1`, it's id of proposed updated and later would be referenced as `upId`.
-
+Note that currently `cardano-wallet` is suitable for testing with only one system tag provided along installer for it (it's `win64` and `daedalus1.exe` here).
 #### Vote for update
 
 Wait for 30-60 seconds.

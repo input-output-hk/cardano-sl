@@ -41,7 +41,7 @@ import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
 
 import           Pos.Binary.Class               (biSize)
-import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
+import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
 import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
@@ -192,6 +192,7 @@ getBlocksTotal = do
 
     pure $ maxBlocks tipBlock
   where
+    maxBlocks :: Block SscGodTossing -> Integer
     maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
 
 
@@ -653,7 +654,6 @@ getStatsTxs mPageNumber = do
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
-
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
 makeTxBrief tx extra = toTxBrief (TxInternal extra tx)

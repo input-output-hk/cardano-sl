@@ -16,8 +16,6 @@ module Pos.Explorer.Socket.Util
     , regroupBySnd
     ) where
 
---import qualified Control.Concurrent.STM      as STM
---import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
 import           Control.Monad.Catch      (MonadCatch)
 import           Control.Monad.Reader     (MonadReader)
 import           Control.Monad.State      (MonadState)

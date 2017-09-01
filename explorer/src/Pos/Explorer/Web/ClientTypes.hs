@@ -56,7 +56,7 @@ import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlock
                                              mcdSlot)
 import           Pos.Block.Types            (Undo (..))
 import           Pos.Core                   (HasCoreConstants, timestampToPosix)
-import           Pos.Crypto                 (Hash, hash)
+import           Pos.Crypto                 (AbstractHash, Hash, HashAlgorithm, hash)
 import           Pos.DB.Block               (MonadBlockDB)
 import           Pos.DB.Class               (MonadDBRead)
 import           Pos.DB.Rocks               (MonadRealDB)
@@ -68,18 +68,18 @@ import           Pos.Slotting               (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
                                              TxUndo, txpTxs, _txOutputs)
-import           Pos.Types                  (Address, AddressHash, Coin, EpochIndex,
-                                             LocalSlotIndex, SlotId (..), StakeholderId,
-                                             Timestamp, addressF, coinToInteger,
-                                             decodeTextAddress, gbHeader, gbhConsensus,
-                                             getEpochIndex, getSlotIndex, headerHash,
-                                             mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
-                                             unsafeGetCoin, unsafeIntegerToCoin,
-                                             unsafeSubCoin)
+import           Pos.Types                  (Address, Coin, EpochIndex, LocalSlotIndex,
+                                             SlotId (..), StakeholderId, Timestamp,
+                                             addressF, coinToInteger, decodeTextAddress,
+                                             gbHeader, gbhConsensus, getEpochIndex,
+                                             getSlotIndex, headerHash, mkCoin, prevBlockL,
+                                             sumCoins, unsafeAddCoin, unsafeGetCoin,
+                                             unsafeIntegerToCoin, unsafeSubCoin)
 import           Prelude                    ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       as SB16
 import           Servant.API                (FromHttpApiData (..))
+
 
 
 -------------------------------------------------------------------------------------
@@ -93,9 +93,11 @@ import           Servant.API                (FromHttpApiData (..))
 --
 -- The following types explain the situation better:
 --
--- type AddressHash = AbstractHash Blake2b_224
--- type Hash        = AbstractHash Blake2b_256
--- type TxId        = Hash Tx
+-- type AddressHash   = AbstractHash Blake2b_224
+-- type Hash          = AbstractHash Blake2b_256
+--
+-- type TxId          = Hash Tx = AbstractHash Blake2b_256 Tx
+-- type StakeholderId = AddressHash PublicKey = AbstractHash Blake2b_224 PublicKey
 --
 -- From there on we have the client types that we use to represent the actual hashes.
 -- The client types are really the hash bytes converted to Base16 address.
@@ -116,23 +118,25 @@ newtype CTxId = CTxId CHash
 -- Client-server, server-client transformation functions
 -------------------------------------------------------------------------------------
 
--- | Transformation of core hash-types to client representations and vice versa
-encodeHashHex :: forall a. (Bi a) => Hash a -> Text
+-- | Transformation of core hash-types to client representation.
+encodeHashHex
+    :: forall algo a. (Bi a)
+    => AbstractHash algo a
+    -> Text
 encodeHashHex = SB16.encode . BA.convert
-
--- | We need this for stakeholders
-encodeAHashHex :: forall a. (Bi a) => AddressHash a -> Text
-encodeAHashHex = SB16.encode . BA.convert
 
 -- | A required instance for decoding.
 instance ToString ByteString where
   toString = toString . SB16.encode
 
 -- | Decoding the text to the original form.
-decodeHashHex :: forall a. (Bi (Hash a)) => Text -> Either Text (Hash a)
+decodeHashHex
+    :: forall algo a. (HashAlgorithm algo, Bi (AbstractHash algo a))
+    => Text
+    -> Either Text (AbstractHash algo a)
 decodeHashHex hashText = do
-    hashBinary <- SB16.decode hashText
-    over _Left toText $ readEither hashBinary
+  hashBinary <- SB16.decode hashText
+  over _Left toText $ readEither hashBinary
 
 -------------------------------------------------------------------------------------
 -- Client hashes functions
@@ -221,7 +225,7 @@ toBlockEntry (blk, Undo{..}) = do
         cbeFees       = mkCCoinMB $ (`unsafeSubCoin` totalSentCoin) <$> totalRecvCoin
 
         -- A simple reconstruction of the AbstractHash, could be better?
-        cbeBlockLead  = encodeAHashHex <$> epochSlotLeader
+        cbeBlockLead  = encodeHashHex <$> epochSlotLeader
 
 
     return CBlockEntry {..}

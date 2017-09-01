@@ -17,6 +17,8 @@ installAsSuffix=dn
 fakeAVVMEntries=100
 richmenShare=0.94
 testnetStake=19072918462000000
+verboseBuild=
+parallelBuild=true
 error() { echo "ERROR: $*" >&2; exit 1;
 }
 while test $# -ge 1; do
@@ -31,6 +33,8 @@ case "$1" in
         --rich-keys | -M )     M="$2";               shift;;
         --poor-keys | -N )     N="$2";               shift;;
         --output-dir )         outputDir="$2";       shift;;
+        --no-parallel-build )  parallelBuild="";     shift;;
+        --verbose-build )      verboseBuild=yes;     shift;;
         "--"* ) error "unknown option: $1";;
         * ) break;; esac; shift; done
 
@@ -48,7 +52,7 @@ utxo_file=$scriptsDir/avvm-files/utxo-dump-last-new.json
 blacklisted=$scriptsDir/avvm-files/full_blacklist.js
 
 case "${buildMode}" in
-nix )   keygen="$(nix-build -A cardano-sl-tools --no-out-link $scriptsDir/../)/bin/cardano-keygen";;
+nix )   keygen="$(nix-build -A cardano-sl-tools --no-out-link ${parallelBuild:+--cores 0 --max-jobs 4} ${verboseBuild:---no-build-output} $scriptsDir/../)/bin/cardano-keygen";;
 stack ) keygen="stack exec cardano-keygen --";;
 esac
 

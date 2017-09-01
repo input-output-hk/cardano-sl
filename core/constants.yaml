@@ -189,6 +189,11 @@ devnet_shortep_full: &devnet_shortep_full
   criticalForkThreshold: 2
   recoveryHeadersMessage: 100
 
+devnet_shortep_updated_full: &devnet_shortep_updated_full
+  <<: *devnet_shortep_full
+
+  applicationVersion: 1
+  lastKnownBVMinor: 1
 
 ##############################################################################
 ##                                                                          ##
@@ -210,6 +215,10 @@ devnet_longep_wallet: &devnet_longep_wallet
 
 devnet_shortep_wallet: &devnet_shortep_wallet
   <<: *devnet_shortep_full
+  applicationName: csl-daedalus
+
+devnet_shortep_updated_wallet: &devnet_shortep_updated_wallet
+  <<: *devnet_shortep_updated_full
   applicationName: csl-daedalus
 
 ##############################################################################

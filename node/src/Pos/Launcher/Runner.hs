@@ -124,13 +124,12 @@ runRealModeDo NodeResources {..} outSpecs action =
         case npEnableMetrics of
             False -> return Nothing
             True  -> Just <$> do
-                let ekgStore' = nrEkgStore
-                registerMetrics (Just cardanoNamespace) (runProduction . runToProd JsonLogDisabled oq) node' ekgStore'
-                liftIO $ Metrics.registerGcMetrics ekgStore'
+                registerMetrics (Just cardanoNamespace) (runProduction . runToProd JsonLogDisabled oq) node' nrEkgStore
+                liftIO $ Metrics.registerGcMetrics nrEkgStore
                 mEkgServer <- case npEkgParams of
                     Nothing -> return Nothing
                     Just (EkgParams {..}) -> Just <$> do
-                        liftIO $ Monitoring.forkServerWith ekgStore' ekgHost ekgPort
+                        liftIO $ Monitoring.forkServerWith nrEkgStore ekgHost ekgPort
                 mStatsdServer <- case npStatsdParams of
                     Nothing -> return Nothing
                     Just (StatsdParams {..}) -> Just <$> do
@@ -142,7 +141,7 @@ runRealModeDo NodeResources {..} outSpecs action =
                                 , Monitoring.prefix = statsdPrefix
                                 , Monitoring.suffix = statsdSuffix
                                 }
-                        liftIO $ Monitoring.forkStatsd statsdOptions ekgStore'
+                        liftIO $ Monitoring.forkStatsd statsdOptions nrEkgStore
                 return (mEkgServer, mStatsdServer)
 
     stopMonitoring Nothing = return ()

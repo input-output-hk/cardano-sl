@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs            #-}
 {-# LANGUAGE RankNTypes       #-}
@@ -11,10 +10,10 @@ module Pos.Util.Monitor (
     ) where
 
 import           Control.Concurrent           (killThread)
-import           Control.Monad.IO.Class
-import           Mockable.Class
+import           Control.Monad.IO.Class       (MonadIO)
+import           Mockable.Class               (Mockable)
 import qualified Mockable.Metrics             as Metrics
-import           Node
+import           Node                         (Node)
 import           Node.Util.Monitor            (registerMetrics)
 import           Pos.System.Metrics.Constants (cardanoNamespace)
 import qualified System.Metrics               as Monitoring

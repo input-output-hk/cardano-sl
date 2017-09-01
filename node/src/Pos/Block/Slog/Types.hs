@@ -18,6 +18,7 @@ import           Universum
 import           Control.Lens          (makeClassy)
 import qualified Data.Text.Buildable
 import           Formatting            (bprint)
+import           System.Metrics.Label  (Label)
 
 import           Pos.Core              (ChainDifficulty, EpochIndex, FlatSlotId,
                                         HasCoreConstants, LocalSlotIndex, slotIdF,
@@ -69,6 +70,8 @@ data SlogContext = SlogContext
     -- ^ Internal state of 'MetricMonitor' to keep track of current local slot.
     , _scGlobalSlotMonitorState :: !(MetricMonitorState FlatSlotId)
     -- ^ Internal state of 'MetricMonitor' to keep track of current global slot.
+    , _scCrucialValuesLabel     :: !Label
+    -- ^ A 'Label' for crucial values.
     }
 
 makeClassy ''SlogContext

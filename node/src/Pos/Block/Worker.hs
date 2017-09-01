@@ -17,6 +17,7 @@ import           Formatting                  (Format, bprint, build, fixed, int,
                                               sformat, shown, (%))
 import           Mockable                    (concurrently, delay)
 import           Serokell.Util               (listJson, pairF, sec)
+import qualified System.Metrics.Label        as Label
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
@@ -28,6 +29,7 @@ import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (scCQFixedMonitorState,
                                               scCQOverallMonitorState, scCQkMonitorState,
+                                              scCrucialValuesLabel,
                                               scDifficultyMonitorState,
                                               scEpochMonitorState,
                                               scGlobalSlotMonitorState,
@@ -38,12 +40,12 @@ import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
                                               networkDiameter, nonCriticalCQ,
                                               nonCriticalCQBootstrap)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
-import           Pos.Core                    (ChainDifficulty, FlatSlotId,
-                                              HasCoreConstants, SlotId (..),
+import           Pos.Core                    (BlockVersionData (..), ChainDifficulty,
+                                              FlatSlotId, HasCoreConstants, SlotId (..),
                                               Timestamp (Timestamp), blkSecurityParam,
-                                              difficultyL, fixedTimeCQSec, flattenSlotId,
-                                              gbHeader, getSlotIndex, slotIdF,
-                                              unflattenSlotId)
+                                              difficultyL, epochSlots, fixedTimeCQSec,
+                                              flattenSlotId, gbHeader, getSlotIndex,
+                                              slotIdF, unflattenSlotId)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
@@ -52,7 +54,7 @@ import           Pos.DB.Misc                 (getProxySecretKeysLight)
 import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
-import           Pos.GState                  (getPskByIssuer)
+import           Pos.GState                  (getAdoptedBVData, getPskByIssuer)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Reporting               (MetricMonitor (..), MetricMonitorState,
                                               noReportMonitor, recordValue)
@@ -240,6 +242,7 @@ metricWorker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
     reportTotalBlocks @ssc
     reportSlottingData curSlot
+    reportCrucialValues
     -- If total number of blocks is less than `blkSecurityParam' we do
     -- nothing with regards to chain quality for two reasons:
     -- 1. Usually after we deploy cluster we monitor it manually for a while.
@@ -287,6 +290,19 @@ reportSlottingData slotId = do
         noReportMonitor fromIntegral Nothing <$>
         view scGlobalSlotMonitorState
     recordValue globalSlotMonitor globalSlot
+
+reportCrucialValues :: WorkMode ssc ctx m => m ()
+reportCrucialValues = do
+    label <- view scCrucialValuesLabel
+    BlockVersionData {..} <- getAdoptedBVData
+    let slotDur = bvdSlotDuration
+    let epochDur = fromIntegral epochSlots * slotDur
+    let crucialValuesText =
+            sformat crucialValuesFmt slotDur epochDur blkSecurityParam
+    liftIO $ Label.set label crucialValuesText
+  where
+    crucialValuesFmt =
+        "slot duration: " %build % ", epoch duration: " %build % ", k: " %int
 
 ----------------------------------------------------------------------------
 -- -- Chain quality

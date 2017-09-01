@@ -13,17 +13,18 @@ module Pos.Block.Slog.Context
 
 import           Universum
 
-import           Formatting            (int, sformat, (%))
-import qualified System.Metrics        as Ekg
+import           Formatting                   (int, sformat, (%))
+import qualified System.Metrics               as Ekg
 
-import           Pos.Block.Slog.Types  (HasSlogGState (..), LastBlkSlots,
-                                        SlogContext (..), SlogGState (..),
-                                        sgsLastBlkSlots)
-import           Pos.Core              (HasCoreConstants, blkSecurityParam,
-                                        fixedTimeCQSec)
-import           Pos.DB.Class          (MonadDBRead)
-import           Pos.GState.BlockExtra (getLastSlots)
-import           Pos.Reporting         (mkMetricMonitorState)
+import           Pos.Block.Slog.Types         (HasSlogGState (..), LastBlkSlots,
+                                               SlogContext (..), SlogGState (..),
+                                               sgsLastBlkSlots)
+import           Pos.Core                     (HasCoreConstants, blkSecurityParam,
+                                               fixedTimeCQSec)
+import           Pos.DB.Class                 (MonadDBRead)
+import           Pos.GState.BlockExtra        (getLastSlots)
+import           Pos.Reporting                (mkMetricMonitorState)
+import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
 -- | Make new 'SlogGState' using data from DB.
 mkSlogGState :: (MonadIO m, MonadDBRead m) => m SlogGState
@@ -57,6 +58,9 @@ mkSlogContext store = do
     _scEpochMonitorState <- mkMMonitorState "current_epoch"
     _scLocalSlotMonitorState <- mkMMonitorState "current_local_slot"
     _scGlobalSlotMonitorState <- mkMMonitorState "current_global_slot"
+    let crucialValuesName = withCardanoNamespace "crucial_values"
+    _scCrucialValuesLabel <-
+        liftIO $ Ekg.createLabel crucialValuesName store
     return SlogContext {..}
 
 -- | Make a copy of existing 'SlogGState'.

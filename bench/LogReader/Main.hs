@@ -33,7 +33,7 @@ import           Bench.Network.Commons        (LogMessage (..), MeasureEvent (..
 import           LogReaderOptions             (Args (..), argsParser)
 import           System.Wlog                  (LoggerNameBox, Severity (Info),
                                                initTerminalLogging, logError, logWarning,
-                                               usingLoggerName, usingLoggerName)
+                                               usingLoggerName)
 
 
 type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])
@@ -127,7 +127,7 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
 
 main :: IO ()
 main = usingLoggerName mempty $ do
-    initTerminalLogging True (Just Info)
+    initTerminalLogging True True (Just Info)
     Args{..} <- liftIO getOptions
     measures <- flip execStateT M.empty $
         forM_ inputFiles analyze

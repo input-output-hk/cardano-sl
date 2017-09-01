@@ -28,7 +28,10 @@ import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (scCQFixedMonitorState,
                                               scCQOverallMonitorState, scCQkMonitorState,
-                                              scDifficultyMonitorState, slogGetLastSlots)
+                                              scDifficultyMonitorState,
+                                              scEpochMonitorState,
+                                              scGlobalSlotMonitorState,
+                                              scLocalSlotMonitorState, slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
@@ -236,6 +239,7 @@ metricWorker
 metricWorker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
     reportTotalBlocks @ssc
+    reportSlottingData curSlot
     -- If total number of blocks is less than `blkSecurityParam' we do
     -- nothing with regards to chain quality for two reasons:
     -- 1. Usually after we deploy cluster we monitor it manually for a while.
@@ -263,6 +267,26 @@ reportTotalBlocks = do
 difficultyMonitor ::
        MetricMonitorState ChainDifficulty -> MetricMonitor ChainDifficulty
 difficultyMonitor = noReportMonitor fromIntegral Nothing
+
+reportSlottingData :: WorkMode ssc ctx m => SlotId -> m ()
+reportSlottingData slotId = do
+    -- epoch
+    let epoch = siEpoch slotId
+    epochMonitor <-
+        noReportMonitor fromIntegral Nothing <$> view scEpochMonitorState
+    recordValue epochMonitor epoch
+    -- local slot
+    let localSlot = siSlot slotId
+    localSlotMonitor <-
+        noReportMonitor (fromIntegral . getSlotIndex) Nothing <$>
+        view scLocalSlotMonitorState
+    recordValue localSlotMonitor localSlot
+    -- global slot
+    let globalSlot = flattenSlotId slotId
+    globalSlotMonitor <-
+        noReportMonitor fromIntegral Nothing <$>
+        view scGlobalSlotMonitorState
+    recordValue globalSlotMonitor globalSlot
 
 ----------------------------------------------------------------------------
 -- -- Chain quality

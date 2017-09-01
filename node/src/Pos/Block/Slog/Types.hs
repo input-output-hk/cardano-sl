@@ -19,8 +19,9 @@ import           Control.Lens          (makeClassy)
 import qualified Data.Text.Buildable
 import           Formatting            (bprint)
 
-import           Pos.Core              (ChainDifficulty, FlatSlotId, HasCoreConstants,
-                                        slotIdF, unflattenSlotId)
+import           Pos.Core              (ChainDifficulty, EpochIndex, FlatSlotId,
+                                        HasCoreConstants, LocalSlotIndex, slotIdF,
+                                        unflattenSlotId)
 import           Pos.Reporting.Metrics (MetricMonitorState)
 import           Pos.Util.Chrono       (OldestFirst (..))
 
@@ -62,6 +63,12 @@ data SlogContext = SlogContext
     , _scDifficultyMonitorState :: !(MetricMonitorState ChainDifficulty)
     -- ^ Internal state of 'MetricMonitor' to keep track of overall
     -- chain difficulty (i. e. total number of main blocks created so far).
+    , _scEpochMonitorState      :: !(MetricMonitorState EpochIndex)
+    -- ^ Internal state of 'MetricMonitor' to keep track of current epoch.
+    , _scLocalSlotMonitorState  :: !(MetricMonitorState LocalSlotIndex)
+    -- ^ Internal state of 'MetricMonitor' to keep track of current local slot.
+    , _scGlobalSlotMonitorState :: !(MetricMonitorState FlatSlotId)
+    -- ^ Internal state of 'MetricMonitor' to keep track of current global slot.
     }
 
 makeClassy ''SlogContext

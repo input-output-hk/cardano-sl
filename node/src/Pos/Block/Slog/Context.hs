@@ -54,6 +54,9 @@ mkSlogContext store = do
 
     -- Other metrics stuff.
     _scDifficultyMonitorState <- mkMMonitorState "total_main_blocks"
+    _scEpochMonitorState <- mkMMonitorState "current_epoch"
+    _scLocalSlotMonitorState <- mkMMonitorState "current_local_slot"
+    _scGlobalSlotMonitorState <- mkMMonitorState "current_global_slot"
     return SlogContext {..}
 
 -- | Make a copy of existing 'SlogGState'.

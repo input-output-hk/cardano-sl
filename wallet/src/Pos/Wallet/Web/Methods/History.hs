@@ -29,8 +29,8 @@ import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                             getHistoryCache, getPendingTx, getPendingTxs,
-                                             getTxMeta, setWalletTxMeta)
+                                             getHistoryCache, getPendingTx, getTxMeta,
+                                             getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                              getWalletAccountIds, getWalletAddrMetas,
                                              getWalletAddrs, getWalletThTime)
@@ -134,7 +134,9 @@ addRecentPtxHistory wid currentHistory = do
     merge currentHistory candidates
   where
     thToOrdForm = Arg =<< _thTxId
-    getCandidates = mapMaybe (ptxPoolInfo . _ptxCond) <$> getPendingTxs
+    getCandidates =
+        mapMaybe (ptxPoolInfo . _ptxCond) . fromMaybe [] <$>
+        getWalletPendingTxs wid
 
     merge [] recent     = return recent
     merge current []    = return current

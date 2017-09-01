@@ -9,7 +9,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict   as HM
 
-import           Pos.Core              (HeaderHash, SlotId (..), LocalSlotIndex(..),
+import           Pos.Core              (HeaderHash, SlotId (..), HasCoreConstants,
                                         epochIndexL, headerHash, headerSlotL)
 import           Pos.DB                (SomeBatchOp (..))
 import           Pos.Slotting          (MonadSlots, getSlotStart)
@@ -29,7 +29,7 @@ import           Pos.Explorer.Txp.Toil (EGlobalApplyToilMode, ExplorerExtra (..)
 
 
 -- | Settings used for global transactions data processing used by explorer.
-explorerTxpGlobalSettings :: TxpGlobalSettings
+explorerTxpGlobalSettings :: HasCoreConstants => TxpGlobalSettings
 explorerTxpGlobalSettings =
     -- verification is same
     txpGlobalSettings
@@ -38,7 +38,7 @@ explorerTxpGlobalSettings =
     }
 
 eApplyBlocksSettings
-    :: (EGlobalApplyToilMode ctx m, MonadSlots ctx m)
+    :: (HasCoreConstants, EGlobalApplyToilMode ctx m, MonadSlots ctx m)
     => ApplyBlocksSettings ExplorerExtra m
 eApplyBlocksSettings =
     ApplyBlocksSettings
@@ -56,7 +56,7 @@ extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
     map GS.DelAddrBalance (MM.deletions balances)
 
 applyBlund
-    :: (MonadSlots ctx m, EGlobalApplyToilMode ctx m)
+    :: (HasCoreConstants, MonadSlots ctx m, EGlobalApplyToilMode ctx m)
     => TxpBlund
     -> m ()
 applyBlund txpBlund = do
@@ -73,8 +73,8 @@ applyBlund txpBlund = do
     let slotId   = case txpBlock of
             Left gensisBlock -> SlotId
                                   { siEpoch = gensisBlock ^. epochIndexL
-                                  , siSlot  = UnsafeLocalSlotIndex 0
-                                  -- ^ Genesis block doesn't have a slot
+                                  , siSlot  = minBound
+                                  -- ^ Genesis block doesn't have a slot, set to minBound
                                   }
             Right mainBlock   -> mainBlock ^. _1 . headerSlotL
 

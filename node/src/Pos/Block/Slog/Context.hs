@@ -42,11 +42,11 @@ mkSlogContext storeMaybe = do
     let mkMMonitorState = flip mkMetricMonitorState storeMaybe
     -- Chain quality metrics stuff.
     let metricNameK =
-            sformat ("chain_quality_last_k_("%int%")_blocks_milli")
+            sformat ("chain_quality_last_k_("%int%")_blocks_%")
                 blkSecurityParam
-    let metricNameOverall = "chain_quality_overall_milli"
+    let metricNameOverall = "chain_quality_overall_%"
     let metricNameFixed =
-            sformat ("chain_quality_last_"%int%"_sec_milli")
+            sformat ("chain_quality_last_"%int%"_sec_%")
                 fixedTimeCQSec
     _scCQkMonitorState <- mkMMonitorState metricNameK
     _scCQOverallMonitorState <- mkMMonitorState metricNameOverall

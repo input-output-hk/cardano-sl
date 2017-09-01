@@ -346,4 +346,4 @@ cqF = fixed 3
 
 -- Private converter to integer.
 convertCQ :: Double -> Int64
-convertCQ = round . (* 1000)
+convertCQ = round . (* 100)

@@ -113,6 +113,7 @@ library
                         -- Utilities/helpers
                         Pos.Util
                         Pos.Util.LoggerName
+                        Pos.Util.Monitor
                         Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
@@ -358,7 +359,7 @@ library
                       , dlist
                       , dns
                       , ed25519
-                      , ekg
+                      , ekg-wai
                       , ekg-core
                       , ekg-statsd
                       , ether >= 0.5

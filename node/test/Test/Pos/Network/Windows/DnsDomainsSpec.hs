@@ -5,6 +5,14 @@
 #define POSIX
 #endif
 
+-- This warning is disabled because it is not possible to have modules in the test suite
+-- that are compiled only on certain operating systems using the 'if os(os_name)' in the
+-- project's cabal file.
+--
+-- As such, on Linux, for example, during compilation there will be warnings on unused
+--imports which are not really relevant.
+{-# OPTIONS_GHC -Wno-unused-imports   #-}
+
 -- | Specification of 'Pos.Network.Windows.DnsDomains'
 
 module Test.Pos.Network.Windows.DnsDomainsSpec
@@ -35,6 +43,12 @@ spec = do
                  prop_GetWindowsDefDnsServer
     describe "Multi-value lookups" $ do
         it "pool.ntp.org resolves correctly to more than 1 address" $ testLookupFor "pool.ntp.org"
+
+testLookupFor :: ByteString -> Expectation
+testLookupFor dnsDomain = do
+    initDnsOnUse $ \resolve -> do
+      res <- resolve dnsDomain
+      (> 1) . length <$> res `shouldBe` Right True
 
 prop_GetWindowsDefDnsServer :: Expectation
 prop_GetWindowsDefDnsServer = do

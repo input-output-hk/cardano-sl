@@ -1,5 +1,5 @@
+{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE CPP #-}
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX
@@ -57,13 +57,14 @@ import           Node.Internal                         (NodeId (..))
 import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import qualified Pos.Network.Policy                    as Policy
+import           Pos.System.Metrics.Constants          (cardanoNamespace)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
 import qualified System.Metrics                        as Monitoring
 import           System.Wlog.CanLog                    (WithLogger)
 import           Universum                             hiding (show)
 
 #if !defined(POSIX)
-import qualified Pos.Network.Windows.DnsDomains as Win
+import qualified Pos.Network.Windows.DnsDomains        as Win
 #endif
 
 {-------------------------------------------------------------------------------
@@ -290,7 +291,7 @@ topologyMaxBucketSize topology bucket =
       BucketSubscriptionListener ->
         case topologySubscribers topology of
           Just (_subscriberType, maxBucketSize) -> maxBucketSize
-          Nothing -> OQ.BucketSizeMax 0 -- subscription not allowed
+          Nothing                               -> OQ.BucketSizeMax 0 -- subscription not allowed
       _otherBucket ->
         OQ.BucketSizeUnlimited
 
@@ -339,7 +340,7 @@ initQueue NetworkConfig{..} mStore = do
 
     case mStore of
       Nothing    -> return () -- EKG store not used
-      Just store -> liftIO $ OQ.registerQueueMetrics oq store
+      Just store -> liftIO $ OQ.registerQueueMetrics (Just (toString cardanoNamespace)) oq store
 
     case ncTopology of
       TopologyLightWallet peers -> do

@@ -44,7 +44,7 @@ import           Control.Exception           (Exception, SomeException (..))
 import           Control.Lens                (makeLenses, (%=))
 import           Control.Monad               (forM_, void)
 import           Control.Monad.IO.Class      (MonadIO (..))
-import           Control.Monad.State         (StateT)
+import           Control.Monad.State.Strict  (StateT)
 import           Data.Binary                 (Binary (..))
 import qualified Data.ByteString             as LBS
 import qualified Data.List                   as L

@@ -44,7 +44,7 @@ import Serokell.Util.Lens             (WrappedM (..))
 import System.IO                      (Handle)
 import System.Wlog.CanLog             (CanLog, WithLogger, logWarning)
 import System.Wlog.LoggerNameBox      (HasLoggerName (..))
-import Universum                      hiding (catchAll)
+import Universum
 
 import JsonLog.CanJsonLog             (CanJsonLog (..))
 import JsonLog.Event                  (JLTimedEvent, toEvent, timedIO)

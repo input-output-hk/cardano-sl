@@ -1,5 +1,4 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE QuasiQuotes   #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Options
        ( CLIOptions (..)
        , getOptions
@@ -19,13 +18,12 @@ data CLIOptions = CLIOptions
     }
 
 optionsParser :: Parser CLIOptions
-optionsParser = do
-    dbPath <- strOption $
-        long    "db" <>
-        metavar "FILEPATH" <>
-        help    "Location of the database where the blockchain is stored."
+optionsParser = CLIOptions <$> parseDbPath
 
-    return CLIOptions{..}
+parseDbPath :: Parser FilePath
+parseDbPath = strOption (long "db" <> metavar "FILEPATH"
+                                   <> help    "Location of the database where the blockchain is stored."
+                        )
 
 getOptions :: IO CLIOptions
 getOptions = execParser programInfo

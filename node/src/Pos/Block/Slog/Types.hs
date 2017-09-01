@@ -19,8 +19,8 @@ import           Control.Lens          (makeClassy)
 import qualified Data.Text.Buildable
 import           Formatting            (bprint)
 
-import           Pos.Core              (FlatSlotId, HasCoreConstants, slotIdF,
-                                        unflattenSlotId)
+import           Pos.Core              (ChainDifficulty, FlatSlotId, HasCoreConstants,
+                                        slotIdF, unflattenSlotId)
 import           Pos.Reporting.Metrics (MetricMonitorState)
 import           Pos.Util.Chrono       (OldestFirst (..))
 
@@ -46,19 +46,22 @@ makeClassy ''SlogGState
 
 -- | All in-memory data used by Slog.
 data SlogContext = SlogContext
-    { _scGState                :: !SlogGState
+    { _scGState                 :: !SlogGState
     -- ^ Slots for which last blocks in our chain were created. This
     -- information is also stored in DB, but we don't want to read it
     -- every time.
-    , _scCQkMonitorState       :: !MetricMonitorState
+    , _scCQkMonitorState        :: !(MetricMonitorState Double)
     -- ^ Internal state of 'MetricMonitor' to keep track of chain
     -- quality for last 'k' blocks.
-    , _scCQOverallMonitorState :: !MetricMonitorState
+    , _scCQOverallMonitorState  :: !(MetricMonitorState Double)
     -- ^ Internal state of 'MetricMonitor' to keep track of overall chain
     -- quality.
-    , _scCQFixedMonitorState   :: !MetricMonitorState
+    , _scCQFixedMonitorState    :: !(MetricMonitorState Double)
     -- ^ Internal state of 'MetricMonitor' to keep track of chain
     -- quality for fixed amount of time.
+    , _scDifficultyMonitorState :: !(MetricMonitorState ChainDifficulty)
+    -- ^ Internal state of 'MetricMonitor' to keep track of overall
+    -- chain difficulty (i. e. total number of main blocks created so far).
     }
 
 makeClassy ''SlogContext

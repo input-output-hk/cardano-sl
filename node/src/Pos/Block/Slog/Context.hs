@@ -38,16 +38,22 @@ mkSlogContext ::
     -> m SlogContext
 mkSlogContext storeMaybe = do
     _scGState <- mkSlogGState
+
+    let mkMMonitorState = flip mkMetricMonitorState storeMaybe
+    -- Chain quality metrics stuff.
     let metricNameK =
-            sformat ("chain_quality_last_k_("%int%")_blocks")
+            sformat ("chain_quality_last_k_("%int%")_blocks_milli")
                 blkSecurityParam
-    let metricNameOverall = "chain_quality_overall"
+    let metricNameOverall = "chain_quality_overall_milli"
     let metricNameFixed =
-            sformat ("chain_quality_last_"%int%"_sec")
+            sformat ("chain_quality_last_"%int%"_sec_milli")
                 fixedTimeCQSec
-    _scCQkMonitorState <- mkMetricMonitorState metricNameK storeMaybe
-    _scCQOverallMonitorState <- mkMetricMonitorState metricNameOverall storeMaybe
-    _scCQFixedMonitorState <- mkMetricMonitorState metricNameFixed storeMaybe
+    _scCQkMonitorState <- mkMMonitorState metricNameK
+    _scCQOverallMonitorState <- mkMMonitorState metricNameOverall
+    _scCQFixedMonitorState <- mkMMonitorState metricNameFixed
+
+    -- Other metrics stuff.
+    _scDifficultyMonitorState <- mkMMonitorState "total_main_blocks"
     return SlogContext {..}
 
 -- | Make a copy of existing 'SlogGState'.

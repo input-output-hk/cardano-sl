@@ -6,13 +6,14 @@ module Pos.Reporting.Metrics
        ( MetricMonitor (..)
        , MetricMonitorState
        , mkMetricMonitorState
+       , noReportMonitor
        , recordValue
        ) where
 
 import           Universum
 
 import           Data.Time.Units              (Microsecond)
-import           Formatting                   (Format, sformat)
+import           Formatting                   (Format, build, sformat)
 import           Mockable                     (CurrentTime, Mockable, currentTime)
 import qualified System.Metrics               as Metrics
 import           System.Metrics.Gauge         (Gauge)
@@ -25,11 +26,10 @@ import           Pos.System.Metrics.Constants (withCardanoNamespace)
 -- | 'MetricMonitor' is primarily used to parameterize 'recordValue'
 -- function (see below).
 --
--- Note: currently this type only supports 'Double' values and uses
--- 'Gauge' metric type. Values are multipled by 1000 and rounded. We
--- can generalize it later if necessary.
-data MetricMonitor = MetricMonitor
-    { mmReportMisbehaviour :: Microsecond -> Maybe Double -> Double -> Maybe Bool
+-- Note: currently this type only supports 'Gauge' metric type. We can
+-- generalize it later if necessary.
+data MetricMonitor value = MetricMonitor
+    { mmReportMisbehaviour :: Microsecond -> Maybe value -> value -> Maybe Bool
     -- ^ A predicate which determines which values should be also
     -- reported to reporting server, apart from tracking them in ekg.
     -- 'Nothing' means that value is good and shouldn't be reported at all.
@@ -47,31 +47,34 @@ data MetricMonitor = MetricMonitor
     -- Also we can use a custom ADT.
     -- 'Maybe Bool' was choosen as a reasonable trade-off between simplicity
     -- and generalization.
-    , mmMisbehFormat       :: forall r. Format r (Double -> r)
+    , mmMisbehFormat       :: forall r. Format r (value -> r)
     -- ^ A 'Format' of misbehaviour message.
-    , mmDebugFormat        :: forall r. Maybe (Format r (Double -> r))
+    , mmDebugFormat        :: forall r. Maybe (Format r (value -> r))
     -- ^ A 'Format' of debug message which is just logged with debug
     -- severity (if this format is 'Just' and value is not reported).
-    , mmState              :: !MetricMonitorState
+    , mmConvertValue       :: value -> Int64
+    -- ^ A way to convert abstract 'value' to 'Int64'.
+    , mmState              :: !(MetricMonitorState value)
     -- ^ Internal state.
     }
 
 -- | Mutable internal state of 'MetricMonitor'.
-data MetricMonitorState = MetricMonitorState
+data MetricMonitorState value = MetricMonitorState
     { mmsLastReportTime    :: !(TVar Microsecond)
     -- ^ Last time when value was reported (or 0).
-    , mmsLastReportedValue :: !(TVar (Maybe Double))
+    , mmsLastReportedValue :: !(TVar (Maybe value))
     -- ^ Last reported value.
     , mmsGauge             :: !(Maybe Gauge)
     -- ^ An optional 'Distribution' where we track some value.
     }
 
 -- | Make new initial 'MetricMonitorState'.
-mkMetricMonitorState :: MonadIO m => Text -> Maybe Metrics.Store -> m MetricMonitorState
+mkMetricMonitorState ::
+       MonadIO m => Text -> Maybe Metrics.Store -> m (MetricMonitorState value)
 mkMetricMonitorState name storeMaybe = do
     mmsLastReportTime <- newTVarIO 0
     mmsLastReportedValue <- newTVarIO Nothing
-    let modifiedName = withCardanoNamespace name <> "_milli"
+    let modifiedName = withCardanoNamespace name
     mmsGauge <-
         case storeMaybe of
             Nothing -> return Nothing
@@ -79,14 +82,38 @@ mkMetricMonitorState name storeMaybe = do
                 liftIO $ Just <$> Metrics.createGauge modifiedName store
     return MetricMonitorState {..}
 
+-- | Make 'MetricMonitorState' which never reports.
+noReportMonitor ::
+       Buildable value
+    => (value -> Int64)
+    -- ^ How to convert value to integer.
+    -> (forall r. Maybe (Format r (value -> r)))
+    -- ^ How to format value for debug.
+    -> MetricMonitorState value
+    -> MetricMonitor value
+noReportMonitor converter debugFormat st =
+    MetricMonitor
+    { mmState = st
+    , mmReportMisbehaviour = classifier
+    , mmMisbehFormat = build -- won't be used due to classifier
+    , mmConvertValue = converter
+    , mmDebugFormat = debugFormat
+    }
+  where
+    classifier _ _ _ = Nothing
+
 -- | Add a value to the dsitribution stored in the
 -- 'MetricMonitor'. Report this value if it should be reported
 -- according to 'MetricMonitor'.
-recordValue :: (MonadReporting ctx m, Mockable CurrentTime m) => MetricMonitor -> Double -> m ()
+recordValue ::
+       (MonadReporting ctx m, Mockable CurrentTime m)
+    => MetricMonitor value
+    -> value
+    -> m ()
 recordValue MetricMonitor {..} v = do
     let MetricMonitorState {..} = mmState
-    let roundedV = round (1000 * v)
-    whenJust mmsGauge $ \gauge -> liftIO $ Gauge.set gauge roundedV
+    let vInt = mmConvertValue v
+    whenJust mmsGauge $ \gauge -> liftIO $ Gauge.set gauge vInt
     lastReportTime <- readTVarIO mmsLastReportTime
     curTime <- currentTime
     lastReportedValue <- readTVarIO mmsLastReportedValue

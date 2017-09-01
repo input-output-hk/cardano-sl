@@ -28,20 +28,23 @@ import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (scCQFixedMonitorState,
                                               scCQOverallMonitorState, scCQkMonitorState,
-                                              slogGetLastSlots)
+                                              scDifficultyMonitorState, slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
                                               networkDiameter, nonCriticalCQ,
                                               nonCriticalCQBootstrap)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
-import           Pos.Core                    (HasCoreConstants, SlotId (..),
+import           Pos.Core                    (ChainDifficulty, FlatSlotId,
+                                              HasCoreConstants, SlotId (..),
                                               Timestamp (Timestamp), blkSecurityParam,
-                                              fixedTimeCQSec, flattenSlotId, gbHeader,
-                                              getSlotIndex, slotIdF, unflattenSlotId)
+                                              difficultyL, fixedTimeCQSec, flattenSlotId,
+                                              gbHeader, getSlotIndex, slotIdF,
+                                              unflattenSlotId)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
+import qualified Pos.DB.DB                   as DB
 import           Pos.DB.Misc                 (getProxySecretKeysLight)
 import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
@@ -49,7 +52,7 @@ import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.GState                  (getPskByIssuer)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Reporting               (MetricMonitor (..), MetricMonitorState,
-                                              recordValue)
+                                              noReportMonitor, recordValue)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
@@ -81,7 +84,7 @@ blkOnNewSlot =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
         recoveryCommGuard $
         () <$
-        chainQualityChecker slotId `concurrently`
+        metricWorker slotId `concurrently`
         blockCreator slotId sendActions
 
 ----------------------------------------------------------------------------
@@ -216,20 +219,25 @@ onNewSlotWhenLeader slotId pske SendActions {..} = do
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 
 ----------------------------------------------------------------------------
--- Chain qualitiy checker
+-- Metric worker
 ----------------------------------------------------------------------------
 
--- This action should be called only when we are synchronized with the
--- network.  The goal of this worker is not to detect violation of
--- chain quality assumption, but to produce warnings when this
--- assumption is close to being violated.
-chainQualityChecker
+-- This worker computes various metrics and records them using 'MetricMonitor'.
+--
+-- Chain quality checker should be called only when we are
+-- synchronized with the network.  The goal of this checker is not to
+-- detect violation of chain quality assumption, but to produce
+-- warnings when this assumption is close to being violated.
+--
+-- Apart from chain quality check we also record some generally useful values.
+metricWorker
     :: forall ssc ctx m. WorkMode ssc ctx m
     => SlotId -> m ()
-chainQualityChecker curSlot = do
+metricWorker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
+    reportTotalBlocks @ssc
     -- If total number of blocks is less than `blkSecurityParam' we do
-    -- nothing for two reasons:
+    -- nothing with regards to chain quality for two reasons:
     -- 1. Usually after we deploy cluster we monitor it manually for a while.
     -- 2. Sometimes we deploy after start time, so chain quality may indeed by
     --    poor right after launch.
@@ -237,29 +245,58 @@ chainQualityChecker curSlot = do
         Nothing -> pass
         Just slotsNE
             | length slotsNE < fromIntegral blkSecurityParam -> pass
-            | otherwise -> chainQualityCheckerDo (NE.head slotsNE)
-  where
-    chainQualityCheckerDo kThSlot = do
-        logDebug $ sformat ("Block with depth 'k' ("%int%
-                            ") was created during slot "%slotIdF)
-            blkSecurityParam (unflattenSlotId kThSlot)
-        let curFlatSlot = flattenSlotId curSlot
-        -- We use monadic version here, because it also does sanity
-        -- check and we don't want to copy-paste it and it's easier
-        -- and cheap.
-        chainQualityK :: Double <- calcChainQualityM curFlatSlot
-        isBootstrapEra <- gsIsBootstrapEra (siEpoch curSlot)
-        monitorStateK <- view scCQkMonitorState
-        let monitorK = cqkMetricMonitor monitorStateK isBootstrapEra
-        monitorOverall <- cqOverallMetricMonitor <$> view scCQOverallMonitorState
-        monitorFixed <- cqFixedMetricMonitor <$> view scCQFixedMonitorState
-        recordValue monitorK chainQualityK
-        whenJustM (calcOverallChainQuality @ssc) $ recordValue monitorOverall
-        whenJustM calcChainQualityFixedTime $ recordValue monitorFixed
+            | otherwise -> chainQualityChecker @ssc curSlot (NE.head slotsNE)
+
+----------------------------------------------------------------------------
+-- -- General metrics
+----------------------------------------------------------------------------
+
+reportTotalBlocks ::
+       forall ssc ctx m. WorkMode ssc ctx m
+    => m ()
+reportTotalBlocks = do
+    difficulty <- view difficultyL <$> DB.getTipHeader @ssc
+    monitor <- difficultyMonitor <$> view scDifficultyMonitorState
+    recordValue monitor difficulty
+
+-- We don't need debug messages, we can see it from other messages.
+difficultyMonitor ::
+       MetricMonitorState ChainDifficulty -> MetricMonitor ChainDifficulty
+difficultyMonitor = noReportMonitor fromIntegral Nothing
+
+----------------------------------------------------------------------------
+-- -- Chain quality
+----------------------------------------------------------------------------
+
+chainQualityChecker ::
+       forall ssc ctx m. WorkMode ssc ctx m
+    => SlotId
+    -> FlatSlotId
+    -> m ()
+chainQualityChecker curSlot kThSlot = do
+    logDebug $ sformat ("Block with depth 'k' ("%int%
+                        ") was created during slot "%slotIdF)
+        blkSecurityParam (unflattenSlotId kThSlot)
+    let curFlatSlot = flattenSlotId curSlot
+    -- We use monadic version here, because it also does sanity
+    -- check and we don't want to copy-paste it and it's easier
+    -- and cheap.
+    chainQualityK :: Double <- calcChainQualityM curFlatSlot
+    isBootstrapEra <- gsIsBootstrapEra (siEpoch curSlot)
+    monitorStateK <- view scCQkMonitorState
+    let monitorK = cqkMetricMonitor monitorStateK isBootstrapEra
+    monitorOverall <- cqOverallMetricMonitor <$> view scCQOverallMonitorState
+    monitorFixed <- cqFixedMetricMonitor <$> view scCQFixedMonitorState
+    recordValue monitorK chainQualityK
+    whenJustM (calcOverallChainQuality @ssc) $ recordValue monitorOverall
+    whenJustM calcChainQualityFixedTime $ recordValue monitorFixed
 
 -- Monitor for chain quality for last k blocks.
 cqkMetricMonitor ::
-       HasCoreConstants => MetricMonitorState -> Bool -> MetricMonitor
+       HasCoreConstants
+    => MetricMonitorState Double
+    -> Bool
+    -> MetricMonitor Double
 cqkMetricMonitor st isBootstrapEra =
     MetricMonitor
     { mmState = st
@@ -269,6 +306,7 @@ cqkMetricMonitor st isBootstrapEra =
           "less than "%now (bprint cqF criticalThreshold)%": "%cqF
     , mmDebugFormat =
           Just $ "Chain quality for the last 'k' ("%kFormat% ") blocks is "%cqF
+    , mmConvertValue = convertCQ
     }
   where
     classifier :: Microsecond -> Maybe Double -> Double -> Maybe Bool
@@ -290,29 +328,22 @@ cqkMetricMonitor st isBootstrapEra =
     kFormat :: Format r r
     kFormat = now (bprint int blkSecurityParam)
 
-cqOverallMetricMonitor :: MetricMonitorState -> MetricMonitor
-cqOverallMetricMonitor st =
-    MetricMonitor
-    { mmState = st
-    , mmReportMisbehaviour = classifier
-    , mmMisbehFormat = cqF -- won't be used due to classifier
-    , mmDebugFormat = Just $ "Overall chain quality is " %cqF
-    }
+cqOverallMetricMonitor :: MetricMonitorState Double -> MetricMonitor Double
+cqOverallMetricMonitor = noReportMonitor convertCQ (Just debugFormat)
   where
-    classifier _ _ _ = Nothing
+    debugFormat = "Overall chain quality is " %cqF
 
-cqFixedMetricMonitor :: MetricMonitorState -> MetricMonitor
-cqFixedMetricMonitor st =
-    MetricMonitor
-    { mmState = st
-    , mmReportMisbehaviour = classifier
-    , mmMisbehFormat = cqF -- won't be used due to classifier
-    , mmDebugFormat = Just $ "Chain quality for last "%
-                             now (bprint build fixedTimeCQSec)%" is "%cqF
-    }
+cqFixedMetricMonitor :: MetricMonitorState Double -> MetricMonitor Double
+cqFixedMetricMonitor = noReportMonitor convertCQ (Just debugFormat)
   where
-    classifier _ _ _ = Nothing
+    debugFormat =
+        "Chain quality for last "%now (bprint build fixedTimeCQSec)%
+        " is "%cqF
 
 -- Private chain quality formatter.
 cqF :: Format r (Double -> r)
 cqF = fixed 3
+
+-- Private converter to integer.
+convertCQ :: Double -> Int64
+convertCQ = round . (* 1000)

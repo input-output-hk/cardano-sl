@@ -183,7 +183,7 @@ catchInSync
     :: (MonadReporting ctx m)
     => Text -> (CId Wal -> m ()) -> CId Wal -> m ()
 catchInSync desc syncWallet wId =
-    syncWallet wId `catchAll` reportOrLogW prefix
+    syncWallet wId `catchAny` reportOrLogW prefix
   where
     -- REPORT:ERROR 'reportOrLogW' in wallet sync.
     fmt = "Failed to sync wallet "%build%" in BListener ("%build%"): "

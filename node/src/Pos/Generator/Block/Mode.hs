@@ -21,6 +21,7 @@ module Pos.Generator.Block.Mode
 import           Universum
 
 import           Control.Lens.TH             (makeLensesWith)
+import qualified Control.Monad.Catch
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random               as Rand

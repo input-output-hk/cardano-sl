@@ -38,7 +38,7 @@ dlgInvalidateCaches
     => m ()
 dlgInvalidateCaches = runIfNotShutdown $ do
     -- REPORT:ERROR 'reportOrLogE' in delegation worker.
-    invalidate `catchAll` reportOrLogE "Delegation worker, error occurred: "
+    invalidate `catchAny` reportOrLogE "Delegation worker, error occurred: "
     delay (sec 1)
     dlgInvalidateCaches
   where

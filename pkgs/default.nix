@@ -1027,11 +1027,11 @@ self: {
       cardano-report-server = callPackage ({ aeson, aeson-pretty, base, bytestring, case-insensitive, directory, exceptions, fetchgit, filelock, filepath, formatting, http-types, lens, lifted-base, log-warper, mkDerivation, monad-control, mtl, network, optparse-applicative, parsec, random, stdenv, text, time, transformers, universum, vector, wai, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-report-server";
-          version = "0.2.1";
+          version = "0.3.0";
           src = fetchgit {
             url = "https://github.com/input-output-hk/cardano-report-server.git";
-            sha256 = "02mf9nw5n0lcq9p6j33lsn0vbab4ai4z3j2099qlzcaqf3kq1987";
-            rev = "c2af07ab7d627556ed3f6185b062e4cd1fb5ad26";
+            sha256 = "0kysicb6ij4mwkg8dx222hn1lxzalmzb79z1f9bpm6dfjhs7m0sf";
+            rev = "69583b607dd841b0de1ef660388172a94c660c84";
           };
           isLibrary = true;
           isExecutable = true;
@@ -4359,8 +4359,8 @@ self: {
       log-warper = callPackage ({ aeson, ansi-terminal, base, containers, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.1.2";
-          sha256 = "0j17ylwga4vw0f0hahpmvm3nhk6s274m0msjv0r9jx6a6jx1wsmn";
+          version = "1.2.0";
+          sha256 = "0y02wlfw12x2y6hgq9878ynnghyg4xvai806fbapz3vi9xypd5jv";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -4826,8 +4826,8 @@ self: {
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "1b74lvdc5a5yyyiylkzasbr6xxd2ww2gjh90q66bv8s1m0hfhli6";
-            rev = "51ce7d0f54c6232fb0c27f2edbe25a338535d02d";
+            sha256 = "1540fdgp8b61z3ms55iz17bhiw45c0winhijnhzmqmy792wchd91";
+            rev = "fe6403d2e82c13eb7c05cf000d7cae5a5ca76fae";
           };
           isLibrary = true;
           isExecutable = true;
@@ -5542,6 +5542,23 @@ self: {
           description = "Library of safe (exception free) functions";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      safe-exceptions = callPackage ({ base, deepseq, exceptions, mkDerivation, stdenv, transformers }:
+      mkDerivation {
+          pname = "safe-exceptions";
+          version = "0.1.6.0";
+          sha256 = "074dy2f9fbhnh59clpz8c1ljplm1wwqjj7r3i4nv0rcl0khprm3i";
+          libraryHaskellDepends = [
+            base
+            deepseq
+            exceptions
+            transformers
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/fpco/safe-exceptions#readme";
+          description = "Safe, consistent, and easy exception handling";
+          license = stdenv.lib.licenses.mit;
+        }) {};
       safecopy = callPackage ({ array, base, bytestring, cereal, containers, mkDerivation, old-time, semigroups, stdenv, template-haskell, text, time, vector }:
       mkDerivation {
           pname = "safecopy";
@@ -5657,8 +5674,8 @@ self: {
       serokell-util = callPackage ({ QuickCheck, acid-state, aeson, ansi-terminal, base, base16-bytestring, base64-bytestring, bytestring, clock, containers, deepseq, directory, exceptions, extra, filepath, formatting, hashable, lens, log-warper, mkDerivation, monad-control, mtl, optparse-applicative, parsec, quickcheck-instances, safecopy, scientific, semigroups, stdenv, stm, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "serokell-util";
-          version = "0.4.0";
-          sha256 = "1hql9cmw43cq9dsrkd0qwy1ycj6srsc2sr32grcfvh2j350k2m0p";
+          version = "0.5.0";
+          sha256 = "0z460j5k1h74y1v0b7lwdw08qdp5c8ayvsvfa17xdhpb0p8dzriw";
           libraryHaskellDepends = [
             acid-state
             aeson
@@ -6784,11 +6801,11 @@ self: {
           description = "IO without any non-error, synchronous exceptions";
           license = "unknown";
         }) {};
-      universum = callPackage ({ base, bytestring, containers, deepseq, exceptions, ghc-prim, hashable, microlens, microlens-mtl, mkDerivation, mtl, safe, stdenv, stm, text, text-format, transformers, type-operators, unordered-containers, utf8-string, vector }:
+      universum = callPackage ({ base, bytestring, containers, deepseq, exceptions, ghc-prim, hashable, microlens, microlens-mtl, mkDerivation, mtl, safe, safe-exceptions, stdenv, stm, text, text-format, transformers, type-operators, unordered-containers, utf8-string, vector }:
       mkDerivation {
           pname = "universum";
-          version = "0.4.3";
-          sha256 = "17rrikfid54z8h95qns5q7bdxadnnggv1pl2d9ilz9pz9hi7a9g6";
+          version = "0.6.1";
+          sha256 = "18q4kydcx273brx24y30i1kqb12h1p20ynvwrl18kfhgprjgz2sk";
           libraryHaskellDepends = [
             base
             bytestring
@@ -6801,6 +6818,7 @@ self: {
             microlens-mtl
             mtl
             safe
+            safe-exceptions
             stm
             text
             text-format

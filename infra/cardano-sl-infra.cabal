@@ -118,7 +118,7 @@ library
                       , bytestring
                       , cardano-sl-core
                       , cardano-sl-db
-                      , cardano-report-server >= 0.2.1
+                      , cardano-report-server >= 0.3.0
                       , containers
                       , data-default
                       , directory

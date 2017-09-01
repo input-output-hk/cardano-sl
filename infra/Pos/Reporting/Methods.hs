@@ -171,17 +171,14 @@ extendRTDesc text (RMisbehavior isCritical reason) = RMisbehavior isCritical $ r
 extendRTDesc text' (RInfo text) = RInfo $ text <> text'
 extendRTDesc _ x = x
 
--- FIXME catch and squelch *all* exceptions? Probably a bad idea.
--- georgeee: I don't think it's a bad idea, reporting shouldn't be
---           an operation, exceptions of which we would like to consider
--- gromak: it should use `catchAny` fron `safe-exceptions`. I will fix it.
--- I made a PR to 'universum'. If it's merged soon, I will use 'Universum'
--- version, otherwise will use 'safe-exceptions' one.
+-- Note that we are catching all synchronous exceptions, but don't
+-- catch async ones. If reporting is broken, we don't want it to
+-- affect anything else.
 reportNode
     :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Bool -> ReportType -> m ()
 reportNode sendLogs extendWithNodeInfo reportType =
-    reportNodeDo `catch` handler
+    reportNodeDo `catchAny` handler
   where
     send' = if sendLogs then sendReportNode else sendReportNodeNologs
     reportNodeDo = do

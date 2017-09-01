@@ -466,8 +466,7 @@ instance (HasCoreConstants, MonadSlotsData ctx BlockTestMode)
         view btcSlotId_L >>= \case
             Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
             Just slot -> pure slot
-    -- FIXME: it is a workaround for CSE-203!
-    currentTimeSlotting = pure $ Timestamp 0
+    currentTimeSlotting = currentTimeSlottingSimple
 
 instance MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault

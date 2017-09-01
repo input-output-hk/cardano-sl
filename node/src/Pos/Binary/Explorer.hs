@@ -13,6 +13,6 @@ import           Pos.Txp.Core            (TxUndo)
 deriveSimpleBi ''TxExtra [
     Cons 'TxExtra [
         Field [| teBlockchainPlace :: Maybe (HeaderHash, Word32) |],
-        Field [| teReceivedTime    :: Timestamp                  |],
+        Field [| teReceivedTime    :: Maybe Timestamp            |],
         Field [| teInputOutputs    :: TxUndo                     |]
     ]]

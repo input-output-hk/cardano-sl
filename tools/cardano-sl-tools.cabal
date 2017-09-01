@@ -524,3 +524,35 @@ executable cardano-post-mortem
                         ScopedTypeVariables
                         ScopedTypeVariables
                         BangPatterns
+
+executable cardano-blockchain-analyser
+  hs-source-dirs:      src/blockchain-analyser
+  main-is:             Main.hs
+  -- other-modules:       Options
+  if !flag(for-installer)
+   build-depends:      QuickCheck
+                     , base
+                     , directory
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   RecordWildCards
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        TypeApplications
+                        ScopedTypeVariables
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(for-installer)
+    buildable: False

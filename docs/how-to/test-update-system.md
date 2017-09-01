@@ -100,6 +100,29 @@ Note `e0dae787e163a973ef4e1260dfcf094431046ae3e17d67d601bce4d92eb7da27`, it's ha
 
 Note `b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1`, it's id of proposed updated and later would be referenced as `upId`.
 Note that currently `cardano-wallet` is suitable for testing with only one system tag provided along installer for it (it's `win64` and `daedalus1.exe` here).
+
+In blockchain should be:
+
+```
+43992 [node.worker.block:INFO:ThreadId 27399] [2017-09-01 10:02:07 UTC] Created a new block:
+43993 MainBlock:
+43994   MainBlockHeader:
+43995     hash: 21cc9a0a0400d81bc20c54d5a404d6b5080069d2c15a229191a1a4d29023cda8
+43996     previous block: 100050c72eeffa5fa6a78f899aa214255e16f1940f5b209f34939cff243db1d2
+43997     slot: 89th slot of 3rd epoch
+43998     difficulty: 360
+43999     leader: pub:2c434a37
+44000     signature: BlockSignature: <signature>
+44001     block: v0.0.0
+44002     software: cardano-sl:0
+44003   transactions (0 items): []
+44004   proxy signing keys (0 items): []
+44005     no GodTossing payload
+44006   update payload: csl-daedalus:1 { block v0.1.0, UpId: f3fe3a62, { scripts v1, slot duration: 15000 mcs, block size limit: 1.907 MiB, header size limit: 195.313 KiB, tx size limit: 4 KiB, proposal size           limit: 700 B, mpc threshold: 20000000000000/1000000000000000 (approx. 0.02), heavyweight delegation threshold: 300000000000/1000000000000000 (approx. 0.0003), update vote threshold: 1000000000000/                1000000000000000 (approx. 0.001), update proposal threshold: 100000000000000/1000000000000000 (approx. 0.1), update implicit period: 10000 slots, no softfork rule, no tx fee policy, unlock stake epoch:  },       tags: [win64], no attributes } 
+44007     votes: [(c9a26b08 for f3fe3a62)]
+44008   no extra data
+```
+
 #### Vote for update
 
 Wait for 30-60 seconds.
@@ -122,66 +145,31 @@ Submitted vote
 Submitted vote
 ```
 
+In logs should be:
+```
+[node.worker.block:INFO:ThreadId 3393] [2017-09-01 10:14:52 UTC] Created a new block:
+MainBlock:
+  MainBlockHeader:
+    hash: 05a80146a0cd07fb4bb807cdeb39bda9df2d2ebd38317b4eba2f749471af2a67
+    previous block: d35a5aaf59a19c44f5f4a4673b571d05d49935b071b34271af3c383b816ecc0a
+    slot: 50th slot of 4th epoch
+    difficulty: 411
+    leader: pub:80b70572
+    signature: BlockSignature: <signature>
+    block: v0.0.0
+    software: cardano-sl:0
+  transactions (0 items): []
+  proxy signing keys (0 items): []
+    no GodTossing payload
+  update payload: no proposal
+    votes: [(18e62bbf for f3fe3a62)]
+  no extra data
+```
+
 ### Check proposal, votes got to blocks
 
-1. Retrieve logs: 
-`./CardanoCSL.hs -c production.yaml dumplogs` in the `csl-xx`'s deployment directory
-2. `cd experiments/<current_date>`
-3. `../../scripts/blocks.sh`
-3. Check latest blocks contain one proposal and three votes (not four because three is already enough for proposal to be confirmed)
-
-Example excerpt from `blocks.sh` output:
-
-```
-[2017-05-10_23:17:22] node3.log: MainBlock:
-  MainBlockHeader:
-    hash: c844a900d356ae6019782dabc2e6e446876beb74475cb99557ff655925af1048
-    previous block: 52552cfc21e2e42697831dedb02d2b6cc4b96c4c0e948e9047b2186eb9b9fb45
-    slot: 41st slot of 11th epoch
-    leader: pub:77d84faa
-    difficulty: 983
-    block: v0.0.0
-    software: cardano-sl:0
-  transactions (0 items): []
-  proxy signing keys (0 items): []
-  no GodTossing payload
-  update payload: cardano-sl:1 { block v0.1.0, UpId: b66ae7e0, { scripts v1, slot duration: 15000 mcs, block size limit: 1.907 MiB, header size limit: 195.313 KiB, tx
- size limit: 4 KiB, proposal size limit: 700 B, mpc threshold: 20000000000000/1000000000000000 (approx. 0.02), heavyweight delegation threshold: 300000000000/1000000000000000 (approx. 0.0003), update vote threshold: 1000000000000/1000000000000000 (approx. 0.001), update proposal threshold: 100000000000000/1000000000000000 (approx.
- 0.1), update implicit period: 10000 slots, update softfork threshold: 750000000000000/1000000000000000 (approx. 0.75) }, tags: [win64], no attributes  }
-    votes: [(6a77dec1 for b66ae7e0)]
-  no extra data
-
-[2017-05-10_23:24:22] node0.log: MainBlock:
-  MainBlockHeader:
-    hash: 38990d7299638f950bddd9643d2185ac52fc357823b2c973d667ef14a18754c1
-    previous block: b5beed9ad8d53d8ea4b389a17e9466189bd18fd0387737b69114f270b016b084
-    slot: 69th slot of 11th epoch
-    leader: pub:b4cbfbed
-    difficulty: 1011
-    block: v0.0.0
-    software: cardano-sl:0
-  transactions (0 items): []
-  proxy signing keys (0 items): []
-  no GodTossing payload
-  update payload: no proposal
-    votes: [(653d9bf1 for b66ae7e0)]
-  no extra data
-[2017-05-10_23:24:37] node1.log: MainBlock:
-  MainBlockHeader:
-    hash: 4bdfbddbba37b1715d5c5e298e4184dca75e8d508c5dc12e273609a73903e7ca
-    previous block: 38990d7299638f950bddd9643d2185ac52fc357823b2c973d667ef14a18754c1
-    slot: 70th slot of 11th epoch
-    leader: pub:150d631e
-    difficulty: 1012
-    block: v0.0.0
-    software: cardano-sl:0
-  transactions (0 items): []
-  proxy signing keys (0 items): []
-  no GodTossing payload
-  update payload: no proposal
-    votes: [(4c2211c6 for b66ae7e0)]
-  no extra data
-```
+1. Retrieve logs from cluster (`io --no-component-check -c csl-1583.yaml get-journals`)
+2. Check latest blocks contain one proposal and 2 votes (not four because three is already enough for proposal to be confirmed)
 
 ### Wait till appropriate epoch starts
 

@@ -23,7 +23,7 @@ import           Pos.Core              (HasCoreConstants, blkSecurityParam,
                                         fixedTimeCQSec)
 import           Pos.DB.Class          (MonadDBRead)
 import           Pos.GState.BlockExtra (getLastSlots)
-import           Pos.Reporting         (mkDistrMonitorState)
+import           Pos.Reporting         (mkMetricMonitorState)
 
 -- | Make new 'SlogGState' using data from DB.
 mkSlogGState :: (MonadIO m, MonadDBRead m) => m SlogGState
@@ -45,9 +45,9 @@ mkSlogContext storeMaybe = do
     let metricNameFixed =
             sformat ("Chain quality for last "%build)
                 fixedTimeCQSec
-    _scCQkMonitorState <- mkDistrMonitorState metricNameK storeMaybe
-    _scCQOverallMonitorState <- mkDistrMonitorState metricNameOverall storeMaybe
-    _scCQFixedMonitorState <- mkDistrMonitorState metricNameFixed storeMaybe
+    _scCQkMonitorState <- mkMetricMonitorState metricNameK storeMaybe
+    _scCQOverallMonitorState <- mkMetricMonitorState metricNameOverall storeMaybe
+    _scCQFixedMonitorState <- mkMetricMonitorState metricNameFixed storeMaybe
     return SlogContext {..}
 
 -- | Make a copy of existing 'SlogGState'.

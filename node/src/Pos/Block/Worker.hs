@@ -48,7 +48,7 @@ import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.GState                  (getPskByIssuer)
 import           Pos.Lrc.DB                  (getLeaders)
-import           Pos.Reporting               (DistrMonitor (..), DistrMonitorState,
+import           Pos.Reporting               (MetricMonitor (..), MetricMonitorState,
                                               recordValue)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
@@ -250,24 +250,24 @@ chainQualityChecker curSlot = do
         chainQualityK :: Double <- calcChainQualityM curFlatSlot
         isBootstrapEra <- gsIsBootstrapEra (siEpoch curSlot)
         monitorStateK <- view scCQkMonitorState
-        let monitorK = cqkDistrMonitor monitorStateK isBootstrapEra
-        monitorOverall <- cqOverallDistrMonitor <$> view scCQOverallMonitorState
-        monitorFixed <- cqFixedDistrMonitor <$> view scCQFixedMonitorState
+        let monitorK = cqkMetricMonitor monitorStateK isBootstrapEra
+        monitorOverall <- cqOverallMetricMonitor <$> view scCQOverallMonitorState
+        monitorFixed <- cqFixedMetricMonitor <$> view scCQFixedMonitorState
         recordValue monitorK chainQualityK
         whenJustM (calcOverallChainQuality @ssc) $ recordValue monitorOverall
         whenJustM calcChainQualityFixedTime $ recordValue monitorFixed
 
 -- Monitor for chain quality for last k blocks.
-cqkDistrMonitor ::
-       HasCoreConstants => DistrMonitorState -> Bool -> DistrMonitor
-cqkDistrMonitor st isBootstrapEra =
-    DistrMonitor
-    { dmState = st
-    , dmReportMisbehaviour = classifier
-    , dmMisbehFormat =
+cqkMetricMonitor ::
+       HasCoreConstants => MetricMonitorState -> Bool -> MetricMonitor
+cqkMetricMonitor st isBootstrapEra =
+    MetricMonitor
+    { mmState = st
+    , mmReportMisbehaviour = classifier
+    , mmMisbehFormat =
           "Poor chain quality for the last 'k' ("%kFormat%") blocks, "%
           "less than "%now (bprint cqF criticalThreshold)%": "%cqF
-    , dmDebugFormat =
+    , mmDebugFormat =
           Just $ "Chain quality for the last 'k' ("%kFormat% ") blocks is "%cqF
     }
   where
@@ -290,24 +290,24 @@ cqkDistrMonitor st isBootstrapEra =
     kFormat :: Format r r
     kFormat = now (bprint int blkSecurityParam)
 
-cqOverallDistrMonitor :: DistrMonitorState -> DistrMonitor
-cqOverallDistrMonitor st =
-    DistrMonitor
-    { dmState = st
-    , dmReportMisbehaviour = classifier
-    , dmMisbehFormat = cqF -- won't be used due to classifier
-    , dmDebugFormat = Just $ "Overall chain quality is " %cqF
+cqOverallMetricMonitor :: MetricMonitorState -> MetricMonitor
+cqOverallMetricMonitor st =
+    MetricMonitor
+    { mmState = st
+    , mmReportMisbehaviour = classifier
+    , mmMisbehFormat = cqF -- won't be used due to classifier
+    , mmDebugFormat = Just $ "Overall chain quality is " %cqF
     }
   where
     classifier _ _ _ = Nothing
 
-cqFixedDistrMonitor :: DistrMonitorState -> DistrMonitor
-cqFixedDistrMonitor st =
-    DistrMonitor
-    { dmState = st
-    , dmReportMisbehaviour = classifier
-    , dmMisbehFormat = cqF -- won't be used due to classifier
-    , dmDebugFormat = Just $ "Chain quality for last "%
+cqFixedMetricMonitor :: MetricMonitorState -> MetricMonitor
+cqFixedMetricMonitor st =
+    MetricMonitor
+    { mmState = st
+    , mmReportMisbehaviour = classifier
+    , mmMisbehFormat = cqF -- won't be used due to classifier
+    , mmDebugFormat = Just $ "Chain quality for last "%
                              now (bprint build fixedTimeCQSec)%" is "%cqF
     }
   where

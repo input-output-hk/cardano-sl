@@ -3,9 +3,9 @@
 -- | This module basically combines reporting functionality with metrics.
 
 module Pos.Reporting.Metrics
-       ( DistrMonitor (..)
-       , DistrMonitorState
-       , mkDistrMonitorState
+       ( MetricMonitor (..)
+       , MetricMonitorState
+       , mkMetricMonitorState
        , recordValue
        ) where
 
@@ -15,16 +15,21 @@ import           Data.Time.Units              (Microsecond)
 import           Formatting                   (Format, sformat)
 import           Mockable                     (CurrentTime, Mockable, currentTime)
 import qualified System.Metrics               as Metrics
-import           System.Metrics.Distribution  (Distribution, add)
+import           System.Metrics.Gauge         (Gauge)
+import qualified System.Metrics.Gauge         as Gauge
 import           System.Wlog                  (logDebug)
 
 import           Pos.Reporting.Methods        (MonadReporting, reportMisbehaviour)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
--- | 'DistrMonitor' is primarily used to parameterized 'recordValue'
+-- | 'MetricMonitor' is primarily used to parameterize 'recordValue'
 -- function (see below).
-data DistrMonitor = DistrMonitor
-    { dmReportMisbehaviour :: Microsecond -> Maybe Double -> Double -> Maybe Bool
+--
+-- Note: currently this type only supports 'Double' values and uses
+-- 'Gauge' metric type. Values are multipled by 1000 and rounded. We
+-- can generalize it later if necessary.
+data MetricMonitor = MetricMonitor
+    { mmReportMisbehaviour :: Microsecond -> Maybe Double -> Double -> Maybe Bool
     -- ^ A predicate which determines which values should be also
     -- reported to reporting server, apart from tracking them in ekg.
     -- 'Nothing' means that value is good and shouldn't be reported at all.
@@ -42,53 +47,54 @@ data DistrMonitor = DistrMonitor
     -- Also we can use a custom ADT.
     -- 'Maybe Bool' was choosen as a reasonable trade-off between simplicity
     -- and generalization.
-    , dmMisbehFormat       :: forall r. Format r (Double -> r)
+    , mmMisbehFormat       :: forall r. Format r (Double -> r)
     -- ^ A 'Format' of misbehaviour message.
-    , dmDebugFormat        :: forall r. Maybe (Format r (Double -> r))
+    , mmDebugFormat        :: forall r. Maybe (Format r (Double -> r))
     -- ^ A 'Format' of debug message which is just logged with debug
     -- severity (if this format is 'Just' and value is not reported).
-    , dmState              :: !DistrMonitorState
+    , mmState              :: !MetricMonitorState
     -- ^ Internal state.
     }
 
--- | Mutable internal state of 'DistrMonitor'.
-data DistrMonitorState = DistrMonitorState
-    { dmsLastReportTime    :: !(TVar Microsecond)
+-- | Mutable internal state of 'MetricMonitor'.
+data MetricMonitorState = MetricMonitorState
+    { mmsLastReportTime    :: !(TVar Microsecond)
     -- ^ Last time when value was reported (or 0).
-    , dmsLastReportedValue :: !(TVar (Maybe Double))
+    , mmsLastReportedValue :: !(TVar (Maybe Double))
     -- ^ Last reported value.
-    , dmsDistr             :: !(Maybe Distribution)
+    , mmsGauge             :: !(Maybe Gauge)
     -- ^ An optional 'Distribution' where we track some value.
     }
 
--- | Make new initial 'DistrMonitorState'.
-mkDistrMonitorState :: MonadIO m => Text -> Maybe Metrics.Store -> m DistrMonitorState
-mkDistrMonitorState name storeMaybe = do
-    dmsLastReportTime <- newTVarIO 0
-    dmsLastReportedValue <- newTVarIO Nothing
+-- | Make new initial 'MetricMonitorState'.
+mkMetricMonitorState :: MonadIO m => Text -> Maybe Metrics.Store -> m MetricMonitorState
+mkMetricMonitorState name storeMaybe = do
+    mmsLastReportTime <- newTVarIO 0
+    mmsLastReportedValue <- newTVarIO Nothing
     let modifiedName = withCardanoNamespace name
-    dmsDistr <-
+    mmsGauge <-
         case storeMaybe of
             Nothing -> return Nothing
             Just store ->
-                liftIO $ Just <$> Metrics.createDistribution modifiedName store
-    return DistrMonitorState {..}
+                liftIO $ Just <$> Metrics.createGauge modifiedName store
+    return MetricMonitorState {..}
 
 -- | Add a value to the dsitribution stored in the
--- 'DistrMonitor'. Report this value if it should be reported
--- according to 'DistrMonitor'.
-recordValue :: (MonadReporting ctx m, Mockable CurrentTime m) => DistrMonitor -> Double -> m ()
-recordValue DistrMonitor {..} v = do
-    let DistrMonitorState {..} = dmState
-    whenJust dmsDistr $ \distr -> liftIO $ add distr v
-    lastReportTime <- readTVarIO dmsLastReportTime
+-- 'MetricMonitor'. Report this value if it should be reported
+-- according to 'MetricMonitor'.
+recordValue :: (MonadReporting ctx m, Mockable CurrentTime m) => MetricMonitor -> Double -> m ()
+recordValue MetricMonitor {..} v = do
+    let MetricMonitorState {..} = mmState
+    let roundedV = round (1000 * v)
+    whenJust mmsGauge $ \gauge -> liftIO $ Gauge.set gauge roundedV
+    lastReportTime <- readTVarIO mmsLastReportTime
     curTime <- currentTime
-    lastReportedValue <- readTVarIO dmsLastReportedValue
-    case dmReportMisbehaviour (curTime - lastReportTime) lastReportedValue v of
-        Nothing -> whenJust dmDebugFormat $ logDebug . flip sformat v
+    lastReportedValue <- readTVarIO mmsLastReportedValue
+    case mmReportMisbehaviour (curTime - lastReportTime) lastReportedValue v of
+        Nothing -> whenJust mmDebugFormat $ logDebug . flip sformat v
         Just isCritical -> do
             -- REPORT:MISBEHAVIOUR(?) Some metric is bad.
-            reportMisbehaviour isCritical (sformat dmMisbehFormat v)
+            reportMisbehaviour isCritical (sformat mmMisbehFormat v)
             atomically $ do
-                writeTVar dmsLastReportTime curTime
-                writeTVar dmsLastReportedValue (Just v)
+                writeTVar mmsLastReportTime curTime
+                writeTVar mmsLastReportedValue (Just v)

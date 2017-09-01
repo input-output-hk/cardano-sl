@@ -21,7 +21,7 @@ import           Formatting            (bprint)
 
 import           Pos.Core              (FlatSlotId, HasCoreConstants, slotIdF,
                                         unflattenSlotId)
-import           Pos.Reporting.Metrics (DistrMonitorState)
+import           Pos.Reporting.Metrics (MetricMonitorState)
 import           Pos.Util.Chrono       (OldestFirst (..))
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
@@ -50,14 +50,14 @@ data SlogContext = SlogContext
     -- ^ Slots for which last blocks in our chain were created. This
     -- information is also stored in DB, but we don't want to read it
     -- every time.
-    , _scCQkMonitorState       :: !DistrMonitorState
-    -- ^ Internal state of 'DistrMonitor' to keep track of chain
+    , _scCQkMonitorState       :: !MetricMonitorState
+    -- ^ Internal state of 'MetricMonitor' to keep track of chain
     -- quality for last 'k' blocks.
-    , _scCQOverallMonitorState :: !DistrMonitorState
-    -- ^ Internal state of 'DistrMonitor' to keep track of overall chain
+    , _scCQOverallMonitorState :: !MetricMonitorState
+    -- ^ Internal state of 'MetricMonitor' to keep track of overall chain
     -- quality.
-    , _scCQFixedMonitorState   :: !DistrMonitorState
-    -- ^ Internal state of 'DistrMonitor' to keep track of chain
+    , _scCQFixedMonitorState   :: !MetricMonitorState
+    -- ^ Internal state of 'MetricMonitor' to keep track of chain
     -- quality for fixed amount of time.
     }
 

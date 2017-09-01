@@ -41,6 +41,7 @@ let
       systemStart = 1501545900; # 2017-08-01 00:05:00
       topologyFile = "${topologyFile}";
       publicIP = "192.168.1.${toString index}";
+      statsdServer = "127.0.0.1:8125";
     };
     networking.firewall.enable = false;
     networking.extraHosts = ''
@@ -89,7 +90,7 @@ in {
     sleep(5);
     foreach $x (@list) {
       $x->execute("journalctl -u cardano-node > /tmp/shared/`hostname`.log");
-      $x->execute("journalctl -u cardano-node -o json > /tmp/shared/`hostname`.json");
+      $x->execute("cp /var/lib/cardano-node/jsonLog.json /tmp/shared/`hostname`-structured.json");
     }
     system("ls -ltrh xchg-shared");
     system('mkdir $out/logs');

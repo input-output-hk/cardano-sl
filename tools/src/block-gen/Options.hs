@@ -89,7 +89,6 @@ Command example:
   stack exec -- cardano-block-gen           \
     --blocks 5000                           \
     --nodes 3                               \
-    --coins 100
     --generated-db /path/to/existed/db      \
     --seed 123
     --append|]

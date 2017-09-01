@@ -64,22 +64,19 @@ data MetricMonitorState value = MetricMonitorState
     -- ^ Last time when value was reported (or 0).
     , mmsLastReportedValue :: !(TVar (Maybe value))
     -- ^ Last reported value.
-    , mmsGauge             :: !(Maybe Gauge)
-    -- ^ An optional 'Distribution' where we track some value.
+    , mmsGauge             :: !Gauge
+    -- ^ A 'Gauge' where we track some value. Can be easily made
+    -- optional later if needed.
     }
 
 -- | Make new initial 'MetricMonitorState'.
 mkMetricMonitorState ::
-       MonadIO m => Text -> Maybe Metrics.Store -> m (MetricMonitorState value)
-mkMetricMonitorState name storeMaybe = do
+       MonadIO m => Text -> Metrics.Store -> m (MetricMonitorState value)
+mkMetricMonitorState name store = do
     mmsLastReportTime <- newTVarIO 0
     mmsLastReportedValue <- newTVarIO Nothing
     let modifiedName = withCardanoNamespace name
-    mmsGauge <-
-        case storeMaybe of
-            Nothing -> return Nothing
-            Just store ->
-                liftIO $ Just <$> Metrics.createGauge modifiedName store
+    mmsGauge <- liftIO $ Metrics.createGauge modifiedName store
     return MetricMonitorState {..}
 
 -- | Make 'MetricMonitorState' which never reports.
@@ -102,9 +99,8 @@ noReportMonitor converter debugFormat st =
   where
     classifier _ _ _ = Nothing
 
--- | Add a value to the dsitribution stored in the
--- 'MetricMonitor'. Report this value if it should be reported
--- according to 'MetricMonitor'.
+-- | Update the value stored in the 'MetricMonitor's gauge.  Report
+-- this value if it should be reported according to 'MetricMonitor'.
 recordValue ::
        (MonadReporting ctx m, Mockable CurrentTime m)
     => MetricMonitor value
@@ -113,7 +109,7 @@ recordValue ::
 recordValue MetricMonitor {..} v = do
     let MetricMonitorState {..} = mmState
     let vInt = mmConvertValue v
-    whenJust mmsGauge $ \gauge -> liftIO $ Gauge.set gauge vInt
+    liftIO $ Gauge.set mmsGauge vInt
     lastReportTime <- readTVarIO mmsLastReportTime
     curTime <- currentTime
     lastReportedValue <- readTVarIO mmsLastReportedValue

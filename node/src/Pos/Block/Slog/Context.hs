@@ -34,12 +34,12 @@ mkSlogGState = do
 -- | Make new 'SlogContext' using data from DB.
 mkSlogContext ::
        (MonadIO m, MonadDBRead m, HasCoreConstants)
-    => Maybe Ekg.Store
+    => Ekg.Store
     -> m SlogContext
-mkSlogContext storeMaybe = do
+mkSlogContext store = do
     _scGState <- mkSlogGState
 
-    let mkMMonitorState = flip mkMetricMonitorState storeMaybe
+    let mkMMonitorState = flip mkMetricMonitorState store
     -- Chain quality metrics stuff.
     let metricNameK =
             sformat ("chain_quality_last_k_("%int%")_blocks_%")

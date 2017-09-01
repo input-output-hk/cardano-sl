@@ -253,7 +253,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig store = d
     ncLastKnownHeader <- newTVarIO Nothing
     ncUpdateContext <- mkUpdateContext
     ncSscContext <- untag @ssc sscCreateNodeContext sscnp
-    ncSlogContext <- mkSlogContext (Just store)
+    ncSlogContext <- mkSlogContext store
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty

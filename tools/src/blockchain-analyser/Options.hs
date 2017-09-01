@@ -10,7 +10,7 @@ import           Universum
 import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
                                                header, help, helper, info, long, metavar,
-                                               progDesc, strOption, value)
+                                               progDesc, strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 data CLIOptions = CLIOptions
@@ -23,7 +23,6 @@ optionsParser = do
     dbPath <- strOption $
         long    "db" <>
         metavar "FILEPATH" <>
-        value   "db-path" <>
         help    "Location of the database where the blockchain is stored."
 
     return CLIOptions{..}
@@ -40,9 +39,5 @@ usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
-  stack exec -- cardano-block-gen           \
-    --blocks 5000                           \
-    --nodes 3                               \
-    --generated-db /path/to/existed/db      \
-    --seed 123
-    --append|]
+  cardano-blockchain-analyser --db /path/to/existing/db
+|]

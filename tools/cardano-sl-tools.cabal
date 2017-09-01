@@ -528,11 +528,13 @@ executable cardano-post-mortem
 executable cardano-blockchain-analyser
   hs-source-dirs:      src/blockchain-analyser
   main-is:             Main.hs
-  -- other-modules:       Options
+  other-modules:       Options
   if !flag(for-installer)
-   build-depends:      QuickCheck
+   build-depends:      ansi-wl-pprint
                      , base
                      , directory
+                     , optparse-applicative
+                     , neat-interpolation
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

@@ -44,12 +44,6 @@ spec = do
     describe "Multi-value lookups" $ do
         it "pool.ntp.org resolves correctly to more than 1 address" $ testLookupFor "pool.ntp.org"
 
-testLookupFor :: ByteString -> Expectation
-testLookupFor dnsDomain = do
-    initDnsOnUse $ \resolve -> do
-      res <- resolve dnsDomain
-      (> 1) . length <$> res `shouldBe` Right True
-
 prop_GetWindowsDefDnsServer :: Expectation
 prop_GetWindowsDefDnsServer = do
     Win.getWindowsDefaultDnsServer >>= \dnsIpAddr ->

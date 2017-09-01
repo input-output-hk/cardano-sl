@@ -71,7 +71,7 @@ mkMetricMonitorState :: MonadIO m => Text -> Maybe Metrics.Store -> m MetricMoni
 mkMetricMonitorState name storeMaybe = do
     mmsLastReportTime <- newTVarIO 0
     mmsLastReportedValue <- newTVarIO Nothing
-    let modifiedName = withCardanoNamespace name
+    let modifiedName = withCardanoNamespace name <> "_milli"
     mmsGauge <-
         case storeMaybe of
             Nothing -> return Nothing

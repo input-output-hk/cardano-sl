@@ -13,7 +13,7 @@ module Pos.Block.Slog.Context
 
 import           Universum
 
-import           Formatting            (build, int, sformat, (%))
+import           Formatting            (int, sformat, (%))
 import qualified System.Metrics        as Ekg
 
 import           Pos.Block.Slog.Types  (HasSlogGState (..), LastBlkSlots,
@@ -39,11 +39,11 @@ mkSlogContext ::
 mkSlogContext storeMaybe = do
     _scGState <- mkSlogGState
     let metricNameK =
-            sformat ("Chain quality for last k ("%int%") blocks")
+            sformat ("chain_quality_last_k_("%int%")_blocks")
                 blkSecurityParam
-    let metricNameOverall = "Overall chain quality"
+    let metricNameOverall = "chain_quality_overall"
     let metricNameFixed =
-            sformat ("Chain quality for last "%build)
+            sformat ("chain_quality_last_"%int%"_sec")
                 fixedTimeCQSec
     _scCQkMonitorState <- mkMetricMonitorState metricNameK storeMaybe
     _scCQOverallMonitorState <- mkMetricMonitorState metricNameOverall storeMaybe

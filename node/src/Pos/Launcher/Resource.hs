@@ -144,17 +144,6 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
     runInitMode initModeContext $ do
         initNodeDBs @ssc
 
-        -- EKG monitoring stuff.
-        --
-        -- Relevant even if monitoring is turned off (no port given). The
-        -- gauge and distribution can be sampled by the server dispatcher
-        -- and used to inform a policy for delaying the next receive event.
-        --
-        -- TODO implement this. Requires time-warp-nt commit
-        --   275c16b38a715264b0b12f32c2f22ab478db29e9
-        -- in addition to the non-master
-        --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
-        -- for flexible EKG setup.
         nrEkgStore <- liftIO $ Metrics.newStore
 
         ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting networkConfig nrEkgStore

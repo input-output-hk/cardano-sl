@@ -33,7 +33,7 @@ import           System.Directory          (doesFileExist)
 import           System.Wlog               (HasLoggerName (modifyLoggerName), WithLogger,
                                             logDebug, logError, logInfo, logWarning,
                                             usingLoggerName)
-import           Universum                 hiding (bracket, catch, catchAll)
+import           Universum                 hiding (bracket, catch)
 
 import           Pos.Binary.Class          (Bi (..), decodeFull)
 import           Pos.Binary.Infra.DHTModel ()

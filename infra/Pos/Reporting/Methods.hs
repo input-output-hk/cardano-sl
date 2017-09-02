@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Methods of reporting different unhealthy behaviour to server.
 
@@ -10,8 +11,10 @@ module Pos.Reporting.Methods
        , reportMisbehaviour
        , reportInfo
 
-       -- * Questionable wrapper.
-       , reportingFatal
+       -- * Exception handling
+       , reportOrLog
+       , reportOrLogE
+       , reportOrLogW
 
        -- * Internals, exported for custom usages.
        -- E. g. to report crash from launcher.
@@ -21,8 +24,7 @@ module Pos.Reporting.Methods
 
 import           Universum
 
-import           Control.Exception                     (ErrorCall (..), SomeException,
-                                                        displayException)
+import           Control.Exception                     (ErrorCall (..), Exception (..))
 import           Control.Lens                          (each, to)
 import           Control.Monad.Catch                   (try)
 import           Data.Aeson                            (encode)
@@ -46,10 +48,11 @@ import           System.Directory                      (doesFileExist)
 import           System.FilePath                       (takeFileName)
 import           System.Info                           (arch, os)
 import           System.IO                             (hClose)
-import           System.Wlog                           (LoggerConfig (..), WithLogger,
-                                                        hwFilePath, lcTree, logError,
-                                                        logInfo, logWarning, ltFiles,
-                                                        ltSubloggers, retrieveLogContent)
+import           System.Wlog                           (LoggerConfig (..), Severity (..),
+                                                        WithLogger, hwFilePath, lcTree,
+                                                        logError, logInfo, logMessage,
+                                                        logWarning, ltFiles, ltSubloggers,
+                                                        retrieveLogContent)
 
 import           Paths_cardano_sl_infra                (version)
 import           Pos.Core.Constants                    (protocolMagic)
@@ -168,17 +171,14 @@ extendRTDesc text (RMisbehavior isCritical reason) = RMisbehavior isCritical $ r
 extendRTDesc text' (RInfo text) = RInfo $ text <> text'
 extendRTDesc _ x = x
 
--- FIXME catch and squelch *all* exceptions? Probably a bad idea.
--- georgeee: I don't think it's a bad idea, reporting shouldn't be
---           an operation, exceptions of which we would like to consider
--- gromak: it should use `catchAny` fron `safe-exceptions`. I will fix it.
--- I made a PR to 'universum'. If it's merged soon, I will use 'Universum'
--- version, otherwise will use 'safe-exceptions' one.
+-- Note that we are catching all synchronous exceptions, but don't
+-- catch async ones. If reporting is broken, we don't want it to
+-- affect anything else.
 reportNode
     :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Bool -> ReportType -> m ()
 reportNode sendLogs extendWithNodeInfo reportType =
-    reportNodeDo `catch` handler
+    reportNodeDo `catchAny` handler
   where
     send' = if sendLogs then sendReportNode else sendReportNodeNologs
     reportNodeDo = do
@@ -215,22 +215,6 @@ reportError
     :: forall ctx m . (MonadReporting ctx m)
     => Text -> m ()
 reportError = reportNode True True . RError
-
--- | Execute action, report 'CardanoFatalError' and 'FatalError' if it
--- happens and rethrow. Errors related to reporting itself are caught,
--- logged and ignored.
-reportingFatal
-    :: forall ctx m a . (MonadReporting ctx m)
-    => m a -> m a
-reportingFatal action =
-    action `catch` handler1 `catch` handler2
-  where
-    andThrow :: (Exception e, MonadThrow n) => (e -> n x) -> e -> n y
-    andThrow foo e = foo e >> throwM e
-    handler1 = andThrow $ \(e :: CardanoFatalError) ->
-        reportError (pretty e)
-    handler2 = andThrow $ \(ErrorCall reason) ->
-        reportError ("FatalError/error: " <> show reason)
 
 ----------------------------------------------------------------------------
 -- General purpose
@@ -307,3 +291,41 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
         let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
             addFoo (part, node) = map (first (part :)) $ fromLogTree node
         in curElems ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
+
+----------------------------------------------------------------------------
+-- Exception handling
+----------------------------------------------------------------------------
+
+-- | Exception handler which reports (and logs) an exception or just
+-- logs it. It reports only few types of exceptions which definitely
+-- deserve attention. Other types are simply logged. It's suitable for
+-- long-running workers which want to catch all exceptions and restart
+-- after delay. If you are catching all exceptions somewhere, you most
+-- likely want to use this handler (and maybe do something else).
+--
+-- NOTE: it doesn't rethrow an exception. If you are sure you need it,
+-- you can rethrow it by yourself.
+reportOrLog
+    :: forall ctx m . (MonadReporting ctx m)
+    => Severity -> Text -> SomeException -> m ()
+reportOrLog severity prefix exc =
+    case tryCast @CardanoFatalError <|> tryCast @ErrorCall of
+        Just msg -> reportError $ prefix <> msg
+        Nothing  -> logMessage severity $ prefix <> pretty exc
+  where
+    tryCast ::
+           forall e. Exception e
+        => Maybe Text
+    tryCast = toText . displayException <$> fromException @e exc
+
+-- | A version of 'reportOrLog' which uses 'Error' severity.
+reportOrLogE
+    :: forall ctx m . (MonadReporting ctx m)
+    => Text -> SomeException -> m ()
+reportOrLogE = reportOrLog Error
+
+-- | A version of 'reportOrLog' which uses 'Warning' severity.
+reportOrLogW
+    :: forall ctx m . (MonadReporting ctx m)
+    => Text -> SomeException -> m ()
+reportOrLogW = reportOrLog Warning

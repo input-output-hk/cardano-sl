@@ -292,7 +292,7 @@ genGenesisFiles GenesisGenOptions{..} = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    setupLogging $ consoleOutB True & lcTermSeverity ?~ Debug
+    setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
     usingLoggerName "keygen" $ do
         logInfo "Processing command"
         case koCommand of

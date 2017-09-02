@@ -30,7 +30,6 @@ import           Universum
 
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
-import           Control.Monad.State      (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                (tail)
 import qualified Data.List.NonEmpty       as NE

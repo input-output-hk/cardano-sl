@@ -38,7 +38,6 @@ import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import qualified Pos.GState               as GS
 import           Pos.Lrc.Worker           (LrcModeFullNoSemaphore, lrcSingleShotNoLock)
-import           Pos.Reporting            (reportingFatal)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
@@ -106,7 +105,7 @@ type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore
 verifyAndApplyBlocks
     :: forall ssc ctx m. (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either ApplyBlocksException HeaderHash)
-verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
+verifyAndApplyBlocks rollback blocks = runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
@@ -226,7 +225,7 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either ApplyBlocksException HeaderHash)
-applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
+applyWithRollback toRollback toApply = runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback

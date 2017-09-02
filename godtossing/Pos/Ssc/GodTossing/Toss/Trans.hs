@@ -33,20 +33,20 @@ import           Pos.Util.Util                 (ether)
 --
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
-type TossT = Ether.LazyStateT' TossModifier
+type TossT = Ether.StateT' TossModifier
 
 ----------------------------------------------------------------------------
 -- Runners
 ----------------------------------------------------------------------------
 
 runTossT :: TossModifier -> TossT m a -> m (a, TossModifier)
-runTossT = flip Ether.runLazyStateT
+runTossT = flip Ether.runStateT
 
 evalTossT :: Monad m => TossModifier -> TossT m a -> m a
-evalTossT = flip Ether.evalLazyStateT
+evalTossT = flip Ether.evalStateT
 
 execTossT :: Monad m => TossModifier -> TossT m a -> m TossModifier
-execTossT = flip Ether.execLazyStateT
+execTossT = flip Ether.execStateT
 
 ----------------------------------------------------------------------------
 -- MonadToss

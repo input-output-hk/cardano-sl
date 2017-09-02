@@ -51,7 +51,7 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Reporting              (reportError, reportingFatal)
+import           Pos.Reporting              (reportError)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
@@ -118,7 +118,6 @@ createGenesisBlockAndApply ::
 -- Genesis block for 0-th epoch is hardcoded.
 createGenesisBlockAndApply 0 = pure Nothing
 createGenesisBlockAndApply epoch =
-    reportingFatal $
     try (lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders) >>= \case
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
@@ -193,7 +192,7 @@ createMainBlockAndApply ::
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ modifyStateLock HighPriority "createMainBlockAndApply" createAndApply
+    modifyStateLock HighPriority "createMainBlockAndApply" createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case

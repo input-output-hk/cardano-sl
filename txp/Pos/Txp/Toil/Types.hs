@@ -87,7 +87,7 @@ makeWrapped ''GenesisUtxo
 
 -- | tx.fee = sum(tx.in) - sum (tx.out)
 newtype TxFee = TxFee Coin
-    deriving (Show, Eq, Generic, Buildable)
+    deriving (Show, Eq, Ord, Generic, Buildable)
 
 ----------------------------------------------------------------------------
 -- BalancesView

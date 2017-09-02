@@ -32,7 +32,7 @@ import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              normalizeMempool)
 import           Pos.Block.Logic.Util       (calcChainQualityM)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
-import           Pos.Block.Slog             (HasSlogContext (..))
+import           Pos.Block.Slog             (HasSlogGState (..))
 import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
@@ -73,7 +73,7 @@ type MonadCreateBlock ssc ctx m
      = ( HasCoreConstants
        , MonadReader ctx m
        , HasPrimaryKey ctx
-       , HasSlogContext ctx -- to check chain quality
+       , HasSlogGState ctx -- to check chain quality
        , WithLogger m
        , DB.MonadBlockDB ssc m
        , MonadIO m

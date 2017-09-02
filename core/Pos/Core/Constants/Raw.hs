@@ -29,6 +29,8 @@ module Pos.Core.Constants.Raw
        , nonCriticalCQ
        , criticalCQ
        , criticalForkThreshold
+       , fixedTimeCQ
+       , fixedTimeCQSec
 
        , webLoggingEnabled
        ) where
@@ -38,7 +40,7 @@ import           Universum
 import           Data.Aeson                 (FromJSON (..), genericParseJSON)
 import qualified Data.Aeson.Types           as A
 import           Data.Tagged                (Tagged (..))
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Microsecond, Second, convertUnit)
 import           Serokell.Aeson.Options     (defaultOptions)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (sec)
@@ -138,6 +140,8 @@ data CoreConfig = CoreConfig
       -- | Number of blocks such that if so many blocks are rolled
       -- back, it requires immediate reaction.
     , ccCriticalForkThreshold        :: !Int
+      -- | Chain quality will be also calculated for this amount of seconds.
+    , ccFixedTimeCQ                  :: !Int
 
        -- Web settings
 
@@ -243,6 +247,14 @@ criticalCQ = ccCriticalCQ coreConfig
 -- value, critical misbehavior will be reported.
 criticalForkThreshold :: Integral i => i
 criticalForkThreshold = fromIntegral . ccCriticalForkThreshold $ coreConfig
+
+-- | Chain quality will be also calculated for this amount of time.
+fixedTimeCQ :: Microsecond
+fixedTimeCQ = sec . ccFixedTimeCQ $ coreConfig
+
+-- | 'fixedTimeCQ' expressed as seconds.
+fixedTimeCQSec :: Second
+fixedTimeCQSec = convertUnit fixedTimeCQ
 
 -- | Web logging might be disabled for security concerns.
 webLoggingEnabled :: Bool

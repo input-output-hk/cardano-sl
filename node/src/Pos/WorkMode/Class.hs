@@ -22,7 +22,7 @@ import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
-import           Pos.Block.Slog.Types        (HasSlogContext)
+import           Pos.Block.Slog.Types        (HasSlogContext, HasSlogGState)
 import           Pos.Context                 (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                               HasSscContext, MonadLastKnownHeader,
                                               MonadProgressHeader, MonadRecoveryHeader,
@@ -107,6 +107,7 @@ type WorkMode ssc ctx m
       , HasPrimaryKey ctx
       , HasShutdownContext ctx
       , HasSlogContext ctx
+      , HasSlogGState ctx
       , HasCoreConstants
       )
 

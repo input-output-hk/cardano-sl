@@ -19,9 +19,10 @@ library
 
                         -- Reporting
                         Pos.Reporting
-                        Pos.Reporting.MemState
                         Pos.Reporting.Exceptions
+                        Pos.Reporting.MemState
                         Pos.Reporting.Methods
+                        Pos.Reporting.Metrics
 
                         -- Slotting
                         Pos.Slotting

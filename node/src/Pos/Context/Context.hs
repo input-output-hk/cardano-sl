@@ -37,7 +37,8 @@ import           System.Wlog              (LoggerConfig)
 
 import           Pos.Block.Core           (BlockHeader)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
-import           Pos.Block.Slog.Types     (HasSlogContext (..), SlogContext (..))
+import           Pos.Block.Slog.Types     (HasSlogContext (..), HasSlogGState (..),
+                                           SlogContext (..))
 import           Pos.Communication.Types  (NodeId)
 import           Pos.Core                 (GenesisWStakeholders (..), HasPrimaryKey (..),
                                            Timestamp)
@@ -154,7 +155,10 @@ instance HasSlottingVar (NodeContext ssc) where
     slottingVar = ncSlottingVar_L . _2
 
 instance HasSlogContext (NodeContext ssc) where
-    slogContextL = ncSlogContext_L
+    slogContext = ncSlogContext_L
+
+instance HasSlogGState (NodeContext ssc) where
+    slogGState = ncSlogContext_L . slogGState
 
 instance HasLens SlottingContextSum (NodeContext ssc) SlottingContextSum where
     lensOf = ncSlottingContext_L

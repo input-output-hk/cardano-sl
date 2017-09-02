@@ -110,6 +110,9 @@ dev: &dev
   nonCriticalCQ: 0.8
   criticalCQ: 0.654321
 
+  fixedTimeCQ: 10 # Chain quality will be also calculated for this amount
+                  # of seconds.
+
   criticalForkThreshold: 2 # number of blocks such that if so many blocks are
                            # rolled back, it requires immediate response
 
@@ -161,6 +164,7 @@ testnet_public_full: &testnet_public_full
   networkDiameter: 18
   mdNoBlocksSlotThreshold: 18
   criticalForkThreshold: 3
+  fixedTimeCQ: 3600 # 1 hour
   recoveryHeadersMessage: 2200
   networkWaitLogInterval: 32 # 32s
 
@@ -171,6 +175,7 @@ testnet_staging_full: &testnet_staging_full
   <<: *testnet_public_full
   k: 108
   criticalForkThreshold: 2
+  fixedTimeCQ: 600 # 10 min
 
 
 devnet_longep_full: &devnet_longep_full
@@ -186,6 +191,7 @@ devnet_shortep_full: &devnet_shortep_full
   genesisSlotDurationSec: 15
   networkDiameter: 10
   mdNoBlocksSlotThreshold: 10
+  fixedTimeCQ: 60 # 1 min
   criticalForkThreshold: 2
   recoveryHeadersMessage: 100
 
@@ -232,6 +238,7 @@ benchmark: &benchmark
 
   genesisN: 50000
   k: 6
+  fixedTimeCQ: 30 # 30 sec
 
   genesisUnlockStakeEpoch: 0 # it effectively disables bootstrap era in
                              # benchmarks because we don't need it there

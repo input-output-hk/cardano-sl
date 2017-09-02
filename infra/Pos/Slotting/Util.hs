@@ -8,6 +8,7 @@ module Pos.Slotting.Util
        , getSlotStartPure
        , getSlotStartEmpatically
        , getNextEpochSlotDuration
+       , slotFromTimestamp
 
          -- * Worker which ticks when slot starts
        , onNewSlot
@@ -40,12 +41,12 @@ import           Pos.Reporting.Methods  (reportError, reportingFatal)
 import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
+import           Pos.Slotting.Impl.Util (slotFromTimestamp)
 import           Pos.Slotting.MemState  (MonadSlotsData, getCurrentNextEpochSlottingDataM,
                                          getEpochSlottingDataM, getSystemStartM)
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData,
                                          computeSlotStart, lookupEpochSlottingData)
 import           Pos.Util.Util          (maybeThrow)
-
 
 
 -- | Get flat id of current slot based on MonadSlots.

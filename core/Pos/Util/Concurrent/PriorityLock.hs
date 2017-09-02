@@ -7,23 +7,22 @@ Within each precedence, the lock is taken in FIFO order.
 -}
 
 module Pos.Util.Concurrent.PriorityLock
-    ( PriorityLock
-    , Priority (..)
-    , newPriorityLock
-    , withPriorityLock
-    ) where
+       ( PriorityLock
+       , Priority (..)
+       , newPriorityLock
+       , withPriorityLock
+       ) where
 
-import           Control.Concurrent.STM      (TMVar, newEmptyTMVar
-                                             , putTMVar, takeTMVar)
-import           Control.Monad.Catch         (MonadMask)
+import           Control.Concurrent.STM (TMVar, newEmptyTMVar, putTMVar, takeTMVar)
+import           Control.Monad.Catch    (MonadMask)
 import           Universum
 
-import           Pos.Util.Queue              (Q, queue, enqueue, dequeue)
+import           Pos.Util.Queue         (Q, dequeue, enqueue, queue)
 
 newtype PriorityLock = PriorityLock (TVar PriorityLockState)
 
-data PriorityLockState =
-    Unlocked
+data PriorityLockState
+    = Unlocked
     | Locked (Q (TMVar ())) (Q (TMVar ()))
     -- ^ locked, with a queue of contenders with high precedence, and
     -- a second queuewith contenders of low precedence

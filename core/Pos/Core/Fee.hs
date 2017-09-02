@@ -8,6 +8,7 @@ module Pos.Core.Fee
 import           Universum
 
 import           Data.Fixed                 (Fixed (..), Nano, showFixed)
+import           Data.Hashable              (Hashable)
 import qualified Data.Text.Buildable        as Buildable
 import           Formatting                 (bprint, build, shown, (%))
 import           Serokell.Data.Memory.Units (Byte, toBytes)
@@ -64,3 +65,7 @@ instance Buildable TxFeePolicy where
         bprint ("policy(tx-size-linear): "%build) tsp
     build (TxFeePolicyUnknown v bs) =
         bprint ("policy(unknown:"%build%"): "%shown) v bs
+
+instance Hashable TxFeePolicy
+instance Hashable TxSizeLinear
+instance Hashable Coeff

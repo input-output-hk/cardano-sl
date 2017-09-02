@@ -1,17 +1,8 @@
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX
 #endif
-
--- This warning is disabled because it is not possible to have modules in the test suite
--- that are compiled only on certain operating systems using the 'if os(os_name)' in the
--- project's cabal file.
---
--- As such, on Linux, for example, during compilation there will be warnings on unused
---imports which are not really relevant.
-{-# OPTIONS_GHC -Wno-unused-imports   #-}
 
 -- | Specification of 'Pos.Network.Windows.DnsDomains'
 
@@ -25,8 +16,8 @@ import           Test.Hspec                     (Spec)
 #if !defined(POSIX)
 import           Network.URI                    (isIPv4address)
 import           Pos.Network.Types              (initDnsOnUse)
-import           Test.Hspec                     (Expectation, describe, it,
-                                                 shouldBe, shouldSatisfy)
+import           Test.Hspec                     (Expectation, describe, it, shouldBe,
+                                                 shouldSatisfy)
 import           Test.Hspec.QuickCheck          (prop)
 
 import qualified Pos.Network.Windows.DnsDomains as Win

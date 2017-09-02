@@ -37,7 +37,8 @@ import           Pos.Core                     (Address, Coin, EpochIndex, Header
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
                                                MonadDBRead (dbGet), RocksBatchOp (..),
-                                               dbIterSource, encodeWithKeyPrefix)
+                                               dbSerializeValue, dbIterSource,
+                                               encodeWithKeyPrefix)
 import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core                 (Tx, TxId, TxOut (..), TxOutAux (..))
@@ -136,27 +137,27 @@ data ExplorerOp
 instance RocksBatchOp ExplorerOp where
 
     toBatchOp (AddTxExtra id extra) =
-        [Rocks.Put (txExtraPrefix id) (serialize' extra)]
+        [Rocks.Put (txExtraPrefix id) (dbSerializeValue extra)]
     toBatchOp (DelTxExtra id) =
         [Rocks.Del $ txExtraPrefix id]
 
     toBatchOp (PutPageBlocks page pageBlocks) =
-        [Rocks.Put (blockPagePrefix page) (serialize' pageBlocks)]
+        [Rocks.Put (blockPagePrefix page) (dbSerializeValue pageBlocks)]
 
     toBatchOp (PutEpochBlocks epoch pageBlocks) =
-        [Rocks.Put (blockEpochPrefix epoch) (serialize' pageBlocks)]
+        [Rocks.Put (blockEpochPrefix epoch) (dbSerializeValue pageBlocks)]
 
     toBatchOp (PutLastTxs lastTxs) =
-        [Rocks.Put lastTxsPrefix (serialize' lastTxs)]
+        [Rocks.Put lastTxsPrefix (dbSerializeValue lastTxs)]
 
     toBatchOp (UpdateAddrHistory addr txs)
         | null txs = [Rocks.Del key]
-        | otherwise = [Rocks.Put key (serialize' txs)]
+        | otherwise = [Rocks.Put key (dbSerializeValue txs)]
       where
         key = addrHistoryKey addr
 
     toBatchOp (PutAddrBalance addr coin) =
-        [Rocks.Put (addrBalanceKey addr) (serialize' coin)]
+        [Rocks.Put (addrBalanceKey addr) (dbSerializeValue coin)]
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalanceKey addr]
 

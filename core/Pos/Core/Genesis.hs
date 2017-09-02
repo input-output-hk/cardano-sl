@@ -32,9 +32,12 @@ import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
+                                          GenesisDelegation (..),
                                           GenesisWStakeholders (..),
                                           StakeDistribution (..), bootDustThreshold,
-                                          getTotalStake, mkGenesisCoreData, safeExpStakes)
+                                          getTotalStake, mkGenesisCoreData,
+                                          mkGenesisDelegation, noGenesisDelegation,
+                                          safeExpStakes)
 import           Pos.Core.Types          (Address, mkCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)

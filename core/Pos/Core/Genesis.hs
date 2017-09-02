@@ -16,6 +16,7 @@ module Pos.Core.Genesis
        , genesisProdAddresses
        , genesisProdAddrDistribution
        , genesisProdBootStakeholders
+       , genesisProdDelegation
 
        -- * Utils
        , generateGenesisKeyPair
@@ -87,6 +88,10 @@ genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
 genesisProdBootStakeholders :: GenesisWStakeholders
 genesisProdBootStakeholders =
     gcdBootstrapStakeholders compileGenCoreData
+
+-- | 'GenesisDelegation' for production mode.
+genesisProdDelegation :: GenesisDelegation
+genesisProdDelegation = gcdHeavyDelegation compileGenCoreData
 
 ----------------------------------------------------------------------------
 -- Utils

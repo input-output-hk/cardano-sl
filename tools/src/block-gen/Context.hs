@@ -105,6 +105,9 @@ instance HasLens GenesisUtxo TBlockGenContext GenesisUtxo where
 instance HasLens GenesisWStakeholders TBlockGenContext GenesisWStakeholders where
     lensOf = tbgcGenesisContext_L . gtcWStakeholders
 
+instance HasLens GenesisContext TBlockGenContext GenesisContext where
+    lensOf = tbgcGenesisContext_L
+
 instance HasSlottingVar TBlockGenContext where
     slottingTimestamp = tbgcSystemStart_L
     slottingVar = tbgcGState_L . GS.gscSlottingVar

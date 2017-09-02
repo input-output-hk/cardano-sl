@@ -56,7 +56,8 @@ import           Pos.Core                     (Address, ChainDifficulty, HasCore
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
-import           Pos.Genesis                  (GenesisUtxo (..), GenesisWStakeholders)
+import           Pos.Genesis                  (GenesisContext, GenesisUtxo (..),
+                                               GenesisWStakeholders)
 import qualified Pos.GState                   as GS
 import           Pos.KnownPeers               (MonadFormatPeers)
 import           Pos.Reporting                (HasReportingContext)
@@ -237,6 +238,7 @@ type TxHistoryEnv ctx m =
     , MonadReader ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
+    , HasLens' ctx GenesisContext
     , MonadTxpMem TxpExtra_TMP ctx m
     , HasLens' ctx StateLock
     , MonadBaseControl IO m

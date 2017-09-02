@@ -58,18 +58,16 @@ genesisStakesM = do
 genesisLeadersM ::
        ( Functor m
        , MonadReader ctx m
-       , HasLens' ctx GenesisUtxo
-       , HasLens' ctx GenesisWStakeholders
+       , HasLens' ctx GenesisContext
        , HasCoreConstants
        )
     => m SlotLeaders
 genesisLeadersM =
-    genesisLeaders <$> (GenesisContext <$> genesisUtxoM <*> view lensOf')
+    genesisLeaders <$> view lensOf'
 
 genesisBlock0M ::
     forall ssc ctx m. ( Functor m, MonadReader ctx m
-                      , HasLens GenesisUtxo ctx GenesisUtxo
-                      , HasLens' ctx GenesisWStakeholders
+                      , HasLens' ctx GenesisContext
                       , HasCoreConstants, SscHelpersClass ssc)
     => m (GenesisBlock ssc)
 genesisBlock0M = mkGenesisBlock @ssc Nothing 0 <$> genesisLeadersM

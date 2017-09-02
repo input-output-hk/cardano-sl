@@ -11,7 +11,6 @@ module Pos.Wallet.Web.Methods.History
 import           Universum
 
 import qualified Data.DList                 as DL
-import           Data.Semigroup             (Arg (..))
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
 import           System.Wlog                (logError, logWarning)
@@ -130,10 +129,9 @@ addRecentPtxHistory
     :: MonadWalletWebMode m
     => CId Wal -> [TxHistoryEntry] -> m [TxHistoryEntry]
 addRecentPtxHistory wid currentHistory = do
-    candidates <- sortWith thToOrdForm <$> getCandidates
+    candidates <- sortWith (Down . _thTimestamp) <$> getCandidates
     merge currentHistory candidates
   where
-    thToOrdForm = Arg =<< _thTxId
     getCandidates =
         mapMaybe (ptxPoolInfo . _ptxCond) . fromMaybe [] <$>
         getWalletPendingTxs wid

@@ -18,6 +18,7 @@ import           Types
 import           Universum
 import           Util.Aeson           (parseJSONP)
 import           Util.Safe            (runWithFiles)
+import           Control.Exception
 
 jsonLogs :: FilePath -> IO [(Int, FilePath)]
 jsonLogs logDir = do
@@ -39,7 +40,7 @@ data IndexedJLTimedEvent = IndexedJLTimedEvent
     { ijlNode      :: !NodeIndex
     , ijlTimestamp :: !Timestamp
     , ijlEvent     :: !JLEvent
-    }
+    } deriving (Show)
 
 instance Eq IndexedJLTimedEvent where
 
@@ -52,7 +53,8 @@ instance Ord IndexedJLTimedEvent where
 runParseLogs :: FilePath -> (Producer IndexedJLTimedEvent IO () -> IO r) -> IO r
 runParseLogs logDir f = do
     xs <- jsonLogs logDir
-    runWithFiles xs ReadMode $ \ys -> f $ interleave (map (uncurry producer) ys)
+    print xs
+    runWithFiles (assert (xs /= []) xs) ReadMode $ \ys -> f $ interleave (map (uncurry producer) ys)
   where
     producer :: Int -> Handle -> Producer IndexedJLTimedEvent IO ()
     producer n h = parseLogP h >-> P.map (\JLTimedEvent{..} ->

@@ -90,7 +90,7 @@ in {
     sleep(5);
     foreach $x (@list) {
       $x->execute("journalctl -u cardano-node > /tmp/shared/`hostname`.log");
-      $x->execute("cp /var/lib/cardano-node/jsonLog.json /tmp/shared/`hostname`-structured.json");
+      $x->execute("cp /var/lib/cardano-node/jsonLog.json /tmp/shared/`hostname`.json");
     }
     system("ls -ltrh xchg-shared");
     system('mkdir $out/logs');

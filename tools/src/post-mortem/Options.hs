@@ -13,6 +13,7 @@ data Options =
     | Focus !TxHash !FilePath
     | TxRelay ![FilePath]
     | Throughput !Double !Double ![FilePath]
+    | TestPostProcess ![FilePath]
 
 overviewOptions :: Parser Options
 overviewOptions = Overview <$> (toProb <$> argument auto
@@ -54,12 +55,16 @@ throughputOptions = Throughput <$> (argument auto
                                     <> help "directories containing the log files"
                                     )))
 
+testPostProcess :: Parser Options
+testPostProcess = TestPostProcess <$> (some (argument str (metavar "LOGDIRS..." <> help "directories containing the log files")))
+
 options :: Parser Options
 options = hsubparser
     (  command "overview"   (info overviewOptions   (progDesc "analyzes the json logs from LOGDIRS..."))
     <> command "focus"      (info focusedOptions    (progDesc "analyzes transaction FOCUS in log folder LOGDIR"))
     <> command "txrelay"    (info txRelayOptions    (progDesc "analyzes transaction relays in the json logs from LOGDIRS..."))
     <> command "throughput" (info throughputOptions (progDesc "analyzes transaction throughput and waiting time per time windows TXWINDOW and WAITWINDOW in the json logs from LOGDIRS..."))
+    <> command "testPostProcess" (info testPostProcess (progDesc "analyzes the json logs from LOGDIRS and generate nixos test results"))
     )
 
 parseOptions :: IO Options

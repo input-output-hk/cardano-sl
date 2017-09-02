@@ -18,7 +18,7 @@ main = do
             err $ "sample probability: " ++ show sampleProb
             err ""
             xs <- forM logDirs $ flip processLogDirOverview sampleProb
-            chart xs "times.png"
+            chart xs "times.svg"
             err "wrote times chart"
         Focus txHash logDir         -> do
             err $ "transaction hash: " ++ show txHash
@@ -36,11 +36,22 @@ main = do
             err $ "wait window: " ++ show waitWindow
             err ""
             for_ logDirs $ processLogDirThroughput txWindow waitWindow
+        TestPostProcess logDirs -> do
+            showLogDirs logDirs
+            bs <- forM logDirs $ postProcessLogs
+            err "done"
 
 showLogDirs :: [FilePath] -> IO ()
 showLogDirs logDirs = do
     err "log directories: "
     for_ logDirs $ \d -> err $ " - " ++ show d
+
+postProcessLogs :: FilePath -> IO (String, Map t (Maybe Timestamp))
+postProcessLogs logDir = do
+  --err $ "processing log directory " ++ show logDir ++ "..."
+  chainState <- runJSONFold logDir $ findBlockChainState
+  err $ chainState
+  return undefined
 
 processLogDirOverview :: FilePath -> Double -> IO (String, Map TxHash (Maybe Timestamp))
 processLogDirOverview logDir sampleProb = do

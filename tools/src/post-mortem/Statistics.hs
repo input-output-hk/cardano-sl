@@ -1,6 +1,7 @@
 module Statistics
     ( runJSONFold
     , receivedCreatedF
+    , findBlockChainState
     , module Statistics.Block
     , module Statistics.Chart
     , module Statistics.CSV
@@ -44,3 +45,8 @@ receivedCreatedF = f <$> txFirstReceivedF <*> inBlockChainF
       where
         g :: TxHash -> Timestamp -> Maybe Timestamp
         g tx ts = maybe Nothing (\ts' -> Just $ ts' - ts) $ M.lookup tx cm
+
+findBlockChainState :: Fold IndexedJLTimedEvent String
+findBlockChainState = Fold f "initial state" (\x -> x)
+  where
+    f state event = state <> "\n" <> (show event)

@@ -7,7 +7,9 @@ module Pos.DB.Functions
        (
        -- * Encoded putting/getting
          dbGetBi
+       , dbGetBiWithVersion
        , dbPutBi
+       , dbPutBiWithVersion
 
        -- * Decoding/encoding primitives and iteration related
        , dbDecode
@@ -40,6 +42,23 @@ dbGetBi tag key = do
 -- | Write serializable value to DB for given key.
 dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
 dbPutBi tag k v = dbPut tag k (serialize' v)
+
+-- | Read serialized value (with version) associated with given key from pure DB.
+dbGetBiWithVersion
+    :: forall v m.
+       (Bi v, MonadDBRead m)
+    => DBTag -> ByteString -> m (Maybe (Word8, v))
+dbGetBiWithVersion tag key = do
+    bytes <- dbGet tag key
+    traverse (dbDecode . (ToDecodeValue key)) bytes
+
+-- | Write serializable value to DB for given key. Uses simple versioning.
+dbPutBiWithVersion :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> Word8 -> m ()
+dbPutBiWithVersion tag k v version = dbPut tag k (dbSerialize version v)
+
+-- | Version of 'serialize'' function that includes version when serializing a value.
+dbSerialize :: Bi a => Word8 -> a -> ByteString
+dbSerialize version = serialize' . (version,)
 
 -- This type describes what we want to decode and contains auxiliary
 -- data.

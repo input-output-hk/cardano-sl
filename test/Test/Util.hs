@@ -49,20 +49,19 @@ import           Data.Binary                 (Binary (..))
 import qualified Data.ByteString             as LBS
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
-import           Data.Time.Units             (Microsecond, Millisecond, Second, TimeUnit)
+import           Data.Time.Units             (Microsecond, Second, TimeUnit)
 import           Data.Word                   (Word32)
 import           GHC.Generics                (Generic)
 import           Mockable.Class              (Mockable)
-import           Mockable.Concurrent         (delay, forConcurrently, fork, cancel,
-                                              async, withAsync, wait, Concurrently,
+import           Mockable.Concurrent         (delay, forConcurrently, fork,
+                                              withAsync, wait, Concurrently,
                                               Delay, Async)
 import           Mockable.SharedExclusive    (newSharedExclusive, putSharedExclusive,
                                               takeSharedExclusive, SharedExclusive,
-                                              readSharedExclusive, tryPutSharedExclusive)
+                                              readSharedExclusive)
 import           Mockable.Exception          (Catch, Throw, catch, throw, finally)
 import           Mockable.Production         (Production (..))
 import qualified Network.Transport           as NT (Transport)
-import           Network.Transport.Abstract  (closeTransport, Transport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
 import qualified Network.Transport.InMemory  as InMemory
@@ -77,7 +76,7 @@ import           Test.QuickCheck.Property    (Testable (..), failed, reason, suc
 import           Node                        (ConversationActions (..),
                                               Listener (..), Message (..),
                                               NodeAction (..), NodeId, Conversation (..),
-                                              node, nodeId, defaultNodeEnvironment,
+                                              node, nodeId, 
                                               simpleNodeEndPoint, Conversation (..),
                                               noReceiveDelay, NodeEnvironment,
                                               converseWith)
@@ -106,8 +105,8 @@ timeout str us m = do
     let timeoutAction = do
             delay us
             putSharedExclusive var (Left . error $ str ++ " : timeout after " ++ show us)
-    withAsync action $ \actionPromise -> do
-        withAsync timeoutAction $ \timeoutPromise -> do
+    withAsync action $ \_ -> do
+        withAsync timeoutAction $ \_ -> do
             choice <- readSharedExclusive var
             case choice of
                 Left e -> throw e
@@ -225,7 +224,7 @@ sendAll
 sendAll converse peerId msgs =
     timeout "sendAll" 30000000 $
         void . converseWith converse peerId $
-            \peerData -> Conversation $ \cactions -> forM_ msgs $
+            \_ -> Conversation $ \cactions -> forM_ msgs $
                 \msg -> do
                     send cactions msg
                     (_ :: Maybe Bool) <- recv cactions maxBound
@@ -308,7 +307,7 @@ deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
                 -- Allow the client to stop.
                 putSharedExclusive serverFinished ()
 
-    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng2 binaryPacking () nodeEnv $ \clientNode ->
+    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng2 binaryPacking () nodeEnv $ \_ ->
             NodeAction (const []) $ \converse -> do
                 serverAddress <- takeSharedExclusive serverAddressVar
                 let act = void . forConcurrently workers $ \worker ->

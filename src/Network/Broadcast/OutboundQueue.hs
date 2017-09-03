@@ -25,6 +25,7 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE StandaloneDeriving        #-}
 {-# LANGUAGE TupleSections             #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Network.Broadcast.OutboundQueue (
     OutboundQ -- opaque
@@ -71,6 +72,7 @@ module Network.Broadcast.OutboundQueue (
     -- * Debugging
   , registerQueueMetrics
   , dumpState
+  , currentlyInFlight
   ) where
 
 import Control.Concurrent
@@ -311,14 +313,26 @@ type InFlight nid = Map nid (Map Precedence Int)
 -- trying again
 type Failures nid = Map nid (UTCTime, ReconsiderAfter)
 
-inFlightTo :: Ord nid => nid -> Lens' (InFlight nid) (Map Precedence Int)
+inFlightTo :: Ord nid => nid -> Getter (InFlight nid) (Map Precedence Int)
 inFlightTo nid = at nid . anon Map.empty Map.null
 
-inFlightWithPrec :: Ord nid => nid -> Precedence -> Lens' (InFlight nid) Int
+inFlightWithPrec :: Ord nid => nid -> Precedence -> Getter (InFlight nid) Int
 inFlightWithPrec nid prec = inFlightTo nid . at prec . anon 0 (== 0)
 
-inFlightFor :: Ord nid => Packet msg nid a -> Lens' (InFlight nid) Int
-inFlightFor Packet{..} = inFlightWithPrec packetDestId packetPrec
+-- | Given an update function and a `Packet`, set the `InFlight` to the new value
+-- calculated by `f`. In case no match can be found, this function is effectively a noop.
+setInFlightFor :: forall m msg nid a. (MonadIO m, Ord nid)
+               => Packet msg nid a
+               -> (Int -> Int)
+               -> MVar (InFlight nid)
+               -> m ()
+setInFlightFor Packet{..} f var = liftIO $ modifyMVar_ var (return . update)
+  where
+    update :: InFlight nid -> InFlight nid
+    update = Map.adjust updateInnerMap packetDestId
+
+    updateInnerMap :: Map Precedence Int -> Map Precedence Int
+    updateInnerMap = Map.adjust f packetPrec
 
 -- | The outbound queue (opaque data structure)
 --
@@ -390,6 +404,10 @@ dumpState outQ@OutQ{} formatter = do
     return formatted
   where
     format = "OutboundQ internal state '{"%shown%"}'"
+
+-- | Debug function to return the `InFlight` map. Internal use only.
+currentlyInFlight :: forall m msg nid buck. MonadIO m => OutboundQ msg nid buck -> m (InFlight nid)
+currentlyInFlight = liftIO . readMVar . qInFlight
 
 -- | Type assumed for unknown nodes
 --
@@ -882,6 +900,7 @@ countAhead OutQ{..} nid prec = do
     debugInFlight :: InFlight nid -> Text
     debugInFlight = sformat (string % ": inFlight = " % shown) qSelf
 
+
 {-------------------------------------------------------------------------------
   Interpreter for the dequeueing policy
 -------------------------------------------------------------------------------}
@@ -941,7 +960,7 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
       sendStartTime <- liftIO $ getCurrentTime
 
       -- Mark the message as in-flight, limiting both enqueues and dequeues
-      applyMVar_ qInFlight $ inFlightFor p %~ (\n -> n + 1)
+      setInFlightFor p (\n -> n + 1) qInFlight
 
       -- We mark the node as rate limited, making it unavailable for any
       -- additional dequeues until the timer expires and we mark it as
@@ -964,7 +983,7 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
         ma <- M.try $ unmask $ sendMsg (packetPayload p) (packetDestId p)
 
         -- Reduce the in-flight count ..
-        applyMVar_ qInFlight $ inFlightFor p %~ (\n -> n - 1)
+        setInFlightFor p (\n -> n - 1) qInFlight
         liftIO $ poke qSignal
 
         -- .. /before/ notifying the sender that the send is complete.

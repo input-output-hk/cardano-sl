@@ -7,7 +7,7 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 
 -- | Demo for the outbound queue
-module Network.Broadcast.OutboundQueue.Demo (relayDemo) where
+module Network.Broadcast.OutboundQueue.Demo where
 
 import Control.Concurrent
 import Control.Monad
@@ -160,6 +160,9 @@ data Node = Node {
     , nodeMsgPool :: MVar (Set MsgId)
     , nodeOutQ    :: OutboundQ MsgObj_ NodeId ()
     }
+
+instance Eq Node where
+    n1 == n2 = nodeId n1 == nodeId n2
 
 -- | Create a new node, and spawn dequeue worker and forwarding listener
 newNode :: MonadIO m => NodeId_ -> NodeType -> CommsDelay -> m Node

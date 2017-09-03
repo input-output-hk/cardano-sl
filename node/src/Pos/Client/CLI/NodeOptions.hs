@@ -55,10 +55,10 @@ data CommonNodeArgs = CommonNodeArgs
     , bindAddress         :: !(Maybe NetworkAddress)
       -- ^ A node may have a bind address which differs from its external
       -- address.
-    , peers               :: ![(NodeId, NodeType)]
-      -- ^ Known peers (addresses with classification).
     , networkConfigOpts   :: !NetworkConfigOpts
       -- ^ Network configuration
+    , peers               :: ![(NodeId, NodeType)]
+      -- ^ Known peers (addresses with classification).
     , jlPath              :: !(Maybe FilePath)
     , kademliaDumpPath    :: !FilePath
     , commonArgs          :: !CommonArgs

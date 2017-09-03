@@ -111,24 +111,29 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
         }
 
 data NetworkTransportMisconfiguration =
-
       -- | A bind address was not given.
       MissingBindAddress
-
       -- | An external address was not given.
     | MissingExternalAddress
-
       -- | An address was given when one was not expected (behind NAT).
     | UnnecessaryAddress
 
 instance Show NetworkTransportMisconfiguration where
-    show MissingBindAddress     = "No network bind address given. Use the --listen option."
-    show MissingExternalAddress = "No external network address given. Use the --address option."
-    show UnnecessaryAddress     = "Network address given when none was expected. Remove the --listen and --address options."
+    show MissingBindAddress =
+        "No network bind address given. Use the --listen option."
+    show MissingExternalAddress =
+        "No external network address given. Use the --address option."
+    show UnnecessaryAddress =
+        "Network address given when none was expected. " <>
+        "Remove the --listen and --address options."
 
 instance Exception NetworkTransportMisconfiguration
 
-getTransportParams :: ( Mockable Throw m ) => CommonNodeArgs -> NetworkConfig kademlia -> m TransportParams
+getTransportParams ::
+       (Mockable Throw m)
+    => CommonNodeArgs
+    -> NetworkConfig kademlia
+    -> m TransportParams
 getTransportParams args networkConfig = case ncTopology networkConfig of
     -- Behind-NAT topology claims no address for the transport, and also
     -- throws an exception if the --listen parameter is given, to avoid
@@ -139,9 +144,12 @@ getTransportParams args networkConfig = case ncTopology networkConfig of
         _ <- whenJust (externalAddress args) (const (throw UnnecessaryAddress))
         return $ TransportParams { tpTcpAddr = TCP.Unaddressable }
     _ -> do
-        (bindHost, bindPort) <- maybe (throw MissingBindAddress) return (bindAddress args)
-        (externalHost, externalPort) <- maybe (throw MissingExternalAddress) return (externalAddress args)
+        (bindHost, bindPort) <-
+            maybe (throw MissingBindAddress) return (bindAddress args)
+        (externalHost, externalPort) <-
+            maybe (throw MissingExternalAddress) return (externalAddress args)
         let tcpHost = BS8.unpack bindHost
             tcpPort = show bindPort
             tcpMkExternal = const (BS8.unpack externalHost, show externalPort)
-        return $ TransportParams { tpTcpAddr = TCP.Addressable (TCP.TCPAddrInfo tcpHost tcpPort tcpMkExternal) }
+            addr = TCP.Addressable (TCP.TCPAddrInfo tcpHost tcpPort tcpMkExternal)
+        pure $ TransportParams { tpTcpAddr = addr }

@@ -6,45 +6,45 @@
 #endif
 
 module Pos.Network.Types
-    ( -- * Network configuration
-      NetworkConfig (..)
-    , NodeName (..)
-    , defaultNetworkConfig
-      -- * Topology
-    , StaticPeers(..)
-    , Topology(..)
-      -- ** Derived information
-    , SubscriptionWorker(..)
-    , topologyNodeType
-    , topologySubscribers
-    , topologyUnknownNodeType
-    , topologySubscriptionWorker
-    , topologyRunKademlia
-    , topologyEnqueuePolicy
-    , topologyDequeuePolicy
-    , topologyFailurePolicy
-    , topologyMaxBucketSize
-      -- * Queue initialization
-    , Bucket(..)
-    , initQueue
-      -- * Constructing peers
-    , Valency
-    , Fallbacks
-    , choosePeers
-      -- * DNS support
-    , Resolver
-    , resolveDnsDomains
-    , initDnsOnUse
-      -- * Re-exports
-      -- ** from .DnsDomains
-    , DnsDomains(..)
-      -- ** from time-warp
-    , NodeType (..)
-    , MsgType (..)
-    , Origin (..)
-      -- ** other
-    , NodeId (..)
-    ) where
+       ( -- * Network configuration
+         NetworkConfig (..)
+       , NodeName (..)
+       , defaultNetworkConfig
+         -- * Topology
+       , StaticPeers(..)
+       , Topology(..)
+         -- ** Derived information
+       , SubscriptionWorker(..)
+       , topologyNodeType
+       , topologySubscribers
+       , topologyUnknownNodeType
+       , topologySubscriptionWorker
+       , topologyRunKademlia
+       , topologyEnqueuePolicy
+       , topologyDequeuePolicy
+       , topologyFailurePolicy
+       , topologyMaxBucketSize
+         -- * Queue initialization
+       , Bucket(..)
+       , initQueue
+         -- * Constructing peers
+       , Valency
+       , Fallbacks
+       , choosePeers
+         -- * DNS support
+       , Resolver
+       , resolveDnsDomains
+       , initDnsOnUse
+         -- * Re-exports
+         -- ** from .DnsDomains
+       , DnsDomains(..)
+         -- ** from time-warp
+       , NodeType (..)
+       , MsgType (..)
+       , Origin (..)
+         -- ** other
+       , NodeId (..)
+       ) where
 
 import           Data.IP                               (IPv4)
 import           GHC.Show                              (Show (..))
@@ -67,9 +67,9 @@ import           Universum                             hiding (show)
 import qualified Pos.Network.Windows.DnsDomains        as Win
 #endif
 
-{-------------------------------------------------------------------------------
-  Network configuration
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Network configuration
+----------------------------------------------------------------------------
 
 newtype NodeName = NodeName Text
     deriving (Show, Ord, Eq, IsString)
@@ -117,9 +117,9 @@ defaultNetworkConfig ncTopology = NetworkConfig {
     , ..
     }
 
-{-------------------------------------------------------------------------------
-  Topology (from the pov of a single node)
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Topology
+----------------------------------------------------------------------------
 
 -- | Statically configured peers
 --
@@ -134,7 +134,7 @@ data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
     }
 
 instance Show StaticPeers where
-  show _ = "<<StaticPeers>>"
+    show _ = "<<StaticPeers>>"
 
 -- | Topology of the network, from the point of view of the current node
 data Topology kademlia =
@@ -185,9 +185,9 @@ data Topology kademlia =
       }
   deriving (Show)
 
-{-------------------------------------------------------------------------------
-  Information derived from the topology
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Information derived from the topology
+----------------------------------------------------------------------------
 
 -- | Derive node type from its topology
 topologyNodeType :: Topology kademlia -> NodeType
@@ -295,9 +295,9 @@ topologyMaxBucketSize topology bucket =
       _otherBucket ->
         OQ.BucketSizeUnlimited
 
-{-------------------------------------------------------------------------------
-  Queue initialization
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Queue initialization
+----------------------------------------------------------------------------
 
 -- | The various buckets we use for the outbound queue
 data Bucket =
@@ -366,9 +366,9 @@ initQueue NetworkConfig{..} mStore = do
 
     return oq
 
-{-------------------------------------------------------------------------------
-  Constructing peers
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Constructing peers
+----------------------------------------------------------------------------
 
 -- | The number of peers we want to send to
 --
@@ -396,9 +396,9 @@ choosePeers valency fallbacks peerType =
     mkGroupsOf n lst = case splitAt n lst of
                          (these, those) -> these : mkGroupsOf n those
 
-{-------------------------------------------------------------------------------
-  DNS support
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- DNS support
+----------------------------------------------------------------------------
 
 type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
 

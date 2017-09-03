@@ -51,7 +51,7 @@ import           Universum
 
 import           Data.Char                  (isAscii)
 import           Data.Default               (Default (def))
-import           Data.Hashable              (Hashable (hashWithSalt))
+import           Data.Hashable              (Hashable)
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
@@ -66,11 +66,11 @@ import           Serokell.Util.Text         (listJson)
 
 import           Pos.Binary.Class           (Bi, Raw)
 import           Pos.Binary.Crypto          ()
-import           Pos.Core                   (BlockVersion, BlockVersionData (..), Coeff,
+import           Pos.Core                   (BlockVersion, BlockVersionData (..),
                                              CoinPortion, EpochIndex, FlatSlotId,
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftforkRule, SoftwareVersion, TxFeePolicy,
-                                             TxSizeLinear, addressHash)
+                                             addressHash)
 import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
                                              SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,

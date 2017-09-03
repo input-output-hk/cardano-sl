@@ -9,6 +9,7 @@ module Pos.Update.Download
 import           Universum
 
 import           Control.Lens            (views)
+import           Control.Monad.Catch     (handleAll)
 import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
@@ -81,7 +82,7 @@ downloadUpdateDo cps@ConfirmedProposalState {..} = do
 
     logInfo $ sformat ("We are going to start downloading an update for "%build)
               cpsUpdateProposal
-    res <- runExceptT $ do
+    res <- handleAll handleErr $ runExceptT $ do
         -- It must be enforced by the caller.
         updHash <- maybe (reportFatalError $ sformat
                             ("We are trying to download an update not for our "%
@@ -116,14 +117,18 @@ downloadUpdateDo cps@ConfirmedProposalState {..} = do
         putMVar downloadedMVar cps
         logInfo "Update MVar filled, wallet is notified"
 
-    whenLeft res logWarning
+    whenLeft res logDownloadError
   where
+    handleErr = return . Left . show
+    logDownloadError e =
+        logWarning $ sformat
+            ("Failed to download update proposal "%build%": "%stext)
+            cpsUpdateProposal e
     -- Check that we really should download an update with given
     -- 'SoftwareVersion'.
     isVersionAppropriate :: SoftwareVersion -> Bool
     isVersionAppropriate ver = svAppName ver == svAppName curSoftwareVersion
         && svNumber ver > svNumber curSoftwareVersion
-
 
 -- Download a file by its hash.
 --
@@ -167,7 +172,6 @@ downloadUri manager uri h = do
                 | otherwise  -> Right (getResponseBody resp)
 
 {- TODO
-=======
 
 * check timeouts?
 * how should we in general deal with e.g. 1B/s download speed?

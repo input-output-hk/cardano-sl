@@ -535,6 +535,7 @@ executable cardano-blockchain-analyser
                      , directory
                      , formatting
                      , neat-interpolation
+                     , tabl
                      , optparse-applicative
                      , universum >= 0.1.11
   default-language:    Haskell2010

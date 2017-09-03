@@ -533,8 +533,9 @@ executable cardano-blockchain-analyser
    build-depends:      ansi-wl-pprint
                      , base
                      , directory
-                     , optparse-applicative
+                     , formatting
                      , neat-interpolation
+                     , optparse-applicative
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 module Main where
 
-import           Options          (CLIOptions (..), getOptions)
+import           Options          (CLIOptions (..), getOptions, renderBytes)
 import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize,
                                    listDirectory, withCurrentDirectory)
 import           Universum
@@ -25,4 +25,4 @@ ls f = withCurrentDirectory f ((listDirectory >=> mapM canonicalizePath) f)
 main :: IO ()
 main = do
     CLIOptions{..} <- getOptions
-    print =<< (canonicalizePath >=> du_s $ dbPath)
+    putText . renderBytes uom =<< (canonicalizePath >=> du_s $ dbPath)

@@ -37,8 +37,3 @@ checkForUpdate = do
     logDebug $ sformat ("Potentially relevant proposals: "%listJson)
                     (cpsUpdateProposal <$> proposals)
     mapM_ downloadUpdate proposals
-
-    -- TODO CSL-1583 remove this debug output
-    logDebug . sformat ("All known proposals: "%listJson)
-        =<< fmap cpsUpdateProposal <$> getConfirmedProposals Nothing
-

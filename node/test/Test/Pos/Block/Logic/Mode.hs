@@ -336,6 +336,9 @@ instance HasLens GenesisUtxo TestInitModeContext GenesisUtxo where
 instance HasLens GenesisWStakeholders TestInitModeContext GenesisWStakeholders where
     lensOf = timcGenesisContext_L . gtcWStakeholders
 
+instance HasLens GenesisContext TestInitModeContext GenesisContext where
+    lensOf = timcGenesisContext_L
+
 instance HasLens LrcContext TestInitModeContext LrcContext where
     lensOf = timcLrcContext_L
 

@@ -33,7 +33,8 @@ import           Pos.Core                  (AddrDistribution, Coin, EpochIndex,
                                             unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic, unsafeHash)
 import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..),
-                                            StakeDistribution (..), concatAddrDistrs)
+                                            StakeDistribution (..), concatAddrDistrs,
+                                            noGenesisDelegation)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutAux (..),
@@ -112,8 +113,10 @@ genTestParams = do
         -- test we don't make any txs.  If we add txs, we will need to
         -- do it after bootstrap era, so these stakeholders will be
         -- ignored.
+        -- We also don't care about genesis delegation for now.
         GenesisContext (GenesisUtxo $ M.fromList $ map utxoEntry balances)
                        (GenesisWStakeholders mempty)
+                       noGenesisDelegation
 
     groupsNumber = length allRichmenComponents
     genAddressesAndDistrs

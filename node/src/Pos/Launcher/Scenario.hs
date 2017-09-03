@@ -26,7 +26,7 @@ import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
 import qualified Pos.Constants         as Const
 import           Pos.Context           (getOurPublicKey, ncNetworkConfig)
-import           Pos.Core              (addressHash)
+import           Pos.Core              (addressHash, gitRev)
 import qualified Pos.DB.DB             as DB
 import           Pos.DHT.Real          (KademliaDHTInstance (..),
                                         kademliaJoinNetworkNoThrow,
@@ -46,15 +46,6 @@ import           Pos.Util.Config       (configName)
 import           Pos.Util.LogSafe      (logInfoS)
 import           Pos.Worker            (allWorkers)
 import           Pos.WorkMode.Class    (WorkMode)
-
-#define QUOTED(x) "/**/x/**/"
-
-gitRev :: Text
-#if !defined(GITREV)
-gitRev = "unknown"
-#else
-gitRev = QUOTED(GITREV)
-#endif
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.

@@ -10,7 +10,7 @@ import           Universum
 import           Pos.Core                  (HasCoreConstants)
 import           Pos.DB.Class              (MonadDBRead)
 import           Pos.Slotting              (MonadSlots)
-import           Pos.Update.Core           (UpId)
+import           Pos.Update.Core           (UpdateProposal)
 import           Pos.Update.MemState.Types (MemVar, newMemVar)
 import           Pos.Update.Poll.Types     (ConfirmedProposalState)
 
@@ -21,7 +21,7 @@ data UpdateContext = UpdateContext
       ucUpdateSemaphore    :: !(MVar ConfirmedProposalState)
 
     -- | Downloading updates by @usUpdate
-    , ucDownloadingUpdates :: !(TVar (Set UpId))
+    , ucDownloadingUpdates :: !(TVar (HashSet UpdateProposal))
 
     , ucMemState           :: !MemVar
     }

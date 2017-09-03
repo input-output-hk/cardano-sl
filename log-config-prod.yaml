@@ -12,3 +12,6 @@ node:
         severity: Info
     dht:
         severity: Info
+    worker:
+      us:
+        severity: Debug

@@ -51,6 +51,7 @@ import           Universum
 
 import           Data.Char                  (isAscii)
 import           Data.Default               (Default (def))
+import           Data.Hashable              (Hashable)
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
@@ -101,6 +102,7 @@ data BlockVersionModifier = BlockVersionModifier
     } deriving (Show, Eq, Generic, Typeable)
 
 instance NFData BlockVersionModifier
+instance Hashable BlockVersionModifier
 
 instance Buildable BlockVersionModifier where
     build BlockVersionModifier {..} =
@@ -184,6 +186,8 @@ data UpdateProposal = UnsafeUpdateProposal
     -- ^ Who proposed this UP.
     , upSignature       :: !(Signature UpdateProposalToSign)
     } deriving (Eq, Show, Generic, Typeable)
+
+instance Hashable UpdateProposal
 
 mkUpdateProposal
     :: (MonadFail m, Bi UpdateProposalToSign)
@@ -307,6 +311,8 @@ instance NFData UpdateProposal
 -- Proper NFData Millisecond instance should be defined in
 -- time-units. I'm sorry for this. volhovm.
 instance NFData UpdateData
+
+instance Hashable UpdateData
 
 ----------------------------------------------------------------------------
 -- UpdateVote and related

@@ -43,7 +43,7 @@ import           Formatting               (bprint, build, sformat, stext, (%))
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
-                                           calculateTxSizeLinear, integerToCoin,
+                                           calculateTxSizeLinear, coinToInteger,
                                            integerToCoin, isRedeemAddress, unsafeAddCoin,
                                            unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
@@ -76,11 +76,19 @@ data TxRaw = TxRaw
     }
 
 data TxError =
-      NotEnoughMoney !Coin    -- ^ Parameter: how much more money is needed
-    | FailedToStabilize !Int  -- ^ Parameter: how many attempts were performed
-    | OutputIsRedeem !Address -- ^ One of the tx outputs is a redemption address
-    | RedemptionDepleted      -- ^ Redemption address has already been used
-    | GeneralTxError !Text    -- ^ Parameter: description of the problem
+      NotEnoughMoney !Coin
+      -- ^ Parameter: how much more money is needed
+    | NotEnoughAllowedMoney !Coin
+      -- ^ Parameter: how much more money is needed and which available input addresses
+      -- are present in output addresses set
+    | FailedToStabilize !Int
+      -- ^ Parameter: how many attempts were performed
+    | OutputIsRedeem !Address
+      -- ^ One of the tx outputs is a redemption address
+    | RedemptionDepleted
+      -- ^ Redemption address has already been used
+    | GeneralTxError !Text
+      -- ^ Parameter: description of the problem
     deriving (Show, Generic)
 
 instance Exception TxError
@@ -88,6 +96,9 @@ instance Exception TxError
 instance Buildable TxError where
     build (NotEnoughMoney coin) =
         bprint ("Transaction creation error: not enough money, need "%build%" more") coin
+    build (NotEnoughAllowedMoney coin) =
+        bprint ("Transaction creation error: not enough money on addresses which are not included \
+                \in output addresses set, need "%build%" more") coin
     build (FailedToStabilize iters) =
         bprint ("Transaction creation error: failed to stabilize fee after "%build%" iterations") iters
     build (OutputIsRedeem addr) =
@@ -262,8 +273,12 @@ prepareTxRaw utxo outputs (TxFee fee) = do
   where
     sumTxOuts = either (throwError . GeneralTxError) pure .
         integerToCoin . sumTxOutCoins
+    gUtxo = groupUtxo utxo
+    isOutputAddr addr = any ((addr ==) . txOutAddress . toaOut) outputs
     sortedGroups = sortOn (Down . ugTotalMoney) $
-        groupUtxo utxo
+        filter (not . isOutputAddr . ugAddr) gUtxo
+    disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo
+    disallowedMoney = sumCoins $ map ugTotalMoney disallowedInputGroups
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
@@ -273,7 +288,9 @@ prepareTxRaw utxo outputs (TxFee fee) = do
             else do
                 mNextOutGroup <- head <$> use ipsAvailableOutputGroups
                 case mNextOutGroup of
-                    Nothing -> throwError $ NotEnoughMoney moneyLeft
+                    Nothing -> if disallowedMoney >= coinToInteger moneyLeft
+                        then throwError $ NotEnoughAllowedMoney moneyLeft
+                        else throwError $ NotEnoughMoney moneyLeft
                     Just UtxoGroup {..} -> do
                         ipsMoneyLeft .= unsafeSubCoin moneyLeft (min ugTotalMoney moneyLeft)
                         ipsAvailableOutputGroups %= tail

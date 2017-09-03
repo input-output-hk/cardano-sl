@@ -5,7 +5,6 @@ module Test.Pos.Client.Txp.UtilSpec
        ) where
 
 import           Universum
-import           Unsafe                   (unsafeFromJust)
 
 import qualified Data.ByteString          as BS
 import qualified Data.List.NonEmpty       as NE
@@ -24,11 +23,12 @@ import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SecretKe
 import           Pos.Txp                  (TxId, TxIn (..), TxOut (..), TxOutAux (..),
                                            Utxo)
 import           Pos.Types                (Address)
+import           Pos.Util.Util            (leftToPanic)
 import           Test.Pos.Util            (giveTestsConsts, stopProperty)
 
 import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty)
-import           Test.Pos.Client.Txp.Util (generateAddressAux, generateRedeemAddressAux,
-                                           seedSize)
+import           Test.Pos.Client.Txp.Util (generateAddressWithKey,
+                                           generateRedeemAddressWithKey, seedSize)
 
 ----------------------------------------------------------------------------
 -- Tests
@@ -53,7 +53,7 @@ createMTxSpec = do
         "Transaction is created successfully when we have 1 input with 1M coins " <>
         "and 1 output with 1 coin"
     stabilizationDoesNotFailDesc =
-        "The message \"Couldn't stabilize tx fee after 5 attempts\" is not thrown " <>
+        "FailedToStabilize is not thrown " <>
         "when there is 1 input with 200k coins and 1 output with 1 coin"
     feeIsNonzeroDesc =
         "An attempt to create a tx for 1 coin when we have 100k coins fails " <>
@@ -98,8 +98,8 @@ feeIsNonzeroSpec = do
         Left (NotEnoughMoney _) -> return ()
         Left err -> stopProperty $ pretty err
         Right _ -> stopProperty $
-            sformat ("Transaction was created even though there were "%
-                "not enough funds for the fee")
+            "Transaction was created even though there were " <>
+                "not enough funds for the fee"
   where
     CreateMTxParams {..} = makeManyAddressesToManyParams 1 100000 1 1
 
@@ -170,11 +170,17 @@ txWithRedeemOutputFailsSpec = do
 -- Helpers
 ----------------------------------------------------------------------------
 
+-- | Container for parameters of `createMTx`.
 data CreateMTxParams = CreateMTxParams
     { cmpUtxo     :: !Utxo
+    -- ^ Unspent transaction outputs.
     , cmpSigners  :: !(NonEmpty (SafeSigner, Address))
+    -- ^ Wrappers around secret keys for addresses in Utxo.
     , cmpOutputs  :: !TxOutputs
+    -- ^ A (nonempty) list of desired tx outputs.
     , cmpAddrData :: !(AddrData TxpTestMode)
+    -- ^ Data that is normally used for creation of change addresses.
+    -- In tests, it is always `()`.
     }
 
 makeManyUtxoTo1Params :: Integer -> Integer -> Integer -> CreateMTxParams
@@ -228,19 +234,21 @@ ensureTxMakesSense (_, neTxOut) utxo _ = do
 
 unsafeIntegerToTxId :: Integer -> TxId
 unsafeIntegerToTxId n =
-    unsafeFromJust $ rightToMaybe $ decodeHash $
+    leftToPanic "unsafeIntegerToTxId: " $ decodeHash $
         sformat (left 64 '0' %. hex) n
+
+makeTxOutAux :: Integer -> Address -> TxOutAux
+makeTxOutAux amount addr =
+    let coin = unsafeIntegerToCoin amount
+        txOut = TxOut addr coin
+    in TxOutAux txOut
 
 generateTxOutAux :: Integer -> ByteString -> (SecretKey, Address, TxOutAux)
 generateTxOutAux amount seed =
-    let (sk, addr) = generateAddressAux seed
-        coin       = unsafeIntegerToCoin amount
-        txOut      = TxOut addr coin
-    in (sk, addr, TxOutAux txOut)
+    let (sk, addr) = generateAddressWithKey seed
+    in (sk, addr, makeTxOutAux amount addr)
 
 generateRedeemTxOutAux :: Integer -> ByteString -> (RedeemSecretKey, TxOutAux)
 generateRedeemTxOutAux amount seed =
-    let (sk, addr) = generateRedeemAddressAux seed
-        coin       = unsafeIntegerToCoin amount
-        txOut      = TxOut addr coin
-    in (sk, TxOutAux txOut)
+    let (sk, addr) = generateRedeemAddressWithKey seed
+    in (sk, makeTxOutAux amount addr)

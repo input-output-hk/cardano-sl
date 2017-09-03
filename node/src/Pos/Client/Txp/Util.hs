@@ -38,7 +38,8 @@ import qualified Data.List.NonEmpty       as NE
 import qualified Data.Map                 as M
 import qualified Data.Text.Buildable
 import qualified Data.Vector              as V
-import           Formatting               (bprint, build, sformat, shown, stext, (%))
+import           Formatting               (bprint, build, sformat, stext, (%))
+import           Serokell.Util            (listJson)
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -67,7 +68,7 @@ type TxWithSpendings = (TxAux, NonEmpty TxOut)
 
 instance Buildable TxWithSpendings where
     build (txAux, neTxOut) =
-        bprint ("("%shown%", "%shown%")") txAux neTxOut
+        bprint ("("%build%", "%listJson%")") txAux neTxOut
 
 -- This datatype corresponds to raw transaction.
 data TxRaw = TxRaw

@@ -2,8 +2,8 @@
 
 module Test.Pos.Client.Txp.Util
        ( seedSize
-       , generateAddressAux
-       , generateRedeemAddressAux
+       , generateAddressWithKey
+       , generateRedeemAddressWithKey
        ) where
 
 import           Universum
@@ -23,16 +23,16 @@ import           Pos.Types  (Address)
 seedSize :: Int
 seedSize = 32
 
-generateAddressAux :: ByteString -> (SecretKey, Address)
-generateAddressAux seed =
+generateAddressWithKey :: ByteString -> (SecretKey, Address)
+generateAddressWithKey seed =
     if length seed /= seedSize then
         error $ sformat ("Internal error: seed size must be exactly "%build%" bytes") seedSize
     else
         let (pk, sk) = deterministicKeyGen seed
         in (sk, makePubKeyAddressBoot pk)
 
-generateRedeemAddressAux :: ByteString -> (RedeemSecretKey, Address)
-generateRedeemAddressAux seed =
+generateRedeemAddressWithKey :: ByteString -> (RedeemSecretKey, Address)
+generateRedeemAddressWithKey seed =
     if length seed /= seedSize then
         error $ sformat ("Internal error: seed size must be exactly "%build%" bytes") seedSize
     else

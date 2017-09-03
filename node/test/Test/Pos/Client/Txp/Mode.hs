@@ -52,7 +52,7 @@ import           Pos.Util.Util                  (Some, postfixLFields)
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode      (genSuitableStakeDistribution)
-import           Test.Pos.Client.Txp.Util       (generateAddressAux, seedSize)
+import           Test.Pos.Client.Txp.Util       (generateAddressWithKey, seedSize)
 
 ----------------------------------------------------------------------------
 -- TestParams
@@ -264,7 +264,7 @@ instance MonadAddresses TxpTestMode where
       where
         -- seed for address generation is a ByteString with 32 255's
         seed = BS.replicate seedSize (255 :: Word8)
-        (_, address) = generateAddressAux seed
+        (_, address) = generateAddressWithKey seed
 
 ----------------------------------------------------------------------------
 -- Property

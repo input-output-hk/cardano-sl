@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Pure functions for operations with transactions
 
@@ -44,7 +45,7 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
                                            calculateTxSizeLinear, integerToCoin,
                                            integerToCoin, isRedeemAddress, unsafeAddCoin,
-                                           unsafeSubCoin)
+                                           unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
                                            SignTag (SignRedeemTx, SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
@@ -196,9 +197,35 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
 
 type FlatUtxo = [(TxIn, TxOutAux)]
 
+-- | Group of unspent transaction outputs which belongs
+-- to one address
+data UtxoGroup = UtxoGroup
+    { ugAddr       :: !Address
+    , ugTotalMoney :: !Coin
+    , ugUtxo       :: !(NonEmpty (TxIn, TxOutAux))
+    }
+
+-- | Helper for summing values of `TxOutAux`s
+sumTxOutCoins :: NonEmpty TxOutAux -> Integer
+sumTxOutCoins = sumCoins . map (txOutValue . toaOut)
+
+-- | Group unspent outputs by addresses
+groupUtxo :: Utxo -> [UtxoGroup]
+groupUtxo utxo =
+    map mkUtxoGroup preUtxoGroups
+  where
+    futxo = M.toList utxo
+    comparingAddrs = (== EQ) ... comparing (txOutAddress . toaOut . snd)
+    preUtxoGroups = NE.groupBy comparingAddrs futxo
+    mkUtxoGroup ugUtxo@(sample :| _) =
+        let ugAddr = txOutAddress . toaOut . snd $ sample
+            ugTotalMoney = unsafeIntegerToCoin . sumTxOutCoins $
+                map snd ugUtxo
+        in UtxoGroup {..}
+
 data InputPickerState = InputPickerState
-    { _ipsMoneyLeft        :: !Coin
-    , _ipsAvailableOutputs :: !FlatUtxo
+    { _ipsMoneyLeft             :: !Coin
+    , _ipsAvailableOutputGroups :: ![UtxoGroup]
     }
 
 makeLenses ''InputPickerState
@@ -223,7 +250,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
     let totalMoneyWithFee = totalMoney `unsafeAddCoin` fee
     futxo <- either throwError pure $
-        evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedUnspent)
+        evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedGroups)
     case nonEmpty futxo of
         Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
         Just inputsNE -> do
@@ -234,10 +261,9 @@ prepareTxRaw utxo outputs (TxFee fee) = do
             pure TxRaw {..}
   where
     sumTxOuts = either (throwError . GeneralTxError) pure .
-        integerToCoin . sumCoins . map (txOutValue . toaOut)
-    allUnspent = M.toList utxo
-    sortedUnspent =
-        sortOn (Down . txOutValue . toaOut . snd) allUnspent
+        integerToCoin . sumTxOutCoins
+    sortedGroups = sortOn (Down . ugTotalMoney) $
+        groupUtxo utxo
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
@@ -245,13 +271,13 @@ prepareTxRaw utxo outputs (TxFee fee) = do
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOut <- head <$> use ipsAvailableOutputs
-                case mNextOut of
+                mNextOutGroup <- head <$> use ipsAvailableOutputGroups
+                case mNextOutGroup of
                     Nothing -> throwError $ NotEnoughMoney moneyLeft
-                    Just inp@(_, (TxOutAux (TxOut {..}))) -> do
-                        ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
-                        ipsAvailableOutputs %= tail
-                        pickInputs (inp : inps)
+                    Just UtxoGroup {..} -> do
+                        ipsMoneyLeft .= unsafeSubCoin moneyLeft (min ugTotalMoney moneyLeft)
+                        ipsAvailableOutputGroups %= tail
+                        pickInputs (toList ugUtxo ++ inps)
 
     formTxInputs (inp, TxOutAux txOut) = (txOut, inp)
 

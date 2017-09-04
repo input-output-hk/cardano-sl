@@ -5,7 +5,7 @@ module Pos.Wallet.Web.ClientTypes.Functions
       , addressToCId
       , cIdToAddress
       , encToCId
-      , mkCTxs
+      , mkCTx
       , mkCTxId
       , ptxCondToCPtxCond
       , txIdToCTxId
@@ -39,8 +39,8 @@ import           Pos.Update.Poll                  (ConfirmedProposalState (..))
 import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin (..),
                                                    CHash (..), CId (..),
                                                    CPtxCondition (..), CTx (..),
-                                                   CTxId (..), CTxMeta, CTxs (..),
-                                                   CUpdateInfo (..), CWAddressMeta (..))
+                                                   CTxId (..), CTxMeta, CUpdateInfo (..),
+                                                   CWAddressMeta (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxCondition (..))
 
 
@@ -117,18 +117,18 @@ isTxLocalAddress wAddrMetas inputs = do
            let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
            not . flip S.member nonLocalAddrsSet
 
-mkCTxs
+mkCTx
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> CPtxCondition      -- ^ State of resubmission
     -> [CWAddressMeta]    -- ^ Addresses of wallet
-    -> Either Text CTxs
-mkCTxs diff th@THEntry {..} meta pc wAddrMetas = do
-    let isOurTxOutput = flip S.member wAddrsSet . addressToCId . txOutAddress
+    -> Either Text CTx
+mkCTx diff th@THEntry {..} meta pc wAddrMetas = do
+    let isOurTxAddress = flip S.member wAddrsSet . addressToCId . txOutAddress
 
-        ownInputs = filter isOurTxOutput inputs
-        ownOutputs = filter isOurTxOutput outputs
+        ownInputs = filter isOurTxAddress inputs
+        ownOutputs = filter isOurTxAddress outputs
 
     when (null ownInputs && null ownOutputs) $
         throwError "Transaction is irrelevant to given wallet!"
@@ -137,17 +137,16 @@ mkCTxs diff th@THEntry {..} meta pc wAddrMetas = do
         outgoingMoney = sumMoney ownInputs
         incomingMoney = sumMoney ownOutputs
         isOutgoing = outgoingMoney >= incomingMoney
-        isIncoming = incomingMoney >= outgoingMoney
+        ctIsOutgoing = isOutgoing
+        ctIsLocal = length ownInputs == length inputs
+                 && length ownOutputs == length outputs
 
         ctAmount = mkCCoin . unsafeIntegerToCoin $
-            if | isOutgoing && isIncoming -> outgoingMoney
+            if | ctIsLocal -> outgoingMoney
                | isOutgoing -> outgoingMoney - incomingMoney
-               | isIncoming -> incomingMoney - outgoingMoney
+               | otherwise -> incomingMoney - outgoingMoney
 
-        mkCTx ctIsOutgoing cond = guard cond $> CTx {..}
-        ctsOutgoing = mkCTx True isOutgoing
-        ctsIncoming = mkCTx False isIncoming
-    return CTxs {..}
+    return CTx {..}
   where
     ctId = txIdToCTxId _thTxId
     inputs = _thInputs

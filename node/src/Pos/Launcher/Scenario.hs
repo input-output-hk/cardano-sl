@@ -94,6 +94,8 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         (bootDustThreshold genesisStakeholders)
     logInfo $ sformat ("Genesis stakeholders: " %int)
         (length $ getGenesisWStakeholders genesisStakeholders)
+    firstGenesisHash <- GS.getFirstGenesisBlockHash
+    logInfo $ sformat ("First genesis block hash: "%build) firstGenesisHash
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"

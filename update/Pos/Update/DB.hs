@@ -45,7 +45,6 @@ import           Data.Time.Units              (Microsecond, convertUnit)
 import qualified Database.RocksDB             as Rocks
 import           Serokell.Data.Memory.Units   (Byte)
 
-import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
@@ -58,7 +57,8 @@ import           Pos.Core.Constants           (genesisBlockVersionData,
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
                                                MonadDB, MonadDBRead (..),
-                                               RocksBatchOp (..), encodeWithKeyPrefix)
+                                               RocksBatchOp (..), dbSerialize,
+                                               encodeWithKeyPrefix)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData,
@@ -143,30 +143,30 @@ data UpdateOp
 
 instance HasCoreConstants => RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
-        [ Rocks.Put (proposalKey upId) (serialize' ps)]
+        [ Rocks.Put (proposalKey upId) (dbSerialize ps)]
       where
         up = psProposal ps
         upId = hash up
     toBatchOp (DeleteProposal upId) =
         [Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =
-        [Rocks.Put (confirmedVersionKey $ svAppName sv) (serialize' $ svNumber sv)]
+        [Rocks.Put (confirmedVersionKey $ svAppName sv) (dbSerialize $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
         [Rocks.Del (confirmedVersionKey app)]
     toBatchOp (AddConfirmedProposal cps) =
-        [Rocks.Put (confirmedProposalKey cps) (serialize' cps)]
+        [Rocks.Put (confirmedProposalKey cps) (dbSerialize cps)]
     toBatchOp (DelConfirmedProposal sv) =
         [Rocks.Del (confirmedProposalKeySV sv)]
     toBatchOp (SetAdopted bv bvd) =
-        [Rocks.Put adoptedBVKey (serialize' (bv, bvd))]
+        [Rocks.Put adoptedBVKey (dbSerialize (bv, bvd))]
     toBatchOp (SetBVState bv st) =
-        [Rocks.Put (bvStateKey bv) (serialize' st)]
+        [Rocks.Put (bvStateKey bv) (dbSerialize st)]
     toBatchOp (DelBV bv) =
         [Rocks.Del (bvStateKey bv)]
     toBatchOp (PutSlottingData sd) =
-        [Rocks.Put slottingDataKey (serialize' sd)]
+        [Rocks.Put slottingDataKey (dbSerialize sd)]
     toBatchOp (PutEpochProposers proposers) =
-        [Rocks.Put epochProposersKey (serialize' proposers)]
+        [Rocks.Put epochProposersKey (dbSerialize proposers)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -313,7 +313,7 @@ proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
 
 confirmedVersionKey :: ApplicationName -> ByteString
-confirmedVersionKey = mappend "us/cv/" . serialize'
+confirmedVersionKey = mappend "us/cv/" . dbSerialize
 
 iterationPrefix :: ByteString
 iterationPrefix = "us/p/"

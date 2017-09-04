@@ -12,9 +12,9 @@ module Pos.Lrc.DB.Seed
 
 import           Universum
 
-import           Pos.Binary.Class  (serialize')
 import           Pos.Core.Types    (EpochIndex (..), SharedSeed)
 import           Pos.DB.Class      (MonadDB, MonadDBRead)
+import           Pos.DB.Functions  (dbSerialize)
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Lrc.Genesis   (genesisSeed)
 
@@ -36,4 +36,4 @@ isInitialized = isJust <$> getSeed (EpochIndex 0)
 ----------------------------------------------------------------------------
 
 seedKey :: EpochIndex -> ByteString
-seedKey = mappend "s/" . serialize'
+seedKey = mappend "s/" . dbSerialize

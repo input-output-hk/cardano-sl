@@ -33,14 +33,13 @@ import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Binary.Class             (serialize')
 import           Pos.Core                     (Coin, GenesisWStakeholders, StakeholderId,
                                                StakesMap, coinF, mkCoin, sumCoins,
                                                unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),
-                                               dbIterSource)
+                                               dbIterSource, dbSerialize)
 import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumKey,
                                                getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
@@ -62,10 +61,10 @@ instance Buildable BalancesOp where
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
 instance RocksBatchOp BalancesOp where
-    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (serialize' c)]
+    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (dbSerialize c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
-        else [Rocks.Put (ftsStakeKey ad) (serialize' c)]
+        else [Rocks.Put (ftsStakeKey ad) (dbSerialize c)]
 
 ----------------------------------------------------------------------------
 -- Initialization

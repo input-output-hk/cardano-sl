@@ -41,7 +41,6 @@ import           Formatting                   (bprint, build, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Core              ()
 import           Pos.Core                     (Address, Coin, GenesisWStakeholders, coinF,
                                                mkCoin, sumCoins, unsafeAddCoin,
@@ -49,7 +48,8 @@ import           Pos.Core                     (Address, Coin, GenesisWStakeholde
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), IterType, MonadDB,
                                                MonadDBRead, RocksBatchOp (..),
-                                               dbIterSource, encodeWithKeyPrefix)
+                                               dbIterSource, dbSerialize,
+                                               encodeWithKeyPrefix)
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Txp.Core                 (TxIn (..), TxOutAux (toaOut),
                                                addrBelongsToSet, txOutStake)
@@ -80,7 +80,7 @@ instance Buildable UtxoOp where
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
-        [Rocks.Put (txInKey txIn) (serialize' txOut)]
+        [Rocks.Put (txInKey txIn) (dbSerialize txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
 
 ----------------------------------------------------------------------------

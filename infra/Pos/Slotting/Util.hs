@@ -25,7 +25,7 @@ import           Universum
 
 import           Data.Time.Units        (Millisecond)
 import           Formatting             (int, sformat, shown, (%))
-import           Mockable               (Delay, Fork, Mockable, delay, fork)
+import           Mockable               (Delay, Mockable, delay)
 import           Serokell.Util          (sec)
 import           System.Wlog            (WithLogger, logDebug, logInfo, logNotice,
                                          modifyLoggerName)
@@ -96,7 +96,6 @@ type OnNewSlot ctx m =
     , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
-    , Mockable Fork m
     , Mockable Delay m
     , HasReportingContext ctx
     , HasShutdownContext ctx
@@ -144,18 +143,32 @@ onNewSlotDo
 onNewSlotDo withLogging expectedSlotId startImmediately action = do
     curSlot <- waitUntilExpectedSlot
 
-    -- Fork is necessary because action can take more time than duration of slot.
-    when startImmediately $ void $ fork $ action curSlot
+    -- Note that the action can take more time than the slot
+    -- duration. In this case action for the next slot won't start
+    -- until the ongoing action finishes.
+    -- The caller should decide how to deal with long-running actions.
+    -- They can do whatever they want with 'action', the simplest thing is
+    -- 'void . fork' (which is likely not the best idea, for the reasons why
+    -- 'async' package should be used instead of 'fork'-ing threads manually.
+    --
+    -- There are few things to consider when one wants to run this action in a
+    -- separate thread every time:
+    -- 1. If more than one action is launched, they may use same resources
+    -- concurrently, so the code must account for it.
+    -- 2. If action hangs for some reason, there can be infinitely growing pool
+    -- of hanging actions with probably bad consequences.
+    --
+    -- See also: CSL-1606.
+    when startImmediately $ action curSlot
 
-    do
-        let nextSlot = succ curSlot
-        Timestamp curTime <- currentTimeSlotting
-        Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
-        let timeToWait = nextSlotStart - curTime
-        when (timeToWait > 0) $ do
-            when withLogging $ logTTW timeToWait
-            delay timeToWait
-        onNewSlotDo withLogging (Just nextSlot) True action
+    let nextSlot = succ curSlot
+    Timestamp curTime <- currentTimeSlotting
+    Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
+    let timeToWait = nextSlotStart - curTime
+    when (timeToWait > 0) $ do
+        when withLogging $ logTTW timeToWait
+        delay timeToWait
+    onNewSlotDo withLogging (Just nextSlot) True action
   where
     waitUntilExpectedSlot = do
         -- onNewSlotWorker doesn't make sense in recovery phase. Most

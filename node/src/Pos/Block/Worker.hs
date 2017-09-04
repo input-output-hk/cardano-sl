@@ -15,7 +15,7 @@ import qualified Data.List.NonEmpty          as NE
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (Format, bprint, build, fixed, int, now,
                                               sformat, shown, (%))
-import           Mockable                    (concurrently, delay)
+import           Mockable                    (concurrently, delay, fork)
 import           Serokell.Util               (listJson, pairF, sec)
 import qualified System.Metrics.Label        as Label
 import           System.Wlog                 (logDebug, logInfo, logWarning)
@@ -57,7 +57,7 @@ import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.GState                  (getAdoptedBVData, getPskByIssuer)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Reporting               (MetricMonitor (..), MetricMonitorState,
-                                              noReportMonitor, recordValue)
+                                              noReportMonitor, recordValue, reportOrLogE)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
@@ -83,14 +83,19 @@ blkWorkers =
   where
     merge = mconcatPair . map (first pure)
 
--- Action which should be done when new slot starts.
+-- FIXME [CSL-1576] Metric worker should be independent of block creator.
+-- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
 blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
         recoveryCommGuard $
         () <$
         metricWorker slotId `concurrently`
-        blockCreator slotId sendActions
+        void
+            (fork $
+             blockCreator slotId sendActions `catchAny` onBlockCreatorException)
+  where
+    onBlockCreatorException = reportOrLogE "blockCreator failed: "
 
 ----------------------------------------------------------------------------
 -- Block creation worker
@@ -108,10 +113,6 @@ blockCreator (slotId@SlotId {..}) sendActions = do
         jsonLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
-    -- Note: we are using non-blocking version here.  If we known
-    -- genesis block for current epoch, then we either have calculated
-    -- it before and it implies presense of leaders in MVar or we have
-    -- read leaders from DB during initialization.
     leadersMaybe <- getLeaders siEpoch
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.

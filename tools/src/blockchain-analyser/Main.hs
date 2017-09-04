@@ -1,10 +1,14 @@
-{-# LANGUAGE BangPatterns  #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE BangPatterns     #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 module Main where
 
+import           Formatting
 import           Mockable           (runProduction)
-import           Pos.Block.Types    (Blund)
-import           Pos.Core           (giveStaticConsts)
+import           Pos.Block.Core     (GenesisBlock)
+import           Pos.Core           (HasCoreConstants, gbHeader, gbhPrevBlock,
+                                     giveStaticConsts, headerHash)
+import           Pos.Core.Block     (GenericBlock (..))
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.DB             (closeNodeDBs, openNodeDBs)
 import           Pos.DB             (MonadBlockDBGeneric (..))
@@ -17,7 +21,8 @@ import           System.Directory   (canonicalizePath, doesDirectoryExist, getFi
 
 import           Options            (CLIOptions (..), getOptions)
 import           Rendering          (render)
-import           Types              (DBFolderStat, initBlockchainAnalyser)
+import           Types              (BlockchainInspector, DBFolderStat,
+                                     initBlockchainAnalyser)
 
 import           Universum
 
@@ -48,13 +53,36 @@ main = giveStaticConsts $ do
     sizes <- canonicalizePath dbPath >>= dbSizes
     putText $ render uom printMode sizes
 
-    -- Now open the DB
-
+    -- Now open the DB and inspect it
     bracket (openNodeDBs False dbPath) closeNodeDBs $ \db -> do
-        res <- runProduction $ do
-            initBlockchainAnalyser db $ (DB.getTip >>= DB.dbGetBlockSumDefault @SscGodTossing)
-        putText (toText ((show res) :: String))
+        runProduction $ initBlockchainAnalyser db $ do
+            tip <- DB.getTip
+            analyseBlockchain tip
 
+analyseBlockchain :: HasCoreConstants => HeaderHash -> BlockchainInspector ()
+analyseBlockchain currentTip = do
+    res <- DB.dbGetBlockSumDefault @SscGodTossing currentTip
+    case res of
+        Nothing -> putText "No tip found."
+        Just (Right _) -> putText "end."
+        Just (Left  gB) -> do
+            liftIO $ putText (renderGenesisBlock gB)
+            analyseBlockchain (view gbhPrevBlock (gB ^. gbHeader))
+
+
+renderGenesisBlock :: HasCoreConstants => GenesisBlock SscGodTossing -> Text
+renderGenesisBlock b = sformat build b
+
+{--
+-- | Block.
+type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
+
+data GenericBlock b = UnsafeGenericBlock
+    { _gbHeader :: !(GenericBlockHeader b)
+    , _gbBody   :: !(Body b)
+    , _gbExtra  :: !(ExtraBodyData b)
+    } deriving (Generic)
+--}
 
 
 -- (OldestFirst [] (Blund SscGodTossing))

@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | All logic of Toil.  It operates in terms of MonadUtxo,
--- MonadBalances and MonadTxPool.
+-- MonadStakes and MonadTxPool.
 
 module Pos.Txp.Toil.Logic
        ( GlobalApplyToilMode
@@ -39,8 +39,8 @@ import           Pos.DB.Class               (MonadGState (..), gsIsBootstrapEra)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOut (..),
                                              TxUndo, TxpUndo, toaOut, topsortTxs,
                                              txInputs, txOutAddress)
-import           Pos.Txp.Toil.Balances      (applyTxsToBalances, rollbackTxsBalances)
-import           Pos.Txp.Toil.Class         (MonadBalances (..), MonadTxPool (..),
+import           Pos.Txp.Toil.Stakes        (applyTxsToStakes, rollbackTxsStakes)
+import           Pos.Txp.Toil.Class         (MonadStakes (..), MonadTxPool (..),
                                              MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types         (TxFee (..))
@@ -53,7 +53,7 @@ import           Pos.Util.Util              (HasLens')
 
 type GlobalApplyToilMode ctx m =
     ( MonadUtxo m
-    , MonadBalances m
+    , MonadStakes m
     , MonadGState m
     , WithLogger m
     , MonadReader ctx m
@@ -62,7 +62,7 @@ type GlobalApplyToilMode ctx m =
 
 type GlobalVerifyToilMode ctx m =
     ( MonadUtxo m
-    , MonadBalances m
+    , MonadStakes m
     , MonadGState m
     , WithLogger m
     , HasLens' ctx GenesisWStakeholders
@@ -91,13 +91,13 @@ applyToil
     => [(TxAux, TxUndo)]
     -> m ()
 applyToil txun = do
-    applyTxsToBalances txun
+    applyTxsToStakes txun
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
 rollbackToil :: GlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
 rollbackToil txun = do
-    rollbackTxsBalances txun
+    rollbackTxsStakes txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
 
 ----------------------------------------------------------------------------

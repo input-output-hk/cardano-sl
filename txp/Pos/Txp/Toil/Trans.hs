@@ -16,7 +16,7 @@ import qualified Ether
 import           Universum
 
 import           Pos.Binary.Class    (biSize)
-import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..),
+import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..),
                                       MonadTxPool (..), MonadUtxo (..),
                                       MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types  (GenericToilModifier (..), MemPool, ToilModifier,
@@ -45,13 +45,13 @@ instance MonadUtxoRead m => MonadUtxo (ToilT __ m) where
     utxoPut id aux = ether $ tmUtxo %= MM.insert id aux
     utxoDel id = ether $ tmUtxo %= MM.delete id
 
-instance MonadBalancesRead m => MonadBalancesRead (ToilT __ m) where
+instance MonadStakesRead m => MonadStakesRead (ToilT __ m) where
     getStake id =
         ether $ (<|>) <$> use (tmBalances . bvStakes . at id) <*> getStake id
     getTotalStake =
         ether $ maybe getTotalStake pure =<< use (tmBalances . bvTotal)
 
-instance MonadBalancesRead m => MonadBalances (ToilT __ m) where
+instance MonadStakesRead m => MonadStakes (ToilT __ m) where
     setStake id c = ether $ tmBalances . bvStakes . at id .= Just c
 
     setTotalStake c = ether $ tmBalances . bvTotal .= Just c

@@ -3,21 +3,21 @@
 
 -- | Part of GState DB which stores stakes.
 
-module Pos.Txp.DB.Balances
+module Pos.Txp.DB.Stakes
        (
          -- * Operations
-         BalancesOp (..)
+         StakesOp (..)
 
          -- * Initialization
-       , initGStateBalances
+       , initGStateStakes
 
          -- * Iteration
-       , BalanceIter
-       , balanceSource
+       , StakeIter
+       , stakeSource
        , getAllPotentiallyHugeStakesMap
 
          -- * Sanity checks
-       , sanityCheckBalances
+       , sanityCheckStakes
        ) where
 
 import           Universum
@@ -41,7 +41,7 @@ import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),
                                                dbIterSource)
-import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumKey,
+import           Pos.DB.GState.Stakes         (StakeIter, ftsStakeKey, ftsSumKey,
                                                getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.Txp.Toil.Types           (GenesisUtxo (..))
@@ -51,17 +51,17 @@ import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 -- Operations
 ----------------------------------------------------------------------------
 
-data BalancesOp
+data StakesOp
     = PutFtsSum !Coin
     | PutFtsStake !StakeholderId
                   !Coin
 
-instance Buildable BalancesOp where
+instance Buildable StakesOp where
     build (PutFtsSum c) = bprint ("PutFtsSum ("%coinF%")") c
     build (PutFtsStake ad c) =
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
-instance RocksBatchOp BalancesOp where
+instance RocksBatchOp StakesOp where
     toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (serialize' c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
@@ -71,11 +71,11 @@ instance RocksBatchOp BalancesOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateBalances
+initGStateStakes
     :: forall m.
        MonadDB m
     => GenesisUtxo -> GenesisWStakeholders -> m ()
-initGStateBalances (GenesisUtxo genesisUtxo) gws = do
+initGStateStakes (GenesisUtxo genesisUtxo) gws = do
     putFtsStakes
     putGenesisTotalStake
   where
@@ -91,30 +91,30 @@ initGStateBalances (GenesisUtxo genesisUtxo) gws = do
 -- Iteration
 ----------------------------------------------------------------------------
 
--- | Run iterator over effective balances.
-balanceSource ::
+-- | Run iterator over stakes.
+stakeSource ::
        forall m. (MonadDBRead m)
-    => Source (ResourceT m) (IterType BalanceIter)
-balanceSource = dbIterSource GStateDB (Proxy @BalanceIter)
+    => Source (ResourceT m) (IterType StakeIter)
+stakeSource = dbIterSource GStateDB (Proxy @StakeIter)
 
 -- | Get stakes of all stakeholders. Use with care – the resulting map
 -- can be very big.
 getAllPotentiallyHugeStakesMap :: MonadDBRead m => m StakesMap
 getAllPotentiallyHugeStakesMap =
     runConduitRes $
-    dbIterSource GStateDB (Proxy @BalanceIter) .|
+    stakeSource .|
     CL.fold (\stakes (k, v) -> stakes & at k .~ Just v) mempty
 
 ----------------------------------------------------------------------------
 -- Sanity checks
 ----------------------------------------------------------------------------
 
-sanityCheckBalances
+sanityCheckStakes
     :: (MonadDBRead m, WithLogger m)
     => m ()
-sanityCheckBalances = do
+sanityCheckStakes = do
     calculatedTotalStake <- runConduitRes $
-        mapOutput snd (dbIterSource GStateDB (Proxy @BalanceIter)) .|
+        mapOutput snd stakeSource .|
         CL.fold unsafeAddCoin (mkCoin 0)
 
     totalStake <- getRealTotalStake

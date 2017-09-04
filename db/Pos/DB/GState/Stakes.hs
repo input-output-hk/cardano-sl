@@ -1,9 +1,9 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Base database Balances operations.
+-- | Base database Stakes operations.
 
-module Pos.DB.GState.Balances
-       ( BalanceIter
+module Pos.DB.GState.Stakes
+       ( StakeIter
          -- * Getters
        , getRealTotalStake
        , getRealStake
@@ -25,11 +25,11 @@ import           Pos.DB.Functions     (encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi)
 
 
-data BalanceIter
+data StakeIter
 
-instance DBIteratorClass BalanceIter where
-    type IterKey BalanceIter = StakeholderId
-    type IterValue BalanceIter = Coin
+instance DBIteratorClass StakeIter where
+    type IterKey StakeIter = StakeholderId
+    type IterValue StakeIter = Coin
     iterKeyPrefix = iterationPrefix
 
 ----------------------------------------------------------------------------
@@ -40,7 +40,7 @@ iterationPrefix :: ByteString
 iterationPrefix = "b/s/"
 
 ftsStakeKey :: StakeholderId -> ByteString
-ftsStakeKey = encodeWithKeyPrefix @BalanceIter
+ftsStakeKey = encodeWithKeyPrefix @StakeIter
 
 ftsSumKey :: ByteString
 ftsSumKey = "b/ftssum"

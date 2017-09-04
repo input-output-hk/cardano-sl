@@ -2,15 +2,15 @@
 
 -- | Type classes for Toil abstraction.
 -- * MonadUtxoRead and MonadUtxo for encapsulation of Utxo storage.
--- * MonadBalancesRead and MonadBalances for encapsulation of Balances storage.
+-- * MonadStakesRead and MonadStakes for encapsulation of Stakes storage.
 -- * MonadTxPoll for encapsulation of mem pool of local transactions.
 
 module Pos.Txp.Toil.Class
        ( MonadUtxoRead (..)
        , utxoGetReader
        , MonadUtxo (..)
-       , MonadBalancesRead (..)
-       , MonadBalances (..)
+       , MonadStakesRead (..)
+       , MonadStakes (..)
        , MonadTxPool (..)
        ) where
 
@@ -65,40 +65,30 @@ instance Monad m => MonadUtxo (Ether.StateT' Utxo m) where
     utxoDel id = ether $ at id .= Nothing
 
 ----------------------------------------------------------------------------
--- MonadBalances
+-- MonadStakes
 ----------------------------------------------------------------------------
 
-class Monad m => MonadBalancesRead m where
+class Monad m => MonadStakesRead m where
     getStake :: StakeholderId -> m (Maybe Coin)
     getTotalStake :: m Coin
 
-    default getStake
-        :: (MonadTrans t, MonadBalancesRead m', t m' ~ m) => StakeholderId -> m (Maybe Coin)
+instance {-# OVERLAPPABLE #-}
+    (MonadStakesRead m, MonadTrans t, Monad (t m)) =>
+        MonadStakesRead (t m)
+  where
     getStake = lift . getStake
-
-    default getTotalStake
-        :: (MonadTrans t, MonadBalancesRead m', t m' ~ m) => m Coin
     getTotalStake = lift getTotalStake
 
-instance {-# OVERLAPPABLE #-}
-    (MonadBalancesRead m, MonadTrans t, Monad (t m)) =>
-        MonadBalancesRead (t m)
-
-class MonadBalancesRead m => MonadBalances m where
+class MonadStakesRead m => MonadStakes m where
     setStake :: StakeholderId -> Coin -> m ()
     setTotalStake :: Coin -> m ()
 
-    default setStake
-        :: (MonadTrans t, MonadBalances m', t m' ~ m) => StakeholderId -> Coin -> m ()
-    setStake id = lift . setStake id
-
-    default setTotalStake
-        :: (MonadTrans t, MonadBalances m', t m' ~ m) => Coin -> m ()
-    setTotalStake = lift . setTotalStake
-
 instance {-# OVERLAPPABLE #-}
-    (MonadBalances m, MonadTrans t, Monad (t m)) =>
-        MonadBalances (t m)
+    (MonadStakes m, MonadTrans t, Monad (t m)) =>
+        MonadStakes (t m)
+  where
+    setStake id = lift . setStake id
+    setTotalStake = lift . setTotalStake
 
 ----------------------------------------------------------------------------
 -- MonadTxPool

@@ -4,16 +4,16 @@ module Pos.Update.Worker
        ( usWorkers
        ) where
 
+import           Universum
+
 import           Formatting                 (sformat, (%))
-import           Mockable                   (fork)
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logDebug)
-import           Universum
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Context                (recoveryCommGuard)
-import           Pos.Types                  (SoftwareVersion (..))
+import           Pos.Core                   (SoftwareVersion (..))
 import           Pos.Update.DB              (getConfirmedProposals)
 import           Pos.Update.Download        (downloadUpdate)
 import           Pos.Update.Logic.Local     (processNewSlot)
@@ -28,7 +28,7 @@ usWorkers =
         recoveryCommGuard $ do
             logDebug "Updating slot for US..."
             processNewSlot s
-            void (fork checkForUpdate)
+            checkForUpdate
 
 checkForUpdate :: WorkMode ssc ctx m => m ()
 checkForUpdate = do

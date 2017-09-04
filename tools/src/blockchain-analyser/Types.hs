@@ -46,7 +46,8 @@ type DBFolderStat = (Text, Integer)
 -- | Enough context for analysing blocks.
 -- "T" means tool
 data BlockchainInspectorContext = BlockchainInspectorContext
-    { tbgcDBSum         :: DB.DBSum
+    { tbgcDBSum   :: DB.DBSum
+    , tbgcNodeDBs :: DB.NodeDBs
     -- , tbgcGenesisContext :: GenesisContext
     -- , tbgcSystemStart    :: Timestamp
     }
@@ -59,11 +60,13 @@ runBlockchainInspector :: BlockchainInspectorContext -> BlockchainInspector a ->
 runBlockchainInspector = flip Mtl.runReaderT
 
 initBlockchainAnalyser ::
-    DB.NodeDBs
+    HasCoreConstants
+    => DB.NodeDBs
     -> BlockchainInspector a
     -> Production a
 initBlockchainAnalyser nodeDBs action = do
-    let tbgcDBSum = RealDB nodeDBs
+    let tbgcDBSum   = RealDB nodeDBs
+    let tbgcNodeDBs = nodeDBs
 
     -- tbgcSystemStart <- Timestamp <$> currentTime
     -- let tbgcGenesisContext = genesisCtx
@@ -93,6 +96,9 @@ instance GS.HasGStateContext BlockchainInspectorContext where
 
 instance HasLens DBSum BlockchainInspectorContext DBSum where
     lensOf = tbgcDBSum_L
+
+instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
+    lensOf = tbgcNodeDBs_L
 
 {-
 instance HasLens SlogContext BlockchainInspectorContext SlogContext where

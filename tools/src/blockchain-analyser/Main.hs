@@ -2,21 +2,22 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
-import           Mockable             (runProduction)
-import           Pos.Block.Types      (Blund)
-import           Pos.Core.Types       (HeaderHash)
-import           Pos.DB               (closeNodeDBs, openNodeDBs)
-import qualified Pos.DB.Block         as DB
-import qualified Pos.DB.DB            as DB
-import           Pos.DB.GState.Common (getTip)
-import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Util.Chrono      (OldestFirst (..))
-import           System.Directory     (canonicalizePath, doesDirectoryExist, getFileSize,
-                                       listDirectory, withCurrentDirectory)
+import           Mockable           (runProduction)
+import           Pos.Block.Types    (Blund)
+import           Pos.Core           (giveStaticConsts)
+import           Pos.Core.Types     (HeaderHash)
+import           Pos.DB             (closeNodeDBs, openNodeDBs)
+import           Pos.DB             (MonadBlockDBGeneric (..))
+import qualified Pos.DB.Block       as DB
+import qualified Pos.DB.DB          as DB
+import           Pos.Ssc.GodTossing (SscGodTossing)
+import           Pos.Util.Chrono    (OldestFirst (..))
+import           System.Directory   (canonicalizePath, doesDirectoryExist, getFileSize,
+                                     listDirectory, withCurrentDirectory)
 
-import           Options              (CLIOptions (..), getOptions)
-import           Rendering            (render)
-import           Types                (DBFolderStat, initBlockchainAnalyser)
+import           Options            (CLIOptions (..), getOptions)
+import           Rendering          (render)
+import           Types              (DBFolderStat, initBlockchainAnalyser)
 
 import           Universum
 
@@ -42,7 +43,7 @@ dbSizes root = do
     forM (root : parents) $ \f -> (toText f,) <$> du_s f
 
 main :: IO ()
-main = do
+main = giveStaticConsts $ do
     CLIOptions{..} <- getOptions
     sizes <- canonicalizePath dbPath >>= dbSizes
     putText $ render uom printMode sizes
@@ -51,12 +52,9 @@ main = do
 
     bracket (openNodeDBs False dbPath) closeNodeDBs $ \db -> do
         res <- runProduction $ do
-            initBlockchainAnalyser db $ getTip
+            initBlockchainAnalyser db $ (DB.getTip >>= DB.dbGetBlockSumDefault @SscGodTossing)
         putText (toText ((show res) :: String))
 
-{-
-        initTBlockGenMode db genCtx $
-            void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
--}
+
 
 -- (OldestFirst [] (Blund SscGodTossing))

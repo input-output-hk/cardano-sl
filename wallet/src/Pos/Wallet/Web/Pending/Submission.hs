@@ -1,5 +1,6 @@
-{-# LANGUAGE Rank2Types   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Transaction submission logic
 
@@ -59,7 +60,7 @@ ptxFirstSubmissionHandler =
                 \transaction made"
 
 ptxResubmissionHandler
-    :: MonadWalletWebMode m
+    :: forall ctx m. MonadWalletWebMode ctx m
     => PendingTx -> PtxSubmissionHandlers m
 ptxResubmissionHandler PendingTx{..} =
     PtxSubmissionHandlers
@@ -77,7 +78,7 @@ ptxResubmissionHandler PendingTx{..} =
     }
   where
     cancelPtx
-        :: (MonadWalletWebMode m, Exception e, Buildable e)
+        :: (Exception e, Buildable e)
         => PtxPoolInfo -> e -> m ()
     cancelPtx poolInfo e = do
         let newCond = PtxWontApply (sformat build e) poolInfo
@@ -107,7 +108,7 @@ ptxResubmissionHandler PendingTx{..} =
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
 submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
     ack <- submitTxRaw enqueue _ptxTxAux

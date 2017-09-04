@@ -25,7 +25,7 @@ import           Pos.Wallet.Web.Mode         (MonadWalletWebMode)
 import           Pos.Wallet.Web.Tracking     (fixingCachedAccModifier)
 
 servantHandlers
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => SendActions m
     -> ServerT WalletApi m
 servantHandlers sendActions =
@@ -108,7 +108,7 @@ servantHandlers sendActions =
      M.exportWalletJSON
 
 servantHandlersWithSwagger
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => SendActions m
     -> (m :~> Handler)
     -> Server WalletSwaggerApi

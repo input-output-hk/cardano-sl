@@ -48,7 +48,7 @@ initialAccAddrIdxs :: Word32
 initialAccAddrIdxs = firstHardened
 
 newWalletFromBackupPhrase
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
 newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
@@ -65,7 +65,7 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
 
     return (skey, cAddr)
 
-newWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+newWallet :: MonadWalletWebMode ctx m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
@@ -75,7 +75,7 @@ newWallet passphrase cwInit = do
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip
     L.getWallet wId
 
-restoreWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+restoreWallet :: MonadWalletWebMode ctx m => PassPhrase -> CWalletInit -> m CWallet
 restoreWallet passphrase cwInit = do
     -- Restoring a wallet may take a long time.
     -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
@@ -85,7 +85,7 @@ restoreWallet passphrase cwInit = do
     L.getWallet wId
 
 importWallet
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => PassPhrase
     -> Text
     -> m CWallet
@@ -104,7 +104,7 @@ importWallet passphrase (toString -> fp) = do
     decodeFailed = RequestError . sformat ("Invalid secret file ("%build%")")
 
 importWalletSecret
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => PassPhrase
     -> WalletUserSecret
     -> m CWallet
@@ -134,7 +134,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes
-addInitialRichAccount :: MonadWalletWebMode m => Int -> m ()
+addInitialRichAccount :: MonadWalletWebMode ctx m => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAll wSetExistsHandler $ do
         let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys

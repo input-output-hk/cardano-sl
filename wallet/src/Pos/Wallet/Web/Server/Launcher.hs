@@ -42,7 +42,7 @@ import           Pos.Web                          (TlsParams, serveImpl)
 -- TODO [CSM-407]: Mixture of logic seems to be here
 
 walletServeImpl
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => m Application     -- ^ Application getter
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
@@ -51,7 +51,7 @@ walletServeImpl app (ip, port) =
     serveImpl app (BS8.unpack ip) port
 
 walletApplication
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => m (Server WalletSwaggerApi)
     -> m Application
 walletApplication serv = do
@@ -59,8 +59,8 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve swaggerWalletApi <$> serv
 
 walletServer
-    :: forall m.
-       ( MonadWalletWebMode m )
+    :: forall ctx m.
+       ( MonadWalletWebMode ctx m )
     => SendActions m
     -> m (m :~> Handler)
     -> m (Server WalletSwaggerApi)

@@ -12,86 +12,86 @@ module Pos.Wallet.Web.Mode
 
 import           Universum
 
-import           Control.Lens                     (makeLensesWith)
-import qualified Control.Monad.Reader             as Mtl
-import qualified Data.HashSet                     as HS
-import           Data.List                        (partition)
-import qualified Data.Map                         as M
-import           Ether.Internal                   (HasLens (..))
-import           Mockable                         (Production)
-import           System.Wlog                      (HasLoggerName (..))
+import           Control.Lens                   (makeLensesWith)
+import qualified Control.Monad.Reader           as Mtl
+import qualified Data.HashSet                   as HS
+import           Data.List                      (partition)
+import qualified Data.Map                       as M
+import           Ether.Internal                 (HasLens (..))
+import           Mockable                       (Production)
+import           System.Wlog                    (HasLoggerName (..))
 
-import           Pos.Block.Core                   (Block, BlockHeader)
-import           Pos.Block.Slog                   (HasSlogContext (..),
-                                                   HasSlogGState (..))
-import           Pos.Block.Types                  (Undo)
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Context                      (HasNodeContext (..))
-import           Pos.Core                         (HasConfiguration, HasPrimaryKey (..),
-                                                   IsHeader, isRedeemAddress)
-import           Pos.DB                           (MonadGState (..))
-import           Pos.DB.Block                     (dbGetBlockDefault,
-                                                   dbGetBlockSscDefault,
-                                                   dbGetHeaderDefault,
-                                                   dbGetHeaderSscDefault,
-                                                   dbGetUndoDefault, dbGetUndoSscDefault,
-                                                   dbPutBlundDefault)
-import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
-                                                   MonadBlockDBGenericWrite (..),
-                                                   MonadDB (..), MonadDBRead (..))
-import           Pos.DB.DB                        (gsAdoptedBVDataDefault)
-import           Pos.DB.Rocks                     (dbDeleteDefault, dbGetDefault,
-                                                   dbIterSourceDefault, dbPutDefault,
-                                                   dbWriteBatchDefault)
-import           Pos.Recovery                     ()
-import qualified Pos.Util.Modifier                as MM
+import           Pos.Block.Core                 (Block, BlockHeader)
+import           Pos.Block.Slog                 (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Block.Types                (Undo)
+import           Pos.Context                    (HasNodeContext (..))
+import           Pos.Core                       (HasConfiguration, HasPrimaryKey (..),
+                                                 IsHeader, isRedeemAddress)
+import           Pos.Crypto                     (PassPhrase)
+import           Pos.DB                         (MonadGState (..))
+import           Pos.DB.Block                   (dbGetBlockDefault, dbGetBlockSscDefault,
+                                                 dbGetHeaderDefault,
+                                                 dbGetHeaderSscDefault, dbGetUndoDefault,
+                                                 dbGetUndoSscDefault, dbPutBlundDefault)
+import           Pos.DB.Class                   (MonadBlockDBGeneric (..),
+                                                 MonadBlockDBGenericWrite (..),
+                                                 MonadDB (..), MonadDBRead (..))
+import           Pos.DB.DB                      (gsAdoptedBVDataDefault)
+import           Pos.DB.Rocks                   (dbDeleteDefault, dbGetDefault,
+                                                 dbIterSourceDefault, dbPutDefault,
+                                                 dbWriteBatchDefault)
+import           Pos.Recovery                   ()
+import qualified Pos.Util.Modifier              as MM
 
-import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceDefault)
-import           Pos.Client.Txp.History           (MonadTxHistory (..),
-                                                   getBlockHistoryDefault,
-                                                   getLocalHistoryDefault, saveTxDefault)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.KnownPeers                   (MonadFormatPeers (..),
-                                                   MonadKnownPeers (..))
-import           Pos.Network.Types                (HasNodeType (..))
-import           Pos.Reporting                    (HasReportingContext (..))
-import           Pos.Shutdown                     (HasShutdownContext (..))
-import           Pos.Slotting.Class               (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum            (currentTimeSlottingSum,
-                                                   getCurrentSlotBlockingSum,
-                                                   getCurrentSlotInaccurateSum,
-                                                   getCurrentSlotSum)
-import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Class.Types              (HasSscContext (..), SscBlock)
-import           Pos.Ssc.GodTossing               (HasGtConfiguration)
-import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
-                                                   addrBelongsToSet, getUtxoModifier,
-                                                   txNormalize, txProcessTransaction)
-import qualified Pos.Txp.DB                       as DB
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Util                         (Some (..))
-import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), jsonLogDefault)
-import           Pos.Util.LoggerName              (HasLoggerName' (..),
-                                                   getLoggerNameDefault,
-                                                   modifyLoggerNameDefault)
-import qualified Pos.Util.OutboundQueue           as OQ.Reader
-import           Pos.Util.TimeWarp                (CanJsonLog (..))
-import           Pos.Util.UserSecret              (HasUserSecret (..))
-import           Pos.Util.Util                    (postfixLFields)
-import           Pos.Wallet.Redirect              (MonadBlockchainInfo (..),
-                                                   MonadUpdates (..),
-                                                   applyLastUpdateWebWallet,
-                                                   blockchainSlotDurationWebWallet,
-                                                   connectedPeersWebWallet,
-                                                   localChainDifficultyWebWallet,
-                                                   networkChainDifficultyWebWallet,
-                                                   waitForUpdateWebWallet)
-import           Pos.Wallet.Web.Sockets.ConnSet   (ConnectionsVar)
-import           Pos.Wallet.Web.State.State       (WalletState, getWalletUtxo)
-import           Pos.Wallet.Web.Tracking          (MonadBListener (..), onApplyTracking,
-                                                   onRollbackTracking)
-import           Pos.WorkMode                     (EmptyMempoolExt, RealModeContext (..))
+import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
+import           Pos.Client.Txp.Balances        (MonadBalances (..), getBalanceDefault)
+import           Pos.Client.Txp.History         (MonadTxHistory (..),
+                                                 getBlockHistoryDefault,
+                                                 getLocalHistoryDefault, saveTxDefault)
+import           Pos.Infra.Configuration        (HasInfraConfiguration)
+import           Pos.KnownPeers                 (MonadFormatPeers (..),
+                                                 MonadKnownPeers (..))
+import           Pos.Network.Types              (HasNodeType (..))
+import           Pos.Reporting                  (HasReportingContext (..))
+import           Pos.Shutdown                   (HasShutdownContext (..))
+import           Pos.Slotting.Class             (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum          (currentTimeSlottingSum,
+                                                 getCurrentSlotBlockingSum,
+                                                 getCurrentSlotInaccurateSum,
+                                                 getCurrentSlotSum)
+import           Pos.Slotting.MemState          (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Ssc.Class.Types            (HasSscContext (..), SscBlock)
+import           Pos.Ssc.GodTossing             (HasGtConfiguration)
+import           Pos.Txp                        (MempoolExt, MonadTxpLocal (..),
+                                                 addrBelongsToSet, getUtxoModifier,
+                                                 txNormalize, txProcessTransaction)
+import qualified Pos.Txp.DB                     as DB
+import           Pos.Util                       (Some (..))
+import           Pos.Util.CompileInfo           (HasCompileInfo)
+import           Pos.Util.JsonLog               (HasJsonLogConfig (..), jsonLogDefault)
+import           Pos.Util.LoggerName            (HasLoggerName' (..),
+                                                 getLoggerNameDefault,
+                                                 modifyLoggerNameDefault)
+import qualified Pos.Util.OutboundQueue         as OQ.Reader
+import           Pos.Util.TimeWarp              (CanJsonLog (..))
+import           Pos.Util.UserSecret            (HasUserSecret (..))
+import           Pos.Util.Util                  (postfixLFields)
+import           Pos.Wallet.Redirect            (MonadBlockchainInfo (..),
+                                                 MonadUpdates (..),
+                                                 applyLastUpdateWebWallet,
+                                                 blockchainSlotDurationWebWallet,
+                                                 connectedPeersWebWallet,
+                                                 localChainDifficultyWebWallet,
+                                                 networkChainDifficultyWebWallet,
+                                                 waitForUpdateWebWallet)
+import           Pos.Wallet.Web.Account         (AccountMode)
+import           Pos.Wallet.Web.ClientTypes     (AccountId)
+import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
+import           Pos.Wallet.Web.State.State     (WalletState, getWalletUtxo)
+import           Pos.Wallet.Web.Tracking        (MonadBListener (..), onApplyTracking,
+                                                 onRollbackTracking)
+import           Pos.WorkMode                   (EmptyMempoolExt, RealModeContext (..),
+                                                 WorkMode)
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
@@ -159,14 +159,16 @@ type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
 -- This constraint used to be abstract (a list of classes), but specifying a
 -- concrete monad is quite likely more performant.
-type MonadWalletWebMode m =
-    ( HasConfiguration
-    , HasNodeConfiguration
-    , HasInfraConfiguration
-    , HasGtConfiguration
-    , HasUpdateConfiguration
-    , HasCompileInfo
-    , m ~ WalletWebMode
+type MonadWalletWebMode ctx m =
+    ( WorkMode ctx m
+    , AccountMode ctx m
+    , MonadBlockchainInfo m
+    , MonadBalances m
+    , MonadUpdates m
+    , MonadTxHistory m
+    , MonadAddresses m
+    , AddrData m ~ (AccountId, PassPhrase)
+    , HasLens ConnectionsVar ctx ConnectionsVar
     )
 
 instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx WalletWebMode)

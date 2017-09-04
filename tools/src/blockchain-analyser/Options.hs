@@ -3,60 +3,58 @@
 module Options
        ( CLIOptions (..)
        , getOptions
-       , renderBytes
+       , PrintMode(..)
+       , UOM(..)
        ) where
 
 import           Universum
 
-import           Formatting                   hiding (bytes)
 import qualified NeatInterpolation            as N
-import           Options.Applicative          (Parser, execParser, flag, flag', footerDoc,
-                                               fullDesc, header, help, helper, info, long,
-                                               metavar, progDesc, short, strOption)
+import           Options.Applicative          (Parser, eitherReader, execParser, flag,
+                                               flag', footerDoc, fullDesc, header, help,
+                                               helper, info, long, metavar, option,
+                                               progDesc, short, strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
+
+data PrintMode =
+      AsciiTable
+    -- ^ Render the data as an ASCII Table.
+    | CSV
+    -- ^ Render the data in CSV format.
+
+
+-- Unit of measure in use
 data UOM = Bytes
          | KB
          | MB
          | GB
 
--- Not using `Serokell.Data.Memory.Units` here, as it will automatically "promote" each
--- unit to the next multiplier. Example:
---
--- > sformat memory (fromBytes @Byte 1000)
--- "1000 B"
--- > sformat memory (fromBytes @Byte 1025)
--- "1.001 KiB"
---
--- What we want, instead, is to always convert from bytes to the requested unit of
--- measure, like other unix tools do.
-renderBytes :: UOM -> Integer -> Text
-renderBytes uom bytes =
-    let (divider, unit) = formatBytes
-        formatPrecision = fixed @Double 3
-        converted       = fromIntegral bytes / fromIntegral divider
-    in sformat (formatPrecision % " " % stext) converted unit
-    where
-      formatBytes :: (Int, Text)
-      formatBytes = case uom of
-                        Bytes -> (1, "B")
-                        KB    -> (1000, "KB")
-                        MB    -> (1000 * 1000, "MB")
-                        GB    -> (1000 * 1000 * 1000, "GB")
 
 data CLIOptions = CLIOptions
-    { dbPath :: !FilePath
+    { dbPath    :: !FilePath
     -- ^ Path to the DB to analyse.
-    , uom    :: UOM
+    , uom       :: UOM
+    , printMode :: PrintMode
     }
 
 optionsParser :: Parser CLIOptions
-optionsParser = CLIOptions <$> parseDbPath <*> parseUOM
+optionsParser = CLIOptions <$> parseDbPath <*> parseUOM <*> (fromMaybe AsciiTable <$> parsePrintMode)
 
 parseDbPath :: Parser FilePath
 parseDbPath = strOption (long "db" <> metavar "FILEPATH"
                                    <> help    "Location of the database where the blockchain is stored."
                         )
+
+parsePrintMode :: Parser (Maybe PrintMode)
+parsePrintMode = optional (option (eitherReader readPrintModeE)
+                                  (long "print-mode" <> metavar "PRINT-MODE" <> help "Select the desidered rendering mode.")
+                          )
+  where
+    readPrintModeE :: String -> Either String PrintMode
+    readPrintModeE "table" = Right AsciiTable
+    readPrintModeE "csv"   = Right CSV
+    readPrintModeE _       = Right AsciiTable -- A sensible default, for now.
 
 parseUOM :: Parser UOM
 parseUOM = (parseKB <|> parseMB <|> parseGB)

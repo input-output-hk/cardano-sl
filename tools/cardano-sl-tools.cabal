@@ -529,6 +529,8 @@ executable cardano-blockchain-analyser
   hs-source-dirs:      src/blockchain-analyser
   main-is:             Main.hs
   other-modules:       Options
+                       Types
+                       Rendering
   if !flag(for-installer)
    build-depends:      ansi-wl-pprint
                      , base
@@ -536,6 +538,7 @@ executable cardano-blockchain-analyser
                      , formatting
                      , neat-interpolation
                      , tabl
+                     , text
                      , optparse-applicative
                      , universum >= 0.1.11
   default-language:    Haskell2010

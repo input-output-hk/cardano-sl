@@ -65,8 +65,8 @@ import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
 import           Pos.StateLock              (newStateLock)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
-                                             mkTxpLocalData, recordTxpMetrics)
+import           Pos.Txp                    (GenericTxpLocalData (..), mkTxpLocalData,
+                                             recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
 #else
@@ -96,7 +96,7 @@ data NodeResources ssc m = NodeResources
     { nrContext    :: !(NodeContext ssc)
     , nrDBs        :: !NodeDBs
     , nrSscState   :: !(SscState ssc)
-    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP)
     , nrDlgState   :: !DelegationVar
     , nrTransport  :: !(Transport m)
     , nrJLogHandle :: !(Maybe Handle)
@@ -146,11 +146,20 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
 
         nrEkgStore <- liftIO $ Metrics.newStore
 
-        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting networkConfig nrEkgStore
+        txpVar <- mkTxpLocalData -- doesn't use slotting or LRC
+        let ancd =
+                AllocateNodeContextData
+                { ancdNodeParams = np
+                , ancdSscParams = sscnp
+                , ancdPutSlotting = putSlotting
+                , ancdNetworkCfg = networkConfig
+                , ancdEkgStore = nrEkgStore
+                , ancdTxpMemState = txpVar
+                }
+        ctx@NodeContext {..} <- allocateNodeContext ancd
         putLrcContext ncLrcContext
         setupLoggers $ bpLoggingParams npBaseParams
         dlgVar <- mkDelegationVar @ssc
-        txpVar <- mkTxpLocalData
         sscState <- mkSscState @ssc
         let nrTransport = transport
         nrJLogHandle <-
@@ -161,13 +170,11 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
                     liftIO $ hSetBuffering h NoBuffering
                     return $ Just h
 
-        txpMetrics <- liftIO $ recordTxpMetrics nrEkgStore
-
         return NodeResources
             { nrContext = ctx
             , nrDBs = db
             , nrSscState = sscState
-            , nrTxpState = (txpVar, txpMetrics)
+            , nrTxpState = txpVar
             , nrDlgState = dlgVar
             , ..
             }
@@ -225,18 +232,31 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 -- NodeContext
 ----------------------------------------------------------------------------
 
+data AllocateNodeContextData ssc = AllocateNodeContextData
+    { ancdNodeParams :: !NodeParams
+    , ancdSscParams :: !(SscParams ssc)
+    , ancdPutSlotting :: (Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ()
+    , ancdNetworkCfg :: NetworkConfig KademliaDHTInstance
+    , ancdEkgStore :: !Metrics.Store
+    , ancdTxpMemState :: !(GenericTxpLocalData TxpExtra_TMP)
+    }
+
 allocateNodeContext
     :: forall ssc .
       (HasCoreConstants, SscConstraint ssc)
-    => NodeParams
-    -> SscParams ssc
-    -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
-    -> NetworkConfig KademliaDHTInstance
-    -> Metrics.Store
+    => AllocateNodeContextData ssc
     -> InitMode ssc (NodeContext ssc)
-allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig store = do
+allocateNodeContext ancd = do
+    let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
+                                , ancdSscParams = sscnp
+                                , ancdPutSlotting = putSlotting
+                                , ancdNetworkCfg = networkConfig
+                                , ancdEkgStore = store
+                                , ancdTxpMemState = TxpLocalData {..}
+                                } = ancd
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncStateLock <- newStateLock
+    ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar
     ncSlottingContext <-

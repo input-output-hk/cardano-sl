@@ -49,13 +49,14 @@ import           Pos.Reporting              (reportError, reportMisbehaviour)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
-import           Pos.StateLock              (Priority (..), StateLock, withStateLock)
+import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
+                                             withStateLock)
 import           Pos.Txp.MemState           (MonadTxpMem)
 import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
 import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
-import           Pos.WorkMode.Class         (WorkMode, TxpExtra_TMP)
+import           Pos.WorkMode.Class         (TxpExtra_TMP, WorkMode)
 
 lrcOnNewSlotWorker
     :: forall ssc ctx m.
@@ -95,6 +96,7 @@ type LrcModeFullNoSemaphore ssc ctx m =
 type LrcModeFull ssc ctx m =
     ( LrcModeFullNoSemaphore ssc ctx m
     , HasLens StateLock ctx StateLock
+    , HasLens StateLockMetrics ctx StateLockMetrics
     , MonadTxpMem TxpExtra_TMP ctx m
     )
 

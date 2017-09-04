@@ -64,7 +64,7 @@ import           Pos.Reporting                (HasReportingContext)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
-import           Pos.StateLock                (StateLock)
+import           Pos.StateLock                (StateLock, StateLockMetrics)
 import           Pos.Util.Util                (HasLens (..), HasLens')
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
@@ -241,6 +241,7 @@ type TxHistoryEnv ctx m =
     , HasLens' ctx GenesisContext
     , MonadTxpMem TxpExtra_TMP ctx m
     , HasLens' ctx StateLock
+    , HasLens' ctx StateLockMetrics
     , MonadBaseControl IO m
     , Mockable CurrentTime m
     , MonadFormatPeers m

@@ -24,6 +24,9 @@ library
                         Pos.Reporting.Methods
                         Pos.Reporting.Metrics
 
+                        -- StateLock
+                        Pos.StateLock
+
                         -- Slotting
                         Pos.Slotting
                         Pos.Slotting.Class

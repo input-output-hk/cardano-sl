@@ -58,8 +58,6 @@ library
     Pos.Script
     Pos.Script.Examples
 
-    Pos.StateLock
-
     Pos.Binary.Txp.Core
 
   build-depends:       QuickCheck

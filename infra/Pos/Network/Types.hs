@@ -147,7 +147,12 @@ data Topology kademlia =
       }
 
   | TopologyRelay {
+        -- We can use static peers or dynamic subscriptions.
+        -- We typically use on or the other but not both.
         topologyStaticPeers :: !StaticPeers
+      , topologyDnsDomains  :: !(DnsDomains DNS.Domain)
+      , topologyValency     :: !Valency
+      , topologyFallbacks   :: !Fallbacks
       , topologyOptKademlia :: !(Maybe kademlia)
       , topologyMaxSubscrs  :: !OQ.MaxBucketSize
       }
@@ -228,7 +233,12 @@ topologySubscriptionWorker :: Topology kademlia -> Maybe (SubscriptionWorker kad
 topologySubscriptionWorker = go
   where
     go TopologyCore{}          = Nothing
-    go TopologyRelay{}         = Nothing
+    go TopologyRelay{topologyDnsDomains = DnsDomains []}
+                               = Nothing
+    go TopologyRelay{..}       = Just $ SubscriptionWorkerBehindNAT
+                                          topologyDnsDomains
+                                          topologyValency
+                                          topologyFallbacks
     go TopologyBehindNAT{..}   = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
                                           topologyValency

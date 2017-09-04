@@ -19,7 +19,6 @@ import           Control.Lens               (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.Default               (Default (def))
-import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog                (WithLogger, logDebug, logInfo)
@@ -56,7 +55,8 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
-import           Pos.StateLock              (Priority (..), StateLock, modifyStateLock)
+import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
+                                             modifyStateLock)
 import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
@@ -65,7 +65,7 @@ import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)
 import           Pos.Util                   (maybeThrow, _neHead)
-import           Pos.Util.Util              (leftToPanic)
+import           Pos.Util.Util              (HasLens (..), HasLens', leftToPanic)
 import           Pos.WorkMode.Class         (TxpExtra_TMP)
 
 -- | A set of constraints necessary to create a block from mempool.
@@ -112,6 +112,7 @@ createGenesisBlockAndApply ::
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
        , HasLens StateLock ctx StateLock
+       , HasLens StateLockMetrics ctx StateLockMetrics
        )
     => EpochIndex
     -> m (Maybe (GenesisBlock ssc))
@@ -122,7 +123,11 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> modifyStateLock HighPriority "createGenesisBlockAndApply" (createGenesisBlockDo epoch leaders)
+        Right leaders ->
+            modifyStateLock
+                HighPriority
+                "createGenesisBlockAndApply"
+                (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -186,7 +191,8 @@ createMainBlockAndApply ::
        forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
-       , HasLens StateLock ctx StateLock
+       , HasLens' ctx StateLock
+       , HasLens' ctx StateLockMetrics
        )
     => SlotId
     -> ProxySKBlockInfo

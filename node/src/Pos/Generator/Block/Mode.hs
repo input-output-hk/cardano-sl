@@ -63,8 +63,7 @@ import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
-                                              TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
-                                              mkTxpLocalData)
+                                              TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -134,7 +133,7 @@ data BlockGenContext = BlockGenContext
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
     , bgcGenStakeholders   :: !GenesisWStakeholders
-    , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
     , bgcSlotId            :: !(Maybe SlotId)
@@ -194,7 +193,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         putInitSlot (epochOrSlotToSlot tipEOS)
         bgcSscState <- mkSscState @SscGodTossing
         bgcUpdateContext <- mkUpdateContext
-        bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
+        bgcTxpMem <- mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
 
@@ -289,7 +288,7 @@ instance HasPrimaryKey BlockGenContext where
 instance HasSlogGState BlockGenContext where
     slogGState = GS.gStateContext . GS.gscSlogGState
 
-instance HasLens TxpHolderTag BlockGenContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
+instance HasLens TxpHolderTag BlockGenContext (GenericTxpLocalData TxpExtra_TMP) where
     lensOf = bgcTxpMem_L
 
 instance HasLens SscMemTag BlockGenContext (SscState SscGodTossing) where

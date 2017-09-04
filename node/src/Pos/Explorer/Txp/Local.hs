@@ -27,7 +27,8 @@ import qualified Pos.GState            as GS
 import           Pos.KnownPeers        (MonadFormatPeers)
 import           Pos.Reporting         (HasReportingContext, reportError)
 import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
-import           Pos.StateLock         (Priority (..), StateLock, withStateLock)
+import           Pos.StateLock         (Priority (..), StateLock, StateLockMetrics,
+                                        withStateLock)
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
@@ -44,8 +45,6 @@ import           Pos.Explorer.Core     (TxExtra (..))
 import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
                                         MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
                                         eeLocalTxsExtra)
-
-
 
 
 type ETxpLocalWorkMode ctx m =
@@ -98,7 +97,8 @@ instance MonadTxExtraRead EProcessTxMode where
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
 
 eTxProcessTransaction
-    :: (ETxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
+    :: (ETxpLocalWorkMode ctx m, MonadMask m,
+        HasLens' ctx StateLock, HasLens' ctx StateLockMetrics)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
     withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw

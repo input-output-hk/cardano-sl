@@ -64,7 +64,8 @@ walletServeWebFull sendActions debug = walletServeImpl action
     action = do
         logInfo "DAEDALUS has STARTED!"
         when debug $ addInitialRichAccount 0
-        walletApplication $ walletServer @WalletWebMode sendActions nat
+        walletApplication $
+            walletServer @WalletWebModeContext @WalletWebMode sendActions nat
 
 nat :: WalletWebMode (WalletWebMode :~> Handler)
 nat = do

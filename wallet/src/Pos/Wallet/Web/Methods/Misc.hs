@@ -37,10 +37,10 @@ import           Pos.Wallet.Web.State       (getNextUpdate, getProfile, removeNe
 -- Profile
 ----------------------------------------------------------------------------
 
-getUserProfile :: MonadWalletWebMode m => m CProfile
+getUserProfile :: MonadWalletWebMode ctx m => m CProfile
 getUserProfile = getProfile
 
-updateUserProfile :: MonadWalletWebMode m => CProfile -> m CProfile
+updateUserProfile :: MonadWalletWebMode ctx m => CProfile -> m CProfile
 updateUserProfile profile = setProfile profile >> getUserProfile
 
 ----------------------------------------------------------------------------
@@ -48,7 +48,7 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 ----------------------------------------------------------------------------
 
 -- NOTE: later we will have `isValidAddress :: CId -> m Bool` which should work for arbitrary crypto
-isValidAddress :: MonadWalletWebMode m => Text -> m Bool
+isValidAddress :: MonadWalletWebMode ctx m => Text -> m Bool
 isValidAddress sAddr =
     pure . isRight $ decodeTextAddress sAddr
 
@@ -57,18 +57,18 @@ isValidAddress sAddr =
 ----------------------------------------------------------------------------
 
 -- | Get last update info
-nextUpdate :: MonadWalletWebMode m => m CUpdateInfo
+nextUpdate :: MonadWalletWebMode ctx m => m CUpdateInfo
 nextUpdate = getNextUpdate >>=
              maybeThrow (RequestError "No updates available")
 
-applyUpdate :: MonadWalletWebMode m => m ()
+applyUpdate :: MonadWalletWebMode ctx m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
 ----------------------------------------------------------------------------
 -- Sync progress
 ----------------------------------------------------------------------------
 
-syncProgress :: MonadWalletWebMode m => m SyncProgress
+syncProgress :: MonadWalletWebMode ctx m => m SyncProgress
 syncProgress =
     SyncProgress
     <$> localChainDifficulty
@@ -79,7 +79,7 @@ syncProgress =
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: MonadWalletWebMode m => m ()
+testResetAll :: MonadWalletWebMode ctx m => m ()
 testResetAll = deleteAllKeys >> testReset
   where
     deleteAllKeys = do

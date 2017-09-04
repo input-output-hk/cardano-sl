@@ -51,7 +51,7 @@ coinDistrToOutputs distr = do
 -- | Like 'submitAndSaveTx', but suppresses errors which can get gone
 -- by the time of resubmission.
 submitAndSaveNewPtx
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => EnqueueMsg m -> PendingTx -> m ()
 submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
 

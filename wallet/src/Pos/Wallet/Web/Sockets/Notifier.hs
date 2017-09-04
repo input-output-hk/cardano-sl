@@ -30,7 +30,7 @@ import           Pos.Wallet.Web.Sockets.Types      (NotifyEvent (..))
 import           Pos.Wallet.Web.State              (addUpdate)
 
 -- FIXME: this is really inefficient. Temporary solution
-launchNotifier :: MonadWalletWebMode m => (m :~> Handler) -> m ()
+launchNotifier :: MonadWalletWebMode ctx m => (m :~> Handler) -> m ()
 launchNotifier nat =
     void . liftIO $ mapM startForking
         [ dificultyNotifier

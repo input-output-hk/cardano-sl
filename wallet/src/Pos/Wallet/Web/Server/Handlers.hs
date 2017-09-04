@@ -20,7 +20,7 @@ import           Servant.API             ((:<|>) ((:<|>)))
 import           Servant.Server          (ServerT)
 
 servantHandlers
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => SendActions m
     -> ServerT WalletApi m
 servantHandlers sendActions =

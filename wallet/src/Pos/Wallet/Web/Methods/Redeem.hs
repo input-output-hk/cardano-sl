@@ -39,7 +39,7 @@ import           Pos.Wallet.Web.Util            (decodeCTypeOrFail)
 
 
 redeemAda
-    :: (MonadWalletWebMode m, MonadAddresses m)
+    :: (MonadWalletWebMode ctx m, MonadAddresses m)
     => SendActions m -> PassPhrase -> CWalletRedeem -> m CTx
 redeemAda sendActions passphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
@@ -54,7 +54,7 @@ redeemAda sendActions passphrase CWalletRedeem {..} = do
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
 redeemAdaPaperVend
-    :: (MonadWalletWebMode m, MonadAddresses m)
+    :: (MonadWalletWebMode ctx m, MonadAddresses m)
     => SendActions m
     -> PassPhrase
     -> CPaperVendWalletRedeem
@@ -76,7 +76,7 @@ redeemAdaPaperVend sendActions passphrase CPaperVendWalletRedeem {..} = do
         throwM . RequestError $ "Decryption failed: " <> show e
 
 redeemAdaInternal
-    :: (MonadWalletWebMode m, MonadAddresses m)
+    :: (MonadWalletWebMode ctx m, MonadAddresses m)
     => SendActions m
     -> PassPhrase
     -> CAccountId

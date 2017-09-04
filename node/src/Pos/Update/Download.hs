@@ -8,8 +8,8 @@ module Pos.Update.Download
 
 import           Universum
 
+import           Control.Exception.Safe  (handleAny)
 import           Control.Lens            (views)
-import           Control.Monad.Catch     (handleAll)
 import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
@@ -22,15 +22,16 @@ import           Network.HTTP.Simple     (getResponseBody, getResponseStatus,
                                           getResponseStatusCode, httpLBS, parseRequest,
                                           setRequestManager)
 import qualified Serokell.Util.Base16    as B16
-import           Serokell.Util.Text      (listJsonIndent)
+import           Serokell.Util.Text      (listJsonIndent, mapJson)
 import           System.Directory        (doesFileExist)
-import           System.Wlog             (logInfo, logWarning)
+import           System.Wlog             (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Update       ()
 import           Pos.Constants           (curSoftwareVersion, ourSystemTag)
 import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Exception           (reportFatalError)
+import           Pos.Reporting           (reportOrLogW)
 import           Pos.Update.Context      (UpdateContext (..))
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Mode         (UpdateMode)
@@ -76,13 +77,17 @@ downloadUpdateDo cps@ConfirmedProposalState {..} = do
     useInstaller <- views (lensOf @UpdateParams) upUpdateWithPkg
     updateServers <- views (lensOf @UpdateParams) upUpdateServers
 
-    let dataHash = if useInstaller then udPkgHash else udAppDiffHash
+    let data_ = upData cpsUpdateProposal
+        dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
-                   HM.lookup ourSystemTag (upData cpsUpdateProposal)
+                   HM.lookup ourSystemTag data_
+
+    logDebug $ sformat ("Proposal's upData: "%mapJson) data_
+
 
     logInfo $ sformat ("We are going to start downloading an update for "%build)
               cpsUpdateProposal
-    res <- handleAll handleErr $ runExceptT $ do
+    res <- handleAny handleErr $ runExceptT $ do
         -- It must be enforced by the caller.
         updHash <- maybe (reportFatalError $ sformat
                             ("We are trying to download an update not for our "%
@@ -107,19 +112,22 @@ downloadUpdateDo cps@ConfirmedProposalState {..} = do
             throwError "There's unapplied update already downloaded"
 
         logInfo "Downloading update..."
-        file <- ExceptT $ liftIO (downloadHash updateServers updHash) <&>
+        file <- ExceptT $ downloadHash updateServers updHash <&>
                 first (sformat ("Update download (hash "%build%
                                 ") has failed: "%stext) updHash)
 
+        logInfo $ "Update was downloaded, saving to " <> show updPath
+
         liftIO $ BSL.writeFile updPath file
-        logInfo "Update was downloaded"
+        logInfo $ "Update was downloaded, saved to " <> show updPath
         downloadedMVar <- views (lensOf @UpdateContext) ucDownloadedUpdate
         putMVar downloadedMVar cps
         logInfo "Update MVar filled, wallet is notified"
 
     whenLeft res logDownloadError
   where
-    handleErr = return . Left . show
+    handleErr e =
+        Left (pretty e) <$ reportOrLogW "Update downloading failed: " e
     logDownloadError e =
         logWarning $ sformat
             ("Failed to download update proposal "%build%": "%stext)
@@ -133,14 +141,19 @@ downloadUpdateDo cps@ConfirmedProposalState {..} = do
 -- Download a file by its hash.
 --
 -- Tries all servers in turn, fails if none of them work.
-downloadHash :: [Text] -> Hash LByteString -> IO (Either Text LByteString)
+downloadHash ::
+       (MonadIO m, WithLogger m)
+    => [Text]
+    -> Hash LByteString
+    -> m (Either Text LByteString)
 downloadHash updateServers h = do
-    manager <- newManager tlsManagerSettings
+    manager <- liftIO $ newManager tlsManagerSettings
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
             let uri = toString serv <//> showHash h
-            downloadUri manager uri h >>= \case
+            logDebug $ "Trying url " <> show uri
+            liftIO (downloadUri manager uri h) >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)
 

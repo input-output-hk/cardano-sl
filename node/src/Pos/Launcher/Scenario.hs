@@ -150,9 +150,9 @@ nodeStartMsg = logInfo msg
   where
     msg = sformat ("Application: " %build% ", last known block version "
                     %build% ", systemTag: " %build)
-                   Const.appSystemTag
                    Const.curSoftwareVersion
                    Const.lastKnownBlockVersion
+                   Const.ourSystemTag
 
 ----------------------------------------------------------------------------
 -- Details

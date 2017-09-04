@@ -314,6 +314,18 @@ instance NFData UpdateData
 
 instance Hashable UpdateData
 
+instance Buildable UpdateData where
+    build UpdateData {..} =
+      bprint ("{ appDiff: "%build%
+              ", pkg: "%build%
+              ", updater: "%build%
+              ", metadata: "%build%
+              " }")
+        udAppDiffHash
+        udPkgHash
+        udUpdaterHash
+        udMetadataHash
+
 ----------------------------------------------------------------------------
 -- UpdateVote and related
 ----------------------------------------------------------------------------

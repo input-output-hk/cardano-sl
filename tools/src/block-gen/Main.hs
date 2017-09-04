@@ -4,7 +4,6 @@ import           Universum
 
 import           Control.Lens                (to)
 import           Control.Monad.Random.Strict (evalRandT)
-import           Data.Default                (def)
 import qualified Data.Map                    as M
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
@@ -62,7 +61,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
                 { _bgpSecrets         = allSecrets
                 , _bgpGenStakeholders = bootStakeholders
                 , _bgpBlockCount      = fromIntegral bgoBlockN
-                , _bgpTxGenParams     = def
+                , _bgpTxGenParams     = bgoTxGenParams
                 , _bgpInplaceDB       = True
                 , _bgpSkipNoKey       = True
                 }

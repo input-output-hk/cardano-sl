@@ -7,9 +7,10 @@ module Pos.DB.Functions
        (
        -- * Encoded putting/getting
          dbGetBi
-       , dbGetBiWithVersion
+       , dbGetBiNoVersion
        , dbPutBi
-       , dbPutBiWithVersion
+       , dbPutBiNoVersion
+       , dbSerialize
 
        -- * Decoding/encoding primitives and iteration related
        , dbDecode
@@ -20,45 +21,53 @@ module Pos.DB.Functions
 
 import           Universum
 
-import qualified Data.ByteString  as BS (drop, isPrefixOf)
-import           Formatting       (bprint, builder, sformat, shown, stext, string, (%))
+import qualified Data.ByteString    as BS (drop, isPrefixOf)
+import           Formatting         (bprint, builder, sformat, shown, stext, string, (%))
 
-import           Pos.Binary.Class (Bi, decodeFull, serialize')
-import           Pos.DB.Class     (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
-                                   MonadDBRead (..))
-import           Pos.DB.Error     (DBError (DBMalformed))
-import           Pos.Util.Util    (maybeThrow)
+import           Pos.Binary.Class   (Bi, decodeFull, serialize')
+import           Pos.Core.Constants (dbSerializeVersion)
+import           Pos.DB.Class       (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
+                                     MonadDBRead (..))
+import           Pos.DB.Error       (DBError (..))
+import           Pos.Util.Util      (maybeThrow)
 
 
 -- | Read serialized value associated with given key from pure DB.
+dbGetBiNoVersion
+    :: forall v m.
+       (Bi v, MonadDBRead m)
+    => DBTag -> ByteString -> m (Maybe v)
+dbGetBiNoVersion tag key = do
+    bytes <- dbGet tag key
+    traverse (dbDecode . (ToDecodeValue key)) bytes
+
+-- | Write serializable value to DB for given key.
+dbPutBiNoVersion :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
+dbPutBiNoVersion tag k v = dbPut tag k (serialize' v)
+
+-- | Read serialized value (with version) associated with given key from pure DB.
 dbGetBi
     :: forall v m.
        (Bi v, MonadDBRead m)
     => DBTag -> ByteString -> m (Maybe v)
 dbGetBi tag key = do
     bytes <- dbGet tag key
-    traverse (dbDecode . (ToDecodeValue key)) bytes
-
--- | Write serializable value to DB for given key.
-dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
-dbPutBi tag k v = dbPut tag k (serialize' v)
-
--- | Read serialized value (with version) associated with given key from pure DB.
-dbGetBiWithVersion
-    :: forall v m.
-       (Bi v, MonadDBRead m)
-    => DBTag -> ByteString -> m (Maybe (Word8, v))
-dbGetBiWithVersion tag key = do
-    bytes <- dbGet tag key
-    traverse (dbDecode . (ToDecodeValue key)) bytes
+    val <- traverse (dbDecode . (ToDecodeValue key)) bytes
+    traverse onVersionError val
+  where
+    onVersionError :: (Word8, v) -> m v
+    onVersionError (verTag, v)
+        | verTag /= dbSerializeVersion =
+              throwM $ DBUnexpectedVersionTag dbSerializeVersion verTag
+        | otherwise = pure v
 
 -- | Write serializable value to DB for given key. Uses simple versioning.
-dbPutBiWithVersion :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> Word8 -> m ()
-dbPutBiWithVersion tag k v version = dbPut tag k (dbSerialize version v)
+dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
+dbPutBi tag k v = dbPut tag k (dbSerialize v)
 
 -- | Version of 'serialize'' function that includes version when serializing a value.
-dbSerialize :: Bi a => Word8 -> a -> ByteString
-dbSerialize version = serialize' . (version,)
+dbSerialize :: Bi a => a -> ByteString
+dbSerialize = serialize' . (dbSerializeVersion,)
 
 -- This type describes what we want to decode and contains auxiliary
 -- data.
@@ -78,14 +87,17 @@ dbDecode =
     onParseError :: ByteString -> Maybe ByteString -> Text -> m a
     onParseError rawKey rawValMaybe errMsg =
         let valueBuilder = maybe "" (bprint (", value = " %shown)) rawValMaybe
-        in throwM $ DBMalformed $ sformat fmt rawKey valueBuilder errMsg
-    fmt =
+        in throwM $ DBMalformed $ sformat fmtMalformed rawKey valueBuilder errMsg
+    fmtMalformed =
         "A key or value stored in DB is malformed, key = "%shown%
         builder%
         ", err: "%stext
 
-dbDecodeMaybe :: (Bi v) => ByteString -> Maybe v
-dbDecodeMaybe = rightToMaybe . decodeFull
+dbDecodeMaybe :: forall v . (Bi v) => ByteString -> Maybe v
+dbDecodeMaybe bs =
+    case rightToMaybe . decodeFull @(Word8, v) $ bs of
+        Nothing -> Nothing
+        Just (dbVer, val) -> if dbVer == dbSerializeVersion then return val else Nothing
 
 -- Parse maybe
 dbDecodeMaybeWP
@@ -101,7 +113,7 @@ dbDecodeMaybeWP s
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i <>) . serialize'
+encodeWithKeyPrefix = (iterKeyPrefix @i <>) . dbSerialize
 
 -- | Given a @(k,v)@ as pair of strings, try to decode both.
 processIterEntry ::

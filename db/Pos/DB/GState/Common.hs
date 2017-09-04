@@ -31,7 +31,7 @@ import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint, int, sformat, stext, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi, serialize')
+import           Pos.Binary.Class    (Bi)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (ChainDifficulty, HeaderHash)
 import           Pos.Crypto          (shortHashF)
@@ -40,7 +40,7 @@ import           Pos.DB.Class        (DBTag (GStateDB),
                                       MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
                                       MonadDB (dbDelete), MonadDBRead)
 import           Pos.DB.Error        (DBError (DBMalformed))
-import           Pos.DB.Functions    (dbGetBi, dbPutBi)
+import           Pos.DB.Functions    (dbGetBi, dbPutBi, dbSerialize)
 import           Pos.Util.Util       (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -115,9 +115,9 @@ instance Buildable CommonOp where
 
 instance RocksBatchOp CommonOp where
     toBatchOp (PutTip h) =
-        [Rocks.Put tipKey (serialize' h)]
+        [Rocks.Put tipKey (dbSerialize h)]
     toBatchOp (PutMaxSeenDifficulty h) =
-        [Rocks.Put maxSeenDifficultyKey (serialize' h)]
+        [Rocks.Put maxSeenDifficultyKey (dbSerialize h)]
 
 ----------------------------------------------------------------------------
 -- Initialization

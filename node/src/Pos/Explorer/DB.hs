@@ -30,14 +30,15 @@ import           Formatting                   (sformat, (%))
 import           Serokell.Util                (Color (Red), colorize, mapJson)
 import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
+import           Pos.Binary.Class             (UnsignedVarInt (..))
 import           Pos.Context.Functions        (GenesisUtxo, genesisUtxoM)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
                                                unsafeAddCoin)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
                                                MonadDBRead (dbGet), RocksBatchOp (..),
-                                               dbIterSource, encodeWithKeyPrefix)
+                                               dbSerialize, dbIterSource,
+                                               encodeWithKeyPrefix)
 import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core                 (Tx, TxId, TxOut (..), TxOutAux (..))
@@ -136,27 +137,27 @@ data ExplorerOp
 instance RocksBatchOp ExplorerOp where
 
     toBatchOp (AddTxExtra id extra) =
-        [Rocks.Put (txExtraPrefix id) (serialize' extra)]
+        [Rocks.Put (txExtraPrefix id) (dbSerialize extra)]
     toBatchOp (DelTxExtra id) =
         [Rocks.Del $ txExtraPrefix id]
 
     toBatchOp (PutPageBlocks page pageBlocks) =
-        [Rocks.Put (blockPagePrefix page) (serialize' pageBlocks)]
+        [Rocks.Put (blockPagePrefix page) (dbSerialize pageBlocks)]
 
     toBatchOp (PutEpochBlocks epoch pageBlocks) =
-        [Rocks.Put (blockEpochPrefix epoch) (serialize' pageBlocks)]
+        [Rocks.Put (blockEpochPrefix epoch) (dbSerialize pageBlocks)]
 
     toBatchOp (PutLastTxs lastTxs) =
-        [Rocks.Put lastTxsPrefix (serialize' lastTxs)]
+        [Rocks.Put lastTxsPrefix (dbSerialize lastTxs)]
 
     toBatchOp (UpdateAddrHistory addr txs)
         | null txs = [Rocks.Del key]
-        | otherwise = [Rocks.Put key (serialize' txs)]
+        | otherwise = [Rocks.Put key (dbSerialize txs)]
       where
         key = addrHistoryKey addr
 
     toBatchOp (PutAddrBalance addr coin) =
-        [Rocks.Put (addrBalanceKey addr) (serialize' coin)]
+        [Rocks.Put (addrBalanceKey addr) (dbSerialize coin)]
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalanceKey addr]
 
@@ -214,10 +215,10 @@ sanityCheckBalances = do
 ----------------------------------------------------------------------------
 
 txExtraPrefix :: TxId -> ByteString
-txExtraPrefix h = "e/tx/" <> serialize' h
+txExtraPrefix h = "e/tx/" <> dbSerialize h
 
 addrHistoryKey :: Address -> ByteString
-addrHistoryKey addr = "e/ah/" <> serialize' addr
+addrHistoryKey addr = "e/ah/" <> dbSerialize addr
 
 addrBalancePrefix :: ByteString
 addrBalancePrefix = "e/ab/"
@@ -228,10 +229,10 @@ addrBalanceKey = encodeWithKeyPrefix @BalancesIter
 blockPagePrefix :: Page -> ByteString
 blockPagePrefix page = "e/page/" <> encodedPage
   where
-    encodedPage = serialize' $ UnsignedVarInt page
+    encodedPage = dbSerialize $ UnsignedVarInt page
 
 blockEpochPrefix :: Epoch -> ByteString
-blockEpochPrefix epoch = "e/epoch/" <> serialize' epoch
+blockEpochPrefix epoch = "e/epoch/" <> dbSerialize epoch
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"

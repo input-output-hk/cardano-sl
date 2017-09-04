@@ -1,4 +1,3 @@
-
 -- | Extra information for blocks.
 --   * Forward links.
 --   * InMainChain flags.
@@ -23,7 +22,6 @@ import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, (%))
 import           Serokell.Util.Text   (listJson)
 
-import           Pos.Binary.Class     (serialize')
 import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
@@ -32,7 +30,7 @@ import           Pos.Core             (FlatSlotId, HasCoreConstants, HasHeaderHa
                                        HeaderHash, headerHash, slotIdF, unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
-                                       RocksBatchOp (..))
+                                       RocksBatchOp (..), dbSerialize)
 import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
@@ -92,15 +90,15 @@ instance HasCoreConstants => Buildable BlockExtraOp where
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
-        [Rocks.Put (forwardLinkKey from) (serialize' to)]
+        [Rocks.Put (forwardLinkKey from) (dbSerialize to)]
     toBatchOp (RemoveForwardLink from) =
         [Rocks.Del $ forwardLinkKey from]
     toBatchOp (SetInMainChain False h) =
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
-        [Rocks.Put (mainChainKey h) (serialize' ()) ]
+        [Rocks.Put (mainChainKey h) (dbSerialize ()) ]
     toBatchOp (SetLastSlots slots) =
-        [Rocks.Put lastSlotsKey (serialize' slots)]
+        [Rocks.Put lastSlotsKey (dbSerialize slots)]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links
@@ -179,10 +177,10 @@ initGStateBlockExtra firstGenesisHash = do
 ----------------------------------------------------------------------------
 
 forwardLinkKey :: HeaderHash -> ByteString
-forwardLinkKey h = "e/fl/" <> serialize' h
+forwardLinkKey h = "e/fl/" <> dbSerialize h
 
 mainChainKey :: HeaderHash -> ByteString
-mainChainKey h = "e/mc/" <> serialize' h
+mainChainKey h = "e/mc/" <> dbSerialize h
 
 lastSlotsKey :: ByteString
 lastSlotsKey = "e/ls/"

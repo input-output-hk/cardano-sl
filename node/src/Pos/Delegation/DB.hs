@@ -49,9 +49,9 @@ import qualified Data.Conduit.List            as CL
 import qualified Data.HashSet                 as HS
 import qualified Database.RocksDB             as Rocks
 
-import           Pos.Binary.Class             (serialize')
 import           Pos.Crypto                   (PublicKey, pskIssuerPk, verifyPsk)
-import           Pos.DB                       (RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB                       (RocksBatchOp (..), dbSerialize,
+                                               encodeWithKeyPrefix)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..),
                                                MonadDBRead (..))
 import           Pos.DB.GState.Common         (gsGetBi)
@@ -118,18 +118,18 @@ instance RocksBatchOp DelegationOp where
         | not (verifyPsk psk) =
           error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
-          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (serialize' psk)]
+          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (dbSerialize psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
         [Rocks.Del $ pskKey issuerPk]
     toBatchOp (AddTransitiveDlg iSId dSId) =
-        [Rocks.Put (transDlgKey iSId) (serialize' dSId)]
+        [Rocks.Put (transDlgKey iSId) (dbSerialize dSId)]
     toBatchOp (DelTransitiveDlg sId) =
         [Rocks.Del $ transDlgKey sId]
     toBatchOp (SetTransitiveDlgRev dSId iSIds)
         | HS.null iSIds = [Rocks.Del $ transRevDlgKey dSId]
-        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (serialize' iSIds)]
+        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (dbSerialize iSIds)]
     toBatchOp (AddPostedThisEpoch sId) =
-        [Rocks.Put (postedThisEpochKey sId) (serialize' ())]
+        [Rocks.Put (postedThisEpochKey sId) (dbSerialize ())]
     toBatchOp (DelPostedThisEpoch sId) =
         [Rocks.Del (postedThisEpochKey sId)]
 
@@ -175,10 +175,10 @@ getThisEpochPostedKeys =
 
 -- Storing Hash IssuerPk -> ProxySKHeavy
 pskKey :: StakeholderId -> ByteString
-pskKey s = "d/p/" <> serialize' s
+pskKey s = "d/p/" <> dbSerialize s
 
 transDlgKey :: StakeholderId -> ByteString
-transDlgKey s = "d/t/" <> serialize' s
+transDlgKey s = "d/t/" <> dbSerialize s
 
 iterTransRevPrefix :: ByteString
 iterTransRevPrefix = "d/tr/"

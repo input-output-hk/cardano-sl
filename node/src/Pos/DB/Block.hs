@@ -68,7 +68,7 @@ import           System.FilePath       ((</>))
 import           System.IO.Error       (isDoesNotExistError)
 
 import           Pos.Binary.Block      ()
-import           Pos.Binary.Class      (Bi, decodeFull, serialize')
+import           Pos.Binary.Class      (Bi, decodeFull)
 import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core        as BC
 import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
@@ -82,7 +82,7 @@ import           Pos.DB.Class          (DBTag (..), MonadBlockDBGeneric (..),
                                         MonadBlockDBGenericWrite (..), MonadDBRead,
                                         dbGetBlund)
 import           Pos.DB.Error          (DBError (DBMalformed))
-import           Pos.DB.Functions      (dbGetBi)
+import           Pos.DB.Functions      (dbGetBi, dbSerialize)
 import           Pos.DB.Pure           (DBPureVar, MonadPureDB, atomicModifyIORefPure,
                                         pureBlockIndexDB, pureBlocksStorage)
 import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
@@ -328,8 +328,8 @@ dbPutBlundPureDefault (blk,undo) = do
     let h = headerHash blk
     (var :: DBPureVar) <- view (lensOf @DBPureVar)
     flip atomicModifyIORefPure var $
-        (pureBlocksStorage . at h .~ Just (serialize' (blk,undo))) .
-        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (serialize' $ BC.getBlockHeader blk))
+        (pureBlocksStorage . at h .~ Just (dbSerialize (blk,undo))) .
+        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (dbSerialize $ BC.getBlockHeader blk))
 
 dbGetBlockSscPureDefault ::
        forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
@@ -498,7 +498,7 @@ getData fp = flip catch handle $ liftIO $
         | otherwise = throwM e
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp = liftIO . BS.writeFile fp . serialize'
+putData fp = liftIO . BS.writeFile fp . dbSerialize
 
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
 deleteData fp = (liftIO $ removeFile fp) `catch` handle

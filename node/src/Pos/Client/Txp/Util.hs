@@ -34,6 +34,7 @@ import           Universum
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import qualified Data.HashMap.Strict      as HM
+import qualified Data.HashSet             as HS
 import           Data.List                (tail)
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Map                 as M
@@ -232,8 +233,7 @@ groupUtxo utxo =
     map mkUtxoGroup preUtxoGroups
   where
     futxo = M.toList utxo
-    comparingAddrs = (== EQ) ... comparing (txOutAddress . toaOut . snd)
-    preUtxoGroups = NE.groupBy comparingAddrs futxo
+    preUtxoGroups = NE.groupAllWith (txOutAddress . toaOut . snd) futxo
     mkUtxoGroup ugUtxo@(sample :| _) =
         let ugAddr = txOutAddress . toaOut . snd $ sample
             ugTotalMoney = unsafeIntegerToCoin . sumTxOutCoins $
@@ -280,7 +280,9 @@ prepareTxRaw utxo outputs (TxFee fee) = do
     sumTxOuts = either (throwError . GeneralTxError) pure .
         integerToCoin . sumTxOutCoins
     gUtxo = groupUtxo utxo
-    isOutputAddr addr = any ((addr ==) . txOutAddress . toaOut) outputs
+    outputAddrsSet = foldl' (flip HS.insert) mempty $
+        map (txOutAddress . toaOut) outputs
+    isOutputAddr = flip HS.member outputAddrsSet
     sortedGroups = sortOn (Down . ugTotalMoney) $
         filter (not . isOutputAddr . ugAddr) gUtxo
     disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo

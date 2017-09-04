@@ -165,7 +165,7 @@ instance Arbitrary TestParams where
         secretKeysList <-
             toList @(NonEmpty SecretKey) <$>
              -- might have repetitions
-            (arbitrary `suchThat` (\l -> length l < 15))
+            (arbitrary `suchThat` (\l -> length l < 15 && length l > 2))
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let publicKeys = map toPublic (toList invSecretsMap)
         let addresses = map makePubKeyAddressBoot publicKeys

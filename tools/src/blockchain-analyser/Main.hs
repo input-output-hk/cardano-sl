@@ -2,13 +2,23 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
-import           Options          (CLIOptions (..), getOptions)
-import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize,
-                                   listDirectory, withCurrentDirectory)
-import           Types            (DBFolderStat)
-import           Universum
+import           Mockable             (runProduction)
+import           Pos.Block.Types      (Blund)
+import           Pos.Core.Types       (HeaderHash)
+import           Pos.DB               (closeNodeDBs, openNodeDBs)
+import qualified Pos.DB.Block         as DB
+import qualified Pos.DB.DB            as DB
+import           Pos.DB.GState.Common (getTip)
+import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Util.Chrono      (OldestFirst (..))
+import           System.Directory     (canonicalizePath, doesDirectoryExist, getFileSize,
+                                       listDirectory, withCurrentDirectory)
 
-import           Rendering        (render)
+import           Options              (CLIOptions (..), getOptions)
+import           Rendering            (render)
+import           Types                (DBFolderStat, initBlockchainAnalyser)
+
+import           Universum
 
 -- | Like Unix's `du -s`, but works across all the major platforms and
 -- returns the total number of bytes the directory occupies on disk.
@@ -36,3 +46,17 @@ main = do
     CLIOptions{..} <- getOptions
     sizes <- canonicalizePath dbPath >>= dbSizes
     putText $ render uom printMode sizes
+
+    -- Now open the DB
+
+    bracket (openNodeDBs False dbPath) closeNodeDBs $ \db -> do
+        res <- runProduction $ do
+            initBlockchainAnalyser db $ getTip
+        putText (toText ((show res) :: String))
+
+{-
+        initTBlockGenMode db genCtx $
+            void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
+-}
+
+-- (OldestFirst [] (Blund SscGodTossing))

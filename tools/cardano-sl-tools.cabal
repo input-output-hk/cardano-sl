@@ -534,9 +534,18 @@ executable cardano-blockchain-analyser
   if !flag(for-installer)
    build-depends:      ansi-wl-pprint
                      , base
+                     , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , cardano-sl
                      , directory
+                     , ether
                      , formatting
+                     , lens
                      , neat-interpolation
+                     , node-sketch
+                     , mtl
                      , tabl
                      , text
                      , optparse-applicative

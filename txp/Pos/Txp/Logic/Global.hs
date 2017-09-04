@@ -117,7 +117,7 @@ genericToilModifierToBatch convertExtra modifier =
     stakesOps =
         case total of
             Nothing -> stakesOpsAlmost
-            Just x  -> DB.PutFtsSum x : stakesOpsAlmost
+            Just x  -> DB.PutTotalStake x : stakesOpsAlmost
     extraOp = convertExtra extra
 
 -- | Convert simple 'ToilModifier' to batch of database operations.

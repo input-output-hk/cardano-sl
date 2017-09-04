@@ -41,9 +41,9 @@ import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),
                                                dbIterSource)
+import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.DB.GState.Stakes         (StakeIter, ftsStakeKey, ftsSumKey,
                                                getRealTotalStake)
-import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.Txp.Toil.Types           (GenesisUtxo (..))
 import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 
@@ -52,17 +52,17 @@ import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 ----------------------------------------------------------------------------
 
 data StakesOp
-    = PutFtsSum !Coin
+    = PutTotalStake !Coin
     | PutFtsStake !StakeholderId
                   !Coin
 
 instance Buildable StakesOp where
-    build (PutFtsSum c) = bprint ("PutFtsSum ("%coinF%")") c
+    build (PutTotalStake c) = bprint ("PutTotalStake ("%coinF%")") c
     build (PutFtsStake ad c) =
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
 instance RocksBatchOp StakesOp where
-    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (serialize' c)]
+    toBatchOp (PutTotalStake c)  = [Rocks.Put ftsSumKey (serialize' c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
         else [Rocks.Put (ftsStakeKey ad) (serialize' c)]

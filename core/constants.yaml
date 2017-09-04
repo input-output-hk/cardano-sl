@@ -6,7 +6,8 @@
 #   * testnet_public_{full,wallet}: final version for users, big k
 #   * testnet_staging_{full,wallet}: QA, smaller k
 # * Dev (4 nodes):
-#   * devnet_longep_{full,wallet}: development purposes, big k
+#   * devnet_midep_{full,wallet}: development purposes, k as on staging
+#   * devnet_longep_{full,wallet}: development purposes, k as on mainnet
 #   * devnet_shortep_{full,wallet}: smaller k
 #
 # "full" prefix is default one, "wallet" prefix overrides applicationName.
@@ -178,15 +179,18 @@ testnet_staging_full: &testnet_staging_full
   criticalForkThreshold: 2
   fixedTimeCQ: 600 # 10 min
 
-
-devnet_longep_full: &devnet_longep_full
+devnet_midep_full: &devnet_midep_full
   <<: *testnet_staging_full
 
   protocolMagic: 55550004
   genesisBinSuffix: dn
 
+devnet_longep_full: &devnet_longep_full
+  <<: *devnet_midep_full
+  k: 2160
+
 devnet_shortep_full: &devnet_shortep_full
-  <<: *devnet_longep_full
+  <<: *devnet_midep_full
 
   k: 9
   genesisSlotDurationSec: 15
@@ -195,12 +199,6 @@ devnet_shortep_full: &devnet_shortep_full
   fixedTimeCQ: 60 # 1 min
   criticalForkThreshold: 2
   recoveryHeadersMessage: 100
-
-devnet_shortep_updated_full: &devnet_shortep_updated_full
-  <<: *devnet_shortep_full
-
-  applicationVersion: 1
-  lastKnownBVMinor: 1
 
 ##############################################################################
 ##                                                                          ##
@@ -220,12 +218,12 @@ devnet_longep_wallet: &devnet_longep_wallet
   <<: *devnet_longep_full
   applicationName: csl-daedalus
 
-devnet_shortep_wallet: &devnet_shortep_wallet
-  <<: *devnet_shortep_full
+devnet_midep_wallet: &devnet_midep_wallet
+  <<: *devnet_midep_full
   applicationName: csl-daedalus
 
-devnet_shortep_updated_wallet: &devnet_shortep_updated_wallet
-  <<: *devnet_shortep_updated_full
+devnet_shortep_wallet: &devnet_shortep_wallet
+  <<: *devnet_shortep_full
   applicationName: csl-daedalus
 
 ##############################################################################
@@ -252,3 +250,20 @@ benchmark: &benchmark
 
   protocolMagic: 55550007
   genesisBinSuffix: tn # it is set here arbitrarily, it won't be actually used
+
+##############################################################################
+##                                                                          ##
+##   Update system testing                                                  ##
+##                                                                          ##
+##############################################################################
+
+devnet_shortep_updated_full: &devnet_shortep_updated_full
+  <<: *devnet_shortep_full
+
+  applicationVersion: 1
+  lastKnownBVMinor: 1
+
+devnet_shortep_updated_wallet: &devnet_shortep_updated_wallet
+  <<: *devnet_shortep_updated_full
+  applicationName: csl-daedalus
+

@@ -40,9 +40,7 @@ import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQu
 import           Pos.Block.Slog.Types     (HasSlogContext (..), HasSlogGState (..),
                                            SlogContext (..))
 import           Pos.Communication.Types  (NodeId)
-import           Pos.Core                 (GenesisWStakeholders (..), HasPrimaryKey (..),
-                                           Timestamp)
-import           Pos.DHT.Real.Param       (KademliaParams)
+import           Pos.Core                 (HasPrimaryKey (..), Timestamp)
 import           Pos.DHT.Real.Types       (KademliaDHTInstance)
 import           Pos.Launcher.Param       (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context          (LrcContext)
@@ -50,16 +48,13 @@ import           Pos.Network.Types        (NetworkConfig (..))
 import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
                                            HasReportingContext (..),
                                            ReportingContext (..))
-import           Pos.Security.Params      (SecurityParams)
 import           Pos.Shutdown             (HasShutdownContext (..), ShutdownContext (..))
 import           Pos.Slotting             (HasSlottingVar (..), SlottingContextSum,
                                            SlottingData)
 import           Pos.Ssc.Class.Types      (HasSscContext (..), Ssc (SscNodeContext))
-import           Pos.StateLock            (StateLock)
+import           Pos.StateLock            (StateLock, StateLockMetrics)
 import           Pos.Txp.Settings         (TxpGlobalSettings)
-import           Pos.Txp.Toil.Types       (GenesisUtxo (..))
 import           Pos.Update.Context       (UpdateContext)
-import           Pos.Update.Params        (UpdateParams)
 import           Pos.Util.UserSecret      (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util            (postfixLFields)
 
@@ -104,8 +99,10 @@ data NodeContext ssc = NodeContext
     , ncSlogContext         :: !SlogContext
     -- ^ Context needed for Slog.
     , ncStateLock           :: !StateLock
-    -- ^ Semaphore which manages access to block application.
+    -- ^ A lock which manages access to shared resources.
     -- Stored hash is a hash of last applied block.
+    , ncStateLockMetrics    :: !StateLockMetrics
+    -- ^ A set of callbacks for 'StateLock'.
     , ncUserSecret          :: !(TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
     , ncBlockRetrievalQueue :: !(BlockRetrievalQueue ssc)
@@ -169,6 +166,9 @@ instance HasLens ProgressHeaderTag (NodeContext ssc) (ProgressHeader ssc) where
 instance HasLens StateLock (NodeContext ssc) StateLock where
     lensOf = ncStateLock_L
 
+instance HasLens StateLockMetrics (NodeContext ssc) StateLockMetrics where
+    lensOf = ncStateLockMetrics_L
+
 instance HasLens LastKnownHeaderTag (NodeContext ssc) (LastKnownHeader ssc) where
     lensOf = ncLastKnownHeader_L
 
@@ -199,17 +199,11 @@ instance HasLens LrcContext (NodeContext ssc) LrcContext where
 instance HasLens TxpGlobalSettings (NodeContext ssc) TxpGlobalSettings where
     lensOf = ncTxpGlobalSettings_L
 
-instance HasLens UpdateParams (NodeContext ssc) UpdateParams where
-    lensOf = ncNodeParams_L . lensOf @UpdateParams
-
-instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
-    lensOf = ncNodeParams_L . lensOf @SecurityParams
-
-instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
-    lensOf = ncNodeParams_L . lensOf @GenesisUtxo
-
-instance HasLens GenesisWStakeholders (NodeContext ssc) GenesisWStakeholders where
-    lensOf = ncNodeParams_L . lensOf @GenesisWStakeholders
+instance {-# OVERLAPPABLE #-}
+    HasLens tag NodeParams r =>
+    HasLens tag (NodeContext ssc) r
+  where
+    lensOf = ncNodeParams_L . lensOf @tag
 
 instance HasReportServers (NodeContext ssc) where
     reportServers = ncNodeParams_L . reportServers
@@ -230,9 +224,6 @@ instance HasReportingContext (NodeContext ssc) where
         setter rc =
             set reportServers (rc ^. reportServers) .
             set loggerConfig  (rc ^. loggerConfig)
-
-instance HasLens (NetworkConfig KademliaParams) (NodeContext scc) (NetworkConfig KademliaParams) where
-    lensOf = ncNodeParams_L . lensOf @(NetworkConfig KademliaParams)
 
 instance HasLens (NetworkConfig KademliaDHTInstance) (NodeContext scc) (NetworkConfig KademliaDHTInstance) where
     lensOf = ncNetworkConfig_L

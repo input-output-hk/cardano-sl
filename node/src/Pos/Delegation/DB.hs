@@ -32,6 +32,9 @@ module Pos.Delegation.DB
        , getDlgTransitiveReverse
        , isIssuerPostedThisEpoch
 
+         -- * Initialization
+       , initGStateDlg
+
          -- * Batch ops
        , DelegationOp (..)
 
@@ -43,21 +46,24 @@ module Pos.Delegation.DB
 
 import           Universum
 
+import           Control.Lens                 (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
+import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import qualified Database.RocksDB             as Rocks
 
-import           Pos.Crypto                   (PublicKey, pskIssuerPk, verifyPsk)
+import           Pos.Core                     (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Core.Genesis             (GenesisDelegation (..))
+import           Pos.Crypto                   (ProxySecretKey (..), PublicKey, verifyPsk)
 import           Pos.DB                       (RocksBatchOp (..), dbSerialize,
                                                encodeWithKeyPrefix)
-import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..),
+import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), MonadDB,
                                                MonadDBRead (..))
-import           Pos.DB.GState.Common         (gsGetBi)
+import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Delegation.Cede.Types    (DlgEdgeAction (..))
 import           Pos.Delegation.Helpers       (isRevokePsk)
-import           Pos.Types                    (ProxySKHeavy, StakeholderId, addressHash)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -90,6 +96,38 @@ isIssuerPostedThisEpoch :: MonadDBRead m => StakeholderId -> m Bool
 isIssuerPostedThisEpoch sId = do
     (r :: Maybe ()) <- gsGetBi (postedThisEpochKey sId)
     pure $ isJust r
+
+----------------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------------
+
+-- | Initialize delegation part of GState DB.
+initGStateDlg :: (MonadDB m) => GenesisDelegation -> m ()
+initGStateDlg (unGenesisDelegation -> genesisDlg) =
+    writeBatchGState $
+    concat
+        [pskOperations, transOperations, reverseOperations, thisEpochOperations]
+  where
+    stIdPairs :: [(StakeholderId, StakeholderId)] -- (issuer, delegate)
+    stIdPairs =
+        HM.toList genesisDlg <&> \(issuer, ProxySecretKey {..}) ->
+            (issuer, addressHash pskDelegatePk)
+    -- DB is split into 4 groups, each of them is represented as a
+    -- list of operations.
+    pskOperations = map (PskFromEdgeAction . DlgEdgeAdd) $ toList genesisDlg
+    -- Delegates must not be issuers, so transitive closure is simple.
+    transOperations = map (uncurry AddTransitiveDlg) stIdPairs
+    reverseOperations =
+        map (uncurry SetTransitiveDlgRev) $ HM.toList $
+        foldl' revStep mempty stIdPairs
+    revStep ::
+           HashMap StakeholderId (HashSet StakeholderId)
+        -> (StakeholderId, StakeholderId)
+        -> HashMap StakeholderId (HashSet StakeholderId)
+    revStep res (issuer, delegate) =
+        res & at delegate . non mempty . at issuer .~ Just ()
+    -- We assume that genesis delegation happened before 0-th epoch.
+    thisEpochOperations = []
 
 ----------------------------------------------------------------------------
 -- Batch operations

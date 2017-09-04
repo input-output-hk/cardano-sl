@@ -1,4 +1,3 @@
-
 -- | Core types.
 
 module Pos.Core.Types
@@ -308,6 +307,8 @@ data SoftforkRule = SoftforkRule
     -- ^ Theshold will be decreased by this value after each epoch.
     } deriving (Show, Eq, Generic)
 
+instance Hashable SoftforkRule
+
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
     { bvdScriptVersion     :: !ScriptVersion
@@ -425,7 +426,7 @@ unsafeGetCoin = getCoin
 -- threshold).
 newtype CoinPortion = CoinPortion
     { getCoinPortion :: Word64
-    } deriving (Show, Ord, Eq, Generic, Typeable, NFData)
+    } deriving (Show, Ord, Eq, Generic, Typeable, NFData, Hashable)
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64

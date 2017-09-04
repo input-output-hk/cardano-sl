@@ -15,6 +15,7 @@ module Pos.Genesis
        , GenesisContext (..)
        , gtcUtxo
        , gtcWStakeholders
+       , gtcDelegation
 
        -- * Static state/functions/common
        , stakeDistribution
@@ -39,7 +40,6 @@ import           Control.Lens               (at, makeLenses)
 import           Data.List                  (genericReplicate)
 import qualified Data.Map.Strict            as Map
 import qualified Data.Ratio                 as Ratio
-import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util              (mapJson)
 
@@ -60,6 +60,7 @@ import           Pos.Lrc.FtsPure            (followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil               (GenesisUtxo (..))
+import           Pos.Util.Util              (HasLens (..))
 
 -- reexports
 import           Pos.Core.Genesis
@@ -69,12 +70,16 @@ import           Pos.Ssc.GodTossing.Genesis
 -- Context
 ----------------------------------------------------------------------------
 
--- | Genesis context related to transaction processing.
+-- | Genesis context consists configurable parts of genesis state.
+--
+-- TODO: probably 'gtc' prefix should be changed to 'gc'.
 data GenesisContext = GenesisContext
     { _gtcUtxo          :: !GenesisUtxo
       -- ^ Genesis utxo.
     , _gtcWStakeholders :: !GenesisWStakeholders
       -- ^ Weighted genesis stakeholders.
+    , _gtcDelegation    :: !GenesisDelegation
+      -- ^ Genesis state of heavyweight delegation.
     } deriving (Show)
 
 makeLenses ''GenesisContext
@@ -84,6 +89,9 @@ instance HasLens GenesisUtxo GenesisContext GenesisUtxo where
 
 instance HasLens GenesisWStakeholders GenesisContext GenesisWStakeholders where
     lensOf = gtcWStakeholders
+
+instance HasLens GenesisDelegation GenesisContext GenesisDelegation where
+    lensOf = gtcDelegation
 
 ----------------------------------------------------------------------------
 -- Static state & funcitons
@@ -132,10 +140,14 @@ genesisUtxo ad = GenesisUtxo . Map.fromList $ map utxoEntry balances
 -- | Same as 'genesisUtxo' but generates 'GenesisWStakeholders' set
 -- using 'generateWStakeholders' inside and wraps it all in
 -- 'GenesisContext'.
+--
+-- It uses empty genesis delegation, because non-empty one is useful
+-- only in production and for production we have
+-- 'genesisContextProduction'.
 genesisContextImplicit :: InvAddrSpendingData -> [AddrDistribution] -> GenesisContext
 genesisContextImplicit _ [] = error "genesisContextImplicit: empty list passed"
 genesisContextImplicit invAddrSpendingData addrDistr =
-    GenesisContext utxo genStakeholders
+    GenesisContext utxo genStakeholders noGenesisDelegation
   where
     mergeStakeholders :: Map StakeholderId Word16
                       -> Map StakeholderId Word16
@@ -213,7 +225,10 @@ genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
 -- | 'GenesisContext' that uses all the data for prod.
 genesisContextProduction :: GenesisContext
 genesisContextProduction =
-    GenesisContext genesisUtxoProduction genesisProdBootStakeholders
+    GenesisContext
+        genesisUtxoProduction
+        genesisProdBootStakeholders
+        genesisProdDelegation
   where
     -- 'GenesisUtxo' used in production.
     genesisUtxoProduction :: GenesisUtxo
@@ -284,9 +299,12 @@ genesisDevHdwAccountKeyDatas =
 --
 -- Related genesis stakeholders are computed using only related
 -- distribution passed, hd keys have no stake in boot era.
+--
+-- Genesis delegation is empty. Non-empty one can be supported, but
+-- probably will never be needed.
 devGenesisContext :: StakeDistribution -> GenesisContext
 devGenesisContext distr =
-    GenesisContext (genesisUtxo aDistr) gws
+    GenesisContext (genesisUtxo aDistr) gws noGenesisDelegation
   where
     distrSize = length $ stakeDistribution distr
     tailPks = map (fst . generateGenesisKeyPair) [Const.genesisKeysN ..]

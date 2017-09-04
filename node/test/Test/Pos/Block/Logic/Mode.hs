@@ -19,6 +19,7 @@ module Test.Pos.Block.Logic.Mode
 
        , BlockProperty
        , blockPropertyToProperty
+       , genSuitableStakeDistribution
        ) where
 
 import           Universum
@@ -83,8 +84,7 @@ import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
-                                                 TxpHolderTag, TxpMetrics,
-                                                 ignoreTxpMetrics, mkTxpLocalData, utxoF)
+                                                 TxpHolderTag, mkTxpLocalData, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -110,7 +110,6 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- before testing starts.
 data TestParams = TestParams
     { _tpGenesisContext     :: !GenesisContext
-    -- ^ Genesis context.
     , _tpAllSecrets         :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
@@ -165,21 +164,21 @@ instance Arbitrary TestParams where
         secretKeysList <-
             toList @(NonEmpty SecretKey) <$>
              -- might have repetitions
-            (arbitrary `suchThat` (\l -> length l < 15))
-        let _tpStartTime = fromMicroseconds 0
+            (arbitrary `suchThat` (\l -> length l < 15 && length l > 2))
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let publicKeys = map toPublic (toList invSecretsMap)
         let addresses = map makePubKeyAddressBoot publicKeys
         let invAddrSpendingData =
                 mkInvAddrSpendingData $
                 addresses `zip` (map PubKeyASD publicKeys)
-        let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
         stakeDistribution <-
             genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
         let addrDistribution = [(addresses, stakeDistribution)]
         let _tpGenesisContext =
                 genesisContextImplicit invAddrSpendingData addrDistribution
+        let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
         let _tpStakeDistributions = one stakeDistribution
+        let _tpStartTime = fromMicroseconds 0
         return TestParams {..}
 
 ----------------------------------------------------------------------------
@@ -218,7 +217,7 @@ data BlockTestContext = BlockTestContext
     , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !(SscState SscGodTossing)
-    , btcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , btcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
     , btcSlotId            :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
@@ -271,7 +270,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcUpdateContext <- mkUpdateContext
             btcSscState <- mkSscState @SscGodTossing
             _gscSlogGState <- mkSlogGState
-            btcTxpMem <- (, ignoreTxpMetrics) <$> mkTxpLocalData
+            btcTxpMem <- mkTxpLocalData
 #ifdef WITH_EXPLORER
             let btcTxpGlobalSettings = explorerTxpGlobalSettings
 #else
@@ -335,6 +334,9 @@ instance HasLens GenesisUtxo TestInitModeContext GenesisUtxo where
 
 instance HasLens GenesisWStakeholders TestInitModeContext GenesisWStakeholders where
     lensOf = timcGenesisContext_L . gtcWStakeholders
+
+instance HasLens GenesisContext TestInitModeContext GenesisContext where
+    lensOf = timcGenesisContext_L
 
 instance HasLens LrcContext TestInitModeContext LrcContext where
     lensOf = timcLrcContext_L
@@ -435,7 +437,7 @@ instance HasSlogGState BlockTestContext where
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L
 
-instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
+instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP) where
     lensOf = btcTxpMem_L
 
 instance HasLens GenesisUtxo BlockTestContext GenesisUtxo where

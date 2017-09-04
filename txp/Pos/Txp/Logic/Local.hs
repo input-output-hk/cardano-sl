@@ -30,7 +30,8 @@ import qualified Pos.DB.GState.Common as GS
 import           Pos.KnownPeers       (MonadFormatPeers)
 import           Pos.Reporting        (HasReportingContext, reportError)
 import           Pos.Slotting         (MonadSlots (..))
-import           Pos.StateLock        (Priority (..), StateLock, withStateLock)
+import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
+                                       withStateLock)
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
 import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
                                        TxpLocalDataPure, askTxpMem, getLocalTxs,
@@ -84,7 +85,8 @@ instance MonadGState ProcessTxMode where
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
+    :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock,
+        HasLens' ctx StateLockMetrics, MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
     withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw

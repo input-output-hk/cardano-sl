@@ -76,8 +76,9 @@ Available addresses:
 #### Propose update
 
 ```
-propose-update 0 0.1.0 1 15 2000000 csl-daedalus:1 win64 daedalus1.exe
+propose-update 0 0.1.0 1 15 2000000 csl-daedalus:2 win64 daedalus1.exe none linux64 daedalus1c.pkg none
 ```
+(`none` states for binary diff package)
 
 Replace second argument, `0.1.0`, with actual block version from config (i.e. `lastKnownBVMajor.lastKnownBVMinor.lastKnownBVAlt`), if needed.
 
@@ -88,12 +89,16 @@ Replace `csl-daedalus:1` with `applicationName:applicationVersion` as for config
 After launching `propose-update` command you'll see output like this:
 
 ```
-> propose-update 0 0.1.0 1 15 2000000 cardano-sl:1 win64 daedalus1.exe                               
-Read file succesfuly, its hash: e0dae787e163a973ef4e1260dfcf094431046ae3e17d67d601bce4d92eb7da27
-[smart-wallet:INFO:ThreadId 168] [2017-05-11 02:17:20 MSK] Announcing proposal with id b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1               [smart-wallet:INFO:ThreadId 170] [2017-05-11 02:17:20 MSK] Announcing proposal with id b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
-[smart-wallet:INFO:ThreadId 172] [2017-05-11 02:17:20 MSK] Announcing proposal with id b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
-[smart-wallet:INFO:ThreadId 174] [2017-05-11 02:17:20 MSK] Announcing proposal with id b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
-Update proposal submitted, upId: b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1 
+> propose-update 0 0.1.0 1 15 2000000 csl-daedalus:2 win64 daedalus1.exe none linux64 daedalus1c.pkg none
+[smart-wallet:DEBUG:ThreadId 10] [2017-09-01 15:13:07 MSK] Proposing update...
+Read file daedalus1.exe succesfuly, its hash: 77de53da248fa85143f45ca8a3f83ef7088395222b25ea777859e4209cff1ceb
+Read file daedalus1c.pkg succesfuly, its hash: f53b7e9e024eeb6d96116764b4bedd756e9b5f5fccb07beac27cc9c197cd593c
+[smart-wallet:INFO:ThreadId 10] [2017-09-01 15:13:08 MSK] Announcing proposal with id e800f0be119ecbeec98e34d3c9ec0612a8161a5b4c8fcd57d5773678e6fdc594
+[smart-wallet:DEBUG:ThreadId 17] [2017-09-01 15:13:08 MSK] Light wallet sending Inventory/Data
+[smart-wallet:DEBUG:ThreadId 17] [2017-09-01 15:13:09 MSK] Light wallet received Tagged ReqOrRes
+[smart-wallet:DEBUG:ThreadId 17] [2017-09-01 15:13:09 MSK] Light wallet sending Inventory/Data
+[smart-wallet:DEBUG:ThreadId 17] [2017-09-01 15:13:09 MSK] Light wallet received Tagged ReqOrRes
+Update proposal submitted, upId: e800f0be119ecbeec98e34d3c9ec0612a8161a5b4c8fcd57d5773678e6fdc594 
 ```
 
 Note `e0dae787e163a973ef4e1260dfcf094431046ae3e17d67d601bce4d92eb7da27`, it's hash of installer. It would be referenced later as `installer_hash`.

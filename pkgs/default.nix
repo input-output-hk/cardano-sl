@@ -1898,7 +1898,7 @@ self: {
           description = "Cardano SL - transaction processing";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-update = callPackage ({ QuickCheck, aeson, base, binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-txp, concurrent-extra, conduit, containers, cpphs, data-default, ether, exceptions, formatting, generic-arbitrary, hashable, lens, log-warper, mkDerivation, mtl, node-sketch, parsec, resourcet, rocksdb-haskell, safecopy, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-update = callPackage ({ QuickCheck, aeson, base, binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, concurrent-extra, conduit, containers, cpphs, data-default, ether, exceptions, formatting, generic-arbitrary, hashable, lens, log-warper, mkDerivation, mtl, node-sketch, parsec, resourcet, rocksdb-haskell, safecopy, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-update";
           version = "0.5.1";
@@ -1911,7 +1911,6 @@ self: {
             cardano-sl-db
             cardano-sl-infra
             cardano-sl-lrc
-            cardano-sl-txp
             concurrent-extra
             conduit
             containers
@@ -4826,8 +4825,8 @@ self: {
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "1540fdgp8b61z3ms55iz17bhiw45c0winhijnhzmqmy792wchd91";
-            rev = "fe6403d2e82c13eb7c05cf000d7cae5a5ca76fae";
+            sha256 = "10q90lcqhvrqchrnj3yaidh7p2wvic7v9ggdm57iqvi0dd0xwv08";
+            rev = "9fdc19ff8f4c2630adcf9df01bcfd58c80b85a06";
           };
           isLibrary = true;
           isExecutable = true;

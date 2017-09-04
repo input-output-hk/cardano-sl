@@ -3,6 +3,8 @@ module Main
        ( main
        ) where
 
+import           Universum
+
 import           Control.Lens          ((?~))
 import           Data.Aeson            (eitherDecode)
 import qualified Data.ByteString.Lazy  as BSL
@@ -18,7 +20,6 @@ import           System.FilePath.Glob  (glob)
 import           System.Wlog           (Severity (Debug), WithLogger, consoleOutB,
                                         lcTermSeverity, logError, logInfo, setupLogging,
                                         usingLoggerName)
-import           Universum
 
 import           Pos.Binary            (asBinary, decodeFull, serialize')
 import           Pos.Core              (StakeholderId, addressDetailedF, addressHash,
@@ -29,9 +30,10 @@ import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
                                         GenesisGtData (..), StakeDistribution (..),
                                         genesisDevHdwSecretKeys, genesisDevSecretKeys,
-                                        mkGenesisCoreData)
+                                        mkGenesisCoreData, noGenesisDelegation)
 import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
                                         usWalletSet)
+import           Pos.Util.Util         (leftToPanic)
 import           Pos.Wallet.Web.Secret (wusRootKey)
 
 import           Avvm                  (aeCoin, applyBlacklisted, avvmAddrDistribution,
@@ -239,14 +241,16 @@ genGenesisFiles GenesisGenOptions{..} = do
             | otherwise =
                 Map.fromList ggoBootStakeholders
     when (null gcdBootstrapStakeholders) $
-        error "gcdBootstrapStakeholders is empty. Current keygen implementation \
-              \doesn't support explicit boot stakeholders, so if testnet is not \
-              \enabled it can't work (with testnet case we take richmen as bootst.). \
-              \See CSL-1315"
+        error "gcdBootstrapStakeholders is empty. You can pass genesis \
+              \stakeholders explicitly or use testnet genesis."
+    -- [CSL-1596] TODO: add CLI for it!
+    let genesisDelegation = noGenesisDelegation
     let genCoreData =
-            either (\e -> error $ "Couldn't create genesis core data: " <> fromString e)
-                   identity
-                   (mkGenesisCoreData gcdAddrDistribution gcdBootstrapStakeholders)
+            leftToPanic "Couldn't create genesis core data: " $
+                mkGenesisCoreData
+                    gcdAddrDistribution
+                    gcdBootstrapStakeholders
+                    genesisDelegation
 
     ------ Generating GT core data
 

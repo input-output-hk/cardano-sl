@@ -2,8 +2,6 @@
 
 # CONC=4 transaction generator spawns 4 threads
 #   all send about 2 transactions per second
-# 3 : 3 nodes
-# ./run/demo/static : find topology yaml config in this directory
 #
 # To modify the behaviour of the benchmark generator: demo.sh, line 104
 #

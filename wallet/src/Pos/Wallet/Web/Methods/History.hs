@@ -11,7 +11,6 @@ module Pos.Wallet.Web.Methods.History
 import           Universum
 
 import qualified Data.DList                 as DL
-import           Data.Semigroup             (Arg (..))
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
 import           System.Wlog                (logError, logWarning)
@@ -24,14 +23,13 @@ import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CTxs, CWAddressMeta (..), Wal,
-                                             mkCTxs)
+                                             CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                             getHistoryCache, getPendingTx, getPendingTxs,
-                                             getTxMeta, setWalletTxMeta)
+                                             getHistoryCache, getPendingTx, getTxMeta,
+                                             getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                              getWalletAccountIds, getWalletAddrMetas,
                                              getWalletAddrs, getWalletThTime)
@@ -52,8 +50,7 @@ getFullWalletHistory cWalId = do
     localHistory <- getLocalHistory addrs
 
     fullHistory <- addRecentPtxHistory cWalId $ DL.toList $ localHistory <> blockHistory
-    ctxs <- forM fullHistory $ addHistoryTx cWalId
-    let cHistory = concatMap toList ctxs
+    cHistory <- forM fullHistory $ addHistoryTx cWalId
     pure (cHistory, fromIntegral $ length cHistory)
 
 getHistory
@@ -109,7 +106,7 @@ addHistoryTx
     :: MonadWalletWebMode m
     => CId Wal
     -> TxHistoryEntry
-    -> m CTxs
+    -> m CTx
 addHistoryTx cWalId wtx@THEntry{..} = do
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
@@ -122,7 +119,7 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
     walAddrMetas <- getWalletAddrMetas Ever cWalId
     either (throwM . InternalError) pure $
-        mkCTxs diff wtx meta' ptxCond walAddrMetas
+        mkCTx diff wtx meta' ptxCond walAddrMetas
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do
@@ -132,11 +129,12 @@ addRecentPtxHistory
     :: MonadWalletWebMode m
     => CId Wal -> [TxHistoryEntry] -> m [TxHistoryEntry]
 addRecentPtxHistory wid currentHistory = do
-    candidates <- sortWith thToOrdForm <$> getCandidates
+    candidates <- sortWith (Down . _thTimestamp) <$> getCandidates
     merge currentHistory candidates
   where
-    thToOrdForm = Arg =<< _thTxId
-    getCandidates = mapMaybe (ptxPoolInfo . _ptxCond) <$> getPendingTxs
+    getCandidates =
+        mapMaybe (ptxPoolInfo . _ptxCond) . fromMaybe [] <$>
+        getWalletPendingTxs wid
 
     merge [] recent     = return recent
     merge current []    = return current

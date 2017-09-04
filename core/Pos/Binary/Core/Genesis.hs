@@ -9,8 +9,11 @@ import           Pos.Binary.Class        (Bi (..), decodeListLen, encodeListLen,
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Core.Types   ()
 import           Pos.Core.Address        ()
-import           Pos.Core.Genesis.Types  (GenesisCoreData (..), GenesisWStakeholders (..),
-                                          StakeDistribution (..), mkGenesisCoreData)
+import           Pos.Core.Genesis.Types  (GenesisCoreData (..), GenesisDelegation,
+                                          GenesisWStakeholders (..),
+                                          StakeDistribution (..), mkGenesisCoreData,
+                                          mkGenesisDelegation, unGenesisDelegation)
+import           Pos.Util.Util           (eitherToFail)
 
 instance Bi StakeDistribution where
     encode input = case input of
@@ -44,12 +47,18 @@ instance Bi GenesisWStakeholders where
     encode (GenesisWStakeholders m) = encode m
     decode = GenesisWStakeholders <$> decode
 
+instance Bi GenesisDelegation where
+    encode (unGenesisDelegation -> m) = encode (toList m)
+    decode = eitherToFail . mkGenesisDelegation =<< decode
+
 instance Bi GenesisCoreData where
-    encode (UnsafeGenesisCoreData addr stakes) = encodeListLen 2 <> encode addr <> encode stakes
+    encode (UnsafeGenesisCoreData addr stakes delega) =
+        encode (addr, stakes, delega)
     decode = do
-      enforceSize "GenesisCoreData" 2
-      addrDistribution      <- decode
-      bootstrapStakeholders <- decode
-      case mkGenesisCoreData addrDistribution bootstrapStakeholders of
-          Left e  -> fail $ "Couldn't construct genesis data: " <> e
-          Right x -> pure x
+        enforceSize "GenesisCoreData" 3
+        addrDistribution <- decode
+        bootstrapStakeholders <- decode
+        delega <- decode
+        case mkGenesisCoreData addrDistribution bootstrapStakeholders delega of
+            Left e  -> fail $ "Couldn't construct genesis data: " <> e
+            Right x -> pure x

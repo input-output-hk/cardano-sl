@@ -18,7 +18,7 @@ import           Mockable                       (Production)
 import           System.Wlog                    (HasLoggerName (..))
 
 import           Pos.Block.Core                 (Block, BlockHeader)
-import           Pos.Block.Slog                 (HasSlogContext (..))
+import           Pos.Block.Slog                 (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Block.Types                (Undo)
 import           Pos.Context                    (HasNodeContext (..))
 import           Pos.Core                       (HasCoreConstants, HasPrimaryKey (..),
@@ -125,7 +125,10 @@ instance HasLoggerName' WalletWebModeContext where
     loggerName = wwmcRealModeContext_L . loggerName
 
 instance HasSlogContext WalletWebModeContext where
-    slogContextL = wwmcRealModeContext_L . slogContextL
+    slogContext = wwmcRealModeContext_L . slogContext
+
+instance HasSlogGState WalletWebModeContext where
+    slogGState = wwmcRealModeContext_L . slogGState
 
 instance HasJsonLogConfig WalletWebModeContext where
     jsonLogConfig = wwmcRealModeContext_L . jsonLogConfig

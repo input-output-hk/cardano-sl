@@ -13,7 +13,8 @@ import           Universum
 import           Control.Lens           (makeClassy)
 import           System.Wlog            (WithLogger)
 
-import           Pos.Block.Slog.Context (SlogContext, cloneSlogContext)
+import           Pos.Block.Slog.Context (cloneSlogGState)
+import           Pos.Block.Slog.Types   (HasSlogGState (..), SlogGState)
 import           Pos.DB.Pure            (cloneDBPure)
 import           Pos.DB.Sum             (DBSum (..))
 import           Pos.Lrc.Context        (LrcContext, cloneLrcContext)
@@ -27,12 +28,15 @@ import           Pos.Slotting           (SlottingData, cloneSlottingVar)
 data GStateContext = GStateContext
     { _gscDB          :: !DBSum
     , _gscLrcContext  :: LrcContext
-    , _gscSlogContext :: SlogContext
+    , _gscSlogGState  :: SlogGState
     , _gscSlottingVar :: TVar SlottingData
     -- Fields are lazy to be used with future.
     }
 
 makeClassy ''GStateContext
+
+instance HasSlogGState GStateContext where
+    slogGState = gscSlogGState
 
 -- | Create a new 'GStateContext' which is a copy of the given context
 -- and can be modified independently.
@@ -45,7 +49,7 @@ cloneGStateContext GStateContext {..} = case _gscDB of
     PureDB pdb -> GStateContext <$>
         (PureDB <$> cloneDBPure pdb) <*>
         cloneLrcContext _gscLrcContext <*>
-        cloneSlogContext _gscSlogContext <*>
+        cloneSlogGState _gscSlogGState <*>
         cloneSlottingVar _gscSlottingVar
 
 -- | Make a full copy of GState and run given action with this copy.

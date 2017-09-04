@@ -98,6 +98,8 @@ library
                        Pos.Binary.Core.Version
                        Pos.Binary.Core.Genesis
 
+                       Pos.System.Metrics.Constants
+
                        Pos.Util.Arbitrary
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.LockedTVar

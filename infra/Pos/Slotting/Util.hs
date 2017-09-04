@@ -8,6 +8,7 @@ module Pos.Slotting.Util
        , getSlotStartPure
        , getSlotStartEmpatically
        , getNextEpochSlotDuration
+       , slotFromTimestamp
 
          -- * Worker which ticks when slot starts
        , onNewSlot
@@ -23,29 +24,28 @@ module Pos.Slotting.Util
 import           Universum
 
 import           Data.Time.Units        (Millisecond)
-import           Formatting             (build, int, sformat, shown, (%))
+import           Formatting             (int, sformat, shown, (%))
 import           Mockable               (Delay, Fork, Mockable, delay, fork)
 import           Serokell.Util          (sec)
-import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
-                                         logNotice, modifyLoggerName)
+import           System.Wlog            (WithLogger, logDebug, logInfo, logNotice,
+                                         modifyLoggerName)
 
 import           Pos.Core               (FlatSlotId, HasCoreConstants, LocalSlotIndex,
                                          SlotId (..), Timestamp (..), flattenSlotId,
                                          slotIdF)
-import           Pos.Exception          (CardanoException)
 import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
 import           Pos.Reporting.MemState (HasReportingContext)
-import           Pos.Reporting.Methods  (reportError, reportingFatal)
+import           Pos.Reporting.Methods  (reportOrLogE)
 import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
+import           Pos.Slotting.Impl.Util (slotFromTimestamp)
 import           Pos.Slotting.MemState  (MonadSlotsData, getCurrentNextEpochSlottingDataM,
                                          getEpochSlottingDataM, getSystemStartM)
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData,
                                          computeSlotStart, lookupEpochSlottingData)
 import           Pos.Util.Util          (maybeThrow)
-
 
 
 -- | Get flat id of current slot based on MonadSlots.
@@ -123,20 +123,18 @@ onNewSlotImpl
     :: forall ctx m. OnNewSlot ctx m
     => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
-    reportingFatal impl `catch` workerHandler
+    impl `catch` workerHandler
   where
     impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
+    -- [CSL-1578] TODO: consider removing it.
     actionWithCatch s = action s `catch` actionHandler
-    actionHandler
-        :: forall ma.
-           WithLogger ma
-        => SomeException -> ma ()
-    actionHandler = logError . sformat ("Error occurred: " %build)
-    workerHandler :: CardanoException -> m ()
+    actionHandler :: SomeException -> m ()
+    -- REPORT:ERROR 'reportOrLogE' in exception passed to 'onNewSlotImpl'.
+    actionHandler = reportOrLogE "onNewSlotImpl: "
+    workerHandler :: SomeException -> m ()
     workerHandler e = do
-        let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
-        -- REPORT:ERROR on any CardanoException caught within onNewSlot action
-        reportError msg
+        -- REPORT:ERROR 'reportOrLogE' in 'onNewSlotImpl'
+        reportOrLogE "Error occurred in 'onNewSlot' worker itself: " e
         delay =<< getNextEpochSlotDuration
         onNewSlotImpl withLogging startImmediately action
 

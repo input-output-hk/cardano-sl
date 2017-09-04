@@ -113,6 +113,7 @@ library
                         -- Utilities/helpers
                         Pos.Util
                         Pos.Util.LoggerName
+                        Pos.Util.Monitor
                         Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
@@ -358,7 +359,7 @@ library
                       , dlist
                       , dns
                       , ed25519
-                      , ekg
+                      , ekg-wai
                       , ekg-core
                       , ekg-statsd
                       , ether >= 0.5
@@ -567,6 +568,11 @@ test-suite cardano-test
                        -- LRC
                        Test.Pos.Lrc.FollowTheSatoshiSpec
                        Test.Pos.Lrc.WorkerSpec
+
+                       -- Txp
+                       Test.Pos.Client.Txp.Mode
+                       Test.Pos.Client.Txp.UtilSpec
+                       Test.Pos.Client.Txp.Util
 
                        -- Everything else
                        Test.Pos.CborSpec

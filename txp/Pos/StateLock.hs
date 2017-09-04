@@ -20,20 +20,19 @@ module Pos.StateLock
 
 import           Universum
 
-import           Control.Monad.Catch    (MonadMask)
-import           Mockable               (CurrentTime, Mockable, currentTime)
-import           System.Wlog            (WithLogger, getLoggerName, usingLoggerName
-                                        )
+import           Control.Monad.Catch              (MonadMask)
+import           Mockable                         (CurrentTime, Mockable, currentTime)
+import           System.Wlog                      (WithLogger, getLoggerName,
+                                                   usingLoggerName)
 
-import           Pos.Core               (HeaderHash)
-import           Pos.Util.Concurrent.PriorityLock
-                                        (PriorityLock, Priority (..)
-                                        , newPriorityLock, withPriorityLock)
-import           Pos.Txp.MemState       (GenericTxpLocalData (..), MonadTxpMem
-                                        , TxpMetrics (..), askTxpMemAndMetrics)
-import           Pos.Txp.Toil.Types     (MemPool (..))
-import           Pos.Util.Concurrent    (modifyMVar, withMVar)
-import           Pos.Util.Util          (HasLens', lensOf)
+import           Pos.Core                         (HeaderHash)
+import           Pos.Txp.MemState                 (GenericTxpLocalData (..), MonadTxpMem,
+                                                   TxpMetrics (..), askTxpMemAndMetrics)
+import           Pos.Txp.Toil.Types               (MemPool (..))
+import           Pos.Util.Concurrent              (modifyMVar, withMVar)
+import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock,
+                                                   newPriorityLock, withPriorityLock)
+import           Pos.Util.Util                    (HasLens', lensOf)
 
 
 -- | A simple wrapper over 'MVar' which stores 'HeaderHash' (our

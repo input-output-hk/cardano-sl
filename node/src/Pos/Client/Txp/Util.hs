@@ -25,13 +25,14 @@ module Pos.Client.Txp.Util
 
        -- * Additional datatypes
        , TxError (..)
+       , TxOutputs
+       , TxWithSpendings
        ) where
 
 import           Universum
 
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
-import           Control.Monad.State      (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                (tail)
 import qualified Data.List.NonEmpty       as NE
@@ -39,6 +40,7 @@ import qualified Data.Map                 as M
 import qualified Data.Text.Buildable
 import qualified Data.Vector              as V
 import           Formatting               (bprint, build, sformat, stext, (%))
+import           Serokell.Util            (listJson)
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -64,6 +66,10 @@ type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
 type TxWithSpendings = (TxAux, NonEmpty TxOut)
+
+instance Buildable TxWithSpendings where
+    build (txAux, neTxOut) =
+        bprint ("("%build%", "%listJson%")") txAux neTxOut
 
 -- This datatype corresponds to raw transaction.
 data TxRaw = TxRaw
@@ -102,7 +108,7 @@ instance Buildable TxError where
     build (FailedToStabilize iters) =
         bprint ("Transaction creation error: failed to stabilize fee after "%build%" iterations") iters
     build (OutputIsRedeem addr) =
-        bprint ("Destination address "%build%" is a redemption address") addr
+        bprint ("Output address "%build%" is a redemption address") addr
     build RedemptionDepleted =
         bprint "Redemption address balance is 0"
     build (GeneralTxError msg) =

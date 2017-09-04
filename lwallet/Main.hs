@@ -11,8 +11,8 @@ module Main
 import           Universum
 
 import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Monad.Error.Class        (throwError)
-import           Control.Monad.Trans.Either       (EitherT (..))
+import           Control.Monad.Catch              (Exception (..), try)
+import           Control.Monad.Except             (runExceptT, throwError)
 import qualified Data.ByteString                  as BS
 import           Data.ByteString.Base58           (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict              as HM
@@ -142,6 +142,11 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
+newtype LWalletException = LWalletException Text
+  deriving (Show)
+
+instance Exception LWalletException
+
 -- | Count submitted and failed transactions.
 --
 -- This is used in the benchmarks using send-to-all-genesis
@@ -165,15 +170,15 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
     skeys <- getSecretKeys
     let skey = skeys !! idx
         curPk = encToPublic skey
-    etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runEitherT $ do
-        ss <- mss `whenNothing` throwError "Invalid passphrase"
-        lift $ submitTx
+    etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runExceptT $ do
+        ss <- mss `whenNothing` throwError (toException $ LWalletException "Invalid passphrase")
+        ExceptT $ try $ submitTx
             (immediateConcurrentConversations sendActions na)
             ss
             (map TxOutAux outputs)
             curPk
     case etx of
-        Left err      -> putText $ sformat ("Error: "%stext) err
+        Left err      -> putText $ sformat ("Error: "%stext) (toText $ displayException err)
         Right (tx, _) -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) CmdCtx{..} = do
     let nNeighbours = length na

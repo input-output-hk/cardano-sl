@@ -21,6 +21,7 @@ module Pos.Generator.Block.Mode
 import           Universum
 
 import           Control.Lens.TH             (makeLensesWith)
+import qualified Control.Monad.Catch
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random               as Rand
@@ -31,14 +32,13 @@ import           System.Wlog                 (WithLogger, logWarning)
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
                                               onRollbackBlocksStub)
 import           Pos.Block.Core              (Block, BlockHeader)
-import           Pos.Block.Slog              (HasSlogContext (..))
+import           Pos.Block.Slog              (HasSlogGState (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
 import           Pos.Core                    (Address, GenesisWStakeholders (..),
                                               HasCoreConstants, HasPrimaryKey (..),
-                                              IsHeader, SlotId (..),
-                                              Timestamp, epochOrSlotToSlot,
-                                              getEpochOrSlot)
+                                              IsHeader, SlotId (..), Timestamp,
+                                              epochOrSlotToSlot, getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
 import           Pos.DB                      (DBSum, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
@@ -286,8 +286,8 @@ instance HasLens LrcContext BlockGenContext LrcContext where
 instance HasPrimaryKey BlockGenContext where
     primaryKey = bgcPrimaryKey_L
 
-instance HasSlogContext BlockGenContext where
-    slogContextL = GS.gStateContext . GS.gscSlogContext
+instance HasSlogGState BlockGenContext where
+    slogGState = GS.gStateContext . GS.gscSlogGState
 
 instance HasLens TxpHolderTag BlockGenContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
     lensOf = bgcTxpMem_L

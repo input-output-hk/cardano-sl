@@ -44,6 +44,7 @@ import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
 import qualified Pos.Core.Types                    as Types
+import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
@@ -487,6 +488,19 @@ instance Arbitrary Fee.TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
+instance Arbitrary G.GenesisDelegation where
+    arbitrary =
+        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
+            secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
+                                                        -- because 'nonrepeating' fails when
+                                                        -- we want too many items, because
+                                                        -- life is hard
+            return $
+                case secretKeys of
+                    [] -> []
+                    (delegate:issuers) ->
+                        issuers <&> \sk -> createPsk sk (toPublic delegate) 0
+
 instance Arbitrary G.GenesisCoreData where
     arbitrary = do
         -- This number'll be the length of every address list in the first argument of
@@ -523,9 +537,11 @@ instance Arbitrary G.GenesisCoreData where
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
         hashmapOfHolders <- arbitrary :: Gen (Map Types.StakeholderId Word16)
+        delegation <- arbitrary
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
             G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
                                 hashmapOfHolders
+                                delegation
 
 instance Arbitrary G.StakeDistribution where
     arbitrary = oneof

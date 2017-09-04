@@ -60,7 +60,7 @@ stack ) keygen="stack exec cardano-keygen --";;
 esac
 
 # print commit
-git show HEAD --oneline | tee $outputDir/genesisCreation.log
+PAGER=cat git show HEAD --oneline --no-patch --text | tee $outputDir/genesisCreation.log
 
 keygenCmd="${keygen} generate-genesis --genesis-dir $outputDir -m $M -n $N --richmen-share ${RICHMEN_SHARE} --testnet-stake ${TESTNET_STAKE} --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries ${FAKE_AVVM_ENTRIES}"
 echo "Running command: $keygenCmd"

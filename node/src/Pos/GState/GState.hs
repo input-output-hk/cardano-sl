@@ -14,7 +14,6 @@ import           Control.Monad.Catch    (MonadMask)
 import qualified Database.RocksDB       as Rocks
 import           System.Wlog            (WithLogger)
 
-import           Pos.Context.Functions  (genesisUtxoM)
 import           Pos.Core               (GenesisWStakeholders, HasCoreConstants,
                                          HeaderHash)
 import           Pos.DB.Class           (MonadDB, MonadDBRead)
@@ -23,7 +22,9 @@ import           Pos.DB.GState.Common   (initGStateCommon, isInitialized, setIni
 import           Pos.DB.Rocks           (DB (..), MonadRealDB, NodeDBs (..),
                                          Snapshot (..), gStateDB, getNodeDBs,
                                          usingReadOptions, usingSnapshot)
-import           Pos.Genesis            (GenesisUtxo (..))
+import           Pos.Delegation.DB      (initGStateDlg)
+import           Pos.Genesis            (GenesisContext, gtcDelegation, gtcUtxo,
+                                         gtcWStakeholders)
 import           Pos.GState.BlockExtra  (initGStateBlockExtra)
 import           Pos.Ssc.GodTossing.DB  (initGtDB)
 import           Pos.Txp.DB             (initGStateBalances, initGStateUtxo,
@@ -39,21 +40,22 @@ import qualified Pos.Explorer.DB        as ExplorerDB
 prepareGStateDB ::
        forall ctx m.
        ( MonadReader ctx m
-       , HasLens' ctx GenesisUtxo
-       , HasLens' ctx GenesisWStakeholders
+       , HasLens' ctx GenesisContext
        , MonadDB m
        , HasCoreConstants)
     => HeaderHash
     -> m ()
 prepareGStateDB initialTip = unlessM isInitialized $ do
-    genesisUtxo <- genesisUtxoM
-    genesisWStakeholders <- view lensOf'
+    genesisUtxo <- view (lensOf' . gtcUtxo)
+    genesisWStakeholders <- view (lensOf' . gtcWStakeholders)
+    genesisDelegation <- view (lensOf' . gtcDelegation)
 
     initGStateCommon initialTip
     initGStateUtxo genesisUtxo
     initGtDB
     initGStateBalances genesisUtxo genesisWStakeholders
     initGStateUS
+    initGStateDlg genesisDelegation
     initGStateBlockExtra initialTip
 
     setInitialized

@@ -35,7 +35,7 @@ import           Pos.Block.BListener    (MonadBListener (..))
 import           Pos.Block.Core         (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Block.Pure         (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types   (HasSlogContext, LastBlkSlots, SlogUndo (..))
+import           Pos.Block.Slog.Types   (HasSlogGState, LastBlkSlots, SlogUndo (..))
 import           Pos.Block.Types        (Blund, Undo (..))
 import           Pos.Constants          (lastKnownBlockVersion)
 import           Pos.Context            (lrcActionOnEpochReason)
@@ -186,7 +186,7 @@ type MonadSlogApply ssc ctx m =
     , MonadBListener m
     , MonadMask m
     , MonadReader ctx m
-    , HasSlogContext ctx
+    , HasSlogGState ctx
     , HasLens' ctx GenesisWStakeholders
     )
 

@@ -52,18 +52,18 @@ type EGlobalVerifyToilMode ctx m =
 -- example, it implies topological sort).
 eApplyToil
     :: EGlobalApplyToilMode ctx m
-    => Timestamp
+    => Maybe Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
     -> m ()
-eApplyToil curTime txun hh = do
+eApplyToil mTxTimestamp txun hh = do
     Txp.applyToil txun
     mapM_ applier $ zip [0..] txun
   where
     applier (i, (txAux, txUndo)) = do
         let tx = taTx txAux
             id = hash tx
-            newExtra = TxExtra (Just (hh, i)) curTime txUndo
+            newExtra = TxExtra (Just (hh, i)) mTxTimestamp txUndo
         extra <- fromMaybe newExtra <$> getTxExtra id
         putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txUndo
         let balanceUpdate = getBalanceUpdate txAux txUndo

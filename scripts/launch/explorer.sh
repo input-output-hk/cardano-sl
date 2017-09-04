@@ -17,12 +17,13 @@ if [[ "$2" != "" ]]; then
     n=$2
 fi
 
-# We presume we already launched 3 nodes before, we select the last pane.
+# We presume we already launched n nodes before, we select the last pane.
+# TODO: I'm not sure that choosing topology0.yaml is a correct way to do (@volhovm)
 source "$common_path"
 cmd="stack exec cardano-explorer -- 
       --rebuild-db \
       --flat-distr ($n,100000) \
-      --listen 127.0.0.1:3003 \
+      --listen 127.0.0.1:300$n \
       --system-start $system_start \
       --log-config explorer/log-config.yaml \
       --topology ./run/topology0.yaml \

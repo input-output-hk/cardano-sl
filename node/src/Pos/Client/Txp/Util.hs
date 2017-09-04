@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
 -- | Pure functions for operations with transactions
@@ -26,6 +27,9 @@ module Pos.Client.Txp.Util
        -- * Additional datatypes
        , TxError (..)
        , isCheckedTxError
+
+       , TxOutputs
+       , TxWithSpendings
        ) where
 
 import           Universum
@@ -33,6 +37,7 @@ import           Universum
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import qualified Data.HashMap.Strict      as HM
+import qualified Data.HashSet             as HS
 import           Data.List                (tail)
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Map                 as M
@@ -40,13 +45,14 @@ import qualified Data.Semigroup           as S
 import qualified Data.Text.Buildable
 import qualified Data.Vector              as V
 import           Formatting               (bprint, build, sformat, stext, (%))
+import           Serokell.Util            (listJson)
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
-                                           calculateTxSizeLinear, integerToCoin,
+                                           calculateTxSizeLinear, coinToInteger,
                                            integerToCoin, isRedeemAddress, unsafeAddCoin,
-                                           unsafeSubCoin)
+                                           unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
                                            SignTag (SignRedeemTx, SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
@@ -66,6 +72,10 @@ type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
 type TxWithSpendings = (TxAux, NonEmpty TxOut)
 
+instance Buildable TxWithSpendings where
+    build (txAux, neTxOut) =
+        bprint ("("%build%", "%listJson%")") txAux neTxOut
+
 -- This datatype corresponds to raw transaction.
 data TxRaw = TxRaw
     { trInputs         :: !(TxOwnedInputs TxOut)
@@ -77,11 +87,19 @@ data TxRaw = TxRaw
     }
 
 data TxError =
-      NotEnoughMoney !Coin    -- ^ Parameter: how much more money is needed
-    | FailedToStabilize       -- ^ Parameter: how many attempts were performed
-    | OutputIsRedeem !Address -- ^ One of the tx outputs is a redemption address
-    | RedemptionDepleted      -- ^ Redemption address has already been used
-    | GeneralTxError !Text    -- ^ Parameter: description of the problem
+      NotEnoughMoney !Coin
+      -- ^ Parameter: how much more money is needed
+    | NotEnoughAllowedMoney !Coin
+      -- ^ Parameter: how much more money is needed and which available input addresses
+      -- are present in output addresses set
+    | FailedToStabilize
+      -- ^ Parameter: how many attempts were performed
+    | OutputIsRedeem !Address
+      -- ^ One of the tx outputs is a redemption address
+    | RedemptionDepleted
+      -- ^ Redemption address has already been used
+    | GeneralTxError !Text
+      -- ^ Parameter: description of the problem
     deriving (Show, Generic)
 
 instance Exception TxError
@@ -89,10 +107,13 @@ instance Exception TxError
 instance Buildable TxError where
     build (NotEnoughMoney coin) =
         bprint ("Transaction creation error: not enough money, need "%build%" more") coin
+    build (NotEnoughAllowedMoney coin) =
+        bprint ("Transaction creation error: not enough money on addresses which are not included \
+                \in output addresses set, need "%build%" more") coin
     build FailedToStabilize =
         "Transaction creation error: failed to stabilize fee"
     build (OutputIsRedeem addr) =
-        bprint ("Destination address "%build%" is a redemption address") addr
+        bprint ("Output address "%build%" is a redemption address") addr
     build RedemptionDepleted =
         bprint "Redemption address balance is 0"
     build (GeneralTxError msg) =
@@ -206,9 +227,34 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
 
 type FlatUtxo = [(TxIn, TxOutAux)]
 
+-- | Group of unspent transaction outputs which belongs
+-- to one address
+data UtxoGroup = UtxoGroup
+    { ugAddr       :: !Address
+    , ugTotalMoney :: !Coin
+    , ugUtxo       :: !(NonEmpty (TxIn, TxOutAux))
+    }
+
+-- | Helper for summing values of `TxOutAux`s
+sumTxOutCoins :: NonEmpty TxOutAux -> Integer
+sumTxOutCoins = sumCoins . map (txOutValue . toaOut)
+
+-- | Group unspent outputs by addresses
+groupUtxo :: Utxo -> [UtxoGroup]
+groupUtxo utxo =
+    map mkUtxoGroup preUtxoGroups
+  where
+    futxo = M.toList utxo
+    preUtxoGroups = NE.groupAllWith (txOutAddress . toaOut . snd) futxo
+    mkUtxoGroup ugUtxo@(sample :| _) =
+        let ugAddr = txOutAddress . toaOut . snd $ sample
+            ugTotalMoney = unsafeIntegerToCoin . sumTxOutCoins $
+                map snd ugUtxo
+        in UtxoGroup {..}
+
 data InputPickerState = InputPickerState
-    { _ipsMoneyLeft        :: !Coin
-    , _ipsAvailableOutputs :: !FlatUtxo
+    { _ipsMoneyLeft             :: !Coin
+    , _ipsAvailableOutputGroups :: ![UtxoGroup]
     }
 
 makeLenses ''InputPickerState
@@ -233,7 +279,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
     let totalMoneyWithFee = totalMoney `unsafeAddCoin` fee
     futxo <- either throwError pure $
-        evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedUnspent)
+        evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedGroups)
     case nonEmpty futxo of
         Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
         Just inputsNE -> do
@@ -244,10 +290,15 @@ prepareTxRaw utxo outputs (TxFee fee) = do
             pure TxRaw {..}
   where
     sumTxOuts = either (throwError . GeneralTxError) pure .
-        integerToCoin . sumCoins . map (txOutValue . toaOut)
-    allUnspent = M.toList utxo
-    sortedUnspent =
-        sortOn (Down . txOutValue . toaOut . snd) allUnspent
+        integerToCoin . sumTxOutCoins
+    gUtxo = groupUtxo utxo
+    outputAddrsSet = foldl' (flip HS.insert) mempty $
+        map (txOutAddress . toaOut) outputs
+    isOutputAddr = flip HS.member outputAddrsSet
+    sortedGroups = sortOn (Down . ugTotalMoney) $
+        filter (not . isOutputAddr . ugAddr) gUtxo
+    disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo
+    disallowedMoney = sumCoins $ map ugTotalMoney disallowedInputGroups
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
@@ -255,13 +306,15 @@ prepareTxRaw utxo outputs (TxFee fee) = do
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOut <- head <$> use ipsAvailableOutputs
-                case mNextOut of
-                    Nothing -> throwError $ NotEnoughMoney moneyLeft
-                    Just inp@(_, (TxOutAux (TxOut {..}))) -> do
-                        ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
-                        ipsAvailableOutputs %= tail
-                        pickInputs (inp : inps)
+                mNextOutGroup <- head <$> use ipsAvailableOutputGroups
+                case mNextOutGroup of
+                    Nothing -> if disallowedMoney >= coinToInteger moneyLeft
+                        then throwError $ NotEnoughAllowedMoney moneyLeft
+                        else throwError $ NotEnoughMoney moneyLeft
+                    Just UtxoGroup {..} -> do
+                        ipsMoneyLeft .= unsafeSubCoin moneyLeft (min ugTotalMoney moneyLeft)
+                        ipsAvailableOutputGroups %= tail
+                        pickInputs (toList ugUtxo ++ inps)
 
     formTxInputs (inp, TxOutAux txOut) = (txOut, inp)
 

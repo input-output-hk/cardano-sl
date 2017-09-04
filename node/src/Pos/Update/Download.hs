@@ -13,7 +13,7 @@ import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
-import qualified Data.Set                as S
+import qualified Data.HashSet            as HS
 import           Ether.Internal          (HasLens (..))
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
@@ -22,7 +22,7 @@ import           Network.HTTP.Simple     (getResponseBody, getResponseStatus,
                                           getResponseStatusCode, httpLBS, parseRequest,
                                           setRequestManager)
 import qualified Serokell.Util.Base16    as B16
-import           Serokell.Util.Text      (listJsonIndent)
+import           Serokell.Util.Text      (listJson, listJsonIndent)
 import           System.Directory        (doesFileExist)
 import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
@@ -32,7 +32,7 @@ import           Pos.Constants           (appSystemTag, curSoftwareVersion)
 import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Update.Context      (UpdateContext (..))
-import           Pos.Update.Core.Types   (UpId, UpdateData (..), UpdateProposal (..))
+import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Mode         (UpdateMode)
 import           Pos.Update.Params       (UpdateParams (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
@@ -53,22 +53,34 @@ downloadUpdate :: forall ctx m . UpdateMode ctx m => ConfirmedProposalState -> m
 downloadUpdate cst@ConfirmedProposalState {..} = do
     unlessM (liftIO . doesFileExist =<< views (lensOf @UpdateParams) upUpdatePath) $ do
         downSetVar <- views (lensOf @UpdateContext) ucDownloadingUpdates
-        let upId = hash cpsUpdateProposal
-        whenM (tryPutToSet downSetVar upId) $
-            downloadUpdateDo cst
-            `finally` (atomically $ modifyTVar' downSetVar (S.delete upId))
+        (forDownload, downSet) <- tryPutToSet downSetVar cpsUpdateProposal
+        if forDownload
+           then do
+              logDebug $ sformat ("Update downloading triggered, download state: "%listJson)
+                                 downSet
+              downloadUpdateDo cst
+                `finally` clear downSetVar cpsUpdateProposal
+           else
+              logDebug $ sformat ("Update downloading already in progress, download state: "%listJson)
+                                 downSet
+
   where
+    clear downSetVar up = do
+        downSet <- atomically $ do
+            modifyTVar' downSetVar (HS.delete cpsUpdateProposal)
+            readTVar downSetVar
+        logDebug $ sformat ("Update "%build%" downloaded, download state: "%listJson)
+                           up downSet
     -- Whether to start downloading?
-    tryPutToSet :: TVar (Set UpId) -> UpId -> m Bool
-    tryPutToSet downSetVar upId = atomically $ do
+    tryPutToSet downSetVar up = atomically $ do
         downSet <- readTVar downSetVar
-        if S.member upId downSet then pure False
-        else True <$ writeTVar downSetVar (S.insert upId downSet)
+        if HS.member up downSet then pure (False, downSet)
+        else let downSet' = HS.insert up downSet
+              in (True, downSet') <$ writeTVar downSetVar downSet'
 
 -- | Download and save archive update by given `ConfirmedProposalState`
 downloadUpdateDo :: UpdateMode ctx m => ConfirmedProposalState -> m ()
 downloadUpdateDo cst@ConfirmedProposalState {..} = do
-    logDebug "Update downloading triggered"
     useInstaller <- views (lensOf @UpdateParams) upUpdateWithPkg
     updateServers <- views (lensOf @UpdateParams) upUpdateServers
 

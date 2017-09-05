@@ -2,6 +2,7 @@
 module Rendering ( render
                  , renderBlock
                  , renderBlocks
+                 , renderHeader
                  ) where
 
 import qualified Data.Text          as T
@@ -9,15 +10,15 @@ import           Formatting         hiding (bytes)
 import           Options            (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Block.Core     (Block, BlockHeader, GenericBlockHeader, GenesisBlock,
                                      GenesisBlockHeader (..), MainBlock, MainBlockHeader,
-                                     gbConsensus, gbhConsensus, getBlockHeader, _gbHeader,
-                                     _gbhConsensus, _gcdEpoch)
+                                     blockHeaderHash, gbConsensus, gbhConsensus,
+                                     getBlockHeader, _gbHeader, _gbhConsensus, _gcdEpoch)
 import           Pos.Core           (EpochIndex, EpochOrSlot (..), HasCoreConstants,
                                      LocalSlotIndex (..), SlotId (..), getEpochIndex,
                                      getEpochOrSlot)
 import           Pos.Ssc.GodTossing (SscGodTossing)
 import           Text.Tabl          (Alignment (..), Decoration (..),
                                      Environment (EnvAscii), tabl)
-import           Types              (DBFolderStat)
+import           Types              (DBFolderStat, prevBlock)
 
 import           Universum
 
@@ -75,39 +76,51 @@ renderAsciiTable uom stats =
     vdecor = DecorAll
     aligns = [AlignLeft, AlignLeft]
 
-renderHeader :: CLIOptions -> Text
-renderHeader cli = case printMode cli of
-    Human      -> mempty
-    AsciiTable ->
-        let rows   = [["Block Type", "Epoch", "Slot", "Previous Block", "Block Hash"]]
-            hdecor = DecorUnion [DecorOuter, DecorOnly [1]]
-            vdecor = DecorAll
-            aligns = replicate 5 AlignLeft
-        in tabl EnvAscii hdecor vdecor aligns rows
-    CSV        -> "Block Type,Epoch,Slot,PrevBlock,BlockHash"
-
 renderBlock :: HasCoreConstants
             => CLIOptions
             -> Block SscGodTossing
             -> Text
 renderBlock cli block = case printMode cli of
     Human      -> renderBlockHuman block
-    AsciiTable -> renderBlockTable [toTableRow block]
+    AsciiTable -> let rows = [toTableRow block]
+                  in renderAsTable DecorNone DecorNone (defaultAlignment rows) rows
     CSV        -> renderBlockCSV block
 
 renderBlockHuman :: HasCoreConstants => Block SscGodTossing -> Text
 renderBlockHuman = either (sformat build) (sformat build)
 
 renderBlockCSV :: HasCoreConstants => Block SscGodTossing -> Text
-renderBlockCSV _   = "todo."
+renderBlockCSV = T.intercalate "," . toTableRow
 
--- Epoch|Slot|Previous block|Block hash|Issuer|Number of txs|Size of header|Size of block (serialized)|Size of block+undo on disk
-renderBlockTable :: [[Text]] -> Text
-renderBlockTable rows =
-  let hdecor = DecorUnion [DecorOuter, DecorOnly [1]]
-      vdecor = DecorAll
-      aligns = replicate (length rows) AlignCentre
-  in tabl EnvAscii hdecor vdecor aligns rows
+defaultHorizontalDecoration :: Decoration
+defaultHorizontalDecoration = DecorUnion [DecorOuter, DecorOnly [1]]
+
+defaultVerticalDecoration :: Decoration
+defaultVerticalDecoration = DecorAll
+
+defaultAlignment :: [a] -> [Alignment]
+defaultAlignment rows = replicate (length rows) AlignCentre
+
+renderAsTable :: Decoration
+              -> Decoration
+              -> [Alignment]
+              -> [[Text]] -> Text
+renderAsTable hdecor vdecor aligns rows = tabl EnvAscii hdecor vdecor aligns rows
+
+renderHeader :: CLIOptions -> Text
+renderHeader cli = case printMode cli of
+    Human      -> mempty
+    AsciiTable -> renderAsTable defaultHorizontalDecoration defaultVerticalDecoration (defaultAlignment [header]) [header]
+    CSV        -> T.intercalate "," header
+
+header :: [T.Text]
+header = [
+           "Block Type"
+         , "Epoch"
+         , "Slot"
+         , "Previous Block"
+         , "Block Hash"
+         ]
 
 renderBlocks :: HasCoreConstants
              => CLIOptions
@@ -115,15 +128,9 @@ renderBlocks :: HasCoreConstants
              -> Text
 renderBlocks cli blocks = case printMode cli of
     Human      -> T.unlines $ map renderBlockHuman blocks
-    AsciiTable ->
-        let header = [
-                  "Block Type"
-                , "Epoch"
-                , "Slot"
-                , "Todo"
-                ]
-        in renderBlockTable (header : map toTableRow blocks)
-    CSV        -> T.unlines $ map renderBlockCSV blocks
+    AsciiTable -> let rows = header : map toTableRow blocks
+                  in renderAsTable defaultHorizontalDecoration defaultVerticalDecoration (defaultAlignment rows) rows
+    CSV        -> T.unlines (renderHeader cli : map renderBlockCSV blocks)
 
 
 getEpoch :: BlockHeader SscGodTossing -> EpochIndex
@@ -138,11 +145,13 @@ getSlot = either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot
 -- by `tabl`.
 toTableRow :: HasCoreConstants => Block SscGodTossing -> [Text]
 toTableRow block =
-    let (blockHeader :: BlockHeader SscGodTossing) = getBlockHeader block
-        epoch       = getEpochIndex (getEpoch blockHeader)
-        blockType   = either (const "GENESIS") (const "MAIN") block
-        slot        = maybe "-" (sformat build . getSlotIndex . siSlot) (getSlot blockHeader)
-    in [blockType, sformat build epoch, sformat build slot, "todo" ] -- sformat build blockHeader]
+    let blockHeader   = getBlockHeader block
+        previousBlock = sformat build (prevBlock block)
+        blockHash     = sformat build (blockHeaderHash blockHeader)
+        epoch         = sformat build (getEpochIndex (getEpoch blockHeader))
+        blockType     = either (const "GENESIS") (const "MAIN") block
+        slot          = maybe "-" (sformat build . getSlotIndex . siSlot) (getSlot blockHeader)
+    in [blockType, epoch, slot, previousBlock, blockHash]
 
 {--
 -- | Block.

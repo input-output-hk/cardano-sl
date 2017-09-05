@@ -10,7 +10,8 @@
 module Types ( initBlockchainAnalyser
              , DBFolderStat
              , BlockchainInspector
-             , ) where
+             , prevBlock
+             ) where
 
 import           Universum
 
@@ -20,14 +21,10 @@ import           Ether.Internal       (HasLens (..))
 import           Mockable             (Production)
 
 import           Pos.Block.Core       (Block, BlockHeader)
-import           Pos.Block.Slog       (SlogContext, mkSlogContext)
 import           Pos.Block.Types      (Undo)
-import           Pos.Context          (GenesisUtxo (..))
-import           Pos.Core             (GenesisWStakeholders, HasCoreConstants,
-                                       Timestamp (..))
-import           Pos.DB               (MonadBlockDBGeneric (..),
-                                       MonadBlockDBGenericWrite (..), MonadDB (..),
-                                       MonadDBRead (..))
+import           Pos.Core             (HasCoreConstants, HeaderHash)
+import           Pos.Core.Block       (gbHeader, gbPrevBlock, gbhPrevBlock)
+import           Pos.DB               (MonadBlockDBGeneric (..), MonadDBRead (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.Block         as BDB
 import           Pos.DB.Sum           (DBSum (..))
@@ -81,3 +78,7 @@ instance
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
     dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
     dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
+
+prevBlock :: HasCoreConstants => Block SscGodTossing -> HeaderHash
+prevBlock (Left gB)  = gB ^. gbHeader . gbhPrevBlock
+prevBlock (Right mB) = mB ^. gbPrevBlock

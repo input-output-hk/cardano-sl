@@ -19,9 +19,9 @@ import           System.Directory   (canonicalizePath, doesDirectoryExist, getFi
                                      listDirectory, withCurrentDirectory)
 
 import           Options            (CLIOptions (..), PrintMode, getOptions)
-import           Rendering          (render, renderBlock, renderBlocks)
+import           Rendering          (render, renderBlock, renderBlocks, renderHeader)
 import           Types              (BlockchainInspector, DBFolderStat,
-                                     initBlockchainAnalyser)
+                                     initBlockchainAnalyser, prevBlock)
 
 import           Universum
 
@@ -60,15 +60,12 @@ main = giveStaticConsts $ do
 
 analyseBlockchain :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchain cli tip =
-    if incremental cli then analyseBlockchainIncrementally cli tip
+    if incremental cli then do liftIO $ putText (renderHeader cli)
+                               analyseBlockchainIncrementally cli tip
                        else analyseBlockchainEagerly cli tip
 
 fetchBlock :: HasCoreConstants => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
 fetchBlock = DB.dbGetBlockSumDefault @SscGodTossing
-
-prevBlock :: HasCoreConstants => Block SscGodTossing -> HeaderHash
-prevBlock (Left gB)  = gB ^. gbHeader . gbhPrevBlock
-prevBlock (Right mB) = mB ^. gbPrevBlock
 
 analyseBlockchainEagerly :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchainEagerly cli currentTip = do

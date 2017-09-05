@@ -5,15 +5,15 @@ module Pos.KnownPeers (
   , MonadFormatPeers(..)
   ) where
 
-import Control.Monad.Trans.Class
-import Universum
-import Formatting (Format)
-import Pos.Communication.Types.Protocol (NodeId)
-import Pos.Network.Types (Bucket)
-import Network.Broadcast.OutboundQueue (Peers)
+import           Control.Monad.Trans.Class
+import           Formatting                       (Format)
+import           Network.Broadcast.OutboundQueue  (Peers)
+import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Network.Types                (Bucket)
+import           Universum
 
 class MonadKnownPeers m where
-  updatePeersBucket :: Bucket -> (Peers NodeId -> Peers NodeId) -> m Bool
+    updatePeersBucket :: Bucket -> (Peers NodeId -> Peers NodeId) -> m Bool
 
 instance {-# OVERLAPPABLE #-}
     ( Monad m, MonadTrans f, MonadKnownPeers m ) =>
@@ -22,9 +22,9 @@ instance {-# OVERLAPPABLE #-}
 
 -- | For debugging: return formatted list of peers, if available
 class MonadFormatPeers m where
-  formatKnownPeers :: (forall a . Format r a -> a) -> m (Maybe r)
+    formatKnownPeers :: (forall a . Format r a -> a) -> m (Maybe r)
 
 instance {-# OVERLAPPABLE #-}
     ( Monad m, MonadTrans f, MonadFormatPeers m ) =>
         MonadFormatPeers (f m) where
-  formatKnownPeers k = lift (formatKnownPeers k)
+    formatKnownPeers k = lift (formatKnownPeers k)

@@ -14,6 +14,7 @@ module Test.Pos.Block.Logic.Mode
        , BlockTestContext(..)
        , BlockTestMode
        , runBlockTestMode
+       , initBlockTestContext
 
        , BlockProperty
        , blockPropertyToProperty
@@ -34,6 +35,12 @@ module Test.Pos.Block.Logic.Mode
        , btcDelegationL
        , btcPureDBSnapshotsL
        , btcAllSecretsL
+
+       -- MonadSlots
+       , getCurrentSlotTestDefault
+       , getCurrentSlotBlockingTestDefault
+       , getCurrentSlotInaccurateTestDefault
+       , currentTimeSlottingTestDefault
        ) where
 
 import           Universum
@@ -90,8 +97,8 @@ import           Pos.Network.Types              (HasNodeType (..), NodeType (..)
 import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
-                                                 SimpleSlottingVar, SlottingData,
-                                                 currentTimeSlottingSimple,
+                                                 SimpleSlottingMode, SimpleSlottingVar,
+                                                 SlottingData, currentTimeSlottingSimple,
                                                  getCurrentSlotBlockingSimple,
                                                  getCurrentSlotInaccurateSimple,
                                                  getCurrentSlotSimple,
@@ -476,22 +483,40 @@ instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
     getLoggerName = getLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
+type TestSlottingContext ctx m =
+    ( SimpleSlottingMode ctx m
+    , HasLens BlockTestContextTag ctx BlockTestContext
+    )
+
+testSlottingHelper
+    :: TestSlottingContext ctx m
+    => (SimpleSlottingVar -> m a)
+    -> (SlotId -> a)
+    -> m a
+testSlottingHelper targetF alternative = do
+    BlockTestContext{..} <- view (lensOf @BlockTestContextTag)
+    case btcSlotId of
+        Nothing   -> targetF btcSSlottingVar
+        Just slot -> pure $ alternative slot
+
+getCurrentSlotTestDefault :: TestSlottingContext ctx m => m (Maybe SlotId)
+getCurrentSlotTestDefault = testSlottingHelper getCurrentSlotSimple Just
+
+getCurrentSlotBlockingTestDefault :: TestSlottingContext ctx m => m SlotId
+getCurrentSlotBlockingTestDefault = testSlottingHelper getCurrentSlotBlockingSimple identity
+
+getCurrentSlotInaccurateTestDefault :: TestSlottingContext ctx m => m SlotId
+getCurrentSlotInaccurateTestDefault = testSlottingHelper getCurrentSlotInaccurateSimple identity
+
+currentTimeSlottingTestDefault :: SimpleSlottingMode ctx m => m Timestamp
+currentTimeSlottingTestDefault = currentTimeSlottingSimple
+
 instance (HasConfiguration, MonadSlotsData ctx BlockTestMode)
-      => MonadSlots ctx BlockTestMode
-  where
-    getCurrentSlot = do
-        view btcSlotIdL >>= \case
-            Nothing -> getCurrentSlotSimple =<< view btcSSlottingVarL
-            Just slot -> pure (Just slot)
-    getCurrentSlotBlocking =
-        view btcSlotIdL >>= \case
-            Nothing -> getCurrentSlotBlockingSimple =<< view btcSSlottingVarL
-            Just slot -> pure slot
-    getCurrentSlotInaccurate =
-        view btcSlotIdL >>= \case
-            Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVarL
-            Just slot -> pure slot
-    currentTimeSlotting = currentTimeSlottingSimple
+        => MonadSlots ctx BlockTestMode where
+    getCurrentSlot = getCurrentSlotTestDefault
+    getCurrentSlotBlocking = getCurrentSlotBlockingTestDefault
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateTestDefault
+    currentTimeSlotting = currentTimeSlottingTestDefault
 
 instance HasConfiguration => MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault

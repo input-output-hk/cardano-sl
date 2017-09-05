@@ -6,6 +6,7 @@
 module Pos.Wallet.Web.Methods.Payment
        ( newPayment
        , getTxFee
+       , getNewAddressWebWallet
        ) where
 
 import           Universum
@@ -22,8 +23,8 @@ import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (computeTxFee, runTxCreator)
 import           Pos.Communication                (SendActions (..), prepareMTx)
 import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (Coin, HasConfiguration, addressF,
-                                                   getCurrentTimestamp,
+import           Pos.Core                         (Address, Coin, Coin, HasConfiguration,
+                                                   addressF, getCurrentTimestamp,
                                                    largestHDAddressBoot)
 import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
                                                    checkPassMatches, hash,
@@ -133,12 +134,15 @@ instance
     => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode
   where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
-    getNewAddress (accId, passphrase) = do
-        clientAddress <- L.newAddress RandomSeed passphrase accId
-        decodeCTypeOrFail (cadId clientAddress)
     -- We rely on the fact that Daedalus always uses HD addresses with
     -- BootstrapEra distribution.
     getFakeChangeAddress = pure largestHDAddressBoot
+    getNewAddress = getNewAddressWebWallet
+
+getNewAddressWebWallet :: MonadWalletWebMode ctx m => (AccountId, PassPhrase) -> m Address
+getNewAddressWebWallet (accId, passphrase) = do
+    clientAddress <- L.newAddress RandomSeed passphrase accId
+    decodeCTypeOrFail (cadId clientAddress)
 
 sendMoney
     :: MonadWalletWebMode ctx m

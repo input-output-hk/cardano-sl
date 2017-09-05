@@ -10,6 +10,8 @@ module Pos.Wallet.Web.Mode
        , MonadWebSockets
        , MonadFullWalletWebMode
        , EmptyMempoolExt
+
+       , getOwnUtxosDefault
        ) where
 
 import           Universum
@@ -39,8 +41,9 @@ import           Pos.Client.Txp.History           (MonadTxHistory (..),
                                                    getBlockHistoryDefault,
                                                    getLocalHistoryDefault, saveTxDefault)
 import           Pos.Context                      (HasNodeContext (..))
-import           Pos.Core                         (HasConfiguration, HasPrimaryKey (..),
-                                                   IsHeader, isRedeemAddress)
+import           Pos.Core                         (Address, HasConfiguration,
+                                                   HasPrimaryKey (..), IsHeader,
+                                                   isRedeemAddress)
 import           Pos.Crypto                       (PassPhrase)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.DB.Block                     (MonadBlockDB, dbGetBlockDefault,
@@ -74,7 +77,7 @@ import           Pos.Ssc.Class.Types              (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.StateLock                    (StateLock)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
-                                                   MonadTxpMem, addrBelongsToSet,
+                                                   MonadTxpMem, Utxo, addrBelongsToSet,
                                                    getUtxoModifier, txNormalize,
                                                    txProcessTransaction)
 import qualified Pos.Txp.DB                       as DB
@@ -103,10 +106,11 @@ import           Pos.Wallet.Redirect              (MonadBlockchainInfo (..),
 import           Pos.Wallet.Web.Account           (AccountMode)
 import           Pos.Wallet.Web.ClientTypes       (AccountId)
 import           Pos.Wallet.Web.Sockets.ConnSet   (ConnectionsVar)
-import           Pos.Wallet.Web.State             (getWalletUtxo)
-import           Pos.Wallet.Web.State.State       (WalletState)
-import           Pos.Wallet.Web.Tracking          (MonadBListener (..), onApplyTracking,
-                                                   onRollbackTracking)
+import           Pos.Wallet.Web.State             (WalletState, WebWalletModeDB,
+                                                   getWalletUtxo)
+import           Pos.Wallet.Web.Tracking          (MonadBListener (..),
+                                                   onApplyBlocksWebWallet,
+                                                   onRollbackBlocksWebWallet)
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
@@ -255,10 +259,10 @@ instance (HasConfiguration, HasGtConfiguration) =>
 instance HasConfiguration => MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
-         MonadBListener WalletWebMode where
-    onApplyBlocks = onApplyTracking
-    onRollbackBlocks = onRollbackTracking
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+       => MonadBListener WalletWebMode where
+    onApplyBlocks = onApplyBlocksWebWallet
+    onRollbackBlocks = onRollbackBlocksWebWallet
 
 instance MonadUpdates WalletWebMode where
     waitForUpdate = waitForUpdateWebWallet
@@ -271,28 +275,33 @@ instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) =>
     connectedPeers = connectedPeersWebWallet
     blockchainSlotDuration = blockchainSlotDurationWebWallet
 
+type BalancesEnv ext ctx m =
+    ( MonadDBRead m
+    , MonadGState m
+    , WebWalletModeDB ctx m
+    , MonadMask m
+    , MonadTxpMem ext ctx m)
+
+getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
+getOwnUtxosDefault addrs = do
+    let (redeemAddrs, commonAddrs) = partition isRedeemAddress addrs
+
+    updates <- getUtxoModifier
+    commonUtxo <- if null commonAddrs then pure mempty
+                  else getWalletUtxo
+    redeemUtxo <- if null redeemAddrs then pure mempty
+                  else DB.getFilteredUtxo redeemAddrs
+
+    let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
+        addrsSet = HS.fromList addrs
+    pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
+
 instance HasConfiguration => MonadBalances WalletWebMode where
-    getOwnUtxos addrs = do
-        let (redeemAddrs, commonAddrs) = partition isRedeemAddress addrs
-
-        updates <- getUtxoModifier
-        commonUtxo <- if null commonAddrs then pure mempty
-                        else getWalletUtxo
-        redeemUtxo <- if null redeemAddrs then pure mempty
-                        else DB.getFilteredUtxo redeemAddrs
-
-        let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
-            addrsSet = HS.fromList addrs
-        pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
-
+    getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 
-instance ( HasConfiguration
-         , HasGtConfiguration
-         , HasInfraConfiguration
-         , HasCompileInfo
-         ) =>
-         MonadTxHistory WalletWebMode where
+instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration, HasCompileInfo)
+        => MonadTxHistory WalletWebMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault

@@ -62,6 +62,13 @@ let
       cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
+      # Undo configuration-nix.nix change to hardcode security binary on darwin
+      # This is needed for macOS binary not to fail during update system (using http-client-tls)
+      # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
+      x509-system = overrideDerivation super.x509-system (drv: {
+        postPatch = ":";
+      });
+
       # Gold linker fixes
       cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
 

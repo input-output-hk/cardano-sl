@@ -32,8 +32,8 @@ import           Pos.Core                  (AddrDistribution, Coin, EpochIndex,
                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
                                             unsafeMulCoin, unsafeSubCoin)
 import           Pos.Crypto                (SecretKey, toPublic, unsafeHash)
-import           Pos.Genesis               (GenesisContext (..), GenesisUtxo (..),
-                                            StakeDistribution (..), concatAddrDistrs,
+import           Pos.Genesis               (BalanceDistribution (..), GenesisContext (..),
+                                            GenesisUtxo (..), concatAddrDistrs,
                                             noGenesisDelegation)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
@@ -98,7 +98,7 @@ genTestParams = do
     addressesAndDistrs <-
         mapM (genAddressesAndDistrs totalStakeGroup (toList invSecretsMap))
              (enumerate allRichmenComponents)
-    let _tpStakeDistributions = snd <$> addressesAndDistrs
+    let _tpBalanceDistributions = snd <$> addressesAndDistrs
     let _tpGenesisContext = genesisContextSimple addressesAndDistrs
     return TestParams {..}
   where
@@ -150,7 +150,7 @@ genTestParams = do
                     [poorStake, richStake1, richStake2]
         let stakes = [poorStake, richStake1, richStake2, richStake3]
         case richStake3 >= thresholdCoin of
-            True  -> return (addresses, CustomStakes stakes)
+            True  -> return (addresses, CustomBalances stakes)
             False -> error "threshold is too big, tests are not ready for it"
 
 lrcCorrectnessProp :: HasCoreConstants => BlockProperty ()

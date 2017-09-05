@@ -22,13 +22,13 @@ library
     Pos.Txp.Core.Types
 
     Pos.Txp.DB
-    Pos.Txp.DB.Balances
+    Pos.Txp.DB.Stakes
     Pos.Txp.DB.Utxo
 
     Pos.Txp.Toil
-    Pos.Txp.Toil.Balances
-    Pos.Txp.Toil.Balances.Functions
-    Pos.Txp.Toil.Balances.Pure
+    Pos.Txp.Toil.Stakes
+    Pos.Txp.Toil.Stakes.Functions
+    Pos.Txp.Toil.Stakes.Pure
     Pos.Txp.Toil.Class
     Pos.Txp.Toil.DBToil
     Pos.Txp.Toil.Failure

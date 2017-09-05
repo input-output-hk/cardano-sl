@@ -1,4 +1,3 @@
-
 -- | Former avvm-migration script. Parses rscoin-dump to create
 -- genesis block of CSL.
 
@@ -19,7 +18,7 @@ import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Crypto           (RedeemPublicKey (..), redeemPkBuild)
-import           Pos.Genesis          (AddrDistribution, StakeDistribution (..))
+import           Pos.Genesis          (AddrDistribution, BalanceDistribution (..))
 import           Pos.Types            (Address, Coin, makeRedeemAddress, unsafeAddCoin,
                                        unsafeIntegerToCoin)
 
@@ -77,7 +76,7 @@ avvmAddrDistribution
     :: AvvmData
     -> [AddrDistribution]
 avvmAddrDistribution (utxo -> avvmData) =
-    one $ (HM.keys balances, CustomStakes $ HM.elems balances)
+    one $ (HM.keys balances, CustomBalances $ HM.elems balances)
   where
 --    randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
 --                            | c <- runGen (replicateM 10 arbitrary)]

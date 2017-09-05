@@ -2,6 +2,7 @@ module Pos.Core.Fee
        ( Coeff(..)
        , TxSizeLinear(..)
        , calculateTxSizeLinear
+       , txSizeLinearMinValue
        , TxFeePolicy(..)
        ) where
 
@@ -37,6 +38,9 @@ calculateTxSizeLinear
     (TxSizeLinear (Coeff a) (Coeff b))
     (fromInteger . toBytes -> txSize) =
         a + b * txSize
+
+txSizeLinearMinValue :: TxSizeLinear -> Nano
+txSizeLinearMinValue (TxSizeLinear (Coeff minVal) _) = minVal
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed
 -- fee for a transaction. Transactions with lesser fees won't be accepted. The

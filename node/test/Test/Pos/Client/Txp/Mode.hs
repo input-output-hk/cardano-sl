@@ -26,7 +26,7 @@ import           Pos.Block.Types                (Undo)
 import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
 import           Pos.Client.Txp.Util            (TxCreateMode)
 import           Pos.Core                       (AddrSpendingData (..), HasCoreConstants,
-                                                 IsHeader, SlotId, Timestamp (..),
+                                                 IsHeader, Timestamp (..),
                                                  makePubKeyAddressBoot)
 import           Pos.Crypto                     (SecretKey, toPublic)
 import           Pos.DB                         (MonadGState (..))
@@ -40,10 +40,7 @@ import           Pos.Genesis                    (GenesisContext (..), GenesisUtx
                                                  gtcWStakeholders)
 import qualified Pos.GState                     as GS
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
-                                                 MonadSlotsData, SimpleSlottingVar,
-                                                 mkSimpleSlottingVar)
-import qualified Pos.Slotting                   as Slot
+import           Pos.Slotting                   (HasSlottingVar (..))
 import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
@@ -94,13 +91,9 @@ instance Arbitrary TxpTestParams where
 type TxpTestMode = ReaderT TxpTestContext Emulation
 
 data TxpTestContext = TxpTestContext
-    { ttcGState       :: !GS.GStateContext
-    , ttcSystemStart  :: !Timestamp
-    , ttcSSlottingVar :: !SimpleSlottingVar
-    , ttcSlotId       :: !(Maybe SlotId)
-    -- ^ If this value is 'Just' we will return it as the current
-    -- slot. Otherwise simple slotting is used.
-    , ttcParams       :: !TxpTestParams
+    { ttcGState      :: !GS.GStateContext
+    , ttcSystemStart :: !Timestamp
+    , ttcParams      :: !TxpTestParams
     }
 
 makeLensesWith postfixLFields ''TxpTestContext
@@ -140,10 +133,8 @@ initTxpTestContext tp@TxpTestParams {..} = do
         _gscSlogGState <- mkSlogGState
         _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
         let ttcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
-        ttcSSlottingVar <- mkSimpleSlottingVar
         ttcSystemStart <- Timestamp <$> currentTime
-        let ttcSlotId = Nothing
-            ttcParams = tp
+        let ttcParams = tp
         pure TxpTestContext {..}
 
 runTxpTestMode
@@ -234,25 +225,6 @@ instance HasLens DB.DBPureVar TxpTestContext DB.DBPureVar where
 
 instance MonadGState TxpTestMode where
     gsAdoptedBVData = DB.gsAdoptedBVDataDefault
-
-instance (HasCoreConstants, MonadSlotsData ctx TxpTestMode)
-      => MonadSlots ctx TxpTestMode
-  where
-    getCurrentSlot = do
-        view ttcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotSimple =<< view ttcSSlottingVar_L
-            Just slot -> pure (Just slot)
-    getCurrentSlotBlocking =
-        view ttcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotBlockingSimple =<< view ttcSSlottingVar_L
-            Just slot -> pure slot
-    getCurrentSlotInaccurate = do
-        view ttcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotInaccurateSimple =<< view ttcSSlottingVar_L
-            Just slot -> pure slot
-    -- FIXME: this has already caused a bug with Explorer (CSE-203).
-    -- The workaround was to replace it with a `Timestamp 0`.
-    currentTimeSlotting = Slot.currentTimeSlottingSimple
 
 instance DB.MonadDBRead TxpTestMode where
     dbGet = DB.dbGetPureDefault

@@ -50,7 +50,8 @@ postProcessLogs :: FilePath -> IO (String, Map t (Maybe Timestamp))
 postProcessLogs logDir = do
   --err $ "processing log directory " ++ show logDir ++ "..."
   chainState <- runJSONFold logDir $ findBlockChainState
-  err $ chainState
+  err $ show chainState
+  err $ stateDescription chainState
   return undefined
 
 processLogDirOverview :: FilePath -> Double -> IO (String, Map TxHash (Maybe Timestamp))

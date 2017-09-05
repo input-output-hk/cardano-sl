@@ -2,6 +2,7 @@ module Statistics
     ( runJSONFold
     , receivedCreatedF
     , findBlockChainState
+    , ChainState(..)
     , module Statistics.Block
     , module Statistics.Chart
     , module Statistics.CSV
@@ -33,6 +34,7 @@ import Statistics.Tx
 import Types
 import Universum
 import Util.Pipes    (fold')
+import Pos.Util.JsonLog
 
 runJSONFold :: FilePath -> Fold IndexedJLTimedEvent a -> IO a
 runJSONFold logDir fd = runParseLogs logDir $ fold' fd
@@ -46,7 +48,27 @@ receivedCreatedF = f <$> txFirstReceivedF <*> inBlockChainF
         g :: TxHash -> Timestamp -> Maybe Timestamp
         g tx ts = maybe Nothing (\ts' -> Just $ ts' - ts) $ M.lookup tx cm
 
-findBlockChainState :: Fold IndexedJLTimedEvent String
-findBlockChainState = Fold f "initial state" (\x -> x)
+type JLSlotId = (Word64, Word16)
+type BlockId = Text
+
+data ChainState = ChainState
+  { stateDescription :: String
+  , topMostSlot :: JLSlotId
+  , blocks :: Map BlockId JLBlock
+  } deriving Show
+
+findBlockChainState :: Fold IndexedJLTimedEvent ChainState
+findBlockChainState = Fold f1 (ChainState "" (0,0) mempty) (\x -> x)
   where
-    f state event = state <> "\n" <> (show event)
+    f1 state1 event = f2 event2
+      where
+        event2 = ijlEvent event
+        f2 (JLCreatedBlock block) = state1 {
+          stateDescription = stateDescription state1 <> "\ncreated " <> show block,
+          topMostSlot = max (topMostSlot state1) (jlSlot block)
+        }
+          where
+            result = M.lookup (jlHash block) (blocks state1)
+        f2 (JLAdoptedBlock blockid) = state1
+          --stateDescription = (stateDescription state1) <> "\ncadopted " <> (show blockid)
+        f2 real_event = state1 { stateDescription = (stateDescription state1) <> "\n" <> (show real_event) }

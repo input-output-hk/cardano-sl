@@ -69,6 +69,12 @@ in {
         description = "automatically save coredumps when cardano-node segfaults";
       };
 
+      autoRestart = mkOption {
+        type = types.bool;
+        default = true;
+        description = "automatically restart cardano at regular intervals";
+      };
+
       executable = mkOption {
         type = types.str;
         description = "Executable to run as the daemon.";
@@ -176,46 +182,46 @@ in {
     };
 
     # Workaround for CSL-1320
-    systemd.services.cardano-restart = let
-      getDailyTime = nodeIndex: let
+    systemd.services = (lib.optionalAttrs config.services.cardano-node.autoRestart {
+      cardano-restart = let
+        getDailyTime = nodeIndex: let
           # how many minutes between each node restarting
           minute = mod (nodeIndex * 4) 60;
         in "0/2:${toString minute}";
-    in {
-      script = ''
-        /run/current-system/sw/bin/systemctl restart cardano-node
-      '';
-      # Reboot cardano-node every 4h, offset by node id (in ${interval} minute intervals)
-      startAt = getDailyTime cfg.nodeIndex;
-    };
-
-    systemd.services.cardano-node = {
-      description   = "cardano node service";
-      after         = [ "network.target" ];
-      wantedBy = optionals cfg.autoStart [ "multi-user.target" ];
-      script = let
-        keyId = "key" + toString cfg.nodeIndex;
-        key = keyId + ".sk";
-      in ''
-        [ -f /run/keys/${keyId} ] && cp /run/keys/${keyId} ${stateDir}${key}
-        ${optionalString (cfg.saveCoreDumps) ''
-          # only a process with non-zero coresize can coredump (the default is 0)
-          ulimit -c unlimited
-        ''}
-        exec ${command}
-      '';
-      serviceConfig = {
-        User = "cardano-node";
-        Group = "cardano-node";
-        # Allow a maximum of 5 retries separated by 30 seconds, in total capped by 200s
-        Restart = "always";
-        RestartSec = 30;
-        StartLimitInterval = 200;
-        StartLimitBurst = 5;
-        KillSignal = "SIGINT";
-        WorkingDirectory = stateDir;
-        PrivateTmp = true;
-        Type = "notify";
+      in {
+        script = "/run/current-system/sw/bin/systemctl restart cardano-node";
+        # Reboot cardano-node every 4h, offset by node id (in ${interval} minute intervals)
+        startAt = getDailyTime cfg.nodeIndex;
+      };
+    }) // {
+      cardano-node = {
+        description   = "cardano node service";
+        after         = [ "network.target" ];
+        wantedBy = optionals cfg.autoStart [ "multi-user.target" ];
+        script = let
+          keyId = "key" + toString cfg.nodeIndex;
+          key = keyId + ".sk";
+        in ''
+          [ -f /run/keys/${keyId} ] && cp /run/keys/${keyId} ${stateDir}${key}
+          ${optionalString (cfg.saveCoreDumps) ''
+            # only a process with non-zero coresize can coredump (the default is 0)
+            ulimit -c unlimited
+          ''}
+          exec ${command}
+        '';
+        serviceConfig = {
+          User = "cardano-node";
+          Group = "cardano-node";
+          # Allow a maximum of 5 retries separated by 30 seconds, in total capped by 200s
+          Restart = "always";
+          RestartSec = 30;
+          StartLimitInterval = 200;
+          StartLimitBurst = 5;
+          KillSignal = "SIGINT";
+          WorkingDirectory = stateDir;
+          PrivateTmp = true;
+          Type = "notify";
+        };
       };
     };
   };

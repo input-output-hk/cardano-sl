@@ -42,6 +42,7 @@ let
       topologyFile = "${topologyFile}";
       publicIP = "192.168.1.${toString index}";
       statsdServer = "127.0.0.1:8125";
+      autoRestart = false;
     };
     networking.firewall.enable = false;
     networking.extraHosts = ''

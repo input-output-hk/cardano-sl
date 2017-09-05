@@ -59,6 +59,9 @@ data GenesisGenOptions = GenesisGenOptions
       -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
       -- overrides default settings for boot stakeholders (e.g. rich
       -- in testnet stakes).
+    , ggoSeed             :: Maybe Integer
+      -- ^ Seed to use (when no seed is provided, a secure random generator
+      -- is used)
     } deriving (Show)
 
 data TestBalanceOptions = TestBalanceOptions
@@ -141,6 +144,10 @@ genesisGenParser = do
     ggoAvvmBalance <- optional avvmBalanceParser
     ggoFakeAvvmBalance <- optional fakeAvvmParser
     ggoBootStakeholders <- many bootStakeholderParser
+    ggoSeed <-
+        optional $ option auto $
+        long "seed" <> metavar "INTEGER" <>
+        help "Seed to use for randomness"
     pure $ GenesisGenOptions{..}
 
 testBalanceParser :: Parser TestBalanceOptions

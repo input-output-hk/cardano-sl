@@ -8,10 +8,10 @@ module Testnet
 import           Universum
 
 import           Control.Lens          ((?~))
+import           Crypto.Random         (getRandomBytes)
 import qualified Serokell.Util.Base64  as B64
 import           Serokell.Util.Verify  (VerificationRes (..), formatAllErrors,
                                         verifyGeneric)
-import           System.Random         (randomRIO)
 import           System.Wlog           (WithLogger)
 
 import           Pos.Binary            (asBinary)
@@ -19,8 +19,8 @@ import qualified Pos.Constants         as Const
 import           Pos.Core              (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPublicKey,
                                         SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
-                                        redeemDeterministicKeyGen, runSecureRandom,
-                                        safeKeyGen, secureRandomBS, toPublic,
+                                        randomNumberInRange, redeemDeterministicKeyGen,
+                                        runGlobalRandom, safeKeyGen, toPublic,
                                         toVssPublicKey, vssKeyGen)
 import           Pos.Genesis           (BalanceDistribution (..), accountGenesisIndex,
                                         wAddressGenesisIndex)
@@ -49,12 +49,13 @@ generateKeyfile
                                                -- account address with bootstrap era distribution
 generateKeyfile isPrim mbSk fp = do
     initializeUserSecret fp
+
     (sk, hdwSk) <- case mbSk of
         Just x  -> return x
-        Nothing -> liftIO $ runSecureRandom $
+        Nothing -> liftIO $ runGlobalRandom $
             (,) <$> (snd <$> keyGen)
                 <*> (snd <$> safeKeyGen emptyPassphrase)
-    vss <- liftIO $ runSecureRandom vssKeyGen
+    vss <- liftIO $ runGlobalRandom vssKeyGen
     us <- takeUserSecret fp
 
     writeUserSecretRelease $
@@ -64,9 +65,9 @@ generateKeyfile isPrim mbSk fp = do
                  . (usWalletSet ?~ mkGenesisWalletUserSecret hdwSk))
            & usVss .~ Just vss
 
-    expiry <- liftIO $
-        fromIntegral <$>
-        randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
+    expiry <- liftIO $ runGlobalRandom $
+        fromInteger <$>
+        randomNumberInRange (Const.vssMinTTL - 1) (Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
         -- This address is used only to create genesis data. We don't
@@ -79,7 +80,7 @@ generateKeyfile isPrim mbSk fp = do
 
 generateFakeAvvm :: MonadIO m => FilePath -> m RedeemPublicKey
 generateFakeAvvm fp = do
-    seed <- secureRandomBS 32
+    seed <- liftIO $ runGlobalRandom $ getRandomBytes 32
     let (pk, _) = fromMaybe
             (error "cardano-keygen: impossible - seed is not 32 bytes long") $
             redeemDeterministicKeyGen seed

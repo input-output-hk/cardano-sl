@@ -38,6 +38,7 @@ module Pos.Update.DB
 
 import           Universum
 
+import           Control.Lens                 (at)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
@@ -64,11 +65,12 @@ import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData,
                                                createInitSlottingData)
 import           Pos.Update.Constants         (genesisBlockVersion,
-                                               genesisSoftwareVersions, ourAppName)
+                                               genesisSoftwareVersions, ourAppName,
+                                               ourSystemTag)
 import           Pos.Update.Core              (BlockVersionData (..), UpId,
                                                UpdateProposal (..))
 import           Pos.Update.Poll.Types        (BlockVersionState (..),
-                                               ConfirmedProposalState,
+                                               ConfirmedProposalState (..),
                                                DecidedProposalState (dpsDifficulty),
                                                ProposalState (..),
                                                UndecidedProposalState (upsSlot),
@@ -252,24 +254,28 @@ instance DBIteratorClass ConfPropIter where
     type IterValue ConfPropIter = ConfirmedProposalState
     iterKeyPrefix = confirmedIterationPrefix
 
--- | Get confirmed proposals which update our application and have
--- version bigger than argument (or all proposals if 'Nothing' is
--- passed). For instance, current software version can be passed to
--- this function to get all proposals with bigger version.
+-- | Get confirmed proposals which update our application
+-- (i. e. application name matches our application name and there is
+-- update data for our system tag) and have version greater than
+-- argument. Intended usage is to pass numberic version of this
+-- software as argument.
+-- Returns __all__ confirmed proposals if the argument is 'Nothing'.
 getConfirmedProposals
     :: MonadDBRead m
     => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv =
     runConduitRes $
-        dbIterSource GStateDB (Proxy @ConfPropIter) .|
-        CL.mapMaybe onItem .|
-        CL.consume
+    dbIterSource GStateDB (Proxy @ConfPropIter) .| CL.mapMaybe onItem .|
+    CL.consume
   where
-    onItem (SoftwareVersion {..}, cps) =
-        case reqNsv of
-            Nothing -> Just cps
-            Just v | svAppName == ourAppName && svNumber > v -> Just cps
-                   | otherwise -> Nothing
+    onItem (SoftwareVersion {..}, cps)
+        | Nothing <- reqNsv = Just cps
+        | Just v <- reqNsv
+        , hasOurSystemTag cps && svAppName == ourAppName && svNumber > v =
+            Just cps
+        | otherwise = Nothing
+    hasOurSystemTag ConfirmedProposalState {..} =
+        isJust $ upData cpsUpdateProposal ^. at ourSystemTag
 
 -- Iterator by block versions
 data BVIter

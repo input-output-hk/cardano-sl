@@ -17,12 +17,11 @@ import           Universum
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random               as Rand
-import           Ether.Internal              (HasLens (..))
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
-import           Pos.Block.Slog.Types        (HasSlogContext)
+import           Pos.Block.Slog.Types        (HasSlogContext, HasSlogGState)
 import           Pos.Context                 (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                               HasSscContext, MonadLastKnownHeader,
                                               MonadProgressHeader, MonadRecoveryHeader,
@@ -50,11 +49,12 @@ import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.StateLock               (StateLock)
+import           Pos.StateLock               (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
 import           Pos.Util.TimeWarp           (CanJsonLog)
+import           Pos.Util.Util               (HasLens, HasLens')
 
 -- Something extremely unpleasant.
 -- TODO: get rid of it after CSL-777 is done.
@@ -92,7 +92,8 @@ type WorkMode ssc ctx m
       , MonadKnownPeers m
       , MonadFormatPeers m
       , HasLens StartTime ctx StartTime
-      , HasLens StateLock ctx StateLock
+      , HasLens' ctx StateLock
+      , HasLens' ctx StateLockMetrics
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateContext ctx UpdateContext
       , HasLens UpdateParams ctx UpdateParams
@@ -107,6 +108,7 @@ type WorkMode ssc ctx m
       , HasPrimaryKey ctx
       , HasShutdownContext ctx
       , HasSlogContext ctx
+      , HasSlogGState ctx
       , HasCoreConstants
       )
 

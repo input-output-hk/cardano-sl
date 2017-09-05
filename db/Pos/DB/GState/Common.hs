@@ -9,7 +9,6 @@ module Pos.DB.GState.Common
        , getMaxSeenDifficulty
        , getTipBlockGeneric
        , getTipHeaderGeneric
-       , getTipSomething
 
          -- * Initialization
        , isInitialized

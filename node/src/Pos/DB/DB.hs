@@ -35,7 +35,7 @@ import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
 import           Pos.DB.Class          (MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common  (getTip, getTipBlockGeneric, getTipHeaderGeneric)
 import           Pos.DB.Misc           (prepareMiscDB)
-import           Pos.Genesis           (GenesisUtxo)
+import           Pos.Genesis           (GenesisContext, GenesisUtxo)
 import           Pos.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB            (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
@@ -54,6 +54,7 @@ initNodeDBs
        ( MonadReader ctx m
        , HasLens' ctx GenesisUtxo
        , HasLens' ctx GenesisWStakeholders
+       , HasLens' ctx GenesisContext
        , MonadBlockDBWrite ssc m
        , SscHelpersClass ssc
        , MonadDB m

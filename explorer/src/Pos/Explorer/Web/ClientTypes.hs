@@ -251,7 +251,7 @@ getLeaderFromEpochSlot epochIndex slotIndex = do
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry
     { cteId         :: !CTxId
-    , cteTimeIssued :: !POSIXTime
+    , cteTimeIssued :: !(Maybe POSIXTime)
     , cteAmount     :: !CCoin
     } deriving (Show, Generic)
 
@@ -263,11 +263,12 @@ totalTxInMoney :: TxUndo -> Maybe Coin
 totalTxInMoney =
     fmap (unsafeIntegerToCoin . sumCoins . NE.map (txOutValue . toaOut)) . sequence
 
-toTxEntry :: Timestamp -> Tx -> CTxEntry
+toTxEntry :: Maybe Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
-  where cteId = toCTxId $ hash tx
-        cteTimeIssued = timestampToPosix ts
-        cteAmount = mkCCoin $ totalTxOutMoney tx
+  where
+    cteId         = toCTxId $ hash tx
+    cteTimeIssued = timestampToPosix <$> ts
+    cteAmount     = mkCCoin $ totalTxOutMoney tx
 
 -- | Data displayed on block summary page
 data CBlockSummary = CBlockSummary
@@ -316,7 +317,7 @@ data CAddressSummary = CAddressSummary
 
 data CTxBrief = CTxBrief
     { ctbId         :: !CTxId
-    , ctbTimeIssued :: !POSIXTime
+    , ctbTimeIssued :: !(Maybe POSIXTime)
     , ctbInputs     :: ![Maybe (CAddress, CCoin)]
     , ctbOutputs    :: ![(CAddress, CCoin)]
     , ctbInputSum   :: !CCoin
@@ -389,7 +390,7 @@ data TxInternal = TxInternal
 instance Ord TxInternal where
     compare = comparing tiTx
 
-tiTimestamp :: TxInternal -> Timestamp
+tiTimestamp :: TxInternal -> Maybe Timestamp
 tiTimestamp = teReceivedTime . tiExtra
 
 tiToTxEntry :: TxInternal -> CTxEntry
@@ -407,7 +408,7 @@ toTxBrief txi = CTxBrief {..}
     tx            = tiTx txi
     ts            = tiTimestamp txi
     ctbId         = toCTxId $ hash tx
-    ctbTimeIssued = timestampToPosix ts
+    ctbTimeIssued = timestampToPosix <$> ts
     ctbInputs     = map (fmap (second mkCCoin)) txInputsMB
     ctbOutputs    = map (second mkCCoin) txOutputs
     ctbInputSum   = sumCoinOfInputsOutputs txInputsMB

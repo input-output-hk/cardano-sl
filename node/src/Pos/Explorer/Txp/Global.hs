@@ -9,9 +9,10 @@ import           Universum
 
 import qualified Data.HashMap.Strict   as HM
 
-import           Pos.Core              (HeaderHash, headerHash)
+import           Pos.Core              (HeaderHash, SlotId (..), HasCoreConstants,
+                                        epochIndexL, headerHash, headerSlotL)
 import           Pos.DB                (SomeBatchOp (..))
-import           Pos.Slotting          (MonadSlots, currentTimeSlotting)
+import           Pos.Slotting          (MonadSlots, getSlotStart)
 import           Pos.Txp               (ApplyBlocksSettings (..), TxpBlund,
                                         TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                         applyBlocksWith, blundToAuxNUndo,
@@ -25,8 +26,10 @@ import qualified Pos.Explorer.DB       as GS
 import           Pos.Explorer.Txp.Toil (EGlobalApplyToilMode, ExplorerExtra (..),
                                         eApplyToil, eRollbackToil)
 
+
+
 -- | Settings used for global transactions data processing used by explorer.
-explorerTxpGlobalSettings :: TxpGlobalSettings
+explorerTxpGlobalSettings :: HasCoreConstants => TxpGlobalSettings
 explorerTxpGlobalSettings =
     -- verification is same
     txpGlobalSettings
@@ -35,7 +38,7 @@ explorerTxpGlobalSettings =
     }
 
 eApplyBlocksSettings
-    :: (EGlobalApplyToilMode ctx m, MonadSlots ctx m)
+    :: (HasCoreConstants, EGlobalApplyToilMode ctx m, MonadSlots ctx m)
     => ApplyBlocksSettings ExplorerExtra m
 eApplyBlocksSettings =
     ApplyBlocksSettings
@@ -52,14 +55,33 @@ extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
     map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
     map GS.DelAddrBalance (MM.deletions balances)
 
--- CSE-203 FIXME Current time is used as timestamp, are you serious?
 applyBlund
-    :: (MonadSlots ctx m, EGlobalApplyToilMode ctx m)
+    :: (HasCoreConstants, MonadSlots ctx m, EGlobalApplyToilMode ctx m)
     => TxpBlund
     -> m ()
-applyBlund blund = do
-    curTime <- currentTimeSlotting
-    uncurry (eApplyToil curTime) $ blundToAuxNUndoWHash blund
+applyBlund txpBlund = do
+    -- @TxpBlund@ is a block/blund with a reduced set of information required for
+    -- transaction processing. We use it to determine at which slot did a transaction
+    -- occur. TxpBlund has TxpBlock inside. If it's Left, it's a genesis block which
+    -- doesn't contain transactions. It doesn't have a slot, only epoch, but you can
+    -- use e. g. SlotId epoch minBound. If it's Right, you can use headerSlotL lens.
+    --
+    -- type TxpBlund = (TxpBlock, TxpUndo)
+    -- type TxpBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, TxPayload)
+
+    let txpBlock = txpBlund ^. _1
+    let slotId   = case txpBlock of
+            Left gensisBlock -> SlotId
+                                  { siEpoch = gensisBlock ^. epochIndexL
+                                  , siSlot  = minBound
+                                  -- ^ Genesis block doesn't have a slot, set to minBound
+                                  }
+            Right mainBlock   -> mainBlock ^. _1 . headerSlotL
+
+    -- Get the timestamp from that information.
+    mTxTimestamp <- getSlotStart slotId
+
+    uncurry (eApplyToil mTxTimestamp) $ blundToAuxNUndoWHash txpBlund
 
 rollbackBlocks
     :: TxpGlobalRollbackMode ctx m

@@ -183,8 +183,11 @@ genTxPayload = do
 
         -- Select input and output addresses
         maxOutputsN <- fromIntegral <$> view tgpMaxOutputs
-        inputAddrs <- selectSomeFromList (1, 3) addrsWithMoney
-        outputAddrs <- selectSomeFromList (1, maxOutputsN) utxoAddresses
+        let maxInputAddrsN = max 1 $ min 3 $ length addrsWithMoney - 1
+        inputAddrs <- selectSomeFromList (1, maxInputAddrsN) addrsWithMoney
+        -- Output addresses should differ from input addresses
+        outputAddrs <- selectSomeFromList (1, maxOutputsN) $
+            filter (`notElem` inputAddrs) utxoAddresses
         let outputsN = length outputAddrs
 
         -- Select UTXOs belonging to one of input addresses and determine

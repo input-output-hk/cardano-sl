@@ -27,14 +27,15 @@ fi
 
 # RICH_NODES specifies how many nodes should be core nodes, i.e., have non-negligible stake in the rich_poor_distr
 if [[ "$RICH_NODES" == "" ]]; then
-  RICH_NODES == 3
+  RICH_NODES=$n
 fi
 
 config_dir=$2
 
-if [[ $config_dir == "" ]]
-  then
-    config_dir="./run"
+if [[ $config_dir == "" ]]; then
+  config_dir="./run"
+  echo $(pwd)
+  gen_kademlia_topology $n
 fi
 
 # The stake distribution.

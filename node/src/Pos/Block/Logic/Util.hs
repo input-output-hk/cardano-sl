@@ -10,11 +10,14 @@ module Pos.Block.Logic.Util
        , needRecovery
        , calcChainQuality
        , calcChainQualityM
+       , calcOverallChainQuality
+       , calcChainQualityFixedTime
        ) where
 
 import           Universum
 
 import           Control.Lens           (_Wrapped)
+import           Data.List              (findIndex)
 import           Data.List.NonEmpty     ((<|))
 import qualified Data.List.NonEmpty     as NE
 import           Formatting             (int, sformat, (%))
@@ -22,17 +25,19 @@ import           System.Wlog            (WithLogger)
 
 import           Pos.Block.Core         (BlockHeader)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
-import           Pos.Block.Slog.Types   (HasSlogContext)
+import           Pos.Block.Slog.Types   (HasSlogGState)
 import           Pos.Context            (blkSecurityParam, slotSecurityParam)
 import           Pos.Core               (BlockCount, FlatSlotId, HasCoreConstants,
-                                         HeaderHash, diffEpochOrSlot, getEpochOrSlot,
-                                         headerHash, prevBlockL)
+                                         HeaderHash, Timestamp (..), diffEpochOrSlot,
+                                         difficultyL, fixedTimeCQ, flattenSlotId,
+                                         getEpochOrSlot, headerHash, prevBlockL)
 import           Pos.DB                 (MonadDBRead)
 import           Pos.DB.Block           (MonadBlockDB)
 import qualified Pos.DB.DB              as DB
 import           Pos.Exception          (reportFatalError)
 import qualified Pos.GState             as GS
-import           Pos.Slotting.Class     (MonadSlots, getCurrentSlot)
+import           Pos.Slotting           (MonadSlots (..), getCurrentSlotFlat,
+                                         slotFromTimestamp)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Util               (_neHead)
 import           Pos.Util.Chrono        (NE, OldestFirst (..))
@@ -98,14 +103,16 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
 -- function returns any 'Fractional'.
 calcChainQuality ::
        Fractional res => BlockCount -> FlatSlotId -> FlatSlotId -> res
-calcChainQuality blockCount deepSlot newSlot =
-    realToFrac blockCount / realToFrac (newSlot - deepSlot)
+calcChainQuality blockCount deepSlot newSlot
+    | deepSlot == newSlot = error "calcChainQuality: newSlot = deepSlot"
+    | otherwise = realToFrac blockCount / realToFrac (newSlot - deepSlot)
 
 -- | Version of 'calcChainQuality' which takes last blocks' slots from
--- the monadic context.
+-- the monadic context. It computes chain quality for last
+-- 'blkSecurityParam' blocks.
 calcChainQualityM ::
        ( MonadReader ctx m
-       , HasSlogContext ctx
+       , HasSlogGState ctx
        , MonadIO m
        , MonadThrow m
        , WithLogger m
@@ -129,3 +136,63 @@ calcChainQualityM newSlot = do
                          (fromIntegral len)
                          (NE.head slotsNE)
                          newSlot)
+
+-- | Calculate overall chain quality, i. e. number of main blocks
+-- divided by number of slots so far. Returns 'Nothing' if current
+-- slot is unknown.
+calcOverallChainQuality ::
+       forall ssc ctx m res.
+       (Fractional res, MonadSlots ctx m, MonadBlockDB ssc m, HasCoreConstants)
+    => m (Maybe res)
+calcOverallChainQuality =
+    getCurrentSlotFlat >>= \case
+        Nothing -> pure Nothing
+        Just curFlatSlot ->
+            calcOverallChainQualityDo curFlatSlot <$> DB.getTipHeader @ssc
+  where
+    calcOverallChainQualityDo curFlatSlot tipHeader
+        | curFlatSlot == 0 = Nothing
+        | otherwise =
+            Just $
+            calcChainQuality
+                (fromIntegral $ tipHeader ^. difficultyL)
+                0
+                curFlatSlot
+
+-- | Calculate chain quality for approximately 'fixedTimeCQ'. Works
+-- only if the following conditions are met:
+--
+-- 1. At least 'fixedTimeCQ' passed since system start.
+-- 2. Block with depth 'blkSecurityParam' was created more than
+-- 'fixedTimeCQ' ago. You should configure constants properly. For k =
+-- 2160 'fixedTimeCQ' can be even 12h. We want 1h, so it's not
+-- restrictive at all.
+-- 3. We are able to determine which slot started 'fixedTimeCQ' ago.
+calcChainQualityFixedTime ::
+       forall ctx m res. (Fractional res, MonadSlots ctx m, HasCoreConstants, HasSlogGState ctx)
+    => m (Maybe res)
+calcChainQualityFixedTime = do
+    Timestamp curTime <- currentTimeSlotting
+    let olderTime = Timestamp (curTime - fixedTimeCQ)
+    (,) <$> slotFromTimestamp olderTime <*> getCurrentSlotFlat >>= \case
+        (Just (flattenSlotId -> olderSlotId), Just currentSlotId) ->
+            calcChainQualityFixedTimeDo olderSlotId currentSlotId <$>
+            slogGetLastSlots
+        _ -> return Nothing
+  where
+    -- 'lastSlots' contains slots of last 'k' blocks.
+    -- We need to return 'Just' if we know now many blocks were created since
+    -- 'olderSlotId'.
+    -- We know it if there is a slot which is ≤ than 'olderSlotId' in
+    -- 'lastSlots'.
+    calcChainQualityFixedTimeDo ::
+           FlatSlotId -> FlatSlotId -> OldestFirst [] FlatSlotId -> Maybe res
+    calcChainQualityFixedTimeDo olderSlotId currentSlotId (OldestFirst lastSlots) =
+        case findIndex (>= olderSlotId) lastSlots of
+            Just firstNew
+                | firstNew > 0 || head lastSlots == Just olderSlotId ->
+                    let blockCount = fromIntegral (length lastSlots - firstNew)
+                    in Just $
+                       calcChainQuality blockCount olderSlotId currentSlotId
+            -- All slots are less than 'olderSlotId', something is bad.
+            _ -> Nothing

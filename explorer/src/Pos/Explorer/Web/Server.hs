@@ -457,7 +457,7 @@ getTxSummary cTxId = do
 
         pure $ CTxSummary
             { ctsId              = cTxId'
-            , ctsTxTimeIssued    = Just $ timestampToPosix receivedTime
+            , ctsTxTimeIssued    = timestampToPosix <$> receivedTime
             , ctsBlockTimeIssued = blockTime
             , ctsBlockHeight     = Just blockHeight
             , ctsBlockEpoch      = Just epochIndex

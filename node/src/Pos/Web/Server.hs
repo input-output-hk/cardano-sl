@@ -44,7 +44,7 @@ import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                              (TxOut (..), toaOut)
 import           Pos.Txp.MemState                     (GenericTxpLocalData, askTxpMem,
-                                                       getLocalTxs, ignoreTxpMetrics)
+                                                       getLocalTxs)
 import           Pos.Web.Mode                         (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
@@ -121,7 +121,7 @@ convertHandler nc nodeDBs txpData handler =
         (runProduction $
          Mtl.runReaderT
              handler
-             (WebModeContext nodeDBs (txpData, ignoreTxpMetrics) nc)) `Catch.catches`
+             (WebModeContext nodeDBs txpData nc)) `Catch.catches`
     excHandlers
   where
     excHandlers = [Catch.Handler catchServant]

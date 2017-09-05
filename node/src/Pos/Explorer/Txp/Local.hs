@@ -26,8 +26,9 @@ import qualified Pos.Explorer.DB       as ExDB
 import qualified Pos.GState            as GS
 import           Pos.KnownPeers        (MonadFormatPeers)
 import           Pos.Reporting         (HasReportingContext, reportError)
-import           Pos.Slotting          (MonadSlots (currentTimeSlotting, getCurrentSlot))
-import           Pos.StateLock         (Priority (..), StateLock, withStateLock)
+import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
+import           Pos.StateLock         (Priority (..), StateLock, StateLockMetrics,
+                                        withStateLock)
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
@@ -44,6 +45,7 @@ import           Pos.Explorer.Core     (TxExtra (..))
 import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
                                         MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
                                         eeLocalTxsExtra)
+
 
 type ETxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -95,7 +97,8 @@ instance MonadTxExtraRead EProcessTxMode where
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
 
 eTxProcessTransaction
-    :: (ETxpLocalWorkMode ctx m, HasLens' ctx StateLock, MonadMask m)
+    :: (ETxpLocalWorkMode ctx m, MonadMask m,
+        HasLens' ctx StateLock, HasLens' ctx StateLockMetrics)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
     withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
@@ -121,7 +124,6 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
     -- 'StateLock' which we own inside this function.
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
-    epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     genStks <- view (lensOf @GenesisWStakeholders)
     bvd <- gsAdoptedBVData
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
@@ -131,7 +133,12 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
             M.fromList $
             catMaybes $
             toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    curTime <- currentTimeSlotting
+    -- First get the current @SlotId@ so we can calculate the time.
+    -- Then get when that @SlotId@ started and use that as a time for @Tx@.
+    slot         <- note ToilSlotUnknown =<< getCurrentSlot
+    let epoch     = siEpoch slot
+    mTxTimestamp <- getSlotStart slot
+
     let txInAddrs =
             map (txOutAddress . toaOut) $ catMaybes $ toList resolvedOuts
         txOutAddrs = toList $ map txOutAddress _txOutputs
@@ -154,7 +161,7 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
     pRes <-
         lift $
         modifyTxpLocalData $
-        processTxDo epoch ctx tipBefore itw curTime
+        processTxDo epoch ctx tipBefore itw mTxTimestamp
     -- We report 'ToilTipsMismatch' as an error, because usually it
     -- should't happen. If it happens, it's better to look at logs.
     case pRes of
@@ -170,10 +177,10 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
         -> EProcessTxContext
         -> HeaderHash
         -> (TxId, TxAux)
-        -> Timestamp
+        -> Maybe Timestamp
         -> ETxpLocalDataPure
         -> (Either ToilVerFailure (), ETxpLocalDataPure)
-    processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx curTime txld@(uv, mp, undo, tip, extra)
+    processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx mTxTimestamp txld@(uv, mp, undo, tip, extra)
         | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
             let runToil ::
@@ -184,7 +191,7 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
                 -- We strictly rely on verifyAllIsKnown = True here
                 action ::
                        ExceptT ToilVerFailure (ToilT ExplorerExtra EProcessTxMode) ()
-                action = eProcessTx curEpoch tx (TxExtra Nothing curTime txUndo)
+                action = eProcessTx curEpoch tx (TxExtra Nothing mTxTimestamp txUndo)
                 -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
                 -- wouldn't save extra value, thus wouldn't reduce it to NF
                 txUndo = NE.fromList $ map Just $ toList _eptcUtxoBase

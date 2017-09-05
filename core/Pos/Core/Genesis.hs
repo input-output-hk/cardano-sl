@@ -16,6 +16,7 @@ module Pos.Core.Genesis
        , genesisProdAddresses
        , genesisProdAddrDistribution
        , genesisProdBootStakeholders
+       , genesisProdDelegation
 
        -- * Utils
        , generateGenesisKeyPair
@@ -32,9 +33,12 @@ import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
+                                          GenesisDelegation (..),
                                           GenesisWStakeholders (..),
                                           StakeDistribution (..), bootDustThreshold,
-                                          getTotalStake, mkGenesisCoreData, safeExpStakes)
+                                          getTotalStake, mkGenesisCoreData,
+                                          mkGenesisDelegation, noGenesisDelegation,
+                                          safeExpStakes)
 import           Pos.Core.Types          (Address, mkCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
@@ -84,6 +88,10 @@ genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
 genesisProdBootStakeholders :: GenesisWStakeholders
 genesisProdBootStakeholders =
     gcdBootstrapStakeholders compileGenCoreData
+
+-- | 'GenesisDelegation' for production mode.
+genesisProdDelegation :: GenesisDelegation
+genesisProdDelegation = gcdHeavyDelegation compileGenCoreData
 
 ----------------------------------------------------------------------------
 -- Utils

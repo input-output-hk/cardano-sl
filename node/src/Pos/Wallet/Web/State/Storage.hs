@@ -29,6 +29,7 @@ module Pos.Wallet.Web.State.Storage
        , getCustomAddresses
        , getCustomAddress
        , getPendingTxs
+       , getWalletPendingTxs
        , getPendingTx
        , addCustomAddress
        , removeCustomAddress
@@ -64,7 +65,7 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens                   (at, ix, makeClassy, makeLenses, non',
+import           Control.Lens                   (at, ix, makeClassy, makeLenses, non', to,
                                                  toListOf, traversed, (%=), (+=), (.=),
                                                  (<<.=), (?=), _Empty, _head)
 import           Control.Monad.State.Class      (put)
@@ -264,6 +265,10 @@ getCustomAddress t addr = view $ customAddressL t . at addr
 
 getPendingTxs :: Query [PendingTx]
 getPendingTxs = asks $ toListOf (wsWalletInfos . traversed . wsPendingTxs . traversed)
+
+getWalletPendingTxs :: CId Wal -> Query (Maybe [PendingTx])
+getWalletPendingTxs wid =
+    preview $ wsWalletInfos . ix wid . wsPendingTxs . to toList
 
 getPendingTx :: CId Wal -> TxId -> Query (Maybe PendingTx)
 getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txId

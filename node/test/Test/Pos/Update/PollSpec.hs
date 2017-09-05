@@ -11,7 +11,8 @@ import qualified Data.HashSet                      as HS
 import           Test.Hspec                        (Spec, describe)
 import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, Property,
-                                                    conjoin, forAll, (===))
+                                                    conjoin, forAll, listOf, suchThat,
+                                                    (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Core                          (ApplicationName, BlockVersion (..),
@@ -192,15 +193,44 @@ perform = foldl (>>) (return ()) . map actionToMonad
     :: HasCoreConstants
     => [PollAction]
     -> [PollAction]
+    -> Gen PollAction
     -> PollStateTestInfo
     -> Property
-p1 ==^ p2 = \bvInfo ->
-    forAll (arbitrary :: Gen [PollAction]) $ \prefix ->
+p1 ==^ p2 = \prefixGen bvInfo ->
+    forAll ((listOf prefixGen) :: Gen [PollAction]) $ \prefix ->
     forAll (arbitrary :: Gen [PollAction]) $ \suffix ->
         let applyAction x =
                 Poll.execPurePollWithLogger (emptyPollSt bvInfo)
                                             (perform $ prefix ++ x ++ suffix)
         in applyAction p1 === applyAction p2
+
+{- A note on the following tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The reason these tests have to pass a custom generator for the prefix of the action list
+to '(==^)' is that in each case, there is a particular sequence of actions for which
+the property does not hold. Using the next test as an example:
+
+Let 'bvs, bvs´ :: BlockVersionState' such that 'bvs /= bvs´'. This sequence of actions
+in the 'PurePoll' monad:
+
+    [PutBVState bv bvs´, PutBVState bv bvs, DelBVState bv]
+
+is not, in operational semantics terms, equal to the sequence
+
+    [PutBVState bv bvs´]
+
+It is instead equivalent to
+
+    []
+
+Because these actions are performed from left to right, performing an insertion with the
+same key twice in a row without deleting it in between those two insertions means only
+the last insertion actually matters for these tests.
+
+As such, prefixes with an insertion with the same key as the action being tested in the
+property will cause it to fail.
+-}
 
 putDelBVState
     :: HasCoreConstants
@@ -208,14 +238,23 @@ putDelBVState
     -> Poll.BlockVersionState
     -> PollStateTestInfo
     -> Property
-putDelBVState bv bvs = [PutBVState bv bvs, DelBVState bv] ==^ []
+putDelBVState bv bvs =
+    let actionPrefixGen = arbitrary `suchThat` (\case
+            PutBVState bv' _ -> bv' /= bv
+            _                -> True)
+    in ([PutBVState bv bvs, DelBVState bv] ==^ []) actionPrefixGen
 
 setDeleteConfirmedSV
     :: HasCoreConstants
     => SoftwareVersion
     -> PollStateTestInfo
     -> Property
-setDeleteConfirmedSV sv = [SetLastConfirmedSV sv, DelConfirmedSV $ svAppName sv] ==^ []
+setDeleteConfirmedSV sv =
+    let appName = svAppName sv
+        actionPrefixGen = arbitrary `suchThat` (\case
+            SetLastConfirmedSV sv' -> svAppName sv' /= appName
+            _                    -> True)
+    in ([SetLastConfirmedSV sv, DelConfirmedSV appName] ==^ []) actionPrefixGen
 
 addDeleteConfirmedProposal
     :: HasCoreConstants
@@ -223,7 +262,12 @@ addDeleteConfirmedProposal
     -> PollStateTestInfo
     -> Property
 addDeleteConfirmedProposal cps =
-    [AddConfirmedProposal cps, DelConfirmedProposal $ Poll.cpsSoftwareVersion cps] ==^ []
+    let softwareVersion = Poll.cpsSoftwareVersion cps
+        actionPrefixGen = arbitrary `suchThat` (\case
+            AddConfirmedProposal cps' -> Poll.cpsSoftwareVersion cps' /= softwareVersion
+            _                         -> True)
+    in ([AddConfirmedProposal cps, DelConfirmedProposal softwareVersion] ==^
+       []) actionPrefixGen
 
 insertDeleteProposal
     :: HasCoreConstants
@@ -231,4 +275,10 @@ insertDeleteProposal
     -> PollStateTestInfo
     -> Property
 insertDeleteProposal ps =
-    [InsertActiveProposal ps, DeactivateProposal $ hash $ Poll.psProposal ps] ==^ []
+    let getUpId p = hash $ Poll.psProposal p
+        upId = getUpId ps
+        actionPrefixGen = arbitrary `suchThat` (\case
+            InsertActiveProposal ps' -> upId /= getUpId ps'
+            _                        -> True)
+    in ([InsertActiveProposal ps, DeactivateProposal upId] ==^ [])
+       actionPrefixGen

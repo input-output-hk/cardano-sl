@@ -17,16 +17,13 @@ let
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
       cardano-sl = overrideCabal super.cardano-sl (drv: {
-        patchPhase = ''
-          export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
-        '';
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = [
           "-f-asserts"
           "-f-dev-mode"
           "--ghc-option=-optl-lm"
         ];
-        testTarget = "--test-option='--skip=Test.Pos.Update.Poll.Poll.PollState.PurePoll' --log=test.log || (sleep 10 && kill $TAILPID && false)";
+        testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
         preCheck = ''
           mkdir -p dist/test
           touch dist/test/test.log
@@ -49,6 +46,12 @@ let
           "--ghc-options=-DGITREV=${gitrev}"
         ];
       });
+      cardano-sl-update = overrideCabal super.cardano-sl-update (drv: {
+        patchPhase = ''
+          export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos64" else "linux64"}
+        '';
+      });
+
       cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld

@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX
@@ -8,28 +7,21 @@
 -- | Specification of 'Pos.Network.Windows.DnsDomains'
 
 module Test.Pos.Network.Windows.DnsDomainsSpec
-       (
-         spec
+       ( spec
        ) where
 
 import           Universum
 
+import           Test.Hspec                     (Spec)
+#if !defined(POSIX)
 import           Network.URI                    (isIPv4address)
 import           Pos.Network.Types              (initDnsOnUse)
-import           Test.Hspec                     (Expectation, Spec, describe, it,
-                                                 shouldBe, shouldSatisfy)
+import           Test.Hspec                     (Expectation, describe, it, shouldBe,
+                                                 shouldSatisfy)
 import           Test.Hspec.QuickCheck          (prop)
 
-#if !defined(POSIX)
 import qualified Pos.Network.Windows.DnsDomains as Win
 #endif
-
-
-testLookupFor :: ByteString -> Expectation
-testLookupFor dnsDomain = do
-    initDnsOnUse $ \resolve -> do
-      res <- resolve dnsDomain
-      (> 1) . length <$> res `shouldBe` Right True
 
 spec :: Spec
 #if defined(POSIX)
@@ -47,4 +39,10 @@ prop_GetWindowsDefDnsServer :: Expectation
 prop_GetWindowsDefDnsServer = do
     Win.getWindowsDefaultDnsServer >>= \dnsIpAddr ->
         dnsIpAddr `shouldSatisfy` (maybe False isIPv4address)
+
+testLookupFor :: ByteString -> Expectation
+testLookupFor dnsDomain = do
+    initDnsOnUse $ \resolve -> do
+      res <- resolve dnsDomain
+      (> 1) . length <$> res `shouldBe` Right True
 #endif

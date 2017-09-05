@@ -6,7 +6,6 @@
 module Pos.Txp.MemState.Class
        ( MonadTxpMem
        , askTxpMem
-       , askTxpMemAndMetrics
        , TxpHolderTag
        , getUtxoModifier
        , getLocalTxsNUndo
@@ -28,22 +27,19 @@ import           Ether.Internal         (HasLens (..))
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxUndo)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
-                                         GenericTxpLocalDataPure, TxpMetrics (..))
+                                         GenericTxpLocalDataPure)
 import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
 
 data TxpHolderTag
 
--- | More general version of @MonadReader (GenericTxpLocalData mw, TxpMetrics) m@.
+-- | More general version of @MonadReader (GenericTxpLocalData mw) m@.
 type MonadTxpMem ext ctx m
      = ( MonadReader ctx m
-       , HasLens TxpHolderTag ctx (GenericTxpLocalData ext, TxpMetrics)
+       , HasLens TxpHolderTag ctx (GenericTxpLocalData ext)
        )
 
 askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)
-askTxpMem = fst <$> view (lensOf @TxpHolderTag)
-
-askTxpMemAndMetrics :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext, TxpMetrics)
-askTxpMemAndMetrics = view (lensOf @TxpHolderTag)
+askTxpMem = view (lensOf @TxpHolderTag)
 
 getTxpLocalData
     :: (MonadIO m, MonadTxpMem e ctx m)

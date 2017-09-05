@@ -6,7 +6,8 @@
 #   * testnet_public_{full,wallet}: final version for users, big k
 #   * testnet_staging_{full,wallet}: QA, smaller k
 # * Dev (4 nodes):
-#   * devnet_longep_{full,wallet}: development purposes, big k
+#   * devnet_midep_{full,wallet}: development purposes, k as on staging
+#   * devnet_longep_{full,wallet}: development purposes, k as on mainnet
 #   * devnet_shortep_{full,wallet}: smaller k
 #
 # "full" prefix is default one, "wallet" prefix overrides applicationName.
@@ -110,6 +111,9 @@ dev: &dev
   nonCriticalCQ: 0.8
   criticalCQ: 0.654321
 
+  fixedTimeCQ: 10 # Chain quality will be also calculated for this amount
+                  # of seconds.
+
   criticalForkThreshold: 2 # number of blocks such that if so many blocks are
                            # rolled back, it requires immediate response
 
@@ -161,6 +165,7 @@ testnet_public_full: &testnet_public_full
   networkDiameter: 18
   mdNoBlocksSlotThreshold: 18
   criticalForkThreshold: 3
+  fixedTimeCQ: 3600 # 1 hour
   recoveryHeadersMessage: 2200
   networkWaitLogInterval: 32 # 32s
 
@@ -171,24 +176,28 @@ testnet_staging_full: &testnet_staging_full
   <<: *testnet_public_full
   k: 108
   criticalForkThreshold: 2
+  fixedTimeCQ: 600 # 10 min
 
-
-devnet_longep_full: &devnet_longep_full
+devnet_midep_full: &devnet_midep_full
   <<: *testnet_staging_full
 
   protocolMagic: 55550004
   genesisBinSuffix: dn
 
+devnet_longep_full: &devnet_longep_full
+  <<: *devnet_midep_full
+  k: 2160
+
 devnet_shortep_full: &devnet_shortep_full
-  <<: *devnet_longep_full
+  <<: *devnet_midep_full
 
   k: 9
   genesisSlotDurationSec: 15
   networkDiameter: 10
   mdNoBlocksSlotThreshold: 10
+  fixedTimeCQ: 60 # 1 min
   criticalForkThreshold: 2
   recoveryHeadersMessage: 100
-
 
 ##############################################################################
 ##                                                                          ##
@@ -208,6 +217,10 @@ devnet_longep_wallet: &devnet_longep_wallet
   <<: *devnet_longep_full
   applicationName: csl-daedalus
 
+devnet_midep_wallet: &devnet_midep_wallet
+  <<: *devnet_midep_full
+  applicationName: csl-daedalus
+
 devnet_shortep_wallet: &devnet_shortep_wallet
   <<: *devnet_shortep_full
   applicationName: csl-daedalus
@@ -223,6 +236,7 @@ benchmark: &benchmark
 
   genesisN: 50000
   k: 6
+  fixedTimeCQ: 30 # 30 sec
 
   genesisUnlockStakeEpoch: 0 # it effectively disables bootstrap era in
                              # benchmarks because we don't need it there
@@ -235,3 +249,20 @@ benchmark: &benchmark
 
   protocolMagic: 55550007
   genesisBinSuffix: tn # it is set here arbitrarily, it won't be actually used
+
+##############################################################################
+##                                                                          ##
+##   Update system testing                                                  ##
+##                                                                          ##
+##############################################################################
+
+devnet_shortep_updated_full: &devnet_shortep_updated_full
+  <<: *devnet_shortep_full
+
+  applicationVersion: 1
+  lastKnownBVMinor: 1
+
+devnet_shortep_updated_wallet: &devnet_shortep_updated_wallet
+  <<: *devnet_shortep_updated_full
+  applicationName: csl-daedalus
+

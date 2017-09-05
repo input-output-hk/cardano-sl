@@ -8,6 +8,9 @@ module Pos.Core.Genesis.Types
 
        , AddrDistribution
        , GenesisWStakeholders (..)
+       , GenesisDelegation (..)
+       , noGenesisDelegation
+       , mkGenesisDelegation
        , GenesisCoreData (..)
        , bootDustThreshold
        , mkGenesisCoreData
@@ -15,14 +18,18 @@ module Pos.Core.Genesis.Types
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, (%))
-import           Serokell.Util       (allDistinct, mapJson)
+import           Control.Lens         (at)
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.Text.Buildable  as Buildable
+import           Formatting           (bprint, (%))
+import           Serokell.Util        (allDistinct, mapJson)
 
-import           Pos.Core.Address    (isBootstrapEraDistrAddress)
-import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeGetCoin,
-                                      unsafeIntegerToCoin)
-import           Pos.Core.Types      (Address, Coin, StakeholderId, mkCoin)
+import           Pos.Core.Address     (addressHash, isBootstrapEraDistrAddress)
+import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeGetCoin,
+                                       unsafeIntegerToCoin)
+import           Pos.Core.Types       (Address, Coin, ProxySKHeavy, StakeholderId, mkCoin)
+import           Pos.Crypto           (ProxySecretKey (..), isSelfSignedPsk)
 
 -- | Balances distribution in genesis block.
 --
@@ -96,6 +103,41 @@ instance Buildable GenesisWStakeholders where
     build (GenesisWStakeholders m) =
         bprint ("GenesisWStakeholders: "%mapJson) m
 
+-- | This type contains genesis state of heavyweight delegation. It
+-- wraps a map where keys are issuers (i. e. stakeholders who
+-- delegated) and values are proxy signing keys. There are some invariants:
+-- 1. In each pair delegate must differ from issuer, i. e. no revocations.
+-- 2. PSKs must be consistent with keys in the map, i. e. issuer's ID must be
+--    equal to the key in the map.
+-- 3. Delegates can't be issuers, i. e. transitive delegation is not supported.
+--    It's not needed in genesis, it can always be reduced.
+newtype GenesisDelegation = UnsafeGenesisDelegation
+    { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
+    } deriving (Show, Eq)
+
+-- | Empty 'GenesisDelegation'.
+noGenesisDelegation :: GenesisDelegation
+noGenesisDelegation = UnsafeGenesisDelegation mempty
+
+-- | Safe constructor of 'GenesisDelegation'.
+mkGenesisDelegation ::
+       MonadError Text m
+    => [ProxySKHeavy]
+    -> m GenesisDelegation
+mkGenesisDelegation psks = do
+    unless (allDistinct $ pskIssuerPk <$> psks) $
+        throwError "all issuers must be distinct"
+    when (any isSelfSignedPsk psks) $
+        throwError "there is a self-signed (revocation) psk"
+    let resPairs =
+            psks <&> \psk@ProxySecretKey {..} -> (addressHash pskIssuerPk, psk)
+    let resMap = HM.fromList resPairs
+    let isIssuer ProxySecretKey {..} =
+            isJust $ resMap ^. at (addressHash pskDelegatePk)
+    when (any isIssuer psks) $
+        throwError "one of the delegates is also an issuer, don't do it"
+    return $ UnsafeGenesisDelegation resMap
+
 -- | Hardcoded genesis data to generate utxo from.
 data GenesisCoreData = UnsafeGenesisCoreData
     { gcdAddrDistribution      :: ![AddrDistribution]
@@ -103,6 +145,8 @@ data GenesisCoreData = UnsafeGenesisCoreData
       -- stakeholders distribution (addresses and coins).
     , gcdBootstrapStakeholders :: !GenesisWStakeholders
       -- ^ Bootstrap era stakeholders, values are weights.
+    , gcdHeavyDelegation       :: !GenesisDelegation
+      -- ^ Genesis state of heavyweight delegation.
     } deriving (Show, Eq, Generic)
 
 -- | Calculates a minimum amount of coins user can set as an output in
@@ -119,8 +163,9 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
 mkGenesisCoreData ::
        [AddrDistribution]
     -> Map StakeholderId Word16
+    -> GenesisDelegation
     -> Either String GenesisCoreData
-mkGenesisCoreData distribution bootStakeholders = do
+mkGenesisCoreData distribution bootStakeholders delega = do
     for_ distribution $ \(addrs, distr) -> do
         -- Every set of addresses should match the stakeholders count
         unless (fromIntegral (length addrs) == getDistributionSize distr) $
@@ -141,4 +186,9 @@ mkGenesisCoreData distribution bootStakeholders = do
     unless (allDistinct addrList) $
         Left "mkGenesisCoreData: some address belongs to more than one distr"
     -- All checks passed
-    pure $ UnsafeGenesisCoreData distribution (GenesisWStakeholders bootStakeholders)
+    pure
+        UnsafeGenesisCoreData
+        { gcdAddrDistribution = distribution
+        , gcdBootstrapStakeholders = GenesisWStakeholders bootStakeholders
+        , gcdHeavyDelegation = delega
+        }

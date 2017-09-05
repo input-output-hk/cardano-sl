@@ -19,6 +19,7 @@ module Test.Pos.Block.Logic.Mode
 
        , BlockProperty
        , blockPropertyToProperty
+       , genSuitableStakeDistribution
        ) where
 
 import           Universum
@@ -43,7 +44,7 @@ import           Pos.AllSecrets                 (AllSecrets (..), HasAllSecrets 
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
                                                  onRollbackBlocksStub)
 import           Pos.Block.Core                 (Block, BlockHeader)
-import           Pos.Block.Slog                 (HasSlogContext (..), mkSlogContext)
+import           Pos.Block.Slog                 (HasSlogGState (..), mkSlogGState)
 import           Pos.Block.Types                (Undo)
 import           Pos.Core                       (AddrSpendingData (..), HasCoreConstants,
                                                  IsHeader, SlotId, StakeDistribution (..),
@@ -83,8 +84,7 @@ import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
-                                                 TxpHolderTag, TxpMetrics,
-                                                 ignoreTxpMetrics, mkTxpLocalData, utxoF)
+                                                 TxpHolderTag, mkTxpLocalData, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -110,7 +110,6 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- before testing starts.
 data TestParams = TestParams
     { _tpGenesisContext     :: !GenesisContext
-    -- ^ Genesis context.
     , _tpAllSecrets         :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
@@ -165,21 +164,21 @@ instance Arbitrary TestParams where
         secretKeysList <-
             toList @(NonEmpty SecretKey) <$>
              -- might have repetitions
-            (arbitrary `suchThat` (\l -> length l < 15))
-        let _tpStartTime = fromMicroseconds 0
+            (arbitrary `suchThat` (\l -> length l < 15 && length l > 2))
         let invSecretsMap = mkInvSecretsMap secretKeysList
         let publicKeys = map toPublic (toList invSecretsMap)
         let addresses = map makePubKeyAddressBoot publicKeys
         let invAddrSpendingData =
                 mkInvAddrSpendingData $
                 addresses `zip` (map PubKeyASD publicKeys)
-        let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
         stakeDistribution <-
             genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
         let addrDistribution = [(addresses, stakeDistribution)]
         let _tpGenesisContext =
                 genesisContextImplicit invAddrSpendingData addrDistribution
+        let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
         let _tpStakeDistributions = one stakeDistribution
+        let _tpStartTime = fromMicroseconds 0
         return TestParams {..}
 
 ----------------------------------------------------------------------------
@@ -218,7 +217,7 @@ data BlockTestContext = BlockTestContext
     , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !(SscState SscGodTossing)
-    , btcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , btcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
     , btcSlotId            :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
@@ -270,8 +269,8 @@ initBlockTestContext tp@TestParams {..} callback = do
             putLrcCtx _gscLrcContext
             btcUpdateContext <- mkUpdateContext
             btcSscState <- mkSscState @SscGodTossing
-            _gscSlogContext <- mkSlogContext
-            btcTxpMem <- (, ignoreTxpMetrics) <$> mkTxpLocalData
+            _gscSlogGState <- mkSlogGState
+            btcTxpMem <- mkTxpLocalData
 #ifdef WITH_EXPLORER
             let btcTxpGlobalSettings = explorerTxpGlobalSettings
 #else
@@ -335,6 +334,9 @@ instance HasLens GenesisUtxo TestInitModeContext GenesisUtxo where
 
 instance HasLens GenesisWStakeholders TestInitModeContext GenesisWStakeholders where
     lensOf = timcGenesisContext_L . gtcWStakeholders
+
+instance HasLens GenesisContext TestInitModeContext GenesisContext where
+    lensOf = timcGenesisContext_L
 
 instance HasLens LrcContext TestInitModeContext LrcContext where
     lensOf = timcLrcContext_L
@@ -429,13 +431,13 @@ instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSystemStart_L
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
-instance HasSlogContext BlockTestContext where
-    slogContextL = GS.gStateContext . GS.gscSlogContext
+instance HasSlogGState BlockTestContext where
+    slogGState = GS.gStateContext . GS.gscSlogGState
 
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L
 
-instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
+instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP) where
     lensOf = btcTxpMem_L
 
 instance HasLens GenesisUtxo BlockTestContext GenesisUtxo where
@@ -466,8 +468,7 @@ instance (HasCoreConstants, MonadSlotsData ctx BlockTestMode)
         view btcSlotId_L >>= \case
             Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
             Just slot -> pure slot
-    -- FIXME: it is a workaround for CSE-203!
-    currentTimeSlotting = pure $ Timestamp 0
+    currentTimeSlotting = currentTimeSlottingSimple
 
 instance MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault

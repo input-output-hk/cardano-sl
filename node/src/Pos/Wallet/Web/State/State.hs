@@ -36,6 +36,7 @@ module Pos.Wallet.Web.State.State
        , isCustomAddress
        , getWalletUtxo
        , getPendingTxs
+       , getWalletPendingTxs
        , getPendingTx
 
        -- * Setters
@@ -178,6 +179,9 @@ isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
 
 getPendingTxs :: WebWalletModeDB ctx m => m [PendingTx]
 getPendingTxs = queryDisk ... A.GetPendingTxs
+
+getWalletPendingTxs :: WebWalletModeDB ctx m => CId Wal -> m (Maybe [PendingTx])
+getWalletPendingTxs = queryDisk ... A.GetWalletPendingTxs
 
 getPendingTx :: WebWalletModeDB ctx m => CId Wal -> TxId -> m (Maybe PendingTx)
 getPendingTx = queryDisk ... A.GetPendingTx

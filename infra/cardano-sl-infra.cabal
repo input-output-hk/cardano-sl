@@ -19,9 +19,13 @@ library
 
                         -- Reporting
                         Pos.Reporting
-                        Pos.Reporting.MemState
                         Pos.Reporting.Exceptions
+                        Pos.Reporting.MemState
                         Pos.Reporting.Methods
+                        Pos.Reporting.Metrics
+
+                        -- StateLock
+                        Pos.StateLock
 
                         -- Slotting
                         Pos.Slotting
@@ -117,7 +121,7 @@ library
                       , bytestring
                       , cardano-sl-core
                       , cardano-sl-db
-                      , cardano-report-server >= 0.2.1
+                      , cardano-report-server >= 0.3.0
                       , containers
                       , data-default
                       , directory

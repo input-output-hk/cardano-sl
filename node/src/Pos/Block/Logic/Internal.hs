@@ -51,7 +51,7 @@ import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback
 import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
 import           Pos.Lrc.Context         (LrcContext)
-import           Pos.Reporting           (MonadReporting, reportingFatal)
+import           Pos.Reporting           (MonadReporting)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage   (SscGStateClass)
@@ -137,7 +137,7 @@ type MonadMempoolNormalization ssc ctx m
 normalizeMempool
     :: forall ssc ctx m . (MonadMempoolNormalization ssc ctx m)
     => m ()
-normalizeMempool = reportingFatal $ do
+normalizeMempool = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
@@ -157,7 +157,7 @@ normalizeMempool = reportingFatal $ do
 applyBlocksUnsafe
     :: forall ssc ctx m . MonadBlockApply ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe blunds pModifier = reportingFatal $ do
+applyBlocksUnsafe blunds pModifier = do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -213,7 +213,7 @@ rollbackBlocksUnsafe
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> NewestFirst NE (Blund ssc)
     -> m ()
-rollbackBlocksUnsafe bsc toRollback = reportingFatal $ do
+rollbackBlocksUnsafe bsc toRollback = do
     slogRoll <- slogRollbackBlocks bsc toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks

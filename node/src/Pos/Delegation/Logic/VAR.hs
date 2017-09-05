@@ -419,20 +419,42 @@ dlgVerifyBlocks blocks = do
             (revokeIssuers, changeIssuers) =
                 bimap toIssuers toIssuers $ partition isRevokePsk proxySKs
 
-        -- Check 3: Issuers have enough money (though it's free to revoke).
-        when (any (not . (`HS.member` richmen) . addressHash) changeIssuers) $
-            throwError $ sformat ("Block "%build%" contains psk issuers that "%
-                                  "don't have enough stake")
-                                 (headerHash blk)
+        forM_ proxySKs $ \psk -> do
+            let stakeholderId = addressHash $ pskIssuerPk psk
+            let iPk = pskIssuerPk psk
+            let dPk = pskDelegatePk psk
 
-        -- Check 4: No issuer has posted psk this epoch before.
+            -- Check 3: Issuers have enough money (though it's free to revoke).
+            when (not (isRevokePsk psk) &&
+                  not (stakeholderId `HS.member` richmen)) $
+                throwError $ sformat
+                    ("Block "%build%" contains psk issuers that "%
+                    "don't have enough stake: "%build)
+                    (headerHash blk) psk
+
+            -- Check 4: There are no psks that isomorphic to psks from
+            -- db. That is, if i delegated to d using psk1, we forbid
+            -- using psk2 (in the next epoch) if psk2 delegates i → d
+            -- as well.
+            m <- getPsk stakeholderId
+            let duplicate = do
+                    psk2@ProxySecretKey{..} <- m
+                    guard $ not $ pskIssuerPk == iPk && pskDelegatePk == dPk
+                    pure psk2
+            whenJust duplicate $ \psk2 ->
+                throwError $ sformat
+                    ("Block "%build%" contains psk issuers that "%
+                    "effectively duplicate their previous psk: "%build%" with new "%build)
+                    (headerHash blk) psk psk2
+
+        -- Check 5: No issuer has posted psk this epoch before.
         curEpoch <- use dvCurEpoch
         when (any (`HS.member` curEpoch) allIssuersSt) $
             throwError $ sformat ("Block "%build%" contains issuers that "%
                                   "have already published psk this epoch")
                                  (headerHash blk)
 
-        -- Check 5: Every revoking psk indeed revokes previous
+        -- Check 6: Every revoking psk indeed revokes previous
         -- non-revoking psk.
         revokePrevCerts <- mapM (\x -> (x,) <$> getPskPk x) revokeIssuers
         let dontHavePrevPsk = filter (isNothing . snd) revokePrevCerts
@@ -442,7 +464,8 @@ dlgVerifyBlocks blocks = do
                      "don't revoke anything: "%listJson)
                      (headerHash blk) (map fst dontHavePrevPsk)
 
-        -- Check 6: applying psks won't create a cycle.
+
+        -- Check 7: applying psks won't create a cycle.
         --
         -- Lemma 1: Removing edges from acyclic graph doesn't create cycles.
         --
@@ -522,8 +545,12 @@ dlgApplyBlocks blunds = do
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             edgeActions = map pskToDlgEdgeAction proxySKs
+            postedThisEpoch = SomeBatchOp $ map (GS.AddPostedThisEpoch . addressHash) issuers
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-        let batchOps = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
+        let batchOps =
+                SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <>
+                transCorrections <>
+                postedThisEpoch
         runDelegationStateAction $ do
             dwTip .= headerHash block
             forM_ issuers deleteFromDlgMemPool

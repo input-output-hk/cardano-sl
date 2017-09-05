@@ -189,6 +189,7 @@ processProxySKHeavyInternal psk = do
     let msg = Right psk
         consistent = verifyPsk psk
         iPk = pskIssuerPk psk
+        dPk = pskDelegatePk psk
         -- We don't check stake for revoking certs. You can revoke
         -- even if you don't have money anymore.
         enoughStake = isRevokePsk psk || addressHash iPk `HS.member` richmen
@@ -196,7 +197,8 @@ processProxySKHeavyInternal psk = do
 
     -- DB related checks
     alreadyPosted <- GS.isIssuerPostedThisEpoch $ addressHash iPk
-    hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
+    pskFromDB <- GS.getPskByIssuer (Left $ pskIssuerPk psk)
+    let hasPskInDB = isJust pskFromDB
 
     -- Retrieve psk pool and perform another db check. It's
     -- guaranteed that pool is not changed when we're under
@@ -215,7 +217,11 @@ processProxySKHeavyInternal psk = do
     runDelegationStateAction $ do
         memPoolSize <- use dwPoolSize
         posted <- uses dwProxySKPool (\m -> isJust $ HM.lookup iPk m)
-        existsSame <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
+        existsSameMempool <- uses dwProxySKPool $ \m -> HM.lookup iPk m == Just psk
+        let existsIsoDB =
+                fromMaybe False $ do
+                    ProxySecretKey{..} <- pskFromDB
+                    pure $ pskIssuerPk == iPk && pskDelegatePk == dPk
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         let isRevoke = isRevokePsk psk
         let rerevoke = isRevoke && not hasPskInDB
@@ -234,9 +240,12 @@ processProxySKHeavyInternal psk = do
                                      "have any psk in db"
                      | isJust producesCycle ->
                          PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
+                     | existsIsoDB ->
+                         PHInvalid $ "isomorphic proxy sk already exists in db: " <>
+                                     pretty pskFromDB
                      | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
                      | cached -> PHCached
-                     | existsSame -> PHExists
+                     | existsSameMempool -> PHExists
                      | exhausted -> PHExhausted
                      | posted && isRevoke -> PHRemoved
                      | otherwise -> PHAdded

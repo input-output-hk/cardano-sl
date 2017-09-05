@@ -9,47 +9,19 @@ module Test.Pos.Client.Txp.Mode
 
 import           Universum
 
-import           Control.Lens                   (lens, makeClassy, makeLensesWith)
-import qualified Data.ByteString                as BS
-import           Data.Time.Units                (Microsecond, fromMicroseconds)
-import           Ether.Internal                 (HasLens (..))
-import           Mockable                       (Production, currentTime, runProduction)
-import           Test.QuickCheck                (Arbitrary (..), Gen, Property,
-                                                 Testable (..), forAll, ioProperty,
-                                                 suchThat)
-import           Test.QuickCheck.Monadic        (PropertyM, monadic)
+import           Control.Lens             (makeClassy, makeLensesWith)
+import qualified Data.ByteString          as BS
+import           Test.QuickCheck          (Arbitrary (..), Gen, Property, Testable (..),
+                                           forAll, ioProperty)
+import           Test.QuickCheck.Monadic  (PropertyM, monadic)
 
-import           Pos.AllSecrets                 (mkInvAddrSpendingData, mkInvSecretsMap)
-import           Pos.Block.Core                 (Block, BlockHeader)
-import           Pos.Block.Slog                 (mkSlogGState)
-import           Pos.Block.Types                (Undo)
-import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
-import           Pos.Client.Txp.Util            (TxCreateMode)
-import           Pos.Core                       (AddrSpendingData (..), HasCoreConstants,
-                                                 IsHeader, Timestamp (..),
-                                                 makePubKeyAddressBoot)
-import           Pos.Crypto                     (SecretKey, toPublic)
-import           Pos.DB                         (MonadGState (..))
-import qualified Pos.DB                         as DB
-import qualified Pos.DB.Block                   as DB
-import           Pos.DB.DB                      as DB
-import           Pos.DB.DB                      (initNodeDBs)
-import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo,
-                                                 GenesisWStakeholders,
-                                                 genesisContextImplicit, gtcUtxo,
-                                                 gtcWStakeholders)
-import qualified Pos.GState                     as GS
-import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting                   (HasSlottingVar (..))
-import           Pos.Ssc.Class                  (SscBlock)
-import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
-import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Util.Util                  (Some, postfixLFields)
-
--- Need Emulation because it has instance Mockable CurrentTime
-import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
-import           Test.Pos.Block.Logic.Mode      (genSuitableStakeDistribution)
-import           Test.Pos.Client.Txp.Util       (generateAddressWithKey, seedSize)
+import           Pos.Client.Txp.Addresses (MonadAddresses (..))
+import           Pos.Client.Txp.Util      (TxCreateMode)
+import qualified Pos.Constants            as Const
+import           Pos.Core                 (HasCoreConstants)
+import           Pos.DB                   (MonadGState (..))
+import           Pos.Util.Util            (postfixLFields)
+import           Test.Pos.Client.Txp.Util (generateAddressWithKey, seedSize)
 
 ----------------------------------------------------------------------------
 -- TestParams
@@ -58,43 +30,24 @@ import           Test.Pos.Client.Txp.Util       (generateAddressWithKey, seedSiz
 -- An object of this type has instance Arbitrary and is used as the source
 -- of randomness in the tests.
 data TxpTestParams = TxpTestParams
-    { _ttpGenesisContext :: !GenesisContext
-    , _ttpStartTime      :: !Microsecond
+    { _ttpDummy :: !()
     } deriving (Show)
 
 makeClassy ''TxpTestParams
 
 instance Arbitrary TxpTestParams where
     arbitrary = do
-        secretKeysList <-
-            toList @(NonEmpty SecretKey) <$>
-             -- might have repetitions
-            (arbitrary `suchThat` (\l -> length l < 15))
-        let invSecretsMap = mkInvSecretsMap secretKeysList
-        let publicKeys = map toPublic (toList invSecretsMap)
-        let addresses = map makePubKeyAddressBoot publicKeys
-        let invAddrSpendingData =
-                mkInvAddrSpendingData $
-                addresses `zip` (map PubKeyASD publicKeys)
-        stakeDistribution <-
-            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
-        let addrDistribution = [(addresses, stakeDistribution)]
-        let _ttpGenesisContext =
-                genesisContextImplicit invAddrSpendingData addrDistribution
-        let _ttpStartTime = fromMicroseconds 0
+        let _ttpDummy = ()
         pure TxpTestParams {..}
 
 ----------------------------------------------------------------------------
 -- Mock for TxCreateMode
 ----------------------------------------------------------------------------
 
-type TxpTestMode = ReaderT TxpTestContext Emulation
+type TxpTestMode = ReaderT TxpTestContext IO
 
 data TxpTestContext = TxpTestContext
-    { ttcGState      :: !GS.GStateContext
-    , ttcSystemStart :: !Timestamp
-    , ttcParams      :: !TxpTestParams
-    }
+    { ttcParams :: !TxpTestParams }
 
 makeLensesWith postfixLFields ''TxpTestContext
 
@@ -104,38 +57,13 @@ instance HasCoreConstants => TxCreateMode TxpTestMode
 -- Mock initialization
 ----------------------------------------------------------------------------
 
-data TxpTestInitContext = TxpTestInitContext
-    { tticDBPureVar      :: !DB.DBPureVar
-    , tticGenesisContext :: !GenesisContext
-    }
-
-makeLensesWith postfixLFields ''TxpTestInitContext
-
-type TxpTestInitMode = ReaderT TxpTestInitContext Production
-
-runTestInitMode :: TxpTestInitContext -> TxpTestInitMode a -> IO a
-runTestInitMode ctx = runProduction . flip runReaderT ctx
-
 initTxpTestContext
     :: (HasCoreConstants, MonadIO m)
     => TxpTestParams
     -> m TxpTestContext
 initTxpTestContext tp@TxpTestParams {..} = do
-    dbPureVar <- DB.newDBPureVar
-    let initCtx = TxpTestInitContext
-            { tticDBPureVar      = dbPureVar
-            , tticGenesisContext = _ttpGenesisContext
-            }
-    liftIO $ runTestInitMode initCtx $ do
-        initNodeDBs @SscGodTossing
-        lcLrcSync <- newTVarIO =<< mkLrcSyncData
-        let _gscLrcContext = LrcContext {..}
-        _gscSlogGState <- mkSlogGState
-        _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
-        let ttcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
-        ttcSystemStart <- Timestamp <$> currentTime
-        let ttcParams = tp
-        pure TxpTestContext {..}
+    let ttcParams = tp
+    pure TxpTestContext {..}
 
 runTxpTestMode
     :: HasCoreConstants
@@ -144,91 +72,14 @@ runTxpTestMode
     -> IO a
 runTxpTestMode tp action = do
     ctx <- initTxpTestContext tp
-    runEmulation (tp ^. ttpStartTime) $ runReaderT action ctx
-
-----------------------------------------------------------------------------
--- Boilerplate TxpTestInitContext instances
-----------------------------------------------------------------------------
-
-instance HasLens DB.DBPureVar TxpTestInitContext DB.DBPureVar where
-    lensOf = tticDBPureVar_L
-
-instance HasLens GenesisContext TxpTestInitContext GenesisContext where
-    lensOf = tticGenesisContext_L
-
-instance HasLens GenesisUtxo TxpTestInitContext GenesisUtxo where
-    lensOf = tticGenesisContext_L . gtcUtxo
-
-instance HasLens GenesisWStakeholders TxpTestInitContext GenesisWStakeholders where
-    lensOf = tticGenesisContext_L . gtcWStakeholders
-
-----------------------------------------------------------------------------
--- Boilerplate TxpTestInitMode instances
-----------------------------------------------------------------------------
-
-instance DB.MonadDBRead TxpTestInitMode where
-    dbGet = DB.dbGetPureDefault
-    dbIterSource = DB.dbIterSourcePureDefault
-
-instance DB.MonadDB TxpTestInitMode where
-    dbPut = DB.dbPutPureDefault
-    dbWriteBatch = DB.dbWriteBatchPureDefault
-    dbDelete = DB.dbDeletePureDefault
-
-instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
-    DB.MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo TxpTestInitMode
-  where
-    dbGetBlock  = DB.dbGetBlockPureDefault @ssc
-    dbGetUndo   = DB.dbGetUndoPureDefault @ssc
-    dbGetHeader = DB.dbGetHeaderPureDefault @ssc
-
-instance (HasCoreConstants, SscHelpersClass ssc) =>
-         DB.MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo TxpTestInitMode where
-    dbPutBlund = DB.dbPutBlundPureDefault
-
-instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
-    DB.MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () TxpTestInitMode
-  where
-    dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
-    dbGetUndo   = DB.dbGetUndoSscPureDefault @ssc
-    dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
-
-----------------------------------------------------------------------------
--- Boilerplate TxpTestContext instances
-----------------------------------------------------------------------------
-
-instance GS.HasGStateContext TxpTestContext where
-    gStateContext = ttcGState_L
-
-instance HasSlottingVar TxpTestContext where
-    slottingTimestamp = ttcSystemStart_L
-    slottingVar = GS.gStateContext . GS.gscSlottingVar
-
-instance HasLens GenesisWStakeholders TxpTestContext GenesisWStakeholders where
-    lensOf = ttcParams_L . ttpGenesisContext . gtcWStakeholders
-
-instance HasLens DB.DBPureVar TxpTestContext DB.DBPureVar where
-    lensOf = GS.gStateContext . GS.gscDB . pureDBLens
-      where
-        getter = \case
-            DB.RealDB _   -> realDBInTestsError
-            DB.PureDB pdb -> pdb
-        setter _ pdb = DB.PureDB pdb
-        pureDBLens = lens getter setter
-        realDBInTestsError = error "You are using real db in tests"
+    runReaderT action ctx
 
 ----------------------------------------------------------------------------
 -- Boilerplate TxpTestMode instances
 ----------------------------------------------------------------------------
 
 instance MonadGState TxpTestMode where
-    gsAdoptedBVData = DB.gsAdoptedBVDataDefault
-
-instance DB.MonadDBRead TxpTestMode where
-    dbGet = DB.dbGetPureDefault
-    dbIterSource = DB.dbIterSourcePureDefault
+    gsAdoptedBVData = pure Const.genesisBlockVersionData
 
 instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()

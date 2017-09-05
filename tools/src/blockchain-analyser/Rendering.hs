@@ -5,24 +5,28 @@ module Rendering ( render
                  , renderHeader
                  ) where
 
-import qualified Data.Text          as T
-import           Formatting         hiding (bytes)
-import           Options            (CLIOptions (..), PrintMode (..), UOM (..))
-import           Pos.Block.Core     (Block, BlockHeader, GenericBlockHeader, GenesisBlock,
-                                     GenesisBlockHeader (..), MainBlock, MainBlockHeader,
-                                     blockHeaderHash, gbConsensus, gbhConsensus,
-                                     getBlockHeader, mbTxs, _gbBody, _gbHeader,
-                                     _gbhConsensus, _gcdEpoch, _mcdLeaderKey)
-import           Pos.Core           (EpochIndex, EpochOrSlot (..), HasCoreConstants,
-                                     LocalSlotIndex (..), SlotId (..), getEpochIndex,
-                                     getEpochOrSlot)
-import           Pos.Crypto         (PublicKey)
-import           Pos.Merkle         (MerkleTree (..))
-import           Pos.Ssc.GodTossing (SscGodTossing)
-import           Pos.Txp.Core       (Tx)
-import           Text.Tabl          (Alignment (..), Decoration (..),
-                                     Environment (EnvAscii), tabl)
-import           Types              (DBFolderStat, prevBlock)
+import qualified Data.Text                  as T
+import           Formatting                 hiding (bytes)
+import           Options                    (CLIOptions (..), PrintMode (..), UOM (..))
+import           Pos.Binary.Class           (biSize)
+import           Pos.Block.Core             (Block, BlockHeader, GenericBlockHeader,
+                                             GenesisBlock, GenesisBlockHeader (..),
+                                             MainBlock, MainBlockHeader, blockHeaderHash,
+                                             gbConsensus, gbhConsensus, getBlockHeader,
+                                             mbTxs, _gbBody, _gbHeader, _gbhConsensus,
+                                             _gcdEpoch, _mcdLeaderKey)
+import           Pos.Block.Types            (Undo)
+import           Pos.Core                   (EpochIndex, EpochOrSlot (..),
+                                             HasCoreConstants, LocalSlotIndex (..),
+                                             SlotId (..), getEpochIndex, getEpochOrSlot)
+import           Pos.Crypto                 (PublicKey)
+import           Pos.Merkle                 (MerkleTree (..))
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Txp.Core               (Tx)
+import           Serokell.Data.Memory.Units (toBytes)
+import           Text.Tabl                  (Alignment (..), Decoration (..),
+                                             Environment (EnvAscii), tabl)
+import           Types                      (DBFolderStat, prevBlock)
 
 import           Universum
 
@@ -67,8 +71,8 @@ render uom printMode stats =
 
 renderCSV :: UOM -> [DBFolderStat] -> Text
 renderCSV uom stats =
-    let header = ["Directory", "Size (" <> renderUnit uom <> ")"]
-        rows   = header : map (\(f,sz) -> [f, renderBytes uom sz]) stats
+    let statsHeaders = ["Directory", "Size (" <> renderUnit uom <> ")"]
+        rows   = statsHeaders : map (\(f,sz) -> [f, renderBytes uom sz]) stats
     in T.unlines $ map (T.intercalate ",") rows
 
 renderAsciiTable :: UOM -> [DBFolderStat] -> Text
@@ -82,19 +86,19 @@ renderAsciiTable uom stats =
 
 renderBlock :: HasCoreConstants
             => CLIOptions
-            -> Block SscGodTossing
+            -> (Block SscGodTossing, Maybe Undo)
             -> Text
 renderBlock cli block = case printMode cli of
-    Human      -> renderBlockHuman block
-    AsciiTable -> let rows = [toTableRow block]
+    Human      -> renderBlockHuman (fst block)
+    AsciiTable -> let rows = [toTableRow (uom cli) block]
                   in renderAsTable DecorNone DecorNone (defaultAlignment rows) rows
-    CSV        -> renderBlockCSV block
+    CSV        -> renderBlockCSV (uom cli) block
 
 renderBlockHuman :: HasCoreConstants => Block SscGodTossing -> Text
 renderBlockHuman = either (sformat build) (sformat build)
 
-renderBlockCSV :: HasCoreConstants => Block SscGodTossing -> Text
-renderBlockCSV = T.intercalate "," . toTableRow
+renderBlockCSV :: HasCoreConstants => UOM -> (Block SscGodTossing, Maybe Undo) -> Text
+renderBlockCSV uom = T.intercalate "," . (toTableRow uom)
 
 defaultHorizontalDecoration :: Decoration
 defaultHorizontalDecoration = DecorUnion [DecorOuter, DecorOnly [1]]
@@ -114,11 +118,12 @@ renderAsTable hdecor vdecor aligns rows = tabl EnvAscii hdecor vdecor aligns row
 renderHeader :: CLIOptions -> Text
 renderHeader cli = case printMode cli of
     Human      -> mempty
-    AsciiTable -> renderAsTable defaultHorizontalDecoration defaultVerticalDecoration (defaultAlignment [header]) [header]
-    CSV        -> T.intercalate "," header
+    AsciiTable -> let rows = [ header (uom cli) ]
+                  in renderAsTable defaultHorizontalDecoration defaultVerticalDecoration (defaultAlignment rows) rows
+    CSV        -> T.intercalate "," (header (uom cli))
 
-header :: [T.Text]
-header = [
+header :: UOM -> [T.Text]
+header uom = [
            "Block Type"
          , "Epoch"
          , "Slot"
@@ -126,17 +131,20 @@ header = [
          , "Block Hash"
          , "Leader"
          , "Tx Count"
+         , "Header Size  (" <> renderUnit uom <> ")"
+         , "Block  Size  (" <> renderUnit uom <> ")"
+         , "Block + Undo (" <> renderUnit uom <> ")"
          ]
 
 renderBlocks :: HasCoreConstants
              => CLIOptions
-             -> [Block SscGodTossing]
+             -> [(Block SscGodTossing, Maybe Undo)]
              -> Text
 renderBlocks cli blocks = case printMode cli of
-    Human      -> T.unlines $ map renderBlockHuman blocks
-    AsciiTable -> let rows = header : map toTableRow blocks
+    Human      -> T.unlines $ map (renderBlockHuman . fst) blocks
+    AsciiTable -> let rows = header (uom cli) : map (toTableRow (uom cli)) blocks
                   in renderAsTable defaultHorizontalDecoration defaultVerticalDecoration (defaultAlignment rows) rows
-    CSV        -> T.unlines (renderHeader cli : map renderBlockCSV blocks)
+    CSV        -> T.unlines (renderHeader cli : map (renderBlockCSV (uom cli)) blocks)
 
 
 getEpoch :: BlockHeader SscGodTossing -> EpochIndex
@@ -155,19 +163,41 @@ getTxs :: Block SscGodTossing -> MerkleTree Tx
 getTxs (Left _)          = MerkleEmpty
 getTxs (Right mainBlock) = (_gbBody mainBlock) ^. mbTxs
 
+getHeaderSize :: HasCoreConstants => BlockHeader SscGodTossing -> Integer
+getHeaderSize = either (toBytes . biSize) (toBytes . biSize)
+
+getBlockSize :: HasCoreConstants => Block SscGodTossing -> Integer
+getBlockSize = either (toBytes . biSize) (toBytes . biSize)
+
+getUndoSize :: HasCoreConstants => Maybe Undo -> Integer
+getUndoSize = maybe 0 (toBytes . biSize)
+
 -- | Given a `Block`, returns a table row suitable for being printed
 -- by `tabl`.
-toTableRow :: HasCoreConstants => Block SscGodTossing -> [Text]
-toTableRow block =
+toTableRow :: HasCoreConstants => UOM -> (Block SscGodTossing, Maybe Undo) -> [Text]
+toTableRow uom (block, mbUndo) =
     let blockHeader   = getBlockHeader block
         previousBlock = sformat build (prevBlock block)
-        blockHash     = sformat build (blockHeaderHash blockHeader)
+        blockHash     = blockHeaderHash blockHeader
         epoch         = sformat build (getEpochIndex (getEpoch blockHeader))
         blockType     = either (const "GENESIS") (const "MAIN") block
         slot          = maybe mempty (sformat build . getSlotIndex . siSlot) (getSlot blockHeader)
         leader        = maybe mempty (sformat build) (getLeader blockHeader)
         txCount       = sformat build (length (getTxs block))
-    in [blockType, epoch, slot, previousBlock, blockHash, leader, txCount]
+        headerSize    = renderBytesWithUnit uom (getHeaderSize blockHeader)
+        blockSize     = getBlockSize block
+        undoSize      = getUndoSize  mbUndo
+    in [ blockType
+       , epoch
+       , slot
+       , previousBlock
+       , sformat build blockHash
+       , leader
+       , txCount
+       , headerSize
+       , renderBytesWithUnit uom blockSize
+       , renderBytesWithUnit uom (blockSize + undoSize)
+       ]
 
 {--
 type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)

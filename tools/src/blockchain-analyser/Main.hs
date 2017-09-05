@@ -4,9 +4,10 @@ module Main where
 
 import           Formatting
 import           Mockable           (runProduction)
-import           Pos.Block.Core     (Block, GenesisBlock, MainBlock)
-import           Pos.Core           (HasCoreConstants, gbHeader, gbPrevBlock,
-                                     gbhPrevBlock, giveStaticConsts, headerHash)
+import           Pos.Block.Core     (Block, GenesisBlock, MainBlock, blockHeaderHash,
+                                     getBlockHeader)
+import           Pos.Block.Types    (Undo)
+import           Pos.Core           (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Block     (GenericBlock (..))
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.DB             (closeNodeDBs, openNodeDBs)
@@ -67,6 +68,9 @@ analyseBlockchain cli tip =
 fetchBlock :: HasCoreConstants => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
 fetchBlock = DB.dbGetBlockSumDefault @SscGodTossing
 
+fetchUndo :: HasCoreConstants => Block SscGodTossing -> BlockchainInspector (Maybe Undo)
+fetchUndo block = DB.blkGetUndo @SscGodTossing (blockHeaderHash $ getBlockHeader block)
+
 analyseBlockchainEagerly :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchainEagerly cli currentTip = do
     allBlocks <- go currentTip mempty
@@ -75,13 +79,14 @@ analyseBlockchainEagerly cli currentTip = do
     where
       go tip xs = do
           nextBlock <- fetchBlock tip
-          maybe (return (reverse xs)) (\nb -> go (prevBlock nb) (nb : xs)) nextBlock
+          mbUndo    <- maybe (return Nothing) fetchUndo nextBlock
+          maybe (return (reverse xs)) (\nb -> go (prevBlock nb) ((nb, mbUndo) : xs)) nextBlock
 
 analyseBlockchainIncrementally :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchainIncrementally cli currentTip = do
-    let processBlock block = do liftIO $ putText (renderBlock cli block)
-                                analyseBlockchainIncrementally cli (prevBlock block)
+    let processBlock block mbUndo = do liftIO $ putText (renderBlock cli (block, mbUndo))
+                                       analyseBlockchainIncrementally cli (prevBlock block)
     nextBlock <- fetchBlock currentTip
     case nextBlock of
         Nothing -> return ()
-        Just b  -> processBlock b
+        Just b  -> fetchUndo b >>= processBlock b

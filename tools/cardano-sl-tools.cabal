@@ -544,11 +544,12 @@ executable cardano-blockchain-analyser
                      , ether
                      , formatting
                      , lens
+                     , mtl
                      , neat-interpolation
                      , node-sketch
-                     , mtl
                      , tabl
                      , text
+                     , serokell-util
                      , optparse-applicative
                      , universum >= 0.1.11
   default-language:    Haskell2010

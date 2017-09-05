@@ -51,7 +51,7 @@ import           Pos.Util.Util                  (Some, postfixLFields)
 
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
-import           Test.Pos.Block.Logic.Mode      (genSuitableStakeDistribution)
+import           Test.Pos.Block.Logic.Mode      (genSuitableBalanceDistribution)
 import           Test.Pos.Client.Txp.Util       (generateAddressWithKey, seedSize)
 
 ----------------------------------------------------------------------------
@@ -79,9 +79,9 @@ instance Arbitrary TxpTestParams where
         let invAddrSpendingData =
                 mkInvAddrSpendingData $
                 addresses `zip` (map PubKeyASD publicKeys)
-        stakeDistribution <-
-            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
-        let addrDistribution = [(addresses, stakeDistribution)]
+        balanceDistribution <-
+            genSuitableBalanceDistribution (fromIntegral $ length invSecretsMap)
+        let addrDistribution = [(addresses, balanceDistribution)]
         let _ttpGenesisContext =
                 genesisContextImplicit invAddrSpendingData addrDistribution
         let _ttpStartTime = fromMicroseconds 0

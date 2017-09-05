@@ -27,7 +27,7 @@ import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (devGenesisContext, devStakesDistr,
+import           Pos.Genesis                (devBalancesDistr, devGenesisContext,
                                              genesisContextProduction)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
@@ -81,13 +81,13 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
-    let devStakeDistr =
-            devStakesDistr
+    let devBalanceDistr =
+            devBalancesDistr
                 (flatDistr commonArgs)
                 (richPoorDistr commonArgs)
                 (expDistr commonArgs)
     let npGenesisCtx
-            | isDevelopment = devGenesisContext devStakeDistr
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath

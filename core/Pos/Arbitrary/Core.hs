@@ -521,19 +521,19 @@ instance Arbitrary G.GenesisCoreData where
             nonrepeating (outerLen * innerLen)
         let listOfAddrList = chop innerLen allAddrs
         -- This may seem like boilerplate but it's necessary to pass the first check in
-        -- 'mkGenesisCoreData'. Certain parameters in the generated 'StakeDistribution'
+        -- 'mkGenesisCoreData'. Certain parameters in the generated 'BalanceDistribution'
         -- must be equal to the length of the first element of the tuple in
         -- 'AddrDistribution'
             wordILen = fromIntegral innerLen
             distributionGen = oneof
-                [ G.FlatStakes wordILen <$> arbitrary
+                [ G.FlatBalances wordILen <$> arbitrary
                 , do a <- choose (0, wordILen)
-                     G.RichPoorStakes a
+                     G.RichPoorBalances a
                          <$> arbitrary
                          <*> pure (wordILen - a)
                          <*> arbitrary
-                , pure $ G.safeExpStakes wordILen
-                , G.CustomStakes <$> vector innerLen
+                , pure $ G.safeExpBalances wordILen
+                , G.CustomBalances <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
         hashmapOfHolders <- arbitrary :: Gen (Map Types.StakeholderId Word16)
@@ -543,18 +543,18 @@ instance Arbitrary G.GenesisCoreData where
                                 hashmapOfHolders
                                 delegation
 
-instance Arbitrary G.StakeDistribution where
+instance Arbitrary G.BalanceDistribution where
     arbitrary = oneof
       [ do stakeholders <- choose (1, 10000)
            coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-           return (G.FlatStakes (fromIntegral stakeholders) coins)
+           return (G.FlatBalances (fromIntegral stakeholders) coins)
       , do sdRichmen <- choose (0, 20)
-           sdRichStake <- Types.mkCoin <$> choose (100000, 5000000)
+           sdRichBalance <- Types.mkCoin <$> choose (100000, 5000000)
            sdPoor <- choose (0, 20)
-           sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
-           return G.RichPoorStakes{..}
-      , G.safeExpStakes <$> choose (0::Integer, 20)
-      , G.CustomStakes <$> arbitrary
+           sdPoorBalance <- Types.mkCoin <$> choose (1000, 50000)
+           return G.RichPoorBalances{..}
+      , G.safeExpBalances <$> choose (0::Integer, 20)
+      , G.CustomBalances <$> arbitrary
       ]
     shrink = genericShrink
 

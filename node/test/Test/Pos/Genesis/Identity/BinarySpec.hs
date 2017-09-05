@@ -16,6 +16,6 @@ import           Test.Pos.Util      (binaryTest)
 spec :: Spec
 spec = describe "Genesis" $ do
     describe "Bi instances" $ do
-        binaryTest @T.StakeDistribution
+        binaryTest @T.BalanceDistribution
         binaryTest @T.GenesisCoreData
         binaryTest @T.GenesisGtData

@@ -178,7 +178,7 @@ lrcCorrectnessProp = do
     -- already applied 1 blocks, hence 'pred'.
     blkCount1 <- pred <$> pick (choose (k, 2 * k))
     () <$ bpGenBlocks (Just blkCount1) (EnableTxPayload False) (InplaceDB True)
-    lift $ Lrc.lrcSingleShotNoLock 1
+    lift $ Lrc.lrcSingleShot 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
     gws <- view (lensOf @GenesisWStakeholders)

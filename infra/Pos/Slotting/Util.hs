@@ -12,7 +12,6 @@ module Pos.Slotting.Util
 
          -- * Worker which ticks when slot starts
        , onNewSlot
-       , onNewSlotImpl
 
          -- * Worker which logs beginning of new slot
        , logNewSlotWorker

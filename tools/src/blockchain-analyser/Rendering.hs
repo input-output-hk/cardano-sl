@@ -11,13 +11,15 @@ import           Options            (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Block.Core     (Block, BlockHeader, GenericBlockHeader, GenesisBlock,
                                      GenesisBlockHeader (..), MainBlock, MainBlockHeader,
                                      blockHeaderHash, gbConsensus, gbhConsensus,
-                                     getBlockHeader, _gbHeader, _gbhConsensus, _gcdEpoch,
-                                     _mcdLeaderKey)
+                                     getBlockHeader, mbTxs, _gbBody, _gbHeader,
+                                     _gbhConsensus, _gcdEpoch, _mcdLeaderKey)
 import           Pos.Core           (EpochIndex, EpochOrSlot (..), HasCoreConstants,
                                      LocalSlotIndex (..), SlotId (..), getEpochIndex,
                                      getEpochOrSlot)
 import           Pos.Crypto         (PublicKey)
+import           Pos.Merkle         (MerkleTree (..))
 import           Pos.Ssc.GodTossing (SscGodTossing)
+import           Pos.Txp.Core       (Tx)
 import           Text.Tabl          (Alignment (..), Decoration (..),
                                      Environment (EnvAscii), tabl)
 import           Types              (DBFolderStat, prevBlock)
@@ -123,6 +125,7 @@ header = [
          , "Previous Block"
          , "Block Hash"
          , "Leader"
+         , "Tx Count"
          ]
 
 renderBlocks :: HasCoreConstants
@@ -148,6 +151,10 @@ getLeader :: BlockHeader SscGodTossing -> Maybe PublicKey
 getLeader (Left _)   = Nothing
 getLeader (Right bh) = Just . _mcdLeaderKey . _gbhConsensus $ bh
 
+getTxs :: Block SscGodTossing -> MerkleTree Tx
+getTxs (Left _)          = MerkleEmpty
+getTxs (Right mainBlock) = (_gbBody mainBlock) ^. mbTxs
+
 -- | Given a `Block`, returns a table row suitable for being printed
 -- by `tabl`.
 toTableRow :: HasCoreConstants => Block SscGodTossing -> [Text]
@@ -159,7 +166,8 @@ toTableRow block =
         blockType     = either (const "GENESIS") (const "MAIN") block
         slot          = maybe mempty (sformat build . getSlotIndex . siSlot) (getSlot blockHeader)
         leader        = maybe mempty (sformat build) (getLeader blockHeader)
-    in [blockType, epoch, slot, previousBlock, blockHash, leader]
+        txCount       = sformat build (length (getTxs block))
+    in [blockType, epoch, slot, previousBlock, blockHash, leader, txCount]
 
 {--
 type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)

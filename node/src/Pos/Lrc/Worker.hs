@@ -185,7 +185,7 @@ leadersComputationDo :: LrcMode ssc ctx m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
         totalStake <- GS.getRealTotalStake
-        leaders <- runConduitRes $ GS.balanceSource .| followTheSatoshiM seed totalStake
+        leaders <- runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
         putLeaders epochId leaders
 
 richmenComputationDo
@@ -202,7 +202,7 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
         minThresholdD :: Maybe Coin
         minThresholdD = safeThreshold consumersAndThds lcConsiderDelegated
     (richmen, richmenD) <- runConduitRes $
-        GS.balanceSource .| findAllRichmenMaybe minThreshold minThresholdD
+        GS.stakeSource .| findAllRichmenMaybe minThreshold minThresholdD
     logDebug $ "Size of richmen: " <> show (HM.size richmen)
     logDebug $ "Size of richmenD: " <> show (HM.size richmenD)
     let callCallback (cons, thd) =

@@ -1,6 +1,6 @@
--- | Pure versions of Balances functionality.
+-- | Pure versions of Stakes functionality.
 
-module Pos.Txp.Toil.Balances.Pure
+module Pos.Txp.Toil.Stakes.Pure
        ( (.)
        ) where
 

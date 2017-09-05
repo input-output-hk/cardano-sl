@@ -1,10 +1,10 @@
 -- | Types related to genesis core data.
 
 module Pos.Core.Genesis.Types
-       ( StakeDistribution (..)
+       ( BalanceDistribution (..)
        , getDistributionSize
-       , getTotalStake
-       , safeExpStakes
+       , getTotalBalance
+       , safeExpBalances
 
        , AddrDistribution
        , GenesisWStakeholders (..)
@@ -32,66 +32,63 @@ import           Pos.Core.Types       (Address, Coin, ProxySKHeavy, StakeholderI
 import           Pos.Crypto           (ProxySecretKey (..), isSelfSignedPsk)
 
 -- | Balances distribution in genesis block.
---
--- TODO Needs a proper name (maybe "BalancesDistribution"), see
--- CSL-1124.
-data StakeDistribution
-    -- | FlatStakes is a flat distribution, i. e. each node has the
+data BalanceDistribution
+    -- | FlatBalances is a flat distribution, i. e. each node has the
     -- same amount of coins.
-    = FlatStakes !Word     -- ^ Number of stakeholders
-                 !Coin     -- ^ Total number of coins
+    = FlatBalances !Word     -- ^ Number of stakeholders
+                   !Coin     -- ^ Total number of coins
     -- | Rich/poor distribution, for testnet mostly.
-    | RichPoorStakes
-        { sdRichmen   :: !Word
-        , sdRichStake :: !Coin
-        , sdPoor      :: !Word
-        , sdPoorStake :: !Coin
+    | RichPoorBalances
+        { sdRichmen     :: !Word
+        , sdRichBalance :: !Coin
+        , sdPoor        :: !Word
+        , sdPoorBalance :: !Coin
         }
     -- | First three nodes get 0.875% of balance.
-    | ExponentialStakes !Word -- ^ Numbers of participants
-                        !Coin -- ^ Minimal coin
+    | ExponentialBalances !Word -- ^ Numbers of participants
+                          !Coin -- ^ Minimal coin
     -- | Custom balances list.
-    | CustomStakes [Coin]
+    | CustomBalances [Coin]
     deriving (Show, Eq, Generic)
 
 -- | Get the amount of stakeholders in a distribution.
-getDistributionSize :: StakeDistribution -> Word
-getDistributionSize (FlatStakes n _)         = n
-getDistributionSize (RichPoorStakes a _ b _) = a + b
-getDistributionSize (ExponentialStakes n _)  = n
-getDistributionSize (CustomStakes cs)        = fromIntegral (length cs)
+getDistributionSize :: BalanceDistribution -> Word
+getDistributionSize (FlatBalances n _)         = n
+getDistributionSize (RichPoorBalances a _ b _) = a + b
+getDistributionSize (ExponentialBalances n _)  = n
+getDistributionSize (CustomBalances cs)        = fromIntegral (length cs)
 
--- | Get total amount of stake in a distribution.
-getTotalStake :: StakeDistribution -> Coin
-getTotalStake (FlatStakes _ st) = st
-getTotalStake RichPoorStakes {..} = unsafeIntegerToCoin $
-    coinToInteger sdRichStake * fromIntegral sdRichmen +
-    coinToInteger sdPoorStake * fromIntegral sdPoor
-getTotalStake (ExponentialStakes n (fromIntegral . unsafeGetCoin -> mc)) =
+-- | Get total amount of balance in a distribution.
+getTotalBalance :: BalanceDistribution -> Coin
+getTotalBalance (FlatBalances _ st) = st
+getTotalBalance RichPoorBalances {..} = unsafeIntegerToCoin $
+    coinToInteger sdRichBalance * fromIntegral sdRichmen +
+    coinToInteger sdPoorBalance * fromIntegral sdPoor
+getTotalBalance (ExponentialBalances n (fromIntegral . unsafeGetCoin -> mc)) =
     mkCoin $ sum $ take (fromIntegral n) $ iterate (*2) mc
-getTotalStake (CustomStakes balances) =
+getTotalBalance (CustomBalances balances) =
     unsafeIntegerToCoin $ sumCoins balances
 
--- | Generates exponential stakes that will be valid in boot era prior
+-- | Generates exponential balances that will be valid in boot era prior
 -- to number of participants.
 --
--- Exponential stakes have the form @map (*b) [2^0, 2^1, 2^2, ...]@,
--- where @b@ is the last argument of @ExponentialStakes@. It means
--- that when distribution stakes are created, @b@ is their common
+-- Exponential balances have the form @map (*b) [2^0, 2^1, 2^2, ...]@,
+-- where @b@ is the last argument of @ExponentialBalances@. It means
+-- that when distribution balances are created, @b@ is their common
 -- divisor, so weights are @[2^0, 2^1, ..]@. We also require that no
--- genesis balance is lower than sum of weights. So if stakes list has
+-- genesis balance is lower than sum of weights. So if balances list has
 -- length @k@ we have weights sum @2^{k+1}-1@. That's why the lowest
 -- coin is taken to be @2^{k+1}@.
-safeExpStakes :: (Integral a) => a -> StakeDistribution
-safeExpStakes n =
+safeExpBalances :: (Integral a) => a -> BalanceDistribution
+safeExpBalances n =
     -- This function should be used on start only so if this
     -- `unsafeIntegerToCoin` fails it means we've misconfigured
     -- something and it's easy to find/fix.
-    ExponentialStakes (fromIntegral n) (unsafeIntegerToCoin $ (2::Integer) ^ n)
+    ExponentialBalances (fromIntegral n) (unsafeIntegerToCoin $ (2::Integer) ^ n)
 
 -- | Distributions accompained by related addresses set (what to
 -- distribute and how).
-type AddrDistribution = ([Address], StakeDistribution)
+type AddrDistribution = ([Address], BalanceDistribution)
 
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.
@@ -171,10 +168,10 @@ mkGenesisCoreData distribution bootStakeholders delega = do
         unless (fromIntegral (length addrs) == getDistributionSize distr) $
             Left "mkGenesisCoreData: addressCount != stakeholdersCount \
                  \for some set of addresses"
-        -- Addresses in each list are distinct (except for CustomStakes)
+        -- Addresses in each list are distinct (except for CustomBalances)
         let isCustom = case distr of
-                CustomStakes{} -> True
-                _              -> False
+                CustomBalances{} -> True
+                _                -> False
         unless (isCustom || allDistinct addrs) $
             Left "mkGenesisCoreData: addresses in some list aren't distinct"
         unless (all isBootstrapEraDistrAddress addrs) $

@@ -1,11 +1,12 @@
 
 module Rendering ( render
                  , renderBlock
+                 , renderBlocks
                  ) where
 
 import qualified Data.Text          as T
 import           Formatting         hiding (bytes)
-import           Options            (PrintMode (..), UOM (..))
+import           Options            (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Block.Core     (Block, GenesisBlock, MainBlock)
 import           Pos.Core           (HasCoreConstants)
 import           Pos.Ssc.GodTossing (SscGodTossing)
@@ -69,17 +70,55 @@ renderAsciiTable uom stats =
     vdecor = DecorAll
     aligns = [AlignLeft, AlignLeft]
 
+renderHeader :: CLIOptions -> Text
+renderHeader cli = case printMode cli of
+    Human      -> mempty
+    AsciiTable ->
+        let rows   = [["Block Type", "Epoch", "Slot", "Previous Block", "Block Hash"]]
+            hdecor = DecorUnion [DecorOuter, DecorOnly [1]]
+            vdecor = DecorAll
+            aligns = replicate 5 AlignLeft
+        in tabl EnvAscii hdecor vdecor aligns rows
+    CSV        -> "Block Type,Epoch,Slot,PrevBlock,BlockHash"
+
 renderBlock :: HasCoreConstants
-            => PrintMode
+            => CLIOptions
             -> Block SscGodTossing
             -> Text
-renderBlock pMode b = case pMode of
-    Human      -> either (sformat build) (sformat build) b
-    AsciiTable -> renderBlockTable b
-    CSV        -> renderBlockCSV b
-    where
-      renderBlockCSV _   = "todo."
-      renderBlockTable _ = "todo."
+renderBlock cli block = case printMode cli of
+    Human      -> renderBlockHuman block
+    AsciiTable -> renderBlockTable [toTableRow block]
+    CSV        -> renderBlockCSV block
+
+renderBlockHuman :: HasCoreConstants => Block SscGodTossing -> Text
+renderBlockHuman = either (sformat build) (sformat build)
+
+renderBlockCSV :: HasCoreConstants => Block SscGodTossing -> Text
+renderBlockCSV _   = "todo."
+
+toTableRow :: HasCoreConstants => Block SscGodTossing -> [Text]
+toTableRow block =
+    let blockType = "T"
+        epoch     = "0"
+        slot      = "0"
+    in [blockType, epoch, slot]
+
+-- Epoch|Slot|Previous block|Block hash|Issuer|Number of txs|Size of header|Size of block (serialized)|Size of block+undo on disk
+renderBlockTable :: [[Text]] -> Text
+renderBlockTable rows =
+  let hdecor = DecorUnion [DecorOuter, DecorOnly [1]]
+      vdecor = DecorAll
+      aligns = replicate (length rows) AlignLeft
+  in tabl EnvAscii hdecor vdecor aligns rows
+
+renderBlocks :: HasCoreConstants
+             => CLIOptions
+             -> [Block SscGodTossing]
+             -> Text
+renderBlocks cli blocks = case printMode cli of
+    Human      -> T.unlines $ map renderBlockHuman blocks
+    AsciiTable -> renderBlockTable (map toTableRow blocks)
+    CSV        -> T.unlines $ map renderBlockCSV blocks
 
 {--
 -- | Block.

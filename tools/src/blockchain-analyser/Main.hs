@@ -4,7 +4,7 @@ module Main where
 
 import           Formatting
 import           Mockable           (runProduction)
-import           Pos.Block.Core     (GenesisBlock, MainBlock)
+import           Pos.Block.Core     (Block, GenesisBlock, MainBlock)
 import           Pos.Core           (HasCoreConstants, gbHeader, gbPrevBlock,
                                      gbhPrevBlock, giveStaticConsts, headerHash)
 import           Pos.Core.Block     (GenericBlock (..))
@@ -19,7 +19,7 @@ import           System.Directory   (canonicalizePath, doesDirectoryExist, getFi
                                      listDirectory, withCurrentDirectory)
 
 import           Options            (CLIOptions (..), PrintMode, getOptions)
-import           Rendering          (render, renderBlock)
+import           Rendering          (render, renderBlock, renderBlocks)
 import           Types              (BlockchainInspector, DBFolderStat,
                                      initBlockchainAnalyser)
 
@@ -48,7 +48,7 @@ dbSizes root = do
 
 main :: IO ()
 main = giveStaticConsts $ do
-    CLIOptions{..} <- getOptions
+    cli@CLIOptions{..} <- getOptions
     sizes <- canonicalizePath dbPath >>= dbSizes
     putText $ render uom printMode sizes
 
@@ -56,16 +56,35 @@ main = giveStaticConsts $ do
     bracket (openNodeDBs False dbPath) closeNodeDBs $ \db -> do
         runProduction $ initBlockchainAnalyser db $ do
             tip <- DB.getTip
-            analyseBlockchain printMode tip
+            analyseBlockchain cli tip
 
-analyseBlockchain :: HasCoreConstants => PrintMode -> HeaderHash -> BlockchainInspector ()
-analyseBlockchain pMode currentTip = do
-    mbBlock <- DB.dbGetBlockSumDefault @SscGodTossing currentTip
-    case mbBlock of
+analyseBlockchain :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
+analyseBlockchain cli tip =
+    if incremental cli then analyseBlockchainEagerly cli tip
+                       else analyseBlockchainIncrementally cli tip
+
+fetchBlock :: HasCoreConstants => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
+fetchBlock = DB.dbGetBlockSumDefault @SscGodTossing
+
+prevBlock :: HasCoreConstants => Block SscGodTossing -> HeaderHash
+prevBlock (Left gB)  = gB ^. gbHeader . gbhPrevBlock
+prevBlock (Right mB) = mB ^. gbPrevBlock
+
+analyseBlockchainEagerly :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
+analyseBlockchainEagerly cli currentTip = do
+    allBlocks <- go currentTip mempty
+    liftIO $ putText (renderBlocks cli allBlocks)
+    return ()
+    where
+      go tip xs = do
+          nextBlock <- fetchBlock tip
+          maybe (return (reverse xs)) (\nb -> go (prevBlock nb) (nb : xs)) nextBlock
+
+analyseBlockchainIncrementally :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
+analyseBlockchainIncrementally cli currentTip = do
+    let processBlock block = do liftIO $ putText (renderBlock cli block)
+                                analyseBlockchainIncrementally cli (prevBlock block)
+    nextBlock <- fetchBlock currentTip
+    case nextBlock of
         Nothing -> return ()
-        Just block@(Right mB) -> do
-            liftIO $ putText (renderBlock pMode block)
-            analyseBlockchain pMode (mB ^. gbPrevBlock)
-        Just block@(Left  gB) -> do
-            liftIO $ putText (renderBlock pMode block)
-            analyseBlockchain pMode (gB ^. gbHeader . gbhPrevBlock)
+        Just b  -> processBlock b

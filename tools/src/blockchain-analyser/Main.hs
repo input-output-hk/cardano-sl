@@ -5,9 +5,9 @@ module Main where
 
 import           Formatting
 import           Mockable           (runProduction)
-import           Pos.Block.Core     (GenesisBlock)
-import           Pos.Core           (HasCoreConstants, gbHeader, gbhPrevBlock,
-                                     giveStaticConsts, headerHash)
+import           Pos.Block.Core     (GenesisBlock, MainBlock)
+import           Pos.Core           (HasCoreConstants, gbHeader, gbPrevBlock,
+                                     gbhPrevBlock, giveStaticConsts, headerHash)
 import           Pos.Core.Block     (GenericBlock (..))
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.DB             (closeNodeDBs, openNodeDBs)
@@ -64,14 +64,19 @@ analyseBlockchain currentTip = do
     res <- DB.dbGetBlockSumDefault @SscGodTossing currentTip
     case res of
         Nothing -> putText "No tip found."
-        Just (Right _) -> putText "end."
+        Just (Right mB) -> do
+            liftIO $ putText (renderMainBlock mB)
+            analyseBlockchain (mB ^. gbPrevBlock)
         Just (Left  gB) -> do
             liftIO $ putText (renderGenesisBlock gB)
-            analyseBlockchain (view gbhPrevBlock (gB ^. gbHeader))
+            analyseBlockchain (gB ^. gbHeader . gbhPrevBlock)
 
 
 renderGenesisBlock :: HasCoreConstants => GenesisBlock SscGodTossing -> Text
 renderGenesisBlock b = sformat build b
+
+renderMainBlock :: HasCoreConstants => MainBlock SscGodTossing -> Text
+renderMainBlock b = sformat build b
 
 {--
 -- | Block.

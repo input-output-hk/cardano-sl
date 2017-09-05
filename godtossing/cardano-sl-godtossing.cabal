@@ -11,12 +11,6 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
-flag no-embed
-  default:     False
-  manual:      True
-
-  description: Read the genesis in runtime (from the folder determined by CSL_RES_PATH env var) instead of embedding it
-
 library
   exposed-modules:
     Pos.Arbitrary.Ssc.GodTossing
@@ -82,6 +76,7 @@ library
                      , containers
                      , cryptonite
                      , data-default
+                     , directory
                      , ether
                      , file-embed
                      , filepath
@@ -99,6 +94,7 @@ library
                      , serokell-util
                      , stm
                      , tagged
+                     , template-haskell
                      , text
                      , text-format
                      , time-units
@@ -137,6 +133,3 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(no-embed)
-    cpp-options: -DNO_EMBED

@@ -52,7 +52,6 @@ import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenPa
                                               HasTxGenParams (..))
 import qualified Pos.GState                  as GS
 import           Pos.KnownPeers              (MonadFormatPeers)
-import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
@@ -65,7 +64,8 @@ import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
                                               TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
-import           Pos.Util                    (HasLens (..), Some, postfixLFields)
+import           Pos.Util                    (HasLens (..), Some, newInitFuture,
+                                              postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)

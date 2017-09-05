@@ -152,7 +152,7 @@ data CoreConfig = CoreConfig
     deriving (Show, Generic)
 
 -- | Suffix for genesis.bin files
-genesisBinSuffix :: [Char]
+genesisBinSuffix :: String
 genesisBinSuffix = ccGenesisBinSuffix coreConfig
 
 coreConfig :: CoreConfig

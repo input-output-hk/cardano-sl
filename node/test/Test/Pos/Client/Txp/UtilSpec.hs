@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Specification of Pos.Client.Txp.Util
 
 module Test.Pos.Client.Txp.UtilSpec
@@ -12,20 +14,25 @@ import qualified Data.Set                 as S
 import           Formatting               (build, hex, left, sformat, shown, (%), (%.))
 import           Test.Hspec               (Spec, describe)
 import           Test.Hspec.QuickCheck    (prop)
-import           Test.QuickCheck          (Gen, arbitrary)
-import           Test.QuickCheck.Monadic  (forAllM)
+import           Test.QuickCheck          (Discard (..), Gen, arbitrary, choose)
+import           Test.QuickCheck.Monadic  (forAllM, stop)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util      (TxError (..), TxOutputs, TxWithSpendings,
-                                           createMTx, createRedemptionTx)
-import           Pos.Core                 (HasCoreConstants, makePubKeyAddressBoot,
+                                           createMTx, createRedemptionTx,
+                                           isNotEnoughMoneyTxError)
+import           Pos.Core                 (BlockVersionData (..), Coeff (..),
+                                           HasCoreConstants, TxFeePolicy (..),
+                                           TxSizeLinear (..), makePubKeyAddressBoot,
                                            makeRedeemAddress, unsafeIntegerToCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SecretKey,
                                            decodeHash, fakeSigner, redeemToPublic,
                                            toPublic)
-import           Pos.Txp                  (TxId, TxIn (..), TxOut (..), TxOutAux (..),
-                                           Utxo)
+import qualified Pos.GState               as GS
+import           Pos.Txp                  (Tx (..), TxAux (..), TxId, TxIn (..),
+                                           TxOut (..), TxOutAux (..), Utxo)
 import           Pos.Types                (Address)
+import qualified Pos.Update.DB            as DB
 import           Pos.Util.Arbitrary       (nonrepeating)
 import           Pos.Util.Util            (leftToPanic)
 import           Test.Pos.Util            (giveTestsConsts, stopProperty)
@@ -50,6 +57,7 @@ createMTxSpec = do
     prop manyAddressesToManyDesc manyAddressesToManySpec
     prop redemptionDesc redemptionSpec
     prop txWithRedeemOutputFailsDesc txWithRedeemOutputFailsSpec
+    prop feeForManyAddressesDesc feeForManyAddressesSpec
   where
     createMTxWorksWhenWeAreRichDesc =
         "Transaction is created successfully when we have 1 input with 1M coins " <>
@@ -73,6 +81,8 @@ createMTxSpec = do
         "Redemption transaction is created successfully"
     txWithRedeemOutputFailsDesc =
         "An attempt to create a tx with a redeem address as an output fails"
+    feeForManyAddressesDesc =
+        "Fee evaluation succeedes when many addresses are used"
 
 createMTxWorksWhenWeAreRichSpec :: HasCoreConstants => TxpTestProperty ()
 createMTxWorksWhenWeAreRichSpec =
@@ -89,9 +99,9 @@ stabilizationDoesNotFailSpec = do
     forAllM gen $ \(CreateMTxParams {..}) -> do
         txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
         case txOrError of
-            Left err@(FailedToStabilize _) -> stopProperty $ pretty err
-            Left _                         -> return ()
-            Right tx                       -> ensureTxMakesSense tx cmpUtxo cmpOutputs
+            Left err@FailedToStabilize -> stopProperty $ pretty err
+            Left _                     -> return ()
+            Right tx                   -> ensureTxMakesSense tx cmpUtxo cmpOutputs
   where
     gen = makeManyAddressesToManyParams 1 200000 1 1
 
@@ -180,6 +190,53 @@ txWithRedeemOutputFailsSpec = do
 
         pure CreateMTxParams {..}
 
+feeForManyAddressesSpec
+    :: HasCoreConstants
+    => Bool
+    -> TxpTestProperty ()
+feeForManyAddressesSpec manyAddrs =
+    forAllM (choose (5, 20)) $
+        \(Coeff . fromInteger -> feePolicySlope) ->
+    forAllM (choose (10000, 100000)) $
+        \(Coeff . fromInteger -> feePolicyConstTerm) ->
+    forAllM (choose (10000, 100000)) $
+        \toSpend ->
+    forAllM (choose (1000, 10000)) $
+        \perAddrAmount ->
+    forAllM (mkParams 100 perAddrAmount toSpend) $
+        \params ->
+    do
+    setTxFeePolicy feePolicyConstTerm feePolicySlope
+
+    -- tx builder should find this utxo to be enough for construction
+    txOrError <- createTxWithParams params
+    txAux <- case txOrError of
+        Left err ->
+            if isNotEnoughMoneyTxError err
+            then stop Discard
+            else stopProperty $ sformat ("On first attempt: "%build) err
+        Right (txAux, _) ->
+            return txAux
+
+    -- even if utxo size is barely enough - fee stabilization should achieve
+    -- success as well
+    -- 'succ' is needed here because current algorithm may fail to stabilize fee if
+    -- almost all money are spent
+    let enoughInputs = succ . length . _txInputs $ taTx txAux
+        utxo' = M.fromList . take enoughInputs . M.toList $ cmpUtxo params
+        params' = params { cmpUtxo = utxo' }
+    txOrError' <- createTxWithParams params'
+    case txOrError' of
+        Left err -> stopProperty $ sformat ("On second attempt: "%build) err
+        Right _  -> return ()
+  where
+    createTxWithParams CreateMTxParams {..} =
+        createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+    -- considering two corner cases of utxo outputs distribution
+    mkParams
+        | manyAddrs = makeManyAddressesTo1Params
+        | otherwise = makeManyUtxoTo1Params
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
@@ -205,7 +262,7 @@ data CreateRedemptionTxParams = CreateRedemptionTxParams
     , crpOutputs :: !TxOutputs
     } deriving Show
 
-makeManyUtxoTo1Params :: Integer -> Integer -> Integer -> Gen CreateMTxParams
+makeManyUtxoTo1Params :: Int -> Integer -> Integer -> Gen CreateMTxParams
 makeManyUtxoTo1Params numFrom amountEachFrom amountTo = do
     [skFrom, skTo] <- nonrepeating 2
 
@@ -241,6 +298,10 @@ makeManyAddressesToManyParams numFrom amountEachFrom numTo amountEachTo = do
         cmpAddrData = ()
 
     pure CreateMTxParams {..}
+
+makeManyAddressesTo1Params :: Int -> Integer -> Integer -> Gen CreateMTxParams
+makeManyAddressesTo1Params numFrom amountEachFrom amountEachTo =
+    makeManyAddressesToManyParams numFrom amountEachFrom 1 amountEachTo
 
 ensureTxMakesSense
   :: HasCoreConstants
@@ -280,3 +341,9 @@ secretKeyToAddress = makePubKeyAddressBoot . toPublic
 
 makeSigner :: SecretKey -> (SafeSigner, Address)
 makeSigner sk = (fakeSigner sk, secretKeyToAddress sk)
+
+setTxFeePolicy :: HasCoreConstants => Coeff -> Coeff -> TxpTestProperty ()
+setTxFeePolicy a b = lift $ do
+    let policy = TxFeePolicyTxSizeLinear $ TxSizeLinear a b
+    (bv, bvd) <- DB.getAdoptedBVFull
+    GS.writeBatchGState . one $ DB.SetAdopted bv bvd{ bvdTxFeePolicy = policy }

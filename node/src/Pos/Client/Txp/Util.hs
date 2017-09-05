@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies  #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Pure functions for operations with transactions
 
@@ -25,6 +26,9 @@ module Pos.Client.Txp.Util
 
        -- * Additional datatypes
        , TxError (..)
+       , isCheckedTxError
+       , isNotEnoughMoneyTxError
+
        , TxOutputs
        , TxWithSpendings
        ) where
@@ -33,11 +37,13 @@ import           Universum
 
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
+import           Data.Fixed               (Fixed, HasResolution)
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import           Data.List                (tail)
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Map                 as M
+import qualified Data.Semigroup           as S
 import qualified Data.Text.Buildable
 import qualified Data.Vector              as V
 import           Formatting               (bprint, build, sformat, stext, (%))
@@ -45,9 +51,10 @@ import           Serokell.Util            (listJson)
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
-                                           calculateTxSizeLinear, coinToInteger,
-                                           integerToCoin, isRedeemAddress, unsafeAddCoin,
+import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear (..),
+                                           bvdTxFeePolicy, calculateTxSizeLinear,
+                                           coinToInteger, integerToCoin, isRedeemAddress,
+                                           txSizeLinearMinValue, unsafeAddCoin,
                                            unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
                                            SignTag (SignRedeemTx, SignTx),
@@ -80,7 +87,7 @@ data TxRaw = TxRaw
     -- ^ Output addresses of tx (without remaining output)
     , trRemainingMoney :: !Coin
     -- ^ Remaining money
-    }
+    } deriving (Show)
 
 data TxError =
       NotEnoughMoney !Coin
@@ -88,7 +95,7 @@ data TxError =
     | NotEnoughAllowedMoney !Coin
       -- ^ Parameter: how much more money is needed and which available input addresses
       -- are present in output addresses set
-    | FailedToStabilize !Int
+    | FailedToStabilize
       -- ^ Parameter: how many attempts were performed
     | OutputIsRedeem !Address
       -- ^ One of the tx outputs is a redemption address
@@ -98,6 +105,12 @@ data TxError =
       -- ^ Parameter: description of the problem
     deriving (Show, Generic)
 
+isNotEnoughMoneyTxError :: TxError -> Bool
+isNotEnoughMoneyTxError = \case
+    NotEnoughMoney{}        -> True
+    NotEnoughAllowedMoney{} -> True
+    _                       -> False
+
 instance Exception TxError
 
 instance Buildable TxError where
@@ -106,14 +119,23 @@ instance Buildable TxError where
     build (NotEnoughAllowedMoney coin) =
         bprint ("Transaction creation error: not enough money on addresses which are not included \
                 \in output addresses set, need "%build%" more") coin
-    build (FailedToStabilize iters) =
-        bprint ("Transaction creation error: failed to stabilize fee after "%build%" iterations") iters
+    build FailedToStabilize =
+        "Transaction creation error: failed to stabilize fee"
     build (OutputIsRedeem addr) =
         bprint ("Output address "%build%" is a redemption address") addr
     build RedemptionDepleted =
         bprint "Redemption address balance is 0"
     build (GeneralTxError msg) =
         bprint ("Transaction creation error: "%stext) msg
+
+isCheckedTxError :: TxError -> Bool
+isCheckedTxError = \case
+    NotEnoughMoney{}        -> True
+    NotEnoughAllowedMoney{} -> True
+    FailedToStabilize{}     -> False
+    OutputIsRedeem{}        -> True
+    RedemptionDepleted{}    -> True
+    GeneralTxError{}        -> True
 
 -----------------------------------------------------------------------------
 -- Tx creation
@@ -221,7 +243,7 @@ data UtxoGroup = UtxoGroup
     { ugAddr       :: !Address
     , ugTotalMoney :: !Coin
     , ugUtxo       :: !(NonEmpty (TxIn, TxOutAux))
-    }
+    } deriving (Show)
 
 -- | Helper for summing values of `TxOutAux`s
 sumTxOutCoins :: NonEmpty TxOutAux -> Integer
@@ -239,6 +261,12 @@ groupUtxo utxo =
             ugTotalMoney = unsafeIntegerToCoin . sumTxOutCoins $
                 map snd ugUtxo
         in UtxoGroup {..}
+
+fixedToFee :: (MonadError TxError m, HasResolution a) => Fixed a -> m TxFee
+fixedToFee = either (throwError . invalidFee) (pure . TxFee)
+           . integerToCoin . ceiling
+  where
+    invalidFee reason = GeneralTxError ("Invalid fee: " <> reason)
 
 data InputPickerState = InputPickerState
     { _ipsMoneyLeft             :: !Coin
@@ -446,38 +474,92 @@ computeTxFee utxo outputs = withLinearFeePolicy $ \linearPolicy -> do
     txToLinearFee linearPolicy txAux
 
 -- | Search such spendings that transaction's fee would be stable.
+--
+-- Stabilisation is simple iterative algorithm which performs
+-- @ fee <- minFee( tx(fee) ) @ per iteration step.
+-- It does *not* guarantee to find minimal possible fee, but is expected
+-- to converge in O(|utxoAddrs|) steps, where @ utxoAddrs @ is a set of addresses
+-- encountered in utxo.
+--
+-- Alogrithm consists of two stages:
+--
+-- 1. Iterate until @ fee_{i+1} <= fee_i @.
+-- It can last for no more than @ ~2 * |utxoAddrs| @ iterations. Really, let's
+-- consider following cases:
+--
+--     * Number of used input addresses increased at i-th iteration, i.e.
+--       @ |inputs(tx(fee_i))| > |inputs(tx(fee_{i-1}))| @,
+--       which can happen no more than |utxoAddrs| times.
+--
+--     * Number of tx input addresses stayed the same, i.e.
+--       @ |inputs(tx(fee_i))| = |inputs(tx(fee_{i-1}))| @.
+--
+--       If @ fee_i <= fee_{i-1} @ then stage 1 has already finished. Otherwise,
+--       since inputs and outputs are picked deterministically, inputs and
+--       outputs for @ tx(fee_i) @ and @ tx(fee_{i-1}) @ are the same and they
+--       differ only in remainder amount. Since we assume @ fee_i > fee_{i-1} @,
+--       then @ rem(tx(fee_i)) < rem(tx(fee_{i-1})) @ by evaluation method.
+--       It leads to @ size(tx(fee_i)) <= size(tx(fee_{i-1})) @ and thus
+--       @ minFee(tx(fee_i)) <= minFee(tx(fee_{i-1})) @,
+--       i.e. @ fee_{i+1} <= fee_{i} @.
+--
+--     * Number if input addresses decreased.
+--       Is may occur when fee increases more than on current remainder.
+--       Is this case fee on next iteration would indeed decrease, because
+--       size of single input is much greater than any fluctuations of
+--       remainder size (in bytes).
+--
+-- In total, case (1) occurs no more than |utxoAddrs| times, case (2) is always
+-- followed by case (1), and case (3) terminates current stage immediatelly,
+-- thus stage 1 takes no more than, approximatelly, @ 2 * |utxoAddrs| @ iterations.
+--
+-- 2. Once we find such @ i @ for which @ fee_{i+1} <= fee_i @, we can return
+-- @ tx(fee_i) @ as answer, but it may contain overestimated fee (which is still
+-- valid).
+-- To possibly find better solutions we iterate for several times more.
 stabilizeTxFee
     :: forall m. Monad m
     => TxSizeLinear
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-stabilizeTxFee linearPolicy utxo outputs =
-    stabilizeTxFeeDo 5 (TxFee $ mkCoin 0)
+stabilizeTxFee linearPolicy utxo outputs = do
+    minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
+    mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
+    case mtx of
+        Nothing -> throwError FailedToStabilize
+        Just tx -> pure $ tx & \(S.Min (S.Arg _ txRaw)) -> txRaw
   where
-    stabilizeTxFeeDo :: Int -> TxFee -> TxCreator m TxRaw
-    stabilizeTxFeeDo 0 _ = throwError $ FailedToStabilize 5
-    stabilizeTxFeeDo attempt expectedFee = do
+    firstStageAttempts = 2 * length (groupUtxo utxo) + 5
+    secondStageAttempts = 10
+
+    stabilizeTxFeeDo :: (Bool, Int)
+                     -> TxFee
+                     -> TxCreator m $ Maybe (S.ArgMin TxFee TxRaw)
+    stabilizeTxFeeDo (_, 0) _ = pure Nothing
+    stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
         txRaw <- prepareTxRaw utxo outputs expectedFee
-        txFee <- txToLinearFee linearPolicy $
-                 createFakeTxFromRawTx txRaw
-        if expectedFee == txFee
-            then pure txRaw
-            else stabilizeTxFeeDo (attempt - 1) txFee
+        txMinFee <- txToLinearFee linearPolicy $
+                    createFakeTxFromRawTx txRaw
+
+        let txRawWithFee = S.Min $ S.Arg expectedFee txRaw
+        let iterateDo step = stabilizeTxFeeDo step txMinFee
+        case expectedFee `compare` txMinFee of
+            LT -> iterateDo (isSecondStage, attempt - 1)
+            EQ -> pure (Just txRawWithFee)
+            GT -> do
+                let nextStep = (True, if isSecondStage then attempt - 1 else secondStageAttempts)
+                futureRes <- iterateDo nextStep
+                return $! Just txRawWithFee S.<> futureRes
 
 -- | Calcucate linear fee from transaction's size
 txToLinearFee
     :: MonadError TxError m
     => TxSizeLinear -> TxAux -> m TxFee
 txToLinearFee linearPolicy =
-    either throwError pure .
-    bimap invalidFee TxFee .
-    integerToCoin .
-    ceiling .
+    fixedToFee .
     calculateTxSizeLinear linearPolicy .
     biSize @TxAux
-  where
-    invalidFee reason = GeneralTxError ("Invalid fee: " <> reason)
 
 -- | Function is used to calculate intermediate fee amounts
 -- when forming a transaction

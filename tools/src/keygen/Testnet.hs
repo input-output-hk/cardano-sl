@@ -22,7 +22,7 @@ import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPub
                                         redeemDeterministicKeyGen, safeKeyGen,
                                         secureRandomBS, toPublic, toVssPublicKey,
                                         vssKeyGen)
-import           Pos.Genesis           (StakeDistribution (..), accountGenesisIndex,
+import           Pos.Genesis           (BalanceDistribution (..), accountGenesisIndex,
                                         wAddressGenesisIndex)
 import           Pos.Ssc.GodTossing    (VssCertificate, mkVssCertificate)
 import           Pos.Types             (Address, coinPortionToDouble, unsafeIntegerToCoin)
@@ -31,7 +31,7 @@ import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, us
                                         writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
 
-import           KeygenOptions         (TestStakeOptions (..))
+import           KeygenOptions         (TestBalanceOptions (..))
 
 rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
@@ -84,42 +84,42 @@ generateFakeAvvm fp = do
     writeFile fp $ B64.encode seed
     return pk
 
--- | Generates stake distribution for testnet.
-genTestnetDistribution :: TestStakeOptions -> StakeDistribution
-genTestnetDistribution TestStakeOptions{..} =
-    checkConsistency $ RichPoorStakes {..}
+-- | Generates balance distribution for testnet.
+genTestnetDistribution :: TestBalanceOptions -> BalanceDistribution
+genTestnetDistribution TestBalanceOptions{..} =
+    checkConsistency $ RichPoorBalances {..}
   where
     richs = fromIntegral tsoRichmen
     poors = fromIntegral tsoPoors * 2  -- for plain and hd wallet keys
-    testStake = fromIntegral tsoTotalStake
+    testBalance = fromIntegral tsoTotalBalance
 
-    -- Calculate actual stakes
-    desiredRichStake = getShare tsoRichmenShare testStake
-    oneRichmanStake = desiredRichStake `div` richs +
-        if desiredRichStake `mod` richs > 0 then 1 else 0
-    realRichStake = oneRichmanStake * richs
-    poorsStake = testStake - realRichStake
-    onePoorStake = poorsStake `div` poors
-    realPoorStake = onePoorStake * poors
+    -- Calculate actual balances
+    desiredRichBalance = getShare tsoRichmenShare testBalance
+    oneRichmanBalance = desiredRichBalance `div` richs +
+        if desiredRichBalance `mod` richs > 0 then 1 else 0
+    realRichBalance = oneRichmanBalance * richs
+    poorsBalance = testBalance - realRichBalance
+    onePoorBalance = poorsBalance `div` poors
+    realPoorBalance = onePoorBalance * poors
 
-    mpcStake = getShare (coinPortionToDouble Const.genesisMpcThd) testStake
+    mpcBalance = getShare (coinPortionToDouble Const.genesisMpcThd) testBalance
 
     sdRichmen = fromInteger richs
-    sdRichStake = unsafeIntegerToCoin oneRichmanStake
+    sdRichBalance = unsafeIntegerToCoin oneRichmanBalance
     sdPoor = fromInteger poors
-    sdPoorStake = unsafeIntegerToCoin onePoorStake
+    sdPoorBalance = unsafeIntegerToCoin onePoorBalance
 
     -- Consistency checks
     everythingIsConsistent :: [(Bool, Text)]
     everythingIsConsistent =
-        [ ( realRichStake + realPoorStake <= testStake
-          , "Real rich + poor stake is more than desired."
+        [ ( realRichBalance + realPoorBalance <= testBalance
+          , "Real rich + poor balance is more than desired."
           )
-        , ( oneRichmanStake >= mpcStake
-          , "Richman's stake is less than MPC threshold"
+        , ( oneRichmanBalance >= mpcBalance
+          , "Richman's balance is less than MPC threshold"
           )
-        , ( onePoorStake < mpcStake
-          , "Poor's stake is more than MPC threshold"
+        , ( onePoorBalance < mpcBalance
+          , "Poor's balance is more than MPC threshold"
           )
         ]
 

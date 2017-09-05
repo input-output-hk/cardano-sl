@@ -11,4 +11,3 @@ import           Pos.Context.Context
 import           Pos.Context.Functions
 import           Pos.Core.Context
 import           Pos.Recovery.Info
-import           Pos.Recovery.Instance ()

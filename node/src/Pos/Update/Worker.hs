@@ -40,11 +40,12 @@ usWorkers = (map fst [processNewSlotWorker, checkForUpdateWorker], mempty)
     -- cancelling it when never slot begins.
     processNewSlotWorker =
         localOnNewSlotWorker True $ \s ->
-            recoveryCommGuard $ do
+            recoveryCommGuard "processNewSlot in US" $ do
                 logDebug "Updating slot for US..."
                 processNewSlot s
     checkForUpdateWorker =
-        localOnNewSlotWorker True $ \_ -> recoveryCommGuard checkForUpdate
+        localOnNewSlotWorker True $ \_ ->
+            recoveryCommGuard "checkForUpdate" checkForUpdate
 
 checkForUpdate ::
        forall ssc ctx m. WorkMode ssc ctx m

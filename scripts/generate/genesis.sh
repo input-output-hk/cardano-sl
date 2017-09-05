@@ -59,7 +59,7 @@ esac
 # print commit
 PAGER=cat git show HEAD --oneline --no-patch --text | tee $outputDir/genesisCreation.log
 
-keygenCmd="${keygen} generate-genesis --genesis-dir $outputDir -m $M -n $N --richmen-share ${richmenShare} --testnet-stake ${testnetStake} --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries ${fakeAVVMEntries}"
+keygenCmd="${keygen} generate-genesis --genesis-dir $outputDir -m $M -n $N --richmen-share ${richmenShare} --testnet-balance ${testnetStake} --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries ${fakeAVVMEntries}"
 echo "Running command: $keygenCmd"
 $keygenCmd |& tee -a $outputDir/genesisCreation.log
 

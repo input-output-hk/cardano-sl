@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Functions which work in 'MonadBalances' and are part of Toil logic.
+-- | Functions which work in 'MonadStakes' and are part of Toil logic.
 
-module Pos.Txp.Toil.Balances.Functions
-       ( applyTxsToBalances
-       , rollbackTxsBalances
+module Pos.Txp.Toil.Stakes.Functions
+       ( applyTxsToStakes
+       , rollbackTxsStakes
        ) where
 
 import           Universum
@@ -19,26 +19,26 @@ import           Pos.Core            (GenesisWStakeholders, StakesList, coinToIn
                                       mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..), TxUndo,
                                       txOutStake)
-import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..))
+import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..))
 import           Pos.Util.Util       (HasLens', lensOf')
 
-type BalancesMode ctx m
-     = ( MonadBalances m
+type StakesMode ctx m
+     = ( MonadStakes m
        , WithLogger m
        , MonadReader ctx m
        , HasLens' ctx GenesisWStakeholders
        )
 
--- | Apply transactions to balances.
-applyTxsToBalances :: BalancesMode ctx m => [(TxAux, TxUndo)] -> m ()
-applyTxsToBalances txun = do
+-- | Apply transactions to stakes.
+applyTxsToStakes :: StakesMode ctx m => [(TxAux, TxUndo)] -> m ()
+applyTxsToStakes txun = do
     gws <- view lensOf'
     let (txOutPlus, txInMinus) = concatStakes gws txun
     recomputeStakes txOutPlus txInMinus
 
--- | Rollback application of transactions to balances.
-rollbackTxsBalances :: BalancesMode ctx m => [(TxAux, TxUndo)] -> m ()
-rollbackTxsBalances txun = do
+-- | Rollback application of transactions to stakes.
+rollbackTxsStakes :: StakesMode ctx m => [(TxAux, TxUndo)] -> m ()
+rollbackTxsStakes txun = do
     gws <- view lensOf'
     let (txOutMinus, txInPlus) = concatStakes gws txun
     recomputeStakes txInPlus txOutMinus
@@ -49,7 +49,7 @@ rollbackTxsBalances txun = do
 
 -- Compute new stakeholder's stakes by lists of spent and received coins.
 recomputeStakes
-    :: BalancesMode ctx m
+    :: StakesMode ctx m
     => StakesList
     -> StakesList
     -> m ()
@@ -64,7 +64,7 @@ recomputeStakes plusDistr minusDistr = do
     let resolvedStakes = map fst resolvedStakesRaw
     let createdStakes = concatMap snd resolvedStakesRaw
     unless (null createdStakes) $
-        logDebug $ sformat ("Stakes for "%listJson%" will be created in BalancesDB") createdStakes
+        logDebug $ sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes
     totalStake <- getTotalStake
     let (positiveDelta, negativeDelta) = (sumCoins plusCoins, sumCoins minusCoins)
         newTotalStake = unsafeIntegerToCoin $

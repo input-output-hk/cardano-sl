@@ -18,7 +18,7 @@ library
                        Pos.DB.Error
                        Pos.DB.Functions
                        Pos.DB.GState.Common
-                       Pos.DB.GState.Balances
+                       Pos.DB.GState.Stakes
                        Pos.DB.Misc.Common
                        Pos.DB.Pure
                        Pos.DB.Sum

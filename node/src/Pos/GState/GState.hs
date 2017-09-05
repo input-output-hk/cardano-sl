@@ -17,7 +17,7 @@ import           System.Wlog            (WithLogger)
 import           Pos.Core               (GenesisWStakeholders, HasCoreConstants,
                                          HeaderHash)
 import           Pos.DB.Class           (MonadDB, MonadDBRead)
-import           Pos.DB.GState.Balances (getRealTotalStake)
+import           Pos.DB.GState.Stakes   (getRealTotalStake)
 import           Pos.DB.GState.Common   (initGStateCommon, isInitialized, setInitialized)
 import           Pos.DB.Rocks           (DB (..), MonadRealDB, NodeDBs (..),
                                          Snapshot (..), gStateDB, getNodeDBs,
@@ -27,8 +27,8 @@ import           Pos.Genesis            (GenesisContext, gtcDelegation, gtcUtxo,
                                          gtcWStakeholders)
 import           Pos.GState.BlockExtra  (initGStateBlockExtra)
 import           Pos.Ssc.GodTossing.DB  (initGtDB)
-import           Pos.Txp.DB             (initGStateBalances, initGStateUtxo,
-                                         sanityCheckBalances, sanityCheckUtxo)
+import           Pos.Txp.DB             (initGStateStakes, initGStateUtxo,
+                                         sanityCheckStakes, sanityCheckUtxo)
 import           Pos.Update.DB          (initGStateUS)
 import           Pos.Util.Util          (HasLens', lensOf')
 
@@ -53,7 +53,7 @@ prepareGStateDB initialTip = unlessM isInitialized $ do
     initGStateCommon initialTip
     initGStateUtxo genesisUtxo
     initGtDB
-    initGStateBalances genesisUtxo genesisWStakeholders
+    initGStateStakes genesisUtxo genesisWStakeholders
     initGStateUS
     initGStateDlg genesisDelegation
     initGStateBlockExtra initialTip
@@ -71,7 +71,7 @@ sanityCheckGStateDB ::
        )
     => m ()
 sanityCheckGStateDB = do
-    sanityCheckBalances
+    sanityCheckStakes
     sanityCheckUtxo =<< getRealTotalStake
 #ifdef WITH_EXPLORER
     ExplorerDB.sanityCheckBalances

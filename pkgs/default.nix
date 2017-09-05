@@ -1772,7 +1772,7 @@ self: {
           description = "Cardano SL - the SSC class";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, bytestring, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, serokell-util, stdenv, stm, system-filepath, tar, text, text-format, time, time-units, universum, unix-compat, unordered-containers, vector }:
+      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, bytestring, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, serokell-util, stdenv, stm, system-filepath, tabl, tar, text, text-format, time, time-units, universum, unix-compat, unordered-containers, vector }:
       mkDerivation {
           pname = "cardano-sl-tools";
           version = "0.5.1";
@@ -1829,6 +1829,7 @@ self: {
             serokell-util
             stm
             system-filepath
+            tabl
             tar
             text
             text-format
@@ -3617,10 +3618,8 @@ self: {
       happy = callPackage ({ Cabal, array, base, containers, directory, filepath, mkDerivation, mtl, stdenv }:
       mkDerivation {
           pname = "happy";
-          version = "1.19.5";
-          sha256 = "1nj353q4z1g186fpjzf0dnsg71qhxqpamx8jy89rjjvv3p0kmw32";
-          revision = "2";
-          editedCabalFile = "1dvhv94lzmya938i5crshg9qbx7dxvkyxkhfbqimxkydxn7l2w7w";
+          version = "1.19.7";
+          sha256 = "16vg292pp12wnkny7znsv7bichh9ghny7swl7v55qafmcfg2lcdv";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [
@@ -3637,9 +3636,9 @@ self: {
           ];
           doHaddock = false;
           doCheck = false;
-          homepage = "http://www.haskell.org/happy/";
+          homepage = "https://www.haskell.org/happy/";
           description = "Happy is a parser generator for Haskell";
-          license = stdenv.lib.licenses.bsd3;
+          license = stdenv.lib.licenses.bsd2;
         }) {};
       hashable = callPackage ({ base, bytestring, deepseq, ghc-prim, integer-gmp, mkDerivation, stdenv, text }:
       mkDerivation {
@@ -6307,6 +6306,22 @@ self: {
           homepage = "https://github.com/erebe/systemd";
           description = "Systemd facilities (Socket activation, Notify)";
           license = stdenv.lib.licenses.bsd3;
+        }) {};
+      tabl = callPackage ({ base, mkDerivation, safe, stdenv, text }:
+      mkDerivation {
+          pname = "tabl";
+          version = "1.0.3";
+          sha256 = "1pxh6g1xjbp37fsab3hl2ldrpnbxdnp4s7pcr3mqxv62qi9b3m2f";
+          libraryHaskellDepends = [
+            base
+            safe
+            text
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/lovasko/tabl";
+          description = "Table layout";
+          license = "unknown";
         }) {};
       tagged = callPackage ({ base, deepseq, mkDerivation, stdenv, template-haskell, transformers, transformers-compat }:
       mkDerivation {

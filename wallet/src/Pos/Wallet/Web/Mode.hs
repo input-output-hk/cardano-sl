@@ -144,8 +144,6 @@ instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeConte
 
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
--- This constraint used to be abstract (a list of classes), but specifying a
--- concrete monad is quite likely more performant.
 type MonadWalletWebMode ctx m =
     ( WorkMode WalletSscType ctx m
     , AccountMode ctx m

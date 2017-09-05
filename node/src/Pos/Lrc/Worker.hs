@@ -15,6 +15,7 @@ import           Universum
 import           Control.Lens             (views)
 import           Control.Monad.Catch      (bracketOnError)
 import           Control.Monad.STM        (retry)
+import           Data.Coerce              (coerce)
 import           Data.Conduit             (runConduitRes, (.|))
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
@@ -48,7 +49,7 @@ import           Pos.Ssc.Extra            (MonadSscMem, sscCalculateSeed)
 import           Pos.Update.DB            (getCompetingBVStates)
 import           Pos.Update.Poll.Types    (BlockVersionState (..))
 import           Pos.Util                 (logWarningWaitLinear, maybeThrow)
-import           Pos.Util.Chrono          (NewestFirst (..), toOldestFirst)
+import           Pos.Util.Chrono          (NE, NewestFirst (..), toOldestFirst)
 
 ----------------------------------------------------------------------------
 -- Single short
@@ -132,6 +133,13 @@ lrcDo epoch consumers = do
     -- We don't calculate the seed inside 'withBlocksRolledBack' because
     -- there are shares in those ~2k blocks that 'withBlocksRolledBack'
     -- rolls back.
+    --
+    -- However, it's important to check that there are blocks to
+    -- rollback before computing ssc seed (because if there are no
+    -- blocks, it doesn't make sense to do it).
+    blundsToRollback <- DB.loadBlundsFromTipWhile whileAfterCrucial
+    blundsToRollbackNE <-
+        maybeThrow UnknownBlocksForLrc (nonEmptyNewestFirst blundsToRollback)
     seed <- sscCalculateSeed @ssc epoch >>= \case
         Right s -> do
             logInfo $ sformat
@@ -150,16 +158,14 @@ lrcDo epoch consumers = do
                 maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
     putSeed epoch seed
     -- Roll back to the crucial slot and calculate richmen, etc.
-    NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
-    case nonEmpty blundsList of
-        Nothing -> throwM UnknownBlocksForLrc
-        Just (NewestFirst -> blunds) ->
-            withBlocksRolledBack blunds $ do
-                issuersComputationDo epoch
-                richmenComputationDo epoch consumers
-                DB.sanityCheckDB
-                leadersComputationDo epoch seed
+    withBlocksRolledBack blundsToRollbackNE $ do
+        issuersComputationDo epoch
+        richmenComputationDo epoch consumers
+        DB.sanityCheckDB
+        leadersComputationDo epoch seed
   where
+    nonEmptyNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)
+    nonEmptyNewestFirst = coerce (nonEmpty @a)
     applyBack blunds = applyBlocksUnsafe blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial

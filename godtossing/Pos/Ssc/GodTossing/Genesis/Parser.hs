@@ -1,42 +1,78 @@
-{-# LANGUAGE CPP #-}
-
 module Pos.Ssc.GodTossing.Genesis.Parser
-       ( compileGenGtData
+       ( allGenGtDatas
+       , defaultGenGtData
+       , genGtData
+       , setGenGtData
+       , setGenGtDataFromFile
        ) where
 
 import           Universum
 
-#ifdef NO_EMBED
 import qualified Data.ByteString                  as BS
-import           System.FilePath                  ((</>))
+import           Data.FileEmbed                   (embedFile, makeRelativeToProject)
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (stripPrefix)
+import qualified Language.Haskell.TH              as TH
+import           System.Directory                 (listDirectory)
+import           System.FilePath                  (takeBaseName, takeExtension, (</>))
 import           System.IO.Unsafe                 (unsafePerformIO)
 
-import           Pos.Util.Config.Path             (cslResPath)
-#else
-import           Data.FileEmbed                   (embedFile, makeRelativeToProject)
-#endif
-
 import           Pos.Binary.Class                 (decodeFull)
-import           Pos.Binary.GodTossing.Types      ()
+import           Pos.Binary.Core.Genesis          ()
+import           Pos.Binary.GodTossing            ()
 import           Pos.Core.Constants               (genesisBinSuffix)
 import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
+import           Pos.Util.Future                  (newInitFuture)
 
--- | Fetch pre-generated genesis data from /genesis-godtossing.bin/ in
--- compile time.
---
--- Note that if the @no-embed@ flag is set, genesis will be read at runtime
--- from the folder determined by the @CSL_RES_PATH@ environment variable.
-compileGenGtData :: GenesisGtData
-compileGenGtData = do
-#ifdef NO_EMBED
-    let file = unsafePerformIO $ BS.readFile $ cslResPath </>
-          ("genesis-godtossing-" <> genesisBinSuffix <> ".bin")
-#else
-    let file = $(embedFile =<< makeRelativeToProject
-          ("genesis-godtossing-" <> genesisBinSuffix <> ".bin"))
-#endif
-    case decodeFull file of
-        Left a  -> error $ toText a
-        Right d -> if null (ggdVssCertificates d)
-                   then error "No VSS certificates in genesis-godtossing.bin"
-                   else d
+-- | Pre-generated genesis data from /genesis-godtossing.bin/ for all
+-- genesis files (i.e. /genesis-godtossing-qa.bin/,
+-- /genesis-godtossing-tns.bin/, etc). Each key in the map is a prefix
+-- (“qa”, “tns”, etc).
+allGenGtDatas :: HashMap String GenesisGtData
+allGenGtDatas =
+    let bins :: [(String, FilePath, ByteString)]
+        bins = $(do
+            dir <- makeRelativeToProject ""
+            let getSuffix fp = do
+                    guard (takeExtension fp == ".bin")
+                    stripPrefix "genesis-godtossing-" (takeBaseName fp)
+            suffs <- mapMaybe getSuffix <$> TH.runIO (listDirectory dir)
+            let paths = suffs <&> \suff ->
+                    dir </> ("genesis-godtossing-" <> suff <> ".bin")
+            TH.listE $ zip suffs paths <&> \(suff, path) ->
+                [|(suff, path, $(embedFile path))|]
+            )
+    in HM.fromList $ bins <&> \(suff, path, file) ->
+           case decodeFull file of
+               Left err -> error $ "Failed to read genesis from " <>
+                                   toText path <> ": " <> err
+               Right d
+                   | null (ggdVssCertificates d) ->
+                         error $ "No VSS certificates in " <> toText path
+                   | otherwise -> (suff, d)
+
+defaultGenGtData :: GenesisGtData
+defaultGenGtData =
+    case HM.lookup genesisBinSuffix allGenGtDatas of
+        Just gd -> gd
+        Nothing -> error $ "The config says that the genesis.bin suffix \
+                           \should be " <> toText genesisBinSuffix <>
+                           ", but corresponding file was not found in \
+                           \'allGenGtDatas'"
+
+genGtData :: GenesisGtData
+setGenGtData :: GenesisGtData -> IO ()
+(genGtData, setGenGtData) = unsafePerformIO newInitFuture
+{-# NOINLINE genGtData #-}
+{-# NOINLINE setGenGtData #-}
+
+setGenGtDataFromFile :: FilePath -> IO ()
+setGenGtDataFromFile path = do
+    bs <- BS.readFile path
+    case decodeFull bs of
+        Left err -> error $ "Failed to read genesis from " <>
+                            toText path <> ": " <> err
+        Right d
+            | null (ggdVssCertificates d) ->
+                  error $ "No VSS certificates in " <> toText path
+            | otherwise -> setGenGtData d

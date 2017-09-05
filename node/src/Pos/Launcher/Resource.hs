@@ -73,10 +73,10 @@ import           Pos.Explorer               (explorerTxpGlobalSettings)
 import           Pos.Txp                    (txpGlobalSettings)
 #endif
 
-import           Pos.Launcher.Mode          (InitMode, InitModeContext (..),
-                                             newInitFuture, runInitMode)
+import           Pos.Launcher.Mode          (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
+import           Pos.Util                   (newInitFuture)
 import           Pos.WorkMode               (TxpExtra_TMP)
 
 #ifdef linux_HOST_OS

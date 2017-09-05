@@ -32,11 +32,10 @@ import           Pos.Genesis          (GenesisContext (..), gtcUtxo, gtcWStakeho
 import           Pos.GState           (GStateContext (..))
 import qualified Pos.GState           as GS
 import           Pos.KnownPeers       (MonadFormatPeers (..))
-import           Pos.Launcher         (newInitFuture)
 import           Pos.Lrc.Context      (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting         (HasSlottingVar (..))
 import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Util.Util        (postfixLFields)
+import           Pos.Util             (newInitFuture, postfixLFields)
 
 -- | Enough context for generation of blocks.
 -- "T" means tool

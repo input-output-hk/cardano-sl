@@ -11,6 +11,8 @@ module Pos.Util
        , module Pos.Util.TimeLimit
        -- * Concurrency helpers
        , module Pos.Util.Concurrent
+       -- * Futures
+       , module Pos.Util.Future
 
        -- * Various
        , mappendPair
@@ -59,6 +61,7 @@ import           Serokell.AcidState           ()
 
 import           Pos.Util.Arbitrary
 import           Pos.Util.Concurrent
+import           Pos.Util.Future
 import           Pos.Util.TimeLimit
 import           Pos.Util.Undefined           ()
 import           Pos.Util.Util

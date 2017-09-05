@@ -27,13 +27,7 @@ flag dev-custom-config
   default:     False
   manual:      True
 
-  description: Enable this to allow setting CONFIG manually, as in --ghc-options=-DCONFIG=benchmark
-
-flag no-embed
-  default:     False
-  manual:      True
-
-  description: Read constants.yaml and the genesis in runtime (from the folder determined by CSL_RES_PATH env var) instead of embedding them. If you set this flag, you should also set the same flag for cardano-sl-godtossing
+  description: Enable this to set CONFIG manually even in dev mode (via --ghc-options=-DCONFIG=benchmark); otherwise it'll be 'dev'. In other modes you always have to set CONFIG manually.
 
 library
   exposed-modules:
@@ -110,16 +104,14 @@ library
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
+                       Pos.Util.Future
                        Pos.Util.Util
-
-                       Pos.Util.Config.Path
 
   other-modules:
                        Pos.Core.Constants.Raw
                        Pos.Core.Constants.Typed
                        Pos.Core.Context.Const
                        Pos.Core.Context.PrimaryKey
-                       Pos.Util.Config.Get
 
   build-depends:       QuickCheck
                      , aeson
@@ -171,6 +163,7 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , th-lift-instances
                      , th-utilities
                      , time
                      , time-units
@@ -219,5 +212,3 @@ library
     cpp-options: -DDEV_MODE
     if !flag(dev-custom-config)
       cpp-options: -DCONFIG=dev
-  if flag(no-embed)
-    cpp-options: -DNO_EMBED

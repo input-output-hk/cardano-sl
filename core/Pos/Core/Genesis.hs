@@ -10,7 +10,7 @@ module Pos.Core.Genesis
 
        -- * /genesis-core.bin/
        , module Pos.Core.Genesis.Types
-       , compileGenCoreData
+       , module Pos.Core.Genesis.Parser
 
        -- ** Derived data
        , genesisProdAddresses
@@ -30,15 +30,14 @@ import           Formatting              (int, sformat, (%))
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
-import           Pos.Core.Genesis.Parser (compileGenCoreData)
-import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
-                                          GenesisWStakeholders (..),
-                                          StakeDistribution (..), bootDustThreshold,
-                                          getTotalStake, mkGenesisCoreData, safeExpStakes)
 import           Pos.Core.Types          (Address, mkCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
+
+-- reexports
+import           Pos.Core.Genesis.Parser
+import           Pos.Core.Genesis.Types
 
 ----------------------------------------------------------------------------
 -- Constants/development
@@ -74,16 +73,15 @@ genesisDevFlatDistr =
 -- | List of addresses in genesis binary file.
 genesisProdAddresses :: [Address]
 genesisProdAddresses =
-    concatMap (toList . fst) $ gcdAddrDistribution compileGenCoreData
+    concatMap (toList . fst) $ gcdAddrDistribution genCoreData
 
 -- | Address and distribution set for production mode.
 genesisProdAddrDistribution :: [AddrDistribution]
-genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
+genesisProdAddrDistribution = gcdAddrDistribution genCoreData
 
 -- | Bootstrap era stakeholders for production mode.
 genesisProdBootStakeholders :: GenesisWStakeholders
-genesisProdBootStakeholders =
-    gcdBootstrapStakeholders compileGenCoreData
+genesisProdBootStakeholders = gcdBootstrapStakeholders genCoreData
 
 ----------------------------------------------------------------------------
 -- Utils

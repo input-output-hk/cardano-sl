@@ -36,9 +36,8 @@ import           Pos.Block.Types             (Undo)
 import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
 import           Pos.Core                    (Address, GenesisWStakeholders (..),
                                               HasCoreConstants, HasPrimaryKey (..),
-                                              IsHeader, SlotId (..),
-                                              Timestamp, epochOrSlotToSlot,
-                                              getEpochOrSlot)
+                                              IsHeader, SlotId (..), Timestamp,
+                                              epochOrSlotToSlot, getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
 import           Pos.DB                      (DBSum, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
@@ -52,7 +51,6 @@ import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenPa
                                               HasTxGenParams (..))
 import qualified Pos.GState                  as GS
 import           Pos.KnownPeers              (MonadFormatPeers)
-import           Pos.Launcher.Mode           (newInitFuture)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
@@ -66,7 +64,8 @@ import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSett
                                               TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
                                               mkTxpLocalData)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
-import           Pos.Util                    (HasLens (..), Some, postfixLFields)
+import           Pos.Util                    (HasLens (..), Some, newInitFuture,
+                                              postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)

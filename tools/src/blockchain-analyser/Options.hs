@@ -56,7 +56,9 @@ parseDbPath = strOption (long "db" <> metavar "FILEPATH"
 
 parsePrintMode :: Parser (Maybe PrintMode)
 parsePrintMode = optional (option (eitherReader readPrintModeE)
-                                  (long "print-mode" <> metavar "PRINT-MODE" <> help "Select the desidered rendering mode.")
+                                  (long "print-mode" <> metavar "[human|csv|table]"
+                                                     <> help "Select the desidered rendering mode, one between 'human', 'csv' or 'table'."
+                                  )
                           )
   where
     readPrintModeE :: String -> Either String PrintMode
@@ -71,16 +73,16 @@ parseUOM = (parseKB <|> parseMB <|> parseGB)
         <|> parseBytes
 
 parseBytes :: Parser UOM
-parseBytes = flag Bytes Bytes (short 'b' <> help "Render in bytes.")
+parseBytes = flag Bytes Bytes (short 'b' <> help "Display block counts in bytes (B).")
 
 parseKB :: Parser UOM
-parseKB = flag' KB (short 'k' <> help "Render in kilobytes.")
+parseKB = flag' KB (short 'k' <> help "Display block counts in kilobytes (KB).")
 
 parseMB :: Parser UOM
-parseMB = flag' MB (short 'm' <> help "Render in megabytes.")
+parseMB = flag' MB (short 'm' <> help "Display block counts in megabytes (MB).")
 
 parseGB :: Parser UOM
-parseGB = flag' GB (short 'g' <> help "Render in gigabytes.")
+parseGB = flag' GB (short 'g' <> help "Display block counts in gigabytes (GB).")
 
 parseIncremental :: Parser Bool
 parseIncremental = switch (short 'i' <> long "incremental" <> help incrementalHelp)

@@ -18,7 +18,9 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 
 data PrintMode =
-      AsciiTable
+      Human
+    -- ^ Render using `Buildable` instances.
+    | AsciiTable
     -- ^ Render the data as an ASCII Table.
     | CSV
     -- ^ Render the data in CSV format.
@@ -52,6 +54,7 @@ parsePrintMode = optional (option (eitherReader readPrintModeE)
                           )
   where
     readPrintModeE :: String -> Either String PrintMode
+    readPrintModeE "human" = Right Human
     readPrintModeE "table" = Right AsciiTable
     readPrintModeE "csv"   = Right CSV
     readPrintModeE _       = Right AsciiTable -- A sensible default, for now.

@@ -1,12 +1,17 @@
 
-module Rendering (render) where
+module Rendering ( render
+                 , renderBlock
+                 ) where
 
-import qualified Data.Text  as T
-import           Formatting hiding (bytes)
-import           Options    (PrintMode (..), UOM (..))
-import           Text.Tabl  (Alignment (..), Decoration (..), Environment (EnvAscii),
-                             tabl)
-import           Types      (DBFolderStat)
+import qualified Data.Text          as T
+import           Formatting         hiding (bytes)
+import           Options            (PrintMode (..), UOM (..))
+import           Pos.Block.Core     (Block, GenesisBlock, MainBlock)
+import           Pos.Core           (HasCoreConstants)
+import           Pos.Ssc.GodTossing (SscGodTossing)
+import           Text.Tabl          (Alignment (..), Decoration (..),
+                                     Environment (EnvAscii), tabl)
+import           Types              (DBFolderStat)
 
 import           Universum
 
@@ -46,8 +51,8 @@ renderBytesWithUnit uom bytes = renderBytes uom bytes <> " " <> renderUnit uom
 render :: UOM -> PrintMode -> [DBFolderStat] -> Text
 render uom printMode stats =
     case printMode of
-        AsciiTable -> renderAsciiTable uom stats
-        CSV        -> renderCSV uom stats
+        CSV -> renderCSV uom stats
+        _   -> renderAsciiTable uom stats
 
 renderCSV :: UOM -> [DBFolderStat] -> Text
 renderCSV uom stats =
@@ -63,3 +68,29 @@ renderAsciiTable uom stats =
     hdecor = DecorUnion [DecorOuter, DecorOnly [1]]
     vdecor = DecorAll
     aligns = [AlignLeft, AlignLeft]
+
+renderBlock :: HasCoreConstants
+            => PrintMode
+            -> Block SscGodTossing
+            -> Text
+renderBlock pMode b = case pMode of
+    Human      -> either (sformat build) (sformat build) b
+    AsciiTable -> renderBlockTable b
+    CSV        -> renderBlockCSV b
+    where
+      renderBlockCSV _   = "todo."
+      renderBlockTable _ = "todo."
+
+{--
+-- | Block.
+type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
+
+data GenericBlock b = UnsafeGenericBlock
+    { _gbHeader :: !(GenericBlockHeader b)
+    , _gbBody   :: !(Body b)
+    , _gbExtra  :: !(ExtraBodyData b)
+    } deriving (Generic)
+--}
+
+
+-- (OldestFirst [] (Blund SscGodTossing))

@@ -566,6 +566,7 @@ executable cardano-blockchain-analyser
                         OverloadedStrings
                         TypeApplications
                         ScopedTypeVariables
+                        FlexibleContexts
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

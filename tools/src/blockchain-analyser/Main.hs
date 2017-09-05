@@ -1,6 +1,5 @@
-{-# LANGUAGE BangPatterns     #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE BangPatterns  #-}
+{-# LANGUAGE TupleSections #-}
 module Main where
 
 import           Formatting
@@ -19,8 +18,8 @@ import           Pos.Util.Chrono    (OldestFirst (..))
 import           System.Directory   (canonicalizePath, doesDirectoryExist, getFileSize,
                                      listDirectory, withCurrentDirectory)
 
-import           Options            (CLIOptions (..), getOptions)
-import           Rendering          (render)
+import           Options            (CLIOptions (..), PrintMode, getOptions)
+import           Rendering          (render, renderBlock)
 import           Types              (BlockchainInspector, DBFolderStat,
                                      initBlockchainAnalyser)
 
@@ -57,37 +56,16 @@ main = giveStaticConsts $ do
     bracket (openNodeDBs False dbPath) closeNodeDBs $ \db -> do
         runProduction $ initBlockchainAnalyser db $ do
             tip <- DB.getTip
-            analyseBlockchain tip
+            analyseBlockchain printMode tip
 
-analyseBlockchain :: HasCoreConstants => HeaderHash -> BlockchainInspector ()
-analyseBlockchain currentTip = do
-    res <- DB.dbGetBlockSumDefault @SscGodTossing currentTip
-    case res of
-        Nothing -> putText "No tip found."
-        Just (Right mB) -> do
-            liftIO $ putText (renderMainBlock mB)
-            analyseBlockchain (mB ^. gbPrevBlock)
-        Just (Left  gB) -> do
-            liftIO $ putText (renderGenesisBlock gB)
-            analyseBlockchain (gB ^. gbHeader . gbhPrevBlock)
-
-
-renderGenesisBlock :: HasCoreConstants => GenesisBlock SscGodTossing -> Text
-renderGenesisBlock b = sformat build b
-
-renderMainBlock :: HasCoreConstants => MainBlock SscGodTossing -> Text
-renderMainBlock b = sformat build b
-
-{--
--- | Block.
-type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
-
-data GenericBlock b = UnsafeGenericBlock
-    { _gbHeader :: !(GenericBlockHeader b)
-    , _gbBody   :: !(Body b)
-    , _gbExtra  :: !(ExtraBodyData b)
-    } deriving (Generic)
---}
-
-
--- (OldestFirst [] (Blund SscGodTossing))
+analyseBlockchain :: HasCoreConstants => PrintMode -> HeaderHash -> BlockchainInspector ()
+analyseBlockchain pMode currentTip = do
+    mbBlock <- DB.dbGetBlockSumDefault @SscGodTossing currentTip
+    case mbBlock of
+        Nothing -> return ()
+        Just block@(Right mB) -> do
+            liftIO $ putText (renderBlock pMode block)
+            analyseBlockchain pMode (mB ^. gbPrevBlock)
+        Just block@(Left  gB) -> do
+            liftIO $ putText (renderBlock pMode block)
+            analyseBlockchain pMode (gB ^. gbHeader . gbhPrevBlock)

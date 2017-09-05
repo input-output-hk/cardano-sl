@@ -5,27 +5,29 @@
 module Test.Pos.Client.Txp.Mode
        ( TxpTestProperty
        , TxpTestMode
+       , setBVData
        ) where
 
 import           Universum
 
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import qualified Data.ByteString              as BS
-import           Test.QuickCheck              (Testable (..), ioProperty)
-import           Test.QuickCheck.Monadic      (PropertyM, monadic)
+import           Control.Lens             ((.=))
+import qualified Data.ByteString          as BS
+import           Test.QuickCheck          (Testable (..), ioProperty)
+import           Test.QuickCheck.Monadic  (PropertyM, monadic)
 
-import           Pos.Client.Txp.Addresses     (MonadAddresses (..))
-import           Pos.Client.Txp.Util          (TxCreateMode)
-import qualified Pos.Constants                as Const
-import           Pos.Core                     (HasCoreConstants, makePubKeyAddressBoot)
-import           Pos.Crypto                   (deterministicKeyGen)
-import           Pos.DB                       (MonadGState (..))
+import           Pos.Client.Txp.Addresses (MonadAddresses (..))
+import           Pos.Client.Txp.Util      (TxCreateMode)
+import qualified Pos.Constants            as Const
+import           Pos.Core                 (BlockVersionData, HasCoreConstants,
+                                           makePubKeyAddressBoot)
+import           Pos.Crypto               (deterministicKeyGen)
+import           Pos.DB                   (MonadGState (..))
 
 ----------------------------------------------------------------------------
 -- Mock for TxCreateMode
 ----------------------------------------------------------------------------
 
-type TxpTestMode = IdentityT IO
+type TxpTestMode = StateT BlockVersionData IO
 
 instance HasCoreConstants => TxCreateMode TxpTestMode
 
@@ -34,7 +36,7 @@ instance HasCoreConstants => TxCreateMode TxpTestMode
 ----------------------------------------------------------------------------
 
 instance MonadGState TxpTestMode where
-    gsAdoptedBVData = pure Const.genesisBlockVersionData
+    gsAdoptedBVData = use identity
 
 instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
@@ -44,6 +46,10 @@ instance MonadAddresses TxpTestMode where
         seedSize = 32
         seed = BS.replicate seedSize (255 :: Word8)
         address = makePubKeyAddressBoot $ fst $ deterministicKeyGen seed
+
+setBVData :: BlockVersionData -> TxpTestMode ()
+setBVData bvd =
+    identity .= bvd
 
 ----------------------------------------------------------------------------
 -- Property
@@ -58,4 +64,4 @@ instance MonadAddresses TxpTestProperty where
     getNewAddress = lift . getNewAddress
 
 instance HasCoreConstants => Testable (TxpTestProperty a) where
-    property = monadic (ioProperty . runIdentityT)
+    property = monadic (ioProperty . flip evalStateT Const.genesisBlockVersionData)

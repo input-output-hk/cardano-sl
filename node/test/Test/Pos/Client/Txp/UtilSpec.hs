@@ -28,16 +28,15 @@ import           Pos.Core                 (BlockVersionData (..), Coeff (..),
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SecretKey,
                                            decodeHash, fakeSigner, redeemToPublic,
                                            toPublic)
-import qualified Pos.GState               as GS
+import           Pos.DB                   (gsAdoptedBVData)
 import           Pos.Txp                  (Tx (..), TxAux (..), TxId, TxIn (..),
                                            TxOut (..), TxOutAux (..), Utxo)
 import           Pos.Types                (Address)
-import qualified Pos.Update.DB            as DB
 import           Pos.Util.Arbitrary       (nonrepeating)
 import           Pos.Util.Util            (leftToPanic)
 import           Test.Pos.Util            (giveTestsConsts, stopProperty)
 
-import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty)
+import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty, setBVData)
 
 ----------------------------------------------------------------------------
 -- Tests
@@ -345,5 +344,5 @@ makeSigner sk = (fakeSigner sk, secretKeyToAddress sk)
 setTxFeePolicy :: HasCoreConstants => Coeff -> Coeff -> TxpTestProperty ()
 setTxFeePolicy a b = lift $ do
     let policy = TxFeePolicyTxSizeLinear $ TxSizeLinear a b
-    (bv, bvd) <- DB.getAdoptedBVFull
-    GS.writeBatchGState . one $ DB.SetAdopted bv bvd{ bvdTxFeePolicy = policy }
+    bvd <- gsAdoptedBVData
+    setBVData bvd{ bvdTxFeePolicy = policy }

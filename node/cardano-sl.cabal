@@ -659,7 +659,6 @@ test-suite cardano-test
                      , text-format
                      , time-units
                      , transformers-base
-                     , transformers
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector

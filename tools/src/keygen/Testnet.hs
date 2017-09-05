@@ -19,9 +19,9 @@ import qualified Pos.Constants         as Const
 import           Pos.Core              (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPublicKey,
                                         SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
-                                        redeemDeterministicKeyGen, safeKeyGen,
-                                        secureRandomBS, toPublic, toVssPublicKey,
-                                        vssKeyGen)
+                                        redeemDeterministicKeyGen, runSecureRandom,
+                                        safeKeyGen, secureRandomBS, toPublic,
+                                        toVssPublicKey, vssKeyGen)
 import           Pos.Genesis           (BalanceDistribution (..), accountGenesisIndex,
                                         wAddressGenesisIndex)
 import           Pos.Ssc.GodTossing    (VssCertificate, mkVssCertificate)
@@ -51,8 +51,10 @@ generateKeyfile isPrim mbSk fp = do
     initializeUserSecret fp
     (sk, hdwSk) <- case mbSk of
         Just x  -> return x
-        Nothing -> (,) <$> (snd <$> keyGen) <*> (snd <$> safeKeyGen emptyPassphrase)
-    vss <- vssKeyGen
+        Nothing -> liftIO $ runSecureRandom $
+            (,) <$> (snd <$> keyGen)
+                <*> (snd <$> safeKeyGen emptyPassphrase)
+    vss <- liftIO $ runSecureRandom vssKeyGen
     us <- takeUserSecret fp
 
     writeUserSecretRelease $

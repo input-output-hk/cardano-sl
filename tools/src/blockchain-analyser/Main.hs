@@ -60,8 +60,8 @@ main = giveStaticConsts $ do
 
 analyseBlockchain :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchain cli tip =
-    if incremental cli then analyseBlockchainEagerly cli tip
-                       else analyseBlockchainIncrementally cli tip
+    if incremental cli then analyseBlockchainIncrementally cli tip
+                       else analyseBlockchainEagerly cli tip
 
 fetchBlock :: HasCoreConstants => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
 fetchBlock = DB.dbGetBlockSumDefault @SscGodTossing

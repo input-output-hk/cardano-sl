@@ -258,6 +258,11 @@ instance DB.MonadDBRead TxpTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
 
+instance DB.MonadDB TxpTestMode where
+    dbPut = DB.dbPutPureDefault
+    dbWriteBatch = DB.dbWriteBatchPureDefault
+    dbDelete = DB.dbDeletePureDefault
+
 instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
     getNewAddress _ = pure address

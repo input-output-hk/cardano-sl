@@ -27,6 +27,7 @@ module Pos.Client.Txp.Util
        -- * Additional datatypes
        , TxError (..)
        , isCheckedTxError
+       , isNotEnoughMoneyTxError
 
        , TxOutputs
        , TxWithSpendings
@@ -84,7 +85,7 @@ data TxRaw = TxRaw
     -- ^ Output addresses of tx (without remaining output)
     , trRemainingMoney :: !Coin
     -- ^ Remaining money
-    }
+    } deriving (Show)
 
 data TxError =
       NotEnoughMoney !Coin
@@ -101,6 +102,12 @@ data TxError =
     | GeneralTxError !Text
       -- ^ Parameter: description of the problem
     deriving (Show, Generic)
+
+isNotEnoughMoneyTxError :: TxError -> Bool
+isNotEnoughMoneyTxError = \case
+    NotEnoughMoney{}        -> True
+    NotEnoughAllowedMoney{} -> True
+    _                       -> False
 
 instance Exception TxError
 
@@ -121,11 +128,12 @@ instance Buildable TxError where
 
 isCheckedTxError :: TxError -> Bool
 isCheckedTxError = \case
-    NotEnoughMoney{}     -> True
-    FailedToStabilize{}  -> False
-    OutputIsRedeem{}     -> True
-    RedemptionDepleted{} -> True
-    GeneralTxError{}     -> True
+    NotEnoughMoney{}        -> True
+    NotEnoughAllowedMoney{} -> True
+    FailedToStabilize{}     -> False
+    OutputIsRedeem{}        -> True
+    RedemptionDepleted{}    -> True
+    GeneralTxError{}        -> True
 
 -----------------------------------------------------------------------------
 -- Tx creation
@@ -233,7 +241,7 @@ data UtxoGroup = UtxoGroup
     { ugAddr       :: !Address
     , ugTotalMoney :: !Coin
     , ugUtxo       :: !(NonEmpty (TxIn, TxOutAux))
-    }
+    } deriving (Show)
 
 -- | Helper for summing values of `TxOutAux`s
 sumTxOutCoins :: NonEmpty TxOutAux -> Integer

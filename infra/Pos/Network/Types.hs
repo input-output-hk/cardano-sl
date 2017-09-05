@@ -194,6 +194,9 @@ data Topology kademlia =
   Information derived from the topology
 -------------------------------------------------------------------------------}
 
+-- See the networking policy document for background to understand this
+-- docs/network/policy.md
+
 -- | Derive node type from its topology
 topologyNodeType :: Topology kademlia -> NodeType
 topologyNodeType TopologyCore{}        = NodeCore
@@ -204,6 +207,10 @@ topologyNodeType TopologyTraditional{} = NodeCore
 topologyNodeType TopologyLightWallet{} = NodeEdge
 
 -- | Assumed type and maximum number of subscribers (if subscription is allowed)
+--
+-- Note that the 'TopologyRelay' case covers /both/ priviledged and
+-- unpriviledged relays. See the networking policy document for full details of
+-- why this makes sense or works.
 topologySubscribers :: Topology kademlia -> Maybe (NodeType, OQ.MaxBucketSize)
 topologySubscribers TopologyCore{}          = Nothing
 topologySubscribers TopologyRelay{..}       = Just (NodeEdge, topologyMaxSubscrs)

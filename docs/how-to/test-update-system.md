@@ -6,9 +6,9 @@
    * 4 core nodes (full connectivity)
    * 1 relay (connected to all core nodes)
 * Generate *before* installer, use `devnet_shortep_wallet`
-   * set appropriate `system-start`, `ipdhtmappings` for daedalus
+   * set appropriate `system-start` in `Launcher.hs`, relay ip in `wallet-topology.yaml` for 
 * Generate *after* installer, use `devnet_shortep_updated_wallet`
-   * set appropriate `system-start`, `ipdhtmappings` for daedalus
+   * set appropriate `system-start` in `Launcher.hs`, relay ip in `wallet-topology.yaml` for daedalus
 * Build cardano-sl with `devnet_shortep_full` (`./scripts/build/cardano-sl.sh --dn`)
 
 ## Test base version
@@ -24,7 +24,7 @@
 ### Prepare node keys
 
 1. Take genesis folder corresponding to `devnet_shortep_full`
-Should have name like `genesis-dn-2017-08-31_15-28.tgz`
+Should have name like `genesis-dn-2017-08-31_15-28.tgz` (but different!)
 2.
 
 ```
@@ -101,10 +101,11 @@ Read file daedalus1c.pkg succesfuly, its hash: f53b7e9e024eeb6d96116764b4bedd756
 Update proposal submitted, upId: e800f0be119ecbeec98e34d3c9ec0612a8161a5b4c8fcd57d5773678e6fdc594 
 ```
 
-Note `e0dae787e163a973ef4e1260dfcf094431046ae3e17d67d601bce4d92eb7da27`, it's hash of installer. It would be referenced later as `installer_hash`.
+Note `77de53da248fa85143f45ca8a3f83ef7088395222b25ea777859e4209cff1ceb`, `f53b7e9e024eeb6d96116764b4bedd756e9b5f5fccb07beac27cc9c197cd593c`, it's hash of installer.
 
-Note `b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1`, it's id of proposed updated and later would be referenced as `upId`.
-Note that currently `cardano-wallet` is suitable for testing with only one system tag provided along installer for it (it's `win64` and `daedalus1.exe` here).
+You should upload installers to https://s3.console.aws.amazon.com/s3/buckets/update-system-testing/?region=eu-central-1&tab=overview . Use hash of file for file name on the storage.
+
+Note `e800f0be119ecbeec98e34d3c9ec0612a8161a5b4c8fcd57d5773678e6fdc594`, it's id of proposed updated and later would be referenced as `upId`.
 
 In blockchain should be:
 
@@ -176,37 +177,11 @@ MainBlock:
 1. Retrieve logs from cluster (`io --no-component-check -c csl-1583.yaml get-journals`)
 2. Check latest blocks contain one proposal and 2 votes (not four because three is already enough for proposal to be confirmed)
 
-### Wait till appropriate epoch starts
+### Wait till appropriate slot starts
 
-Let `(e, s)` be slot of block including last vote.
-
-If `s < 72`, then wait till slot `(e + 1, 0)`.
-Otherwise till `(e + 2, 0)`.
-
-This is needed for all nodes and wallets to consider proposal confirmed and valid to be applied.
+Wait for `k` blocks (max `2k` slots) to be produced from update nclusion into blockchain.
 
 ## Check update taken by wallet
-
-### Prepare installer mirror
-
-1. Launch simple static HTTP server, e.g. `Fenix` for Windows
-2. Configure it to serve contents of particular `installers` directory on port 8080
-3. Copy *updated* installer to `installers/<installer_hash>`
-
-### Prepare bat file
-
-Edit `daedalus.bat` file:
-1. Add `-n --update-server http://localhost:8080/` before `-n --system-start`
-2. Add  `-n --update-with-package` to the end
-
-Bat file would look like:
-
-```
-
-SET DAEDALUS_DIR=%~dp0
-start /D "%DAEDALUS_DIR%" cardano-launcher.exe --node "%DAEDALUS_DIR%\cardano-node.exe" --node-log-path "%APPDATA%\Daedalus\Logs\cardano-node.log" --wallet "%DAEDALUS_DIR%\Daedalus.exe" --updater "%APPDATA%\Daedalus\Installer.exe" --updater-windows-runner "%APPDATA%\Daedalus\Updater.bat" --node-timeout 5  -n --listen -n 127.0.0.1:12100 -n --report-server -n http://52.59.7.118:8080 -n --log-config -n log-config-prod.yaml -n --update-latest-path -n "%APPDATA%\Daedalus\Installer.exe" -n --keyfile -n "%APPDATA%\Daedalus\Secrets\secret.key" -n --logs-prefix -n "%APPDATA%\Daedalus\Logs" -n --db-path -n "%APPDATA%\Daedalus\DB-0.4" -n --wallet-db-path -n "%APPDATA%\Daedalus\Wallet-0.4" -n --peers-file -n ip-dht-mappings -n --update-server -n "http://localhost:8080/" -n --system-start -n 1494442772 -n --wallet -n --explicit-initial -n --update-with-package
-
-```
 
 ### Launch Daedalus on desktop
 
@@ -222,6 +197,5 @@ Check logs, there should be lines like:
 [DEBUG] Downloading update...
 ```
 
-Installer should be put to `%APPDATA%\Daedalus\Installer.exe`.
+Installer should be put by cardano-node to `%APPDATA%\Daedalus\Installer.exe`.
 
-Daedalus should exit and let launcher execute installer, though as for *11 May 2017* this is not working. This way you can close Daedalus and launch it again, it should attempt to launch installer.

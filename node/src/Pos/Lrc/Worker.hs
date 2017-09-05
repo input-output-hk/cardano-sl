@@ -19,7 +19,7 @@ import           Data.Conduit             (runConduitRes, (.|))
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import           Ether.Internal           (HasLens (..))
-import           Formatting               (build, sformat, (%))
+import           Formatting               (build, ords, sformat, (%))
 import           Mockable                 (forConcurrently)
 import           Serokell.Util.Exceptions ()
 import           System.Wlog              (logDebug, logInfo, logWarning)
@@ -73,27 +73,34 @@ lrcSingleShot
     => EpochIndex -> m ()
 lrcSingleShot epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
+    logDebug $ sformat
+        ("lrcSingleShot is trying to acquire LRC lock, the epoch is "
+         %build) epoch
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
     consumers = allLrcConsumers @ssc
+    for_thEpochMsg = sformat (" for "%ords%" epoch") epoch
     onAcquiredLock = do
+        logDebug "lrcSingleShot has acquired LRC lock"
         (need, filteredConsumers) <-
             logWarningWaitLinear 5 "determining whether LRC is needed" $ do
                 expectedRichmenComp <-
                     filterM (flip lcIfNeedCompute epoch) consumers
                 needComputeLeaders <- isNothing <$> getLeaders epoch
                 let needComputeRichmen = not . null $ expectedRichmenComp
-                when needComputeLeaders $ logInfo "Need to compute leaders"
-                when needComputeRichmen $ logInfo "Need to compute richmen"
+                when needComputeLeaders $ logInfo
+                    ("Need to compute leaders" <> for_thEpochMsg)
+                when needComputeRichmen $ logInfo
+                    ("Need to compute richmen" <> for_thEpochMsg)
                 return $
                     ( needComputeLeaders || needComputeRichmen
                     , expectedRichmenComp)
         when need $ do
-            logInfo "LRC is starting"
+            logInfo "LRC is starting actual computation"
             lrcDo @ssc epoch filteredConsumers
-            logInfo "LRC has finished"
+            logInfo "LRC has finished actual computation"
         putEpoch epoch
-        logInfo "LRC has updated LRC DB"
+        logInfo ("LRC has updated LRC DB" <> for_thEpochMsg)
 
 tryAcquireExclusiveLock
     :: (MonadMask m, MonadIO m)

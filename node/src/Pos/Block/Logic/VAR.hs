@@ -114,6 +114,9 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     lift $ normalizeMempool
     pure hh
   where
+    spanEpoch ::
+           OldestFirst NE (Block ssc)
+        -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
     spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
     spanEpoch x                              = spanTail x
     spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
@@ -154,9 +157,11 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
         -> ExceptT ApplyBlocksException m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
-        logDebug "Rolling: Calculating LRC if needed"
-        when (isLeft prefixHead) $
-            lift $ lrcSingleShot (prefixHead ^. epochIndexL)
+        when (isLeft prefixHead) $ do
+            let epochIndex = prefixHead ^. epochIndexL
+            logDebug $ "Rolling: Calculating LRC if needed for "
+                       <> pretty epochIndex
+            lift $ lrcSingleShot epochIndex
         logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
             Left (ApplyBlocksVerifyFailure -> failure)

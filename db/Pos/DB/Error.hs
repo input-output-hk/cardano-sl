@@ -12,7 +12,8 @@ data DBError =
       -- | Structure of DB is malformed (e. g. data is inconsistent,
       -- something is missing, etc.)
       DBMalformed !Text
-    | DBUnexpectedVersionTag !Word8 !Word8
+    | DBUnexpectedVersionTag !Word8 !Word8 -- ^ The first field is the expected version
+                                           -- tag. The second is the one received.
     deriving (Show)
 
 instance Exception DBError

@@ -11,10 +11,12 @@ import           Options            (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Block.Core     (Block, BlockHeader, GenericBlockHeader, GenesisBlock,
                                      GenesisBlockHeader (..), MainBlock, MainBlockHeader,
                                      blockHeaderHash, gbConsensus, gbhConsensus,
-                                     getBlockHeader, _gbHeader, _gbhConsensus, _gcdEpoch)
+                                     getBlockHeader, _gbHeader, _gbhConsensus, _gcdEpoch,
+                                     _mcdLeaderKey)
 import           Pos.Core           (EpochIndex, EpochOrSlot (..), HasCoreConstants,
                                      LocalSlotIndex (..), SlotId (..), getEpochIndex,
                                      getEpochOrSlot)
+import           Pos.Crypto         (PublicKey)
 import           Pos.Ssc.GodTossing (SscGodTossing)
 import           Text.Tabl          (Alignment (..), Decoration (..),
                                      Environment (EnvAscii), tabl)
@@ -120,6 +122,7 @@ header = [
          , "Slot"
          , "Previous Block"
          , "Block Hash"
+         , "Leader"
          ]
 
 renderBlocks :: HasCoreConstants
@@ -141,6 +144,10 @@ getEpoch h = case unEpochOrSlot (getEpochOrSlot h) of
 getSlot :: BlockHeader SscGodTossing -> Maybe SlotId
 getSlot = either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot
 
+getLeader :: BlockHeader SscGodTossing -> Maybe PublicKey
+getLeader (Left _)   = Nothing
+getLeader (Right bh) = Just . _mcdLeaderKey . _gbhConsensus $ bh
+
 -- | Given a `Block`, returns a table row suitable for being printed
 -- by `tabl`.
 toTableRow :: HasCoreConstants => Block SscGodTossing -> [Text]
@@ -150,16 +157,25 @@ toTableRow block =
         blockHash     = sformat build (blockHeaderHash blockHeader)
         epoch         = sformat build (getEpochIndex (getEpoch blockHeader))
         blockType     = either (const "GENESIS") (const "MAIN") block
-        slot          = maybe "-" (sformat build . getSlotIndex . siSlot) (getSlot blockHeader)
-    in [blockType, epoch, slot, previousBlock, blockHash]
+        slot          = maybe mempty (sformat build . getSlotIndex . siSlot) (getSlot blockHeader)
+        leader        = maybe mempty (sformat build) (getLeader blockHeader)
+    in [blockType, epoch, slot, previousBlock, blockHash, leader]
 
 {--
--- | Block.
 type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
 
-data GenericBlock b = UnsafeGenericBlock
-    { _gbHeader :: !(GenericBlockHeader b)
-    , _gbBody   :: !(Body b)
-    , _gbExtra  :: !(ExtraBodyData b)
-    } deriving (Generic)
+MainBlockHeader:\n
+    hash: de3d754d0895aa1d550578a0604d480dfa92b9bef08b07ba74c42dd0661f8bea\n
+    previous block: b47759b8742e4064c1049375a1b99c39e1aad7f688450b650eb82931dc81b621\n
+    slot: 0th slot of 0th epoch\n
+    difficulty: 1\n
+    leader: pub:80b70572\n
+    signature: BlockSignature: <signature>\n
+    block: v0.0.0\n
+    software: csl-daedalus:0\n
+GenesisBlockHeader:\n
+    hash: b47759b8742e4064c1049375a1b99c39e1aad7f688450b650eb82931dc81b621\n
+    previous block: 791f4256e14c67b9035c3b80a0826adf719d3636c18eef16c98b84b833723d51\n
+    epoch: epoch #0\n
+    difficulty: 0\n
 --}

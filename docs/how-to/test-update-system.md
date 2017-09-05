@@ -6,9 +6,11 @@
    * 4 core nodes (full connectivity)
    * 1 relay (connected to all core nodes)
 * Generate *before* installer, use `devnet_shortep_wallet`
+   * checkout from latest release branch (`cardano-sl-0.6-staging` for instance) 
    * set appropriate `system-start` in `Launcher.hs`, relay ip in `wallet-topology.yaml` for 
+   * see https://github.com/input-output-hk/daedalus/commit/b8608d2f5e5585ed8ffc148a5991153d69147223 for reference
 * Generate *after* installer, use `devnet_shortep_updated_wallet`
-   * set appropriate `system-start` in `Launcher.hs`, relay ip in `wallet-topology.yaml` for daedalus
+   * same as previous item
 * Build cardano-sl with `devnet_shortep_full` (`./scripts/build/cardano-sl.sh --dn`)
 
 ## Test base version

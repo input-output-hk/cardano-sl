@@ -42,37 +42,32 @@ du_s root = go 0 [root]
 ls :: FilePath -> IO [FilePath]
 ls f = withCurrentDirectory f ((listDirectory >=> mapM canonicalizePath) f)
 
+-- | Calculate the size of each folder.
 dbSizes :: FilePath -> IO [DBFolderStat]
 dbSizes root = do
     parents <- ls root
     forM (root : parents) $ \f -> (toText f,) <$> du_s f
 
-main :: IO ()
-main = giveStaticConsts $ do
-    cli@CLIOptions{..} <- getOptions
-    sizes <- canonicalizePath dbPath >>= dbSizes
-    putText $ render uom printMode sizes
-
-    -- Now open the DB and inspect it
-    bracket (openNodeDBs False dbPath) closeNodeDBs $ \db -> do
-        runProduction $ initBlockchainAnalyser db $ do
-            tip <- DB.getTip
-            analyseBlockchain cli tip
-
+-- | Analyse the blockchain, printing useful statistics.
 analyseBlockchain :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchain cli tip =
     if incremental cli then do liftIO $ putText (renderHeader cli)
-                               analyseBlockchainIncrementally cli tip
-                       else analyseBlockchainEagerly cli tip
+                               analyseBlockchainEagerly cli tip
+                       else analyseBlockchainLazily cli tip
 
+-- | Tries to fetch a `Block` given its `HeaderHash`.
 fetchBlock :: HasCoreConstants => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
 fetchBlock = DB.dbGetBlockSumDefault @SscGodTossing
 
+-- | Tries to fetch an `Undo` for the given `Block`.
 fetchUndo :: HasCoreConstants => Block SscGodTossing -> BlockchainInspector (Maybe Undo)
 fetchUndo block = DB.blkGetUndo @SscGodTossing (blockHeaderHash $ getBlockHeader block)
 
-analyseBlockchainEagerly :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
-analyseBlockchainEagerly cli currentTip = do
+-- | Analyse the blockchain lazily by rendering all the blocks at once, loading the whole
+-- blockchain into memory. This mode generates very nice-looking tables, but using it for
+-- big DBs might not be feasible.
+analyseBlockchainLazily :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
+analyseBlockchainLazily cli currentTip = do
     allBlocks <- go currentTip mempty
     liftIO $ putText (renderBlocks cli allBlocks)
     return ()
@@ -82,11 +77,27 @@ analyseBlockchainEagerly cli currentTip = do
           mbUndo    <- maybe (return Nothing) fetchUndo nextBlock
           maybe (return (reverse xs)) (\nb -> go (prevBlock nb) ((nb, mbUndo) : xs)) nextBlock
 
-analyseBlockchainIncrementally :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
-analyseBlockchainIncrementally cli currentTip = do
+-- | Analyse the blockchain eagerly, rendering a block at time, without loading the whole
+-- blockchain into memory.
+analyseBlockchainEagerly :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
+analyseBlockchainEagerly cli currentTip = do
     let processBlock block mbUndo = do liftIO $ putText (renderBlock cli (block, mbUndo))
-                                       analyseBlockchainIncrementally cli (prevBlock block)
+                                       analyseBlockchainEagerly cli (prevBlock block)
     nextBlock <- fetchBlock currentTip
     case nextBlock of
         Nothing -> return ()
         Just b  -> fetchUndo b >>= processBlock b
+
+-- | The main entrypoint.
+main :: IO ()
+main = giveStaticConsts $ do
+    cli@CLIOptions{..} <- getOptions
+
+    -- Render the first report
+    sizes <- canonicalizePath dbPath >>= dbSizes
+    putText $ render uom printMode sizes
+
+    -- Now open the DB and inspect it, generating the second report
+    bracket (openNodeDBs False dbPath) closeNodeDBs $ \db -> do
+        runProduction $ initBlockchainAnalyser db $ do
+            DB.getTip >>= analyseBlockchain cli

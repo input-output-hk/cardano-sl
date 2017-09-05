@@ -9,12 +9,9 @@ import qualified Data.Text                  as T
 import           Formatting                 hiding (bytes)
 import           Options                    (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Core             (Block, BlockHeader, GenericBlockHeader,
-                                             GenesisBlock, GenesisBlockHeader (..),
-                                             MainBlock, MainBlockHeader, blockHeaderHash,
-                                             gbConsensus, gbhConsensus, getBlockHeader,
-                                             mbTxs, _gbBody, _gbHeader, _gbhConsensus,
-                                             _gcdEpoch, _mcdLeaderKey)
+import           Pos.Block.Core             (Block, BlockHeader, blockHeaderHash,
+                                             getBlockHeader, mbTxs, _gbBody,
+                                             _gbhConsensus, _mcdLeaderKey)
 import           Pos.Block.Types            (Undo)
 import           Pos.Core                   (EpochIndex, EpochOrSlot (..),
                                              HasCoreConstants, LocalSlotIndex (..),
@@ -198,22 +195,3 @@ toTableRow uom (block, mbUndo) =
        , renderBytesWithUnit uom blockSize
        , renderBytesWithUnit uom (blockSize + undoSize)
        ]
-
-{--
-type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
-
-MainBlockHeader:\n
-    hash: de3d754d0895aa1d550578a0604d480dfa92b9bef08b07ba74c42dd0661f8bea\n
-    previous block: b47759b8742e4064c1049375a1b99c39e1aad7f688450b650eb82931dc81b621\n
-    slot: 0th slot of 0th epoch\n
-    difficulty: 1\n
-    leader: pub:80b70572\n
-    signature: BlockSignature: <signature>\n
-    block: v0.0.0\n
-    software: csl-daedalus:0\n
-GenesisBlockHeader:\n
-    hash: b47759b8742e4064c1049375a1b99c39e1aad7f688450b650eb82931dc81b621\n
-    previous block: 791f4256e14c67b9035c3b80a0826adf719d3636c18eef16c98b84b833723d51\n
-    epoch: epoch #0\n
-    difficulty: 0\n
---}

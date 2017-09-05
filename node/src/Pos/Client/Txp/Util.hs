@@ -37,6 +37,7 @@ import           Universum
 
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
+import           Data.Fixed               (Fixed, HasResolution)
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import           Data.List                (tail)
@@ -50,9 +51,10 @@ import           Serokell.Util            (listJson)
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear, bvdTxFeePolicy,
-                                           calculateTxSizeLinear, coinToInteger,
-                                           integerToCoin, isRedeemAddress, unsafeAddCoin,
+import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear (..),
+                                           bvdTxFeePolicy, calculateTxSizeLinear,
+                                           coinToInteger, integerToCoin, isRedeemAddress,
+                                           txSizeLinearMinValue, unsafeAddCoin,
                                            unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
                                            SignTag (SignRedeemTx, SignTx),
@@ -259,6 +261,12 @@ groupUtxo utxo =
             ugTotalMoney = unsafeIntegerToCoin . sumTxOutCoins $
                 map snd ugUtxo
         in UtxoGroup {..}
+
+fixedToFee :: (MonadError TxError m, HasResolution a) => Fixed a -> m TxFee
+fixedToFee = either (throwError . invalidFee) (pure . TxFee)
+           . integerToCoin . ceiling
+  where
+    invalidFee reason = GeneralTxError ("Invalid fee: " <> reason)
 
 data InputPickerState = InputPickerState
     { _ipsMoneyLeft             :: !Coin
@@ -516,7 +524,8 @@ stabilizeTxFee
     -> TxOutputs
     -> TxCreator m TxRaw
 stabilizeTxFee linearPolicy utxo outputs = do
-    mtx <- stabilizeTxFeeDo (False, firstStageAttempts) (TxFee $ mkCoin 0)
+    minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
+    mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
     case mtx of
         Nothing -> throwError FailedToStabilize
         Just tx -> pure $ tx & \(S.Min (S.Arg _ txRaw)) -> txRaw
@@ -548,14 +557,9 @@ txToLinearFee
     :: MonadError TxError m
     => TxSizeLinear -> TxAux -> m TxFee
 txToLinearFee linearPolicy =
-    either throwError pure .
-    bimap invalidFee TxFee .
-    integerToCoin .
-    ceiling .
+    fixedToFee .
     calculateTxSizeLinear linearPolicy .
     biSize @TxAux
-  where
-    invalidFee reason = GeneralTxError ("Invalid fee: " <> reason)
 
 -- | Function is used to calculate intermediate fee amounts
 -- when forming a transaction

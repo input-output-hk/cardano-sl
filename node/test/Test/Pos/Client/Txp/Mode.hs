@@ -36,7 +36,9 @@ instance HasCoreConstants => TxCreateMode TxpTestMode
 ----------------------------------------------------------------------------
 
 instance MonadGState TxpTestMode where
-    gsAdoptedBVData = use identity
+    gsAdoptedBVData =
+        -- Universum does not export `get` from `StateT` yet.
+        use identity
 
 instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
@@ -49,6 +51,7 @@ instance MonadAddresses TxpTestMode where
 
 setBVData :: BlockVersionData -> TxpTestMode ()
 setBVData bvd =
+    -- Universum does not export `put` from `StateT` yet.
     identity .= bvd
 
 ----------------------------------------------------------------------------

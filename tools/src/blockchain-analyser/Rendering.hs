@@ -22,7 +22,7 @@ import           Pos.Crypto                 (PublicKey)
 import           Pos.Merkle                 (MerkleTree (..))
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp.Core               (Tx)
-import           Serokell.Data.Memory.Units (toBytes)
+import           Serokell.Data.Memory.Units (Byte, fromBytes, memory, toBytes)
 import           Text.Tabl                  (Alignment (..), Decoration (..),
                                              Environment (EnvAscii), tabl)
 import           Types                      (DBFolderStat, prevBlock)
@@ -41,26 +41,33 @@ import           Universum
 -- measure, like other unix tools do.
 renderBytes :: UOM -> Integer -> Text
 renderBytes uom bytes =
-    let formatPrecision = fixed @Double 3
-        converted       = fromIntegral bytes / fromIntegral formatBytes
-    in sformat formatPrecision converted
+    case uom of
+        Adaptive -> sformat memory (fromBytes @Byte bytes)
+        _        -> let formatPrecision = fixed @Double 3
+                        converted       = fromIntegral bytes / fromIntegral formatBytes
+                    in sformat formatPrecision converted
     where
       formatBytes :: Int
       formatBytes = case uom of
-                        Bytes -> 1
-                        KB    -> 1000
-                        MB    -> 1000 * 1000
-                        GB    -> 1000 * 1000 * 1000
+                        Bytes    -> 1
+                        KB       -> 1000
+                        MB       -> 1000 * 1000
+                        GB       -> 1000 * 1000 * 1000
+                        Adaptive -> 1 -- It shouldn't really matter.
 
 renderUnit :: UOM -> Text
 renderUnit uom = case uom of
-    Bytes -> "B"
-    KB    -> "KB"
-    MB    -> "MB"
-    GB    -> "GB"
+    Bytes    -> "B"
+    KB       -> "KB"
+    MB       -> "MB"
+    GB       -> "GB"
+    Adaptive -> "Adaptive"
 
 renderBytesWithUnit :: UOM -> Integer -> Text
-renderBytesWithUnit uom bytes = renderBytes uom bytes <> " " <> renderUnit uom
+renderBytesWithUnit uom bytes =
+    case uom of
+        Adaptive -> renderBytes uom bytes
+        _        -> renderBytes uom bytes <> " " <> renderUnit uom
 
 render :: UOM -> PrintMode -> [DBFolderStat] -> Text
 render uom printMode stats =

@@ -31,6 +31,7 @@ data UOM = Bytes
          | KB
          | MB
          | GB
+         | Adaptive
 
 
 data CLIOptions = CLIOptions
@@ -68,7 +69,7 @@ parsePrintMode = optional (option (eitherReader readPrintModeE)
     readPrintModeE _       = Right AsciiTable -- A sensible default, for now.
 
 parseUOM :: Parser UOM
-parseUOM = (parseKB <|> parseMB <|> parseGB)
+parseUOM = (parseKB <|> parseMB <|> parseGB <|> parseAdaptive)
         -- If the parser above fails, default to bytes (even if not passed from the CLI).
         <|> parseBytes
 
@@ -83,6 +84,9 @@ parseMB = flag' MB (short 'm' <> help "Display block counts in megabytes (MB).")
 
 parseGB :: Parser UOM
 parseGB = flag' GB (short 'g' <> help "Display block counts in gigabytes (GB).")
+
+parseAdaptive :: Parser UOM
+parseAdaptive = flag' Adaptive (short 'a' <> help "Display block counts using an adaptive multiplier.")
 
 parseIncremental :: Parser Bool
 parseIncremental = switch (short 'i' <> long "incremental" <> help incrementalHelp)

@@ -32,7 +32,7 @@ import           Pos.Util.Util        (postfixLFields)
 type DBFolderStat = (Text, Integer)
 
 -- | Enough context for analysing blocks.
-data BlockchainInspectorContext = BlockchainInspectorContext { tbgcNodeDBs :: DB.NodeDBs }
+data BlockchainInspectorContext = BlockchainInspectorContext { bicNodeDBs :: DB.NodeDBs }
 
 makeLensesWith postfixLFields ''BlockchainInspectorContext
 
@@ -47,7 +47,7 @@ initBlockchainAnalyser ::
     -> BlockchainInspector a
     -> Production a
 initBlockchainAnalyser nodeDBs action = do
-    let tbgcNodeDBs = nodeDBs
+    let bicNodeDBs = nodeDBs
     let inspectorCtx = BlockchainInspectorContext {..}
     runBlockchainInspector inspectorCtx action
 
@@ -56,7 +56,7 @@ initBlockchainAnalyser nodeDBs action = do
 ----------------------------------------------------------------------------
 
 instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
-    lensOf = tbgcNodeDBs_L
+    lensOf = bicNodeDBs_L
 
 instance MonadDBRead BlockchainInspector where
     dbGet = DB.dbGetDefault
@@ -71,4 +71,4 @@ instance
     dbGetHeader = BDB.dbGetHeaderDefault @SscGodTossing
 
 prevBlock :: HasCoreConstants => Block SscGodTossing -> HeaderHash
-prevBlock = either (view prevBlockL) (view prevBlockL)
+prevBlock = view prevBlockL

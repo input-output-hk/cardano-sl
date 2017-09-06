@@ -11,6 +11,7 @@ import           Pos.DB             (closeNodeDBs, openNodeDBs)
 import qualified Pos.DB.Block       as DB
 import qualified Pos.DB.DB          as DB
 import           Pos.Ssc.GodTossing (SscGodTossing)
+import           Pos.Util.Chrono    (NewestFirst (..))
 import           System.Directory   (canonicalizePath, doesDirectoryExist, getFileSize,
                                      listDirectory, withCurrentDirectory)
 
@@ -48,7 +49,7 @@ analyseBlockchain :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainI
 analyseBlockchain cli tip =
     if incremental cli then do putText (renderHeader cli)
                                analyseBlockchainEagerly cli tip
-                       else analyseBlockchainLazily cli tip
+                       else analyseBlockchainLazily cli
 
 -- | Tries to fetch a `Block` given its `HeaderHash`.
 fetchBlock :: HasCoreConstants => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
@@ -61,15 +62,10 @@ fetchUndo block = DB.blkGetUndo @SscGodTossing (headerHash block)
 -- | Analyse the blockchain lazily by rendering all the blocks at once, loading the whole
 -- blockchain into memory. This mode generates very nice-looking tables, but using it for
 -- big DBs might not be feasible.
-analyseBlockchainLazily :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
-analyseBlockchainLazily cli currentTip = do
-    allBlocks <- go currentTip mempty
+analyseBlockchainLazily :: HasCoreConstants => CLIOptions -> BlockchainInspector ()
+analyseBlockchainLazily cli = do
+    allBlocks <- map (bimap identity Just) . getNewestFirst <$> DB.loadBlundsFromTipWhile (const True)
     putText (renderBlocks cli allBlocks)
-    where
-      go tip xs = do
-          nextBlock <- fetchBlock tip
-          mbUndo    <- maybe (return Nothing) fetchUndo nextBlock
-          maybe (return (reverse xs)) (\nb -> go (prevBlock nb) ((nb, mbUndo) : xs)) nextBlock
 
 -- | Analyse the blockchain eagerly, rendering a block at time, without loading the whole
 -- blockchain into memory.

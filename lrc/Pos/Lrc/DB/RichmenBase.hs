@@ -19,10 +19,10 @@ module Pos.Lrc.DB.RichmenBase
 
 import           Universum
 
+import           Pos.Binary.Class  (serialize')
 import           Pos.Binary.Core   ()
 import           Pos.Core.Types    (EpochIndex)
 import           Pos.DB.Class      (MonadDB, MonadDBRead)
-import           Pos.DB.Functions  (dbSerialize)
 import           Pos.Lrc.Class     (RichmenComponent (..))
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Lrc.Types     (FullRichmenData)
@@ -69,4 +69,4 @@ richmenKeyP
     :: forall c.
        RichmenComponent c
     => Proxy c -> EpochIndex -> ByteString
-richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", dbSerialize e]
+richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", serialize' e]

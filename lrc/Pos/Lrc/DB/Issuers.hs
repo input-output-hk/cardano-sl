@@ -14,9 +14,9 @@ module Pos.Lrc.DB.Issuers
 
 import           Universum
 
+import           Pos.Binary.Class  (serialize')
 import           Pos.Core.Types    (Coin, EpochIndex (..), StakeholderId)
 import           Pos.DB.Class      (MonadDB, MonadDBRead)
-import           Pos.DB.Functions  (dbSerialize)
 import           Pos.DB.Error      (DBError (DBMalformed))
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Util.Util     (maybeThrow)
@@ -47,4 +47,4 @@ isInitialized = (isJust @IssuersStakes) <$> getBi (issuersKey $ EpochIndex 0)
 ----------------------------------------------------------------------------
 
 issuersKey :: EpochIndex -> ByteString
-issuersKey = mappend "i/" . dbSerialize
+issuersKey = mappend "i/" . serialize'

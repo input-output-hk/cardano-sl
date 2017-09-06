@@ -54,7 +54,7 @@ import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         runSecureRandom, vssKeyGen)
 import           Pos.Crypto.SecretSharing              (toVssPublicKey)
 import           Pos.DB                                (gsAdoptedBVData)
-import           Pos.Lrc.Context                       (lrcActionOnEpochReason, waitLrc)
+import           Pos.Lrc.Context                       (lrcActionOnEpochReason)
 import           Pos.Lrc.Types                         (RichmenStakes)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
 import           Pos.Reporting                         (reportMisbehaviour)
@@ -110,7 +110,6 @@ instance GtMessageConstraints => SscWorkersClass SscGodTossing where
 
 shouldParticipate :: (SscMode SscGodTossing ctx m) => EpochIndex -> m Bool
 shouldParticipate epoch = do
-    waitLrc epoch
     richmen <- lrcActionOnEpochReason epoch
         "couldn't get SSC richmen"
         getRichmenSsc

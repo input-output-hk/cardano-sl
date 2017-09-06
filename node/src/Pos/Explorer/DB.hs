@@ -30,7 +30,7 @@ import           Formatting                   (sformat, (%))
 import           Serokell.Util                (Color (Red), colorize, mapJson)
 import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Binary.Class             (UnsignedVarInt (..))
+import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
 import           Pos.Context.Functions        (GenesisUtxo, genesisUtxoM)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
                                                unsafeAddCoin)
@@ -215,10 +215,10 @@ sanityCheckBalances = do
 ----------------------------------------------------------------------------
 
 txExtraPrefix :: TxId -> ByteString
-txExtraPrefix h = "e/tx/" <> dbSerialize h
+txExtraPrefix h = "e/tx/" <> serialize' h
 
 addrHistoryKey :: Address -> ByteString
-addrHistoryKey addr = "e/ah/" <> dbSerialize addr
+addrHistoryKey addr = "e/ah/" <> serialize' addr
 
 addrBalancePrefix :: ByteString
 addrBalancePrefix = "e/ab/"
@@ -229,10 +229,10 @@ addrBalanceKey = encodeWithKeyPrefix @BalancesIter
 blockPagePrefix :: Page -> ByteString
 blockPagePrefix page = "e/page/" <> encodedPage
   where
-    encodedPage = dbSerialize $ UnsignedVarInt page
+    encodedPage = serialize' $ UnsignedVarInt page
 
 blockEpochPrefix :: Epoch -> ByteString
-blockEpochPrefix epoch = "e/epoch/" <> dbSerialize epoch
+blockEpochPrefix epoch = "e/epoch/" <> serialize' epoch
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"

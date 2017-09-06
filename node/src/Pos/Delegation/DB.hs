@@ -54,6 +54,7 @@ import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import qualified Database.RocksDB             as Rocks
 
+import           Pos.Binary.Class             (serialize')
 import           Pos.Core                     (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Core.Genesis             (GenesisDelegation (..))
 import           Pos.Crypto                   (ProxySecretKey (..), PublicKey, verifyPsk)
@@ -213,10 +214,10 @@ getThisEpochPostedKeys =
 
 -- Storing Hash IssuerPk -> ProxySKHeavy
 pskKey :: StakeholderId -> ByteString
-pskKey s = "d/p/" <> dbSerialize s
+pskKey s = "d/p/" <> serialize' s
 
 transDlgKey :: StakeholderId -> ByteString
-transDlgKey s = "d/t/" <> dbSerialize s
+transDlgKey s = "d/t/" <> serialize' s
 
 iterTransRevPrefix :: ByteString
 iterTransRevPrefix = "d/tr/"

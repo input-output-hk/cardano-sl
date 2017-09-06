@@ -23,6 +23,7 @@ import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, (%))
 import           Serokell.Util.Text   (listJson)
 
+import           Pos.Binary.Class     (serialize')
 import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
@@ -184,10 +185,10 @@ initGStateBlockExtra firstGenesisHash = do
 ----------------------------------------------------------------------------
 
 forwardLinkKey :: HeaderHash -> ByteString
-forwardLinkKey h = "e/fl/" <> dbSerialize h
+forwardLinkKey h = "e/fl/" <> serialize' h
 
 mainChainKey :: HeaderHash -> ByteString
-mainChainKey h = "e/mc/" <> dbSerialize h
+mainChainKey h = "e/mc/" <> serialize' h
 
 lastSlotsKey :: ByteString
 lastSlotsKey = "e/ls/"

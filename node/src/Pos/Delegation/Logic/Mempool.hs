@@ -227,6 +227,7 @@ processProxySKHeavyInternal psk = do
         let rerevoke = isRevoke && not hasPskInDB
         coherent <- uses dwTip $ (==) dbTipHash
         dwMessageCache %= LRU.insert msg curTime
+        let doublePosted = alreadyPosted && not isRevoke
         let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
             -- Here it would be good to add size of data we want to insert
             -- but it's negligible.
@@ -234,15 +235,15 @@ processProxySKHeavyInternal psk = do
         let res = if | not consistent -> PHBroken
                      | not coherent -> PHTipMismatch
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
-                     | alreadyPosted -> PHInvalid "issuer has already posted PSK this epoch"
+                     | existsIsoDB ->
+                         PHInvalid $ "isomorphic proxy sk already exists in db: " <>
+                                     pretty pskFromDB
+                     | doublePosted -> PHInvalid "issuer has already posted PSK this epoch"
                      | rerevoke ->
                          PHInvalid $ "can't accept revoke cert, user doesn't " <>
                                      "have any psk in db"
                      | isJust producesCycle ->
                          PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
-                     | existsIsoDB ->
-                         PHInvalid $ "isomorphic proxy sk already exists in db: " <>
-                                     pretty pskFromDB
                      | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
                      | cached -> PHCached
                      | existsSameMempool -> PHExists

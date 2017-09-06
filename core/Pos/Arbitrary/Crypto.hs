@@ -49,6 +49,7 @@ production and in tests?). So, we just generate lots of keys and seeds with
 'unsafePerformIO' and use them for everything.
 -}
 
+keysToGenerate :: Int
 keysToGenerate = 128
 
 ----------------------------------------------------------------------------

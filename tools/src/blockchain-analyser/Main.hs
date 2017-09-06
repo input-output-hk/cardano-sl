@@ -3,9 +3,9 @@
 module Main where
 
 import           Mockable           (runProduction)
-import           Pos.Block.Core     (Block, blockHeaderHash, getBlockHeader)
+import           Pos.Block.Core     (Block)
 import           Pos.Block.Types    (Undo)
-import           Pos.Core           (HasCoreConstants, giveStaticConsts)
+import           Pos.Core           (HasCoreConstants, giveStaticConsts, headerHash)
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.DB             (closeNodeDBs, openNodeDBs)
 import qualified Pos.DB.Block       as DB
@@ -46,17 +46,17 @@ dbSizes root = do
 -- | Analyse the blockchain, printing useful statistics.
 analyseBlockchain :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchain cli tip =
-    if incremental cli then do liftIO $ putText (renderHeader cli)
+    if incremental cli then do putText (renderHeader cli)
                                analyseBlockchainEagerly cli tip
                        else analyseBlockchainLazily cli tip
 
 -- | Tries to fetch a `Block` given its `HeaderHash`.
 fetchBlock :: HasCoreConstants => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
-fetchBlock = DB.dbGetBlockSumDefault @SscGodTossing
+fetchBlock = DB.blkGetBlock @SscGodTossing
 
 -- | Tries to fetch an `Undo` for the given `Block`.
 fetchUndo :: HasCoreConstants => Block SscGodTossing -> BlockchainInspector (Maybe Undo)
-fetchUndo block = DB.blkGetUndo @SscGodTossing (blockHeaderHash $ getBlockHeader block)
+fetchUndo block = DB.blkGetUndo @SscGodTossing (headerHash block)
 
 -- | Analyse the blockchain lazily by rendering all the blocks at once, loading the whole
 -- blockchain into memory. This mode generates very nice-looking tables, but using it for
@@ -64,8 +64,7 @@ fetchUndo block = DB.blkGetUndo @SscGodTossing (blockHeaderHash $ getBlockHeader
 analyseBlockchainLazily :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchainLazily cli currentTip = do
     allBlocks <- go currentTip mempty
-    liftIO $ putText (renderBlocks cli allBlocks)
-    return ()
+    putText (renderBlocks cli allBlocks)
     where
       go tip xs = do
           nextBlock <- fetchBlock tip
@@ -76,7 +75,7 @@ analyseBlockchainLazily cli currentTip = do
 -- blockchain into memory.
 analyseBlockchainEagerly :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchainEagerly cli currentTip = do
-    let processBlock block mbUndo = do liftIO $ putText (renderBlock cli (block, mbUndo))
+    let processBlock block mbUndo = do putText (renderBlock cli (block, mbUndo))
                                        analyseBlockchainEagerly cli (prevBlock block)
     nextBlock <- fetchBlock currentTip
     case nextBlock of

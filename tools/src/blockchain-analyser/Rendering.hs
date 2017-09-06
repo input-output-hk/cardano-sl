@@ -1,9 +1,11 @@
 
-module Rendering ( render
-                 , renderBlock
-                 , renderBlocks
-                 , renderHeader
-                 ) where
+module Rendering
+      ( -- * General rendering functions
+        render
+      , renderBlock
+      , renderBlocks
+      , renderHeader
+      ) where
 
 import qualified Data.Text                  as T
 import           Formatting                 hiding (bytes)
@@ -92,7 +94,7 @@ renderBlock cli block = case printMode cli of
     CSV        -> renderBlockCSV (uom cli) block
 
 renderBlockHuman :: HasCoreConstants => Block SscGodTossing -> Text
-renderBlockHuman = either (sformat build) (sformat build)
+renderBlockHuman = either pretty pretty
 
 renderBlockCSV :: HasCoreConstants => UOM -> (Block SscGodTossing, Maybe Undo) -> Text
 renderBlockCSV uom = T.intercalate "," . (toTableRow uom)
@@ -174,13 +176,13 @@ getUndoSize = maybe 0 (toBytes . biSize)
 toTableRow :: HasCoreConstants => UOM -> (Block SscGodTossing, Maybe Undo) -> [Text]
 toTableRow uom (block, mbUndo) =
     let blockHeader   = getBlockHeader block
-        previousBlock = sformat build (prevBlock block)
+        previousBlock = pretty (prevBlock block)
         blockHash     = blockHeaderHash blockHeader
-        epoch         = sformat build (getEpochIndex (getEpoch blockHeader))
+        epoch         = pretty (getEpochIndex (getEpoch blockHeader))
         blockType     = either (const "GENESIS") (const "MAIN") block
-        slot          = maybe mempty (sformat build . getSlotIndex . siSlot) (getSlot blockHeader)
-        leader        = maybe mempty (sformat build) (getLeader blockHeader)
-        txCount       = sformat build (length (getTxs block))
+        slot          = maybe mempty (pretty . getSlotIndex . siSlot) (getSlot blockHeader)
+        leader        = maybe mempty pretty (getLeader blockHeader)
+        txCount       = pretty (length (getTxs block))
         headerSize    = renderBytesWithUnit uom (getHeaderSize blockHeader)
         blockSize     = getBlockSize block
         undoSize      = getUndoSize  mbUndo
@@ -188,7 +190,7 @@ toTableRow uom (block, mbUndo) =
        , epoch
        , slot
        , previousBlock
-       , sformat build blockHash
+       , pretty blockHash
        , leader
        , txCount
        , headerSize

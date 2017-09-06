@@ -22,22 +22,17 @@ import           Mockable             (Production)
 
 import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Types      (Undo)
-import           Pos.Core             (HasCoreConstants, HeaderHash)
-import           Pos.Core.Block       (gbHeader, gbPrevBlock, gbhPrevBlock)
+import           Pos.Core             (HasCoreConstants, HeaderHash, prevBlockL)
 import           Pos.DB               (MonadBlockDBGeneric (..), MonadDBRead (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.Block         as BDB
-import           Pos.DB.Sum           (DBSum (..))
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Util.Util        (postfixLFields)
 
 type DBFolderStat = (Text, Integer)
 
 -- | Enough context for analysing blocks.
-data BlockchainInspectorContext = BlockchainInspectorContext
-    { tbgcDBSum   :: DB.DBSum
-    , tbgcNodeDBs :: DB.NodeDBs
-    }
+data BlockchainInspectorContext = BlockchainInspectorContext { tbgcNodeDBs :: DB.NodeDBs }
 
 makeLensesWith postfixLFields ''BlockchainInspectorContext
 
@@ -52,7 +47,6 @@ initBlockchainAnalyser ::
     -> BlockchainInspector a
     -> Production a
 initBlockchainAnalyser nodeDBs action = do
-    let tbgcDBSum   = RealDB nodeDBs
     let tbgcNodeDBs = nodeDBs
     let inspectorCtx = BlockchainInspectorContext {..}
     runBlockchainInspector inspectorCtx action
@@ -61,24 +55,20 @@ initBlockchainAnalyser nodeDBs action = do
 -- Boilerplate instances
 ----------------------------------------------------------------------------
 
-instance HasLens DBSum BlockchainInspectorContext DBSum where
-    lensOf = tbgcDBSum_L
-
 instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
     lensOf = tbgcNodeDBs_L
 
 instance MonadDBRead BlockchainInspector where
-    dbGet = DB.dbGetSumDefault
-    dbIterSource = DB.dbIterSourceSumDefault
+    dbGet = DB.dbGetDefault
+    dbIterSource = DB.dbIterSourceDefault
 
 instance
     HasCoreConstants =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockchainInspector
   where
-    dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
-    dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
-    dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
+    dbGetBlock = BDB.dbGetBlockDefault @SscGodTossing
+    dbGetUndo = BDB.dbGetUndoDefault @SscGodTossing
+    dbGetHeader = BDB.dbGetHeaderDefault @SscGodTossing
 
 prevBlock :: HasCoreConstants => Block SscGodTossing -> HeaderHash
-prevBlock (Left gB)  = gB ^. gbHeader . gbhPrevBlock
-prevBlock (Right mB) = mB ^. gbPrevBlock
+prevBlock = either (view prevBlockL) (view prevBlockL)

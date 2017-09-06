@@ -320,7 +320,7 @@ cslConfig :: Y.Value
 cslConfig = case HM.lookup cslConfigName fullCslConfig of
     Just x  -> x
     Nothing -> error $ "Couldn't find config " <> show cslConfigName <>
-                       "in the full config ('fullCslConfig')"
+                       " in the full config ('fullCslConfig')"
 
 -- | Read a value from 'cslConfig'.
 --

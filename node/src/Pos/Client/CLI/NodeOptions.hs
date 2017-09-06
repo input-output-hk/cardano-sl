@@ -33,6 +33,7 @@ import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser
                                                listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
 import           Pos.Constants                (isDevelopment)
+import           Pos.Launcher.ConfigInfo      (ConfigInfo (..))
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
@@ -68,6 +69,7 @@ data CommonNodeArgs = CommonNodeArgs
     , enableMetrics       :: !Bool
     , ekgParams           :: !(Maybe EkgParams)
     , statsdParams        :: !(Maybe StatsdParams)
+    , configInfo          :: !ConfigInfo
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -138,6 +140,7 @@ commonNodeArgsParser = do
 
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
+    configInfo <- configInfoParser
 
     pure CommonNodeArgs{..}
   where
@@ -150,6 +153,26 @@ data NodeArgs = NodeArgs
     { sscAlgo            :: !SscAlgo
     , behaviorConfigPath :: !(Maybe FilePath)
     } deriving Show
+
+configInfoParser :: Parser ConfigInfo
+configInfoParser = do
+    customConfigPath <- optional $ strOption $
+        long    "custom-config-file" <>
+        metavar "FILEPATH" <>
+        help    "Path to constants.yaml"
+    customConfigName <- optional $ fmap toText $ strOption $
+        long    "custom-config-name" <>
+        metavar "KEY" <>
+        help    "Section of constants.yaml to use"
+    customGenCorePath <- optional $ strOption $
+        long    "custom-genesis-core-bin" <>
+        metavar "FILEPATH" <>
+        help    "Path to genesis-core.bin"
+    customGenGtPath <- optional $ strOption $
+        long    "custom-genesis-gt-bin" <>
+        metavar "FILEPATH" <>
+        help    "Path to genesis-godtossing.bin"
+    pure ConfigInfo{..}
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser = do

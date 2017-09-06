@@ -13,7 +13,7 @@ import           Universum           hiding (over)
 import           Control.Lens        (views)
 import           Data.Maybe          (fromJust)
 import           Ether.Internal      (HasLens (..))
-import           Formatting          (sformat, shown, (%))
+import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 
@@ -23,7 +23,7 @@ import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec, worker)
 import           Pos.Core            (HasCoreConstants, Timestamp (..), giveStaticConsts)
-import           Pos.Launcher        (NodeParams (..), runNodeReal)
+import           Pos.Launcher        (NodeParams (..), applyConfigInfo, runNodeReal)
 import           Pos.Shutdown        (triggerShutdown)
 import           Pos.Ssc.Class       (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
@@ -54,23 +54,26 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     triggerShutdown
 
 action :: SimpleNodeArgs -> Production ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = giveStaticConsts $ do
-    systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
-    logInfo $ sformat ("System start time is " % shown) systemStart
-    t <- currentTime
-    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- CLI.getNodeParams cArgs nArgs systemStart
-    putText $ "Running using " <> show sscAlgo
-    putText "Wallet is disabled, because software is built w/o it"
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
+    liftIO $ applyConfigInfo configInfo
+    giveStaticConsts $ do
+        systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
+        logInfo $ sformat ("System start time is " % shown) systemStart
+        t <- currentTime
+        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
+        currentParams <- CLI.getNodeParams cArgs nArgs systemStart
+        putText $ "Running using " <> show sscAlgo
+        putText "Wallet is disabled, because software is built w/o it"
+        logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
 
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    case sscAlgo of
-        NistBeaconAlgo ->
-            actionWithoutWallet @SscNistBeacon () currentParams
-        GodTossingAlgo ->
-            actionWithoutWallet @SscGodTossing gtParams currentParams
+        case sscAlgo of
+            NistBeaconAlgo ->
+                actionWithoutWallet @SscNistBeacon () currentParams
+            GodTossingAlgo ->
+                actionWithoutWallet @SscGodTossing gtParams currentParams
 
 main :: IO ()
 main = do

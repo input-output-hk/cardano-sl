@@ -269,6 +269,7 @@ library
                         Pos.Launcher.Mode
                         Pos.Launcher.Param
                         Pos.Launcher.Scenario
+                        Pos.Launcher.ConfigInfo
 
                         -- Network
                         Pos.Communication.Types

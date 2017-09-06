@@ -177,17 +177,9 @@ txWithRedeemOutputFailsSpec = do
                 sformat ("Transaction to a redeem address was created")
   where
     genParams = do
-        skFrom <- arbitrary
-        rskTo  <- arbitrary
-
-        let txOutAuxInput  = generateTxOutAux 1000000 skFrom
-            txOutAuxOutput = generateRedeemTxOutAux 1 rskTo
-            cmpUtxo = one (TxInUtxo (unsafeIntegerToTxId 0) 0, txOutAuxInput)
-            cmpSigners = one $ makeSigner skFrom
-            cmpOutputs = one txOutAuxOutput
-            cmpAddrData = ()
-
-        pure CreateMTxParams {..}
+        txOutAuxOutput <- generateRedeemTxOutAux 1 <$> arbitrary
+        params <- makeManyAddressesToManyParams 1 1000000 1 1
+        pure params{ cmpOutputs = one txOutAuxOutput }
 
 feeForManyAddressesSpec
     :: HasCoreConstants

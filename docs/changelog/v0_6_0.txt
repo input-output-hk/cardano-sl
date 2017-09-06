@@ -147,7 +147,7 @@ in not-perfectly-structured code.
 ## Network protocols
 
 
-TODO: extend with TW, ask people to provide overview.
+TODO: provide overview.
 
 ### Issue list
 
@@ -164,6 +164,13 @@ TODO: extend with TW, ask people to provide overview.
 * CSL-1533 Do not drop transactions when tip mismatch happens
 * CSL-1549 Topology doesn't allow block header communication to happen
 * CSL-1567 Use prioritized lock for block/transaction processing
+* TW-148 broadcast/relay abstraction in time-warp
+* TW-150 add json logging feature to Time Warp
+* TW-154 Network.Transport.Internal's prependLength does not check for integer overflow
+* TW-160 Consider nodes we get messages from to be alive
+* TW-161 Introduce a variant on MsgRequestHeaders with an explicit target node
+* TW-162 In flight count is sometimes negative
+
 
 ## Stats and metrics
 
@@ -313,11 +320,92 @@ in processing protocol updates (and improving scheme's security against maliciou
 
 ## Middleware
 
-TODO: extend with CSM and provide overview
+TODO: split & structure, provide overview
 
 ### Issue list
 
 * CSL-1565 Refactor TxError
+* CSM-116 Add TLS to Daedalus HTTP interface
+* CSM-124 Spending password: modify endpoints to support feature
+* CSM-131 Get address summary by id
+* CSM-132 Get either address or transaction or block by id endpoint
+* CSM-144 Wrap socket results into `Either ExplorerError SomeType`
+* CSM-147 Fix duplicated transactions and stuck confirmations in tx history.
+* CSM-148 All transactions have the same date and time
+* CSM-151 Modify/Add ada redeem validation for post-vend
+* CSM-153 Attach info about new blocks / transactions to notifications
+* CSM-160 Missing checks for search primitives
+* CSM-167 Create automatic REST api table documentation
+* CSM-168 Expose slot and epoch tuple
+* CSM-169 Extend search to search epoch and slot tuple
+* CSM-175 Read HD wallet data from blockchain
+* CSM-180 Update endpoint `api/blocks/tx`
+* CSM-186 Remove search for address/transaction/block
+* CSM-20 Use latest PureScript for `deadalus-bridge`
+* CSM-210 Socket-io server can't write logs
+* CSM-215 Bump explorer cardano-sl version
+* CSM-217 A long delay getting data back to `explorer`
+* CSM-224 Unable to reach genesis address
+* CSM-226 Endpoint that returns number of blocks
+* CSM-228 Expose leader in block feed
+* CSM-233 Add TLS to client-api
+* CSM-237 Refactor wallet modules
+* CSM-239 Change transaction block representation
+* CSM-243 Change socket.io logging name
+* CSM-249 Rename account into address
+* CSM-256 Re-submit transactions if they don't appear in blocks
+* CSM-26 Add socket-io server
+* CSM-275 Dummy endpoint for transaction fees
+* CSM-278 searchHistory getHistory by walletId
+* CSM-282 Remove default wallet which is present in dev mode
+* CSM-301 Refactor DB access functions to reflect Wallet→Account→Address hierarchy
+* CSM-306 Try to understand Kostias magic
+* CSM-319 Don't use redundant passphrase matches to find encrypted SK in key storage
+* CSM-320 Create accounts and addresses with hardened keys by default
+* CSM-321 Update transaction creation logic in wallet to include enough fees
+* CSM-322 Check whether we can use purescript-bridge from LTS
+* CSM-324 Do `txMempoolToModifier` once per request
+* CSM-327 Not enough money error is returned sometimes even though wallet has enough money
+* CSM-332 Optimize initial tx derivation
+* CSM-335 Transaction timestamp needs to be extrapolated when it cannot be precisely determined from the blockchain
+* CSM-337 Extrapolate timestamps in case of slot duration change
+* CSM-343 Receiving address in redeem txs is not persisted
+* CSM-352 Redeeming tx will appear in history only after node restart
+* CSM-359 Sending transactions stopped working
+* CSM-361 Profile and optimize wallet sync
+* CSM-362 Bridge method `syncProgress` doesn't work
+* CSM-363 Wallet import incorrect behaviour
+* CSM-364 Wallet export/import with 0 ADA and no addresses
+* CSM-365 Sync wallet on start carefully
+* CSM-366 Improve error message on A -> A tx
+* CSM-370 Fix bug synchronisation of wallet
+* CSM-374 Add a data type to store all three `FilePath`s used for TLS
+* CSM-376 Build fails with only wallet disabled
+* CSM-377 Not enough money to make this transaction on a wallet with enough money.
+* CSM-378 Set fee to non zero
+* CSM-380 Ensure all wallet endpoints are swagger-documented
+* CSM-387 Transaction disappears from receiving wallet history when the following block is applied
+* CSM-388 Wallet totals not updated correctly when sending money from imported genesis to restored wallet
+* CSM-389 Make sure wallet's syncTip is updated under blkSemaphore
+* CSM-391 Prohibit sending money to redeem address
+* CSM-393 Incorrect transactions timestamps extrapolation
+* CSM-397 Ensure we doesn't reveal mnemonics / password
+* CSM-399 Add tests for `createTx` function
+* CSM-400 Transaction dissapeared from tx list
+* CSM-401 Wallet password cannot be deserialized
+* CSM-402 Repetitive transaction inputs
+* CSM-403 Implement per-wallet JSON import/export
+* CSM-405 Order of foreign transactions is wrong
+* CSM-408 Deal with `renameWallet` endpoint
+* CSM-409 Remove useless options from wallet
+* CSM-411 Overriding tx distribution after counting fees may lead to invalid fees
+* CSM-415 Provide a flag which indicates transaction as A to A
+* CSM-417 Bump client api psc to 0.11
+* CSM-419 Count fees in ADA, not lovelaces
+* CSM-426 Serve swagger generated doc from wallet endpoint
+* CSM-427 Take peer response into account when resubmiting tx
+* CSM-437 Don't allow to reveal public keys of addresses with leftover money.
+* CSM-440 `Transaction is irrelevant to wallet` error
 
 ## Explorer
 

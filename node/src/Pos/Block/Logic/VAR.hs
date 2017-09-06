@@ -56,6 +56,8 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..
 -- verification fails. All blocks must be from the same epoch.  This
 -- function checks literally __everything__ from blocks, including
 -- header, body, extra data, etc.
+--
+-- LRC must be already performed for the epoch from which blocks are.
 verifyBlocksPrefix
     :: forall ssc ctx m.
        MonadBlockVerify ssc ctx m

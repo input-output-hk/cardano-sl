@@ -16,7 +16,6 @@ module Pos.Block.Logic.Creation
 import           Universum
 
 import           Control.Lens               (uses, (-=), (.=), _Wrapped)
-import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.Default               (Default (def))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
@@ -36,7 +35,7 @@ import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              EpochOrSlot (..), HasCoreConstants,
-                                             HeaderHash, SlotId (..), SlotLeaders,
+                                             HeaderHash, SlotId (..),
                                              chainQualityThreshold, epochIndexL,
                                              epochSlots, flattenSlotId, getEpochOrSlot,
                                              headerHash)
@@ -48,7 +47,7 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
-import           Pos.Lrc                    (LrcContext, LrcError (..))
+import           Pos.Lrc                    (LrcContext, LrcModeFull, lrcSingleShot)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
@@ -79,6 +78,7 @@ type MonadCreateBlock ssc ctx m
        , MonadIO m
        , MonadMask m
        , HasLens LrcContext ctx LrcContext
+       , LrcModeFull ssc ctx m
 
        -- Mempools
        , HasLens DelegationVar ctx DelegationVar
@@ -119,25 +119,19 @@ createGenesisBlockAndApply ::
 -- Genesis block for 0-th epoch is hardcoded.
 createGenesisBlockAndApply 0 = pure Nothing
 createGenesisBlockAndApply epoch =
-    try (lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders) >>= \case
-        Left UnknownBlocksForLrc ->
-            Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
-        Left err -> throwM err
-        Right leaders ->
-            modifyStateLock
-                HighPriority
-                "createGenesisBlockAndApply"
-                (createGenesisBlockDo epoch leaders)
+    modifyStateLock
+        HighPriority
+        "createGenesisBlockAndApply"
+        (createGenesisBlockDo epoch)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m)
     => EpochIndex
-    -> SlotLeaders
     -> HeaderHash
     -> m (HeaderHash, Maybe (GenesisBlock ssc))
-createGenesisBlockDo epoch leaders tip = do
+createGenesisBlockDo epoch tip = do
     let noHeaderMsg =
             "There is no header is DB corresponding to tip from semaphore"
     tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.blkGetHeader tip
@@ -155,7 +149,14 @@ createGenesisBlockDo epoch leaders tip = do
         | otherwise =
             (chainQualityThreshold @Double <=) <$>
             calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
+    -- We need to run LRC here to make 'verifyBlocksPrefix' not hang.
+    -- It's important to do it after taking 'StateLock'.
+    -- Note that it shouldn't fail, because 'shouldCreate' guarantees that we
+    -- have enough blocks for LRC.
     actuallyCreate tipHeader = do
+        lrcSingleShot epoch
+        leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
+            LrcDB.getLeaders
         let blk = mkGenesisBlock (Just tipHeader) epoch leaders
         let newTip = headerHash blk
         verifyBlocksPrefix (one (Left blk)) >>= \case

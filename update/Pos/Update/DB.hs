@@ -46,6 +46,7 @@ import           Data.Time.Units              (Microsecond, convertUnit)
 import qualified Database.RocksDB             as Rocks
 import           Serokell.Data.Memory.Units   (Byte)
 
+import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
@@ -319,7 +320,7 @@ proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
 
 confirmedVersionKey :: ApplicationName -> ByteString
-confirmedVersionKey = mappend "us/cv/" . dbSerialize
+confirmedVersionKey = mappend "us/cv/" . serialize'
 
 iterationPrefix :: ByteString
 iterationPrefix = "us/p/"

@@ -74,7 +74,7 @@ function dht_key {
   $(find_binary cardano-dht-keygen) -n 000000000000$i2 | tr -d '\n'
 }
 
-# Generates kademliaN.yaml and topologyN.yaml for demo setup 
+# Generates kademliaN.yaml and topologyN.yaml for demo setup
 # for N \in {0..n-1} where n is number of nodes specified.
 function gen_kademlia_topology {
   local total_nodes=$1
@@ -113,7 +113,7 @@ function gen_kademlia_topology {
     else
       echo "peers: " > $kfile
     fi
-    
+
     for j in $(seq 0 $others_n); do
       if [[ $j -eq $i ]]; then continue; fi
       echo "  - host: '127.0.0.1'" >> $kfile
@@ -132,13 +132,13 @@ function gen_kademlia_topology {
     local tfile=$out_dir/topology$i.yaml
     echo "nodes: " > $tfile
     for j in $(seq 0 $npred); do
-  
+
       local routes="["
-      for k in $(seq 0 $npred); do 
+      for k in $(seq 0 $npred); do
         if [ $k -eq $j ]; then continue; fi
         routes="$routes[\"node$k\"]"
         # don't put comma after last element and after pre-last element of last list item
-        if ! ([ $k -eq $npred ] || [ $k -eq $(($npred-1)) -a $j -eq $npred ]); then 
+        if ! ([ $k -eq $npred ] || [ $k -eq $(($npred-1)) -a $j -eq $npred ]); then
           routes=$routes", "
         fi
       done
@@ -150,6 +150,29 @@ function gen_kademlia_topology {
       echo "    static-routes: $routes" >> $tfile
       echo "    addr: 127.0.0.1"        >> $tfile
       echo "    port: 300$j"            >> $tfile
+
+      # add explorer
+      if [[ $j -eq $npred ]]; then
+        # count port
+        local exp=($n + 1)
+        # explorers routes
+        local exr="["
+        for k in $(seq 0 $npred); do
+          exr="$exr[\"node$k\"]"
+          # don't put comma after last element and after pre-last element of last list item
+          if ! ([ $k -eq $npred ]); then
+            exr=$exr", "
+          fi
+        done
+        exr="$exr]"
+
+        echo "  \"explorer\":"            >> $tfile
+        echo "    type: core"             >> $tfile
+        echo "    region: undefined"      >> $tfile
+        echo "    static-routes: $exr"    >> $tfile
+        echo "    addr: 127.0.0.1"        >> $tfile
+        echo "    port: 300$exp"          >> $tfile
+      fi
     done
   done
 

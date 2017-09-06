@@ -194,28 +194,29 @@ executable cardano-keygen
                      , Avvm
                      , Testnet
   if !flag(for-installer)
-   build-depends:      QuickCheck >= 2.9
-                     , Glob
+   build-depends:      Glob
+                     , QuickCheck >= 2.9
                      , aeson
+                     , ansi-wl-pprint
                      , base
                      , bytestring >= 0.10
-                     , ansi-wl-pprint
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-txp
-                     , cardano-sl
                      , containers
+                     , cryptonite
                      , directory
                      , ed25519
+                     , filepath
                      , formatting
                      , lens
-                     , serokell-util >= 0.1
-                     , text
+                     , log-warper
                      , neat-interpolation
                      , optparse-applicative >= 0.12
                      , parsec
                      , random >= 1.1
-                     , filepath
-                     , log-warper
+                     , serokell-util >= 0.1
+                     , text
                      , universum >= 0.1
                      , unordered-containers
   default-language:    Haskell2010

@@ -2,24 +2,19 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
-import           Formatting
 import           Mockable           (runProduction)
-import           Pos.Block.Core     (Block, GenesisBlock, MainBlock, blockHeaderHash,
-                                     getBlockHeader)
+import           Pos.Block.Core     (Block, blockHeaderHash, getBlockHeader)
 import           Pos.Block.Types    (Undo)
 import           Pos.Core           (HasCoreConstants, giveStaticConsts)
-import           Pos.Core.Block     (GenericBlock (..))
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.DB             (closeNodeDBs, openNodeDBs)
-import           Pos.DB             (MonadBlockDBGeneric (..))
 import qualified Pos.DB.Block       as DB
 import qualified Pos.DB.DB          as DB
 import           Pos.Ssc.GodTossing (SscGodTossing)
-import           Pos.Util.Chrono    (OldestFirst (..))
 import           System.Directory   (canonicalizePath, doesDirectoryExist, getFileSize,
                                      listDirectory, withCurrentDirectory)
 
-import           Options            (CLIOptions (..), PrintMode, getOptions)
+import           Options            (CLIOptions (..), getOptions)
 import           Rendering          (render, renderBlock, renderBlocks, renderHeader)
 import           Types              (BlockchainInspector, DBFolderStat,
                                      initBlockchainAnalyser, prevBlock)

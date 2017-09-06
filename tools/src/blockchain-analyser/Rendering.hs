@@ -70,7 +70,7 @@ renderCSV :: UOM -> [DBFolderStat] -> Text
 renderCSV uom stats =
     let statsHeaders = ["Directory", "Size (" <> renderUnit uom <> ")"]
         rows   = statsHeaders : map (\(f,sz) -> [f, renderBytes uom sz]) stats
-    in T.unlines $ map (T.intercalate ",") rows
+    in unlines $ map (T.intercalate ",") rows
 
 renderAsciiTable :: UOM -> [DBFolderStat] -> Text
 renderAsciiTable uom stats =
@@ -138,10 +138,10 @@ renderBlocks :: HasCoreConstants
              -> [(Block SscGodTossing, Maybe Undo)]
              -> Text
 renderBlocks cli blocks = case printMode cli of
-    Human      -> T.unlines $ map (renderBlockHuman . fst) blocks
+    Human      -> unlines $ map (renderBlockHuman . fst) blocks
     AsciiTable -> let rows = header (uom cli) : map (toTableRow (uom cli)) blocks
                   in renderAsTable defaultHorizontalDecoration defaultVerticalDecoration (defaultAlignment rows) rows
-    CSV        -> T.unlines (renderHeader cli : map (renderBlockCSV (uom cli)) blocks)
+    CSV        -> unlines (renderHeader cli : map (renderBlockCSV (uom cli)) blocks)
 
 
 getEpoch :: BlockHeader SscGodTossing -> EpochIndex

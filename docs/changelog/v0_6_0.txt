@@ -1,0 +1,394 @@
+# Cardano SL change log: v0.6
+
+This document covers changes introduced to CSL under version 0.6.
+List is compiled taking version 0.5 as base version.
+
+## Important consensus improvements/fixes
+
+Number of important improvements and fixes where introduced for block/transaction processing,
+LRC (Leader & Richmen computation).
+
+These fixes include:
+* Providing required check for paper invariants (CSL-554)
+* Doing some sanity checks for code to not to fall into wrong state of execution
+(CSL-555, CSL-1101, CSL-1416, CSL-1451)
+* Fixing few epic flaws, which allowed
+   * Artificial money creation (CSL-1484)
+   * Replay attacks (CSL-1527)
+* Altering transaction format to be more flexible and allow more to be altered via softfork (CSL-1526)
+* Fixing various issues and inconsistencies, many of which were discovered by automated tests
+
+### Issue list
+
+* CSL-554 Check chain quality explicitly
+* CSL-555 Use something bracket-like after rollback
+* CSL-814 Use MonadError in Pos.Txp.Core.Tx
+* CSL-937 Add `Hash MainExtraBodyData` to `MainExtraHeaderData`
+* CSL-1101 Prohibit summing number of blocks and number of slots or at least fix wrong places
+* CSL-1201 Guard the state modifying STM action with a simple semaphore.
+* CSL-1246 Prohibit using redeem address as an output
+* CSL-1281 Don't use genesis constants where they should be fetched from DB
+* CSL-1283 computeSharesDistr is inconsistent with LRC
+* CSL-1285 prepareLrcRichmen uses Utxo
+* CSL-1290 BlockVersionData is misused
+* CSL-1326 There is a bug in `verifyNextBVMod'
+* CSL-1416 integerToCoin doesn't fail on negative values
+* CSL-1451 mkCoin doesn't check bounds
+* CSL-1484 Check that all inputs to a transaction are different
+* CSL-1497 Move rollback difficulty check outside rollbackBlocksUnsafe
+* CSL-1526 Support unknown transaction inputs
+* CSL-1527 Make redeem signing more consistent
+* CSL-1529 Change the way data is updated in SlottingVar
+
+## Operational fixes and improvements
+
+Fixes and improvements, brought for CSL to be ready for operation on mainnet.
+
+Including:
+* Improvements for keygen tool (genesis block data and secret key generator)
+* Block-gen tool (artificial blockchain generator, for testing purposes)
+* Improvements to code base to allow CSL to be run with mainnet constants
+   * Including improvements for block retrieval speed, which needs to be moderately high to allow us to use 20s block
+
+### Issue list
+
+* CSL-1258 Make cluster work with high values of `recoveryMessageHeaders`
+* CSL-1295 Reliable headers negotiation on `recoveryMessageHeaders: 10000`
+* CSL-1305 Allow to use different genesis with different DConfig
+* CSL-1311 Update constants, genesis for `master` (enable mainnet constants)
+* CSL-1336 Ensure nodes work well with `--no-ntp`
+* CSL-1315 Support explicit boot stakeholders in keygen
+* CSL-1342 Send messages to report server when chain quality is bad
+* CSL-1351 Support boot stakeholders' weights
+* CSL-1374 Document what is kept in DB in which format
+* CSL-1430 Extend `cardano-keygen` for CLI key management
+* CSL-1439 Implement raw avvm seed/pk generator in keygen
+* CSL-1456 Use seed from command-line argument in block-gen
+* CSL-1457 Use genesisProdBootStakeholders in block-gen
+* CSL-1573 Make constant naming uniform
+* CSL-1584 Test block retrieval speed with long chain (Sep 1)
+* CSL-1596 Improve keygen CLI
+
+## Transaction fee
+
+This is a new feature was implemented from scratch according to paper.
+
+In v0.6 (Byron) we support only checking transactions contain sufficient amount of fees to pass minimal threshold.
+This is a requirement for DDOS protection. Withdrawing fees by participants of protocol is feature planned
+for further release (Shelley). Fees collected on Byron will be available for withdrawal with later version of CSL.
+
+### Issue list
+
+* CSL-1240 Introduce `transactionFeePolicy`
+* CSL-1242 Check transaction fee is above limit
+* CSL-1461 Allow redemption transaction without transaction fee
+* CSL-1518 Check we have fees set in lovelaces
+
+## Serialization
+
+CSL uses binary protocols to establish communication between nodes. There is a lot of data circulating thus choice
+of serialization library is very important.
+
+Previously we used `binary` package which wasn't performant enough (also was subject to memory leaks).
+
+Decision was made to make switch to different serialization library. Initially `store` library was chosen,
+code refactored accordingly, though later we understood `store` is not the best choice for us due to its formats
+and unsustainability to possible attacks.
+
+Finally `cbor` library was chosen because it provides nice formats with reasonable performance and guarantees of
+sustainability against malicious actors.
+
+### Issue list
+
+* CSL-721 Revise usage of AsBinary and idea of delayed parsing in general
+* CSL-1122 Rewrite serialization on `store`
+* CSL-1296 Review and Finalise Serialisation Format
+* CSL-1412 Check length while deserializing `AsBinary`
+* CSL-1445 Add a mechanism to print the target type in case of a deserialise failure (the same way `Bi.label` was doing)
+* CSL-1447 Investigate if we can remove CRC32 from addresses
+* CSL-1448 deriveSimpleBi is using `def`, but it should throw an error instead
+* CSL-1478 Switch to upstream revision of `cborg`
+* CSL-1493 Get rid of unsafe deserialize and deserialize'
+* CSL-1494 Serialize CBOR with tag 24
+* CSL-1504 decodeAbstractHash is broken
+* CSL-1517 Instance Bi Coin doesn't check bounds correctly
+
+## Refactoring
+
+Cardano SL is rather huge project, code base contains tens and hundreds of modules, functions etc.
+
+We aim for CSL code to be a logically consistent construction which you can reason about and which is
+reasnoably easy to extend. To keep project in proper shape we perform various refactorings when we start to feel need to.
+They don't introduce any new feature, but allow us to keep going on implementing new features.
+
+Some of refactorings performed not only restructured code, but also allowed us to discover some bugs hidden
+in not-perfectly-structured code.
+
+### Issue list
+
+* CSL-755 Extract Pos.DB
+* CSL-775 Refactor initialization (Runner/Scenario)
+* CSL-781 Try adding per-executable switch to cabal file
+* CSL-1105 Add `SimpleSlotting` instead of having two different slotting implementations in `NtpSlotting`
+* CSL-1124 Ensure consistent naming is used for balances and stakes
+* CSL-1154 Compilation consumes too much resources
+* CSL-1190 Add iteration to MonadDBRead
+* CSL-1195 Remove cardano-sl-update dependency from cardano-sl-{txp,ssc,possibly godtossing}
+* CSL-1209 ResourceT in iterators is misused and leads to allocation errors
+* CSL-1213 Unite all NodeContext into something
+* CSL-1215 Move light wallet into a separate package
+* CSL-1247 Put Explorer into CSL source tree for consistency
+* CSL-1268 Get rid of `ether` usages, use classy-lens and etc.
+* CSL-1274 Reenable invariant checking in configs
+* CSL-1436 Find better solution for overriding `k` for tests in CI
+* CSL-1453 Remove redundant dependencies from CSL
+* CSL-1536 Replace `putMVar` with `tryPutMVar` in `newInitFuture` and update comment
+
+## Network protocols
+
+
+TODO: extend with TW, ask people to provide overview.
+
+### Issue list
+
+* CSL-849 Use `Word16` as message name
+* CSL-1077 Instrument accepting transactions into the mempool
+* CSL-1312 Fix transaction mempool worker/listener
+* CSL-1318 Find a solution for message receiving timeout problem
+* CSL-1346 Include positive/negative acknowledgement upon receiving a transaction
+* CSL-1481 Need windows code to find default DNS servers
+* CSL-1540 Add more validation to the YAML parser for the topology file
+* CSL-1542 Troubleshoot DNS lookups on Windows
+* CSL-1545 Factor out endpoints for lightweight certificates
+* CSL-1505 Make network enqueue/dequeue/failure policies configurable without recompile
+* CSL-1533 Do not drop transactions when tip mismatch happens
+* CSL-1549 Topology doesn't allow block header communication to happen
+* CSL-1567 Use prioritized lock for block/transaction processing
+
+## Stats and metrics
+
+We use EKG library/server to collect stats on running cluster nodes.
+Also CSL is packed with facility of sending logs to so-called reporting server.
+
+Within v0.6:
+
+* Work was performed to analyse stats gathered on current testnets (with use of reporting server).
+* Additional metrics are being reported now
+* Existing reporting was reviewed
+
+### Issue list
+
+* CSL-1066 Calculate amount of unique users, stats on time to start
+* CSL-1340 Review reporting mechanism usages
+* CSL-1464 Export relevant metrics to EKG
+* CSL-1579 Do something with reportingFatal
+* CSL-1585 Correctly namespace IOHK's EKG metrics
+
+## Plutus
+
+Some fixes to Plutus bindings were introduced to:
+* Improve security
+* Use latest binary formats
+
+### Issue list
+
+* CSL-1068 Use PK hash in multisig script
+
+## SCRAPE
+
+A key feature introduced in v0.6 is SCRAPE: a new algrithm for SSC (Shared seed computation).
+It significantly improvemnt Cardano SL scalability, removing quadratic complexity
+from GOD (Guaranteed Output Delivery) tossing algorithm.
+
+Yet it doesn't mean CSL supports arbitrary amount of participants for SSC,
+it still should be reviewed and refined from networking requirements.
+But this is a major improvement already.
+
+### Issue list
+
+* CSL-1265 Integrate SCRAPE: implement
+* CSL-1550 Provide means to test SCRAPE on cluster
+
+## Security improvements
+
+Under CSL-1080 CSL implementation for variation of BIP-32 (standard for HD wallets) was refined to address some potential issues brought by (TODO insert paper ref).
+
+### Issue list
+
+* CSL-1080 Integrate BIP-32 formalization update into CSL
+
+## Testing
+
+Significant effort was put on property-based testing.
+
+Following functionality was covered with tests (all were developed from scratch):
+* Block processing (with transaction payloads)
+* LRC
+* Shares distribution
+
+Tests for block processing were implemented with use of specifically developed framework for constructing and running scnearious,
+which address various blockchain events (such as fork and branch selection). This framework will be used for further test coverage
+(work is only started, we covered only the most important stuff).
+
+### Issue list
+
+* CSL-1160 Decide where to put arbitrary and tests, ensure consistency
+* CSL-1161 Review arbitrary instances, use shrinking where possible and makes sense
+* CSL-1162 Ensure serialization is fully covered by tests
+* CSL-1178 Implement basic block generator
+* CSL-1179 Basic test for blockchain
+* CSL-1191 Implement pure versions of DB monads for testing
+* CSL-1317 Integrate pure db into testing suite
+* CSL-1206 Add missing edge cases to Pos.Binary tests
+* CSL-1212 Provide TH for Bi
+* CSL-1238 Generate blockchain history
+* CSL-1356 Define basic block event datatype
+* CSL-1357 Simple block event generator
+* CSL-1358 Block event executor
+* CSL-1359 Use basic blockchain test with block generator
+* CSL-1360 Test applying fork to blockchain
+* CSL-1361 Extend blockchain generator with tx payload
+* CSL-1368 Implement simple Mockable {Delay, CurrentTime}
+* CSL-1379 Enable block generation in tests
+* CSL-1382 Investigate performance of tests and figure out which tests we can afford
+* CSL-1414 Write a test using BlockEvent generator and interpreter
+* CSL-1417 Modify block event type
+* CSL-1419 Test `computeSharesDistr`
+* CSL-1428 Basic LRC tests
+* CSL-1442 Improve `computeSharesDistr` and tests
+* CSL-1443 Improve `Arbitrary ValidRichmenStakes`
+* CSL-1480 Sort out Bi tests (duplicates)
+* CSL-1488 Remove `Small` type boilerplate from tests
+* CSL-1501 LRC test fails sometimes with explorer enabled
+* CSL-1522 Fix block-gen and remove `suchThat` from Generator
+* CSL-1525 Abysmal performance in tests
+* CSL-1530 Block-gen hangs on non-empty tx payload
+* CSL-1562 Improve PurePoll Tests
+* CSL-1564 Remove ssc from Test.Pos.Block.Logic.Mode
+
+## Delegation
+
+Few improvements were introduced to delegation:
+
+* New stake locking mechanism developed and refined
+* Stake distribution of transaction output was removed, now is defined in address
+   * Major improvement for scheme's reliability and usability
+* Delegation, transaction output's stake distribution was tested and debugged
+
+### Issue list
+
+* CSL-1180 Add class for delegation state, add transformer, write logic in terms of it
+* CSL-1181 Consider removing heavyweight PSK i → d if i is not a richman anymore
+* CSL-1202 Unlock txDistribution to be used with PK addresses
+* CSL-1203 Test basic delegation with tx distribution
+* CSL-1204 Add unlock stakes attr to update proposal
+* CSL-1205 Unlocked stakes: add implicit delegation to core addresses
+* CSL-1341 Move tx out distribution checks to Toil, make sure normalization is correct
+* CSL-1352 Accept revoke PSK if we have a corresponding one in mempool
+* CSL-1354 Normalization in dlgRollbackBlocks doesn't account for revoke PSKs
+* CSL-1458 Allow txOuts with amount <bootDustThd
+* CSL-1483 Couple address and attributes, pt. 1, address refactoring
+* CSL-1489 Couple address and attributes, pt. 2, tx distribution
+* CSL-1559 Make locking in delegation consistent with other code
+* CSL-1551 Allow heavy certificates be included into genesis
+* CSL-1558 Improve locking mechanism
+
+## Update system
+
+Update system was finally tested, debugged and is in fully working state for v0.6.
+
+Also a softwork rule was slightly refined (CSL-1335) to provide more flexibility
+in processing protocol updates (and improving scheme's security against malicious actor).
+
+### Issue list
+
+* CSL-1254 Launch Daedalus from bat file after installation finished
+* CSL-1255 Test update system with properly formed proposal
+* CSL-1335 Decrease threshold in softfork resolution rule over time
+* CSL-1583 Test update system (Aug 31st)
+* CSL-1589 Move StateLock into infra
+* CSL-1592 If several updates are available, only the last one should be applied
+* CSL-1600 createProcess: runInteractiveProcess: exec: does not exist (macos US)
+* CSL-1602 Improve update downloading logic
+
+## Middleware
+
+TODO: extend with CSM and provide overview
+
+### Issue list
+
+* CSL-1565 Refactor TxError
+
+## Explorer
+
+TODO: provide list of CSE issues, overview
+
+
+## Bug fixes
+
+A lot of bugs wre discovered during various stages of v0.6 development, internal testing.
+
+### Issue list
+
+* CSL-1330 Blocks are not fetched by the node after restart
+* CSL-1327 Fix unused recovery header
+* CSL-1372 Stabilize master
+* CSL-1408 Check what happens when there are no richmen
+* CSL-1409 Redeeming fails with ToilBootDifferentStake
+* CSL-1434 Tests fail locally
+* CSL-1435 Run less tests in appveyor
+* CSL-1437 Investigate on benchmarks failing to run locally
+* CSL-1441 Fix generation of genesis bug and redeploy qa cluster (Aug 3)
+* CSL-1444 Node fails after restart
+* CSL-1472 No blocks after initial epoch in benchmarks
+* CSL-1475 Intermittent test failures on cardano-sl master
+* CSL-1500 Node fails to read genesis, startup error
+* CSL-1531 Nodes not retrieving blocks from cluster (TN-0.5.1)
+* CSL-1537 Protocol stops after epoch #1
+* CSL-1601 Relay can't sync up with core nodes on `k: 2160` cluster
+* CSL-1566 Transaction's size exceeds limit (4.108 KiB > 4 KiB) in tests
+
+
+## Minor improvements to codebase
+
+Lot of small (but useful) changes were also included in v0.6.0.
+
+### Issue list
+
+* CSL-153 SscLDImpl doesn't work with StateT
+* CSL-217 Make web logger configurable
+* CSL-321 Simplify modern txApplyBlock
+* CSL-619 readMVarConditional is bad
+* CSL-1123 Sort out scripts in cardano-sl repository
+* CSL-1133 Use HPC to report test coverage on CI
+* CSL-1149 Get rid of makeLensesData when new lens is out
+* CSL-1198 Turn off the `-N` RTS option
+* CSL-1228 Use rocksdb from hackage
+* CSL-1231 Make macos CI optional
+* CSL-1234 Merge 5b922a5069533d3f18cae85c4a3113020642adc4 to master
+* CSL-1235 sd_notify support
+* CSL-1237 Full wallet uses genesis block version data in MonadGState
+* CSL-1276 Get rid of 'derive' dependency maybe?
+* CSL-1277 Make wallet.sh usable
+* CSL-1284 Remove smart-generator
+* CSL-1288 `instance Monoid StakeDistribution` breaks `Monoid` law
+* CSL-1292 Enable bootstrap era in development mode
+* CSL-1328 Cardano-sl commit is unknown in production
+* CSL-1369 Remove Pos.Communication.PeerState
+* CSL-1388 Fix build with explorer
+* CSL-1392 Use codeowners feature in cardano-sl repository
+* CSL-1394 Regenerate genesises for master (Jul 18th)
+* CSL-1398 Get rid of `getPSKsFromThisEpoch` function
+* CSL-1438 Don't use CPP for OS detection
+* CSL-1440 Switch to serokell-util-0.2
+* CSL-1495 Check tmux session in the scripts
+* CSL-1499 Rework StakeholderId parsing
+* CSL-1502 rich/poor distribution in existing launch script cannot be used
+* CSL-1508 CSL demo script is broken
+* CSL-1509 Move cardano-sl in subfolder
+* CSL-1524 Remove obsolete acid-driven light-wallet stuff
+* CSL-1580 Demo doesn't work for n=3
+* CSL-1582 Repair PurePoll tests
+* CSL-1587 Exception handling in lwallet Send command
+* CSL-823 checkForIgnoredCommitmentsWorker is wrong
+

@@ -164,6 +164,12 @@ library
                         Pos.Block.Logic.VAR
                         Pos.Generator.Block.Param
 
+                        -- Common code for tests
+                        Test.Pos.Block.Logic.Emulation
+                        Test.Pos.Block.Logic.Mode
+                        Test.Pos.Block.Logic.Util
+                        Test.Pos.Block.Logic.Event
+
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
@@ -559,10 +565,6 @@ test-suite cardano-test
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Block.Logic.CreationSpec
-                       Test.Pos.Block.Logic.Emulation
-                       Test.Pos.Block.Logic.Mode
-                       Test.Pos.Block.Logic.Util
-                       Test.Pos.Block.Logic.Event
                        Test.Pos.Block.Logic.VarSpec
 
                        -- LRC

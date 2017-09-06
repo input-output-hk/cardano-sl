@@ -24,7 +24,7 @@ import           Pos.Binary            (asBinary, decodeFull, serialize')
 import           Pos.Core              (StakeholderId, addressDetailedF, addressHash,
                                         makePubKeyAddressBoot, makeRedeemAddress, mkCoin)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, redeemPkB64F,
-                                        toVssPublicKey)
+                                        setGlobalRandomSeed, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 import           Pos.Genesis           (AddrDistribution, BalanceDistribution (..),
                                         GenesisCoreData (..), GenesisGtData (..),
@@ -221,6 +221,9 @@ genGenesisFiles GenesisGenOptions{..} = do
           isNothing ggoFakeAvvmBalance) $
         error "At least one of options (AVVM balance or testnet balance) \
               \should be provided"
+
+    whenJust ggoSeed $ \seed ->
+        liftIO (setGlobalRandomSeed seed)
 
     logInfo "Generating requested raw data"
     mAvvmAddrDistr <- traverse getAvvmGenesis ggoAvvmBalance

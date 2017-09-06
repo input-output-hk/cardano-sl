@@ -37,7 +37,7 @@ data WalletTestParams = WalletTestParams
     -- TODO: add wallet-specific parameters
     }
 
-makeClassy ''TestParams
+makeClassy ''WalletTestParams
 
 instance HasAllSecrets WalletTestParams where
     allSecrets = wtpBlockTestParams . allSecrets

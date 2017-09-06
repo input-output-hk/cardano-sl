@@ -27,7 +27,6 @@ import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
 import           Pos.DB.DB                  (getTipHeader)
 import           Pos.Reporting              (reportMisbehaviour, reportOrLogE)
-import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -87,6 +86,7 @@ checkForReceivedBlocksWorkerImpl
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . recoveryCommGuard $
         whenM (needRecovery @ctx @ssc) $ triggerRecovery enqueueMsg
+    -- FIXME: 'repeatOnInterval' is looped, will the code below ever be called?
     repeatOnInterval (min (sec' 20)) . recoveryCommGuard $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
@@ -104,7 +104,7 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
         reportEclipse
-    repeatOnInterval delF action = runIfNotShutdown $ do
+    repeatOnInterval delF action = () <$ do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
         () <$ action `catchAny` \e -> reportOrLogE "Security worker" e
         getNextEpochSlotDuration >>= delay . delF

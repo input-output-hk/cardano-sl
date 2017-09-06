@@ -8,11 +8,11 @@ import           Universum                       hiding (bracket)
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
 import qualified Data.Set                        as Set
-import           Mockable                        (MonadMockable, Production, fork,
-                                                  sleepForever)
+import           Mockable                        (MonadMockable, Production,
+                                                  mapConcurrently)
 import           Network.Transport.Abstract      (Transport)
 import           Node                            (noReceiveDelay, simpleNodeEndPoint)
-import           System.Wlog                     (WithLogger, logDebug, logInfo)
+import           System.Wlog                     (WithLogger, logInfo)
 
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
                                                   OutSpecs, WorkerSpec)
@@ -67,9 +67,7 @@ runWallet
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
     let unpackPlugin (ActionSpec action) = action vI sendActions
-    mapM_ (fork . unpackPlugin) $ plugins' ++ workers'
-    logDebug "Forked all plugins successfully"
-    sleepForever
+    void (mapConcurrently unpackPlugin (plugins' ++ workers'))
   where
     (workers', wouts) = allWorkers
     outs = wouts <> pouts

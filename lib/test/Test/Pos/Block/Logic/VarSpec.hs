@@ -46,14 +46,14 @@ import           Pos.Util.CompileInfo         (HasCompileInfo, withCompileInfo)
 import           Test.Pos.Block.Logic.Event   (BlockScenarioResult (..),
                                                DbNotEquivalentToSnapshot (..),
                                                runBlockScenario)
-import           Test.Pos.Block.Logic.Mode    (BlockProperty, BlockTestMode,
-                                               blockPropertySpec)
+import           Test.Pos.Block.Logic.Mode    (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (..),
                                                bpGenBlock, bpGenBlocks,
                                                bpGoToArbitraryState, getAllSecrets,
                                                satisfySlotCheck)
-import           Test.Pos.Util                (HasStaticConfigurations, splitIntoChunks,
-                                               stopProperty, withStaticConfigurations)
+import           Test.Pos.Util                (HasStaticConfigurations, blockPropertySpec,
+                                               splitIntoChunks, stopProperty,
+                                               withStaticConfigurations)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.

@@ -19,7 +19,6 @@ module Test.Pos.Block.Logic.Mode
        , BlockProperty
        , blockPropertyToProperty
        , blockPropertyTestable
-       , blockPropertySpec
        ) where
 
 import           Universum
@@ -35,8 +34,6 @@ import           Formatting                     (bprint, build, formatToString, 
 import           Mockable                       (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.Wlog                    (HasLoggerName (..), LoggerName)
-import           Test.Hspec                     (Spec)
-import           Test.Hspec.QuickCheck          (prop)
 import           Test.QuickCheck                (Arbitrary (..), Gen, Property, forAll,
                                                  ioProperty)
 import           Test.QuickCheck.Monadic        (PropertyM, monadic)
@@ -323,19 +320,9 @@ blockPropertyToProperty tpGen blockProperty =
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
        (HasNodeConfiguration, HasGtConfiguration)
-    => (HasConfiguration =>
-            BlockProperty a)
+    => (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary
-
--- | Specialized version of 'prop' function from 'hspec'.
-blockPropertySpec ::
-       (HasNodeConfiguration, HasGtConfiguration)
-    => String
-    -> (HasConfiguration =>
-            BlockProperty a)
-    -> Spec
-blockPropertySpec description bp = prop description (blockPropertyTestable bp)
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances

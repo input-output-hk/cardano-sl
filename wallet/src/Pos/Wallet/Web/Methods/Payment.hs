@@ -69,7 +69,8 @@ getTxFee
 getTxFee srcAccount dstAccount coin = do
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
-    TxFee fee <- eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
+    TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
+        eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
     pure $ mkCCoin fee
 
 data MoneySource

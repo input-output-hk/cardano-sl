@@ -1,6 +1,12 @@
-import           Spec       (spec)
-import           Test.Hspec (hspec)
 import           Universum
 
+import           Data.Default (def)
+import           Spec         (spec)
+import           Test.Hspec   (hspec)
+
+import           Pos.Launcher (applyConfigInfo)
+
 main :: IO ()
-main = hspec spec
+main = do
+    applyConfigInfo def
+    hspec spec

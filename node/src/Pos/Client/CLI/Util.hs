@@ -28,7 +28,6 @@ import qualified Text.Parsec.Text      as P
 import           Pos.Binary.Core       ()
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core              (StakeholderId, Timestamp (..))
-
 import           Pos.Crypto            (decodeAbstractHash)
 import           Pos.Security.Params   (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))

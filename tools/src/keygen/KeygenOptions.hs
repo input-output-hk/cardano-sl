@@ -23,13 +23,15 @@ import           Serokell.Util.OptParse (fromParsec)
 import qualified Text.Parsec            as P
 import qualified Text.Parsec.Text       as P
 
-import           Pos.Client.CLI         (stakeholderIdParser)
+import           Pos.Client.CLI         (configInfoParser, stakeholderIdParser)
 import           Pos.Core               (StakeholderId)
+import           Pos.Launcher           (ConfigInfo)
 
 import           Paths_cardano_sl       (version)
 
 data KeygenOptions = KeygenOptions
-    { koCommand :: KeygenCommand
+    { koCommand    :: KeygenCommand
+    , koConfigInfo :: ConfigInfo
     } deriving (Show)
 
 data KeygenCommand
@@ -237,9 +239,11 @@ bootStakeholderParser =
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> (KeygenOptions <$> keygenCommandParser)) $
+    programInfo = info (helper <*> versionOption <*> koParser) $
         fullDesc <> header "Tool to generate keyfiles-related data"
 
     versionOption = infoOption
         ("cardano-keygen-" <> showVersion version)
         (long "version" <> help "Show version.")
+
+    koParser = KeygenOptions <$> keygenCommandParser <*> configInfoParser

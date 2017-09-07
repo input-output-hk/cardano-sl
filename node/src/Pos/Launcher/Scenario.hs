@@ -151,8 +151,11 @@ runNode nr (plugins, plOuts) =
 nodeStartMsg :: WithLogger m => m ()
 nodeStartMsg = logInfo msg
   where
-    msg = sformat ("Application: " %build% ", last known block version " %build)
-                   Const.curSoftwareVersion Const.lastKnownBlockVersion
+    msg = sformat ("Application: " %build% ", last known block version "
+                    %build% ", systemTag: " %build)
+                   Const.curSoftwareVersion
+                   Const.lastKnownBlockVersion
+                   Const.ourSystemTag
 
 ----------------------------------------------------------------------------
 -- Details

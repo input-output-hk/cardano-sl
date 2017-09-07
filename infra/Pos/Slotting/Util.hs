@@ -33,7 +33,7 @@ import           Pos.Core               (FlatSlotId, HasCoreConstants, LocalSlot
                                          SlotId (..), Timestamp (..), flattenSlotId,
                                          slotIdF)
 import           Pos.KnownPeers         (MonadFormatPeers)
-import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
+import           Pos.Recovery.Info      (MonadRecoveryInfo, recoveryInProgress)
 import           Pos.Reporting.MemState (HasReportingContext)
 import           Pos.Reporting.Methods  (reportOrLogE)
 import           Pos.Shutdown           (HasShutdownContext)

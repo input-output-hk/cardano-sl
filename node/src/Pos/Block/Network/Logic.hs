@@ -523,7 +523,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
     reportRollback =
-        recoveryCommGuard $
+        recoveryCommGuard "applyWithRollback" $
             -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
             reportMisbehaviour isCritical $
                 sformat reportF nodeId toRollbackHashes toApplyHashes

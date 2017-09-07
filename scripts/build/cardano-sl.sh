@@ -204,9 +204,10 @@ if [[ $no_nix == true ]]; then
   commonargs="$commonargs --no-nix"
 fi
 
+export CSL_SYSTEM_TAG=linux64
+
 if [[ "$prodMode" != "" ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
-  export CSL_SYSTEM_TAG=linux64
 fi
 
 if [[ $explorer == false ]]; then

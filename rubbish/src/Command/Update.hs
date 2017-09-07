@@ -2,7 +2,7 @@
 
 -- | Update system related functionality in Rubbish.
 
-module Update
+module Command.Update
        ( vote
        , propose
        ) where
@@ -32,7 +32,7 @@ import           Pos.Update          (BlockVersionData (..), BlockVersionModifie
                                       mkUpdateProposalWSign)
 import           Pos.Wallet          (getSecretKeys)
 
-import           Command             (CmdCtx (..), ProposeUpdateParams (..),
+import           Command.Types       (CmdCtx (..), ProposeUpdateParams (..),
                                       ProposeUpdateSystem (..))
 
 ----------------------------------------------------------------------------

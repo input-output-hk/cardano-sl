@@ -17,10 +17,11 @@ executable cardano-rubbish
   other-modules:
                        Command
                        Command.Parser
+                       Command.Run
+                       Command.Tx
                        Command.Types
+                       Command.Update
                        RubbishOptions
-                       Tx
-                       Update
 
                        -- TODO: delete these
                        Pos.Rubbish

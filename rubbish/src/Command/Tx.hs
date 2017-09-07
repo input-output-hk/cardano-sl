@@ -2,7 +2,7 @@
 
 -- | Tx sending functionality in Rubbish.
 
-module Tx
+module Command.Tx
        ( sendToAllGenesis
        , send
        ) where
@@ -42,7 +42,7 @@ import           Pos.Rubbish                   (LightWalletMode, makePubKeyAddre
 import           Pos.Txp                       (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Wallet                    (getSecretKeys)
 
-import           Command                       (CmdCtx (..), SendMode (..),
+import           Command.Types                 (CmdCtx (..), SendMode (..),
                                                 SendToAllGenesisParams (..))
 
 ----------------------------------------------------------------------------

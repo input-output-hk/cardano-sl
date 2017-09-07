@@ -32,8 +32,10 @@ import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, BalanceDistribution (..),
-                                          GenesisCoreData (..), GenesisDelegation (..),
-                                          GenesisWStakeholders (..), bootDustThreshold,
+                                          FakeAvvmOptions (..), GenesisCoreData (..),
+                                          GenesisDelegation (..), GenesisSpec (..),
+                                          GenesisWStakeholders (..),
+                                          TestBalanceOptions (..), bootDustThreshold,
                                           getTotalBalance, mkGenesisCoreData,
                                           mkGenesisDelegation, noGenesisDelegation,
                                           safeExpBalances)

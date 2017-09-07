@@ -86,6 +86,11 @@ packages:
     git: https://github.com/input-output-hk/dns.git
     commit: 6da3cd051bd6f6415c8ec3b53f1c0372a80a4376
   extra-dep: true
+# Canonical JSON standalone lib
+- location:
+    git: https://github.com/well-typed/canonical-json.git
+    commit: 2d261bb971bada1893753b503452d9e6e217bc4a
+  extra-dep: true
 
 nix:
   shell-file: shell.nix

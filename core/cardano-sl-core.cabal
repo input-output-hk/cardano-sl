@@ -132,6 +132,7 @@ library
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-crypto
                      , cborg
                      , cereal

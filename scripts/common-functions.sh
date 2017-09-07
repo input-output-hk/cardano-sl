@@ -167,7 +167,7 @@ function gen_kademlia_topology {
         exr="$exr]"
 
         echo "  \"explorer\":"            >> $tfile
-        echo "    type: core"             >> $tfile
+        echo "    type: relay"            >> $tfile
         echo "    region: undefined"      >> $tfile
         echo "    static-routes: $exr"    >> $tfile
         echo "    addr: 127.0.0.1"        >> $tfile

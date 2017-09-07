@@ -88,7 +88,7 @@ blkWorkers =
 blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
-        recoveryCommGuard $
+        recoveryCommGuard "onNewSlot worker in block processing" $
         () <$
         metricWorker slotId `concurrently`
         void

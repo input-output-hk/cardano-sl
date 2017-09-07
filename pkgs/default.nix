@@ -1814,7 +1814,7 @@ self: {
           description = "Cardano SL - the SSC class";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, stdenv, stm, system-filepath, tar, text, text-format, time, time-units, universum, unix-compat, unordered-containers, vector, yaml }:
+      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, stdenv, stm, system-filepath, tabl, tar, text, text-format, time, time-units, universum, unix-compat, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "cardano-sl-tools";
           version = "0.6.2";
@@ -1873,6 +1873,7 @@ self: {
             serokell-util
             stm
             system-filepath
+            tabl
             tar
             text
             text-format
@@ -6396,6 +6397,22 @@ self: {
           homepage = "https://github.com/erebe/systemd";
           description = "Systemd facilities (Socket activation, Notify)";
           license = stdenv.lib.licenses.bsd3;
+        }) {};
+      tabl = callPackage ({ base, mkDerivation, safe, stdenv, text }:
+      mkDerivation {
+          pname = "tabl";
+          version = "1.0.3";
+          sha256 = "1pxh6g1xjbp37fsab3hl2ldrpnbxdnp4s7pcr3mqxv62qi9b3m2f";
+          libraryHaskellDepends = [
+            base
+            safe
+            text
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/lovasko/tabl";
+          description = "Table layout";
+          license = "unknown";
         }) {};
       tagged = callPackage ({ base, deepseq, mkDerivation, stdenv, template-haskell, transformers, transformers-compat }:
       mkDerivation {

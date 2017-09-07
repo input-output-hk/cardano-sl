@@ -172,6 +172,9 @@ library
 
                         Pos.Util.Servant
 
+                        -- Needed for blockchain-analyser
+                        Pos.Client.CLI.Options
+
   other-modules:        Pos.Aeson.Types
 
                         -- Binary serialization
@@ -216,7 +219,6 @@ library
 
                         -- Client
                         Pos.Client.CLI.NodeOptions
-                        Pos.Client.CLI.Options
                         Pos.Client.CLI.Params
                         Pos.Client.CLI.Secrets
                         Pos.Client.CLI.Util

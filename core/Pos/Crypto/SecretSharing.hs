@@ -47,7 +47,7 @@ import           Formatting          (bprint, (%))
 
 import           Pos.Binary.Class    (Bi, serialize')
 import           Pos.Crypto.Hashing  (hash, shortHashF)
-import           Pos.Crypto.Random   (deterministic, runSecureRandom)
+import           Pos.Crypto.Random   (deterministic)
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -78,14 +78,16 @@ instance (Bi VssKeyPair) => Buildable VssKeyPair where
 toVssPublicKey :: VssKeyPair -> VssPublicKey
 toVssPublicKey (VssKeyPair pair) = VssPublicKey $ Scrape.toPublicKey pair
 
--- | Generate VssKeyPair using Really Secure™ randomness.
-vssKeyGen :: MonadIO m => m VssKeyPair
-vssKeyGen = VssKeyPair <$> liftIO (runSecureRandom Scrape.keyPairGenerate)
+-- | Generate a VssKeyPair. It's recommended to run it with
+-- 'runSecureRandom' from "Pos.Crypto.Random" because the OpenSSL generator
+-- is probably safer than the default IO generator.
+vssKeyGen :: MonadRandom m => m VssKeyPair
+vssKeyGen = VssKeyPair <$> Scrape.keyPairGenerate
 
--- | Generate VssKeyPair using given seed.
+-- | Generate VssKeyPair using given seed. The length of the seed doesn't
+-- matter.
 deterministicVssKeyGen :: ByteString -> VssKeyPair
-deterministicVssKeyGen seed =
-    VssKeyPair $ deterministic seed Scrape.keyPairGenerate
+deterministicVssKeyGen seed = deterministic seed vssKeyGen
 
 ----------------------------------------------------------------------------
 -- Types
@@ -244,8 +246,9 @@ verifySecret thr SecretProof{..} (Secret secret) =
 -- | You can use this to do debugging. If everything is okay with SCRAPE, it
 -- will print 'True's.
 testScrape
-    :: Int           -- ^ Threshold (number of participants = 2× threshold)
-    -> IO ()
+    :: (MonadRandom m, MonadIO m)
+    => Int           -- ^ Threshold (number of participants = 2× threshold)
+    -> m ()
 testScrape t = do
     let thr :: Scrape.Threshold
         thr = fromIntegral t

@@ -1,4 +1,3 @@
-
 -- | Extra information for blocks.
 --   * Forward links.
 --   * InMainChain flags.
@@ -9,6 +8,7 @@ module Pos.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
        , getLastSlots
+       , getFirstGenesisBlockHash
        , BlockExtraOp (..)
        , foldlUpWhileM
        , loadHeadersUpWhile
@@ -61,6 +61,12 @@ getLastSlots :: forall m . MonadDBRead m => m LastBlkSlots
 getLastSlots =
     maybeThrow (DBMalformed "Last slots not found in the global state DB") =<<
     gsGetBi lastSlotsKey
+
+-- | Retrieves first genesis block hash.
+getFirstGenesisBlockHash :: (MonadDBRead m, MonadThrow m) => m HeaderHash
+getFirstGenesisBlockHash =
+    resolveForwardLink (genesisHash :: HeaderHash) >>=
+    maybeThrow (DBMalformed "Can't retrieve genesis block, maybe db is not initialized?")
 
 ----------------------------------------------------------------------------
 -- BlockOp

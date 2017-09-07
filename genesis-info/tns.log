@@ -1,34 +1,13 @@
-9a476eccd Correct genesis generation script
-diff --git a/scripts/generate/genesis.sh b/scripts/generate/genesis.sh
-index ac55a5b09..0a4b794a6 100755
---- a/scripts/generate/genesis.sh
-+++ b/scripts/generate/genesis.sh
-@@ -24,14 +24,14 @@ case "$1" in
-                 case "$2" in 'nix' ) true;; 'stack' ) true;; * ) error "--build-mode should be either 'nix' or 'stack'";; esac;
-                 BUILD_MODE="$2"; shift;;
-         --install-as-suffix )
--                case "$2" in 'tns' ) true;; 'tn' ) true;; 'qanet' ) true;; * ) error "--install-as-suffix should be either 'tn', 'tns' or 'qanet'";; esac;
-+                case "$2" in 'tns' ) true;; 'tn' ) true;; 'qa' ) true;; * ) error "--install-as-suffix should be either 'tn', 'tns' or 'qa'";; esac;
-                 INSTALL_AS_SUFFIX="$2"; shift;;
-         "--"* ) error "unknown option: $1";;
-         * ) break;; esac; shift; done
- 
- scriptsDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
- echo $scriptsDir
--outputDir="genesis-qanet-$(date +%F_%H-%M)"
-+outputDir="genesis-$INSTALL_AS_SUFFIX-$(date +%F_%H-%M)"
- 
- if [[ -d "./$outputDir" ]]; then
-   echo "./$outputDir exists already" >&2
+9230f277a Use --no-patch in genesis generation script
 [94m[keygen:INFO:ThreadId 4] [0mProcessing command
 [94m[keygen:INFO:ThreadId 4] [0mGenerating requested raw data
 [94m[keygen:INFO:ThreadId 4] [0mGenerating avvm data
 [94m[keygen:INFO:ThreadId 4] [0mRemoving 101 entries from utxo (out of 188 total entries in the blacklist)
 [94m[keygen:INFO:ThreadId 4] [0mTotal avvm stake after applying blacklist: 25927070538000000
-[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-tns-2017-08-29_14-13/keys-fakeavvm
+[94m[keygen:INFO:ThreadId 4] [0mGenerating fake avvm data into genesis-tn-2017-09-02_17-54/keys-fakeavvm
 [94m[keygen:INFO:ThreadId 4] [0m100 fake avvm seeds are generated
-[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-tns-2017-08-29_14-13/keys-testnet
-[94m[keygen:INFO:ThreadId 4] [0m12007 keyfiles are generated
-[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKey address with root 94382c79c55f4eb8c2653a9ac5fc713af236f468492e48cf7439d2c5, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 1e656810352d1ea5f8891630424a4bbde82ad624407d64444d504bcd, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 626b8d71ef4b87b34d6421e92eabfae64a129f9260be40e2d3c2beec, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 3ebd3f1f342ce52cdc2fd5225b89b05ddc58ce0e57779c0d4920804b, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 7640c63ebbedb9ee25da40062ca0ed0f9e8271bd78e4c5b655a0cfad, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 06c45f3752ce28067f3a2d113737e24b09691154ea97d94c0d950322, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root d7b9d48fcba9667af9564213be1b2279585ac702a3c78c1d7a1ed87d, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 66b67b940903a997d42a35bd01c0db0870d5cd0b6158a3d90dec3173, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 2fc1b1de7615a0d8f080b2799ad96e7d23845acde51db927ae4e4114, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 328efabbcfdc0d5c0f502be0b8c997b03d5f858912adfafc3a3695a9, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }] distr: RichPoorStakes {sdRichmen = 7, sdRichStake = Coin {getCoin = 2561220479182857}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296155}}
+[94m[keygen:INFO:ThreadId 4] [0mGenerating testnet data into genesis-tn-2017-09-02_17-54/keys-testnet
+[94m[keygen:INFO:ThreadId 4] [0m24007 keyfiles are generated
+[94m[keygen:INFO:ThreadId 4] [0mtestnet genesis created successfully. First 10 addresses: [PubKey address with root fe1edb7c76aded21f6d69d2dac88896134a72a0733426489a08d89c4, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root d9f53d669ce30d08efb6020bfad6d5e6073286d6c36b5878603e3b5c, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 62d5df66c58267189a8b01e1c9bca88549a7707bc35cf380149c335b, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 687a69f1df73ff1c011e9a52b7f09a1a1dc1f9fb4713aae25b39dc54, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 6fcc3456e389ce4db1b27ecff4d141cc62388ef9a9907be5017d7a90, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 5d3cac7e80a869c8211de59cbfc62549bad000aa040bb13911f96ca6, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 199ece03898a9f771cb142eebbcd6e20a80024723510c6cc89a14f80, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 75f8c3327115c80b694015b3d226c750e56422b5a0629ee123575105, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 6c0ecaf5da7dc1c53bb1ba34776e984944ddc2413e4dc94e7206d56a, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }, PubKey address with root 40ec0374fca0b99428ab2d779ac2f5b01f9a1854a9804a920a8702fe, attributes: AddrAttributes { stake distribution: Bootstrap era distribution, derivation path: {} }] distr: RichPoorStakes {sdRichmen = 7, sdRichStake = Coin {getCoin = 2561220479182857}, sdPoor = 48000, sdPoorStake = Coin {getCoin = 23841148077}}
 [94m[keygen:INFO:ThreadId 4] [0mgenesis-core.bin generated successfully
 [94m[keygen:INFO:ThreadId 4] [0mgenesis-godtossing.bin generated successfully

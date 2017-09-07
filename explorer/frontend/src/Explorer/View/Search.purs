@@ -9,7 +9,6 @@ import Prelude
 import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
-import Data.Monoid (mempty)
 import Data.String (length)
 import Data.Tuple (Tuple(..))
 import DOM.Node.Types (ElementId(..))
@@ -110,7 +109,7 @@ searchInputView (ElementId viewId) state =
                 #! P.onClick (if selectedSearch == SearchTime
                                   then GlobalSearchTime
                                   else GlobalSearch)
-                $ mempty
+                $ S.text ""
 
 type SearchItem =
   { value :: Search

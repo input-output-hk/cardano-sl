@@ -56,12 +56,15 @@ import           Pos.Core                     (Address, ChainDifficulty, HasCore
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
-import           Pos.Genesis                  (GenesisUtxo (..), GenesisWStakeholders)
+import           Pos.Genesis                  (GenesisContext, GenesisUtxo (..),
+                                               GenesisWStakeholders)
 import qualified Pos.GState                   as GS
-import           Pos.Infra.Semaphore          (BlkSemaphore)
+import           Pos.KnownPeers               (MonadFormatPeers)
+import           Pos.Reporting                (HasReportingContext)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
+import           Pos.StateLock                (StateLock, StateLockMetrics)
 import           Pos.Util.Util                (HasLens (..), HasLens')
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
@@ -235,10 +238,14 @@ type TxHistoryEnv ctx m =
     , MonadReader ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
     , HasLens GenesisWStakeholders ctx GenesisWStakeholders
+    , HasLens' ctx GenesisContext
     , MonadTxpMem TxpExtra_TMP ctx m
-    , HasLens' ctx BlkSemaphore
+    , HasLens' ctx StateLock
+    , HasLens' ctx StateLockMetrics
     , MonadBaseControl IO m
     , Mockable CurrentTime m
+    , MonadFormatPeers m
+    , HasReportingContext ctx
     )
 
 type TxHistoryEnv' ssc ctx m =

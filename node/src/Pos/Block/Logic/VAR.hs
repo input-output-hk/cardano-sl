@@ -26,18 +26,18 @@ import           Pos.Block.Core           (Block)
 import           Pos.Block.Error          (ApplyBlocksException (..),
                                            RollbackException (..),
                                            VerifyBlocksException (..))
-import           Pos.Block.Logic.Internal (MonadBlockApply, MonadBlockVerify,
-                                           MonadMempoolNormalization, applyBlocksUnsafe,
-                                           normalizeMempool, rollbackBlocksUnsafe,
-                                           toTxpBlock, toUpdateBlock, BypassSecurityCheck(..))
+import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
+                                           MonadBlockVerify, MonadMempoolNormalization,
+                                           applyBlocksUnsafe, normalizeMempool,
+                                           rollbackBlocksUnsafe, toTxpBlock,
+                                           toUpdateBlock)
 import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import qualified Pos.GState               as GS
-import           Pos.Lrc.Worker           (LrcModeFullNoSemaphore, lrcSingleShotNoLock)
-import           Pos.Reporting            (reportingFatal)
+import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShot)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
@@ -74,13 +74,13 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- And then we run verification of each component.
     slogUndos <- withExceptT VerifyBlocksError $ slogVerifyBlocks blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
-        sscVerifyBlocks (map toSscBlock blocks)
+        ExceptT $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
         tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
     pskUndo <- withExceptT VerifyBlocksError . ExceptT $ dlgVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
-        usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
+        ExceptT $ usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
         throwError $ VerifyBlocksError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
@@ -92,7 +92,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
          , pModifier)
 
 -- | Union of constraints required by block processing and LRC.
-type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore ssc ctx m)
+type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFull ssc ctx m)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -105,7 +105,7 @@ type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore
 verifyAndApplyBlocks
     :: forall ssc ctx m. (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either ApplyBlocksException HeaderHash)
-verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
+verifyAndApplyBlocks rollback blocks = runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
@@ -156,7 +156,7 @@ verifyAndApplyBlocks rollback blocks = reportingFatal . runExceptT $ do
         let prefixHead = prefix ^. _Wrapped . _neHead
         logDebug "Rolling: Calculating LRC if needed"
         when (isLeft prefixHead) $
-            lift $ lrcSingleShotNoLock (prefixHead ^. epochIndexL)
+            lift $ lrcSingleShot (prefixHead ^. epochIndexL)
         logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
             Left (ApplyBlocksVerifyFailure -> failure)
@@ -192,7 +192,7 @@ applyBlocks calculateLrc pModifier blunds = do
         -- Hopefully this lrc check is never triggered -- because
         -- caller most definitely should have computed lrc to verify
         -- the sequence beforehand.
-        lrcSingleShotNoLock (prefixHead ^. epochIndexL)
+        lrcSingleShot (prefixHead ^. epochIndexL)
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of
         []           -> pass
@@ -225,7 +225,7 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either ApplyBlocksException HeaderHash)
-applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
+applyWithRollback toRollback toApply = runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback

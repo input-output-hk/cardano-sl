@@ -38,7 +38,7 @@ findDelRichUsingPrecomp precomputed thr = do
         getDelegators .|
         findDelegationStakes isIssuerByAddressHash getRealStake thr
     -- attention: order of new and precomputed is important
-    -- we want to use new balances (computed from delegated) of precomputed richmen
+    -- we want to use new stakes (computed from delegated) of precomputed richmen
     pure (new `HM.union` (precomputed `HM.difference` (HS.toMap old)))
 
 -- | Find delegated richmen.

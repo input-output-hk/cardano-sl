@@ -57,6 +57,7 @@ import           Pos.DB                                (gsAdoptedBVData)
 import           Pos.Lrc.Context                       (lrcActionOnEpochReason, waitLrc)
 import           Pos.Lrc.Types                         (RichmenStakes)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
+import           Pos.Reporting                         (reportMisbehaviour)
 import           Pos.Slotting                          (getCurrentSlot,
                                                         getSlotStartEmpatically,
                                                         onNewSlot)
@@ -442,15 +443,14 @@ checkForIgnoredCommitmentsWorker
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     counter <- newTVarIO 0
-    void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl counter)
+    onNewSlot True (checkForIgnoredCommitmentsWorkerImpl counter)
 
 -- This worker checks whether our commitments appear in blocks. This
 -- check is done only if we actually should participate in
 -- GodTossing. It's triggered if there are
 -- 'mdNoCommitmentsEpochThreshold' consequent epochs during which we
 -- had to participate in GodTossing, but our commitment didn't appear
--- in blocks. If check fails, warning is printed.
--- TODO [CSL-1340] It would be good to also report misbehavior, I think.
+-- in blocks. If check fails, it's reported as non-critical misbehavior.
 --
 -- The first argument is a counter which is incremented every time we
 -- detect unexpected absence of our commitment and is reset to 0 when
@@ -475,7 +475,10 @@ checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
                             !x <- succ <$> readTVar counter
                             x <$ writeTVar counter x
                     when (newCounterValue > mdNoCommitmentsEpochThreshold) $ do
-                        logWarning $ sformat warningFormat newCounterValue
+    -- REPORT:MISBEHAVIOUR(F) Possible eclipse attack was detected:
+    -- our commitments don't get included into blockchain
+                        let msg = sformat warningFormat newCounterValue
+                        reportMisbehaviour False msg
                 Just _ -> atomically $ writeTVar counter 0
   where
     warningFormat =

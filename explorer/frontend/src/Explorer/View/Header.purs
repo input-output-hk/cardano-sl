@@ -3,7 +3,6 @@ module Explorer.View.Header (headerView) where
 import Prelude
 
 import Data.Lens ((^.))
-import Data.Monoid (mempty)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cGenesis, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSelectedSearch, globalViewState, testnet, lang, route, viewStates)
@@ -37,7 +36,7 @@ headerView state =
                         $ S.div ! S.className "middle-content__search--wrapper"
                                 $ searchInputView headerSearchContainerId state
                   S.div ! S.className "right-content__currency"
-                        $ mempty
+                        $ S.text ""
                   -- mobile views
                   S.div ! S.className "middle-content__title"
                         $ if mobileMenuOpenend
@@ -48,7 +47,7 @@ headerView state =
                                           then "cross__icon bg-icon-cross"
                                           else "hamburger__icon bg-icon-hamburger")
                         #! P.onClick (const <<< GlobalToggleMobileMenu $ not mobileMenuOpenend)
-                        $ mempty
+                        $ S.text ""
         S.div ! S.className "explorer-header__wrapper--vmiddle" $ do
             S.div ! S.className "vmiddle-content__search--wrapper"
                   $ searchInputView mobileMenuSearchContainerId state

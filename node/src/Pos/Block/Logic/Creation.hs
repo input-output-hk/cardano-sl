@@ -19,10 +19,9 @@ import           Control.Lens               (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.Default               (Default (def))
-import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
+import           System.Wlog                (WithLogger, logDebug, logInfo)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
@@ -32,7 +31,7 @@ import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              normalizeMempool)
 import           Pos.Block.Logic.Util       (calcChainQualityM)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
-import           Pos.Block.Slog             (HasSlogContext (..))
+import           Pos.Block.Slog             (HasSlogGState (..))
 import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
@@ -49,14 +48,15 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
-import           Pos.Infra.Semaphore        (BlkSemaphore, modifyBlkSemaphore)
 import           Pos.Lrc                    (LrcContext, LrcError (..))
 import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)
+import           Pos.Reporting              (reportError)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
+import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
+                                             modifyStateLock)
 import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
@@ -65,7 +65,7 @@ import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)
 import           Pos.Util                   (maybeThrow, _neHead)
-import           Pos.Util.Util              (leftToPanic)
+import           Pos.Util.Util              (HasLens (..), HasLens', leftToPanic)
 import           Pos.WorkMode.Class         (TxpExtra_TMP)
 
 -- | A set of constraints necessary to create a block from mempool.
@@ -73,7 +73,7 @@ type MonadCreateBlock ssc ctx m
      = ( HasCoreConstants
        , MonadReader ctx m
        , HasPrimaryKey ctx
-       , HasSlogContext ctx -- to check chain quality
+       , HasSlogGState ctx -- to check chain quality
        , WithLogger m
        , DB.MonadBlockDB ssc m
        , MonadIO m
@@ -111,19 +111,23 @@ createGenesisBlockAndApply ::
        forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasLens StateLock ctx StateLock
+       , HasLens StateLockMetrics ctx StateLockMetrics
        )
     => EpochIndex
     -> m (Maybe (GenesisBlock ssc))
 -- Genesis block for 0-th epoch is hardcoded.
 createGenesisBlockAndApply 0 = pure Nothing
 createGenesisBlockAndApply epoch =
-    reportingFatal $
     try (lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders) >>= \case
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> modifyBlkSemaphore (createGenesisBlockDo epoch leaders)
+        Right leaders ->
+            modifyStateLock
+                HighPriority
+                "createGenesisBlockAndApply"
+                (createGenesisBlockDo epoch leaders)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -187,13 +191,14 @@ createMainBlockAndApply ::
        forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
-       , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasLens' ctx StateLock
+       , HasLens' ctx StateLockMetrics
        )
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlockAndApply sId pske =
-    reportingFatal $ modifyBlkSemaphore createAndApply
+    modifyStateLock HighPriority "createMainBlockAndApply" createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case
@@ -326,16 +331,15 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do
-        clearTxpMemPool "fallback@applyCreatedBlock"
+        clearTxpMemPool
         sscResetLocal
         clearUSMemPool
         clearDlgMemPool
     fallback :: Text -> m (MainBlock ssc)
     fallback reason = do
         let message = sformat ("We've created bad main block: "%stext) reason
-        logError message
-        -- FIXME [CSL-1340]: it should be reported as 'RError'.
-        reportMisbehaviourSilent False message
+        -- REPORT:ERROR Created bad main block
+        reportError message
         logDebug $ "Clearing mempools"
         clearMempools
         logDebug $ "Creating empty block"

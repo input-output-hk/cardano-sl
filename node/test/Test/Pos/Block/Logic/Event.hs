@@ -14,7 +14,7 @@ module Test.Pos.Block.Logic.Event
 
 import           Universum
 
-import           Control.Monad.Catch       (catch, fromException)
+import           Control.Monad.Catch       (fromException)
 import qualified Data.Map                  as Map
 import qualified Data.Text                 as T
 

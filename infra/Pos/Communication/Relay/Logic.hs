@@ -406,6 +406,12 @@ dataFlow what enqueue msg dt = handleAll handleE $ do
             send conv $ DataMsg dt
     void $ waitForConversations its
   where
+    -- TODO: is this function really special that it wants to catch
+    -- all exceptions and log them instead of letting higher-level
+    -- code to do it?
+    -- FIXME: are we sure we don't want to propagate exception to caller???
+    -- Fortunatelly, it's used only in lwallet, so I don't care much.
+    -- @gromak
     handleE e =
         logWarning $
         sformat ("Error sending "%stext%", data = "%build%": "%shown)
@@ -483,6 +489,11 @@ invReqDataFlow what enqueue msg key dt = handleAll handleE $ do
         \addr _ -> pure $ Conversation $ invReqDataFlowDo what key dt addr
     waitForConversations (fmap try its)
   where
+    -- TODO: is this function really special that it wants to catch
+    -- all exceptions and log them instead of letting higher-level
+    -- code to do it?
+    -- Anyway, 'reportOrLog' is not used here, because exception is rethrown.
+    -- @gromak
     handleE e = do
         logWarning $
             sformat ("Error sending "%stext%", key = "%build%": "%shown)

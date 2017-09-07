@@ -11,8 +11,8 @@ module Main
 import           Universum
 
 import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Monad.Error.Class        (throwError)
-import           Control.Monad.Trans.Either       (EitherT (..))
+import           Control.Monad.Catch              (Exception (..), try)
+import           Control.Monad.Except             (runExceptT, throwError)
 import qualified Data.ByteString                  as BS
 import           Data.ByteString.Base58           (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict              as HM
@@ -51,21 +51,24 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    submitVote, txRelays, usRelays, worker)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
-import           Pos.Core                         (coinF)
+import           Pos.Core                         (addressHash, coinF)
+import           Pos.Core.Address                 (makeAddress)
 import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
-import           Pos.Core.Types                   (Timestamp (..), mkCoin)
+import           Pos.Core.Types                   (AddrAttributes (..),
+                                                   AddrSpendingData (..), Timestamp (..),
+                                                   mkCoin)
 import           Pos.Crypto                       (Hash, SecretKey, SignTag (SignUSVote),
                                                    emptyPassphrase, encToPublic,
-                                                   fakeSigner, hash, hashHexF,
-                                                   noPassEncrypt, safeCreatePsk, safeSign,
-                                                   safeToPublic, toPublic, unsafeHash,
-                                                   withSafeSigner)
+                                                   fakeSigner, fullPublicKeyHexF, hash,
+                                                   hashHexF, noPassEncrypt, safeCreatePsk,
+                                                   safeSign, safeToPublic, toPublic,
+                                                   unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
-import           Pos.Genesis                      (StakeDistribution (..),
-                                                   devGenesisContext, devStakesDistr,
+import           Pos.Genesis                      (BalanceDistribution (..),
+                                                   balanceDistribution, devBalancesDistr,
+                                                   devGenesisContext,
                                                    genesisContextProduction,
-                                                   genesisDevSecretKeys, gtcUtxo,
-                                                   stakeDistribution)
+                                                   genesisDevSecretKeys, gtcUtxo)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    bracketTransport, loggerBracket)
 import           Pos.Network.Types                (MsgType (..), Origin (..))
@@ -99,9 +102,9 @@ import           Pos.Communication.Types.Protocol (Conversation (..), SendAction
 import           System.Wlog.CanLog
 
 data CmdCtx = CmdCtx
-    { skeys             :: [SecretKey]
-    , na                :: [NodeId]
-    , genesisStakeDistr :: StakeDistribution
+    { skeys               :: [SecretKey]
+    , na                  :: [NodeId]
+    , genesisBalanceDistr :: BalanceDistribution
     }
 
 helpMsg :: Text
@@ -128,9 +131,21 @@ Avaliable commands:
                                      e is current epoch.
    add-key-pool <N>               -- add key from intial pool
    add-key <file>                 -- add key from file
+
+   addr-distr <N> boot
+   addr-distr <N> [<M>:<coinPortion>]+
+                                  -- print the address for pk <N> (encoded in base58) with the specified distribution,
+                                  -- where <M> is stakeholder id (pk hash), and the coin portion can be a coefficient
+                                  -- in [0..1] or a percentage (ex. 42%)
+
    help                           -- show this message
    quit                           -- shutdown node wallet
 |]
+
+newtype LWalletException = LWalletException Text
+  deriving (Show)
+
+instance Exception LWalletException
 
 -- | Count submitted and failed transactions.
 --
@@ -155,20 +170,20 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
     skeys <- getSecretKeys
     let skey = skeys !! idx
         curPk = encToPublic skey
-    etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runEitherT $ do
-        ss <- mss `whenNothing` throwError "Invalid passphrase"
-        lift $ submitTx
+    etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runExceptT $ do
+        ss <- mss `whenNothing` throwError (toException $ LWalletException "Invalid passphrase")
+        ExceptT $ try $ submitTx
             (immediateConcurrentConversations sendActions na)
             ss
             (map TxOutAux outputs)
             curPk
     case etx of
-        Left err      -> putText $ sformat ("Error: "%stext) err
+        Left err      -> putText $ sformat ("Error: "%stext) (toText $ displayException err)
         Right (tx, _) -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) CmdCtx{..} = do
     let nNeighbours = length na
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
-        keysToSend = zip skeys (stakeDistribution genesisStakeDistr)
+        keysToSend = zip skeys (balanceDistribution genesisBalanceDistr)
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
@@ -315,8 +330,11 @@ runCmd _ ListAddresses _ = do
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
        addr <- makePubKeyAddressLWallet pk
-       putText $ sformat ("    #"%int%":   "%build%" (PK: "%stext%")")
-                    i addr (toBase58Text pk)
+       putText $ sformat ("    #"%int%":   addr:      "%build%"\n"%
+                          "          pk base58: "%stext%"\n"%
+                          "          pk hex:    "%fullPublicKeyHexF%"\n"%
+                          "          pk hash:   "%hashHexF)
+                    i addr (toBase58Text pk) pk (addressHash pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na} = do
@@ -341,6 +359,10 @@ runCmd _ (AddKeyFromPool i) CmdCtx{..} = do
 runCmd _ (AddKeyFromFile f) _ = do
     secret <- readUserSecret f
     mapM_ addSecretKey $ secret ^. usKeys
+runCmd _ (AddrDistr pk asd) _ = do
+    putText $ pretty addr
+  where
+    addr = makeAddress (PubKeyASD pk) (AddrAttributes Nothing asd)
 runCmd _ Quit _ = pure ()
 
 dummyHash :: Hash Raw
@@ -420,13 +442,13 @@ main = giveStaticConsts $ do
     print logParams
 
     let sysStart = CLI.sysStart woCommonArgs
-    let devStakeDistr =
-            devStakesDistr
+    let devBalanceDistr =
+            devBalancesDistr
                 (CLI.flatDistr woCommonArgs)
                 (CLI.richPoorDistr woCommonArgs)
                 (CLI.expDistr woCommonArgs)
     let wpGenesisContext
-            | isDevelopment = devGenesisContext devStakeDistr
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
     let params =
             WalletParams
@@ -456,7 +478,7 @@ main = giveStaticConsts $ do
             cmdCtx = CmdCtx
                       { skeys = if isDevelopment then genesisDevSecretKeys else []
                       , na = woPeers
-                      , genesisStakeDistr = devStakeDistr
+                      , genesisBalanceDistr = devBalanceDistr
                       }
 
             plugins :: HasCoreConstants => ([WorkerSpec LightWalletMode], OutSpecs)

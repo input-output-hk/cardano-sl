@@ -89,7 +89,7 @@ runPeriodicallyUnless
 runPeriodicallyUnless delay stop initState action =
     let loop st = unlessM stop $ do
             st' <- execStateT action st
-                `catchAll` \e -> handler e $> st
+                `catchAny` \e -> handler e $> st
             threadDelay delay
             loop st'
     in  loop initState

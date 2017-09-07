@@ -8,10 +8,10 @@ module Pos.Slotting.Util
        , getSlotStartPure
        , getSlotStartEmpatically
        , getNextEpochSlotDuration
+       , slotFromTimestamp
 
          -- * Worker which ticks when slot starts
        , onNewSlot
-       , onNewSlotImpl
 
          -- * Worker which logs beginning of new slot
        , logNewSlotWorker
@@ -23,31 +23,28 @@ module Pos.Slotting.Util
 import           Universum
 
 import           Data.Time.Units        (Millisecond)
-import           Formatting             (build, int, sformat, shown, (%))
-import           Mockable               (Delay, Fork, Mockable, delay, fork)
+import           Formatting             (int, sformat, shown, (%))
+import           Mockable               (Delay, Mockable, delay)
 import           Serokell.Util          (sec)
-import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
-                                         logNotice, modifyLoggerName)
+import           System.Wlog            (WithLogger, logDebug, logInfo, logNotice,
+                                         modifyLoggerName)
 
 import           Pos.Core               (FlatSlotId, HasCoreConstants, LocalSlotIndex,
                                          SlotId (..), Timestamp (..), flattenSlotId,
                                          slotIdF)
-import           Pos.Exception          (CardanoException)
 import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
 import           Pos.Reporting.MemState (HasReportingContext)
-import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
-import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
-import           Pos.Slotting.MemState  (MonadSlotsData,
-
-                                         getCurrentNextEpochSlottingDataM,
-                                         getEpochSlottingDataM, getSystemStartM)
+import           Pos.Reporting.Methods  (reportOrLogE)
+import           Pos.Shutdown           (HasShutdownContext)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
+import           Pos.Slotting.Impl.Util (slotFromTimestamp)
+import           Pos.Slotting.MemState  (MonadSlotsData, getCurrentNextEpochSlottingDataM,
+                                         getEpochSlottingDataM, getSystemStartM)
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData,
                                          computeSlotStart, lookupEpochSlottingData)
 import           Pos.Util.Util          (maybeThrow)
-
 
 
 -- | Get flat id of current slot based on MonadSlots.
@@ -98,7 +95,6 @@ type OnNewSlot ctx m =
     , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
-    , Mockable Fork m
     , Mockable Delay m
     , HasReportingContext ctx
     , HasShutdownContext ctx
@@ -125,43 +121,53 @@ onNewSlotImpl
     :: forall ctx m. OnNewSlot ctx m
     => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
-    reportingFatal impl `catch` workerHandler
+    impl `catch` workerHandler
   where
     impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
+    -- [CSL-1578] TODO: consider removing it.
     actionWithCatch s = action s `catch` actionHandler
-    actionHandler
-        :: forall ma.
-           WithLogger ma
-        => SomeException -> ma ()
-    actionHandler = logError . sformat ("Error occurred: " %build)
-    workerHandler :: CardanoException -> m ()
+    actionHandler :: SomeException -> m ()
+    -- REPORT:ERROR 'reportOrLogE' in exception passed to 'onNewSlotImpl'.
+    actionHandler = reportOrLogE "onNewSlotImpl: "
+    workerHandler :: SomeException -> m ()
     workerHandler e = do
-        let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
-        logError $ msg
-        -- [CSL-1340] FIXME: it's not misbehavior, it should be reported as 'RError'.
-        reportMisbehaviourSilent False msg
+        -- REPORT:ERROR 'reportOrLogE' in 'onNewSlotImpl'
+        reportOrLogE "Error occurred in 'onNewSlot' worker itself: " e
         delay =<< getNextEpochSlotDuration
         onNewSlotImpl withLogging startImmediately action
 
 onNewSlotDo
     :: OnNewSlot ctx m
     => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdown $ do
+onNewSlotDo withLogging expectedSlotId startImmediately action = do
     curSlot <- waitUntilExpectedSlot
 
-    -- Fork is necessary because action can take more time than duration of slot.
-    when startImmediately $ void $ fork $ action curSlot
+    -- Note that the action can take more time than the slot
+    -- duration. In this case action for the next slot won't start
+    -- until the ongoing action finishes.
+    -- The caller should decide how to deal with long-running actions.
+    -- They can do whatever they want with 'action', the simplest thing is
+    -- 'void . fork' (which is likely not the best idea, for the reasons why
+    -- 'async' package should be used instead of 'fork'-ing threads manually.
+    --
+    -- There are few things to consider when one wants to run this action in a
+    -- separate thread every time:
+    -- 1. If more than one action is launched, they may use same resources
+    -- concurrently, so the code must account for it.
+    -- 2. If action hangs for some reason, there can be infinitely growing pool
+    -- of hanging actions with probably bad consequences.
+    --
+    -- See also: CSL-1606.
+    when startImmediately $ action curSlot
 
-    -- check for shutdown flag again to not wait a whole slot
-    runIfNotShutdown $ do
-        let nextSlot = succ curSlot
-        Timestamp curTime <- currentTimeSlotting
-        Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
-        let timeToWait = nextSlotStart - curTime
-        when (timeToWait > 0) $ do
-            when withLogging $ logTTW timeToWait
-            delay timeToWait
-        onNewSlotDo withLogging (Just nextSlot) True action
+    let nextSlot = succ curSlot
+    Timestamp curTime <- currentTimeSlotting
+    Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
+    let timeToWait = nextSlotStart - curTime
+    when (timeToWait > 0) $ do
+        when withLogging $ logTTW timeToWait
+        delay timeToWait
+    onNewSlotDo withLogging (Just nextSlot) True action
   where
     waitUntilExpectedSlot = do
         -- onNewSlotWorker doesn't make sense in recovery phase. Most

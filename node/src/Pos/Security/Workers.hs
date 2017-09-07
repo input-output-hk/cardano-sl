@@ -26,8 +26,7 @@ import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
 import           Pos.DB.DB                  (getTipHeader)
-import           Pos.Reporting.Methods      (reportMisbehaviourSilent, reportingFatal)
-import           Pos.Shutdown               (runIfNotShutdown)
+import           Pos.Reporting              (reportMisbehaviour, reportOrLogE)
 import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -79,14 +78,16 @@ checkEclipsed ourPk slotId x = notEclipsed x
                      Just h  -> notEclipsed h
                      Nothing -> onBlockLoadFailure header $> True
 
+-- FIX: CSL-1470 Do we need this logic? It's duplicated in practice by chain quality check
 checkForReceivedBlocksWorkerImpl
     :: forall ssc ctx m.
        (WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . reportingFatal . recoveryCommGuard $
+    repeatOnInterval (const (sec' 4)) . recoveryCommGuard $
         whenM (needRecovery @ctx @ssc) $ triggerRecovery enqueueMsg
-    repeatOnInterval (min (sec' 20)) . reportingFatal . recoveryCommGuard $ do
+    -- FIXME: 'repeatOnInterval' is looped, will the code below ever be called?
+    repeatOnInterval (min (sec' 20)) . recoveryCommGuard $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
                 header <- getTipHeader @ssc
@@ -103,8 +104,9 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
         reportEclipse
-    repeatOnInterval delF action = runIfNotShutdown $ do
-        () <- action
+    repeatOnInterval delF action = () <$ do
+        -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
+        () <$ action `catchAny` \e -> reportOrLogE "Security worker" e
         getNextEpochSlotDuration >>= delay . delF
         repeatOnInterval delF action
     reportEclipse = do
@@ -113,7 +115,6 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
-        -- TODO [CSL-1340]: should it be critical or not? Is it
-        -- misbehavior or error?
+        -- REPORT:MISBEHAVIOUR(F) Possible eclipse attack was detected: new blocks are not propagated to us from other nodes
         when nonTrivialUptime $ recoveryCommGuard $
-            reportMisbehaviourSilent True reason
+            reportMisbehaviour True reason

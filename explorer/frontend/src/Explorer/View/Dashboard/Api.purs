@@ -4,7 +4,6 @@ import Prelude
 
 import Data.Foldable (for_)
 import Data.Lens ((^.))
-import Data.Monoid (mempty)
 import Data.Map (Map, fromFoldable, lookup) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
@@ -27,7 +26,6 @@ import Text.Smolder.Markup ((#!), (!))
 
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
-import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 
 type ApiTabLabel = String
 
@@ -63,8 +61,7 @@ apiView state =
                       S.h3  ! S.className "api-about__headline"
                             $ S.text (translate (I18nL.dashboard <<< I18nL.dbAboutBlockchain) lang')
                       S.p ! S.className "api-about__description"
-                          ! P.dangerouslySetInnerHTML (translate (I18nL.dashboard <<< I18nL.dbAboutBlockchainDescription) lang')
-                          $ mempty
+                          $ S.text (translate (I18nL.dashboard <<< I18nL.dbAboutBlockchainDescription) lang')
                   S.div ! S.className "api-about__button"
                         $ S.text (translate (I18nL.dashboard <<< I18nL.dbGetApiKey) lang')
       where

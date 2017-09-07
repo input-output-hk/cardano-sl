@@ -1,4 +1,3 @@
-
 module Pos.Core.Genesis
        (
        -- * Constants/devmode
@@ -16,6 +15,7 @@ module Pos.Core.Genesis
        , genesisProdAddresses
        , genesisProdAddrDistribution
        , genesisProdBootStakeholders
+       , genesisProdDelegation
 
        -- * Utils
        , generateGenesisKeyPair
@@ -61,9 +61,9 @@ genesisDevHdwSecretKeys =
     map generateHdwGenesisSecretKey [0 .. genesisKeysN - 1]
 
 -- | Default flat stakes distributed among 'genesisKeysN' (from constants).
-genesisDevFlatDistr :: StakeDistribution
+genesisDevFlatDistr :: BalanceDistribution
 genesisDevFlatDistr =
-    FlatStakes genesisKeysN $
+    FlatBalances genesisKeysN $
     mkCoin 10000 `unsafeMulCoin` (genesisKeysN :: Int)
 
 ----------------------------------------------------------------------------
@@ -82,6 +82,10 @@ genesisProdAddrDistribution = gcdAddrDistribution genCoreData
 -- | Bootstrap era stakeholders for production mode.
 genesisProdBootStakeholders :: GenesisWStakeholders
 genesisProdBootStakeholders = gcdBootstrapStakeholders genCoreData
+
+-- | 'GenesisDelegation' for production mode.
+genesisProdDelegation :: GenesisDelegation
+genesisProdDelegation = gcdHeavyDelegation genCoreData
 
 ----------------------------------------------------------------------------
 -- Utils

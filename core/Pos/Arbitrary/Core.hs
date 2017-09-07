@@ -44,6 +44,7 @@ import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
 import qualified Pos.Core.Types                    as Types
+import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
@@ -487,6 +488,19 @@ instance Arbitrary Fee.TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
+instance Arbitrary G.GenesisDelegation where
+    arbitrary =
+        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
+            secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
+                                                        -- because 'nonrepeating' fails when
+                                                        -- we want too many items, because
+                                                        -- life is hard
+            return $
+                case secretKeys of
+                    [] -> []
+                    (delegate:issuers) ->
+                        issuers <&> \sk -> createPsk sk (toPublic delegate) 0
+
 instance Arbitrary G.GenesisCoreData where
     arbitrary = do
         -- This number'll be the length of every address list in the first argument of
@@ -507,38 +521,40 @@ instance Arbitrary G.GenesisCoreData where
             nonrepeating (outerLen * innerLen)
         let listOfAddrList = chop innerLen allAddrs
         -- This may seem like boilerplate but it's necessary to pass the first check in
-        -- 'mkGenesisCoreData'. Certain parameters in the generated 'StakeDistribution'
+        -- 'mkGenesisCoreData'. Certain parameters in the generated 'BalanceDistribution'
         -- must be equal to the length of the first element of the tuple in
         -- 'AddrDistribution'
             wordILen = fromIntegral innerLen
             distributionGen = oneof
-                [ G.FlatStakes wordILen <$> arbitrary
+                [ G.FlatBalances wordILen <$> arbitrary
                 , do a <- choose (0, wordILen)
-                     G.RichPoorStakes a
+                     G.RichPoorBalances a
                          <$> arbitrary
                          <*> pure (wordILen - a)
                          <*> arbitrary
-                , pure $ G.safeExpStakes wordILen
-                , G.CustomStakes <$> vector innerLen
+                , pure $ G.safeExpBalances wordILen
+                , G.CustomBalances <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
         hashmapOfHolders <- arbitrary :: Gen (Map Types.StakeholderId Word16)
+        delegation <- arbitrary
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
             G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
                                 hashmapOfHolders
+                                delegation
 
-instance Arbitrary G.StakeDistribution where
+instance Arbitrary G.BalanceDistribution where
     arbitrary = oneof
       [ do stakeholders <- choose (1, 10000)
            coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-           return (G.FlatStakes (fromIntegral stakeholders) coins)
+           return (G.FlatBalances (fromIntegral stakeholders) coins)
       , do sdRichmen <- choose (0, 20)
-           sdRichStake <- Types.mkCoin <$> choose (100000, 5000000)
+           sdRichBalance <- Types.mkCoin <$> choose (100000, 5000000)
            sdPoor <- choose (0, 20)
-           sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
-           return G.RichPoorStakes{..}
-      , G.safeExpStakes <$> choose (0::Integer, 20)
-      , G.CustomStakes <$> arbitrary
+           sdPoorBalance <- Types.mkCoin <$> choose (1000, 50000)
+           return G.RichPoorBalances{..}
+      , G.safeExpBalances <$> choose (0::Integer, 20)
+      , G.CustomBalances <$> arbitrary
       ]
     shrink = genericShrink
 

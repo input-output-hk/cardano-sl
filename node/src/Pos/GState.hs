@@ -3,7 +3,7 @@
 -- (genesis) state.
 
 module Pos.GState
-       ( module Pos.DB.GState.Balances
+       ( module Pos.DB.GState.Stakes
        , module Pos.DB.GState.Common
        , module Pos.Delegation.DB
        , module Pos.GState.BlockExtra
@@ -13,7 +13,7 @@ module Pos.GState
        , module Pos.Update.DB
        ) where
 
-import           Pos.DB.GState.Balances
+import           Pos.DB.GState.Stakes
 import           Pos.DB.GState.Common
 import           Pos.Delegation.DB
 import           Pos.GState.BlockExtra

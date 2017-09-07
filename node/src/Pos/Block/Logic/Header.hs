@@ -258,16 +258,15 @@ getHeadersFromManyTo checkpoints startM = do
     else do
         logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
         inMainCheckpoints <-
-            noteM "Filtered set of valid checkpoints is empty" $ nonEmpty <$>
-            filterM (GS.isBlockInMainChain . headerHash)
-                    (toList validCheckpoints)
+            noteM "Filtered set of valid checkpoints is empty" $
+            nonEmpty <$> filterM GS.isBlockInMainChain (toList validCheckpoints)
         logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
         let lowestCheckpoint =
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        res <- noteM "loadHeadersUpWhile returned empty list" $
-            pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
+        res <- note "loadHeadersUpWhile returned empty list" $
+            _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
         logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
         pure res
   where

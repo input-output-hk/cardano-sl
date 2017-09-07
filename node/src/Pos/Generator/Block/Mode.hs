@@ -21,6 +21,7 @@ module Pos.Generator.Block.Mode
 import           Universum
 
 import           Control.Lens.TH             (makeLensesWith)
+import qualified Control.Monad.Catch
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random               as Rand
@@ -31,7 +32,7 @@ import           System.Wlog                 (WithLogger, logWarning)
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
                                               onRollbackBlocksStub)
 import           Pos.Block.Core              (Block, BlockHeader)
-import           Pos.Block.Slog              (HasSlogContext (..))
+import           Pos.Block.Slog              (HasSlogGState (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
 import           Pos.Core                    (Address, GenesisWStakeholders (..),
@@ -61,8 +62,7 @@ import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
-                                              TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
-                                              mkTxpLocalData)
+                                              TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, newInitFuture,
                                               postfixLFields)
@@ -133,7 +133,7 @@ data BlockGenContext = BlockGenContext
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
     , bgcGenStakeholders   :: !GenesisWStakeholders
-    , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
     , bgcSlotId            :: !(Maybe SlotId)
@@ -193,7 +193,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         putInitSlot (epochOrSlotToSlot tipEOS)
         bgcSscState <- mkSscState @SscGodTossing
         bgcUpdateContext <- mkUpdateContext
-        bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
+        bgcTxpMem <- mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
 
@@ -285,10 +285,10 @@ instance HasLens LrcContext BlockGenContext LrcContext where
 instance HasPrimaryKey BlockGenContext where
     primaryKey = bgcPrimaryKey_L
 
-instance HasSlogContext BlockGenContext where
-    slogContextL = GS.gStateContext . GS.gscSlogContext
+instance HasSlogGState BlockGenContext where
+    slogGState = GS.gStateContext . GS.gscSlogGState
 
-instance HasLens TxpHolderTag BlockGenContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
+instance HasLens TxpHolderTag BlockGenContext (GenericTxpLocalData TxpExtra_TMP) where
     lensOf = bgcTxpMem_L
 
 instance HasLens SscMemTag BlockGenContext (SscState SscGodTossing) where

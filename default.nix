@@ -3,7 +3,7 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, dconfig ? "testnet_staging"
+, dconfig ? "testnet_staging_full"
 , gitrev ? "unknown"
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
 
@@ -17,9 +17,6 @@ let
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
       cardano-sl = overrideCabal super.cardano-sl (drv: {
-        patchPhase = ''
-          export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
-        '';
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = [
           "-f-asserts"
@@ -48,6 +45,12 @@ let
           "--ghc-options=-DGITREV=${gitrev}"
         ];
       });
+      cardano-sl-update = overrideCabal super.cardano-sl-update (drv: {
+        patchPhase = ''
+          export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos64" else "linux64"}
+        '';
+      });
+
       cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
@@ -57,6 +60,13 @@ let
       cardano-sl-static = justStaticExecutables self.cardano-sl;
       cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
+
+      # Undo configuration-nix.nix change to hardcode security binary on darwin
+      # This is needed for macOS binary not to fail during update system (using http-client-tls)
+      # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
+      x509-system = overrideDerivation super.x509-system (drv: {
+        postPatch = ":";
+      });
 
       # Gold linker fixes
       cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;

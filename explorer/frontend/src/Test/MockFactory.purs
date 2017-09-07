@@ -20,7 +20,7 @@ import Pos.Explorer.Web.Lenses.ClientTypes (_CAddressSummary, _CBlockEntry, _CTx
 mkEmptyCTxEntry :: CTxEntry
 mkEmptyCTxEntry = CTxEntry
     { cteId: mkCTxId "--"
-    , cteTimeIssued: mkTime 0.0
+    , cteTimeIssued: Just $ mkTime 0.0
     , cteAmount: mkCoin "0"
     }
 
@@ -32,7 +32,7 @@ setIdOfTx txId tx =
 -- | Update time of a transaction
 setTimeOfTx :: NominalDiffTime -> CTxEntry -> CTxEntry
 setTimeOfTx time tx =
-    set (_CTxEntry <<< cteTimeIssued) time tx
+    set (_CTxEntry <<< cteTimeIssued) (Just time) tx
 
 mkEmptyCAddressSummary :: CAddressSummary
 mkEmptyCAddressSummary = CAddressSummary
@@ -85,7 +85,7 @@ mkCTxBriefs indexes =
 mkCTxBrief :: Int -> CTxBrief
 mkCTxBrief index = CTxBrief
     { ctbId: mkCTxId $ show index
-    , ctbTimeIssued: mkTime 0.0
+    , ctbTimeIssued: Just $ mkTime 0.0
     , ctbInputs: mkCtbInputs [index]
     , ctbOutputs: mkCtbOutputs ((index + 1)..(index + 2))
     , ctbInputSum: mkCoin "0"

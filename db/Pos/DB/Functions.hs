@@ -120,9 +120,9 @@ processIterEntry (key,val)
     | BS.isPrefixOf prefix key = do
         k <- maybeThrow (DBMalformed $ fmt key "key invalid")
                         (dbDecodeMaybeWP @i key)
-        (_, v) <- maybeThrow (DBMalformed $ fmt key "value invalid")
+        (dbVer, v) <- maybeThrow (DBMalformed $ fmt key "value invalid")
                              (dbDecodeMaybe @(Word8, IterValue i) val)
-        pure $ Just (k, v)
+        checkDBVersion dbVer (k ,v)
     | otherwise = pure Nothing
   where
     prefix = iterKeyPrefix @i
@@ -131,3 +131,8 @@ processIterEntry (key,val)
           ("Iterator entry with keyPrefix = "%shown%" is malformed: \
            \key = "%shown%", err: " %string)
            prefix k err
+
+    checkDBVersion :: Word8 -> IterType i -> m (Maybe (IterType i))
+    checkDBVersion dbV it
+        | dbV == dbSerializeVersion = pure (Just it)
+        | otherwise = throwM $ DBUnexpectedVersionTag dbSerializeVersion dbV

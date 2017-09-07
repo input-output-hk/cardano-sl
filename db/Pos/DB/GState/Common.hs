@@ -39,7 +39,7 @@ import           Pos.DB.Class        (DBTag (GStateDB),
                                       MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
                                       MonadDB (dbDelete), MonadDBRead)
 import           Pos.DB.Error        (DBError (DBMalformed))
-import           Pos.DB.Functions    (dbGetBi, dbPutBi, dbSerialize)
+import           Pos.DB.Functions    (dbGetBi, dbPutBi, dbSerializeValue)
 import           Pos.Util.Util       (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -114,9 +114,9 @@ instance Buildable CommonOp where
 
 instance RocksBatchOp CommonOp where
     toBatchOp (PutTip h) =
-        [Rocks.Put tipKey (dbSerialize h)]
+        [Rocks.Put tipKey (dbSerializeValue h)]
     toBatchOp (PutMaxSeenDifficulty h) =
-        [Rocks.Put maxSeenDifficultyKey (dbSerialize h)]
+        [Rocks.Put maxSeenDifficultyKey (dbSerializeValue h)]
 
 ----------------------------------------------------------------------------
 -- Initialization

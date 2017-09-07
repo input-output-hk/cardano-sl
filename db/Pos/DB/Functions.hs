@@ -10,11 +10,10 @@ module Pos.DB.Functions
        , dbGetBiNoVersion
        , dbPutBi
        , dbPutBiNoVersion
-       , dbSerialize
+       , dbSerializeValue
 
        -- * Decoding/encoding primitives and iteration related
        , dbDecode
-       , dbDecodeMaybe
        , encodeWithKeyPrefix
        , processIterEntry
        ) where
@@ -30,7 +29,6 @@ import           Pos.DB.Class       (DBIteratorClass (..), DBTag, IterType, Mona
                                      MonadDBRead (..))
 import           Pos.DB.Error       (DBError (..))
 import           Pos.Util.Util      (maybeThrow)
-
 
 -- | Read serialized value associated with given key from pure DB.
 dbGetBiNoVersion
@@ -63,11 +61,11 @@ dbGetBi tag key = do
 
 -- | Write serializable value to DB for given key. Uses simple versioning.
 dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
-dbPutBi tag k v = dbPut tag k (dbSerialize v)
+dbPutBi tag k v = dbPut tag k (dbSerializeValue v)
 
 -- | Version of 'serialize'' function that includes version when serializing a value.
-dbSerialize :: Bi a => a -> ByteString
-dbSerialize = serialize' . (dbSerializeVersion,)
+dbSerializeValue :: Bi a => a -> ByteString
+dbSerializeValue = serialize' . (dbSerializeVersion,)
 
 -- This type describes what we want to decode and contains auxiliary
 -- data.
@@ -93,11 +91,8 @@ dbDecode =
         builder%
         ", err: "%stext
 
-dbDecodeMaybe :: forall v . (Bi v) => ByteString -> Maybe v
-dbDecodeMaybe bs =
-    case rightToMaybe . decodeFull @(Word8, v) $ bs of
-        Nothing -> Nothing
-        Just (dbVer, val) -> if dbVer == dbSerializeVersion then return val else Nothing
+dbDecodeMaybe :: (Bi v) => ByteString -> Maybe v
+dbDecodeMaybe = rightToMaybe . decodeFull
 
 -- Parse maybe
 dbDecodeMaybeWP
@@ -113,7 +108,7 @@ dbDecodeMaybeWP s
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i <>) . dbSerialize
+encodeWithKeyPrefix = (iterKeyPrefix @i <>) . serialize'
 
 -- | Given a @(k,v)@ as pair of strings, try to decode both.
 processIterEntry ::
@@ -125,8 +120,8 @@ processIterEntry (key,val)
     | BS.isPrefixOf prefix key = do
         k <- maybeThrow (DBMalformed $ fmt key "key invalid")
                         (dbDecodeMaybeWP @i key)
-        v <- maybeThrow (DBMalformed $ fmt key "value invalid")
-                        (dbDecodeMaybe val)
+        (_, v) <- maybeThrow (DBMalformed $ fmt key "value invalid")
+                             (dbDecodeMaybe @(Word8, IterValue i) val)
         pure $ Just (k, v)
     | otherwise = pure Nothing
   where

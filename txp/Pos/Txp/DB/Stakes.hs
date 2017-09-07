@@ -39,7 +39,7 @@ import           Pos.Core                     (Coin, GenesisWStakeholders, Stake
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),
-                                               dbIterSource, dbSerialize)
+                                               dbIterSource, dbSerializeValue)
 import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.DB.GState.Stakes         (StakeIter, ftsStakeKey, ftsSumKey,
                                                getRealTotalStake)
@@ -61,10 +61,10 @@ instance Buildable StakesOp where
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
 instance RocksBatchOp StakesOp where
-    toBatchOp (PutTotalStake c)  = [Rocks.Put ftsSumKey (dbSerialize c)]
+    toBatchOp (PutTotalStake c)  = [Rocks.Put ftsSumKey (dbSerializeValue c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
-        else [Rocks.Put (ftsStakeKey ad) (dbSerialize c)]
+        else [Rocks.Put (ftsStakeKey ad) (dbSerializeValue c)]
 
 ----------------------------------------------------------------------------
 -- Initialization

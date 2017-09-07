@@ -59,7 +59,7 @@ import           Pos.Core.Constants           (genesisBlockVersionData,
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
                                                MonadDB, MonadDBRead (..),
-                                               RocksBatchOp (..), dbSerialize,
+                                               RocksBatchOp (..), dbSerializeValue,
                                                encodeWithKeyPrefix)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
@@ -146,30 +146,30 @@ data UpdateOp
 
 instance HasCoreConstants => RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
-        [ Rocks.Put (proposalKey upId) (dbSerialize ps)]
+        [ Rocks.Put (proposalKey upId) (dbSerializeValue ps)]
       where
         up = psProposal ps
         upId = hash up
     toBatchOp (DeleteProposal upId) =
         [Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =
-        [Rocks.Put (confirmedVersionKey $ svAppName sv) (dbSerialize $ svNumber sv)]
+        [Rocks.Put (confirmedVersionKey $ svAppName sv) (dbSerializeValue $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
         [Rocks.Del (confirmedVersionKey app)]
     toBatchOp (AddConfirmedProposal cps) =
-        [Rocks.Put (confirmedProposalKey cps) (dbSerialize cps)]
+        [Rocks.Put (confirmedProposalKey cps) (dbSerializeValue cps)]
     toBatchOp (DelConfirmedProposal sv) =
         [Rocks.Del (confirmedProposalKeySV sv)]
     toBatchOp (SetAdopted bv bvd) =
-        [Rocks.Put adoptedBVKey (dbSerialize (bv, bvd))]
+        [Rocks.Put adoptedBVKey (dbSerializeValue (bv, bvd))]
     toBatchOp (SetBVState bv st) =
-        [Rocks.Put (bvStateKey bv) (dbSerialize st)]
+        [Rocks.Put (bvStateKey bv) (dbSerializeValue st)]
     toBatchOp (DelBV bv) =
         [Rocks.Del (bvStateKey bv)]
     toBatchOp (PutSlottingData sd) =
-        [Rocks.Put slottingDataKey (dbSerialize sd)]
+        [Rocks.Put slottingDataKey (dbSerializeValue sd)]
     toBatchOp (PutEpochProposers proposers) =
-        [Rocks.Put epochProposersKey (dbSerialize proposers)]
+        [Rocks.Put epochProposersKey (dbSerializeValue proposers)]
 
 ----------------------------------------------------------------------------
 -- Initialization

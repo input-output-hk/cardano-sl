@@ -32,7 +32,7 @@ import           Pos.Core             (FlatSlotId, HasCoreConstants, HasHeaderHa
                                        HeaderHash, headerHash, slotIdF, unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
-                                       RocksBatchOp (..), dbSerialize)
+                                       RocksBatchOp (..), dbSerializeValue)
 import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
@@ -98,15 +98,15 @@ instance HasCoreConstants => Buildable BlockExtraOp where
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
-        [Rocks.Put (forwardLinkKey from) (dbSerialize to)]
+        [Rocks.Put (forwardLinkKey from) (dbSerializeValue to)]
     toBatchOp (RemoveForwardLink from) =
         [Rocks.Del $ forwardLinkKey from]
     toBatchOp (SetInMainChain False h) =
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
-        [Rocks.Put (mainChainKey h) (dbSerialize ()) ]
+        [Rocks.Put (mainChainKey h) (dbSerializeValue ()) ]
     toBatchOp (SetLastSlots slots) =
-        [Rocks.Put lastSlotsKey (dbSerialize slots)]
+        [Rocks.Put lastSlotsKey (dbSerializeValue slots)]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links

@@ -50,7 +50,7 @@ import           System.FilePath              ((</>))
 import           Pos.Binary.Class             (Bi)
 import           Pos.DB.BatchOp               (rocksWriteBatch)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType)
-import           Pos.DB.Functions             (dbSerialize, processIterEntry)
+import           Pos.DB.Functions             (dbSerializeValue, processIterEntry)
 import           Pos.DB.Rocks.Types           (DB (..), MonadRealDB, NodeDBs (..),
                                                getDBByTag)
 import qualified Pos.Util.Concurrent.RWLock   as RWL
@@ -145,7 +145,7 @@ rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 
 -- | Write serializable value to RocksDb for given key.
 rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (dbSerialize v)
+rocksPutBi k v = rocksPutBytes k (dbSerializeValue v)
 
 ----------------------------------------------------------------------------
 -- Snapshot

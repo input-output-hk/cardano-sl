@@ -58,7 +58,7 @@ import           Pos.Binary.Class             (serialize')
 import           Pos.Core                     (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Core.Genesis             (GenesisDelegation (..))
 import           Pos.Crypto                   (ProxySecretKey (..), PublicKey, verifyPsk)
-import           Pos.DB                       (RocksBatchOp (..), dbSerialize,
+import           Pos.DB                       (RocksBatchOp (..), dbSerializeValue,
                                                encodeWithKeyPrefix)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), MonadDB,
                                                MonadDBRead (..))
@@ -157,18 +157,18 @@ instance RocksBatchOp DelegationOp where
         | not (verifyPsk psk) =
           error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
-          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (dbSerialize psk)]
+          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (dbSerializeValue psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
         [Rocks.Del $ pskKey issuerPk]
     toBatchOp (AddTransitiveDlg iSId dSId) =
-        [Rocks.Put (transDlgKey iSId) (dbSerialize dSId)]
+        [Rocks.Put (transDlgKey iSId) (dbSerializeValue dSId)]
     toBatchOp (DelTransitiveDlg sId) =
         [Rocks.Del $ transDlgKey sId]
     toBatchOp (SetTransitiveDlgRev dSId iSIds)
         | HS.null iSIds = [Rocks.Del $ transRevDlgKey dSId]
-        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (dbSerialize iSIds)]
+        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (dbSerializeValue iSIds)]
     toBatchOp (AddPostedThisEpoch sId) =
-        [Rocks.Put (postedThisEpochKey sId) (dbSerialize ())]
+        [Rocks.Put (postedThisEpochKey sId) (dbSerializeValue ())]
     toBatchOp (DelPostedThisEpoch sId) =
         [Rocks.Del (postedThisEpochKey sId)]
 

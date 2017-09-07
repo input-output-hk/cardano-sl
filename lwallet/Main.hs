@@ -64,11 +64,11 @@ import           Pos.Crypto                       (Hash, SecretKey, SignTag (Sig
                                                    safeSign, safeToPublic, toPublic,
                                                    unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
-import           Pos.Genesis                      (StakeDistribution (..),
-                                                   devGenesisContext, devStakesDistr,
+import           Pos.Genesis                      (BalanceDistribution (..),
+                                                   balanceDistribution, devBalancesDistr,
+                                                   devGenesisContext,
                                                    genesisContextProduction,
-                                                   genesisDevSecretKeys, gtcUtxo,
-                                                   stakeDistribution)
+                                                   genesisDevSecretKeys, gtcUtxo)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    bracketTransport, loggerBracket)
 import           Pos.Network.Types                (MsgType (..), Origin (..))
@@ -102,9 +102,9 @@ import           Pos.Communication.Types.Protocol (Conversation (..), SendAction
 import           System.Wlog.CanLog
 
 data CmdCtx = CmdCtx
-    { skeys             :: [SecretKey]
-    , na                :: [NodeId]
-    , genesisStakeDistr :: StakeDistribution
+    { skeys               :: [SecretKey]
+    , na                  :: [NodeId]
+    , genesisBalanceDistr :: BalanceDistribution
     }
 
 helpMsg :: Text
@@ -183,7 +183,7 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
 runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) CmdCtx{..} = do
     let nNeighbours = length na
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
-        keysToSend = zip skeys (stakeDistribution genesisStakeDistr)
+        keysToSend = zip skeys (balanceDistribution genesisBalanceDistr)
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
@@ -442,13 +442,13 @@ main = giveStaticConsts $ do
     print logParams
 
     let sysStart = CLI.sysStart woCommonArgs
-    let devStakeDistr =
-            devStakesDistr
+    let devBalanceDistr =
+            devBalancesDistr
                 (CLI.flatDistr woCommonArgs)
                 (CLI.richPoorDistr woCommonArgs)
                 (CLI.expDistr woCommonArgs)
     let wpGenesisContext
-            | isDevelopment = devGenesisContext devStakeDistr
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
     let params =
             WalletParams
@@ -478,7 +478,7 @@ main = giveStaticConsts $ do
             cmdCtx = CmdCtx
                       { skeys = if isDevelopment then genesisDevSecretKeys else []
                       , na = woPeers
-                      , genesisStakeDistr = devStakeDistr
+                      , genesisBalanceDistr = devBalanceDistr
                       }
 
             plugins :: HasCoreConstants => ([WorkerSpec LightWalletMode], OutSpecs)
@@ -488,7 +488,7 @@ main = giveStaticConsts $ do
 
         logInfo "Using MPC coin tossing"
         liftIO $ hFlush stdout
-        runWalletStaticPeers transport' (S.fromList allPeers) params plugins
+        runWalletStaticPeers woNodeDbPath transport' (S.fromList allPeers) params plugins
 
 addLogging :: forall m. WithLogger m => SendActions m -> SendActions m
 addLogging SendActions{..} = SendActions{

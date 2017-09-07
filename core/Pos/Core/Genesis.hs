@@ -1,4 +1,3 @@
-
 module Pos.Core.Genesis
        (
        -- * Constants/devmode
@@ -32,13 +31,12 @@ import           Pos.Binary.Crypto       ()
 import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
-import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
-                                          GenesisDelegation (..),
-                                          GenesisWStakeholders (..),
-                                          StakeDistribution (..), bootDustThreshold,
-                                          getTotalStake, mkGenesisCoreData,
+import           Pos.Core.Genesis.Types  (AddrDistribution, BalanceDistribution (..),
+                                          GenesisCoreData (..), GenesisDelegation (..),
+                                          GenesisWStakeholders (..), bootDustThreshold,
+                                          getTotalBalance, mkGenesisCoreData,
                                           mkGenesisDelegation, noGenesisDelegation,
-                                          safeExpStakes)
+                                          safeExpBalances)
 import           Pos.Core.Types          (Address, mkCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
@@ -66,9 +64,9 @@ genesisDevHdwSecretKeys =
     map generateHdwGenesisSecretKey [0 .. genesisKeysN - 1]
 
 -- | Default flat stakes distributed among 'genesisKeysN' (from constants).
-genesisDevFlatDistr :: StakeDistribution
+genesisDevFlatDistr :: BalanceDistribution
 genesisDevFlatDistr =
-    FlatStakes genesisKeysN $
+    FlatBalances genesisKeysN $
     mkCoin 10000 `unsafeMulCoin` (genesisKeysN :: Int)
 
 ----------------------------------------------------------------------------

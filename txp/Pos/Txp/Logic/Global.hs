@@ -27,8 +27,8 @@ import qualified Pos.Txp.DB              as DB
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
-import           Pos.Txp.Toil            (BalancesView (..), DBToil,
-                                          GenericToilModifier (..), GlobalApplyToilMode,
+import           Pos.Txp.Toil            (DBToil, GenericToilModifier (..),
+                                          GlobalApplyToilMode, StakesView (..),
                                           ToilModifier, ToilT, applyToil, rollbackToil,
                                           runDBToil, runToilTGlobal, verifyToil)
 import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
@@ -103,21 +103,21 @@ genericToilModifierToBatch :: (e -> SomeBatchOp)
                            -> GenericToilModifier e
                            -> SomeBatchOp
 genericToilModifierToBatch convertExtra modifier =
-    SomeBatchOp (extraOp : [SomeBatchOp utxoOps, SomeBatchOp balancesOps])
+    SomeBatchOp (extraOp : [SomeBatchOp utxoOps, SomeBatchOp stakesOps])
   where
     ToilModifier
         { _tmUtxo = um
-        , _tmBalances = (BalancesView (HM.toList -> stakes) total)
+        , _tmStakes = (StakesView (HM.toList -> stakes) total)
         , _tmExtra = extra
         } = modifier
     utxoOps =
         map DB.DelTxIn (MM.deletions um) ++
         map (uncurry DB.AddTxOut) (MM.insertions um)
-    balancesOpsAlmost = map (uncurry DB.PutFtsStake) stakes
-    balancesOps =
+    stakesOpsAlmost = map (uncurry DB.PutFtsStake) stakes
+    stakesOps =
         case total of
-            Nothing -> balancesOpsAlmost
-            Just x  -> DB.PutFtsSum x : balancesOpsAlmost
+            Nothing -> stakesOpsAlmost
+            Just x  -> DB.PutTotalStake x : stakesOpsAlmost
     extraOp = convertExtra extra
 
 -- | Convert simple 'ToilModifier' to batch of database operations.

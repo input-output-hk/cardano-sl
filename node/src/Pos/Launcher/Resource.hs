@@ -277,11 +277,11 @@ allocateNodeContext ancd = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    let ctx shutdownQueue =
+    let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
-            , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
+            , ncShutdownContext = ShutdownContext ncShutdownFlag
             , ncNodeParams = np
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
@@ -291,8 +291,7 @@ allocateNodeContext ancd = do
             , ncNetworkConfig = networkConfig
             , ..
             }
-    -- TODO bounded queue not necessary.
-    ctx <$> liftIO (newTBQueueIO maxBound)
+    return ctx
 
 releaseNodeContext :: forall ssc m . MonadIO m => NodeContext ssc -> m ()
 releaseNodeContext _ = return ()

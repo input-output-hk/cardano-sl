@@ -1,5 +1,5 @@
 name:                cardano-sl-db
-version:             0.5.1
+version:             0.6.0
 synopsis:            Cardano SL - basic DB interfaces
 description:         Cardano SL - basic DB interfaces
 license:             MIT
@@ -18,7 +18,7 @@ library
                        Pos.DB.Error
                        Pos.DB.Functions
                        Pos.DB.GState.Common
-                       Pos.DB.GState.Balances
+                       Pos.DB.GState.Stakes
                        Pos.DB.Misc.Common
                        Pos.DB.Pure
                        Pos.DB.Sum

@@ -29,13 +29,22 @@ import           Pos.WorkMode.Class         (WorkMode)
 
 -- | Update System related workers.
 usWorkers :: WorkMode ssc ctx m => ([WorkerSpec m], OutSpecs)
-usWorkers =
-    first pure $
-    localOnNewSlotWorker True $ \s ->
-        recoveryCommGuard $ do
-            logDebug "Updating slot for US..."
-            processNewSlot s
-            checkForUpdate
+usWorkers = (map fst [processNewSlotWorker, checkForUpdateWorker], mempty)
+  where
+    -- These are two separate workers. We want them to run in parallel
+    -- and not affect each other.
+    --
+    -- TODO [CSL-1606] If for some reason this action doesn't finish
+    -- before the next slot starts, we should probably cancel this
+    -- action. It can be achieved using timeout or by explicitly
+    -- cancelling it when never slot begins.
+    processNewSlotWorker =
+        localOnNewSlotWorker True $ \s ->
+            recoveryCommGuard $ do
+                logDebug "Updating slot for US..."
+                processNewSlot s
+    checkForUpdateWorker =
+        localOnNewSlotWorker True $ \_ -> recoveryCommGuard checkForUpdate
 
 checkForUpdate ::
        forall ssc ctx m. WorkMode ssc ctx m

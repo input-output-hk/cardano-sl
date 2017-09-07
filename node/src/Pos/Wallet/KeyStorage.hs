@@ -22,7 +22,7 @@ import           Universum
 
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, SecretKey, hash,
-                                         safeKeyGen)
+                                         runSecureRandom, safeKeyGen)
 import           Pos.Util               ()
 import           Pos.Util.UserSecret    (HasUserSecret (..), UserSecret, peekUserSecret,
                                          usKeys, usPrimKey, writeUserSecret)
@@ -58,7 +58,7 @@ deleteSecretKey (fromIntegral -> i) =
 -- | Helper for generating a new secret key
 newSecretKey :: MonadKeys ctx m => PassPhrase -> m EncryptedSecretKey
 newSecretKey pp = do
-    (_, sk) <- safeKeyGen pp
+    (_, sk) <- liftIO $ runSecureRandom $ safeKeyGen pp
     addSecretKey sk
     return sk
 

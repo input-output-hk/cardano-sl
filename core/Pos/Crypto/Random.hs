@@ -4,8 +4,14 @@ module Pos.Crypto.Random
        ( SecureRandom(..)
        , secureRandomBS
 
+       , GlobalRandom(..)
+       , GlobalRandomGen(..)
+       , setGlobalRandom
+       , setGlobalRandomSeed
+
        , deterministic
        , randomNumber
+       , randomNumberInRange
        ) where
 
 import           Crypto.Number.Basic     (numBytes)
@@ -15,6 +21,7 @@ import           Crypto.Random           (ChaChaDRG, MonadPseudoRandom, MonadRan
                                           drgNewSeed, getRandomBytes, seedFromInteger,
                                           withDRG)
 import qualified Data.ByteArray          as ByteArray (convert)
+import           System.IO.Unsafe        (unsafePerformIO)
 import           Universum
 
 -- | Generate a cryptographically random 'ByteString' of specific length.
@@ -28,6 +35,35 @@ newtype SecureRandom a = SecureRandom {runSecureRandom :: IO a}
 
 instance MonadRandom SecureRandom where
     getRandomBytes n = SecureRandom (ByteArray.convert <$> secureRandomBS n)
+
+-- | A random generator with global state. Unlike 'SecureRandom', you can
+-- set the seed that will be used for 'GlobalRandom', or let it use OpenSSL.
+newtype GlobalRandom a = GlobalRandom {runGlobalRandom :: IO a}
+    deriving (Functor, Applicative, Monad)
+
+data GlobalRandomGen
+    = OpenSSLGen              -- ^ Use OpenSSL for randomness generation
+    | ChaChaGen ChaChaDRG     -- ^ Use ChaCha
+
+globalRandomState :: IORef GlobalRandomGen
+globalRandomState = unsafePerformIO $ newIORef OpenSSLGen
+{-# NOINLINE globalRandomState #-}
+
+setGlobalRandom :: GlobalRandomGen -> IO ()
+setGlobalRandom = writeIORef globalRandomState
+
+setGlobalRandomSeed :: Integer -> IO ()
+setGlobalRandomSeed =
+    setGlobalRandom . ChaChaGen . drgNewSeed . seedFromInteger
+
+instance MonadRandom GlobalRandom where
+    getRandomBytes n = GlobalRandom $
+        join $ atomicModifyIORef' globalRandomState $ \case
+            OpenSSLGen ->
+                (OpenSSLGen, ByteArray.convert <$> secureRandomBS n)
+            ChaChaGen gen ->
+                let (a, gen') = withDRG gen (getRandomBytes n)
+                in (ChaChaGen gen', pure a)
 
 -- | You can use 'deterministic' on any 'MonadRandom' computation to make it
 -- use a seed (hopefully produced by a Really Secure™ randomness source). The
@@ -55,3 +91,8 @@ randomNumber n
     gen = do
         x <- os2ip @ByteString <$> getRandomBytes size
         if x < rangeMod then gen else return (x `rem` n)
+
+randomNumberInRange :: MonadRandom m => Integer -> Integer -> m Integer
+randomNumberInRange a b
+    | a > b     = error "randomNumberInRange: a > b"
+    | otherwise = (a +) <$> randomNumber (b - a + 1)

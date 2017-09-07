@@ -16,7 +16,7 @@ import           Control.Lens          (views)
 import           Data.Time.Units       (Second)
 import           Ether.Internal        (HasLens (..))
 import           Formatting            (build, int, sformat, shown, (%))
-import           Mockable              (fork)
+import           Mockable              (mapConcurrently, race)
 import           Serokell.Util.Text    (listJson)
 import           System.Exit           (ExitCode (..))
 import           System.Wlog           (WithLogger, getLoggerName, logError, logInfo,
@@ -37,7 +37,7 @@ import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
 import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
 import           Pos.Reporting         (reportError)
-import           Pos.Shutdown          (waitForWorkers)
+import           Pos.Shutdown          (waitForShutdown)
 import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.StateLock         (StateLock (..))
@@ -111,12 +111,15 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
-    mapM_ (fork . unpackPlugin) workers'
-    mapM_ (fork . unpackPlugin) plugins'
 
-    -- Instead of sleeping forever, we wait until graceful shutdown
-    -- TBD why don't we also wait for the plugins?
-    waitForWorkers (length workers')
+    -- Either all the plugins are cancelled in the case one of them
+    -- throws an error, or otherwise when the shutdown signal comes,
+    -- they are killed automatically.
+    void
+      (race
+           (void (mapConcurrently (unpackPlugin) $ workers' ++ plugins'))
+           waitForShutdown)
+
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
@@ -148,8 +151,11 @@ runNode nr (plugins, plOuts) =
 nodeStartMsg :: WithLogger m => m ()
 nodeStartMsg = logInfo msg
   where
-    msg = sformat ("Application: " %build% ", last known block version " %build)
-                   Const.curSoftwareVersion Const.lastKnownBlockVersion
+    msg = sformat ("Application: " %build% ", last known block version "
+                    %build% ", systemTag: " %build)
+                   Const.curSoftwareVersion
+                   Const.lastKnownBlockVersion
+                   Const.ourSystemTag
 
 ----------------------------------------------------------------------------
 -- Details

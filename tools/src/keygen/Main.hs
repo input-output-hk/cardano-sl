@@ -1,4 +1,3 @@
-
 module Main
        ( main
        ) where
@@ -25,10 +24,10 @@ import           Pos.Binary            (asBinary, decodeFull, serialize')
 import           Pos.Core              (StakeholderId, addressDetailedF, addressHash,
                                         makePubKeyAddressBoot, makeRedeemAddress, mkCoin)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, redeemPkB64F,
-                                        toVssPublicKey)
+                                        setGlobalRandomSeed, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
-import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
-                                        GenesisGtData (..), StakeDistribution (..),
+import           Pos.Genesis           (AddrDistribution, BalanceDistribution (..),
+                                        GenesisCoreData (..), GenesisGtData (..),
                                         genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                         mkGenesisCoreData, noGenesisDelegation)
 import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
@@ -38,10 +37,11 @@ import           Pos.Wallet.Web.Secret (wusRootKey)
 
 import           Avvm                  (aeCoin, applyBlacklisted, avvmAddrDistribution,
                                         utxo)
-import           KeygenOptions         (AvvmStakeOptions (..), DumpAvvmSeedsOptions (..),
-                                        FakeAvvmOptions (..), GenesisGenOptions (..),
-                                        KeygenCommand (..), KeygenOptions (..),
-                                        TestStakeOptions (..), getKeygenOptions)
+import           KeygenOptions         (AvvmBalanceOptions (..),
+                                        DumpAvvmSeedsOptions (..), FakeAvvmOptions (..),
+                                        GenesisGenOptions (..), KeygenCommand (..),
+                                        KeygenOptions (..), TestBalanceOptions (..),
+                                        getKeygenOptions)
 import           Testnet               (genTestnetDistribution, generateFakeAvvm,
                                         generateKeyfile, rearrangeKeyfile)
 
@@ -56,7 +56,7 @@ applyPattern fp a = replace "{}" (show a) fp
     replace x b = toString . (T.replace `on` toText) x b . toText
 
 ----------------------------------------------------------------------------
--- Stake distributions generation
+-- Balance distributions generation
 ----------------------------------------------------------------------------
 
 -- Generates keys and vss certs for testnet data. Returns:
@@ -66,9 +66,9 @@ applyPattern fp a = replace "{}" (show a) fp
 getTestnetData ::
        (MonadIO m, MonadFail m, WithLogger m)
     => FilePath
-    -> TestStakeOptions
+    -> TestBalanceOptions
     -> m ([AddrDistribution], Map StakeholderId Word16, GenesisGtData)
-getTestnetData dir tso@TestStakeOptions{..} = do
+getTestnetData dir tso@TestBalanceOptions{..} = do
 
     let keysDir = dir </> "keys-testnet"
     let richDir = keysDir </> "rich"
@@ -93,9 +93,9 @@ getTestnetData dir tso@TestStakeOptions{..} = do
 
     let distr = genTestnetDistribution tso
         richmenStakeholders = case distr of
-            RichPoorStakes {..} ->
+            RichPoorBalances {..} ->
                 Map.fromList $ map ((,1) . addressHash . fst) genesisListRich
-            _ -> error "cardano-keygen: impossible type of generated testnet stake"
+            _ -> error "cardano-keygen: impossible type of generated testnet balance"
         genesisAddrs = map (makePubKeyAddressBoot . fst) genesisList
                     <> map (view _3) poorsList
         genesisAddrDistr = [(genesisAddrs, distr)]
@@ -125,25 +125,25 @@ getFakeAvvmGenesis dir FakeAvvmOptions{..} = do
     logInfo $ show faoCount <> " fake avvm seeds are generated"
 
     let gcdAddresses = map makeRedeemAddress fakeAvvmPubkeys
-        gcdDistribution = CustomStakes $
+        gcdDistribution = CustomBalances $
             replicate (length gcdAddresses)
-                      (mkCoin $ fromIntegral faoOneStake)
+                      (mkCoin $ fromIntegral faoOneBalance)
 
     pure $ [(gcdAddresses, gcdDistribution)]
 
 -- Reads avvm json file and returns related 'AddrDistribution'
 getAvvmGenesis
     :: (MonadIO m, WithLogger m, MonadFail m)
-    => AvvmStakeOptions -> m [AddrDistribution]
-getAvvmGenesis AvvmStakeOptions {..} = do
+    => AvvmBalanceOptions -> m [AddrDistribution]
+getAvvmGenesis AvvmBalanceOptions {..} = do
     logInfo "Generating avvm data"
     jsonfile <- liftIO $ BSL.readFile asoJsonPath
     case eitherDecode jsonfile of
         Left err       -> error $ toText err
         Right avvmData -> do
             avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmData
-            let totalAvvmStake = sum $ map aeCoin $ utxo avvmDataFiltered
-            logInfo $ "Total avvm stake after applying blacklist: " <> show totalAvvmStake
+            let totalAvvmBalance = sum $ map aeCoin $ utxo avvmDataFiltered
+            logInfo $ "Total avvm balance after applying blacklist: " <> show totalAvvmBalance
             pure $ avvmAddrDistribution avvmDataFiltered
 
 ----------------------------------------------------------------------------
@@ -216,16 +216,19 @@ genGenesisFiles
     :: (MonadIO m, MonadFail m, WithLogger m)
     => GenesisGenOptions -> m ()
 genGenesisFiles GenesisGenOptions{..} = do
-    when (isNothing ggoAvvmStake &&
-          isNothing ggoTestStake &&
-          isNothing ggoFakeAvvmStake) $
-        error "At least one of options (AVVM stake or testnet stake) \
+    when (isNothing ggoAvvmBalance &&
+          isNothing ggoTestBalance &&
+          isNothing ggoFakeAvvmBalance) $
+        error "At least one of options (AVVM balance or testnet balance) \
               \should be provided"
 
+    whenJust ggoSeed $ \seed ->
+        liftIO (setGlobalRandomSeed seed)
+
     logInfo "Generating requested raw data"
-    mAvvmAddrDistr <- traverse getAvvmGenesis ggoAvvmStake
-    mFakeAvvmAddrDistr <- traverse (getFakeAvvmGenesis ggoGenesisDir) ggoFakeAvvmStake
-    mTestnetData <- traverse (getTestnetData ggoGenesisDir) ggoTestStake
+    mAvvmAddrDistr <- traverse getAvvmGenesis ggoAvvmBalance
+    mFakeAvvmAddrDistr <- traverse (getFakeAvvmGenesis ggoGenesisDir) ggoFakeAvvmBalance
+    mTestnetData <- traverse (getTestnetData ggoGenesisDir) ggoTestBalance
 
     ------ Generating genesis core data
 

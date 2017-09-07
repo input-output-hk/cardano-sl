@@ -93,6 +93,9 @@ library
                         -- Statistics
                         Pos.Statistics
 
+                        -- Recovery
+                        Pos.Recovery
+
                         -- Client
                         Pos.Client.Txp.Addresses
                         Pos.Client.Txp.Balances

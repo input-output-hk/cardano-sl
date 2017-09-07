@@ -13,8 +13,8 @@ import qualified Data.Text              as Text
 import           Prelude                (read)
 import           Serokell.Util.Parse    (parseIntegralSafe)
 import           Text.Parsec            (many1, parse, parserFail, try, (<?>))
-import           Text.Parsec.Char       (alphaNum, anyChar, digit, noneOf, oneOf, space,
-                                         spaces, string)
+import           Text.Parsec.Char       (alphaNum, anyChar, digit, noneOf, space, spaces,
+                                         string)
 import           Text.Parsec.Combinator (eof, manyTill)
 import           Text.Parsec.Text       (Parser)
 
@@ -41,14 +41,14 @@ lexeme p = spaces *> p >>= \x -> spaces $> x
 text :: String -> Parser Text
 text = lexeme . fmap toText . string
 
-many1Till :: Parser a -> Parser b -> Parser [a]
-many1Till p end = (:) <$> p <*> manyTill p end
+-- many1Till :: Parser a -> Parser b -> Parser [a]
+-- many1Till p end = (:) <$> p <*> manyTill p end
 
 anyText :: Parser Text
 anyText = lexeme $ fmap toText $ manyTill anyChar (void (try space) <|> try eof)
 
 filePath :: Parser FilePath
-filePath = many1Till (alphaNum <|> oneOf "_.") (void (try space) <|> try eof)
+filePath = lexeme (many1 anyChar)
 
 address :: Parser Address
 address = lexeme $ do
@@ -96,7 +96,7 @@ delegateH = DelegateHeavy <$> num <*> base58PkParser <*> num
 
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num
-addKeyFromFile = AddKeyFromFile <$> lexeme (many1 anyChar)
+addKeyFromFile = AddKeyFromFile <$> filePath
 
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)

@@ -17,6 +17,7 @@ executable cardano-rubbish
   other-modules:
                        Command
                        RubbishOptions
+                       Tx
 
                        Pos.Rubbish
                        Pos.Rubbish.Hacks
@@ -58,6 +59,7 @@ executable cardano-rubbish
                      , random
                      , resourcet
                      , safecopy
+                     , safe-exceptions
                      , serokell-util >= 0.1.3.4
                      , stm
                      , stm-containers

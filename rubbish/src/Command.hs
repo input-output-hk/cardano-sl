@@ -4,6 +4,8 @@ module Command
        ( Command (..)
        , ProposeUpdateSystem (..)
        , SendMode (..)
+       , SendToAllGenesisParams (..)
+       , CmdCtx (..)
        , parseCommand
        ) where
 
@@ -24,10 +26,12 @@ import           Text.Parsec.Text           (Parser)
 
 import           Pos.Binary                 (decodeFull)
 import           Pos.Client.CLI             (stakeholderIdParser)
+import           Pos.Communication          (NodeId)
 import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (AbstractHash, HashAlgorithm, PublicKey,
-                                             decodeAbstractHash)
+                                             SecretKey, decodeAbstractHash)
+import           Pos.Genesis                (BalanceDistribution)
 import           Pos.Txp                    (TxOut (..))
 import           Pos.Types                  (AddrStakeDistribution (..), Address (..),
                                              BlockVersion, Coin, CoinPortion, EpochIndex,
@@ -36,19 +40,33 @@ import           Pos.Types                  (AddrStakeDistribution (..), Address
 import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
 import           Pos.Util.Util              (eitherToFail)
 
--- | Specify how transactions are sent to the network during benchmarks using 'SendToAllGenesis'.
+-- | Specify how transactions are sent to the network during
+-- benchmarks using 'SendToAllGenesis'.
 data SendMode =
       SendNeighbours -- ^ Send each transaction to every specified neighbour
     | SendRoundRobin -- ^ Send transactions to neighbours in a round-robin fashion
     | SendRandom     -- ^ Send each transaction to a randomly picked neighbour
     deriving Show
 
+data CmdCtx = CmdCtx
+    { skeys               :: [SecretKey]
+    , na                  :: [NodeId]
+    , genesisBalanceDistr :: BalanceDistribution
+    }
+
+-- | Parameters for 'SendToAllGenesis' command.
+data SendToAllGenesisParams = SendToAllGenesisParams
+    { stagpDuration    :: !Int
+    , stagpConc        :: !Int
+    , stagpDelay       :: !Int
+    , stagpMode        :: !SendMode
+    , stagpTpsSentFile :: !FilePath
+    } deriving (Show)
+
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
-    | SendToAllGenesis !Int !Int !Int !SendMode !FilePath
-      -- ^ In-order: number of txs to send per-thread, number of threads, and
-      -- delay (milliseconds) between sends.
+    | SendToAllGenesis !SendToAllGenesisParams
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -146,8 +164,12 @@ sendMode = lexeme $ text "neighbours" $> SendNeighbours
                 <|> text "round-robin" $> SendRoundRobin
                 <|> text "send-random" $> SendRandom
 
+sendToAllGenesisParams :: Parser SendToAllGenesisParams
+sendToAllGenesisParams =
+    SendToAllGenesisParams <$> num <*> num <*> num <*> sendMode <*> filePath
+
 sendToAllGenesis :: Parser Command
-sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
+sendToAllGenesis = SendToAllGenesis <$> sendToAllGenesisParams
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash

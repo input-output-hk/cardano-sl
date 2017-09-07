@@ -18,6 +18,7 @@ executable cardano-rubbish
                        Command
                        RubbishOptions
                        Tx
+                       Update
 
                        Pos.Rubbish
                        Pos.Rubbish.Hacks

@@ -9,9 +9,7 @@ module Main
 
 import           Universum
 
-import qualified Data.ByteString            as BS
 import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
-import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.Set                   as S (fromList)
 import qualified Data.Text                  as T
@@ -20,9 +18,7 @@ import           NeatInterpolation          (text)
 import           System.Exit                (ExitCode (ExitSuccess))
 import           System.Posix.Process       (exitImmediately)
 #endif
-import           Data.Time.Units            (convertUnit)
-import           Formatting                 (build, int, sformat, shown, stext, string,
-                                             (%))
+import           Formatting                 (build, int, sformat, shown, stext, (%))
 import           Mockable                   (Production, delay, runProduction)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
@@ -33,24 +29,22 @@ import           System.IO                  (hFlush, stdout)
 import           System.Wlog                (logDebug, logInfo)
 import           System.Wlog.CanLog         (WithLogger)
 
-import           Pos.Binary                 (Raw, serialize')
+import           Pos.Binary                 (serialize')
 import qualified Pos.Client.CLI             as CLI
 import           Pos.Communication          (Conversation (..), MsgType (..), Origin (..),
                                              OutSpecs (..), SendActions (..), Worker,
                                              WorkerSpec, dataFlow, delegationRelays,
                                              immediateConcurrentConversations,
-                                             relayPropagateOut, submitUpdateProposal,
-                                             submitVote, txRelays, usRelays, worker)
-import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
+                                             relayPropagateOut, txRelays, usRelays,
+                                             worker)
+import           Pos.Constants              (isDevelopment)
 import           Pos.Core                   (addressHash, coinF)
 import           Pos.Core.Address           (makeAddress)
 import           Pos.Core.Context           (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..))
-import           Pos.Crypto                 (Hash, SignTag (SignUSVote), emptyPassphrase,
-                                             encToPublic, fullPublicKeyHexF, hash,
-                                             hashHexF, noPassEncrypt, safeCreatePsk,
-                                             safeSign, unsafeHash, withSafeSigner)
-import           Pos.Data.Attributes        (mkAttributes)
+import           Pos.Crypto                 (emptyPassphrase, encToPublic,
+                                             fullPublicKeyHexF, hashHexF, noPassEncrypt,
+                                             safeCreatePsk, withSafeSigner)
 import           Pos.Genesis                (devBalancesDistr, devGenesisContext,
                                              genesisContextProduction,
                                              genesisDevSecretKeys, gtcUtxo)
@@ -61,20 +55,16 @@ import           Pos.Rubbish                (LightWalletMode, WalletParams (..),
                                              runWalletStaticPeers)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (unGenesisUtxo)
-import           Pos.Update                 (BlockVersionData (..),
-                                             BlockVersionModifier (..), SystemTag,
-                                             UpdateData (..), UpdateVote (..),
-                                             mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeys)
 import           Pos.WorkMode               (RealMode, RealModeContext)
 
-import           Command                    (CmdCtx (..), Command (..),
-                                             ProposeUpdateSystem (..), parseCommand)
+import           Command                    (CmdCtx (..), Command (..), parseCommand)
 import           RubbishOptions             (RubbishAction (..), RubbishOptions (..),
                                              getRubbishOptions)
 import qualified Tx
+import qualified Update
 
 
 helpMsg :: Text
@@ -119,67 +109,10 @@ runCmd _ (Balance addr) _ =
 runCmd sendActions (Send idx outputs) ctx = Tx.send sendActions idx outputs ctx
 runCmd sendActions (SendToAllGenesis stagp) ctx =
     Tx.sendToAllGenesis sendActions stagp ctx
-runCmd sendActions v@(Vote idx decision upid) CmdCtx{na} = do
-    logDebug $ "Submitting a vote :" <> show v
-    skey <- (!! idx) <$> getSecretKeys
-    msignature <- withSafeSigner skey (pure emptyPassphrase) $ mapM $
-                        \ss -> pure $ safeSign SignUSVote ss (upid, decision)
-    case msignature of
-        Nothing -> putText "Invalid passphrase"
-        Just signature -> do
-            let voteUpd = UpdateVote
-                    { uvKey        = encToPublic skey
-                    , uvProposalId = upid
-                    , uvDecision   = decision
-                    , uvSignature  = signature
-                }
-            if null na
-                then putText "Error: no addresses specified"
-                else do
-                    submitVote (immediateConcurrentConversations sendActions na) voteUpd
-                    putText "Submitted vote"
-runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
-    logDebug "Proposing update..."
-    skey <- (!! puIdx) <$> getSecretKeys
-    let BlockVersionData {..} = genesisBlockVersionData
-    let bvm =
-            BlockVersionModifier
-            { bvmScriptVersion     = puScriptVersion
-            , bvmSlotDuration      = convertUnit (sec puSlotDurationSec)
-            , bvmMaxBlockSize      = puMaxBlockSize
-            , bvmMaxHeaderSize     = bvdMaxHeaderSize
-            , bvmMaxTxSize         = bvdMaxTxSize
-            , bvmMaxProposalSize   = bvdMaxProposalSize
-            , bvmMpcThd            = bvdMpcThd
-            , bvmHeavyDelThd       = bvdHeavyDelThd
-            , bvmUpdateVoteThd     = bvdUpdateVoteThd
-            , bvmUpdateProposalThd = bvdUpdateProposalThd
-            , bvmUpdateImplicit    = bvdUpdateImplicit
-            , bvmSoftforkRule      = Nothing
-            , bvmTxFeePolicy       = Nothing
-            , bvmUnlockStakeEpoch  = Nothing
-            }
-    updateData <- mapM updateDataElement puUpdates
-    let udata = HM.fromList updateData
-    let whenCantCreate = error . mappend "Failed to create update proposal: "
-    withSafeSigner skey (pure emptyPassphrase) $ \case
-        Nothing -> putText "Invalid passphrase"
-        Just ss -> do
-            let updateProposal = either whenCantCreate identity $
-                    mkUpdateProposalWSign
-                        puBlockVersion
-                        bvm
-                        puSoftwareVersion
-                        udata
-                        (mkAttributes ())
-                        ss
-            if null na
-                then putText "Error: no addresses specified"
-                else do
-                    submitUpdateProposal (immediateConcurrentConversations sendActions na) ss updateProposal
-                    let id = hash updateProposal
-                    putText $
-                      sformat ("Update proposal submitted, upId: "%hashHexF) id
+runCmd sendActions (Vote idx decision upId) ctx =
+    Update.vote sendActions idx decision upId ctx
+runCmd sendActions (ProposeUpdate params) ctx =
+    Update.propose sendActions params ctx
 runCmd _ Help _ = putText helpMsg
 runCmd _ ListAddresses _ = do
    addrs <- map encToPublic <$> getSecretKeys
@@ -222,23 +155,6 @@ runCmd _ (AddrDistr pk asd) _ = do
   where
     addr = makeAddress (PubKeyASD pk) (AddrAttributes Nothing asd)
 runCmd _ Quit _ = pure ()
-
-dummyHash :: Hash Raw
-dummyHash = unsafeHash (0 :: Integer)
-
-hashFile :: MonadIO m => Maybe FilePath -> m (Hash Raw)
-hashFile Nothing  = pure dummyHash
-hashFile (Just filename) = do
-    fileData <- liftIO $ BS.readFile filename
-    let h = unsafeHash fileData
-    putText $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
-    pure h
-
-updateDataElement :: MonadIO m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
-updateDataElement ProposeUpdateSystem{..} = do
-    diffHash <- hashFile pusBinDiffPath
-    installerHash <- hashFile pusInstallerPath
-    pure (pusSystemTag, UpdateData diffHash installerHash dummyHash dummyHash)
 
 -- This solution is hacky, but will work for now
 runCmdOuts :: HasCoreConstants => OutSpecs

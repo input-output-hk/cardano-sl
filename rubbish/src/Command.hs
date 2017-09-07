@@ -5,6 +5,7 @@ module Command
        , ProposeUpdateSystem (..)
        , SendMode (..)
        , SendToAllGenesisParams (..)
+       , ProposeUpdateParams (..)
        , CmdCtx (..)
        , parseCommand
        ) where
@@ -63,20 +64,23 @@ data SendToAllGenesisParams = SendToAllGenesisParams
     , stagpTpsSentFile :: !FilePath
     } deriving (Show)
 
+-- | Parameters for 'ProposeUpdate' command.
+data ProposeUpdateParams = ProposeUpdateParams
+    { puIdx             :: Int -- TODO: what is this? rename
+    , puBlockVersion    :: BlockVersion
+    , puScriptVersion   :: ScriptVersion
+    , puSlotDurationSec :: Int
+    , puMaxBlockSize    :: Byte
+    , puSoftwareVersion :: SoftwareVersion
+    , puUpdates         :: [ProposeUpdateSystem]
+    } deriving (Show)
+
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
     | SendToAllGenesis !SendToAllGenesisParams
     | Vote Int Bool UpId
-    | ProposeUpdate
-          { puIdx             :: Int           -- TODO: what is this? rename
-          , puBlockVersion    :: BlockVersion
-          , puScriptVersion   :: ScriptVersion
-          , puSlotDurationSec :: Int
-          , puMaxBlockSize    :: Byte
-          , puSoftwareVersion :: SoftwareVersion
-          , puUpdates         :: [ProposeUpdateSystem]
-          }
+    | ProposeUpdate !ProposeUpdateParams
     | Help
     | ListAddresses
     | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex) -- first and last epoch of psk ttl
@@ -174,9 +178,9 @@ sendToAllGenesis = SendToAllGenesis <$> sendToAllGenesisParams
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash
 
-proposeUpdate :: Parser Command
-proposeUpdate =
-    ProposeUpdate <$>
+proposeUpdateParams :: Parser ProposeUpdateParams
+proposeUpdateParams =
+    ProposeUpdateParams <$>
     num <*>
     lexeme parseBlockVersion <*>
     lexeme parseIntegralSafe <*>
@@ -184,6 +188,9 @@ proposeUpdate =
     lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion <*>
     many1 parseProposeUpdateSystem
+
+proposeUpdate :: Parser Command
+proposeUpdate = ProposeUpdate <$> proposeUpdateParams
 
 coinPortionP :: Parser CoinPortion
 coinPortionP = do

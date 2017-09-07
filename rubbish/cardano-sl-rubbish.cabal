@@ -16,10 +16,13 @@ executable cardano-rubbish
   main-is:             Main.hs
   other-modules:
                        Command
+                       Command.Parser
+                       Command.Types
                        RubbishOptions
                        Tx
                        Update
 
+                       -- TODO: delete these
                        Pos.Rubbish
                        Pos.Rubbish.Hacks
                        Pos.Rubbish.Runner

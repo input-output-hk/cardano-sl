@@ -16,7 +16,6 @@ module Pos.Block.Logic.Creation
 import           Universum
 
 import           Control.Lens               (uses, (-=), (.=), _Wrapped)
-import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.Default               (Default (def))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
@@ -36,19 +35,18 @@ import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              EpochOrSlot (..), HasCoreConstants,
-                                             HeaderHash, SlotId (..), SlotLeaders,
+                                             HeaderHash, SlotId (..),
                                              chainQualityThreshold, epochIndexL,
                                              epochSlots, flattenSlotId, getEpochOrSlot,
                                              headerHash)
 import           Pos.Crypto                 (SecretKey)
-import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPayload),
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
-import           Pos.Lrc                    (LrcContext, LrcError (..))
+import           Pos.Lrc                    (LrcContext, LrcModeFull, lrcSingleShot)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
@@ -64,7 +62,7 @@ import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)
-import           Pos.Util                   (maybeThrow, _neHead)
+import           Pos.Util                   (_neHead)
 import           Pos.Util.Util              (HasLens (..), HasLens', leftToPanic)
 import           Pos.WorkMode.Class         (TxpExtra_TMP)
 
@@ -79,6 +77,7 @@ type MonadCreateBlock ssc ctx m
        , MonadIO m
        , MonadMask m
        , HasLens LrcContext ctx LrcContext
+       , LrcModeFull ssc ctx m
 
        -- Mempools
        , HasLens DelegationVar ctx DelegationVar
@@ -118,44 +117,39 @@ createGenesisBlockAndApply ::
     -> m (Maybe (GenesisBlock ssc))
 -- Genesis block for 0-th epoch is hardcoded.
 createGenesisBlockAndApply 0 = pure Nothing
-createGenesisBlockAndApply epoch =
-    try (lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders) >>= \case
-        Left UnknownBlocksForLrc ->
-            Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
-        Left err -> throwM err
-        Right leaders ->
-            modifyStateLock
-                HighPriority
-                "createGenesisBlockAndApply"
-                (createGenesisBlockDo epoch leaders)
+createGenesisBlockAndApply epoch = do
+    tipHeader <- DB.getTipHeader
+    -- preliminary check outside the lock,
+    -- must be repeated inside the lock
+    needGen <- needCreateGenesisBlock epoch tipHeader
+    if needGen
+        then modifyStateLock
+                 HighPriority
+                 "createGenesisBlockAndApply"
+                 (\_ -> createGenesisBlockDo epoch)
+        else return Nothing
 
 createGenesisBlockDo
     :: forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m)
     => EpochIndex
-    -> SlotLeaders
-    -> HeaderHash
     -> m (HeaderHash, Maybe (GenesisBlock ssc))
-createGenesisBlockDo epoch leaders tip = do
-    let noHeaderMsg =
-            "There is no header is DB corresponding to tip from semaphore"
-    tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.blkGetHeader tip
+createGenesisBlockDo epoch = do
+    tipHeader <- DB.getTipHeader
     logDebug $ sformat msgTryingFmt epoch tipHeader
-    shouldCreate tipHeader >>= \case
-        False -> (tip, Nothing) <$ logShouldNot
+    needCreateGenesisBlock epoch tipHeader >>= \case
+        False -> (BC.blockHeaderHash tipHeader, Nothing) <$ logShouldNot
         True -> actuallyCreate tipHeader
   where
-    shouldCreate (Left _) = pure False
-    -- This is true iff tip is from 'epoch' - 1 and last
-    -- 'blkSecurityParam' blocks fully fit into last
-    -- 'slotSecurityParam' slots from 'epoch' - 1.
-    shouldCreate (Right mb)
-        | mb ^. epochIndexL /= epoch - 1 = pure False
-        | otherwise =
-            (chainQualityThreshold @Double <=) <$>
-            calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
+    -- We need to run LRC here to make 'verifyBlocksPrefix' not hang.
+    -- It's important to do it after taking 'StateLock'.
+    -- Note that it shouldn't fail, because 'shouldCreate' guarantees that we
+    -- have enough blocks for LRC.
     actuallyCreate tipHeader = do
+        lrcSingleShot epoch
+        leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
+            LrcDB.getLeaders
         let blk = mkGenesisBlock (Just tipHeader) epoch leaders
         let newTip = headerHash blk
         verifyBlocksPrefix (one (Left blk)) >>= \case
@@ -171,6 +165,25 @@ createGenesisBlockDo epoch leaders tip = do
     msgTryingFmt =
         "We are trying to create genesis block for " %ords %
         " epoch, our tip header is\n" %build
+
+needCreateGenesisBlock ::
+       ( MonadCreateBlock ssc ctx m
+       , MonadBlockApply ssc ctx m
+       )
+    => EpochIndex
+    -> BlockHeader ssc
+    -> m Bool
+needCreateGenesisBlock epoch tipHeader = do
+    case tipHeader of
+        Left _ -> pure False
+        -- This is true iff tip is from 'epoch' - 1 and last
+        -- 'blkSecurityParam' blocks fully fit into last
+        -- 'slotSecurityParam' slots from 'epoch' - 1.
+        Right mb ->
+            if mb ^. epochIndexL /= epoch - 1
+            then pure False
+            else (chainQualityThreshold @Double <=) <$>
+                 calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
 
 ----------------------------------------------------------------------------
 -- MainBlock

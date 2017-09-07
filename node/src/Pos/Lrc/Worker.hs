@@ -1,88 +1,62 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Workers responsible for Leaders and Richmen computation.
+-- This module also contains high-level logic of LRC for historical
+-- reasons.
+-- And actually nowadays there are no workers here.
 
 module Pos.Lrc.Worker
-       ( LrcModeFullNoSemaphore
-       , LrcModeFull
-       , lrcOnNewSlotWorker
+       ( LrcModeFull
        , lrcSingleShot
-       , lrcSingleShotNoLock
        ) where
 
 import           Universum
 
-import           Control.Lens               (views)
-import           Control.Monad.Catch        (bracketOnError)
-import           Control.Monad.STM          (retry)
-import           Data.Conduit               (runConduitRes, (.|))
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.HashSet               as HS
-import           Ether.Internal             (HasLens (..))
-import           Formatting                 (build, sformat, (%))
-import           Mockable                   (forConcurrently)
-import           Serokell.Util.Exceptions   ()
-import           System.Wlog                (logDebug, logInfo, logWarning)
+import           Control.Lens             (views)
+import           Control.Monad.Catch      (bracketOnError)
+import           Control.Monad.STM        (retry)
+import           Data.Coerce              (coerce)
+import           Data.Conduit             (runConduitRes, (.|))
+import qualified Data.HashMap.Strict      as HM
+import qualified Data.HashSet             as HS
+import           Ether.Internal           (HasLens (..))
+import           Formatting               (build, ords, sformat, (%))
+import           Mockable                 (forConcurrently)
+import           Serokell.Util.Exceptions ()
+import           System.Wlog              (logDebug, logInfo, logWarning)
 
-import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (BypassSecurityCheck (..), MonadBlockApply,
-                                             applyBlocksUnsafe, rollbackBlocksUnsafe)
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
-import           Pos.Context                (recoveryCommGuard)
-import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
-                                             EpochOrSlot (..), SharedSeed, SlotId (..),
-                                             StakeholderId, crucialSlot, epochIndexL,
-                                             getEpochOrSlot, getSlotIndex,
-                                             slotSecurityParam)
-import qualified Pos.DB.DB                  as DB
-import qualified Pos.GState                 as GS
-import           Pos.Lrc.Consumer           (LrcConsumer (..))
-import           Pos.Lrc.Consumers          (allLrcConsumers)
-import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
-import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, getSeed, putEpoch,
-                                             putIssuersStakes, putLeaders, putSeed)
-import           Pos.Lrc.Error              (LrcError (..))
-import           Pos.Lrc.Fts                (followTheSatoshiM)
-import           Pos.Lrc.Logic              (findAllRichmenMaybe)
-import           Pos.Lrc.Mode               (LrcMode)
-import           Pos.Reporting              (reportError, reportMisbehaviour)
-import           Pos.Slotting               (MonadSlots)
-import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
-import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
-import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
-                                             withStateLock)
-import           Pos.Txp.MemState           (MonadTxpMem)
-import           Pos.Update.DB              (getCompetingBVStates)
-import           Pos.Update.Poll.Types      (BlockVersionState (..))
-import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
-import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
-import           Pos.WorkMode.Class         (TxpExtra_TMP, WorkMode)
+import           Pos.Binary.Communication ()
+import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
+                                           applyBlocksUnsafe, rollbackBlocksUnsafe)
+import           Pos.Core                 (Coin, EpochIndex, EpochOrSlot (..),
+                                           EpochOrSlot (..), SharedSeed, StakeholderId,
+                                           crucialSlot, epochIndexL, getEpochOrSlot)
+import qualified Pos.DB.DB                as DB
+import qualified Pos.GState               as GS
+import           Pos.Lrc.Consumer         (LrcConsumer (..))
+import           Pos.Lrc.Consumers        (allLrcConsumers)
+import           Pos.Lrc.Context          (LrcContext (lcLrcSync), LrcSyncData (..))
+import           Pos.Lrc.DB               (IssuersStakes, getLeaders, getSeed, putEpoch,
+                                           putIssuersStakes, putLeaders, putSeed)
+import           Pos.Lrc.Error            (LrcError (..))
+import           Pos.Lrc.Fts              (followTheSatoshiM)
+import           Pos.Lrc.Logic            (findAllRichmenMaybe)
+import           Pos.Lrc.Mode             (LrcMode)
+import           Pos.Reporting            (reportMisbehaviour)
+import           Pos.Slotting             (MonadSlots)
+import           Pos.Ssc.Class            (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.Extra            (MonadSscMem, sscCalculateSeed)
+import           Pos.Update.DB            (getCompetingBVStates)
+import           Pos.Update.Poll.Types    (BlockVersionState (..))
+import           Pos.Util                 (logWarningWaitLinear, maybeThrow)
+import           Pos.Util.Chrono          (NE, NewestFirst (..), toOldestFirst)
 
-lrcOnNewSlotWorker
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m, SscWorkersClass ssc, MonadTxpMem TxpExtra_TMP ctx m)
-    => (WorkerSpec m, OutSpecs)
-lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
-    recoveryCommGuard $
-        when (getSlotIndex siSlot < fromIntegral slotSecurityParam) $
-            lrcSingleShot @ssc @ctx siEpoch `catch` onLrcError
-  where
-    -- Here we log it as a warning and report an error, even though it
-    -- can happen there we don't know recent blocks. That's because if
-    -- we don't know them, we should be in recovery mode and this
-    -- worker should be turned off.
-    --
-    -- We don't rethrow it though, because probably it can happen in
-    -- some corner cases but it doesn't indicate an error (maybe only
-    -- 'recoveryCommGuard' error).
-    onLrcError e@UnknownBlocksForLrc = reportE e
-    onLrcError e                     = reportE e >> throwM e
+----------------------------------------------------------------------------
+-- Single short
+----------------------------------------------------------------------------
 
-    -- REPORT:ERROR LRC worker failed with some LRC-related error
-    reportE e = reportError $
-        "Lrc worker failed with error: " <> show e
-
-type LrcModeFullNoSemaphore ssc ctx m =
+-- | 'LrcModeFull' contains all constraints necessary to launch LRC.
+type LrcModeFull ssc ctx m =
     ( LrcMode ssc ctx m
     , SscWorkersClass ssc
     , SscHelpersClass ssc
@@ -92,56 +66,42 @@ type LrcModeFullNoSemaphore ssc ctx m =
     , MonadReader ctx m
     )
 
--- | 'LrcModeFull' contains all constraints necessary to launch LRC.
-type LrcModeFull ssc ctx m =
-    ( LrcModeFullNoSemaphore ssc ctx m
-    , HasLens StateLock ctx StateLock
-    , HasLens StateLockMetrics ctx StateLockMetrics
-    , MonadTxpMem TxpExtra_TMP ctx m
-    )
-
-type WithStateLock_ m = m () -> m ()
-
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
+-- It assumes that 'StateLock' is taken already.
 lrcSingleShot
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => EpochIndex -> m ()
-lrcSingleShot epoch =
-    lrcSingleShotImpl @ssc ((withStateLock HighPriority "lrcSingleShot") . const) epoch (allLrcConsumers @ssc)
-
--- | Same, but doesn't take lock on the semaphore.
-lrcSingleShotNoLock
-    :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
-    => EpochIndex -> m ()
-lrcSingleShotNoLock epoch =
-    lrcSingleShotImpl @ssc identity epoch (allLrcConsumers @ssc)
-
-lrcSingleShotImpl
-    :: forall ssc ctx m. (LrcModeFullNoSemaphore ssc ctx m)
-    => WithStateLock_ m -> EpochIndex -> [LrcConsumer m] -> m ()
-lrcSingleShotImpl withSemaphore epoch consumers = do
+lrcSingleShot epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
+    logDebug $ sformat
+        ("lrcSingleShot is trying to acquire LRC lock, the epoch is "
+         %build) epoch
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
+    consumers = allLrcConsumers @ssc
+    for_thEpochMsg = sformat (" for "%ords%" epoch") epoch
     onAcquiredLock = do
+        logDebug "lrcSingleShot has acquired LRC lock"
         (need, filteredConsumers) <-
             logWarningWaitLinear 5 "determining whether LRC is needed" $ do
                 expectedRichmenComp <-
                     filterM (flip lcIfNeedCompute epoch) consumers
                 needComputeLeaders <- isNothing <$> getLeaders epoch
                 let needComputeRichmen = not . null $ expectedRichmenComp
-                when needComputeLeaders $ logInfo "Need to compute leaders"
-                when needComputeRichmen $ logInfo "Need to compute richmen"
+                when needComputeLeaders $ logInfo
+                    ("Need to compute leaders" <> for_thEpochMsg)
+                when needComputeRichmen $ logInfo
+                    ("Need to compute richmen" <> for_thEpochMsg)
                 return $
                     ( needComputeLeaders || needComputeRichmen
                     , expectedRichmenComp)
         when need $ do
-            logInfo "LRC is starting"
-            withSemaphore $ lrcDo @ssc epoch filteredConsumers
-            logInfo "LRC has finished"
+            logInfo "LRC is starting actual computation"
+            lrcDo @ssc epoch filteredConsumers
+            logInfo "LRC has finished actual computation"
         putEpoch epoch
-        logInfo "LRC has updated LRC DB"
+        logInfo ("LRC has updated LRC DB" <> for_thEpochMsg)
 
 tryAcquireExclusiveLock
     :: (MonadMask m, MonadIO m)
@@ -163,7 +123,7 @@ tryAcquireExclusiveLock epoch lock action =
 
 lrcDo
     :: forall ssc ctx m.
-       LrcModeFullNoSemaphore ssc ctx m
+       LrcModeFull ssc ctx m
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcDo epoch consumers = do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis
@@ -173,6 +133,13 @@ lrcDo epoch consumers = do
     -- We don't calculate the seed inside 'withBlocksRolledBack' because
     -- there are shares in those ~2k blocks that 'withBlocksRolledBack'
     -- rolls back.
+    --
+    -- However, it's important to check that there are blocks to
+    -- rollback before computing ssc seed (because if there are no
+    -- blocks, it doesn't make sense to do it).
+    blundsToRollback <- DB.loadBlundsFromTipWhile whileAfterCrucial
+    blundsToRollbackNE <-
+        maybeThrow UnknownBlocksForLrc (nonEmptyNewestFirst blundsToRollback)
     seed <- sscCalculateSeed @ssc epoch >>= \case
         Right s -> do
             logInfo $ sformat
@@ -191,16 +158,14 @@ lrcDo epoch consumers = do
                 maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
     putSeed epoch seed
     -- Roll back to the crucial slot and calculate richmen, etc.
-    NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
-    case nonEmpty blundsList of
-        Nothing -> throwM UnknownBlocksForLrc
-        Just (NewestFirst -> blunds) ->
-            withBlocksRolledBack blunds $ do
-                issuersComputationDo epoch
-                richmenComputationDo epoch consumers
-                DB.sanityCheckDB
-                leadersComputationDo epoch seed
+    withBlocksRolledBack blundsToRollbackNE $ do
+        issuersComputationDo epoch
+        richmenComputationDo epoch consumers
+        DB.sanityCheckDB
+        leadersComputationDo epoch seed
   where
+    nonEmptyNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)
+    nonEmptyNewestFirst = coerce (nonEmpty @a)
     applyBack blunds = applyBlocksUnsafe blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
@@ -266,3 +231,24 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     safeMinimum a
         | null a = Nothing
         | otherwise = Just $ minimum a
+
+----------------------------------------------------------------------------
+-- Worker
+----------------------------------------------------------------------------
+
+-- TODO CSL-359
+--
+-- This worker no longer exists. It was added as the first step
+-- towards CSL-359. The idea is that we can start LRC before the end
+-- of an epoch. We just need to check that rollback deeper than
+-- 'crucialSlot' didn't happen. It's only an optimization which can be
+-- quite crucial when there are many stakeholders.
+--
+-- It was deleted because of possible deadlock. This worker may start
+-- doing LRC and try to acquire 'StateLock' while another thread may
+-- hold 'StateLock' for block processing and try to start LRC.  So if
+-- you are going to uncomment it at some point, please take it into
+-- account.  One way to avoid locking here is to do CSL-360, i. e. use
+-- snapshot instead of locking.
+--
+-- You can find it in git history if you want to.

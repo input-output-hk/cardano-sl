@@ -37,7 +37,7 @@ import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import qualified Pos.GState               as GS
-import           Pos.Lrc.Worker           (LrcModeFullNoSemaphore, lrcSingleShotNoLock)
+import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShot)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
@@ -56,6 +56,8 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..
 -- verification fails. All blocks must be from the same epoch.  This
 -- function checks literally __everything__ from blocks, including
 -- header, body, extra data, etc.
+--
+-- LRC must be already performed for the epoch from which blocks are.
 verifyBlocksPrefix
     :: forall ssc ctx m.
        MonadBlockVerify ssc ctx m
@@ -92,7 +94,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
          , pModifier)
 
 -- | Union of constraints required by block processing and LRC.
-type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore ssc ctx m)
+type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFull ssc ctx m)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -114,6 +116,9 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     lift $ normalizeMempool
     pure hh
   where
+    spanEpoch ::
+           OldestFirst NE (Block ssc)
+        -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
     spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
     spanEpoch x                              = spanTail x
     spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
@@ -154,9 +159,11 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
         -> ExceptT ApplyBlocksException m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
-        logDebug "Rolling: Calculating LRC if needed"
-        when (isLeft prefixHead) $
-            lift $ lrcSingleShotNoLock (prefixHead ^. epochIndexL)
+        when (isLeft prefixHead) $ do
+            let epochIndex = prefixHead ^. epochIndexL
+            logDebug $ "Rolling: Calculating LRC if needed for "
+                       <> pretty epochIndex
+            lift $ lrcSingleShot epochIndex
         logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
             Left (ApplyBlocksVerifyFailure -> failure)
@@ -192,7 +199,7 @@ applyBlocks calculateLrc pModifier blunds = do
         -- Hopefully this lrc check is never triggered -- because
         -- caller most definitely should have computed lrc to verify
         -- the sequence beforehand.
-        lrcSingleShotNoLock (prefixHead ^. epochIndexL)
+        lrcSingleShot (prefixHead ^. epochIndexL)
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of
         []           -> pass

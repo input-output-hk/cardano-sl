@@ -18,7 +18,6 @@ import           Pos.Context             (NodeContext (..), recoveryCommGuard)
 import           Pos.Delegation          (delegationRelays, dlgWorkers)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Launcher.Resource   (NodeResources (..))
-import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
 import           Pos.Network.Types       (NetworkConfig (..), SubscriptionWorker (..),
                                           topologyRunKademlia, topologySubscriptionWorker)
 import           Pos.Security.Workers    (securityWorkers)
@@ -48,7 +47,6 @@ allWorkers NodeResources {..} = mconcatPair
 
       wrap' "ssc"        $ sscWorkers
     , wrap' "security"   $ securityWorkers
-    , wrap' "lrc"        $ first one lrcOnNewSlotWorker
     , wrap' "us"         $ usWorkers
 
       -- Have custom loggers
@@ -82,6 +80,6 @@ allWorkers NodeResources {..} = mconcatPair
   where
     NodeContext {..} = nrContext
     properSlottingWorkers =
-       fst (localWorker (recoveryCommGuard logNewSlotWorker)) :
+       fst (localWorker (recoveryCommGuard "logNewSlot" logNewSlotWorker)) :
        map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)

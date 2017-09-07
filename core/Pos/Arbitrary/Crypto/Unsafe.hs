@@ -35,8 +35,6 @@ instance (Bi a, Bi SecretKey, ArbitraryUnsafe a, Arbitrary SignTag) =>
                                <*> arbitraryUnsafe
                                <*> arbitraryUnsafe
 
--- Again, no sense in generating invalid data, but in benchmarks we
--- don't need Really Secure™ randomness
 instance ArbitraryUnsafe VssKeyPair where
     arbitraryUnsafe = deterministicVssKeyGen <$> arbitrary
 

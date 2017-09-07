@@ -7,7 +7,7 @@ module Secrets
 
 import           Universum
 
-import           Pos.Crypto          (SecretKey, keyGen, vssKeyGen)
+import           Pos.Crypto          (SecretKey, keyGen, runSecureRandom, vssKeyGen)
 import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSecret)
 
 import           ExplorerOptions     (Args (..))
@@ -25,7 +25,7 @@ fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
     Just sk -> return (sk, userSecret)
     Nothing -> do
         putText "Found no signing keys in keyfile, generating random one..."
-        sk <- snd <$> keyGen
+        sk <- snd <$> liftIO (runSecureRandom keyGen)
         let us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
@@ -35,7 +35,7 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
     Just _  -> return userSecret
     Nothing -> do
         putText "Found no VSS keypair in keyfile, generating random one..."
-        vss <- vssKeyGen
+        vss <- liftIO (runSecureRandom vssKeyGen)
         let us = userSecret & usVss .~ Just vss
         writeUserSecret us
         return us

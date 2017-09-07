@@ -28,7 +28,7 @@ import           Pos.Generator.Block.Mode    (BlockGenRandMode, MonadBlockGen,
                                               withCurrentSlot)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
-import           Pos.Lrc                     (lrcSingleShotNoLock)
+import           Pos.Lrc                     (lrcSingleShot)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Ssc.GodTossing          (SscGodTossing)
@@ -68,7 +68,7 @@ genBlock ::
 genBlock eos = do
     let epoch = eos ^. epochIndexL
     unlessM ((epoch ==) <$> lift LrcDB.getEpoch) $
-        lift $ lrcSingleShotNoLock epoch
+        lift $ lrcSingleShot epoch
     -- We need to know leaders to create any block.
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeaders
     case eos of

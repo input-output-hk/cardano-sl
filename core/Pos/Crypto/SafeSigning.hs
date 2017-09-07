@@ -24,6 +24,7 @@ module Pos.Crypto.SafeSigning
        ) where
 
 import qualified Cardano.Crypto.Wallet as CC
+import           Crypto.Random         (MonadRandom, getRandomBytes)
 import           Data.ByteArray        (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import qualified Data.ByteString       as BS
 import           Data.Coerce           (coerce)
@@ -36,7 +37,6 @@ import           Universum
 import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi
 import           Pos.Crypto.Hashing    (Hash, hash)
-import           Pos.Crypto.Random     (secureRandomBS)
 import           Pos.Crypto.Signing    (ProxyCert (..), ProxySecretKey (..),
                                         PublicKey (..), SecretKey (..), Signature (..),
                                         sign, toPublic)
@@ -123,13 +123,15 @@ safeCreateKeypairFromSeed seed (PassPhrase pp) =
     let prv = CC.generate seed pp
     in  (CC.toXPub prv, prv)
 
+-- NB. It's recommended to run it with 'runSecureRandom' from
+-- "Pos.Crypto.Random" because the OpenSSL generator is probably safer than
+-- the default IO generator.
 safeKeyGen
-    :: (MonadIO m, Bi PassPhrase)
+    :: (MonadRandom m, Bi PassPhrase)
     => PassPhrase -> m (PublicKey, EncryptedSecretKey)
-safeKeyGen pp = liftIO $ do
-    seed <- secureRandomBS 32
-    let (pk, sk) = safeCreateKeypairFromSeed seed pp
-    return (PublicKey pk, mkEncSecret pp sk)
+safeKeyGen pp = do
+    seed <- getRandomBytes 32
+    pure $ safeDeterministicKeyGen seed pp
 
 safeDeterministicKeyGen
     :: Bi PassPhrase

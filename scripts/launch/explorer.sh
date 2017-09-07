@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # First argument is path to common.sh
-if [[ "$1" != "" ]]; then
+if [ -z "$1" ]
+  then
     base=$(dirname "$0")
     common_path="$base"/../common-functions.sh
 fi

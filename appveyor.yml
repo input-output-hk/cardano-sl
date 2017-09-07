@@ -86,7 +86,7 @@ test_script:
 #   - stack test --coverage
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
-  # We intentionally don't build lwallet here, because this build is for installer.
+  # We intentionally don't build rubbish here, because this build is for installer.
   - scripts\ci\appveyor-retry call stack install cardano-sl
       -j 2
       --no-terminal

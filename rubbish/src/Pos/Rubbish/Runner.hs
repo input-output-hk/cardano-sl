@@ -1,35 +1,35 @@
-module Pos.Wallet.Light.Launcher.Runner
+module Pos.Rubbish.Runner
        ( runWalletStaticPeers
        , runWallet
        ) where
 
-import           Universum                       hiding (bracket)
+import           Universum                  hiding (bracket)
 
-import           Control.Monad.Fix               (MonadFix)
-import qualified Control.Monad.Reader            as Mtl
-import qualified Data.Set                        as Set
-import           Mockable                        (MonadMockable, Production,
-                                                  mapConcurrently, bracket)
-import           Network.Transport.Abstract      (Transport)
-import           Node                            (noReceiveDelay, simpleNodeEndPoint)
-import           System.Wlog                     (WithLogger, logInfo)
+import           Control.Monad.Fix          (MonadFix)
+import qualified Control.Monad.Reader       as Mtl
+import qualified Data.Set                   as Set
+import           Mockable                   (MonadMockable, Production, bracket,
+                                             mapConcurrently)
+import           Network.Transport.Abstract (Transport)
+import           Node                       (noReceiveDelay, simpleNodeEndPoint)
+import           System.Wlog                (WithLogger, logInfo)
 
-import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
-                                                  OutSpecs, WorkerSpec)
-import           Pos.Core                        (HasCoreConstants)
-import           Pos.DB.Rocks                    (closeNodeDBs, openNodeDBs)
-import           Pos.Genesis                     (gtcUtxo, gtcWStakeholders)
-import           Pos.Launcher                    (BaseParams (..), LoggingParams (..), OQ,
-                                                  initQueue, runServer)
-import           Pos.Network.Types               (NetworkConfig, Topology (..),
-                                                  defaultNetworkConfig)
-import           Pos.Reporting.MemState          (emptyReportingContext)
-import           Pos.Util.JsonLog                (JsonLogConfig (..))
-import           Pos.Util.Util                   ()
-import           Pos.Wallet.KeyStorage           (keyDataFromFile)
-import           Pos.Wallet.Light.Launcher.Param (WalletParams (..))
-import           Pos.Wallet.Light.Mode           (LightWalletContext (..),
-                                                  LightWalletMode)
+import           Pos.Communication          (ActionSpec (..), MkListeners, NodeId,
+                                             OutSpecs, WorkerSpec)
+import           Pos.Core                   (HasCoreConstants)
+import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
+import           Pos.Genesis                (gtcUtxo, gtcWStakeholders)
+import           Pos.Launcher               (BaseParams (..), LoggingParams (..), OQ,
+                                             initQueue, runServer)
+import           Pos.Network.Types          (NetworkConfig, Topology (..),
+                                             defaultNetworkConfig)
+import           Pos.Reporting.MemState     (emptyReportingContext)
+import           Pos.Util.JsonLog           (JsonLogConfig (..))
+import           Pos.Util.Util              ()
+import           Pos.Wallet.KeyStorage      (keyDataFromFile)
+
+import           Pos.Rubbish.Mode           (LightWalletContext (..), LightWalletMode)
+import           Pos.Rubbish.Param          (WalletParams (..))
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones

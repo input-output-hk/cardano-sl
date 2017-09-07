@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-projects="core db lrc infra update ssc godtossing tools txp lwallet wallet"
+projects="core db lrc infra update ssc godtossing tools txp rubbish wallet"
 
 # incpath can be used to specify custom include paths, e. g.:
 # incpath=$(find $(stack path $@ --compiler-bin)/../lib -maxdepth 2 -path */include)

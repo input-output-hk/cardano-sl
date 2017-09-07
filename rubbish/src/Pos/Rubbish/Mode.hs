@@ -3,9 +3,9 @@
 {-# LANGUAGE TypeOperators   #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
--- | Stack of monads used by light wallet.
+-- | Stack of monads used by Rubbish.
 
-module Pos.Wallet.Light.Mode
+module Pos.Rubbish.Mode
        ( LightWalletMode
        , LightWalletContext(..)
        ) where
@@ -26,7 +26,9 @@ import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core                         (HasCoreConstants, SlotId (..))
 import           Pos.Crypto                       (PublicKey)
-import           Pos.DB                           (MonadGState (..), NodeDBs, MonadDBRead(..), dbGetDefault, dbIterSourceDefault)
+import           Pos.DB                           (MonadDBRead (..), MonadGState (..),
+                                                   NodeDBs, dbGetDefault,
+                                                   dbIterSourceDefault)
 import           Pos.DB.DB                        (gsAdoptedBVDataDefault)
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
@@ -45,9 +47,10 @@ import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Util.Util                    (postfixLFields)
 import           Pos.Wallet.KeyStorage            (KeyData)
-import           Pos.Wallet.Light.Hacks           (makePubKeyAddressLWallet)
 import           Pos.Wallet.WalletMode            (MonadBlockchainInfo (..),
                                                    MonadUpdates (..))
+
+import           Pos.Rubbish.Hacks                (makePubKeyAddressRubbish)
 
 type LightWalletSscType = SscGodTossing
 
@@ -136,4 +139,4 @@ instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode w
 
 instance MonadAddresses LightWalletMode where
     type AddrData LightWalletMode = PublicKey
-    getNewAddress = makePubKeyAddressLWallet
+    getNewAddress = makePubKeyAddressRubbish

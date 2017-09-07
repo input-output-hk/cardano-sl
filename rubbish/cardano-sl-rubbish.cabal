@@ -1,7 +1,7 @@
-name:                cardano-sl-lwallet
+name:                cardano-sl-rubbish
 version:             0.6.0
-synopsis:            Cardano SL - Light wallet
-description:         Cardano SL - Light wallet
+synopsis:            Cardano SL - Rubbish
+description:         Cardano SL - Rubbish
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -11,19 +11,18 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
-executable cardano-wallet
-  hs-source-dirs:      .
+executable cardano-rubbish
+  hs-source-dirs:      src
   main-is:             Main.hs
   other-modules:
                        Command
-                       WalletOptions
+                       RubbishOptions
 
-                       Pos.Wallet.Light
-                       Pos.Wallet.Light.Hacks
-                       Pos.Wallet.Light.Launcher
-                       Pos.Wallet.Light.Launcher.Runner
-                       Pos.Wallet.Light.Launcher.Param
-                       Pos.Wallet.Light.Mode
+                       Pos.Rubbish
+                       Pos.Rubbish.Hacks
+                       Pos.Rubbish.Runner
+                       Pos.Rubbish.Param
+                       Pos.Rubbish.Mode
 
   build-depends:
                        QuickCheck

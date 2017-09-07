@@ -245,7 +245,7 @@ function bench_cmd {
   local sendmode=$7
   ensure_run
 
-  echo -n "$(find_binary cardano-wallet)"
+  echo -n "$(find_binary cardano-rubbish)"
   # This assumes that the n-1 node is the relay
   echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
   echo -n " $(logs node_lightwallet.log)"

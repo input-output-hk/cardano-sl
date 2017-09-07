@@ -1,12 +1,12 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE QuasiQuotes   #-}
 
--- | Command line options of cardano-wallet
+-- | Command line options of cardano-rubbish
 
-module WalletOptions
-       ( WalletOptions (..)
-       , WalletAction (..)
-       , getWalletOptions
+module RubbishOptions
+       ( RubbishOptions (..)
+       , RubbishAction (..)
+       , getRubbishOptions
        ) where
 
 import           Universum
@@ -25,7 +25,7 @@ import           Paths_cardano_sl             (version)
 import qualified Pos.Client.CLI               as CLI
 import           Pos.Communication            (NodeId)
 
-data WalletOptions = WalletOptions
+data RubbishOptions = RubbishOptions
     { woDbPath      :: !FilePath
     , woRebuildDb   :: !Bool
     , woNodeDbPath  :: !FilePath
@@ -33,28 +33,28 @@ data WalletOptions = WalletOptions
     , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
     , woJLFile      :: !(Maybe FilePath)
     , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
-    , woAction      :: !WalletAction
+    , woAction      :: !RubbishAction
     , woPeers       :: ![NodeId]
     }
 
-data WalletAction = Repl
+data RubbishAction = Repl
                   | Cmd { cmd :: !Text }
 
-actionParser :: Parser WalletAction
+actionParser :: Parser RubbishAction
 actionParser = subparser $ replParser <> cmdParser
 
-replParser :: Mod CommandFields WalletAction
+replParser :: Mod CommandFields RubbishAction
 replParser = command "repl" $ info (pure Repl) $
              progDesc "Run REPL in console to evaluate the commands."
 
-cmdParser :: Mod CommandFields WalletAction
+cmdParser :: Mod CommandFields RubbishAction
 cmdParser = command "cmd" $ info opts desc
   where opts = Cmd <$> strOption (long "commands"
                                <> metavar "CMD"
                                <> help "Commands to execute, comma-separated.")
         desc = progDesc "Execute a list of predefined commands."
 
-argsParser :: Parser WalletOptions
+argsParser :: Parser RubbishOptions
 argsParser = do
     woDbPath <- strOption $
         long    "db-path" <>
@@ -87,25 +87,25 @@ argsParser = do
 
     woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
 
-    pure WalletOptions{..}
+    pure RubbishOptions{..}
 
-getWalletOptions :: IO WalletOptions
-getWalletOptions = execParser programInfo
+getRubbishOptions :: IO RubbishOptions
+getRubbishOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> argsParser) $
-        fullDesc <> progDesc "Cardano SL CLI-wallet."
-                 <> header "CLI-based wallet + node."
+        fullDesc <> progDesc "Cardano SL CLI utilities."
+                 <> header "CLI-based utilities (rubbish)."
                  <> footerDoc usageExample
 
     versionOption = infoOption
-        ("cardano-wallet-" <> showVersion version)
+        ("cardano-rubbish-" <> showVersion version)
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
-  stack exec -- cardano-wallet                                   \
+  stack exec -- cardano-rubbish                                  \
     --db-path node-db0                                           \
     --rebuild-db                                                 \
     --json-log=/tmp/logs/2017-05-22_181224/node0.json            \

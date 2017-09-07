@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE CPP            #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes    #-}
@@ -37,7 +36,12 @@ import           System.Wlog                      (logDebug, logError, logInfo)
 import           System.Exit                      (ExitCode (ExitSuccess))
 import           System.Posix.Process             (exitImmediately)
 #endif
+import qualified Network.Transport.TCP            as TCP (TCPAddr (..))
+import           Node.Conversation                (ConversationActions (..))
+import           Node.Message.Class               (Message (..))
 import           Serokell.Util                    (ms, sec)
+import           System.Random                    (randomRIO)
+import           System.Wlog.CanLog               (WithLogger)
 
 import           Pos.Binary                       (Raw, serialize')
 import qualified Pos.Client.CLI                   as CLI
@@ -49,6 +53,8 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    relayPropagateOut, submitTx,
                                                    submitTxRaw, submitUpdateProposal,
                                                    submitVote, txRelays, usRelays, worker)
+import           Pos.Communication.Types.Protocol (Conversation (..), SendActions (..),
+                                                   enqueueMsg, withConnectionTo)
 import           Pos.Constants                    (genesisBlockVersionData,
                                                    genesisSlotDuration, isDevelopment)
 import           Pos.Core                         (addressHash, coinF)
@@ -72,6 +78,9 @@ import           Pos.Genesis                      (BalanceDistribution (..),
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    bracketTransport, loggerBracket)
 import           Pos.Network.Types                (MsgType (..), Origin (..))
+import           Pos.Rubbish                      (LightWalletMode, WalletParams (..),
+                                                   makePubKeyAddressRubbish,
+                                                   runWalletStaticPeers)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Txp                          (TxOut (..), TxOutAux (..), txaF,
                                                    unGenesisUtxo)
@@ -83,23 +92,13 @@ import           Pos.Util.UserSecret              (readUserSecret, usKeys)
 import           Pos.Util.Util                    (powerLift)
 import           Pos.Wallet                       (addSecretKey, getBalance,
                                                    getSecretKeys)
-import           Pos.Wallet.Light                 (LightWalletMode, WalletParams (..),
-                                                   makePubKeyAddressLWallet,
-                                                   runWalletStaticPeers)
 import           Pos.WorkMode                     (RealMode, RealModeContext)
 
 import           Command                          (Command (..), ProposeUpdateSystem (..),
                                                    SendMode (..), parseCommand)
-import qualified Network.Transport.TCP            as TCP (TCPAddr (..))
-import           System.Random                    (randomRIO)
-import           WalletOptions                    (WalletAction (..), WalletOptions (..),
-                                                   getWalletOptions)
+import           RubbishOptions                   (RubbishAction (..),
+                                                   RubbishOptions (..), getRubbishOptions)
 
-import           Node.Conversation                (ConversationActions (..))
-import           Node.Message.Class               (Message (..))
-import           Pos.Communication.Types.Protocol (Conversation (..), SendActions (..),
-                                                   enqueueMsg, withConnectionTo)
-import           System.Wlog.CanLog
 
 data CmdCtx = CmdCtx
     { skeys               :: [SecretKey]
@@ -200,7 +199,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
         -- Light wallet doesn't know current slot, so let's assume
         -- it's 0-th epoch. It's enough for our current needs.
         forM_ (zip keysToSend [0..]) $ \((key, _balance), n) -> do
-            outAddr <- makePubKeyAddressLWallet (toPublic key)
+            outAddr <- makePubKeyAddressRubbish (toPublic key)
             let val1 = mkCoin 1
                 txOut1 = TxOut {
                     txOutAddress = outAddr,
@@ -219,12 +218,12 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
         let writeTPS :: LightWalletMode ()
             writeTPS = do
                 delay (sec slotDuration)
-                currentTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
+                curTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
                 finished <- modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) -> do
                     -- CSV is formatted like this:
                     -- time,txCount,txType
-                    liftIO $ T.hPutStrLn h $ T.intercalate "," [currentTime, show $ submitted, "submitted"]
-                    liftIO $ T.hPutStrLn h $ T.intercalate "," [currentTime, show $ failed, "failed"]
+                    liftIO $ T.hPutStrLn h $ T.intercalate "," [curTime, show $ submitted, "submitted"]
+                    liftIO $ T.hPutStrLn h $ T.intercalate "," [curTime, show $ failed, "failed"]
                     return (TxCount 0 0 sending, sending <= 0)
                 if finished
                 then logInfo "Finished writing TPS samples."
@@ -329,7 +328,7 @@ runCmd _ ListAddresses _ = do
     -- it's 0-th epoch. It's enough for our current needs.
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
-       addr <- makePubKeyAddressLWallet pk
+       addr <- makePubKeyAddressRubbish pk
        putText $ sformat ("    #"%int%":   addr:      "%build%"\n"%
                           "          pk base58: "%stext%"\n"%
                           "          pk hex:    "%fullPublicKeyHexF%"\n"%
@@ -427,7 +426,7 @@ runWalletCmd cmdCtx str sa = do
 
 main :: IO ()
 main = giveStaticConsts $ do
-    WalletOptions {..} <- getWalletOptions
+    RubbishOptions {..} <- getRubbishOptions
     --filePeers <- maybe (return []) CLI.readPeersFile
     --                   (CLI.dhtPeersFile woCommonArgs)
     let allPeers = woPeers -- ++ filePeers

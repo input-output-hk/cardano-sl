@@ -4,4 +4,4 @@
 # CONFIG=.. selects section from config file (core/constants.yaml)
 # dev-custom-config needed to override config file section
 
-stack build --flag cardano-sl-core:dev-mode --flag cardano-sl-core:dev-custom-config --ghc-options=-DCONFIG=benchmark --flag cardano-sl-core:-asserts cardano-sl cardano-sl-lwallet cardano-sl-wallet cardano-sl-explorer
+stack build --flag cardano-sl-core:dev-mode --flag cardano-sl-core:dev-custom-config --ghc-options=-DCONFIG=benchmark --flag cardano-sl-core:-asserts cardano-sl cardano-sl-rubbish cardano-sl-wallet cardano-sl-explorer

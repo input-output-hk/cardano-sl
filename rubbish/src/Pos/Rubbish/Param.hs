@@ -1,12 +1,12 @@
-module Pos.Wallet.Light.Launcher.Param
+module Pos.Rubbish.Param
        ( WalletParams (..)
        ) where
 
 import           Universum
 
+import           Pos.Core     (Timestamp)
 import           Pos.Genesis  (GenesisContext)
 import           Pos.Launcher (BaseParams)
-import           Pos.Types    (Timestamp)
 
 data WalletParams = WalletParams
     { wpDbPath         :: !(Maybe FilePath)

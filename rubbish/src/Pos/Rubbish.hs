@@ -1,3 +1,3 @@
--- | Light wallet launcher.
+-- | Rubbish.
 
 {-# OPTIONS_GHC -F -pgmF autoexporter #-}

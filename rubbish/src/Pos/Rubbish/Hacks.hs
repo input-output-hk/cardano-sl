@@ -1,7 +1,7 @@
--- | Some hacks we use in light wallet.
+-- | Some hacks we use in Rubbish.
 
-module Pos.Wallet.Light.Hacks
-       ( makePubKeyAddressLWallet
+module Pos.Rubbish.Hacks
+       ( makePubKeyAddressRubbish
        ) where
 
 import           Universum
@@ -15,7 +15,7 @@ import           Pos.DB     (MonadGState, gsIsBootstrapEra)
 -- whether we are currently in bootstrap era.  Light wallet doesn't
 -- know current slot, so let's assume it's 0-th epoch. It's enough for
 -- our current needs.
-makePubKeyAddressLWallet :: MonadGState m => PublicKey -> m Address
-makePubKeyAddressLWallet pk = do
+makePubKeyAddressRubbish :: MonadGState m => PublicKey -> m Address
+makePubKeyAddressRubbish pk = do
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra 0
     return $ makePubKeyAddress ibea pk

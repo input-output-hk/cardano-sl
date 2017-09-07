@@ -36,7 +36,7 @@ import           Pos.Util.Arbitrary       (nonrepeating)
 import           Pos.Util.Util            (leftToPanic)
 import           Test.Pos.Util            (giveTestsConsts, stopProperty)
 
-import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty, setBVData)
+import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty, withBVData)
 
 ----------------------------------------------------------------------------
 -- Tests
@@ -197,29 +197,29 @@ feeForManyAddressesSpec manyAddrs =
     forAllM (mkParams 100 perAddrAmount toSpend) $
         \params ->
     do
-    setTxFeePolicy feePolicyConstTerm feePolicySlope
 
-    -- tx builder should find this utxo to be enough for construction
-    txOrError <- createTxWithParams params
-    txAux <- case txOrError of
-        Left err ->
-            if isNotEnoughMoneyTxError err
-            then stop Discard
-            else stopProperty $ sformat ("On first attempt: "%build) err
-        Right (txAux, _) ->
-            return txAux
+    withTxFeePolicy feePolicyConstTerm feePolicySlope $ do
+        -- tx builder should find this utxo to be enough for construction
+        txOrError <- createTxWithParams params
+        txAux <- case txOrError of
+            Left err ->
+                if isNotEnoughMoneyTxError err
+                then stop Discard
+                else stopProperty $ sformat ("On first attempt: "%build) err
+            Right (txAux, _) ->
+                return txAux
 
-    -- even if utxo size is barely enough - fee stabilization should achieve
-    -- success as well
-    -- 'succ' is needed here because current algorithm may fail to stabilize fee if
-    -- almost all money are spent
-    let enoughInputs = succ . length . _txInputs $ taTx txAux
-        utxo' = M.fromList . take enoughInputs . M.toList $ cmpUtxo params
-        params' = params { cmpUtxo = utxo' }
-    txOrError' <- createTxWithParams params'
-    case txOrError' of
-        Left err -> stopProperty $ sformat ("On second attempt: "%build) err
-        Right _  -> return ()
+        -- even if utxo size is barely enough - fee stabilization should achieve
+        -- success as well
+        -- 'succ' is needed here because current algorithm may fail to stabilize fee if
+        -- almost all money are spent
+        let enoughInputs = succ . length . _txInputs $ taTx txAux
+            utxo' = M.fromList . take enoughInputs . M.toList $ cmpUtxo params
+            params' = params { cmpUtxo = utxo' }
+        txOrError' <- createTxWithParams params'
+        case txOrError' of
+            Left err -> stopProperty $ sformat ("On second attempt: "%build) err
+            Right _  -> return ()
   where
     createTxWithParams CreateMTxParams {..} =
         createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
@@ -333,8 +333,10 @@ secretKeyToAddress = makePubKeyAddressBoot . toPublic
 makeSigner :: SecretKey -> (SafeSigner, Address)
 makeSigner sk = (fakeSigner sk, secretKeyToAddress sk)
 
-setTxFeePolicy :: HasCoreConstants => Coeff -> Coeff -> TxpTestProperty ()
-setTxFeePolicy a b = lift $ do
+withTxFeePolicy
+  :: HasCoreConstants
+  => Coeff -> Coeff -> TxpTestProperty () -> TxpTestProperty ()
+withTxFeePolicy a b action = do
     let policy = TxFeePolicyTxSizeLinear $ TxSizeLinear a b
     bvd <- gsAdoptedBVData
-    setBVData bvd{ bvdTxFeePolicy = policy }
+    withBVData bvd{ bvdTxFeePolicy = policy } action

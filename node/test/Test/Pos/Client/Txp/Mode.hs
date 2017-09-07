@@ -5,12 +5,11 @@
 module Test.Pos.Client.Txp.Mode
        ( TxpTestProperty
        , TxpTestMode
-       , setBVData
+       , withBVData
        ) where
 
 import           Universum
 
-import           Control.Lens             ((.=))
 import qualified Data.ByteString          as BS
 import           Test.QuickCheck          (Testable (..), ioProperty)
 import           Test.QuickCheck.Monadic  (PropertyM, monadic)
@@ -27,7 +26,7 @@ import           Pos.DB                   (MonadGState (..))
 -- Mock for TxCreateMode
 ----------------------------------------------------------------------------
 
-type TxpTestMode = StateT BlockVersionData IO
+type TxpTestMode = ReaderT BlockVersionData IO
 
 instance HasCoreConstants => TxCreateMode TxpTestMode
 
@@ -36,9 +35,7 @@ instance HasCoreConstants => TxCreateMode TxpTestMode
 ----------------------------------------------------------------------------
 
 instance MonadGState TxpTestMode where
-    gsAdoptedBVData =
-        -- Universum does not export `get` from `StateT` yet.
-        use identity
+    gsAdoptedBVData = ask
 
 instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
@@ -49,10 +46,12 @@ instance MonadAddresses TxpTestMode where
         seed = BS.replicate seedSize (255 :: Word8)
         address = makePubKeyAddressBoot $ fst $ deterministicKeyGen seed
 
-setBVData :: BlockVersionData -> TxpTestMode ()
-setBVData bvd =
-    -- Universum does not export `put` from `StateT` yet.
-    identity .= bvd
+withBVData
+  :: MonadReader BlockVersionData m
+  => BlockVersionData
+  -> m a
+  -> m a
+withBVData bvd = local (const bvd)
 
 ----------------------------------------------------------------------------
 -- Property
@@ -67,4 +66,4 @@ instance MonadAddresses TxpTestProperty where
     getNewAddress = lift . getNewAddress
 
 instance HasCoreConstants => Testable (TxpTestProperty a) where
-    property = monadic (ioProperty . flip evalStateT Const.genesisBlockVersionData)
+    property = monadic (ioProperty . flip runReaderT Const.genesisBlockVersionData)

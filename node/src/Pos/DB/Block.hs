@@ -68,11 +68,11 @@ import           System.FilePath       ((</>))
 import           System.IO.Error       (isDoesNotExistError)
 
 import           Pos.Binary.Block      ()
-import           Pos.Binary.Class      (Bi, decodeFull)
+import           Pos.Binary.Class      (Bi, decodeFull, serialize')
 import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core        as BC
 import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
-import           Pos.Constants         (dbSerializeVersion, genesisHash)
+import           Pos.Constants         (genesisHash)
 import           Pos.Core              (BlockCount, HasCoreConstants,
                                         HasDifficulty (difficultyL),
                                         HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
@@ -290,16 +290,8 @@ type MonadBlockDBWrite ssc m
 decodeOrFailPureDB
     :: forall ssc . (HasCoreConstants, SscHelpersClass ssc)
     => ByteString
-    -> Either DBError (Block ssc, Undo)
-decodeOrFailPureDB = unexpectedDBVersion . decodeFull @(Word8, (Block ssc, Undo))
-  where
-    unexpectedDBVersion
-        :: Either Text (Word8, (Block ssc, Undo))
-        -> Either DBError (Block ssc, Undo)
-    unexpectedDBVersion (Right (dbVer, val))
-        | dbVer == dbSerializeVersion = Right val
-        | otherwise = Left $ DBUnexpectedVersionTag dbSerializeVersion dbVer
-    unexpectedDBVersion (Left l) = Left $ DBMalformed l
+    -> Either Text (Block ssc, Undo)
+decodeOrFailPureDB = decodeFull
 
 dbGetBlundPure ::
        forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
@@ -310,7 +302,7 @@ dbGetBlundPure h = do
         view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
     case decodeOrFailPureDB <$> blund of
         Nothing        -> pure Nothing
-        Just (Left e)  -> throwM e
+        Just (Left e)  -> throwM (DBMalformed e)
         Just (Right v) -> pure (Just v)
 
 dbGetBlockPureDefault ::
@@ -339,7 +331,7 @@ dbPutBlundPureDefault (blk,undo) = do
     let h = headerHash blk
     (var :: DBPureVar) <- view (lensOf @DBPureVar)
     flip atomicModifyIORefPure var $
-        (pureBlocksStorage . at h .~ Just (dbSerializeValue (blk,undo))) .
+        (pureBlocksStorage . at h .~ Just (serialize'  (blk,undo))) .
         (pureBlockIndexDB . at (blockIndexKey h) .~ Just (dbSerializeValue $ BC.getBlockHeader blk))
 
 dbGetBlockSscPureDefault ::
@@ -500,21 +492,16 @@ delete k = rocksDelete k =<< getBlockIndexDB
 getData ::  forall m v . (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
 getData fp = flip catch handle $ liftIO $
     either (\er -> throwM $ DBMalformed $
-             sformat ("Couldn't deserialize "%build%", reason: "%build) fp er)
-           checkDBVersion .
-    decodeFull @(Word8, v) <$>
+             sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .
+    decodeFull <$>
     BS.readFile fp
   where
     handle e
         | isDoesNotExistError e = pure Nothing
         | otherwise = throwM e
-    checkDBVersion :: (Word8, v) -> Maybe v
-    checkDBVersion (dbVer, val)
-        | dbVer == dbSerializeVersion = pure val
-        | otherwise = throwM $ DBUnexpectedVersionTag dbSerializeVersion dbVer
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp = liftIO . BS.writeFile fp . dbSerializeValue
+putData fp = liftIO . BS.writeFile fp . serialize'
 
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
 deleteData fp = (liftIO $ removeFile fp) `catch` handle

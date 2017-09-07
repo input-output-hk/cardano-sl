@@ -41,7 +41,6 @@ import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              epochSlots, flattenSlotId, getEpochOrSlot,
                                              headerHash)
 import           Pos.Crypto                 (SecretKey)
-import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPayload),
@@ -64,7 +63,7 @@ import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)
-import           Pos.Util                   (maybeThrow, _neHead)
+import           Pos.Util                   (_neHead)
 import           Pos.Util.Util              (HasLens (..), HasLens', leftToPanic)
 import           Pos.WorkMode.Class         (TxpExtra_TMP)
 
@@ -123,11 +122,16 @@ createGenesisBlockAndApply epoch =
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders ->
-            modifyStateLock
-                HighPriority
-                "createGenesisBlockAndApply"
-                (createGenesisBlockDo epoch leaders)
+        Right leaders -> do
+            tipHeader <- DB.getTipHeader
+            needGen <-
+                -- preliminary check outside the lock,
+                -- must be repeated inside the lock
+                needCreateGenesisBlock epoch tipHeader
+            if needGen
+                then modifyStateLock HighPriority "createGenesisBlockAndApply"
+                     (\_ -> createGenesisBlockDo epoch leaders)
+                else return Nothing
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -135,26 +139,14 @@ createGenesisBlockDo
        , MonadBlockApply ssc ctx m)
     => EpochIndex
     -> SlotLeaders
-    -> HeaderHash
     -> m (HeaderHash, Maybe (GenesisBlock ssc))
-createGenesisBlockDo epoch leaders tip = do
-    let noHeaderMsg =
-            "There is no header is DB corresponding to tip from semaphore"
-    tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.blkGetHeader tip
+createGenesisBlockDo epoch leaders = do
+    tipHeader <- DB.getTipHeader
     logDebug $ sformat msgTryingFmt epoch tipHeader
-    shouldCreate tipHeader >>= \case
-        False -> (tip, Nothing) <$ logShouldNot
+    needCreateGenesisBlock epoch tipHeader >>= \case
+        False -> (BC.blockHeaderHash tipHeader, Nothing) <$ logShouldNot
         True -> actuallyCreate tipHeader
   where
-    shouldCreate (Left _) = pure False
-    -- This is true iff tip is from 'epoch' - 1 and last
-    -- 'blkSecurityParam' blocks fully fit into last
-    -- 'slotSecurityParam' slots from 'epoch' - 1.
-    shouldCreate (Right mb)
-        | mb ^. epochIndexL /= epoch - 1 = pure False
-        | otherwise =
-            (chainQualityThreshold @Double <=) <$>
-            calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
     actuallyCreate tipHeader = do
         let blk = mkGenesisBlock (Just tipHeader) epoch leaders
         let newTip = headerHash blk
@@ -171,6 +163,25 @@ createGenesisBlockDo epoch leaders tip = do
     msgTryingFmt =
         "We are trying to create genesis block for " %ords %
         " epoch, our tip header is\n" %build
+
+needCreateGenesisBlock ::
+       ( MonadCreateBlock ssc ctx m
+       , MonadBlockApply ssc ctx m
+       )
+    => EpochIndex
+    -> BlockHeader ssc
+    -> m Bool
+needCreateGenesisBlock epoch tipHeader = do
+    case tipHeader of
+        Left _ -> pure False
+        -- This is true iff tip is from 'epoch' - 1 and last
+        -- 'blkSecurityParam' blocks fully fit into last
+        -- 'slotSecurityParam' slots from 'epoch' - 1.
+        Right mb ->
+            if mb ^. epochIndexL /= epoch - 1
+            then pure False
+            else (chainQualityThreshold @Double <=) <$>
+                 calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
 
 ----------------------------------------------------------------------------
 -- MainBlock

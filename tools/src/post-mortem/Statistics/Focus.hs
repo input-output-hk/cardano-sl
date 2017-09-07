@@ -20,22 +20,22 @@ data Focus =
     | InAdoptedBlock !BlockHash
     deriving Show
 
-focusF :: TxHash -> Fold IndexedJLTimedEvent [(Timestamp, NodeIndex, Focus)]
+focusF :: TxHash -> Fold IndexedJLTimedEvent [(Timestamp, NodeId, Focus)]
 focusF tx = f <$> allF <*> blocksF
   where
-    f :: [(Timestamp, NodeIndex, Focus)] -> Set BlockHash -> [(Timestamp, NodeIndex, Focus)]
+    f :: [(Timestamp, NodeId, Focus)] -> Set BlockHash -> [(Timestamp, NodeId, Focus)]
     f xs s = filter g xs
       where
-        g :: (Timestamp, NodeIndex, Focus) -> Bool
+        g :: (Timestamp, NodeId, Focus) -> Bool
         g (_, _, x) = case x of
             (Received _)       -> True
             (InCreatedBlock h) -> S.member h s
             (InAdoptedBlock h) -> S.member h s
 
-    allF :: Fold IndexedJLTimedEvent [(Timestamp, NodeIndex, Focus)]
+    allF :: Fold IndexedJLTimedEvent [(Timestamp, NodeId, Focus)]
     allF = reverse <$> Fold step [] id
       where
-        step :: [(Timestamp, NodeIndex, Focus)] -> IndexedJLTimedEvent -> [(Timestamp, NodeIndex, Focus)]
+        step :: [(Timestamp, NodeId, Focus)] -> IndexedJLTimedEvent -> [(Timestamp, NodeId, Focus)]
         step xs IndexedJLTimedEvent{..} = case ijlEvent of
             (JLCreatedBlock JLBlock{..}) -> (ijlTimestamp, ijlNode, InCreatedBlock jlHash) : xs
             (JLAdoptedBlock h)           -> (ijlTimestamp, ijlNode, InAdoptedBlock h)      : xs

@@ -26,7 +26,7 @@ import           Types
 import           Universum        hiding (fold)
 
 data BlockHeader = BlockHeader
-    { bhNode      :: !NodeIndex
+    { bhNode      :: !NodeId
     , bhTimestamp :: !Timestamp
     , bhHash      :: !BlockHash
     , bhPrevBlock :: !BlockHash
@@ -42,7 +42,7 @@ blockHeadersF = Fold step MS.empty id
   where
     step :: SMap Text BlockHeader -> IndexedJLTimedEvent -> SMap Text BlockHeader
     step m IndexedJLTimedEvent{..} = case ijlEvent of
-        JLCreatedBlock JLBlock{..} -> 
+        JLCreatedBlock JLBlock{..} ->
             let bh = BlockHeader
                     { bhNode      = ijlNode
                     , bhTimestamp = ijlTimestamp
@@ -88,17 +88,17 @@ blockChainF = blockChain <$> blockHeadersF
 txBlocksF :: Fold IndexedJLTimedEvent (SMap TxHash [(Timestamp, BlockHash)])
 txBlocksF = Fold step MS.empty id
   where
-    step :: SMap Text [(Microsecond, Text)] 
-         -> IndexedJLTimedEvent 
+    step :: SMap Text [(Microsecond, Text)]
+         -> IndexedJLTimedEvent
          -> SMap Text [(Microsecond, Text)]
     step m IndexedJLTimedEvent{..} = case ijlEvent of
         JLCreatedBlock JLBlock{..} -> foldl' (f ijlTimestamp jlHash) m [T.take 8 x | x <- jlTxs]
         _                          -> m
 
-    f :: Timestamp 
-      -> Text 
-      -> SMap Text [(Timestamp, Text)] 
-      -> Text 
+    f :: Timestamp
+      -> Text
+      -> SMap Text [(Timestamp, Text)]
+      -> Text
       -> SMap Text [(Timestamp, Text)]
     f ts h m tx = let y = (ts, h)
                   in  MS.alter (Just . maybe [y] (y :)) tx m
@@ -109,10 +109,10 @@ inBlockChainF = f <$> txFateF
     f :: SMap TxHash TxFate -> SMap TxHash Timestamp
     f = MS.map fromJust . MS.filter isJust .  MS.map txInBlockChain
 
-txCntInChainF :: Fold IndexedJLTimedEvent [(NodeIndex, Timestamp, Int)]
+txCntInChainF :: Fold IndexedJLTimedEvent [(NodeId, Timestamp, Int)]
 txCntInChainF = f <$> blockHeadersF <*> blockChainF
   where
-    f :: Map BlockHash BlockHeader -> Set BlockHash -> [(NodeIndex, Timestamp, Int)]
+    f :: Map BlockHash BlockHeader -> Set BlockHash -> [(NodeId, Timestamp, Int)]
     f m cs = [(bhNode, bhTimestamp, bhTxCnt) | (_, BlockHeader{..}) <- MS.toList m, bhHash `S.member` cs]
 
 data TxFate =
@@ -126,7 +126,7 @@ txInBlockChain InNoBlock             = Nothing
 txInBlockChain (InBlockChain ts _ _) = Just ts
 txInBlockChain (InFork _)            = Nothing
 
-txFateF :: Fold IndexedJLTimedEvent (SMap TxHash TxFate) 
+txFateF :: Fold IndexedJLTimedEvent (SMap TxHash TxFate)
 txFateF = f <$> txFirstReceivedF <*> txBlocksF <*> blockChainF
   where
     f :: SMap TxHash Timestamp -> SMap TxHash [(Timestamp, BlockHash)] -> Set BlockHash -> SMap TxHash TxFate
@@ -137,9 +137,9 @@ txFateF = f <$> txFirstReceivedF <*> txBlocksF <*> blockChainF
             Nothing -> InNoBlock
             Just xs -> fold (Fold step (Nothing, S.empty) extract) xs
 
-        step :: (Maybe (Timestamp, BlockHash), Set (Timestamp, BlockHash)) 
+        step :: (Maybe (Timestamp, BlockHash), Set (Timestamp, BlockHash))
              -> (Timestamp, BlockHash)
-             -> (Maybe (Timestamp, BlockHash), Set (Timestamp, BlockHash)) 
+             -> (Maybe (Timestamp, BlockHash), Set (Timestamp, BlockHash))
         step (Nothing, s) (ts, h)
             | S.member h chain = (Just (ts, h), s)
             | otherwise        = (Nothing     , S.insert (ts, h) s)

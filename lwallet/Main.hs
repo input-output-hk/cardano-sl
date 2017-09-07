@@ -488,7 +488,7 @@ main = giveStaticConsts $ do
 
         logInfo "Using MPC coin tossing"
         liftIO $ hFlush stdout
-        runWalletStaticPeers transport' (S.fromList allPeers) params plugins
+        runWalletStaticPeers woNodeDbPath transport' (S.fromList allPeers) params plugins
 
 addLogging :: forall m. WithLogger m => SendActions m -> SendActions m
 addLogging SendActions{..} = SendActions{

@@ -18,6 +18,7 @@ logs_conf=$(logs lwallet.log)
 binary=$(find_binary cardano-wallet)
 template="$binary $dht_conf $logs_conf \
                  --db-path run/lwallet-db --rebuild-db \
+                 --node-db-path run/node-db0 \
                  --flat-distr \"(4, 100000)\" \
                  --system-start 100500"  # random value, not used, but mandatory
 

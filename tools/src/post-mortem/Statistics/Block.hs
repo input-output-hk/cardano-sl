@@ -26,7 +26,7 @@ import           Types
 import           Universum hiding (fold)
 
 data BlockHeader = BlockHeader
-    { bhNode      :: !NodeIndex
+    { bhNode      :: !NodeId
     , bhTimestamp :: !Timestamp
     , bhHash      :: !BlockHash
     , bhPrevBlock :: !BlockHash
@@ -109,10 +109,10 @@ inBlockChainF = f <$> txFateF
     f :: SMap TxHash TxFate -> SMap TxHash Timestamp
     f = MS.map fromJust . MS.filter isJust .  MS.map txInBlockChain
 
-txCntInChainF :: Fold IndexedJLTimedEvent [(NodeIndex, Timestamp, Int)]
+txCntInChainF :: Fold IndexedJLTimedEvent [(NodeId, Timestamp, Int)]
 txCntInChainF = f <$> blockHeadersF <*> blockChainF
   where
-    f :: Map BlockHash BlockHeader -> Set BlockHash -> [(NodeIndex, Timestamp, Int)]
+    f :: Map BlockHash BlockHeader -> Set BlockHash -> [(NodeId, Timestamp, Int)]
     f m cs = [(bhNode, bhTimestamp, bhTxCnt) | (_, BlockHeader{..}) <- MS.toList m, bhHash `S.member` cs]
 
 data TxFate =

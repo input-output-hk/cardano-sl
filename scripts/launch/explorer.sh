@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
 
-# First argument is path to common.sh
-#base=$(dirname "$0")
-#. "$base"/../common-functions.sh
+# First argument is path to `common-functions.sh`
 common_path=$1
 
-# Check if exists, if not assign
-if [ -z "$system_start" ]
+# Assign `$common_path` if not set before
+if [ -z "$common_path" ]
   then
-    system_start=$((`date +%s`))
+    base=$(dirname "$0")
+    common_path="$base"/../common-functions.sh
 fi
 
-# Second is the number of nodes in network (to match genesis utxo distribution)
+# Check if `$system_start` exists, if not assign
+if [ -z "$system_start" ]
+  then
+    system_start=$((`date +%s))
+fi
+
+# Second argument is the number of nodes in network
+# (to match genesis utxo distribution)
 n=4
 if [[ "$2" != "" ]]; then
     n=$2

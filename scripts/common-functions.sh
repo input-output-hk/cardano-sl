@@ -142,7 +142,12 @@ function gen_kademlia_topology {
           routes=$routes", "
         fi
       done
-      routes="$routes]"
+      # If we have explorer add it so that the other nodes converse with it.
+      if [[ $k -eq $npred ]]; then
+        routes="$routes, [\"explorer\"]]"
+      else
+        routes="$routes]"
+      fi
 
       echo "  \"node$j\":"              >> $tfile
       echo "    type: core"             >> $tfile
@@ -151,7 +156,7 @@ function gen_kademlia_topology {
       echo "    addr: 127.0.0.1"        >> $tfile
       echo "    port: 300$j"            >> $tfile
 
-      # add explorer
+      # add explorer (as relay node)
       if [[ $j -eq $npred ]]; then
         # count port
         local exp=($n + 1)

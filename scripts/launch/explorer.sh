@@ -1,26 +1,22 @@
 #!/usr/bin/env bash
 
-# First argument is path to `common-functions.sh`
-common_path=$1
-
-# Assign `$common_path` if not set before
-if [ -z "$common_path" ]
-  then
+# First argument is path to common.sh
+if [[ "$1" != "" ]]; then
     base=$(dirname "$0")
     common_path="$base"/../common-functions.sh
 fi
 
-# Check if `$system_start` exists, if not assign
-if [ -z "$system_start" ]
-  then
-    system_start=$((`date +%s))
-fi
-
-# Second argument is the number of nodes in network
-# (to match genesis utxo distribution)
-n=4
+# Second is the number of nodes in network (to match genesis utxo distribution)
 if [[ "$2" != "" ]]; then
     n=$2
+else
+    n=4
+fi
+
+# Check if exists, if not assign
+if [ -z "$system_start" ]
+  then
+    system_start=$((`date +%s` + 45))
 fi
 
 # We presume we already launched n nodes before, we select the last pane.

@@ -21,6 +21,7 @@ executable cardano-rubbish
                        Command.Tx
                        Command.Types
                        Command.Update
+                       Plugin
                        RubbishOptions
 
                        -- TODO: delete these

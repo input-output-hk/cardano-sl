@@ -725,6 +725,7 @@ benchmark cardano-bench-criterion
                      , cardano-sl
                      , containers
                      , criterion
+                     , data-default
                      , formatting
                      , lens
                      , log-warper

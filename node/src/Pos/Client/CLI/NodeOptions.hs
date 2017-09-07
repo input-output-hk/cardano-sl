@@ -29,6 +29,7 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl             (version)
 
 import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
+                                               configInfoParser,
                                                externalNetworkAddressOption,
                                                listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
@@ -153,26 +154,6 @@ data NodeArgs = NodeArgs
     { sscAlgo            :: !SscAlgo
     , behaviorConfigPath :: !(Maybe FilePath)
     } deriving Show
-
-configInfoParser :: Parser ConfigInfo
-configInfoParser = do
-    customConfigPath <- optional $ strOption $
-        long    "custom-config-file" <>
-        metavar "FILEPATH" <>
-        help    "Path to constants.yaml"
-    customConfigName <- optional $ fmap toText $ strOption $
-        long    "custom-config-name" <>
-        metavar "KEY" <>
-        help    "Section of constants.yaml to use"
-    customGenCorePath <- optional $ strOption $
-        long    "custom-genesis-core-bin" <>
-        metavar "FILEPATH" <>
-        help    "Path to genesis-core.bin"
-    customGenGtPath <- optional $ strOption $
-        long    "custom-genesis-gt-bin" <>
-        metavar "FILEPATH" <>
-        help    "Path to genesis-godtossing.bin"
-    pure ConfigInfo{..}
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser = do

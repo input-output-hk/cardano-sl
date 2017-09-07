@@ -443,7 +443,7 @@ checkForIgnoredCommitmentsWorker
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     counter <- newTVarIO 0
-    void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl counter)
+    onNewSlot True (checkForIgnoredCommitmentsWorkerImpl counter)
 
 -- This worker checks whether our commitments appear in blocks. This
 -- check is done only if we actually should participate in

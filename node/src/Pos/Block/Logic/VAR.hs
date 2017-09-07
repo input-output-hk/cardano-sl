@@ -37,7 +37,7 @@ import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import qualified Pos.GState               as GS
-import           Pos.Lrc.Worker           (LrcModeFullNoSemaphore, lrcSingleShotNoLock)
+import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShot)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
@@ -92,7 +92,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
          , pModifier)
 
 -- | Union of constraints required by block processing and LRC.
-type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFullNoSemaphore ssc ctx m)
+type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFull ssc ctx m)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -156,7 +156,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
         let prefixHead = prefix ^. _Wrapped . _neHead
         logDebug "Rolling: Calculating LRC if needed"
         when (isLeft prefixHead) $
-            lift $ lrcSingleShotNoLock (prefixHead ^. epochIndexL)
+            lift $ lrcSingleShot (prefixHead ^. epochIndexL)
         logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
             Left (ApplyBlocksVerifyFailure -> failure)
@@ -192,7 +192,7 @@ applyBlocks calculateLrc pModifier blunds = do
         -- Hopefully this lrc check is never triggered -- because
         -- caller most definitely should have computed lrc to verify
         -- the sequence beforehand.
-        lrcSingleShotNoLock (prefixHead ^. epochIndexL)
+        lrcSingleShot (prefixHead ^. epochIndexL)
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of
         []           -> pass

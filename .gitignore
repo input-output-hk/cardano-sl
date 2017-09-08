@@ -73,3 +73,7 @@ explorer-node.log.*
 explorer-node.log
 explorer.log
 socket-io.log
+
+# importify
+.importify
+

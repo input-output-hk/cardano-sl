@@ -54,7 +54,7 @@ import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         runSecureRandom, vssKeyGen)
 import           Pos.Crypto.SecretSharing              (toVssPublicKey)
 import           Pos.DB                                (gsAdoptedBVData)
-import           Pos.Lrc.Context                       (lrcActionOnEpochReason, waitLrc)
+import           Pos.Lrc.Context                       (lrcActionOnEpochReason)
 import           Pos.Lrc.Types                         (RichmenStakes)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
 import           Pos.Reporting                         (reportMisbehaviour)
@@ -110,7 +110,6 @@ instance GtMessageConstraints => SscWorkersClass SscGodTossing where
 
 shouldParticipate :: (SscMode SscGodTossing ctx m) => EpochIndex -> m Bool
 shouldParticipate epoch = do
-    waitLrc epoch
     richmen <- lrcActionOnEpochReason epoch
         "couldn't get SSC richmen"
         getRichmenSsc
@@ -128,7 +127,7 @@ onNewSlotSsc
     :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => (WorkerSpec m, OutSpecs)
 onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
-    recoveryCommGuard $ do
+    recoveryCommGuard "onNewSlot worker in GodTossing" $ do
         localOnNewSlot slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
@@ -462,7 +461,7 @@ checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
     -- It's enough to do this check once per epoch near the end of the epoch.
     | getSlotIndex siSlot /= 9 * fromIntegral blkSecurityParam = pass
     | otherwise =
-        recoveryCommGuard $
+        recoveryCommGuard "checkForIgnoredCommitmentsWorker" $
         whenM (shouldParticipate siEpoch) $ do
             ourId <- getOurStakeholderId
             globalCommitments <-

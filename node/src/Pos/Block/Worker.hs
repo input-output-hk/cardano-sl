@@ -88,7 +88,7 @@ blkWorkers =
 blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
-        recoveryCommGuard $
+        recoveryCommGuard "onNewSlot worker in block processing" $
         () <$
         metricWorker slotId `concurrently`
         void
@@ -156,11 +156,12 @@ blockCreator (slotId@SlotId {..}) sendActions = do
                                        ])
                        proxyCerts
             -- cert we can use to _issue_ instead of real slot leader
-            validLightCert = find (\psk -> addressHash (pskIssuerPk psk) == leader &&
+        let validLightCert = find (\psk -> addressHash (pskIssuerPk psk) == leader &&
                                            pskDelegatePk psk == ourPk)
                              validCerts
-            ourLightPsk = find (\psk -> pskIssuerPk psk == ourPk) validCerts
-            lightWeDelegated = isJust ourLightPsk
+        let ourLightPsk = find (\psk -> pskIssuerPk psk == ourPk) validCerts
+        let lightWeDelegated = isJust ourLightPsk
+        let lightWeAreDelegate = isJust validLightCert
         logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
 
         ourHeavyPsk <- getPskByIssuer (Left ourPk)
@@ -170,20 +171,23 @@ blockCreator (slotId@SlotId {..}) sendActions = do
         logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
         let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) finalHeavyPsk
 
-        if | heavyWeAreIssuer ->
+        let weAreLeader = leader == ourPkHash
+        if | weAreLeader && heavyWeAreIssuer ->
                  logInfoS $ sformat
-                 ("Not creating the block because it's delegated by heavy psk: "%build)
+                 ("Not creating the block (though we're leader) because it's "%
+                  "delegated by heavy psk: "%build)
                  ourHeavyPsk
-           | lightWeDelegated ->
+           | weAreLeader && lightWeDelegated ->
                  logInfoS $ sformat
-                 ("Not creating the block because it's delegated by light psk: "%build)
+                 ("Not creating the block (though we're leader) because it's "%
+                  "delegated by light psk: "%build)
                  ourLightPsk
-           | leader == ourPkHash ->
+           | weAreLeader ->
                  onNewSlotWhenLeader slotId Nothing sendActions
            | heavyWeAreDelegate ->
                  let pske = Right . swap <$> dlgTransM
                  in onNewSlotWhenLeader slotId pske sendActions
-           | isJust validLightCert ->
+           | lightWeAreDelegate ->
                  onNewSlotWhenLeader slotId  (Left <$> validLightCert) sendActions
            | otherwise -> pass
 

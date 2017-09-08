@@ -55,6 +55,7 @@ import           Pos.Launcher.Param              (BaseParams (..), LoggingParams
                                                   NodeParams (..))
 import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
 import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue)
+import           Pos.Recovery.Instance           ()
 import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Util.JsonLog                (JsonLogConfig (..),

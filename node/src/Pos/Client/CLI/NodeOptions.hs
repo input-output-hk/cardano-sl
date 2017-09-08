@@ -59,8 +59,8 @@ data CommonNodeArgs = CommonNodeArgs
       -- ^ Network configuration
     , peers               :: ![(NodeId, NodeType)]
       -- ^ Known peers (addresses with classification).
+
     , jlPath              :: !(Maybe FilePath)
-    , kademliaDumpPath    :: !FilePath
     , commonArgs          :: !CommonArgs
     , updateLatestPath    :: !FilePath
     , updateWithPackage   :: !Bool
@@ -112,12 +112,6 @@ commonNodeArgsParser = do
     networkConfigOpts <- networkConfigOption
     jlPath <-
         optionalJSONPath
-    kademliaDumpPath <- strOption $
-        long    "kademlia-dump-path" <>
-        metavar "FILEPATH" <>
-        value   "kademlia.dump" <>
-        help    "Path to Kademlia dump file. If file doesn't exist, it will be created." <>
-        showDefault
     commonArgs <- commonArgsParser
     updateLatestPath <- strOption $
         long    "update-latest-path" <>

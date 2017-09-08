@@ -22,7 +22,6 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                infoOption, long, metavar, option,
                                                progDesc, strOption, switch, value)
 import           Prelude                      (show)
-import           Serokell.Util.OptParse       (fromParsec)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
@@ -31,13 +30,10 @@ import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser
                                                optionalJSONPath, sscAlgoOption)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
-import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
-import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
-                                               addressToNodeId)
 
 data CommonNodeArgs = CommonNodeArgs
     { dbPath              :: !FilePath
@@ -49,9 +45,6 @@ data CommonNodeArgs = CommonNodeArgs
     , backupPhrase        :: !(Maybe BackupPhrase)
     , networkConfigOpts   :: !NetworkConfigOpts
       -- ^ Network configuration
-    , peers               :: ![(NodeId, NodeType)]
-      -- ^ Known peers (addresses with classification).
-
     , jlPath              :: !(Maybe FilePath)
     , commonArgs          :: !CommonArgs
     , updateLatestPath    :: !FilePath
@@ -96,7 +89,6 @@ commonNodeArgsParser = do
         metavar "PHRASE" <>
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet. Words should be separated by spaces.")
-    peers <- (++) <$> corePeersList <*> relayPeersList
     networkConfigOpts <- networkConfigOption
     jlPath <-
         optionalJSONPath
@@ -122,9 +114,6 @@ commonNodeArgsParser = do
     statsdParams <- optional statsdParamsOption
 
     pure CommonNodeArgs{..}
-  where
-    corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
-    relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
 
 data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
 
@@ -146,13 +135,6 @@ behaviorConfigOption =
         long "behavior" <>
         metavar "FILE" <>
         help "Path to the behavior config"
-
-peerOption :: String -> (NetworkAddress -> (NodeId, NodeType)) -> Parser (NodeId, NodeType)
-peerOption longName mk =
-    option (fromParsec (mk <$> addrParser)) $
-        long longName <>
-        metavar "HOST:PORT" <>
-        help "Address of a peer"
 
 getSimpleNodeOptions :: IO SimpleNodeArgs
 getSimpleNodeOptions = execParser programInfo

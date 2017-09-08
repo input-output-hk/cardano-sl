@@ -20,11 +20,12 @@ module Mode
 import           Universum
 
 import           Control.Lens             (makeLensesWith)
+import           Control.Monad.Morph      (hoist)
+import           Control.Monad.Reader     (withReaderT)
 import           Mockable                 (Production)
 import           System.Wlog              (HasLoggerName (..))
 
-import           Pos.Block.BListener      (MonadBListener (..), onApplyBlocksStub,
-                                           onRollbackBlocksStub)
+import           Pos.Block.BListener      (MonadBListener (..))
 import           Pos.Block.Core           (Block, BlockHeader)
 import           Pos.Block.Slog           (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Block.Types          (Undo)
@@ -37,33 +38,21 @@ import           Pos.Context              (HasNodeContext (..), unGenesisUtxo)
 import           Pos.Core                 (HasCoreConstants, HasPrimaryKey (..), IsHeader)
 import           Pos.Crypto               (PublicKey)
 import           Pos.DB                   (MonadGState (..))
-import           Pos.DB.Block             (dbGetBlockDefault, dbGetBlockSscDefault,
-                                           dbGetHeaderDefault, dbGetHeaderSscDefault,
-                                           dbGetUndoDefault, dbGetUndoSscDefault,
-                                           dbPutBlundDefault)
 import           Pos.DB.Class             (MonadBlockDBGeneric (..),
                                            MonadBlockDBGenericWrite (..), MonadDB (..),
                                            MonadDBRead (..))
-import           Pos.DB.DB                (gsAdoptedBVDataDefault)
-import           Pos.DB.Rocks             (dbDeleteDefault, dbGetDefault,
-                                           dbIterSourceDefault, dbPutDefault,
-                                           dbWriteBatchDefault)
 import           Pos.KnownPeers           (MonadFormatPeers (..), MonadKnownPeers (..))
 import           Pos.Recovery             ()
 import           Pos.Reporting            (HasReportingContext (..))
 import           Pos.Shutdown             (HasShutdownContext (..))
 import           Pos.Slotting.Class       (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum    (currentTimeSlottingSum,
-                                           getCurrentSlotBlockingSum,
-                                           getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState    (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class            (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing       (SscGodTossing)
 import           Pos.Txp                  (filterUtxoByAddrs)
 import           Pos.Util                 (Some (..))
-import           Pos.Util.JsonLog         (HasJsonLogConfig (..), jsonLogDefault)
-import           Pos.Util.LoggerName      (HasLoggerName' (..), getLoggerNameDefault,
-                                           modifyLoggerNameDefault)
+import           Pos.Util.JsonLog         (HasJsonLogConfig (..))
+import           Pos.Util.LoggerName      (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue   as OQ.Reader
 import           Pos.Util.TimeWarp        (CanJsonLog (..))
 import           Pos.Util.UserSecret      (HasUserSecret (..))
@@ -98,9 +87,7 @@ getCmdCtx = view rcCmdCtx_L
 
 -- | Turn 'RealMode' action into 'RubbishMode' action.
 realModeToRubbish :: RealMode RubbishSscType a -> RubbishMode a
-realModeToRubbish action = do
-    rmc <- view rcRealModeContext_L
-    lift $ runReaderT action rmc
+realModeToRubbish = withReaderT rcRealModeContext
 
 ----------------------------------------------------------------------------
 -- Boilerplate instances
@@ -149,51 +136,55 @@ instance HasJsonLogConfig RubbishContext where
 instance (HasCoreConstants, MonadSlotsData ctx RubbishMode)
       => MonadSlots ctx RubbishMode
   where
-    getCurrentSlot = getCurrentSlotSum
-    getCurrentSlotBlocking = getCurrentSlotBlockingSum
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-    currentTimeSlotting = currentTimeSlottingSum
+    getCurrentSlot = realModeToRubbish getCurrentSlot
+    getCurrentSlotBlocking = realModeToRubbish getCurrentSlotBlocking
+    getCurrentSlotInaccurate = realModeToRubbish getCurrentSlotInaccurate
+    currentTimeSlotting = realModeToRubbish currentTimeSlotting
 
 instance {-# OVERLAPPING #-} HasLoggerName RubbishMode where
-    getLoggerName = getLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
+    getLoggerName = realModeToRubbish getLoggerName
+    modifyLoggerName f action = do
+        cmdCtx <- getCmdCtx
+        let rubbishToRealMode :: RubbishMode a -> RealMode RubbishSscType a
+            rubbishToRealMode = withReaderT (flip RubbishContext cmdCtx)
+        realModeToRubbish $ modifyLoggerName f $ rubbishToRealMode action
 
 instance {-# OVERLAPPING #-} CanJsonLog RubbishMode where
-    jsonLog = jsonLogDefault
+    jsonLog = realModeToRubbish ... jsonLog
 
 instance MonadDBRead RubbishMode where
-    dbGet = dbGetDefault
-    dbIterSource = dbIterSourceDefault
+    dbGet = realModeToRubbish ... dbGet
+    dbIterSource tag p = hoist (hoist realModeToRubbish) (dbIterSource tag p)
 
 instance MonadDB RubbishMode where
-    dbPut = dbPutDefault
-    dbWriteBatch = dbWriteBatchDefault
-    dbDelete = dbDeleteDefault
+    dbPut = realModeToRubbish ... dbPut
+    dbWriteBatch = realModeToRubbish ... dbWriteBatch
+    dbDelete = realModeToRubbish ... dbDelete
 
 instance HasCoreConstants =>
          MonadBlockDBGenericWrite (BlockHeader RubbishSscType) (Block RubbishSscType) Undo RubbishMode where
-    dbPutBlund = dbPutBlundDefault
+    dbPutBlund = realModeToRubbish ... dbPutBlund
 
 instance HasCoreConstants =>
          MonadBlockDBGeneric (BlockHeader RubbishSscType) (Block RubbishSscType) Undo RubbishMode
   where
-    dbGetBlock  = dbGetBlockDefault @RubbishSscType
-    dbGetUndo   = dbGetUndoDefault @RubbishSscType
-    dbGetHeader = dbGetHeaderDefault @RubbishSscType
+    dbGetBlock  = realModeToRubbish ... dbGetBlock
+    dbGetUndo   = realModeToRubbish ... dbGetUndo @(BlockHeader RubbishSscType) @(Block RubbishSscType) @Undo
+    dbGetHeader = realModeToRubbish ... dbGetHeader @(BlockHeader RubbishSscType) @(Block RubbishSscType) @Undo
 
 instance HasCoreConstants =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock RubbishSscType) () RubbishMode
   where
-    dbGetBlock  = dbGetBlockSscDefault @RubbishSscType
-    dbGetUndo   = dbGetUndoSscDefault @RubbishSscType
-    dbGetHeader = dbGetHeaderSscDefault @RubbishSscType
+    dbGetBlock  = realModeToRubbish ... dbGetBlock
+    dbGetUndo   = realModeToRubbish ... dbGetUndo @(Some IsHeader) @(SscBlock RubbishSscType) @()
+    dbGetHeader = realModeToRubbish ... dbGetHeader @(Some IsHeader) @(SscBlock RubbishSscType) @()
 
 instance MonadGState RubbishMode where
-    gsAdoptedBVData = gsAdoptedBVDataDefault
+    gsAdoptedBVData = realModeToRubbish ... gsAdoptedBVData
 
 instance HasCoreConstants => MonadBListener RubbishMode where
-    onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks = onRollbackBlocksStub
+    onApplyBlocks = realModeToRubbish ... onApplyBlocks
+    onRollbackBlocks = realModeToRubbish ... onRollbackBlocks
 
 -- FIXME: I preserved the old behavior, but it most likely should be
 -- changed!
@@ -207,7 +198,7 @@ instance HasCoreConstants => MonadTxHistory RubbishSscType RubbishMode where
     saveTx = saveTxDefault
 
 instance MonadKnownPeers RubbishMode where
-    updatePeersBucket = OQ.Reader.updatePeersBucketReader (rmcOutboundQ . rcRealModeContext)
+    updatePeersBucket = realModeToRubbish ... updatePeersBucket
 
 instance MonadFormatPeers RubbishMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . rcRealModeContext)

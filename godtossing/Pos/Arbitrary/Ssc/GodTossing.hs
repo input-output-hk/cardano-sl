@@ -55,11 +55,7 @@ newtype BadSignedCommitment = BadSignedComm
     } deriving (Generic, Show, Eq)
 
 instance Arbitrary BadSignedCommitment where
-    arbitrary = BadSignedComm <$> do
-        pk <- arbitrary
-        sig <- arbitrary
-        comm <- Commitment <$> arbitrary <*> arbitrary
-        return (pk, comm, sig)
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 -- | Pair of 'Commitment' and 'Opening'.
@@ -75,10 +71,7 @@ data BadCommAndOpening = BadCommAndOpening
     } deriving (Generic, Show, Eq)
 
 instance Arbitrary BadCommAndOpening where
-    arbitrary = do
-        badComm <- Commitment <$> arbitrary <*> arbitrary
-        opening <- arbitrary
-        return $ BadCommAndOpening (badComm, opening)
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary CommitmentOpening where

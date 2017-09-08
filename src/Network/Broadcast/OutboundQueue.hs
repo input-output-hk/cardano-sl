@@ -1293,7 +1293,7 @@ data MaxBucketSize = BucketSizeUnlimited | BucketSizeMax Int
 
 exceedsBucketSize :: Int -> MaxBucketSize -> Bool
 exceedsBucketSize _ BucketSizeUnlimited = False
-exceedsBucketSize n (BucketSizeMax m)   = m > n
+exceedsBucketSize n (BucketSizeMax m)   = n > m
 
 -- | Internal method: read all buckets of peers
 getAllPeers :: MonadIO m => OutboundQ msg nid buck -> m (Peers nid)

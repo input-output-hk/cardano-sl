@@ -13,7 +13,7 @@ import           Universum
 import qualified Data.HashMap.Strict               as HM
 import qualified Data.List.NonEmpty                as NE
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, listOf,
-                                                    oneof, sized, vector)
+                                                    oneof, scale, sized, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core.Unsafe         ()
@@ -83,7 +83,7 @@ instance Arbitrary BadCommAndOpening where
 
 instance Arbitrary CommitmentOpening where
     arbitrary = do
-        vssPks <- NE.fromList <$> sized (vector . max 4)
+        vssPks <- NE.fromList <$> sized (vector . max 4 . min 50)
         let thr = vssThreshold (length vssPks)
         uncurry CommitmentOpening <$> genCommitmentAndOpening thr vssPks
 
@@ -98,7 +98,7 @@ instance Arbitrary Commitment where
                              ]
 
 instance Arbitrary CommitmentsMap where
-    arbitrary = mkCommitmentsMap <$> arbitrary
+    arbitrary = mkCommitmentsMap <$> scale (min 15) arbitrary
     shrink = genericShrink
 
 -- | Generates commitment map having commitments from given epoch.
@@ -199,7 +199,7 @@ instance Arbitrary MCOpening where
     shrink = genericShrink
 
 instance Arbitrary MCShares where
-    arbitrary = genericArbitrary
+    arbitrary = scale (min 15) genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary MCVssCertificate where

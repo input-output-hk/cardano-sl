@@ -20,8 +20,8 @@ import           Pos.Crypto.AsBinary               ()
 import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
 import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))
 import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
-                                                    RedeemSignature,
-                                                    redeemDeterministicKeyGen, redeemSign)
+                                                    RedeemSignature, redeemKeyGen,
+                                                    redeemSign)
 import           Pos.Crypto.SafeSigning            (PassPhrase, createProxyCert,
                                                     createPsk)
 import           Pos.Crypto.SecretSharing          (DecShare, EncShare, Secret,
@@ -31,8 +31,7 @@ import           Pos.Crypto.SecretSharing          (DecShare, EncShare, Secret,
                                                     vssKeyGen)
 import           Pos.Crypto.Signing                (ProxyCert, ProxySecretKey,
                                                     ProxySignature, PublicKey, SecretKey,
-                                                    Signature, Signed,
-                                                    deterministicKeyGen, mkSigned,
+                                                    Signature, Signed, keyGen, mkSigned,
                                                     proxySign, sign, toPublic)
 import           Pos.Crypto.SignTag                (SignTag (..))
 import           Pos.Util.Arbitrary                (arbitrarySizedS, arbitraryUnsafe)
@@ -50,18 +49,14 @@ instance Arbitrary SignTag where
 ----------------------------------------------------------------------------
 
 instance Arbitrary PublicKey where
-    arbitrary = fst . deterministicKeyGen <$> arbitrarySizedS 32
+    arbitrary = fst <$> keyGen
 instance Arbitrary SecretKey where
-    arbitrary = snd . deterministicKeyGen <$> arbitrarySizedS 32
+    arbitrary = snd <$> keyGen
 
 instance Arbitrary RedeemPublicKey where
-    arbitrary = fst . fromMaybe err . redeemDeterministicKeyGen <$>
-                arbitrarySizedS 32
-      where err = error "arbitrary@RedeemPublicKey: keygen failed"
+    arbitrary = fst <$> redeemKeyGen
 instance Arbitrary RedeemSecretKey where
-    arbitrary = snd . fromMaybe err . redeemDeterministicKeyGen <$>
-                arbitrarySizedS 32
-      where err = error "arbitrary@RedeemSecretKey: keygen failed"
+    arbitrary = snd <$> redeemKeyGen
 
 ----------------------------------------------------------------------------
 -- Arbitrary VSS keys

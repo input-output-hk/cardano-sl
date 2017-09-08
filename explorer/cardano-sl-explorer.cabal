@@ -311,7 +311,10 @@ test-suite cardano-explorer-test
                      , base
                      , bytestring
                      , cardano-sl-explorer
+                     , cardano-sl-update
                      , cardano-sl-core
+                     , cardano-sl-txp
+                     , cardano-sl-ssc
                      , cardano-sl
                      , cborg
                      , cereal

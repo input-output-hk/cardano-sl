@@ -3,14 +3,27 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- API server logic
 
 module Pos.Explorer.Web.Server
        ( ExplorerMode
+       , ExplorerMockMode(..)
        , explorerServeImpl
        , explorerApp
        , explorerHandlers
+
+       -- pure functions
+       , pureGetBlocksTotal
+       , pureGetBlocksPagesTotal
+
+       -- functions for unit testing
+       , getBlocksTotalEMode
+
+       -- api functions
+       , getBlocksTotal
+       , getBlocksPagesTotal
 
        -- function useful for socket-io server
        , topsortTxsOrFail
@@ -44,7 +57,8 @@ import           Pos.Binary.Class               (biSize)
 import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
-import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
+import           Pos.Context                    (HasCoreConstants, genesisUtxoM,
+                                                 unGenesisUtxo)
 import           Pos.Core                       (AddrType (..), Address (..), Coin,
                                                  EpochIndex, HeaderHash, Timestamp,
                                                  difficultyL, gbHeader, gbhConsensus,
@@ -95,6 +109,18 @@ import           Pos.Explorer.Web.Error         (ExplorerError (..))
 type MainBlund ssc = (MainBlock ssc, Undo)
 
 type ExplorerMode ctx m = WorkMode SscGodTossing ctx m
+
+-- TODO(KS): A reader `ReaderT (ExplorerMockMode m ssc) m a` would be convenient.
+-- | A simple data structure that holds all the foreign functions Explorer needs to call.
+data ExplorerMockMode m ssc = ExplorerMockMode {
+        eGetTipBlock :: DB.MonadBlockDB ssc m => m (Block ssc)
+    }
+
+-- | This is what we use in production when we run Explorer.
+prodMode :: forall m. ExplorerMockMode m SscGodTossing
+prodMode = ExplorerMockMode {
+      eGetTipBlock = DB.getTipBlock
+    }
 
 explorerServeImpl
     :: ExplorerMode ctx m
@@ -184,17 +210,27 @@ explorerHandlers _sendActions =
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
 -- Total number of anchor blocks = current epoch + 1
 getBlocksTotal
-    :: ExplorerMode ctx m
+    :: forall m. (HasCoreConstants, DB.MonadBlockDB SscGodTossing m)
     => m Integer
-getBlocksTotal = do
+getBlocksTotal = getBlocksTotalEMode prodMode
+
+getBlocksTotalEMode
+    :: (HasCoreConstants,  DB.MonadBlockDB SscGodTossing m)
+    => ExplorerMockMode m SscGodTossing
+    -> m Integer
+getBlocksTotalEMode mode = do
+
+    -- Get the required function for getting the tip of the block from the mode.
+    let getTipBlock = eGetTipBlock mode
+
     -- Get the tip block.
-    tipBlock <- DB.getTipBlock @SscGodTossing
+    tipBlock <- getTipBlock
 
-    pure $ maxBlocks tipBlock
-  where
-    maxBlocks :: Block SscGodTossing -> Integer
-    maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
+    pure $ pureGetBlocksTotal tipBlock
 
+-- | A pure function that return the number of blocks.
+pureGetBlocksTotal :: Block SscGodTossing -> Integer
+pureGetBlocksTotal tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
 
 -- | Get last blocks with a page parameter. This enables easier paging on the
 -- client side and should enable a simple and thin client logic.
@@ -259,23 +295,37 @@ getBlundOrThrow headerHash = DB.blkGetBlund headerHash >>=
 -- | Get total pages from blocks. Calculated from
 -- pageSize we pass to it.
 getBlocksPagesTotal
-    :: ExplorerMode ctx m
+    :: (HasCoreConstants,  DB.MonadBlockDB SscGodTossing m)
     => Word
     -> m Integer
 getBlocksPagesTotal pageSize = do
     -- Get total blocks in the blockchain.
     blocksTotal <- toInteger <$> getBlocksTotal
 
-    -- Get total pages from the blocks. And we want the page
-    -- with the example, the page size 10,
-    -- to start with 10 + 1 == 11, not with 10 since with
-    -- 10 we'll have an empty page.
-    let totalPages = (blocksTotal - 1) `div` pageSizeInt
+    -- Make sure the parameters are valid.
+    when (blocksTotal < 1) $
+        throwM $ Internal "There are currently no block to display."
+
+    when (pageSizeInt < 1) $
+        throwM $ Internal "Page size must be greater than 1 if you want to display blocks."
 
     -- We start from page 1.
-    pure (totalPages + 1)
+    pure $ pureGetBlocksPagesTotal blocksTotal pageSizeInt
   where
     pageSizeInt     = toInteger pageSize
+
+-- | A pure calculation of the page number.
+-- Get total pages from the blocks. And we want the page
+-- with the example, the page size 10,
+-- to start with 10 + 1 == 11, not with 10 since with
+-- 10 we'll have an empty page.
+-- Could also be `((blocksTotal - 1) `div` pageSizeInt) + 1`.
+pureGetBlocksPagesTotal :: Integer -> Integer -> Integer
+pureGetBlocksPagesTotal blocksTotal pageSizeInt = divRoundUp blocksTotal pageSizeInt
+  where
+    -- A simplification mentioned by DNikulin.
+    divRoundUp :: Integer -> Integer -> Integer
+    divRoundUp a b = (a + b - 1) `div` b
 
 
 -- | Get the last page from the blockchain. We use the default 10
@@ -369,10 +419,12 @@ getAddressSummary cAddr = do
 
     balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
     txIds <- getNewestFirst <$> EX.getAddrHistory addr
+
     transactions <- forM txIds $ \id -> do
         extra <- getTxExtraOrFail id
         tx <- getTxMain id extra
         pure $ makeTxBrief tx extra
+
     pure CAddressSummary {
         caAddress = cAddr,
         caType = getAddressType addr,

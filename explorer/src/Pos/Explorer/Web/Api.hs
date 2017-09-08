@@ -18,6 +18,8 @@ module Pos.Explorer.Web.Api
 
 import           Universum
 
+import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
+                                               QueryParam)
 import           Data.Proxy                   (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
@@ -26,8 +28,6 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlock
                                                CTxId, CTxSummary, Byte)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (EpochIndex)
-import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
-                                               QueryParam)
 
 
 type PageNumber = Integer

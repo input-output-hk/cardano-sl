@@ -9,6 +9,7 @@ module KeygenOptions
        , AvvmBalanceOptions (..)
        , TestnetBalanceOptions (..)
        , FakeAvvmOptions (..)
+       , GenKeysOptions (..)
        , getKeygenOptions
        ) where
 
@@ -17,7 +18,8 @@ import           Universum
 import           Data.Version        (showVersion)
 import           Options.Applicative (Parser, auto, command, execParser, fullDesc, header,
                                       help, helper, info, infoOption, long, metavar,
-                                      option, progDesc, short, strOption, subparser)
+                                      option, progDesc, short, strOption, subparser,
+                                      value)
 
 import           Pos.Client.CLI      (configInfoParser)
 import           Pos.Core            (StakeholderId)
@@ -37,6 +39,7 @@ data KeygenCommand
     | GenerateKey FilePath
     | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
+    | GenerateKeysBySpec GenKeysOptions
     deriving (Show)
 
 data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
@@ -62,6 +65,12 @@ data GenesisGenOptions = GenesisGenOptions
       -- is used)
     } deriving (Show)
 
+data GenKeysOptions = GenKeysOptions
+    { gkoGenesisJSON :: FilePath
+    , gkoOutDir      :: FilePath
+    , gkoKeyPattern  :: FilePath
+    } deriving (Show)
+
 data AvvmBalanceOptions = AvvmBalanceOptions
     { asoJsonPath      :: FilePath
     , asoHolderKeyfile :: Maybe FilePath
@@ -82,6 +91,9 @@ keygenCommandParser =
     , command "generate-avvm-seeds"
       (infoH (fmap DumpAvvmSeeds dumpAvvmSeedsParser)
             (progDesc "Generate avvm seeds with public keys."))
+    , command "generate-keys-by-spec"
+      (infoH (GenerateKeysBySpec <$> keysBySpecParser)
+            (progDesc "Generate secret keys and avvm seed by genesis-spec.yaml"))
     ]
   where
     infoH a b = info (helper <*> a) b
@@ -114,6 +126,26 @@ dumpAvvmSeedsParser = do
         long "output" <> short 'o' <> metavar "FILEPATH" <>
         help "Path to dump generated seeds to."
     pure $ DumpAvvmSeedsOptions {..}
+
+keysBySpecParser  :: Parser GenKeysOptions
+keysBySpecParser = do
+    gkoGenesisJSON <- strOption $
+        long    "genesis-spec" <>
+        metavar "FILE" <>
+        value   "genesis-spec.yaml" <>
+        help    "Genesis file (.yaml)."
+    gkoOutDir <- strOption $
+        long    "genesis-out-dir" <>
+        metavar "DIR" <>
+        value   "." <>
+        help    "Directory to dump keys and avvm seeds into."
+    gkoKeyPattern <- strOption $
+        long    "file-pattern" <>
+        metavar "PATTERN" <>
+        value   "key{}.sk" <>
+        help    "Filename pattern for generated keyfiles \
+                \(`{}` is a place for number). E.g. key{}.sk"
+    pure $ GenKeysOptions {..}
 
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo

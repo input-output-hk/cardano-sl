@@ -63,6 +63,7 @@ data NetworkConfigOpts = NetworkConfigOpts
     , networkConfigOptsPort     :: Word16
       -- ^ Port number to use when translating IP addresses to NodeIds
     , networkConfigOptsPolicies :: Maybe FilePath
+      -- DOCUMENT THIS FIELD
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -247,7 +248,8 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                 T.NodeCore  -> return $ T.TopologyCore{..}
                 T.NodeRelay -> return $ T.TopologyRelay{topologyMaxSubscrs = nmMaxSubscrs, ..}
                 T.NodeEdge  -> throw NetworkConfigSelfEdge
-        Y.TopologyBehindNAT{..} ->
+        Y.TopologyBehindNAT{..} -> do
+            whenJust networkConfigOptsKademlia $ const $ throw RedundantKademliaConfig
             return T.TopologyBehindNAT{..}
         Y.TopologyP2P{..} -> do
             kparams <- either throw return =<< liftIO (getKademliaParamsFromFile cfg)
@@ -460,6 +462,9 @@ data NetworkConfigException =
 
     -- | A Kademlia configuration file is expected but was not specified.
   | MissingKademliaConfig
+
+    -- | A Kademlia configuration file is provided, but not needed.
+  | RedundantKademliaConfig
 
     -- | We cannot parse the kademlia .yaml file
   | CannotParseKademliaConfig (Either DHT.MalformedDHTKey Yaml.ParseException)

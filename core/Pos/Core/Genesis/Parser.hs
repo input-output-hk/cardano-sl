@@ -59,7 +59,8 @@ defaultGenCoreData =
 
 genCoreData :: GenesisCoreData
 setGenCoreData :: GenesisCoreData -> IO ()
-(genCoreData, setGenCoreData) = unsafePerformIO newInitFuture
+(genCoreData, setGenCoreData) =
+    unsafePerformIO (newInitFuture "genCoreData")
 {-# NOINLINE genCoreData #-}
 {-# NOINLINE setGenCoreData #-}
 

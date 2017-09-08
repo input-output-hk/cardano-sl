@@ -8,7 +8,7 @@ import           Universum
 import           Control.Exception (throwIO)
 import           System.IO.Unsafe  (unsafeInterleaveIO)
 
-data FutureError = FutureAlreadyFilled
+data FutureError = FutureAlreadyFilled Text
     deriving Show
 
 instance Exception FutureError
@@ -22,14 +22,20 @@ instance Exception FutureError
 --   trigger the error "thread blocked indefinitely in an MVar operation".
 -- * the procedure to fill the thunk is called at most once.
 --   Violation of this contract will throw `FutureAlreadyFilled`.
-newInitFuture :: (MonadIO m, MonadIO m') => m (a, a -> m' ())
-newInitFuture = do
+--
+-- You can provide a name to 'newInitFuture' to make debugging easier when
+-- something goes wrong and e.g. a future get filled twice.
+newInitFuture
+    :: forall m m' a.
+       (MonadIO m, MonadIO m')
+    => Text -> m (a, a -> m' ())
+newInitFuture name = do
     mvar <- newEmptyMVar
     thunk <- liftIO $ unsafeInterleaveIO (readMVar mvar)
     let setter value = assertSingleAssignment =<< tryPutMVar mvar value
     pure (thunk, setter)
   where
-    assertSingleAssignment :: MonadIO m => Bool -> m ()
+    assertSingleAssignment :: Bool -> m' ()
     assertSingleAssignment = \case
         True -> pure ()
-        False -> liftIO $ throwIO FutureAlreadyFilled
+        False -> liftIO $ throwIO (FutureAlreadyFilled name)

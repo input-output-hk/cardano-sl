@@ -172,7 +172,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
                  then view GS.gStateContext
                  else GS.cloneGStateContext =<< view GS.gStateContext
     bgcSystemStart <- view slottingTimestamp
-    (initSlot, putInitSlot) <- newInitFuture
+    (initSlot, putInitSlot) <- newInitFuture "initSlot"
     let bgcSlotId = Nothing
 #ifdef WITH_EXPLORER
     let bgcTxpGlobalSettings = explorerTxpGlobalSettings

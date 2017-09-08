@@ -249,8 +249,8 @@ initBlockTestContext
 initBlockTestContext tp@TestParams {..} callback = do
     clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
-    (futureLrcCtx, putLrcCtx) <- newInitFuture
-    (futureSlottingVar, putSlottingVar) <- newInitFuture
+    (futureLrcCtx, putLrcCtx) <- newInitFuture "lrcCtx"
+    (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     systemStart <- Timestamp <$> currentTime
     let initCtx =
             TestInitModeContext

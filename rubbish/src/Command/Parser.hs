@@ -41,14 +41,13 @@ lexeme p = spaces *> p >>= \x -> spaces $> x
 text :: String -> Parser Text
 text = lexeme . fmap toText . string
 
--- many1Till :: Parser a -> Parser b -> Parser [a]
--- many1Till p end = (:) <$> p <*> manyTill p end
-
 anyText :: Parser Text
 anyText = lexeme $ fmap toText $ manyTill anyChar (void (try space) <|> try eof)
 
 filePath :: Parser FilePath
-filePath = lexeme (many1 anyChar)
+filePath = lexeme (many1 nonSpace)
+  where
+    nonSpace = noneOf [' ']
 
 address :: Parser Address
 address = lexeme $ do
@@ -56,10 +55,6 @@ address = lexeme $ do
     case decodeTextAddress (toText str) of
         Left err -> fail (toString err)
         Right x  -> return x
--- pubKey :: Parser PublicKey
--- pubKey =
---     fromMaybe (panic "couldn't read pk") . parseFullPublicKey . toText <$>
---     lexeme (many1 alphaNum)
 
 num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit

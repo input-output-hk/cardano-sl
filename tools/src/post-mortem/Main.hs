@@ -2,7 +2,9 @@ import qualified Data.Map.Strict as M
 import           Data.List       (last)
 import           System.FilePath
 import           System.IO       (hPutStrLn)
+import           System.Environment (getEnv)
 import           Text.Printf     (hPrintf)
+import           System.Directory
 
 import           Options
 import           Statistics
@@ -37,8 +39,23 @@ main = do
             err ""
             for_ logDirs $ processLogDirThroughput txWindow waitWindow
         TestPostProcess logDirs -> do
-            showLogDirs logDirs
-            bs <- forM logDirs $ postProcessLogs
+            out <- getEnv "out"
+            let
+              nixSupport = out <> "/nix-support"
+            err $ "log director: " <> logDirs
+            chainState <- postProcessLogs logDirs
+            exists <- doesDirectoryExist nixSupport
+            unless exists $ createDirectory nixSupport
+            let
+              missedBlocks = expectedLength chainState - totalBlocks
+              totalBlocks = chainLength chainState
+              content = unlines
+                [
+                  "chain-length " <> (show totalBlocks) <> " blocks",
+                  "missing-blocks " <> (show missedBlocks) <> " blocks"
+                ]
+            writeFile (nixSupport <> "/hydra-metrics") content
+            unless (missedBlocks == 0) $ writeFile (nixSupport <> "/failed") "1"
             err "done"
 
 showLogDirs :: [FilePath] -> IO ()
@@ -46,13 +63,13 @@ showLogDirs logDirs = do
     err "log directories: "
     for_ logDirs $ \d -> err $ " - " ++ show d
 
-postProcessLogs :: FilePath -> IO (String, Map t (Maybe Timestamp))
+postProcessLogs :: FilePath -> IO ChainState
 postProcessLogs logDir = do
   --err $ "processing log directory " ++ show logDir ++ "..."
   chainState <- runJSONFold logDir $ findBlockChainState
   err $ show chainState
-  err $ stateDescription chainState
-  return undefined
+  err $ stateDescription $ internal chainState
+  return chainState
 
 processLogDirOverview :: FilePath -> Double -> IO (String, Map TxHash (Maybe Timestamp))
 processLogDirOverview logDir sampleProb = do

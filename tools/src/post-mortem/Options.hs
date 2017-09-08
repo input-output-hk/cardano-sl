@@ -13,7 +13,7 @@ data Options =
     | Focus !TxHash !FilePath
     | TxRelay ![FilePath]
     | Throughput !Double !Double ![FilePath]
-    | TestPostProcess ![FilePath]
+    | TestPostProcess !FilePath
 
 overviewOptions :: Parser Options
 overviewOptions = Overview <$> (toProb <$> argument auto
@@ -56,7 +56,7 @@ throughputOptions = Throughput <$> (argument auto
                                     )))
 
 testPostProcess :: Parser Options
-testPostProcess = TestPostProcess <$> (some (argument str (metavar "LOGDIRS..." <> help "directories containing the log files")))
+testPostProcess = TestPostProcess <$> (argument str (metavar "LOGDIRS..." <> help "directories containing the log files"))
 
 options :: Parser Options
 options = hsubparser

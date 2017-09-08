@@ -22,7 +22,8 @@ let
     };
   };
   topologyFile = pkgs.writeText "topology.json" (builtins.toJSON topology);
-  genesis = (import ../default.nix { inherit pkgs; }).make-genesis;
+  cardanoPkgs = import ../. { inherit pkgs; };
+  genesis = cardanoPkgs.make-genesis;
   mkMachine = index: { config, pkgs, ... }: {
     imports = [ ../nixos/cardano-node.nix ];
     services.dnsmasq.enable = true;
@@ -109,5 +110,6 @@ in {
     file pcap $out/capture-1-4.pcap
     file pcap $out/capture-1-5.pcap
     EOF
+    system("${cardanoPkgs.cardano-sl-tools}/bin/cardano-post-mortem testPostProcess $out/logs/");
   '';
 }

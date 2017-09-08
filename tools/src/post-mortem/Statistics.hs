@@ -3,6 +3,7 @@ module Statistics
     , receivedCreatedF
     , findBlockChainState
     , ChainState(..)
+    , ChainStateInternal(..)
     , module Statistics.Block
     , module Statistics.Chart
     , module Statistics.CSV
@@ -51,24 +52,49 @@ receivedCreatedF = f <$> txFirstReceivedF <*> inBlockChainF
 type JLSlotId = (Word64, Word16)
 type BlockId = Text
 
-data ChainState = ChainState
+data ChainStateInternal = ChainStateInternal
   { stateDescription :: String
   , topMostSlot :: JLSlotId
-  , blocks :: Map BlockId JLBlock
+  , topMostBlock :: BlockId
+  , blocks :: Map BlockId BlockWrapper
+  } deriving Show
+
+data ChainState = ChainState
+  { internal :: ChainStateInternal
+  , chainLength :: Integer
+  , expectedLength :: Integer
+  } deriving Show
+
+data BlockWrapper = BlockWrapper
+  { jlBlock :: JLBlock
+  , parent :: Maybe BlockWrapper
   } deriving Show
 
 findBlockChainState :: Fold IndexedJLTimedEvent ChainState
-findBlockChainState = Fold f1 (ChainState "" (0,0) mempty) (\x -> x)
+findBlockChainState = Fold f1 (ChainStateInternal "" (0,0) "error" mempty) finish
   where
+    finish :: ChainStateInternal -> ChainState
+    finish internal = ChainState internal chainLength (((fromIntegral slot) + 1) + ((fromIntegral epoch) * epochLength))
+      where
+        chainLength = measureLength $ M.lookup (topMostBlock internal) (blocks internal)
+        (epoch, slot) = topMostSlot internal
+        epochLength = 1080 -- TODO, look it up somehow
+    measureLength :: Maybe BlockWrapper -> Integer
+    measureLength (Just block) = 1 + (measureLength $ parent block)
+    measureLength Nothing = 0
     f1 state1 event = f2 event2
       where
         event2 = ijlEvent event
         f2 (JLCreatedBlock block) = state1 {
           stateDescription = stateDescription state1 <> "\ncreated " <> show block,
-          topMostSlot = max (topMostSlot state1) (jlSlot block)
+          topMostSlot = bestSlot,
+          topMostBlock = if (bestSlot == (jlSlot block)) then (jlHash block) else (topMostBlock state1),
+          blocks = M.insert (jlHash block) wrapped (blocks state1)
         }
           where
-            result = M.lookup (jlHash block) (blocks state1)
+            result = M.lookup (jlPrevBlock block) (blocks state1)
+            wrapped = BlockWrapper block result
+            bestSlot = max (topMostSlot state1) (jlSlot block)
         f2 (JLAdoptedBlock blockid) = state1
           --stateDescription = (stateDescription state1) <> "\ncadopted " <> (show blockid)
         f2 real_event = state1 { stateDescription = (stateDescription state1) <> "\n" <> (show real_event) }

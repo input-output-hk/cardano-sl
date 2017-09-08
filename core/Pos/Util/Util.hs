@@ -58,6 +58,7 @@ module Pos.Util.Util
        , sleep
        , withTempFile
        , withSystemTempFile
+       , applyPattern
 
        -- * Aeson
        , parseJSONWithRead
@@ -110,6 +111,7 @@ import           Data.List                      (last)
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
+import qualified Data.Text                      as T
 import           Data.Time                      (getCurrentTime)
 import           Data.Time.Clock                (NominalDiffTime)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
@@ -576,6 +578,12 @@ withTempFile tmpDir template action =
   where
      ignoringIOErrors :: MC.MonadCatch m => m () -> m ()
      ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: Prelude.IOError))
+
+applyPattern :: Show a => FilePath -> a -> FilePath
+applyPattern fp a = replace "{}" (show a) fp
+  where
+    replace :: FilePath -> FilePath -> FilePath -> FilePath
+    replace x b = toString . (T.replace `on` toText) x b . toText
 
 ----------------------------------------------------------------------------
 -- Aeson

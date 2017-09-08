@@ -93,6 +93,9 @@ library
                         -- Statistics
                         Pos.Statistics
 
+                        -- Utilities for testnet
+                        Pos.Testnet
+
                         -- Client
                         Pos.Client.Txp.Addresses
                         Pos.Client.Txp.Balances

@@ -24,15 +24,17 @@ import           Text.JSON.Canonical        (parseCanonicalJSON, prettyCanonical
 import           Pos.Binary                 (asBinary)
 import           Pos.Core                   (addressHash)
 import           Pos.Crypto                 (EncryptedSecretKey (..), VssKeyPair,
-                                             redeemPkB64F, toVssPublicKey)
+                                             noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing         (SecretKey (..), toPublic)
 import           Pos.Genesis                (AddrDistribution, GenesisSpec (..),
                                              genesisDevHdwSecretKeys,
                                              genesisDevSecretKeys, mkGenesisCoreData,
                                              noGenesisDelegation)
+import           Pos.Testnet                (generateFakeAvvm, generateKeyfile)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys, usPrimKey, usVss,
                                              usWalletSet)
-import           Pos.Util.Util              (leftToPanic)
+import           Pos.Util.UserSecret        (takeUserSecret, writeUserSecretRelease)
+import           Pos.Util.Util              (applyPattern, leftToPanic)
 import           Pos.Wallet.Web.Secret      (wusRootKey)
 
 import           Avvm                       (aeCoin, applyBlacklisted,
@@ -41,101 +43,24 @@ import           KeygenOptions              (AvvmBalanceOptions (..),
                                              DumpAvvmSeedsOptions (..),
                                              GenesisGenOptions (..), KeygenCommand (..),
                                              KeygenOptions (..), getKeygenOptions)
-import           Testnet                    (generateFakeAvvm, generateKeyfile,
-                                             rearrangeKeyfile)
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
-applyPattern :: Show a => FilePath -> a -> FilePath
-applyPattern fp a = replace "{}" (show a) fp
-  where
-    replace :: FilePath -> FilePath -> FilePath -> FilePath
-    replace x b = toString . (T.replace `on` toText) x b . toText
-
-----------------------------------------------------------------------------
--- Balance distributions generation
-----------------------------------------------------------------------------
-
--- Generates keys and vss certs for testnet data. Returns:
--- 1. Address distribution
--- 2. Set of boot stakeholders (richmen addresses)
--- 3. Genesis vss data (vss certs of richmen)
--- getTestnetData ::
---        (MonadIO m, MonadFail m, WithLogger m)
---     => FilePath
---     -> TestBalanceOptions
---     -> m ([AddrDistribution], Map StakeholderId Word16, GenesisGtData)
--- getTestnetData dir tso@TestBalanceOptions{..} = do
-
---     let keysDir = dir </> "keys-testnet"
---     let richDir = keysDir </> "rich"
---     let poorDir = keysDir </> "poor"
---     logInfo $ "Generating testnet data into " <> fromString keysDir
---     liftIO $ createDirectoryIfMissing True richDir
---     liftIO $ createDirectoryIfMissing True poorDir
-
---     let totalStakeholders = tsoRichmen + tsoPoors
-
---     richmenList <- forM [1 .. tsoRichmen] $ \i ->
---         generateKeyfile True Nothing $
---         richDir </> (applyPattern tsoPattern i)
---     poorsList <- forM [1 .. tsoPoors] $ \i ->
---         generateKeyfile False Nothing $
---         poorDir </> applyPattern tsoPattern i
-
---     let genesisList = map (\(k, vc, _) -> (k, vc)) $ richmenList ++ poorsList
---     let genesisListRich = take (fromIntegral tsoRichmen) genesisList
-
---     logInfo $ show totalStakeholders <> " keyfiles are generated"
-
---     let distr = genTestnetDistribution tso
---         richmenStakeholders = case distr of
---             RichPoorBalances {..} ->
---                 Map.fromList $ map ((,1) . addressHash . fst) genesisListRich
---             _ -> error "cardano-keygen: impossible type of generated testnet balance"
---         genesisAddrs = map (makePubKeyAddressBoot . fst) genesisList
---                     <> map (view _3) poorsList
---         genesisAddrDistr = [(genesisAddrs, distr)]
---         genGtData = GenesisGtData
---             { ggdVssCertificates =
---               HM.fromList $ map (_1 %~ addressHash) genesisListRich
---             }
-
---     logInfo $ sformat ("testnet genesis created successfully. "
---                       %"First 10 addresses: "%listJson%" distr: "%shown)
---               (map (sformat addressDetailedF) $ take 10 genesisAddrs)
---               distr
-
---     return (genesisAddrDistr, richmenStakeholders, genGtData)
-
--- getFakeAvvmGenesis
---     :: (MonadIO m, WithLogger m)
---     => FilePath -> FakeAvvmOptions -> m [AddrDistribution]
--- getFakeAvvmGenesis dir FakeAvvmOptions{..} = do
---     let keysDir = dir </> "keys-fakeavvm"
---     logInfo $ "Generating fake avvm data into " <> fromString keysDir
---     liftIO $ createDirectoryIfMissing True keysDir
-
---     fakeAvvmPubkeys <- forM [1 .. faoCount] $
---         generateFakeAvvm . (\x -> keysDir </> ("fake-"<>show x<>".seed"))
-
---     logInfo $ show faoCount <> " fake avvm seeds are generated"
-
---     let gcdAddresses = map makeRedeemAddress fakeAvvmPubkeys
---         gcdDistribution = CustomBalances $
---             replicate (length gcdAddresses)
---                       (mkCoin $ fromIntegral faoOneBalance)
-
---     pure $ [(gcdAddresses, gcdDistribution)]
+rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+rearrangeKeyfile fp = do
+    us <- takeUserSecret fp
+    let sk = maybeToList $ us ^. usPrimKey
+    writeUserSecretRelease $
+        us & usKeys %~ (++ map noPassEncrypt sk)
 
 -- Reads avvm json file and returns related 'AddrDistribution'
-getAvvmGenesis
+readAvvmGenesis
     :: (MonadIO m, WithLogger m, MonadFail m)
     => AvvmBalanceOptions -> m AddrDistribution
-getAvvmGenesis AvvmBalanceOptions {..} = do
-    logInfo "Generating avvm data"
+readAvvmGenesis AvvmBalanceOptions {..} = do
+    logInfo "Reading avvm data"
     jsonfile <- liftIO $ BSL.readFile asoJsonPath
     case eitherDecode jsonfile of
         Left err       -> error $ toText err
@@ -154,7 +79,7 @@ rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
 genPrimaryKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 genPrimaryKey path = do
-    _ <- generateKeyfile True Nothing path
+    _ <- generateKeyfile True Nothing (Just path)
     logInfo $ "Successfully generated primary key " <> (toText path)
 
 readKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
@@ -191,7 +116,7 @@ dumpKeys pat = do
     liftIO $ createDirectoryIfMissing True keysDir
     for_ (zip3 [1 ..] genesisDevSecretKeys genesisDevHdwSecretKeys) $
         \(i :: Int, k, wk) ->
-        generateKeyfile False (Just (k, wk)) $ applyPattern pat i
+        generateKeyfile False (Just (k, wk)) $ Just $ applyPattern pat i
 
 dumpAvvmSeeds
     :: (MonadIO m, WithLogger m)
@@ -204,7 +129,7 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
         "number of seeds should be positive, but it's " <> show dasNumber
 
     fakeAvvmPubkeys <- forM [1 .. dasNumber] $
-        generateFakeAvvm . (\x -> dasPath </> ("key"<>show x<>".seed"))
+        generateFakeAvvm . Just . (\x -> dasPath </> ("key"<>show x<>".seed"))
     forM_ (fakeAvvmPubkeys `zip` [1..dasNumber]) $
         \(rPk,i) -> writeFile (dasPath </> "key"<>show i<>".pk")
                               (sformat redeemPkB64F rPk)
@@ -222,7 +147,7 @@ genGenesisFiles GenesisGenOptions{..} = do
               \should be provided"
 
     logInfo "Generating AVVM distribution"
-    mAvvmAddrDistr <- traverse getAvvmGenesis ggoAvvmBalance
+    mAvvmAddrDistr <- traverse readAvvmGenesis ggoAvvmBalance
 
     ------ Generating genesis JSON data
 

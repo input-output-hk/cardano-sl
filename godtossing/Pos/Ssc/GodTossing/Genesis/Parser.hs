@@ -68,7 +68,7 @@ defaultGenGtData =
 
 genGtData :: GenesisGtData
 setGenGtData :: GenesisGtData -> IO ()
-(genGtData, setGenGtData) = unsafePerformIO newInitFuture
+(genGtData, setGenGtData) = unsafePerformIO (newInitFuture "genGtData")
 {-# NOINLINE genGtData #-}
 {-# NOINLINE setGenGtData #-}
 

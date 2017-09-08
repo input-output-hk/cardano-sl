@@ -60,9 +60,9 @@ initTBlockGenMode ::
     -> Production a
 initTBlockGenMode nodeDBs genesisCtx action = do
     let _gscDB = RealDB nodeDBs
-    (_gscSlogGState, putSlogGState) <- newInitFuture
-    (_gscLrcContext, putLrcCtx) <- newInitFuture
-    (_gscSlottingVar, putSlottingVar) <- newInitFuture
+    (_gscSlogGState, putSlogGState) <- newInitFuture "slogGState"
+    (_gscLrcContext, putLrcCtx) <- newInitFuture "lrcCtx"
+    (_gscSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     let tbgcGState = GStateContext {..}
 
     tbgcSystemStart <- Timestamp <$> currentTime

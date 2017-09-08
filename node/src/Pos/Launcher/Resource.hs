@@ -129,9 +129,9 @@ allocateNodeResources
     -> Production (NodeResources ssc m)
 allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
     db <- openNodeDBs npRebuildDb npDbPathM
-    (futureLrcContext, putLrcContext) <- newInitFuture
-    (futureSlottingVar, putSlottingVar) <- newInitFuture
-    (futureSlottingContext, putSlottingContext) <- newInitFuture
+    (futureLrcContext, putLrcContext) <- newInitFuture "lrcContext"
+    (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
+    (futureSlottingContext, putSlottingContext) <- newInitFuture "slottingContext"
     let putSlotting sv sc = do
             putSlottingVar sv
             putSlottingContext sc

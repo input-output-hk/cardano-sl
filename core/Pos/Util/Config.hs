@@ -304,13 +304,15 @@ defaultCslConfigName = QUOTED(CONFIG)
 
 fullCslConfig :: Y.Object
 setFullCslConfig :: Y.Object -> IO ()
-(fullCslConfig, setFullCslConfig) = unsafePerformIO newInitFuture
+(fullCslConfig, setFullCslConfig) =
+    unsafePerformIO (newInitFuture "fullCslConfig")
 {-# NOINLINE fullCslConfig #-}
 {-# NOINLINE setFullCslConfig #-}
 
 cslConfigName :: Text
 setCslConfigName :: Text -> IO ()
-(cslConfigName, setCslConfigName) = unsafePerformIO newInitFuture
+(cslConfigName, setCslConfigName) =
+    unsafePerformIO (newInitFuture "cslConfigName")
 {-# NOINLINE cslConfigName #-}
 {-# NOINLINE setCslConfigName #-}
 

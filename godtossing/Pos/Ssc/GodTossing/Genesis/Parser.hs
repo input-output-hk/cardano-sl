@@ -10,6 +10,7 @@ import           Universum
 
 import qualified Data.ByteString                  as BS
 import           Data.FileEmbed                   (embedFile, makeRelativeToProject)
+import qualified Data.HashMap.Lazy                as HM.L
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (stripPrefix)
 import qualified Language.Haskell.TH              as TH
@@ -42,14 +43,19 @@ allGenGtDatas =
             TH.listE $ zip suffs paths <&> \(suff, path) ->
                 [|(suff, path, $(embedFile path))|]
             )
-    in HM.fromList $ bins <&> \(suff, path, file) ->
+    -- we intentionally use a lazy 'fromList' because soon we'll get rid of
+    -- genesises anyway and for now we don't want people to regenerate *all*
+    -- genesises because with strict 'fromList' having even one bad genesis
+    -- will lead to a deserialization exception
+    in HM.L.fromList $ bins <&> \(suff, path, file) ->
+           (suff,) $
            case decodeFull file of
                Left err -> error $ "Failed to read genesis from " <>
                                    toText path <> ": " <> err
                Right d
                    | null (ggdVssCertificates d) ->
                          error $ "No VSS certificates in " <> toText path
-                   | otherwise -> (suff, d)
+                   | otherwise -> d
 
 defaultGenGtData :: GenesisGtData
 defaultGenGtData =

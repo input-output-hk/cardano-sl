@@ -8,5 +8,7 @@ import           Pos.Launcher (applyConfigInfo)
 
 main :: IO ()
 main = do
-    applyConfigInfo def
+    let configInfo = def
+    applyConfigInfo configInfo
+    putText (pretty configInfo)
     hspec spec

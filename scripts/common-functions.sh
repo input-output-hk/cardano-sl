@@ -201,7 +201,7 @@ function node_cmd {
   fi
 
   local topology_file="$config_dir/topology$i.yaml"
-  local kademlia_file="$config_dir/kademlia$i.yaml"
+  #local kademlia_file="$config_dir/kademlia$i.yaml"
 
   echo -n "$(find_binary $exec_name) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
@@ -211,7 +211,7 @@ function node_cmd {
   # A sloppy test but it'll do for now.
   local topology_first_six_bytes=`cat $topology_file | head -c 6`
   if [[ "$topology_first_six_bytes" != "wallet" ]]; then
-    echo -n " --address 127.0.0.1:"`get_port $i`
+    #echo -n " --address 127.0.0.1:"`get_port $i`
     echo -n " --listen 127.0.0.1:"`get_port $i`
   fi
   echo -n " $(logs node$i.log) $time_lord $stats"
@@ -225,7 +225,7 @@ function node_cmd {
   #echo -n " --statsd-server $statsd_server"
   echo -n " --node-id node$i"
   echo -n " --topology $topology_file"
-  echo -n " --kademlia $kademlia_file"
+  #echo -n " --kademlia $kademlia_file"
   # Use the policies option if you want to change enqueue/dequeue/failure
   # policies without re-compiling. See example files
   #   scripts/policies/policy_core.yaml

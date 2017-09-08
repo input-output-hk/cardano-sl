@@ -9,7 +9,6 @@ module Pos.Network.Types
        ( -- * Network configuration
          NetworkConfig (..)
        , NodeName (..)
-       , defaultNetworkConfig
          -- * Topology
        , StaticPeers(..)
        , Topology(..)
@@ -46,6 +45,8 @@ module Pos.Network.Types
        , NodeId (..)
        ) where
 
+import           Universum                             hiding (show)
+
 import           Data.IP                               (IPv4)
 import           GHC.Show                              (Show (..))
 import           Network.Broadcast.OutboundQueue       (OutboundQ)
@@ -53,15 +54,16 @@ import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import           Network.DNS                           (DNSError)
 import qualified Network.DNS                           as DNS
+import qualified Network.Transport.TCP                 as TCP
 import           Node.Internal                         (NodeId (..))
+import qualified System.Metrics                        as Monitoring
+import           System.Wlog.CanLog                    (WithLogger)
+
 import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import qualified Pos.Network.Policy                    as Policy
 import           Pos.System.Metrics.Constants          (cardanoNamespace)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
-import qualified System.Metrics                        as Monitoring
-import           System.Wlog.CanLog                    (WithLogger)
-import           Universum                             hiding (show)
 
 #if !defined(POSIX)
 import qualified Pos.Network.Windows.DnsDomains        as Win
@@ -88,17 +90,19 @@ data NetworkConfig kademlia = NetworkConfig
     , ncEnqueuePolicy :: !(OQ.EnqueuePolicy NodeId)
     , ncDequeuePolicy :: !OQ.DequeuePolicy
     , ncFailurePolicy :: !(OQ.FailurePolicy NodeId)
+    , ncTcpAddr       :: !TCP.TCPAddr
+      -- ^ External TCP address of the node.
+      -- It encapsulates both bind address and address visible to other nodes.
     }
 
 instance Show kademlia => Show (NetworkConfig kademlia) where
     show = show . showableNetworkConfig
 
-data ShowableNetworkConfig kademlia = ShowableNetworkConfig {
-      sncTopology    :: !(Topology kademlia)
+data ShowableNetworkConfig kademlia = ShowableNetworkConfig
+    { sncTopology    :: !(Topology kademlia)
     , sncDefaultPort :: !Word16
     , sncSelfName    :: !(Maybe NodeName)
-    }
-    deriving (Show)
+    } deriving (Show)
 
 showableNetworkConfig :: NetworkConfig kademlia -> ShowableNetworkConfig kademlia
 showableNetworkConfig NetworkConfig {..} =
@@ -106,16 +110,6 @@ showableNetworkConfig NetworkConfig {..} =
         sncDefaultPort = ncDefaultPort
         sncSelfName    = ncSelfName
     in  ShowableNetworkConfig {..}
-
-defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
-defaultNetworkConfig ncTopology = NetworkConfig {
-      ncDefaultPort   = 3000
-    , ncSelfName      = Nothing
-    , ncEnqueuePolicy = topologyEnqueuePolicy ncTopology
-    , ncDequeuePolicy = topologyDequeuePolicy ncTopology
-    , ncFailurePolicy = topologyFailurePolicy ncTopology
-    , ..
-    }
 
 ----------------------------------------------------------------------------
 -- Topology

@@ -11,6 +11,7 @@ import qualified Data.Set                        as Set
 import           Mockable                        (MonadMockable, Production,
                                                   mapConcurrently, bracket)
 import           Network.Transport.Abstract      (Transport)
+import qualified Network.Transport.TCP           as TCP (TCPAddr (..))
 import           Node                            (noReceiveDelay, simpleNodeEndPoint)
 import           System.Wlog                     (WithLogger, logInfo)
 
@@ -21,8 +22,10 @@ import           Pos.DB.Rocks                    (closeNodeDBs, openNodeDBs)
 import           Pos.Genesis                     (gtcUtxo, gtcWStakeholders)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..), OQ,
                                                   initQueue, runServer)
-import           Pos.Network.Types               (NetworkConfig, Topology (..),
-                                                  defaultNetworkConfig)
+import           Pos.Network.Types               (NetworkConfig (..), Topology (..),
+                                                  topologyDequeuePolicy,
+                                                  topologyEnqueuePolicy,
+                                                  topologyFailurePolicy)
 import           Pos.Reporting.MemState          (emptyReportingContext)
 import           Pos.Util.JsonLog                (JsonLogConfig (..))
 import           Pos.Util.Util                   ()
@@ -60,8 +63,18 @@ runWalletStaticPeers
 runWalletStaticPeers nodeDbPath transport peers wp =
     runLightWalletMode nodeDbPath networkConfig transport peers wp . runWallet
   where
+    topology = TopologyLightWallet $ Set.toList peers
     networkConfig :: NetworkConfig kademlia
-    networkConfig = defaultNetworkConfig $ TopologyLightWallet (Set.toList peers)
+    networkConfig =
+        NetworkConfig
+        { ncDefaultPort = 3000
+        , ncSelfName = Nothing
+        , ncEnqueuePolicy = topologyEnqueuePolicy topology
+        , ncDequeuePolicy = topologyDequeuePolicy topology
+        , ncFailurePolicy = topologyFailurePolicy topology
+        , ncTopology = topology
+        , ncTcpAddr = TCP.Unaddressable
+        }
 
 runWallet
     :: (MonadMockable m, WithLogger m)

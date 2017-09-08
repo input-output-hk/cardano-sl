@@ -5,16 +5,18 @@ module Pos.Client.CLI.Secrets
        , userSecretWithGenesisKey
        ) where
 
-import           Data.List           ((!!))
+import           Data.List                  ((!!))
 import           Universum
 
-import           Pos.Constants       (isDevelopment)
-import           Pos.Crypto          (SecretKey, keyGen, vssKeyGen)
-import           Pos.Genesis         (genesisDevSecretKeys)
-import           Pos.Ssc.GodTossing  (genesisDevVssKeyPairs)
-import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSecret)
+import           Pos.Constants              (isDevelopment)
+import           Pos.Crypto                 (SecretKey, keyGen, runSecureRandom,
+                                             vssKeyGen)
+import           Pos.Genesis                (genesisDevSecretKeys)
+import           Pos.Ssc.GodTossing         (genesisDevVssKeyPairs)
+import           Pos.Util.UserSecret        (UserSecret, usPrimKey, usVss,
+                                             writeUserSecret)
 
-import           Pos.Client.CLI.NodeOptions         (CommonNodeArgs (..))
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 
 userSecretWithGenesisKey
     :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
@@ -41,7 +43,7 @@ fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
     Just sk -> return (sk, userSecret)
     Nothing -> do
         putText "Found no signing keys in keyfile, generating random one..."
-        sk <- snd <$> keyGen
+        sk <- snd <$> liftIO (runSecureRandom keyGen)
         let us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
@@ -51,7 +53,7 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
     Just _  -> return userSecret
     Nothing -> do
         putText "Found no VSS keypair in keyfile, generating random one..."
-        vss <- vssKeyGen
+        vss <- liftIO (runSecureRandom vssKeyGen)
         let us = userSecret & usVss .~ Just vss
         writeUserSecret us
         return us

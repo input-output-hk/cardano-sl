@@ -45,7 +45,6 @@ module Pos.Block.Core.Main.Lens
        , mbUpdatePayload
        , mbTxs
        , mbWitnesses
-       , mbTxAddrDistributions
 
          -- * MainBlock
        , mainBlockPrevBlock
@@ -82,8 +81,8 @@ import           Pos.Crypto                (Hash, PublicKey)
 import           Pos.Delegation.Types      (DlgPayload)
 import           Pos.Merkle                (MerkleTree)
 import           Pos.Ssc.Class.Types       (Ssc (..))
-import           Pos.Txp.Core              (Tx, TxDistribution, TxPayload, TxWitness,
-                                            txpDistributions, txpTxs, txpWitnesses)
+import           Pos.Txp.Core              (Tx, TxPayload, TxWitness, txpTxs,
+                                            txpWitnesses)
 import           Pos.Update.Core.Types     (UpdatePayload)
 
 ----------------------------------------------------------------------------
@@ -167,10 +166,6 @@ mbTxs = mbTxPayload . txpTxs
 -- | Lens for witness list in main block body.
 mbWitnesses :: Lens' (Body (MainBlockchain ssc)) [TxWitness]
 mbWitnesses = mbTxPayload . txpWitnesses
-
--- | Lens for distributions list in main block body.
-mbTxAddrDistributions :: Lens' (Body (MainBlockchain ssc)) [TxDistribution]
-mbTxAddrDistributions = mbTxPayload . txpDistributions
 
 ----------------------------------------------------------------------------
 -- MainBlock

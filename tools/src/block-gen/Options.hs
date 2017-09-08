@@ -11,6 +11,7 @@ module Options
 
 import           Universum
 
+import           Data.Default                 (def)
 import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
@@ -19,17 +20,21 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Pos.Core                     (isDevelopment)
+import           Pos.Generator.Block          (TxGenParams (..))
 
 data BlockGenOptions = BlockGenOptions
-    { bgoBlockN :: !Word32
+    { bgoBlockN      :: !Word32
     -- ^ Number of blocks to generate.
-    , bgoNodes  :: !(Either Word32 [FilePath])
+    , bgoNodes       :: !(Either Word32 [FilePath])
     -- ^ Secret files.
-    , bgoPath   :: !FilePath
+    , bgoPath        :: !FilePath
     -- ^ Location of generated database.
-    , bgoAppend :: !Bool
+    , bgoAppend      :: !Bool
     -- ^ Whether to append to existing db.
-    , bgoSeed   :: !(Maybe Int)
+    , bgoSeed        :: !(Maybe Int)
+    -- ^ Generating seed
+    , bgoTxGenParams :: !TxGenParams
+    -- ^ Transaction generator parameters
     }
 
 optionsParser :: Parser BlockGenOptions
@@ -58,8 +63,22 @@ optionsParser = do
         metavar "INT" <>
         help    "Custom seed to generate blocks."
 
+    bgoTxGenParams <- getTxGenParams <$>
+        (optional $ option auto $
+            long "tx-count" <>
+            metavar "(INT,INT)" <>
+            help "Tx count range.") <*>
+        (optional $ option auto $
+            long "tx-max-outs" <>
+            metavar "INT" <>
+            help "Max number of outputs in tx")
+
+
     return BlockGenOptions{..}
   where
+    getTxGenParams mTC mMO =
+        TxGenParams (fromMaybe (_tgpTxCountRange def) mTC)
+                    (fromMaybe (_tgpMaxOutputs def) mMO)
     secretsParser = many $ strOption $
         long    "secret" <>
         metavar "FILEPATH" <>
@@ -89,7 +108,6 @@ Command example:
   stack exec -- cardano-block-gen           \
     --blocks 5000                           \
     --nodes 3                               \
-    --coins 100
     --generated-db /path/to/existed/db      \
     --seed 123
     --append|]

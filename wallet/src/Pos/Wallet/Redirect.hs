@@ -33,7 +33,7 @@ import           Pos.DB.Block              (MonadBlockDB)
 import           Pos.DB.DB                 (getTipHeader)
 import           Pos.Shutdown              (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting              (MonadSlots (..), getNextEpochSlotDuration)
-import           Pos.Update.Context        (UpdateContext (ucUpdateSemaphore))
+import           Pos.Update.Context        (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types     (ConfirmedProposalState)
 import           Pos.Wallet.WalletMode     (MonadBlockchainInfo (..), MonadUpdates (..))
 
@@ -105,7 +105,8 @@ type UpdatesEnv ctx m =
     )
 
 waitForUpdateWebWallet :: UpdatesEnv ctx m => m ConfirmedProposalState
-waitForUpdateWebWallet = takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore
+waitForUpdateWebWallet =
+    takeMVar =<< views (lensOf @UpdateContext) ucDownloadedUpdate
 
 applyLastUpdateWebWallet :: UpdatesEnv ctx m => m ()
 applyLastUpdateWebWallet = triggerShutdown

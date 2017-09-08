@@ -10,11 +10,13 @@ import           Control.Lens                      (at)
 import qualified Data.HashSet                      as HS
 import           Test.Hspec                        (Spec, describe)
 import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
-import           Test.QuickCheck                   (Arbitrary (..), Property, conjoin,
+import           Test.QuickCheck                   (Arbitrary (..), Gen, Property,
+                                                    conjoin, forAll, listOf, suchThat,
                                                     (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Core                          (ApplicationName, BlockVersion,
+import           Pos.Core                          (ApplicationName, BlockVersion (..),
+                                                    BlockVersionData (..),
                                                     HasCoreConstants,
                                                     SoftwareVersion (..), StakeholderId,
                                                     addressHash, giveStaticConsts)
@@ -44,6 +46,18 @@ spec = giveStaticConsts $ describe "Poll" $ do
                 \ a poll state is the same as applying the modifications directly to the\
                 \ poll state"
                 applyActions
+            prop "Adding and then deleting a block version's state to 'PollState' is\
+                 \ equivalent to doing nothing"
+                 putDelBVState
+            prop "Setting and then deleting the last confirmed version of an application\
+                 \ is equivalent to doing nothing"
+                 setDeleteConfirmedSV
+            prop "Adding and then deleting a confirmed proposal is the same as doing\
+                 \ nothing"
+                 addDeleteConfirmedProposal
+            prop "Inserting an active proposal and then deleting it is the same as doing\
+                 \ nothing"
+                 insertDeleteProposal
 
 modifyPollFormsMonoid
     :: Poll.PollModifier
@@ -92,7 +106,6 @@ actionToMonad (DeactivateProposal ui)    = Poll.deactivateProposal ui
 actionToMonad (SetSlottingData sd)       = Poll.setSlottingData sd
 actionToMonad (SetEpochProposers hs)     = Poll.setEpochProposers hs
 
-
 applyActionToModifier
     :: PollAction
     -> Poll.PollState
@@ -139,9 +152,7 @@ applyActionToModifier (DeactivateProposal ui) pst = \p ->
 applyActionToModifier (SetSlottingData sd) _   = Poll.pmSlottingDataL .~ (Just sd)
 applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
 
-type PollActions = [PollAction]
-
-applyActions :: Poll.PollState -> PollActions -> Property
+applyActions :: Poll.PollState -> [PollAction] -> Property
 applyActions ps actionList =
     let pollSts = fmap (actionToMonad @Poll.PurePoll) actionList
         -- 'resultModifiers' has a 'mempty' poll modifier up front, so 'newPollStates'
@@ -152,3 +163,122 @@ applyActions ps actionList =
         resultPStates = ps : scanl Poll.execPurePollWithLogger ps pollSts
         newPollStates = scanl (flip Poll.modifyPollState) ps resultModifiers
     in conjoin $ zipWith (===) resultPStates newPollStates
+
+-- | Type synonym used for convenience.
+type PollStateTestInfo = (BlockVersion, BlockVersionData)
+
+-- | Empty 'PollState' to be used in tests. Since all fields of the datatype except
+-- the second (psAdoptedBV) have an instance for 'Monoid', it is passed as an argument
+-- that each property will supply.
+emptyPollSt :: PollStateTestInfo -> Poll.PollState
+emptyPollSt bvInfo = Poll.PollState
+    mempty
+    bvInfo
+    mempty
+    mempty
+    mempty
+    mempty
+    mempty
+    mempty
+    mempty
+    mempty
+
+-- | Apply a sequence of 'PollAction's from left to right.
+perform :: [PollAction] -> Poll.PurePoll ()
+perform = foldl (>>) (return ()) . map actionToMonad
+
+-- | Operational equivalence operator in the 'PurePoll' monad. To be used when
+-- equivalence between two sequences of actions in 'PurePoll' is to be tested/proved.
+(==^)
+    :: HasCoreConstants
+    => [PollAction]
+    -> [PollAction]
+    -> Gen PollAction
+    -> PollStateTestInfo
+    -> Property
+p1 ==^ p2 = \prefixGen bvInfo ->
+    forAll ((listOf prefixGen) :: Gen [PollAction]) $ \prefix ->
+    forAll (arbitrary :: Gen [PollAction]) $ \suffix ->
+        let applyAction x =
+                Poll.execPurePollWithLogger (emptyPollSt bvInfo)
+                                            (perform $ prefix ++ x ++ suffix)
+        in applyAction p1 === applyAction p2
+
+{- A note on the following tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The reason these tests have to pass a custom generator for the prefix of the action list
+to '(==^)' is that in each case, there is a particular sequence of actions for which
+the property does not hold. Using the next test as an example:
+
+Let 'bvs, bvs´ :: BlockVersionState' such that 'bvs /= bvs´'. This sequence of actions
+in the 'PurePoll' monad:
+
+    [PutBVState bv bvs´, PutBVState bv bvs, DelBVState bv]
+
+is not, in operational semantics terms, equal to the sequence
+
+    [PutBVState bv bvs´]
+
+It is instead equivalent to
+
+    []
+
+Because these actions are performed from left to right, performing an insertion with the
+same key twice in a row without deleting it in between those two insertions means only
+the last insertion actually matters for these tests.
+
+As such, prefixes with an insertion with the same key as the action being tested in the
+property will cause it to fail.
+-}
+
+putDelBVState
+    :: HasCoreConstants
+    => BlockVersion
+    -> Poll.BlockVersionState
+    -> PollStateTestInfo
+    -> Property
+putDelBVState bv bvs =
+    let actionPrefixGen = arbitrary `suchThat` (\case
+            PutBVState bv' _ -> bv' /= bv
+            _                -> True)
+    in ([PutBVState bv bvs, DelBVState bv] ==^ []) actionPrefixGen
+
+setDeleteConfirmedSV
+    :: HasCoreConstants
+    => SoftwareVersion
+    -> PollStateTestInfo
+    -> Property
+setDeleteConfirmedSV sv =
+    let appName = svAppName sv
+        actionPrefixGen = arbitrary `suchThat` (\case
+            SetLastConfirmedSV sv' -> svAppName sv' /= appName
+            _                    -> True)
+    in ([SetLastConfirmedSV sv, DelConfirmedSV appName] ==^ []) actionPrefixGen
+
+addDeleteConfirmedProposal
+    :: HasCoreConstants
+    => Poll.ConfirmedProposalState
+    -> PollStateTestInfo
+    -> Property
+addDeleteConfirmedProposal cps =
+    let softwareVersion = Poll.cpsSoftwareVersion cps
+        actionPrefixGen = arbitrary `suchThat` (\case
+            AddConfirmedProposal cps' -> Poll.cpsSoftwareVersion cps' /= softwareVersion
+            _                         -> True)
+    in ([AddConfirmedProposal cps, DelConfirmedProposal softwareVersion] ==^
+       []) actionPrefixGen
+
+insertDeleteProposal
+    :: HasCoreConstants
+    => Poll.ProposalState
+    -> PollStateTestInfo
+    -> Property
+insertDeleteProposal ps =
+    let getUpId p = hash $ Poll.psProposal p
+        upId = getUpId ps
+        actionPrefixGen = arbitrary `suchThat` (\case
+            InsertActiveProposal ps' -> upId /= getUpId ps'
+            _                        -> True)
+    in ([InsertActiveProposal ps, DeactivateProposal upId] ==^ [])
+       actionPrefixGen

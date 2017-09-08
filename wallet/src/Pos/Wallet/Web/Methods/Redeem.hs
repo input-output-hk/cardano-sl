@@ -16,7 +16,7 @@ import           Pos.Aeson.ClientTypes          ()
 import           Pos.Aeson.WalletBackup         ()
 import           Pos.Client.Txp.Addresses       (MonadAddresses)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Communication              (SendActions (..), submitRedemptionTx)
+import           Pos.Communication              (SendActions (..), prepareRedemptionTx)
 import           Pos.Core                       (getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
                                                  hash, redeemDeterministicKeyGen)
@@ -27,13 +27,15 @@ import           Pos.Wallet.Web.Account         (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..),
                                                  CAddress (..),
                                                  CPaperVendWalletRedeem (..), CTx (..),
-                                                 CTxs (..), CWalletRedeem (..))
+                                                 CWalletRedeem (..))
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
+import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, rewrapTxError)
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail)
 
 
 redeemAda
@@ -89,14 +91,19 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
-    (TxAux {..}, redeemAddress, redeemBalance) <-
-        rewrapTxError "Cannot send redemption transaction" $
-        submitRedemptionTx enqueueMsg redeemSK dstAddr
+    th <- rewrapTxError "Cannot send redemption transaction" $ do
+        (txAux, redeemAddress, redeemBalance) <-
+                prepareRedemptionTx redeemSK dstAddr
+
+        ts <- Just <$> getCurrentTimestamp
+        let tx = taTx txAux
+            txHash = hash tx
+            txInputs = [TxOut redeemAddress redeemBalance]
+            th = THEntry txHash tx Nothing txInputs [dstAddr] ts
+            dstWallet = aiWId accId
+        ptx <- mkPendingTx dstWallet txHash txAux th
+
+        th <$ submitAndSaveNewPtx enqueueMsg ptx
+
     -- add redemption transaction to the history of new wallet
-    let txInputs = [TxOut redeemAddress redeemBalance]
-    ts <- Just <$> getCurrentTimestamp
-    ctxs <- addHistoryTx (aiWId accId) $
-        THEntry (hash taTx) taTx Nothing txInputs [dstAddr] ts
-    ctsIncoming ctxs `whenNothing` throwM noIncomingTx
-  where
-    noIncomingTx = InternalError "Can't report incoming transaction"
+    addHistoryTx (aiWId accId) th

@@ -4,12 +4,14 @@ module Test.Pos.Explorer.Web.ServerSpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe, it, shouldBe)
---import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
+import           Test.Hspec              (Spec, describe, it, shouldBe)
+--import           Test.Hspec.QuickCheck (prop)
+--
+--import           Pos.Explorer.Web.Server (getStatsTxs)
 
 spec :: Spec
-spec = describe "Test" $
-    it "should be equal" $ 
+spec = describe "Test" $ do
+    it "should be equal" $
         True `shouldBe` True

@@ -20,13 +20,18 @@ import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
                                         shouldThrowException)
 
 spec :: Spec
-spec = describe "Bi" $ do
+spec = describe "Bi" $ modifyMaxSuccess (const 10000) $ do
     describe "Numbers" $ do
-        modifyMaxSuccess (const 10000) $ do
-            unsignedVarIntSpec
-            signedVarIntSpec
-            fixedSizeIntSpec
-            tinyVarIntSpec
+        unsignedVarIntSpec
+        signedVarIntSpec
+        fixedSizeIntSpec
+        tinyVarIntSpec
+    describe "Primitive instances" $ do
+        binaryTest @Int64
+        binaryTest @(Map Int Int)
+        binaryTest @(HashMap Int Int)
+        binaryTest @(Set Int)
+        binaryTest @(HashSet Int)
 
 unsignedVarIntSpec :: Spec
 unsignedVarIntSpec = describe "UnsignedVarInt" $ do
@@ -46,9 +51,12 @@ fixedSizeIntSpec :: Spec
 fixedSizeIntSpec = describe "FixedSizeInt" $ do
     binaryTest @(B.FixedSizeInt Int)
     binaryTest @(B.FixedSizeInt Int64)
+    binaryTest @(B.FixedSizeInt Word)
 
 tinyVarIntSpec :: Spec
 tinyVarIntSpec = describe "TinyVarInt" $ do
+    binaryTest @(B.TinyVarInt)
+
     let hex n = "0x" ++ showHex n ""
         test_roundtrip n =
             prop ("roundtrip " ++ hex n) $ binaryEncodeDecode (B.TinyVarInt n)

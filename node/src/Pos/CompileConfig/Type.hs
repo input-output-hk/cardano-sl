@@ -14,30 +14,30 @@ import           Pos.Util  ()
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
     {
-      ccNetworkDiameter               :: !Int
+      ccNetworkDiameter             :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccDefaultPeers                  :: ![Text]
+    , ccDefaultPeers                :: ![Text]
       -- ^ List of default peers
-    , ccMdNoBlocksSlotThreshold       :: !Int
+    , ccMdNoBlocksSlotThreshold     :: !Int
       -- ^ Threshold of slots for malicious activity detection
-    , ccMdNoCommitmentsEpochThreshold :: !Int
-      -- ^ Threshold of epochs for malicious activity detection
-    , ccLightDlgConfirmationTimeout   :: !Int
+    , ccLightDlgConfirmationTimeout :: !Int
       -- ^ Timeout for holding light psks confirmations
-    , ccDlgCacheParam                 :: !Int
+    , ccDlgCacheParam               :: !Int
       -- ^ This value parameterizes size of cache used in Delegation.
       -- Not bytes, but number of elements.
-    , ccEnhancedMessageTimeout        :: !Word
+    , ccEnhancedMessageTimeout      :: !Word
       -- ^ We consider node as known if it was pinged at most 10 sec ago.
-    , ccRecoveryHeadersMessage        :: !Int
+    , ccRecoveryHeadersMessage      :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
-    , ccMessageCacheTimeout           :: !Int
+    , ccMessageCacheTimeout         :: !Int
       -- ^ Interval we ignore cached messages in components that
       -- support caching
-    , ccNetworkConnectionTimeout      :: !Int
+    , ccNetworkConnectionTimeout    :: !Int
       -- ^ Network connection timeout in milliseconds
-    , ccBlockRetrievalQueueSize       :: !Int
+    , ccBlockRetrievalQueueSize     :: !Int
       -- ^ Block retrieval queue capacity
-    , ccPropagationQueueSize          :: !Int
+    , ccPropagationQueueSize        :: !Int
       -- ^ InvMsg propagation queue capacity
+    , ccPendingTxResubmissionPeriod :: !Int
+      -- ^ Minimal delay between pending transactions resubmission
     } deriving (Show)

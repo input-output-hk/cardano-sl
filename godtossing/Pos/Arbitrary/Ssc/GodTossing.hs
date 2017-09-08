@@ -2,7 +2,6 @@
 
 module Pos.Arbitrary.Ssc.GodTossing
        ( BadCommAndOpening (..)
-       , BadCommitment (..)
        , BadSignedCommitment (..)
        , CommitmentOpening (..)
        , commitmentMapEpochGen
@@ -12,8 +11,9 @@ module Pos.Arbitrary.Ssc.GodTossing
 import           Universum
 
 import qualified Data.HashMap.Strict               as HM
+import qualified Data.List.NonEmpty                as NE
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, listOf,
-                                                    oneof)
+                                                    oneof, sized, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core.Unsafe         ()
@@ -21,8 +21,7 @@ import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
-                                                    SlotId (..), addressHash,
-                                                    addressHash)
+                                                    SlotId (..), addressHash)
 import           Pos.Crypto                        (SecretKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
@@ -33,7 +32,7 @@ import           Pos.Ssc.GodTossing.Core           (Commitment (..), Commitments
                                                     isCommitmentId, isOpeningId,
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment,
-                                                    mkVssCertificate)
+                                                    mkVssCertificate, vssThreshold)
 import qualified Pos.Ssc.GodTossing.Genesis.Types  as G
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type           (SscGodTossing)
@@ -49,18 +48,8 @@ import           Pos.Util.Arbitrary                (makeSmall)
 -- Core
 ----------------------------------------------------------------------------
 
--- | Wrapper over 'Commitment'. Creates an invalid Commitment w.r.t. 'verifyCommitment'.
-newtype BadCommitment = BadComm
-    { getBadComm :: Commitment
-    } deriving (Generic, Show, Eq)
-
-instance Arbitrary BadCommitment where
-    arbitrary = BadComm <$> do
-        Commitment <$> arbitrary <*> arbitrary <*> arbitrary
-    shrink = genericShrink
-
--- | Wrapper over 'SignedCommitment'. Creates an invalid SignedCommitment w.r.t.
--- 'verifyCommitmentSignature'.
+-- | Wrapper over 'SignedCommitment'. Creates an invalid SignedCommitment
+-- w.r.t. 'verifyCommitmentSignature'.
 newtype BadSignedCommitment = BadSignedComm
     { getBadSignedC :: SignedCommitment
     } deriving (Generic, Show, Eq)
@@ -69,8 +58,8 @@ instance Arbitrary BadSignedCommitment where
     arbitrary = BadSignedComm <$> do
         pk <- arbitrary
         sig <- arbitrary
-        badComm <- getBadComm <$> (arbitrary :: Gen BadCommitment)
-        return (pk, badComm, sig)
+        comm <- Commitment <$> arbitrary <*> arbitrary
+        return (pk, comm, sig)
     shrink = genericShrink
 
 -- | Pair of 'Commitment' and 'Opening'.
@@ -87,19 +76,21 @@ data BadCommAndOpening = BadCommAndOpening
 
 instance Arbitrary BadCommAndOpening where
     arbitrary = do
-        badComm <- getBadComm <$> arbitrary
+        badComm <- Commitment <$> arbitrary <*> arbitrary
         opening <- arbitrary
         return $ BadCommAndOpening (badComm, opening)
     shrink = genericShrink
 
 instance Arbitrary CommitmentOpening where
     arbitrary = do
-        vssPk <- arbitrary
-        uncurry CommitmentOpening <$> genCommitmentAndOpening 1 (one vssPk)
+        vssPks <- NE.fromList <$> sized (vector . max 4)
+        let thr = vssThreshold (length vssPks)
+        uncurry CommitmentOpening <$> genCommitmentAndOpening thr vssPks
 
 instance Arbitrary Commitment where
     arbitrary = coCommitment <$> arbitrary
-    -- No other field is shrunk in the implmentation of 'shrink' for this type because:
+    -- No other field is shrunk in the implementation of 'shrink'
+    -- for this type because:
     -- 1. The datatype's invariant cannot be broken
     -- 2. The cryptographic datatypes used here don't have 'shrink' implemented
     shrink Commitment {..} = [ Commitment { commShares = shrunkShares, .. }

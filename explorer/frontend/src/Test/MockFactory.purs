@@ -20,7 +20,7 @@ import Pos.Explorer.Web.Lenses.ClientTypes (_CAddressSummary, _CBlockEntry, _CTx
 mkEmptyCTxEntry :: CTxEntry
 mkEmptyCTxEntry = CTxEntry
     { cteId: mkCTxId "--"
-    , cteTimeIssued: mkTime 0.0
+    , cteTimeIssued: Just $ mkTime 0.0
     , cteAmount: mkCoin "0"
     }
 
@@ -32,7 +32,7 @@ setIdOfTx txId tx =
 -- | Update time of a transaction
 setTimeOfTx :: NominalDiffTime -> CTxEntry -> CTxEntry
 setTimeOfTx time tx =
-    set (_CTxEntry <<< cteTimeIssued) time tx
+    set (_CTxEntry <<< cteTimeIssued) (Just time) tx
 
 mkEmptyCAddressSummary :: CAddressSummary
 mkEmptyCAddressSummary = CAddressSummary
@@ -85,20 +85,28 @@ mkCTxBriefs indexes =
 mkCTxBrief :: Int -> CTxBrief
 mkCTxBrief index = CTxBrief
     { ctbId: mkCTxId $ show index
-    , ctbTimeIssued: mkTime 0.0
-    , ctbInputs: mkCtbInOutputs [index]
-    , ctbOutputs: mkCtbInOutputs ((index + 1)..(index + 2))
+    , ctbTimeIssued: Just $ mkTime 0.0
+    , ctbInputs: mkCtbInputs [index]
+    , ctbOutputs: mkCtbOutputs ((index + 1)..(index + 2))
     , ctbInputSum: mkCoin "0"
     , ctbOutputSum: mkCoin "0"
     }
 
-mkCtbInOutput :: Int -> Int -> Tuple CAddress CCoin
-mkCtbInOutput addr coin =
+mkCtbInput :: Int -> Int -> Maybe (Tuple CAddress CCoin)
+mkCtbInput addr coin =
+    Just $ Tuple (mkCAddress $ "address-" <> show addr) (mkCoin $ show coin)
+
+mkCtbInputs :: Array Int -> Array (Maybe (Tuple CAddress CCoin))
+mkCtbInputs indexes =
+    map (\index -> mkCtbInput index index) indexes
+
+mkCtbOutput :: Int -> Int -> Tuple CAddress CCoin
+mkCtbOutput addr coin =
     Tuple (mkCAddress $ "address-" <> show addr) (mkCoin $ show coin)
 
-mkCtbInOutputs :: Array Int -> Array (Tuple CAddress CCoin)
-mkCtbInOutputs indexes =
-    map (\index -> mkCtbInOutput index index) indexes
+mkCtbOutputs :: Array Int -> Array (Tuple CAddress CCoin)
+mkCtbOutputs indexes =
+    map (\index -> mkCtbOutput index index) indexes
 
 mkCGenesisSummary :: CGenesisSummary
 mkCGenesisSummary = CGenesisSummary

@@ -4,6 +4,9 @@
 
 module Pos.Arbitrary.Update.Poll () where
 
+import           Universum
+
+import qualified Data.HashMap.Strict               as HM
 import           Test.QuickCheck                   (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
@@ -13,7 +16,7 @@ import           Pos.Arbitrary.Update.Core         ()
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Update                 ()
 import           Pos.Core.Context                  (HasCoreConstants)
-import           Pos.Update.Poll.PollState         (PollState (..))
+import           Pos.Update.Poll.PollState         (PollState (..), psActivePropsIdx)
 import           Pos.Update.Poll.Types             (BlockVersionState (..),
                                                     ConfirmedProposalState (..),
                                                     DecidedProposalState (..),
@@ -55,7 +58,9 @@ instance HasCoreConstants => Arbitrary PollModifier where
     shrink = genericShrink
 
 instance HasCoreConstants => Arbitrary PollState where
-    arbitrary = genericArbitrary
+    arbitrary = do
+        ps <- genericArbitrary
+        return (ps & psActivePropsIdx %~ HM.filter (not . null))
     shrink = genericShrink
 
 instance HasCoreConstants => Arbitrary USUndo where

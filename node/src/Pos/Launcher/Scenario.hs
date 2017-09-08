@@ -16,7 +16,7 @@ import           Control.Lens          (views)
 import           Data.Time.Units       (Second)
 import           Ether.Internal        (HasLens (..))
 import           Formatting            (build, int, sformat, shown, (%))
-import           Mockable              (fork)
+import           Mockable              (mapConcurrently, race)
 import           Serokell.Util.Text    (listJson)
 import           System.Exit           (ExitCode (..))
 import           System.Wlog           (WithLogger, getLoggerName, logError, logInfo,
@@ -25,24 +25,22 @@ import           System.Wlog           (WithLogger, getLoggerName, logError, log
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
 import qualified Pos.Constants         as Const
-import           Pos.Context           (getOurPubKeyAddress, getOurPublicKey,
-                                        ncNetworkConfig)
+import           Pos.Context           (getOurPublicKey, ncNetworkConfig)
+import           Pos.Core              (addressHash)
 import qualified Pos.DB.DB             as DB
 import           Pos.DHT.Real          (KademliaDHTInstance (..),
                                         kademliaJoinNetworkNoThrow,
                                         kademliaJoinNetworkRetry)
 import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState            as GS
-import           Pos.Infra.Semaphore   (BlkSemaphore (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
 import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
-import           Pos.Reporting         (reportMisbehaviourSilent)
-import           Pos.Security          (SecurityWorkersClass)
-import           Pos.Shutdown          (waitForWorkers)
+import           Pos.Reporting         (reportError)
+import           Pos.Shutdown          (waitForShutdown)
 import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Types             (addressHash)
+import           Pos.StateLock         (StateLock (..))
 import           Pos.Util              (inAssertMode)
 import           Pos.Util.Config       (configName)
 import           Pos.Util.LogSafe      (logInfoS)
@@ -74,11 +72,9 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
-    addr <- getOurPubKeyAddress
     let pkHash = addressHash pk
-    logInfoS $ sformat ("My public key is: "%build%
-                        ", address: "%build%
-                        ", pk hash: "%build) pk addr pkHash
+    logInfoS $ sformat ("My public key is: "%build%", pk hash: "%build)
+        pk pkHash
 
     -- Synchronously join the Kademlia network before doing any more.
     --
@@ -98,6 +94,8 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         (bootDustThreshold genesisStakeholders)
     logInfo $ sformat ("Genesis stakeholders: " %int)
         (length $ getGenesisWStakeholders genesisStakeholders)
+    firstGenesisHash <- GS.getFirstGenesisBlockHash
+    logInfo $ sformat ("First genesis block hash: "%build) firstGenesisHash
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
@@ -113,20 +111,23 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
-    mapM_ (fork . unpackPlugin) workers'
-    mapM_ (fork . unpackPlugin) plugins'
 
-    -- Instead of sleeping forever, we wait until graceful shutdown
-    -- TBD why don't we also wait for the plugins?
-    waitForWorkers (length workers')
+    -- Either all the plugins are cancelled in the case one of them
+    -- throws an error, or otherwise when the shutdown signal comes,
+    -- they are killed automatically.
+    void
+      (race
+           (void (mapConcurrently (unpackPlugin) $ workers' ++ plugins'))
+           waitForShutdown)
+
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
     -- FIXME: looks like something bad.
-    -- FIXME [CSL-1340]: it should be reported as 'RError'.
+    -- REPORT:ERROR Node's worker/plugin failed with exception (which wasn't caught)
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourSilent False $
+        reportError $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e
@@ -135,7 +136,6 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
 -- Initialization, running of workers, running of plugins.
 runNode ::
        ( SscConstraint ssc
-       , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
        )
     => NodeResources ssc m
@@ -151,8 +151,11 @@ runNode nr (plugins, plOuts) =
 nodeStartMsg :: WithLogger m => m ()
 nodeStartMsg = logInfo msg
   where
-    msg = sformat ("Application: " %build% ", last known block version " %build)
-                   Const.curSoftwareVersion Const.lastKnownBlockVersion
+    msg = sformat ("Application: " %build% ", last known block version "
+                    %build% ", systemTag: " %build)
+                   Const.curSoftwareVersion
+                   Const.lastKnownBlockVersion
+                   Const.ourSystemTag
 
 ----------------------------------------------------------------------------
 -- Details
@@ -183,8 +186,8 @@ nodeStartMsg = logInfo msg
 
 initSemaphore :: (WorkMode ssc ctx m) => m ()
 initSemaphore = do
-    semaphore <- views (lensOf @BlkSemaphore) unBlkSemaphore
+    semaphore <- views (lensOf @StateLock) slTip
     whenJustM (tryReadMVar semaphore) $ const $
-        logError "ncBlkSemaphore is not empty at the very beginning"
+        logError "ncStateLock is not empty at the very beginning"
     tip <- GS.getTip
     putMVar semaphore tip

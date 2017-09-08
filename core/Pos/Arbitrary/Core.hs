@@ -36,7 +36,7 @@ import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVar
                                                     TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (makeAddress, makePubKeyAddress)
+import           Pos.Core.Address                  (makeAddress, makePubKeyAddressBoot)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Constants                (sharedSeedLength)
 import           Pos.Core.Context                  (HasCoreConstants, epochSlots)
@@ -44,6 +44,7 @@ import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
 import qualified Pos.Core.Types                    as Types
+import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -189,8 +190,43 @@ instance Arbitrary Types.AddrStakeDistribution where
         oneof
             [ pure Types.BootstrapEraDistr
             , Types.SingleKeyDistr <$> arbitrary
-            , Types.MultiKeyDistr <$> scale (min 16) arbitrary
+            , leftToPanic "arbitrary @AddrStakeDistribution: " .
+              Types.mkMultiKeyDistr <$>
+              genMultiKeyDistr
             ]
+      where
+        genMultiKeyDistr :: Gen (Map Types.StakeholderId Types.CoinPortion)
+        -- We don't want to generate too much, hence 'scale'.
+        genMultiKeyDistr =
+            scale (min 16) $ do
+                holder0 <- arbitrary
+                holder1 <- arbitrary `suchThat` (/= holder0)
+                moreHolders <- arbitrary @[Types.StakeholderId]
+                -- Must be at least 2 non-repeating stakeholders.
+                let holders = ordNub (holder0 : holder1 : moreHolders)
+                portions <- genPortions (length holders) []
+                return $ M.fromList $ holders `zip` portions
+        genPortions :: Int -> [Types.CoinPortion] -> Gen [Types.CoinPortion]
+        genPortions 0 res = pure res
+        genPortions n res = do
+            let limit =
+                    foldl' (-) Types.coinPortionDenominator $
+                    map Types.getCoinPortion res
+            let unsafeMkCoinPortion =
+                    leftToPanic @Text "genPortions" . Types.mkCoinPortion
+            case (n, limit) of
+                -- Limit is exhausted, can't create more.
+                (_, 0) -> return res
+                -- The last portion, we must ensure the sum is correct.
+                (1, _) -> return (unsafeMkCoinPortion limit : res)
+                -- We intentionally don't generate 'limit', because we
+                -- want to generate at least 2 portions.  However, if
+                -- 'limit' is 1, we will generate 1, because we must
+                -- have already generated one portion.
+                _ -> do
+                    portion <-
+                        unsafeMkCoinPortion <$> choose (1, max 1 (limit - 1))
+                    genPortions (n - 1) (portion : res)
 
 instance Arbitrary Types.AddrAttributes where
     arbitrary = genericArbitrary
@@ -451,6 +487,16 @@ instance Arbitrary Fee.TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
+instance Arbitrary G.GenesisDelegation where
+    arbitrary =
+        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
+            secretKeys <- sized vector
+            return $
+                case secretKeys of
+                    [] -> []
+                    (delegate:issuers) ->
+                        issuers <&> \sk -> createPsk sk (toPublic delegate) 0
+
 instance Arbitrary G.GenesisCoreData where
     arbitrary = do
         -- This number'll be the length of every address list in the first argument of
@@ -467,41 +513,44 @@ instance Arbitrary G.GenesisCoreData where
         let chop _ [] = []
             chop n l = taken : chop n dropped
               where (taken, dropped) = splitAt n l
-        allAddrs <- fmap makePubKeyAddress <$> vector (outerLen * innerLen)
+        allAddrs <- fmap makePubKeyAddressBoot <$>
+            vector (outerLen * innerLen)
         let listOfAddrList = chop innerLen allAddrs
         -- This may seem like boilerplate but it's necessary to pass the first check in
-        -- 'mkGenesisCoreData'. Certain parameters in the generated 'StakeDistribution'
+        -- 'mkGenesisCoreData'. Certain parameters in the generated 'BalanceDistribution'
         -- must be equal to the length of the first element of the tuple in
         -- 'AddrDistribution'
             wordILen = fromIntegral innerLen
             distributionGen = oneof
-                [ G.FlatStakes wordILen <$> arbitrary
+                [ G.FlatBalances wordILen <$> arbitrary
                 , do a <- choose (0, wordILen)
-                     G.RichPoorStakes a
+                     G.RichPoorBalances a
                          <$> arbitrary
                          <*> pure (wordILen - a)
                          <*> arbitrary
-                , pure $ G.safeExpStakes wordILen
-                , G.CustomStakes <$> vector innerLen
+                , pure $ G.safeExpBalances wordILen
+                , G.CustomBalances <$> vector innerLen
                 ]
         stakeDistrs <- vectorOf outerLen distributionGen
-        hashmapOfHolders <- arbitrary :: Gen (HashMap Types.StakeholderId Word16)
+        hashmapOfHolders <- arbitrary :: Gen (Map Types.StakeholderId Word16)
+        delegation <- arbitrary
         return $ leftToPanic "arbitrary@GenesisCoreData: " $
             G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
                                 hashmapOfHolders
+                                delegation
 
-instance Arbitrary G.StakeDistribution where
+instance Arbitrary G.BalanceDistribution where
     arbitrary = oneof
       [ do stakeholders <- choose (1, 10000)
            coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-           return (G.FlatStakes (fromIntegral stakeholders) coins)
+           return (G.FlatBalances (fromIntegral stakeholders) coins)
       , do sdRichmen <- choose (0, 20)
-           sdRichStake <- Types.mkCoin <$> choose (100000, 5000000)
+           sdRichBalance <- Types.mkCoin <$> choose (100000, 5000000)
            sdPoor <- choose (0, 20)
-           sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
-           return G.RichPoorStakes{..}
-      , G.safeExpStakes <$> choose (0::Integer, 20)
-      , G.CustomStakes <$> arbitrary
+           sdPoorBalance <- Types.mkCoin <$> choose (1000, 50000)
+           return G.RichPoorBalances{..}
+      , G.safeExpBalances <$> choose (0::Integer, 20)
+      , G.CustomBalances <$> arbitrary
       ]
     shrink = genericShrink
 

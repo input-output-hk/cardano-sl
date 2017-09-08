@@ -14,6 +14,7 @@ module Pos.Ssc.GodTossing.Core.Core
        , isSharesIdx
        , mkSignedCommitment
        , secretToSharedSeed
+       , vssThreshold
 
        -- * CommitmentsMap
        , insertSignedCommitment
@@ -40,17 +41,15 @@ import           Universum
 
 import qualified Crypto.Random                 as Rand
 import qualified Data.HashMap.Strict           as HM
-import qualified Data.HashSet                  as HS
 import           Data.Ix                       (inRange)
 import qualified Data.List.NonEmpty            as NE
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder        (Builder)
-import           Formatting                    (Format, bprint, int, (%))
+import           Formatting                    (Format, bprint, build, int, sformat, (%))
 import           Serokell.Data.Memory.Units    (Byte)
 import           Serokell.Util                 (VerificationRes, listJson, verifyGeneric)
 
-import           Pos.Binary.Class              (AsBinary, Bi, asBinary, biSize,
-                                                fromBinaryM)
+import           Pos.Binary.Class              (Bi, asBinary, biSize, fromBinaryM)
 import           Pos.Binary.Crypto             ()
 import           Pos.Binary.GodTossing.Core    ()
 import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
@@ -58,13 +57,11 @@ import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
                                                 StakeholderId, unsafeMkLocalSlotIndex)
 import           Pos.Core.Address              (addressHash)
 import           Pos.Core.Context              (HasCoreConstants, slotSecurityParam)
-import           Pos.Crypto                    (EncShare, Secret, SecretKey,
+import           Pos.Crypto                    (Secret, SecretKey,
                                                 SignTag (SignCommitment), Threshold,
-                                                VssPublicKey, checkSig, encShareId,
-                                                genSharedSecret, getDhSecret, hash,
-                                                secretToDhSecret, shortHashF, sign,
-                                                toPublic, verifyEncShare,
-                                                verifySecretProof)
+                                                VssPublicKey, checkSig, genSharedSecret,
+                                                getDhSecret, hash, secretToDhSecret,
+                                                shortHashF, sign, toPublic, verifySecret)
 import           Pos.Ssc.GodTossing.Constants  (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..),
                                                 CommitmentsMap (getCommitmentsMap),
@@ -79,22 +76,34 @@ import           Pos.Util.Limits               (stripHashMap)
 secretToSharedSeed :: Secret -> SharedSeed
 secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 
--- | Generate securely random SharedSeed.
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret) from the total number of shares.
+--
+-- We use this function to find out what threshold to use when creating
+-- shares, when verifying shares, and when recovering the secret.
+vssThreshold :: Integral a => a -> Threshold
+vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+
+-- | Generate random SharedSeed.
 genCommitmentAndOpening
     :: Rand.MonadRandom m
     => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
-genCommitmentAndOpening n pks
-    | n <= 0    = error "genCommitmentAndOpening: threshold must be positive"
-    | otherwise = convertRes pks <$> genSharedSecret n pks
+genCommitmentAndOpening t pks
+    | t <= 1 = error $ sformat
+        ("genCommitmentAndOpening: threshold ("%build%") must be > 1") t
+    | t >= n - 1 = error $ sformat
+        ("genCommitmentAndOpening: threshold ("%build%") must be < n-1"%
+         " (n = "%build%")") t n
+    | otherwise = convertRes <$> genSharedSecret t pks
   where
-    convertRes (map asBinary . toList -> ps) (extra, secret, proof, shares) =
+    n = fromIntegral (length pks)
+    convertRes (secret, proof, shares) =
         ( Commitment
-          { commExtra = asBinary extra
-          , commProof = asBinary proof
-          , commShares = HM.fromList $ map toPair $ NE.groupWith fst $ zip ps shares
+          { commProof = proof
+          , commShares = HM.fromList $ map toPair $ NE.groupWith fst shares
           }
         , Opening $ asBinary secret)
-    toPair ne@(x:|_) = (fst x, NE.map (asBinary . snd) ne)
+    toPair ne@(x:|_) = (asBinary (fst x), NE.map (asBinary . snd) ne)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
@@ -166,24 +175,22 @@ intersectCommMapWith f (getCommitmentsMap -> a) (f -> b) =
 ----------------------------------------------------------------------------
 
 -- CHECK: @verifyCommitment
--- | Verify that Commitment is correct.
+-- | Verify some /basic/ things about 'Commitment' (like “whether it contains
+-- any shares”).
 --
--- #verifyEncShare
+-- * We don't check that the commitment is generated for proper set of
+--   participants. This is done in 'checkCommitmentShares'.
+--
+-- * We also don't verify the shares, because that requires 'MonadRandom' and
+--   we want to keep this check pure because it's performed in the 'Bi'
+--   instance for blocks.
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
-    extra <- fromBinaryM commExtra
-    comms <- traverse tupleFromBinaryM (HM.toList commShares)
-    let encShares = concatMap (map encShareId . toList . snd) comms
-    return $ (not . null) commShares &&
-        all (verifyCommitmentDo extra) comms &&
-        (length encShares) == (HS.size $ HS.fromList encShares)
-  where
-    verifyCommitmentDo extra (pk, ne) = all (verifyEncShare extra pk) ne
-    tupleFromBinaryM
-        :: (AsBinary VssPublicKey, NonEmpty (AsBinary EncShare))
-        -> Maybe (VssPublicKey, NonEmpty EncShare)
-    tupleFromBinaryM =
-        uncurry (liftA2 (,)) . bimap fromBinaryM (traverse fromBinaryM)
+    -- The shares can be deserialized
+    mapM_ fromBinaryM (HM.keys commShares)
+    mapM_ (mapM_ fromBinaryM) (HM.elems commShares)
+    -- The commitment contains shares
+    pure $ not (null commShares)
 
 -- CHECK: @verifyCommitmentSignature
 -- | Verify signature in SignedCommitment using epoch index.
@@ -203,12 +210,12 @@ verifySignedCommitment
     => EpochIndex
     -> SignedCommitment
     -> VerificationRes
-verifySignedCommitment epoch sc@(_, comm, _) =
+verifySignedCommitment epoch sc@(_, comm, _) = do
     verifyGeneric
         [ ( verifyCommitmentSignature epoch sc
           , "commitment has bad signature (e. g. for wrong epoch)")
         , ( verifyCommitment comm
-          , "commitment itself is bad (e. g. bad shares")
+          , "commitment itself is bad (e. g. no shares")
         ]
 
 -- CHECK: @verifyOpening
@@ -217,10 +224,9 @@ verifySignedCommitment epoch sc@(_, comm, _) =
 -- #verifySecretProof
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
-    verifySecretProof
-      <$> fromBinaryM commExtra
-      <*> fromBinaryM secret
-      <*> fromBinaryM commProof
+    verifySecret thr commProof <$> fromBinaryM secret
+  where
+    thr = vssThreshold $ sum (HM.map length commShares)
 
 -- CHECK: @checkCertTTL
 -- | Check that the VSS certificate has valid TTL: i. e. it is in

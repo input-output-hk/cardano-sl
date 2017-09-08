@@ -34,20 +34,20 @@ set -o pipefail
 # NOTE
 # You can try building any of these modes, but in some branches some of
 # these modes may be unavailable (no genesis).
-# For example, if there is no testnet compatible with this version, it doesn't
-# make sense to support `--tn' mode.
+# See constants.yaml for more information on different compilation modes.
+#
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Mode                             Options
 #   :
 #   dev mode                            <nothing>
+#   Testnet public mode with wallet     --tnp
+#   Testnet public mode without wallet  --tnp --no-wallet
 #   Testnet staging mode with wallet    --tns
 #   Testnet staging mode without wallet --tns --no-wallet
-#   Testnet mode with wallet            --tn
-#   Testnet mode without wallet         --tn --no-wallet
-#   Qanet mode with wallet              --qa
-#   Qanet mode with wallet              --qa
-#   US testing mode without wallet      --qa-upd --no-wallet
-#   US testing mode without wallet      --qa-upd --no-wallet
+#   Dev long epoch mode with wallet     --dnl
+#   Dev long epoch mode without wallet  --dnl --no-wallet
+#   Dev short epoch mode with wallet    --dns
+#   Dev short epoch mode without wallet --dns --no-wallet
 
 # CUSTOMIZATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -118,20 +118,20 @@ do
   elif [[ $var == "-Werror" ]]; then
     werror=true
   # Production modes
+  elif [[ $var == "--tnp" ]]; then
+    prodMode="testnet_public"
+    prodModesCounter=$((prodModesCounter+1))
   elif [[ $var == "--tns" ]]; then
     prodMode="testnet_staging"
     prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--tn" ]]; then
-    prodMode="testnet"
+  elif [[ $var == "--dnl" ]]; then
+    prodMode="devnet_longep"
     prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--qa" ]]; then
-    prodMode="qanet_tns"
-    prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--qa-upd" ]]; then
-    prodMode="qanet_upd"
+  elif [[ $var == "--dns" ]]; then
+    prodMode="devnet_shortep"
     prodModesCounter=$((prodModesCounter+1))
   elif [[ $var == "--prod" ]]; then
-    echo "--prod flag is outdated, use one of --qa, --tn, --tns, --qa-upd" >&2
+    echo "--prod flag is outdated, see this script documentation, section MODES" >&2
     exit 12
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then
@@ -186,7 +186,7 @@ do
 done
 
 if [[ $prodModesCounter -gt 1 ]]; then
-  echo "More than one of --tns --tn --qa specified" >&2
+  echo "More than one build mode specified" >&2
   exit 23
 fi
 
@@ -204,9 +204,10 @@ if [[ $no_nix == true ]]; then
   commonargs="$commonargs --no-nix"
 fi
 
+export CSL_SYSTEM_TAG=linux64
+
 if [[ "$prodMode" != "" ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
-  export CSL_SYSTEM_TAG=linux64
 fi
 
 if [[ $explorer == false ]]; then
@@ -239,6 +240,8 @@ if [[ "$prodMode" != "" ]]; then
   dconfig=$prodMode
   if [[ $wallet == true ]]; then
     dconfig="${dconfig}_wallet"
+  else
+    dconfig="${dconfig}_full"
   fi
 fi
 ghc_opts="-DCONFIG=$dconfig -DGITREV=`git rev-parse HEAD`"

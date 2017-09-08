@@ -12,10 +12,10 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CProfile (..)
       , CPwHash
       , CTx (..)
-      , CTxs (..)
       , CTxId (..)
       , CTxMeta (..)
       , CTExMeta (..)
+      , CPtxCondition (..)
       , CInitialized (..)
       , AccountId (..)
       , CAccountId (..)
@@ -254,6 +254,17 @@ data CTxMeta = CTxMeta
     { ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
+-- | State of transaction, corresponding to
+-- 'Pos.Wallet.Web.Pending.Types.PtxCondition'.
+-- @PtxInNewestBlocks@ and @PtxPersisted@ states are merged into one
+-- not to provide information which conflicts with 'ctConfirmations'.
+data CPtxCondition
+    = CPtxApplying
+    | CPtxInBlocks
+    | CPtxWontApply
+    | CPtxNotTracked  -- ^ tx was made not in this life
+    deriving (Show, Eq, Generic, Typeable)
+
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.
 -- It includes meta data which are not part of Cardano, too
@@ -265,22 +276,10 @@ data CTx = CTx
     , ctMeta          :: CTxMeta
     , ctInputAddrs    :: [CId Addr]
     , ctOutputAddrs   :: [CId Addr]
+    , ctIsLocal       :: Bool
     , ctIsOutgoing    :: Bool
+    , ctCondition     :: CPtxCondition
     } deriving (Show, Generic, Typeable)
-
--- | In case of A -> A tranaction, we have to return two similar 'CTx's:
--- one with 'ctIsOutgoing' set to /true/, one with the flag set to /false/.
--- This type gathers these two together.
-data CTxs = CTxs
-    { ctsOutgoing :: Maybe CTx
-    , ctsIncoming :: Maybe CTx
-    } deriving (Show)
-
-type instance Element CTxs = CTx
-
-instance Container CTxs where
-    null = null . toList
-    toList = toList . ctsOutgoing <> toList . ctsIncoming
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta
@@ -309,7 +308,7 @@ data CUpdateInfo = CUpdateInfo
     } deriving (Show, Generic, Typeable)
 
 ----------------------------------------------------------------------------
--- Reportin
+-- Reporting
 ----------------------------------------------------------------------------
 
 -- | Represents a knowledge about how much time did it take for client

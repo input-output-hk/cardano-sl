@@ -26,6 +26,7 @@ module Pos.Block.Logic.Internal
 import           Universum
 
 import           Control.Lens            (each, _Wrapped)
+import qualified Crypto.Random           as Rand
 import           Ether.Internal          (HasLens (..))
 import           Formatting              (sformat, (%))
 import           Mockable                (CurrentTime, Mockable)
@@ -49,9 +50,8 @@ import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback
                                           dlgRollbackBlocks)
 import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
-import           Pos.KnownPeers          (MonadFormatPeers)
 import           Pos.Lrc.Context         (LrcContext)
-import           Pos.Reporting           (HasReportingContext, reportingFatal)
+import           Pos.Reporting           (MonadReporting)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage   (SscGStateClass)
@@ -90,7 +90,10 @@ type MonadBlockBase ssc ctx m
        , SscGStateClass ssc
        , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        , MonadDelegation ctx m
-       , MonadReader ctx m
+       -- 'MonadRandom' for crypto.
+       , Rand.MonadRandom m
+       -- To report bad things.
+       , MonadReporting ctx m
        )
 
 -- | Set of constraints necessary for high-level block verification.
@@ -107,10 +110,6 @@ type MonadBlockApply ssc ctx m
        , MonadMask m
        -- Needed to embed custom logic.
        , MonadBListener m
-       -- Needed for error reporting.
-       , HasReportingContext ctx
-       , MonadReader ctx m
-       , MonadFormatPeers m
        -- Needed for rollback
        , Mockable CurrentTime m
        )
@@ -128,10 +127,9 @@ type MonadMempoolNormalization ssc ctx m
       , MonadSscBlockDB ssc m
       , MonadGState m
       -- Needed for error reporting.
-      , HasReportingContext ctx
-      , MonadMask m
-      , MonadReader ctx m
-      , MonadFormatPeers m
+      , MonadReporting ctx m
+      -- 'MonadRandom' for crypto.
+      , Rand.MonadRandom m
       , Mockable CurrentTime m
       )
 
@@ -139,7 +137,7 @@ type MonadMempoolNormalization ssc ctx m
 normalizeMempool
     :: forall ssc ctx m . (MonadMempoolNormalization ssc ctx m)
     => m ()
-normalizeMempool = reportingFatal $ do
+normalizeMempool = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
@@ -159,7 +157,7 @@ normalizeMempool = reportingFatal $ do
 applyBlocksUnsafe
     :: forall ssc ctx m . MonadBlockApply ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe blunds pModifier = reportingFatal $ do
+applyBlocksUnsafe blunds pModifier = do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -215,7 +213,7 @@ rollbackBlocksUnsafe
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> NewestFirst NE (Blund ssc)
     -> m ()
-rollbackBlocksUnsafe bsc toRollback = reportingFatal $ do
+rollbackBlocksUnsafe bsc toRollback = do
     slogRoll <- slogRollbackBlocks bsc toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks

@@ -40,8 +40,10 @@ import           Pos.Core.Constants     (memPoolLimitRatio)
 import           Pos.Crypto             (PublicKey, shortHashF)
 import           Pos.DB.Class           (MonadDBRead)
 import qualified Pos.DB.GState.Common   as DB
-import           Pos.Infra.Semaphore    (BlkSemaphore)
+import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Lrc.Context        (LrcContext)
+import           Pos.Reporting          (HasReportingContext)
+import           Pos.StateLock          (StateLock)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
@@ -53,8 +55,9 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          MonadPollRead (getProposal), PollModifier,
                                          PollVerFailure (..), evalPollT, execPollT,
                                          filterProposalsByThd, modifyPollModifier,
-                                         normalizePoll, psVotes, refreshPoll, runDBPoll,
-                                         runPollT, verifyAndApplyUSPayload)
+                                         normalizePoll, psVotes, refreshPoll,
+                                         reportUnexpectedError, runDBPoll, runPollT,
+                                         verifyAndApplyUSPayload)
 import           Pos.Util.Util          (HasLens (..), HasLens')
 
 type USLocalLogicMode ctx m =
@@ -70,7 +73,7 @@ type USLocalLogicMode ctx m =
 type USLocalLogicModeWithLock ctx m =
     ( USLocalLogicMode ctx m
     , MonadMask m
-    , HasLens' ctx BlkSemaphore
+    , HasLens' ctx StateLock
     )
 
 getMemPool
@@ -118,10 +121,15 @@ modifyMemState action = do
 -- Data exchange in general
 ----------------------------------------------------------------------------
 
-processSkeleton
-    :: (USLocalLogicModeWithLock ctx m)
-    => UpdatePayload -> m (Either PollVerFailure ())
+processSkeleton ::
+       ( USLocalLogicModeWithLock ctx m
+       , MonadFormatPeers m
+       , HasReportingContext ctx
+       )
+    => UpdatePayload
+    -> m (Either PollVerFailure ())
 processSkeleton payload =
+    reportUnexpectedError $
     withUSLock $
     runExceptT $
     modifyMemState $ \ms@MemState {..} -> do
@@ -133,9 +141,9 @@ processSkeleton payload =
         -- If this equality holds, we can be sure that all further
         -- reads will be done for the same GState, because here we own
         -- global lock and nobody can modify GState.
-        unless (dbTip == msTip) $
-            throwError $
-            PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
+        unless (dbTip == msTip) $ do
+            let err = PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
+            throwError err
         maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
         let maxMemPoolSize = maxBlockSize * memPoolLimitRatio
         msIntermediate <-
@@ -204,7 +212,10 @@ getLocalProposalNVotes id = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processProposal
-    :: (USLocalLogicModeWithLock ctx m)
+    :: ( USLocalLogicModeWithLock ctx m
+       , MonadFormatPeers m
+       , HasReportingContext ctx
+       )
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
@@ -253,7 +264,10 @@ getLocalVote propId pk decision = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processVote
-    :: (USLocalLogicModeWithLock ctx m)
+    :: ( USLocalLogicModeWithLock ctx m
+       , MonadFormatPeers m
+       , HasReportingContext ctx
+       )
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
@@ -264,7 +278,7 @@ processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 -- | Remove local data from memory state to make it consistent with
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
--- 'blkSemaphore' is taken.
+-- 'stateLock' is taken.
 usNormalize :: (USLocalLogicMode ctx m) => m ()
 usNormalize = do
     tip <- DB.getTip
@@ -314,7 +328,7 @@ processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
 
 -- | Prepare UpdatePayload for inclusion into new block with given
 -- SlotId based on given tip.  This function assumes that
--- 'blkSemaphore' is taken and nobody can apply/rollback blocks in
+-- 'stateLock' is taken and nobody can apply/rollback blocks in
 -- parallel or modify US mempool.  Sometimes payload can't be
 -- created. It can happen if we are trying to create block for slot
 -- which has already passed, for example. Or if we have different tip
@@ -333,7 +347,7 @@ usPreparePayload neededTip slotId@SlotId{..} = do
     -- slot.  If mem state corresponds to newer slot already, it won't
     -- be updated, but we don't want to create block in this case
     -- anyway.  In normal cases 'processNewSlot' can't fail here
-    -- because of tip mismatch, because we are under 'blkSemaphore'.
+    -- because of tip mismatch, because we are under 'stateLock'.
     processNewSlotNoLock slotId
     -- After that we normalize payload to be sure it's valid. We try
     -- to keep it valid anyway, but we decided to have an extra

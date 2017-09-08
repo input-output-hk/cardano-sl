@@ -18,22 +18,20 @@ import           Serokell.Util             (VerificationRes, allDistinct, enumer
                                             verifyGeneric)
 
 import           Pos.Binary.Txp.Core       ()
-import           Pos.Core                  (AddrType (..), Address (..), StakeholderId,
-                                            addressF, coinF, coinToInteger, integerToCoin,
-                                            isRedeemAddress, isUnknownAddressType, mkCoin,
-                                            sumCoins)
+import           Pos.Core                  (AddrType (..), Address (..), addressF,
+                                            integerToCoin, isRedeemAddress,
+                                            isUnknownAddressType, sumCoins)
 import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
                                             checkScriptAddress)
-import           Pos.Crypto                (SignTag (SignTx), WithHash (..), checkSig,
-                                            hash, redeemCheckSig)
+import           Pos.Crypto                (SignTag (SignRedeemTx, SignTx), WithHash (..),
+                                            checkSig, hash, redeemCheckSig)
 import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
-import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
-                                            TxDistribution (..), TxIn (..),
+import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..), TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
-                                            TxOutDistribution, TxSigData (..), TxUndo,
-                                            TxWitness, isTxInUnknown)
+                                            TxSigData (..), TxUndo, TxWitness,
+                                            isTxInUnknown)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..), WitnessVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
@@ -72,12 +70,14 @@ data VTxContext = VTxContext
 -- blocks when we're creating a block (because transactions for
 -- inclusion into blocks are verified with 'vtcVerifyAllIsKnown'
 -- set to 'True', so unknown script versions are rejected).
+--
+-- Returned fee can be 'Nothing' if there are inputs of unknown types.
 verifyTxUtxo
     :: (MonadUtxoRead m, MonadError ToilVerFailure m)
     => VTxContext
     -> TxAux
     -> m (TxUndo, Maybe TxFee)
-verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses _) = do
+verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
     let unknownTxInMB = find (isTxInUnknown . snd) $ zip [0..] (toList _txInputs)
     case (vtcVerifyAllIsKnown, unknownTxInMB) of
         (True, Just (inpId, txIn)) -> throwError $
@@ -133,16 +133,12 @@ verifyConsistency inputs witnesses
     errMsg = sformat errFmt (length inputs) (length witnesses)
 
 verifyOutputs :: VTxContext -> TxAux -> VerificationRes
-verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs) =
+verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
     verifyGeneric $
-    ( length _txOutputs == length (getTxDistribution distrs)
-    , "length of outputs != length of tx distribution") :
-    concatMap
-        verifyOutput
-        (enumerate $ toList (NE.zip _txOutputs (getTxDistribution distrs)))
+    concatMap verifyOutput (enumerate $ toList _txOutputs)
   where
-    verifyOutput :: (Int, (TxOut, TxOutDistribution)) -> [(Bool, Text)]
-    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..}, d)) =
+    verifyOutput :: (Int, TxOut) -> [(Bool, Text)]
+    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..})) =
         [ ( not vtcVerifyAllIsKnown || areAttributesKnown addrAttributes
           , sformat
                 ("output #"%int%" with address "%addressF%
@@ -157,23 +153,7 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs) =
           , sformat ("output #"%int%" sends money to a redeem address ("
                     %addressF%"), this is prohibited") i addr
           )
-        ] ++ checkDist i d txOutValue
-    checkDist i d txOutValue =
-        let sumDist = sumCoins (map snd d)
-        in [ ( sumDist <= coinToInteger txOutValue
-             , sformat
-                   ("output #"%int%" has distribution "%"sum("%int%
-                    ") > txOutValue("%coinF%")")
-                   i sumDist txOutValue)
-           , ( allDistinct (map fst d :: [StakeholderId])
-             , sformat
-                   ("output #"%int%"'s distribution "%
-                    "has duplicated addresses") i)
-           , ( all (> mkCoin 0) (map snd d)
-             , sformat
-                   ("output #"%int%"'s distribution "%
-                    "assigns 0 coins to some addresses") i)
-           ]
+        ]
 
 verifyInputs ::
        MonadError ToilVerFailure m
@@ -188,10 +168,8 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
   where
     uncurry3 f (a, b, c) = f a b c
     witnesses = taWitness
-    distrs = taDistribution
     txHash = hash taTx
-    distrHash = hash distrs
-    txSigData = TxSigData txHash distrHash
+    txSigData = TxSigData txHash
 
     allInputsDifferent :: Bool
     allInputsDifferent = allDistinct (toList (map fst resolvedInputs))
@@ -202,7 +180,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
         -> m ()
-    checkInput i (txIn, toa@(TxOutAux txOut@TxOut{..} _)) witness = do
+    checkInput i (txIn, toa@(TxOutAux txOut@TxOut{..})) witness = do
         unless (checkSpendingData txOutAddress witness) $
             throwError $ ToilWitnessDoesntMatch i txIn txOut witness
         when (isTxInUnknown txIn && vtcVerifyAllIsKnown) $ throwError $
@@ -225,7 +203,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
             unless (checkSig SignTx twKey txSigData twSig) $
                 throwError WitnessWrongSignature
         RedeemWitness{..} ->
-            unless (redeemCheckSig twRedeemKey txSigData twRedeemSig) $
+            unless (redeemCheckSig SignRedeemTx twRedeemKey txSigData twRedeemSig) $
                 throwError WitnessWrongSignature
         ScriptWitness{..} -> do
             let valVer = scrVersion twValidator
@@ -249,11 +227,10 @@ verifyAttributesAreKnown attrs =
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
-applyTxToUtxo :: MonadUtxo m => WithHash Tx -> TxDistribution -> m ()
-applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
+applyTxToUtxo :: MonadUtxo m => WithHash Tx -> m ()
+applyTxToUtxo (WithHash UnsafeTx {..} txid) = do
     mapM_ utxoDel $ filter (not . isTxInUnknown) (toList _txInputs)
-    mapM_ applyOutput . zip [0 ..] . toList . NE.zipWith TxOutAux _txOutputs $
-        getTxDistribution distr
+    mapM_ applyOutput . zip [0 ..] . toList . map TxOutAux $ _txOutputs
   where
     applyOutput (idx, toa) = utxoPut (TxInUtxo  txid idx) toa
 

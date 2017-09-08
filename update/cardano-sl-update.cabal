@@ -1,5 +1,5 @@
 name:                cardano-sl-update
-version:             0.5.1
+version:             0.6.0
 synopsis:            Cardano SL - update
 description:         Cardano SL - update
 license:             MIT
@@ -15,9 +15,6 @@ library
   exposed-modules:
                        -- Arbitrary
                        Pos.Arbitrary.Update
-
-                       -- Errors
-                       Pos.Update.Error
 
                        -- Core
                        Pos.Update.Core

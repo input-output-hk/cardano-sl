@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.5.1
+version:             0.6.0
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -41,6 +41,8 @@ library
                        Pos.Arbitrary.Core.Unsafe
                        Pos.Arbitrary.Crypto
                        Pos.Arbitrary.Crypto.Unsafe
+
+                       Pos.Aeson.Crypto
 
                        Pos.Core
                        Pos.Core.Address
@@ -96,8 +98,12 @@ library
                        Pos.Binary.Core.Version
                        Pos.Binary.Core.Genesis
 
+                       Pos.System.Metrics.Constants
+
                        Pos.Util.Arbitrary
                        Pos.Util.Concurrent
+                       Pos.Util.Concurrent.LockedTVar
+                       Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
@@ -107,6 +113,7 @@ library
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
+                       Pos.Util.Queue
                        Pos.Util.Util
 
   other-modules:
@@ -123,21 +130,10 @@ library
                      , autoexporter
                      , base
                      , base58-bytestring
-                     , cborg
-                     , concurrent-extra
-                     , ether >= 0.5
-                     , exceptions
-                     , log-warper >= 1.0.3
-                     , mmorph
-                     , reflection
-                     , resourcet
-                     , stm
-                     , transformers
-                     , transformers-base
-                     , transformers-lift
                      , binary
                      , bytestring
                      , cardano-crypto
+                     , cborg
                      , cereal
                      , concurrent-extra
                      , containers
@@ -150,14 +146,18 @@ library
                      , digest
                      , directory
                      , ed25519
+                     , ether >= 0.5
+                     , exceptions
                      , file-embed
                      , filepath
                      , formatting
                      , generic-arbitrary
                      , hashable
                      , lens
+                     , log-warper >= 1.0.3
                      , lrucache
                      , memory
+                     , mmorph
                      , mtl
                      , node-sketch
                      , parsec
@@ -165,6 +165,8 @@ library
                      , pvss
                      , quickcheck-instances
                      , random
+                     , reflection
+                     , resourcet
                      , safecopy
                      , semigroups
                      , serokell-util
@@ -176,6 +178,9 @@ library
                      , th-utilities
                      , time
                      , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
                      , unordered-containers
                      , vector

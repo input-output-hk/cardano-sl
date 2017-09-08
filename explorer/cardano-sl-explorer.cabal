@@ -1,5 +1,5 @@
 name:                cardano-sl-explorer
-version:             0.2.0
+version:             0.6.0
 synopsis:            Cardano explorer
 description:         Please see README.md
 license:             MIT
@@ -19,6 +19,8 @@ library
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
                         Pos.Explorer.Web.TestServer
+                        Pos.Explorer.Web.Server
+
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
                         Pos.Explorer.Socket.App
@@ -26,32 +28,31 @@ library
                         Pos.Explorer.Socket.Methods
                         Pos.Explorer.Socket.Util
 
-                        Pos.Explorer.Web.Server
                         Pos.Explorer.Web.Transform
-  build-depends:        base
-                      , aeson
+  build-depends:        aeson
+                      , base
+                      , base16-bytestring
                       , binary
                       , bytestring
                       , containers
-                      , base16-bytestring
+                      , either
+                      , ether >= 0.5.1
+                      , exceptions
+                      , formatting
+                      , lens
+                      , log-warper
+                      , memory
+                      , node-sketch
+                      , serokell-util
                       , stm
                       , tagged
-                      , text-format
                       , text
+                      , text-format
                       , time
                       , time-units
                       , transformers
                       , universum
                       , unordered-containers
-                      , node-sketch
-                      , serokell-util
-                      , exceptions
-                      , either
-                      , ether >= 0.5.1
-                      , formatting
-                      , lens
-                      , log-warper
-                      , memory
 
                       -- cardano sl
                       , cardano-sl
@@ -127,6 +128,7 @@ executable cardano-explorer
                      , cardano-sl-ssc
                      , cardano-sl-update
                      , containers
+                     , data-default
                      , formatting
                      , lens
                      , log-warper
@@ -231,6 +233,7 @@ executable cardano-explorer-swagger
                      , servant-swagger-ui
                      , text
                      , universum >= 0.1.11
+                     , optparse-applicative
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -258,7 +261,7 @@ executable cardano-explorer-mock
                      , cardano-sl
                      , cardano-sl-explorer
                      , universum
-                     , optparse-simple
+                     , optparse-applicative
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -291,4 +294,94 @@ executable cardano-explorer-mock
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+
+test-suite cardano-explorer-test
+  main-is:             Test.hs
+  other-modules:
+                       -- Standard module with some magic
+                       Spec
+
+                       -- Tests
+                       Test.Pos.Explorer.Web.ServerSpec
+                       Test.Pos.Explorer.Web.ClientTypesSpec
+
+  type:                exitcode-stdio-1.0
+  build-depends:       MonadRandom
+                     , QuickCheck
+                     , base
+                     , bytestring
+                     , cardano-sl-explorer
+                     , cardano-sl-core
+                     , cardano-sl
+                     , cborg
+                     , cereal
+                     , containers
+                     , cryptonite
+                     , data-default
+                     , ether
+                     , exceptions
+                     , formatting
+                     , generic-arbitrary
+                     , hspec
+                     , kademlia
+                     , lens
+                     , log-warper
+                     , MonadRandom
+                     , memory
+                     , monad-control
+                     , mtl
+                     , mmorph
+                     , node-sketch
+                     , pvss
+                     , quickcheck-instances
+                     , random
+                     , reflection
+                     , regex-tdfa
+                     , regex-tdfa-text
+                     , safecopy
+                     , serokell-util >= 0.1.3.4
+                     , tagged
+                     , text-format
+                     , time-units
+                     , transformers-base
+                     , universum >= 0.1.11
+                     , unordered-containers
+                     , vector
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
 

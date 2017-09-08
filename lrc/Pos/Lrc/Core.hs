@@ -44,24 +44,24 @@ findDelegationStakes isIssuer stakeResolver t = do
         maybe (pure richmen) (onItem richmen >=> step) v
     onItem (old, new) (delegate, issuers) = do
         sumIssuers <-
-            foldM (\cr id -> (unsafeAddCoin cr) <$> safeBalance id)
+            foldM (\cr id -> (unsafeAddCoin cr) <$> safeGetStake id)
                   (mkCoin 0)
                   issuers
         isIss <- lift $ isIssuer delegate
         curStake <- if isIss then pure sumIssuers
-                    else (unsafeAddCoin sumIssuers) <$> safeBalance delegate
+                    else (unsafeAddCoin sumIssuers) <$> safeGetStake delegate
         let newRichmen =
               if curStake >= t then HM.insert delegate curStake new
               else new
 
         oldRichmen <-
-            foldM (\hs is -> ifM ((>= t) <$> safeBalance is)
+            foldM (\hs is -> ifM ((>= t) <$> safeGetStake is)
                                  (pure $ HS.insert is hs)
                                  (pure hs))
                   old
                   issuers
         pure (oldRichmen, newRichmen)
-    safeBalance id = fromMaybe (mkCoin 0) <$> lift (stakeResolver id)
+    safeGetStake id = fromMaybe (mkCoin 0) <$> lift (stakeResolver id)
 
 -- | Find nodes which have at least 'eligibility threshold' coins.
 findRichmenStakes

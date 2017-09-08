@@ -5,6 +5,7 @@ module Pos.Ssc.GodTossing.Constants
        , vssMaxTTL
        , vssMinTTL
        , mpcSendInterval
+       , mdNoCommitmentsEpochThreshold
        ) where
 
 import           Universum
@@ -29,11 +30,13 @@ godTossingConstants = case parseFromCslConfig configParser of
 
 data GodTossingConstants = GodTossingConstants
     { -- | Length of interval for sending MPC message
-      ccMpcSendInterval :: !Word
+      ccMpcSendInterval               :: !Word
       -- | VSS certificates max timeout to live (number of epochs)
-    , ccVssMaxTTL       :: !Word64
+    , ccVssMaxTTL                     :: !Word64
       -- | VSS certificates min timeout to live (number of epochs)
-    , ccVssMinTTL       :: !Word64
+    , ccVssMinTTL                     :: !Word64
+      -- | Threshold of epochs for malicious activity detection
+    , ccMdNoCommitmentsEpochThreshold :: !Int
     }
     deriving (Show, Generic)
 
@@ -58,3 +61,9 @@ vssMinTTL = fromIntegral . ccVssMinTTL $ godTossingConstants
 -- | Length of interval during which node should send her MPC message.
 mpcSendInterval :: Microsecond
 mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ godTossingConstants
+
+-- | Number of epochs used by malicious actions detection to check if
+-- our commitments are not included in blockchain.
+mdNoCommitmentsEpochThreshold :: Integral i => i
+mdNoCommitmentsEpochThreshold =
+    fromIntegral . ccMdNoCommitmentsEpochThreshold $ godTossingConstants

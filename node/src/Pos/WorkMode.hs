@@ -28,7 +28,7 @@ import           System.Wlog            (HasLoggerName (..), LoggerName)
 import           Pos.Block.BListener    (MonadBListener (..), onApplyBlocksStub,
                                          onRollbackBlocksStub)
 import           Pos.Block.Core         (Block, BlockHeader)
-import           Pos.Block.Slog.Types   (HasSlogContext (..))
+import           Pos.Block.Slog.Types   (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Block.Types        (Undo)
 import           Pos.Context            (HasNodeContext (..), HasPrimaryKey (..),
                                          HasSscContext (..), NodeContext)
@@ -57,7 +57,7 @@ import           Pos.Slotting.MemState  (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass)
 import           Pos.Ssc.Class.Types    (SscBlock)
 import           Pos.Ssc.Extra          (SscMemTag, SscState)
-import           Pos.Txp.MemState       (GenericTxpLocalData, TxpHolderTag, TxpMetrics)
+import           Pos.Txp.MemState       (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Util               (Some (..))
 import           Pos.Util.JsonLog       (HasJsonLogConfig (..), JsonLogConfig,
                                          jsonLogDefault)
@@ -74,7 +74,7 @@ import           Pos.WorkMode.Class     (MinWorkMode, TxpExtra_TMP, WorkMode)
 data RealModeContext ssc = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
     , rmcSscState      :: !(SscState ssc)
-    , rmcTxpLocalData  :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , rmcTxpLocalData  :: !(GenericTxpLocalData TxpExtra_TMP)
     , rmcDelegationVar :: !DelegationVar
     , rmcJsonLogConfig :: !JsonLogConfig
     , rmcLoggerName    :: !LoggerName
@@ -92,8 +92,7 @@ instance HasLens NodeDBs (RealModeContext ssc) NodeDBs where
 instance HasLens SscMemTag (RealModeContext ssc) (SscState ssc) where
     lensOf = rmcSscState_L
 
-instance HasLens TxpHolderTag (RealModeContext ssc) ( GenericTxpLocalData TxpExtra_TMP
-                                                    , TxpMetrics) where
+instance HasLens TxpHolderTag (RealModeContext ssc) (GenericTxpLocalData TxpExtra_TMP) where
     lensOf = rmcTxpLocalData_L
 
 instance HasLens DelegationVar (RealModeContext ssc) DelegationVar where
@@ -125,7 +124,10 @@ instance HasSlottingVar (RealModeContext ssc) where
     slottingVar = rmcNodeContext_L . slottingVar
 
 instance HasSlogContext (RealModeContext ssc) where
-    slogContextL = rmcNodeContext_L . slogContextL
+    slogContext = rmcNodeContext_L . slogContext
+
+instance HasSlogGState (RealModeContext ssc) where
+    slogGState = slogContext . scGState
 
 instance HasNodeContext ssc (RealModeContext ssc) where
     nodeContext = rmcNodeContext_L

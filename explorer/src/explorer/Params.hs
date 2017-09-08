@@ -10,6 +10,7 @@ module Params
 
 import           Universum
 
+import           Data.Default          (def)
 import           Mockable              (Catch, Fork, Mockable, Throw)
 import           System.Wlog           (LoggerName, WithLogger)
 
@@ -19,13 +20,12 @@ import qualified Pos.Client.CLI        as CLI
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
-import           Pos.Genesis           (devGenesisContext, devStakesDistr,
+import           Pos.Genesis           (devBalancesDistr, devGenesisContext,
                                         genesisContextProduction)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..))
-import           Pos.Security.Params   (SecurityParams (..))
 import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.TimeWarp     (NetworkAddress, readAddrFile)
@@ -42,6 +42,7 @@ gtSscParams Args {..} vssSK =
     GtParams
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
+    , gtpBehavior   = def
     }
 
 getBaseParams :: LoggerName -> Args -> BaseParams
@@ -92,14 +93,14 @@ getNodeParams args@Args {..} systemStart = do
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     let npTransport = getTransportParams args npNetworkConfig
 
-    let devStakeDistr =
-            devStakesDistr
+    let devBalanceDistr =
+            devBalancesDistr
                 (CLI.flatDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
 
     let npGenesisCtx
-            | isDevelopment = devGenesisContext devStakeDistr
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
 
     return NodeParams
@@ -116,13 +117,10 @@ getNodeParams args@Args {..} systemStart = do
             , upUpdateServers = CLI.updateServers commonArgs
             }
         , npReportServers = CLI.reportServers commonArgs
-        , npSecurityParams = SecurityParams
-            { spAttackTypes   = []
-            , spAttackTargets = []
-            }
-          , npUseNTP = not noNTP
-          , npEnableMetrics = enableMetrics
-          , npEkgParams = ekgParams
-          , npStatsdParams = statsdParams
-          , ..
+        , npBehaviorConfig = def
+        , npUseNTP = not noNTP
+        , npEnableMetrics = enableMetrics
+        , npEkgParams = ekgParams
+        , npStatsdParams = statsdParams
+        , ..
         }

@@ -51,7 +51,8 @@ import           Pos.Core                       (AddrType (..), Address (..), Co
                                                  getChainDifficulty, isRedeemAddress,
                                                  isUnknownAddressType, makeRedeemAddress,
                                                  mkCoin, siEpoch, siSlot, sumCoins,
-                                                 unsafeIntegerToCoin, unsafeSubCoin)
+                                                 timestampToPosix, unsafeIntegerToCoin,
+                                                 unsafeSubCoin)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
@@ -84,7 +85,7 @@ import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
                                                  getEpochIndex, getSlotIndex, mkCCoin,
                                                  mkCCoinMB, tiToTxEntry, toBlockEntry,
                                                  toBlockSummary, toCAddress, toCHash,
-                                                 toCTxId, toPosixTime, toTxBrief)
+                                                 toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -432,7 +433,7 @@ getTxSummary cTxId = do
 
         let blockHeight         = fromIntegral $ mb ^. difficultyL
         let receivedTime        = teReceivedTime txExtra
-        let blockTime           = toPosixTime <$> blkSlotStart
+        let blockTime           = timestampToPosix <$> blkSlotStart
 
         -- Get block epoch and slot index
         let blkHeaderSlot       = mb ^. mainBlockSlot
@@ -455,7 +456,7 @@ getTxSummary cTxId = do
 
         pure $ CTxSummary
             { ctsId              = cTxId'
-            , ctsTxTimeIssued    = Just $ toPosixTime receivedTime
+            , ctsTxTimeIssued    = timestampToPosix <$> receivedTime
             , ctsBlockTimeIssued = blockTime
             , ctsBlockHeight     = Just blockHeight
             , ctsBlockEpoch      = Just epochIndex
@@ -465,8 +466,7 @@ getTxSummary cTxId = do
             , ctsTotalInput      = mkCCoinMB totalInputMB
             , ctsTotalOutput     = mkCCoin totalOutput
             , ctsFees            = mkCCoinMB $ (`unsafeSubCoin` totalOutput) <$> totalInputMB
-            -- TODO [CSE-204] ctsInputs = map (fmap (second mkCCoin)) $ convertTxOutputsMB inputOutputsMB
-            , ctsInputs          = map (second mkCCoin) $ catMaybes $ convertTxOutputsMB inputOutputsMB
+            , ctsInputs          = map (fmap (second mkCCoin)) $ convertTxOutputsMB inputOutputsMB
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
 
@@ -501,7 +501,7 @@ getTxSummary cTxId = do
             , ctsTotalInput      = mkCCoin totalInput
             , ctsTotalOutput     = mkCCoin totalOutput
             , ctsFees            = mkCCoin $ unsafeSubCoin totalInput totalOutput
-            , ctsInputs          = map (second mkCCoin) $ convertTxOutputs inputOutputs
+            , ctsInputs          = map (Just . second mkCCoin) $ convertTxOutputs inputOutputs
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
 
@@ -609,6 +609,7 @@ epochSlotSearch epochIndex slotIndex = do
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
 
+
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m
     => Maybe Word
@@ -633,18 +634,20 @@ getStatsTxs mPageNumber = do
         blockPageTxsInfo :: m [(CTxId, Byte)]
         blockPageTxsInfo = concat <$> forM cHashes getBlockTxsInfo
 
-    getBlockTxsInfo
-        :: CHash
-        -> m [(CTxId, Byte)]
-    getBlockTxsInfo cHash = do
-        h   <- unwrapOrThrow $ fromCHash cHash
-        blk <- getMainBlock h
-        txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+        getBlockTxsInfo
+            :: CHash
+            -> m [(CTxId, Byte)]
+        getBlockTxsInfo cHash = do
+            h   <- unwrapOrThrow $ fromCHash cHash
+            blk <- getMainBlock h
+            txs <- topsortTxsOrFail withHash
+                $ toList
+                $ blk ^. mainBlockTxPayload . txpTxs
 
-        pure $ txToTxIdSize <$> txs
-      where
-        txToTxIdSize :: Tx -> (CTxId, Byte)
-        txToTxIdSize tx = (toCTxId $ hash tx, biSize tx)
+            pure $ txToTxIdSize <$> txs
+          where
+            txToTxIdSize :: Tx -> (CTxId, Byte)
+            txToTxIdSize tx = (toCTxId $ hash tx, biSize tx)
 
 
 --------------------------------------------------------------------------------

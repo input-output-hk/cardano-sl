@@ -54,7 +54,6 @@ import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
-import           Pos.Infra.Semaphore        (BlkSemaphore (..))
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
@@ -65,8 +64,9 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
-import           Pos.Txp                    (GenericTxpLocalData, TxpMetrics,
-                                             mkTxpLocalData, recordTxpMetrics)
+import           Pos.StateLock              (newStateLock)
+import           Pos.Txp                    (GenericTxpLocalData (..), mkTxpLocalData,
+                                             recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer               (explorerTxpGlobalSettings)
 #else
@@ -96,7 +96,7 @@ data NodeResources ssc m = NodeResources
     { nrContext    :: !(NodeContext ssc)
     , nrDBs        :: !NodeDBs
     , nrSscState   :: !(SscState ssc)
-    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP)
     , nrDlgState   :: !DelegationVar
     , nrTransport  :: !(Transport m)
     , nrJLogHandle :: !(Maybe Handle)
@@ -143,11 +143,23 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             futureLrcContext
     runInitMode initModeContext $ do
         initNodeDBs @ssc
-        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting networkConfig
+
+        nrEkgStore <- liftIO $ Metrics.newStore
+
+        txpVar <- mkTxpLocalData -- doesn't use slotting or LRC
+        let ancd =
+                AllocateNodeContextData
+                { ancdNodeParams = np
+                , ancdSscParams = sscnp
+                , ancdPutSlotting = putSlotting
+                , ancdNetworkCfg = networkConfig
+                , ancdEkgStore = nrEkgStore
+                , ancdTxpMemState = txpVar
+                }
+        ctx@NodeContext {..} <- allocateNodeContext ancd
         putLrcContext ncLrcContext
         setupLoggers $ bpLoggingParams npBaseParams
         dlgVar <- mkDelegationVar @ssc
-        txpVar <- mkTxpLocalData
         sscState <- mkSscState @ssc
         let nrTransport = transport
         nrJLogHandle <-
@@ -158,25 +170,11 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
                     liftIO $ hSetBuffering h NoBuffering
                     return $ Just h
 
-        -- EKG monitoring stuff.
-        --
-        -- Relevant even if monitoring is turned off (no port given). The
-        -- gauge and distribution can be sampled by the server dispatcher
-        -- and used to inform a policy for delaying the next receive event.
-        --
-        -- TODO implement this. Requires time-warp-nt commit
-        --   275c16b38a715264b0b12f32c2f22ab478db29e9
-        -- in addition to the non-master
-        --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
-        -- for flexible EKG setup.
-        nrEkgStore <- liftIO $ Metrics.newStore
-        txpMetrics <- liftIO $ recordTxpMetrics nrEkgStore
-
         return NodeResources
             { nrContext = ctx
             , nrDBs = db
             , nrSscState = sscState
-            , nrTxpState = (txpVar, txpMetrics)
+            , nrTxpState = txpVar
             , nrDlgState = dlgVar
             , ..
             }
@@ -234,17 +232,31 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 -- NodeContext
 ----------------------------------------------------------------------------
 
+data AllocateNodeContextData ssc = AllocateNodeContextData
+    { ancdNodeParams :: !NodeParams
+    , ancdSscParams :: !(SscParams ssc)
+    , ancdPutSlotting :: (Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ()
+    , ancdNetworkCfg :: NetworkConfig KademliaDHTInstance
+    , ancdEkgStore :: !Metrics.Store
+    , ancdTxpMemState :: !(GenericTxpLocalData TxpExtra_TMP)
+    }
+
 allocateNodeContext
     :: forall ssc .
       (HasCoreConstants, SscConstraint ssc)
-    => NodeParams
-    -> SscParams ssc
-    -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
-    -> NetworkConfig KademliaDHTInstance
+    => AllocateNodeContextData ssc
     -> InitMode ssc (NodeContext ssc)
-allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig = do
+allocateNodeContext ancd = do
+    let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
+                                , ancdSscParams = sscnp
+                                , ancdPutSlotting = putSlotting
+                                , ancdNetworkCfg = networkConfig
+                                , ancdEkgStore = store
+                                , ancdTxpMemState = TxpLocalData {..}
+                                } = ancd
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
+    ncStateLock <- newStateLock
+    ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar
     ncSlottingContext <-
@@ -261,15 +273,15 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig = do
     ncLastKnownHeader <- newTVarIO Nothing
     ncUpdateContext <- mkUpdateContext
     ncSscContext <- untag @ssc sscCreateNodeContext sscnp
-    ncSlogContext <- mkSlogContext
+    ncSlogContext <- mkSlogContext store
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    let ctx shutdownQueue =
+    let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
-            , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
+            , ncShutdownContext = ShutdownContext ncShutdownFlag
             , ncNodeParams = np
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
@@ -279,8 +291,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting networkConfig = do
             , ncNetworkConfig = networkConfig
             , ..
             }
-    -- TODO bounded queue not necessary.
-    ctx <$> liftIO (newTBQueueIO maxBound)
+    return ctx
 
 releaseNodeContext :: forall ssc m . MonadIO m => NodeContext ssc -> m ()
 releaseNodeContext _ = return ()

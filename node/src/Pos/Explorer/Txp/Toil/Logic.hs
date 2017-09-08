@@ -38,8 +38,8 @@ import           Pos.Util.Chrono             (NewestFirst (..))
 -- Global
 ----------------------------------------------------------------------------
 
-type EGlobalApplyToilMode m =
-    ( Txp.GlobalApplyToilMode m
+type EGlobalApplyToilMode ctx m =
+    ( Txp.GlobalApplyToilMode ctx m
     , MonadTxExtra m
     )
 
@@ -51,26 +51,26 @@ type EGlobalVerifyToilMode ctx m =
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 eApplyToil
-    :: EGlobalApplyToilMode m
-    => Timestamp
+    :: EGlobalApplyToilMode ctx m
+    => Maybe Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
     -> m ()
-eApplyToil curTime txun hh = do
+eApplyToil mTxTimestamp txun hh = do
     Txp.applyToil txun
     mapM_ applier $ zip [0..] txun
   where
     applier (i, (txAux, txUndo)) = do
         let tx = taTx txAux
             id = hash tx
-            newExtra = TxExtra (Just (hh, i)) curTime txUndo
+            newExtra = TxExtra (Just (hh, i)) mTxTimestamp txUndo
         extra <- fromMaybe newExtra <$> getTxExtra id
         putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txUndo
         let balanceUpdate = getBalanceUpdate txAux txUndo
         updateAddrBalances balanceUpdate
 
 -- | Rollback transactions from one block.
-eRollbackToil :: EGlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
+eRollbackToil :: EGlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
 eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback $ reverse txun

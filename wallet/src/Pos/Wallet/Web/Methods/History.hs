@@ -13,24 +13,26 @@ import           Universum
 import qualified Data.DList                 as DL
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (logWarning)
+import           System.Wlog                (logError, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (getTimestamp)
+import           Pos.Core                   (getTimestamp, timestampToPosix)
+import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CTxs, CWAddressMeta (..), Wal,
-                                             mkCTxs, txIdToCTxId)
+                                             CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                             getHistoryCache, getTxMeta, setWalletTxMeta)
+                                             getHistoryCache, getPendingTx, getTxMeta,
+                                             getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                              getWalletAccountIds, getWalletAddrMetas,
-                                             getWalletAddrs)
+                                             getWalletAddrs, getWalletThTime)
 
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m ([CTx], Word)
@@ -47,9 +49,8 @@ getFullWalletHistory cWalId = do
 
     localHistory <- getLocalHistory addrs
 
-    let fullHistory = DL.toList $ localHistory <> blockHistory
-    ctxs <- forM fullHistory $ addHistoryTx cWalId
-    let cHistory = concatMap toList ctxs
+    fullHistory <- addRecentPtxHistory cWalId $ DL.toList $ localHistory <> blockHistory
+    cHistory <- forM fullHistory $ addHistoryTx cWalId
     pure (cHistory, fromIntegral $ length cHistory)
 
 getHistory
@@ -105,21 +106,52 @@ addHistoryTx
     :: MonadWalletWebMode m
     => CId Wal
     -> TxHistoryEntry
-    -> m CTxs
+    -> m CTx
 addHistoryTx cWalId wtx@THEntry{..} = do
-    -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
     meta <- CTxMeta <$> case _thTimestamp of
       Nothing -> liftIO $ getPOSIXTime
       Just ts -> return $ fromIntegral (getTimestamp ts) / 1000000
-    let cId = txIdToCTxId _thTxId
+    let cId = encodeCType _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
+    ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
     walAddrMetas <- getWalletAddrMetas Ever cWalId
-    mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
+    either (throwM . InternalError) pure $
+        mkCTx diff wtx meta' ptxCond walAddrMetas
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
+
+addRecentPtxHistory
+    :: MonadWalletWebMode m
+    => CId Wal -> [TxHistoryEntry] -> m [TxHistoryEntry]
+addRecentPtxHistory wid currentHistory = do
+    candidates <- sortWith (Down . _thTimestamp) <$> getCandidates
+    merge currentHistory candidates
+  where
+    getCandidates =
+        mapMaybe (ptxPoolInfo . _ptxCond) . fromMaybe [] <$>
+        getWalletPendingTxs wid
+
+    merge [] recent     = return recent
+    merge current []    = return current
+    merge (c:cs) (r:rs) = do
+        if _thTxId c == _thTxId r
+            then (c:) <$> merge cs rs
+            else do
+                mctime <- getWalletThTime wid c
+                let mrtime = timestampToPosix <$> _thTimestamp r
+                when (isNothing mrtime) $ reportNoTimestamp r
+                if mctime <= mrtime
+                    then (r:) <$> merge (c:cs) rs
+                    else (c:) <$> merge cs (r:rs)
+
+    -- pending transactions are made by us, always have timestamp set
+    reportNoTimestamp th =
+        logError $
+        sformat ("Pending transaction "%build%" has no timestamp set")
+                (_thTxId th)
 

@@ -21,6 +21,7 @@ import           Universum
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Core                   (decodeTextAddress)
 import           Pos.Util                   (maybeThrow)
+
 import           Pos.Wallet.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
@@ -68,7 +69,7 @@ applyUpdate = removeNextUpdate >> applyLastUpdate
 ----------------------------------------------------------------------------
 
 syncProgress :: MonadWalletWebMode m => m SyncProgress
-syncProgress = do
+syncProgress =
     SyncProgress
     <$> localChainDifficulty
     <*> networkChainDifficulty

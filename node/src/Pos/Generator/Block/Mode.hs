@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP       #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP          #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Execution mode used by blockchain generator.
 
@@ -20,8 +21,10 @@ module Pos.Generator.Block.Mode
 import           Universum
 
 import           Control.Lens.TH             (makeLensesWith)
+import qualified Control.Monad.Catch
 import           Control.Monad.Random.Strict (RandT)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Crypto.Random               as Rand
 import           Mockable                    (Async, Catch, Concurrently, CurrentTime,
                                               Delay, Mockables, Promise, Throw)
 import           System.Wlog                 (WithLogger, logWarning)
@@ -29,12 +32,13 @@ import           System.Wlog                 (WithLogger, logWarning)
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
                                               onRollbackBlocksStub)
 import           Pos.Block.Core              (Block, BlockHeader)
-import           Pos.Block.Slog              (HasSlogContext (..))
+import           Pos.Block.Slog              (HasSlogGState (..))
 import           Pos.Block.Types             (Undo)
-import           Pos.Core                    (GenesisWStakeholders (..), HasCoreConstants,
-                                              HasPrimaryKey (..), IsHeader, SlotId (..),
-                                              Timestamp, epochOrSlotToSlot,
-                                              getEpochOrSlot)
+import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
+import           Pos.Core                    (Address, GenesisWStakeholders (..),
+                                              HasCoreConstants, HasPrimaryKey (..),
+                                              IsHeader, SlotId (..), Timestamp,
+                                              epochOrSlotToSlot, getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
 import           Pos.DB                      (DBSum, MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB,
@@ -59,8 +63,7 @@ import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
-                                              TxpHolderTag, TxpMetrics, ignoreTxpMetrics,
-                                              mkTxpLocalData)
+                                              TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
@@ -105,6 +108,8 @@ type MonadBlockGen ctx m
        , MonadReader ctx m
        , GS.HasGStateContext ctx
        , HasSlottingVar ctx
+       -- 'MonadRandom' for crypto.
+       , Rand.MonadRandom m
        )
 
 ----------------------------------------------------------------------------
@@ -128,7 +133,7 @@ data BlockGenContext = BlockGenContext
     , bgcParams            :: !BlockGenParams
     , bgcDelegation        :: !DelegationVar
     , bgcGenStakeholders   :: !GenesisWStakeholders
-    , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
+    , bgcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP)
     , bgcUpdateContext     :: !UpdateContext
     , bgcSscState          :: !(SscState SscGodTossing)
     , bgcSlotId            :: !(Maybe SlotId)
@@ -188,7 +193,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
         putInitSlot (epochOrSlotToSlot tipEOS)
         bgcSscState <- mkSscState @SscGodTossing
         bgcUpdateContext <- mkUpdateContext
-        bgcTxpMem <- (,ignoreTxpMetrics) <$> mkTxpLocalData
+        bgcTxpMem <- mkTxpLocalData
         bgcDelegation <- mkDelegationVar @SscGodTossing
         return BlockGenContext {..}
 
@@ -280,10 +285,10 @@ instance HasLens LrcContext BlockGenContext LrcContext where
 instance HasPrimaryKey BlockGenContext where
     primaryKey = bgcPrimaryKey_L
 
-instance HasSlogContext BlockGenContext where
-    slogContextL = GS.gStateContext . GS.gscSlogContext
+instance HasSlogGState BlockGenContext where
+    slogGState = GS.gStateContext . GS.gscSlogGState
 
-instance HasLens TxpHolderTag BlockGenContext (GenericTxpLocalData TxpExtra_TMP, TxpMetrics) where
+instance HasLens TxpHolderTag BlockGenContext (GenericTxpLocalData TxpExtra_TMP) where
     lensOf = bgcTxpMem_L
 
 instance HasLens SscMemTag BlockGenContext (SscState SscGodTossing) where
@@ -343,6 +348,10 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode m) where
 instance MonadBlockGenBase m => MonadBListener (BlockGenMode m) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
+
+instance Monad m => MonadAddresses (BlockGenMode m) where
+    type AddrData (BlockGenMode m) = Address
+    getNewAddress = pure
 
 ----------------------------------------------------------------------------
 -- Utilities

@@ -19,13 +19,13 @@ import           Pos.Crypto.SignTag        (SignTag)
 import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance Bi PublicKey => ArbitraryUnsafe PublicKey where
-    arbitraryUnsafe = Bi.deserialize' <$> arbitrarySizedS 32
+    arbitraryUnsafe = Bi.unsafeDeserialize' <$> arbitrarySizedS 32
 
 instance Bi SecretKey => ArbitraryUnsafe SecretKey where
-    arbitraryUnsafe = Bi.deserialize' <$> arbitrarySizedS 64
+    arbitraryUnsafe = Bi.unsafeDeserialize' <$> arbitrarySizedS 64
 
 instance Bi (Signature a) => ArbitraryUnsafe (Signature a) where
-    arbitraryUnsafe = Bi.deserialize' <$> arbitrarySizedS 64
+    arbitraryUnsafe = Bi.unsafeDeserialize' <$> arbitrarySizedS 64
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks
@@ -35,8 +35,6 @@ instance (Bi a, Bi SecretKey, ArbitraryUnsafe a, Arbitrary SignTag) =>
                                <*> arbitraryUnsafe
                                <*> arbitraryUnsafe
 
--- Again, no sense in generating invalid data, but in benchmarks we
--- don't need Really Secure™ randomness
 instance ArbitraryUnsafe VssKeyPair where
     arbitraryUnsafe = deterministicVssKeyGen <$> arbitrary
 

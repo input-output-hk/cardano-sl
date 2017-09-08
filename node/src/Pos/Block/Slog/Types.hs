@@ -3,8 +3,11 @@
 module Pos.Block.Slog.Types
        ( LastBlkSlots
        , noLastBlkSlots
+
+       , SlogGState (..)
+       , HasSlogGState (..)
+
        , SlogContext (..)
-       , scLastBlkSlots
        , HasSlogContext (..)
 
        , SlogUndo (..)
@@ -12,12 +15,16 @@ module Pos.Block.Slog.Types
 
 import           Universum
 
-import           Control.Lens        (makeLenses)
+import           Control.Lens          (makeClassy)
 import qualified Data.Text.Buildable
-import           Formatting          (bprint)
+import           Formatting            (bprint)
+import           System.Metrics.Label  (Label)
 
-import           Pos.Core            (FlatSlotId, slotIdF, unflattenSlotId, HasCoreConstants)
-import           Pos.Util.Chrono     (OldestFirst (..))
+import           Pos.Core              (ChainDifficulty, EpochIndex, FlatSlotId,
+                                        HasCoreConstants, LocalSlotIndex, slotIdF,
+                                        unflattenSlotId)
+import           Pos.Reporting.Metrics (MetricMonitorState)
+import           Pos.Util.Chrono       (OldestFirst (..))
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
@@ -28,22 +35,49 @@ type LastBlkSlots = OldestFirst [] FlatSlotId
 noLastBlkSlots :: LastBlkSlots
 noLastBlkSlots = OldestFirst []
 
--- | All in-memory data used by Slog.
-data SlogContext = SlogContext
-    { _scLastBlkSlots :: IORef LastBlkSlots
+-- | In-memory representation of Slog (aka BlockExtra) part of
+-- GState. Note that it contains only part of BlockExtra.
+data SlogGState = SlogGState
+    { _sgsLastBlkSlots   :: IORef LastBlkSlots
     -- ^ Slots for which last blocks in our chain were created. This
     -- information is also stored in DB, but we don't want to read it
     -- every time.
     }
 
-makeLenses ''SlogContext
+makeClassy ''SlogGState
 
--- | Type class encapsulating everything that has 'SlogContext sa'.
-class HasSlogContext s where
-    slogContextL :: Lens' s SlogContext
+-- | All in-memory data used by Slog.
+data SlogContext = SlogContext
+    { _scGState                 :: !SlogGState
+    -- ^ Slots for which last blocks in our chain were created. This
+    -- information is also stored in DB, but we don't want to read it
+    -- every time.
+    , _scCQkMonitorState        :: !(MetricMonitorState Double)
+    -- ^ Internal state of 'MetricMonitor' to keep track of chain
+    -- quality for last 'k' blocks.
+    , _scCQOverallMonitorState  :: !(MetricMonitorState Double)
+    -- ^ Internal state of 'MetricMonitor' to keep track of overall chain
+    -- quality.
+    , _scCQFixedMonitorState    :: !(MetricMonitorState Double)
+    -- ^ Internal state of 'MetricMonitor' to keep track of chain
+    -- quality for fixed amount of time.
+    , _scDifficultyMonitorState :: !(MetricMonitorState ChainDifficulty)
+    -- ^ Internal state of 'MetricMonitor' to keep track of overall
+    -- chain difficulty (i. e. total number of main blocks created so far).
+    , _scEpochMonitorState      :: !(MetricMonitorState EpochIndex)
+    -- ^ Internal state of 'MetricMonitor' to keep track of current epoch.
+    , _scLocalSlotMonitorState  :: !(MetricMonitorState LocalSlotIndex)
+    -- ^ Internal state of 'MetricMonitor' to keep track of current local slot.
+    , _scGlobalSlotMonitorState :: !(MetricMonitorState FlatSlotId)
+    -- ^ Internal state of 'MetricMonitor' to keep track of current global slot.
+    , _scCrucialValuesLabel     :: !Label
+    -- ^ A 'Label' for crucial values.
+    }
 
-instance HasSlogContext SlogContext where
-    slogContextL = identity
+makeClassy ''SlogContext
+
+instance HasSlogGState SlogContext where
+    slogGState = scGState
 
 -- | Undo data from Slog, i. e. data which is necessary do rollback a
 -- block inside Slog.

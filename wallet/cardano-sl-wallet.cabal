@@ -1,5 +1,5 @@
 name:                cardano-sl-wallet
-version:             0.5.1
+version:             0.6.0
 synopsis:            Cardano SL - wallet
 description:         Cardano SL - wallet
 license:             MIT
@@ -39,6 +39,11 @@ library
                       Pos.Wallet.Web.Methods.Redeem
                       Pos.Wallet.Web.Methods.Reporting
                       Pos.Wallet.Web.Methods.Restore
+                      Pos.Wallet.Web.Methods.Txp
+                      Pos.Wallet.Web.Pending
+                      Pos.Wallet.Web.Pending.Submission
+                      Pos.Wallet.Web.Pending.Util
+                      Pos.Wallet.Web.Pending.Worker
                       Pos.Wallet.Web.Server
                       Pos.Wallet.Web.Server.Handlers
                       Pos.Wallet.Web.Server.Launcher
@@ -48,6 +53,12 @@ library
                       Pos.Wallet.Web.Sockets.Connection
                       Pos.Wallet.Web.Sockets.Notifier
                       Pos.Wallet.Web.Sockets.Types
+                      Pos.Wallet.Web.Swagger
+                      Pos.Wallet.Web.Swagger.CustomSwagger
+                      Pos.Wallet.Web.Swagger.Description
+                      Pos.Wallet.Web.Swagger.Instances.Schema
+                      Pos.Wallet.Web.Swagger.Instances.Swagger
+                      Pos.Wallet.Web.Swagger.Spec
                       Pos.Wallet.Web.Tracking
                       Pos.Wallet.Web.Tracking.BListener
                       Pos.Wallet.Web.Tracking.Sync
@@ -89,9 +100,12 @@ library
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
+                      , servant-swagger
+                      , servant-swagger-ui
                       , string-qq
                       , stm
                       , stm-containers
+                      , swagger2
                       , text-format
                       , time
                       , time-units
@@ -135,6 +149,7 @@ library
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        TypeOperators
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -180,6 +195,7 @@ executable cardano-node
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
+                      , servant-swagger
                       , string-qq
                       , stm
                       , stm-containers
@@ -281,11 +297,6 @@ executable cardano-wallet-hs2purs
 executable cardano-swagger
   hs-source-dirs:      web-api-swagger
   main-is:             Main.hs
-  other-modules:       CustomSwagger
-                       Description
-                       Instances
-                       Instances.Schema
-                       Instances.Swagger
   if !flag(for-installer)
     build-depends:       aeson
                        , base

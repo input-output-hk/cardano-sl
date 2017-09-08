@@ -1,4 +1,3 @@
-
 -- | This module tests Binary instances for Block types.
 
 module Test.Pos.Block.Identity.BinarySpec
@@ -17,22 +16,22 @@ import           Pos.Core            (giveStaticConsts)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 
-import           Test.Pos.Util       (binaryTest, networkBinaryTest)
+import           Test.Pos.Util       (binaryTest)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Block types" $ do
     describe "Bi instances" $ do
         describe "Block network types" $ do
             describe "MsgGetHeaders" $
-                networkBinaryTest @BT.MsgGetHeaders
+                binaryTest @BT.MsgGetHeaders
             describe "MsgGetBlocks" $
-                networkBinaryTest @BT.MsgGetBlocks
+                binaryTest @BT.MsgGetBlocks
             describe "MsgHeaders" $ do
-                networkBinaryTest @(BT.MsgHeaders SscNistBeacon)
-                networkBinaryTest @(BT.MsgHeaders SscGodTossing)
+                binaryTest @(BT.MsgHeaders SscNistBeacon)
+                binaryTest @(BT.MsgHeaders SscGodTossing)
             describe "MsgBlock" $ do
-                networkBinaryTest @(BT.MsgBlock SscNistBeacon)
-                networkBinaryTest @(BT.MsgBlock SscGodTossing)
+                binaryTest @(BT.MsgBlock SscNistBeacon)
+                binaryTest @(BT.MsgBlock SscGodTossing)
         describe "Blockchains and blockheaders" $ do
             describe "GenericBlockHeader" $ do
                 describe "GenesisBlockHeader" $ do
@@ -66,8 +65,9 @@ spec = giveStaticConsts $ describe "Block types" $ do
                 describe "Body" $ do
                     binaryTest @(BT.Body (BT.MainBlockchain SscNistBeacon))
                     binaryTest @(BT.Body (BT.MainBlockchain SscGodTossing))
-                binaryTest @BT.MainExtraHeaderData
-                binaryTest @BT.MainExtraBodyData
                 describe "MainToSign" $ do
                     binaryTest @(BT.MainToSign SscNistBeacon)
                     binaryTest @(BT.MainToSign SscGodTossing)
+                describe "Extra data" $ do
+                    binaryTest @BT.MainExtraHeaderData
+                    binaryTest @BT.MainExtraBodyData

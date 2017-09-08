@@ -1,4 +1,3 @@
-
 -- | Core types.
 
 module Pos.Core.Types
@@ -10,11 +9,13 @@ module Pos.Core.Types
        , Address' (..)
        , AddrAttributes (..)
        , AddrStakeDistribution (..)
+       , mkMultiKeyDistr
        , Address (..)
 
        -- * Stakeholders
        , StakeholderId
        , StakesMap
+       , StakesList
 
        , Timestamp (..)
        , TimeDiff (..)
@@ -84,6 +85,7 @@ module Pos.Core.Types
 import           Universum
 
 import           Control.Lens               (makeLensesFor, makePrisms)
+import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
 import           Data.Data                  (Data)
@@ -121,6 +123,9 @@ type StakeholderId = AddressHash PublicKey
 -- | A mapping between stakeholders and they stakes.
 type StakesMap = HashMap StakeholderId Coin
 
+-- | Stakeholders and their stakes.
+type StakesList = [(StakeholderId, Coin)]
+
 -- | Data which is bound to an address and must be revealed in order
 -- to spend coins belonging to this address.
 data AddrSpendingData
@@ -149,18 +154,38 @@ data AddrType
     | ATUnknown !Word8
     deriving (Eq, Ord, Generic, Typeable, Show)
 
--- TODO [CSL-1489] This stake distribution is currently unused!
-
 -- | Stake distribution associated with an address.
 data AddrStakeDistribution
     = BootstrapEraDistr
     -- ^ Stake distribution for bootstrap era.
     | SingleKeyDistr !StakeholderId
     -- ^ Stake distribution stating that all stake should go to the given stakeholder.
-    | MultiKeyDistr ![(StakeholderId, Coin)]
+    | UnsafeMultiKeyDistr !(Map StakeholderId CoinPortion)
     -- ^ Stake distribution which gives stake to multiple
-    -- stakeholders.
+    -- stakeholders. 'CoinPortion' is a portion of an output (output
+    -- has a value, portion of this value is stake). The constructor
+    -- is unsafe because there are some predicates which must hold:
+    --
+    -- • the sum of portions must be @maxBound@ (basically 1);
+    -- • all portions must be positive;
+    -- • there must be at least 2 items, because if there is only one item,
+    -- 'SingleKeyDistr' can be used instead (which is smaller).
     deriving (Eq, Ord, Show, Generic, Typeable)
+
+-- | Safe constructor of multi-key distribution. It checks invariants
+-- of this distribution and returns an error if something is violated.
+mkMultiKeyDistr :: MonadError Text m => Map StakeholderId CoinPortion -> m AddrStakeDistribution
+mkMultiKeyDistr distrMap = UnsafeMultiKeyDistr distrMap <$ check
+  where
+    check = do
+        when (null distrMap) $ throwError "mkMultiKeyDistr: map is empty"
+        when (length distrMap == 1) $
+            throwError "mkMultiKeyDistr: map's size is 1, use SingleKeyDistr"
+        unless (all ((> 0) . getCoinPortion) distrMap) $
+            throwError "mkMultiKeyDistr: all portions must be positive"
+        let distrSum = sum $ map getCoinPortion distrMap
+        unless (distrSum == coinPortionDenominator) $
+            throwError "mkMultiKeyDistr: distributions' sum must be equal to 1"
 
 -- | Additional information stored along with address. It's intended
 -- to be put into 'Attributes' data type to make it extensible with
@@ -184,8 +209,8 @@ data Address = Address
     -- ^ Attributes associated with this address.
     , addrType       :: !AddrType
     -- ^ The type of this address. Should correspond to
-    -- 'AddrSpendingData', but it can't be checked staticall, because
-    -- spending data in hashed.
+    -- 'AddrSpendingData', but it can't be checked statically, because
+    -- spending data is hashed.
     } deriving (Eq, Ord, Generic, Typeable, Show)
 
 instance NFData AddrType
@@ -281,6 +306,8 @@ data SoftforkRule = SoftforkRule
     , srThdDecrement :: !CoinPortion
     -- ^ Theshold will be decreased by this value after each epoch.
     } deriving (Show, Eq, Generic)
+
+instance Hashable SoftforkRule
 
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
@@ -399,11 +426,15 @@ unsafeGetCoin = getCoin
 -- threshold).
 newtype CoinPortion = CoinPortion
     { getCoinPortion :: Word64
-    } deriving (Show, Ord, Eq, Generic, Typeable, NFData)
+    } deriving (Show, Ord, Eq, Generic, Typeable, NFData, Hashable)
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64
 coinPortionDenominator = (10 :: Word64) ^ (15 :: Word64)
+
+instance Bounded CoinPortion where
+    minBound = CoinPortion 0
+    maxBound = CoinPortion coinPortionDenominator
 
 -- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
 -- than 'coinPortionDenominator'.

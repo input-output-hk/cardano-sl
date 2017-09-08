@@ -24,11 +24,10 @@ import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import qualified Pos.Constants                    as Const
-import           Pos.Core                         (HasCoreConstants, SlotId (..),
-                                                   addressHash, makePubKeyAddress)
+import           Pos.Core                         (HasCoreConstants, SlotId (..))
 import           Pos.Crypto                       (PublicKey)
-import           Pos.DB                           (MonadGState (..))
+import           Pos.DB                           (MonadGState (..), NodeDBs, MonadDBRead(..), dbGetDefault, dbIterSourceDefault)
+import           Pos.DB.DB                        (gsAdoptedBVDataDefault)
 import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
@@ -46,13 +45,15 @@ import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Util.Util                    (postfixLFields)
 import           Pos.Wallet.KeyStorage            (KeyData)
+import           Pos.Wallet.Light.Hacks           (makePubKeyAddressLWallet)
 import           Pos.Wallet.WalletMode            (MonadBlockchainInfo (..),
                                                    MonadUpdates (..))
 
 type LightWalletSscType = SscGodTossing
 
 data LightWalletContext = LightWalletContext
-    { lwcKeyData          :: !KeyData
+    { lwcNodeDBs          :: !NodeDBs
+    , lwcKeyData          :: !KeyData
     , lwcReportingContext :: !ReportingContext
     , lwcDiscoveryPeers   :: !(Set NodeId)
     , lwcJsonLogConfig    :: !JsonLogConfig
@@ -67,6 +68,9 @@ type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 
 instance HasUserSecret LightWalletContext where
     userSecret = lwcKeyData_L
+
+instance HasLens NodeDBs LightWalletContext NodeDBs where
+    lensOf = lwcNodeDBs_L
 
 instance HasLens GenesisWStakeholders LightWalletContext GenesisWStakeholders where
     lensOf = lwcGenStakeholders_L
@@ -114,8 +118,12 @@ instance (HasCoreConstants, MonadSlotsData ctx LightWalletMode)
     getCurrentSlotInaccurate = pure (SlotId 0 minBound)
     currentTimeSlotting      = currentTimeSlottingSimple
 
+instance MonadDBRead LightWalletMode where
+    dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
+
 instance MonadGState LightWalletMode where
-    gsAdoptedBVData = pure Const.genesisBlockVersionData
+    gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBalances LightWalletMode where
     getOwnUtxos addrs = filterUtxoByAddrs addrs <$> asks (unGenesisUtxo . lwcGenesisUtxo)
@@ -128,4 +136,4 @@ instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode w
 
 instance MonadAddresses LightWalletMode where
     type AddrData LightWalletMode = PublicKey
-    getNewAddress pk = pure (makePubKeyAddress pk, Just $ addressHash pk)
+    getNewAddress = makePubKeyAddressLWallet

@@ -6,6 +6,7 @@ module Params
 
 import           Universum
 
+import           Data.Default        (def)
 import           Mockable            (Catch, Fork, Mockable, Throw)
 import           System.Wlog         (WithLogger)
 
@@ -13,11 +14,10 @@ import           Pos.Client.CLI      (CommonNodeArgs (..))
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Genesis         (devGenesisContext, devStakesDistr,
+import           Pos.Genesis         (devBalancesDistr, devGenesisContext,
                                       genesisContextProduction)
 import           Pos.Launcher        (NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
-import           Pos.Security        (SecurityParams (..))
 import           Pos.Update.Params   (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
 
@@ -40,13 +40,13 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
                 peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     npTransport <- CLI.getTransportParams args npNetworkConfig
-    let devStakeDistr =
-            devStakesDistr
+    let devBalanceDistr =
+            devBalancesDistr
                 (CLI.flatDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
     let npGenesisCtx
-            | isDevelopment = devGenesisContext devStakeDistr
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath
@@ -62,10 +62,7 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             , upUpdateWithPkg = updateWithPackage
             , upUpdateServers = CLI.updateServers commonArgs
             }
-        , npSecurityParams = SecurityParams
-            { spAttackTypes   = []
-            , spAttackTargets = []
-            }
+        , npBehaviorConfig = def
         , npUseNTP = not noNTP
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams

@@ -21,13 +21,13 @@ module Pos.DB.DB
 import           Universum
 
 import           Control.Monad.Catch   (MonadMask)
-import           Ether.Internal        (HasLens (..))
 import           System.Wlog           (WithLogger)
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Blund)
 import           Pos.Context.Functions (genesisBlock0M)
-import           Pos.Core              (BlockCount, BlockVersionData, HasCoreConstants,
+import           Pos.Core              (BlockCount, BlockVersionData,
+                                        GenesisWStakeholders, HasCoreConstants,
                                         headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
                                         loadBlundsByDepth, loadBlundsWhile,
@@ -35,12 +35,12 @@ import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
 import           Pos.DB.Class          (MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common  (getTip, getTipBlockGeneric, getTipHeaderGeneric)
 import           Pos.DB.Misc           (prepareMiscDB)
-import           Pos.Genesis           (GenesisUtxo)
+import           Pos.Genesis           (GenesisContext, GenesisUtxo)
 import           Pos.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB            (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Update.DB         (getAdoptedBVData)
-import           Pos.Util              (inAssertMode)
+import           Pos.Util              (HasLens', inAssertMode)
 import           Pos.Util.Chrono       (NewestFirst)
 
 #ifdef WITH_EXPLORER
@@ -52,7 +52,9 @@ import           Pos.Explorer.DB       (prepareExplorerDB)
 initNodeDBs
     :: forall ssc ctx m.
        ( MonadReader ctx m
-       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens' ctx GenesisUtxo
+       , HasLens' ctx GenesisWStakeholders
+       , HasLens' ctx GenesisContext
        , MonadBlockDBWrite ssc m
        , SscHelpersClass ssc
        , MonadDB m
@@ -85,8 +87,13 @@ loadBlundsFromTipByDepth
     => BlockCount -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
-sanityCheckDB
-    :: (MonadMask m, WithLogger m, MonadDBRead m)
+sanityCheckDB ::
+       ( MonadMask m
+       , WithLogger m
+       , MonadDBRead m
+       , MonadReader ctx m
+       , HasLens' ctx GenesisWStakeholders
+       )
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 

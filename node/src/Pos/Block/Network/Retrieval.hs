@@ -6,6 +6,8 @@ module Pos.Block.Network.Retrieval
        ( retrievalWorker
        ) where
 
+import           Universum
+
 import           Control.Concurrent.STM     (putTMVar, swapTMVar, tryReadTBQueue,
                                              tryReadTMVar, tryTakeTMVar)
 import           Control.Lens               (to, _Wrapped)
@@ -15,13 +17,11 @@ import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S
 import           Ether.Internal             (HasLens (..))
-import           Formatting                 (build, builder, int, sformat, shown, stext,
-                                             (%))
-import           Mockable                   (delay, handleAll, throw)
+import           Formatting                 (build, builder, int, sformat, stext, (%))
+import           Mockable                   (delay, handleAll)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util              (listJson, sec)
-import           System.Wlog                (logDebug, logError, logInfo, logWarning)
-import           Universum
+import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
@@ -43,8 +43,7 @@ import           Pos.Context                (BlockRetrievalQueueTag, ProgressHea
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.Reporting.Methods      (reportingFatal)
-import           Pos.Shutdown               (runIfNotShutdown)
+import           Pos.Reporting              (reportOrLogE, reportOrLogW)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
@@ -84,7 +83,7 @@ retrievalWorkerImpl SendActions {..} =
         logDebug "Starting retrievalWorker loop"
         mainLoop
   where
-    mainLoop = runIfNotShutdown $ reportingFatal $ do
+    mainLoop = do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
@@ -100,12 +99,13 @@ retrievalWorkerImpl SendActions {..} =
         thingToDoNext
         mainLoop
     mainLoopE e = do
-        logError $ sformat ("retrievalWorker: error caught "%shown) e
-        throw e
+        -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
+        reportOrLogE "retrievalWorker: error caught " e
+        delay (30 & sec)
+        mainLoop
     --
     handleBlockRetrieval nodeId BlockRetrievalTask{..} =
         handleAll (handleBlockRetrievalE nodeId brtHeader) $
-        reportingFatal $
         (if brtContinues then handleContinues else handleAlternative)
             nodeId
             brtHeader
@@ -125,8 +125,9 @@ retrievalWorkerImpl SendActions {..} =
                     newestHeader = headers ^. _NewestFirst . _neHead
                 in handleCHsValid enqueueMsg nodeId
                                   oldestHeader (headerHash newestHeader)
-        convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $ \_ _ -> pure $ Conversation $ \conv ->
-            requestHeaders cont mgh nodeId conv
+        convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $
+            \_ _ -> pure $ Conversation $ \conv ->
+                requestHeaders cont mgh nodeId conv
         results <- waitForConversations $ fmap (handleAll (\_ -> return (Just False))) convs
         let Any endedRecovery = fold $ fmap mkAny results
         when endedRecovery $ logInfo "Recovery mode exited gracefully"
@@ -136,9 +137,10 @@ retrievalWorkerImpl SendActions {..} =
         mkAny :: Maybe Bool -> Any
         mkAny = maybe (Any False) Any
     handleBlockRetrievalE nodeId header e = do
-        logWarning $ sformat
-            ("Error handling nodeId="%build%", header="%build%": "%shown)
-            nodeId (headerHash header) e
+        -- REPORT:ERROR 'reportOrLogW' in block retrieval worker.
+        reportOrLogW (sformat
+            ("Error handling nodeId="%build%", header="%build%": ")
+            nodeId (headerHash header)) e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat enqueueMsg nodeId
 
@@ -251,9 +253,10 @@ dropRecoveryHeaderAndRepeat enqueue nodeId = do
         delay $ sec 2
         handleAll handleRecoveryTriggerE $ triggerRecovery enqueue
         logDebug "Attempting to restart recovery over"
-    handleRecoveryTriggerE e =
-        logError $ "Exception happened while trying to trigger " <>
-                   "recovery inside recoveryWorker: " <> show e
+    handleRecoveryTriggerE =
+        -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.
+        reportOrLogE $ "Exception happened while trying to trigger " <>
+                       "recovery inside recoveryWorker: "
 
 -- | Process header that was thought to be continuation. If it's not
 -- now, it is discarded.

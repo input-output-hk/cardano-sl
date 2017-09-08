@@ -5,8 +5,9 @@ module Pos.Wallet.Web.ClientTypes.Functions
       , addressToCId
       , cIdToAddress
       , encToCId
-      , mkCTxs
+      , mkCTx
       , mkCTxId
+      , ptxCondToCPtxCond
       , txIdToCTxId
       , toCUpdateInfo
       , addrMetaToAccount
@@ -28,17 +29,19 @@ import           Pos.Crypto                       (EncryptedSecretKey, encToPubl
 import           Pos.Txp.Core.Types               (Tx (..), TxId, txOutAddress,
                                                    txOutValue)
 import           Pos.Types                        (Address (..), ChainDifficulty, Coin,
-                                                   decodeTextAddress, makePubKeyAddress,
-                                                   sumCoins, unsafeGetCoin,
-                                                   unsafeIntegerToCoin)
+                                                   decodeTextAddress,
+                                                   makePubKeyAddressBoot, sumCoins,
+                                                   unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Update.Core                  (BlockVersionModifier (..),
                                                    StakeholderVotes, UpdateProposal (..),
                                                    isPositiveVote)
 import           Pos.Update.Poll                  (ConfirmedProposalState (..))
 import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin (..),
-                                                   CHash (..), CId (..), CTx (..),
-                                                   CTxId (..), CTxMeta, CTxs (..),
-                                                   CUpdateInfo (..), CWAddressMeta (..))
+                                                   CHash (..), CId (..),
+                                                   CPtxCondition (..), CTx (..),
+                                                   CTxId (..), CTxMeta, CUpdateInfo (..),
+                                                   CWAddressMeta (..))
+import           Pos.Wallet.Web.Pending.Types     (PtxCondition (..))
 
 
 -- TODO: this is not completely safe. If someone changes
@@ -53,8 +56,11 @@ addressToCId = CId . CHash . sformat F.build
 cIdToAddress :: CId w -> Either Text Address
 cIdToAddress (CId (CHash h)) = decodeTextAddress h
 
+-- TODO: pass extra information to this function and choose
+-- distribution based on this information. Currently it's always
+-- bootstrap era distribution.
 encToCId :: EncryptedSecretKey -> CId w
-encToCId = addressToCId . makePubKeyAddress . encToPublic
+encToCId = addressToCId . makePubKeyAddressBoot . encToPublic
 
 mkCTxId :: Text -> CTxId
 mkCTxId = CTxId . CHash
@@ -62,6 +68,13 @@ mkCTxId = CTxId . CHash
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat hashHexF
+
+ptxCondToCPtxCond :: Maybe PtxCondition -> CPtxCondition
+ptxCondToCPtxCond = maybe CPtxNotTracked $ \case
+    PtxApplying{}       -> CPtxApplying
+    PtxInNewestBlocks{} -> CPtxInBlocks
+    PtxPersisted{}      -> CPtxInBlocks
+    PtxWontApply{}      -> CPtxWontApply
 
 -- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.
@@ -104,17 +117,18 @@ isTxLocalAddress wAddrMetas inputs = do
            let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
            not . flip S.member nonLocalAddrsSet
 
-mkCTxs
+mkCTx
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
+    -> CPtxCondition      -- ^ State of resubmission
     -> [CWAddressMeta]    -- ^ Addresses of wallet
-    -> Either Text CTxs
-mkCTxs diff th@THEntry {..} meta wAddrMetas = do
-    let isOurTxOutput = flip S.member wAddrsSet . addressToCId . txOutAddress
+    -> Either Text CTx
+mkCTx diff th@THEntry {..} meta pc wAddrMetas = do
+    let isOurTxAddress = flip S.member wAddrsSet . addressToCId . txOutAddress
 
-        ownInputs = filter isOurTxOutput inputs
-        ownOutputs = filter isOurTxOutput outputs
+        ownInputs = filter isOurTxAddress inputs
+        ownOutputs = filter isOurTxAddress outputs
 
     when (null ownInputs && null ownOutputs) $
         throwError "Transaction is irrelevant to given wallet!"
@@ -123,17 +137,16 @@ mkCTxs diff th@THEntry {..} meta wAddrMetas = do
         outgoingMoney = sumMoney ownInputs
         incomingMoney = sumMoney ownOutputs
         isOutgoing = outgoingMoney >= incomingMoney
-        isIncoming = incomingMoney >= outgoingMoney
+        ctIsOutgoing = isOutgoing
+        ctIsLocal = length ownInputs == length inputs
+                 && length ownOutputs == length outputs
 
         ctAmount = mkCCoin . unsafeIntegerToCoin $
-            if | isOutgoing && isIncoming -> outgoingMoney
+            if | ctIsLocal -> outgoingMoney
                | isOutgoing -> outgoingMoney - incomingMoney
-               | isIncoming -> incomingMoney - outgoingMoney
+               | otherwise -> incomingMoney - outgoingMoney
 
-        mkCTx ctIsOutgoing cond = guard cond $> CTx {..}
-        ctsOutgoing = mkCTx True isOutgoing
-        ctsIncoming = mkCTx False isIncoming
-    return CTxs {..}
+    return CTx {..}
   where
     ctId = txIdToCTxId _thTxId
     inputs = _thInputs
@@ -142,6 +155,7 @@ mkCTxs diff th@THEntry {..} meta wAddrMetas = do
     ctOutputAddrs = map addressToCId _thOutputAddrs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta
+    ctCondition = pc
     wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
 addrMetaToAccount :: CWAddressMeta -> AccountId

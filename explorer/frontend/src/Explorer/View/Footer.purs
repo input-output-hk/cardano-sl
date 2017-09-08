@@ -3,7 +3,6 @@ module Explorer.View.Footer (footerView) where
 import Prelude
 import Data.Foldable (for_)
 import Data.Lens ((^.))
-import Data.Monoid (mempty)
 import Data.String (take)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (common, cApi, footer, fooLinks, fooResources, fooFollow, fooIohkSupportP, fooDocumentation, fooGithub, fooLinkedin, fooTwitter, fooDaedalusWallet, fooWhyCardano, fooCardanoRoadmap, fooCardanoADAFaucet, fooCardanoSLDocumentation) as I18nL
@@ -36,23 +35,23 @@ footerView state =
                     S.div ! S.className "logo__container" $ do
                         S.a ! S.className "logo__cardano-name bg-logo-cardano-name"
                             ! S.href "https://iohk.io/projects/cardano/"
-                            $ mempty
+                            $ S.text ""
                     S.span  ! S.className "split"
-                            $ mempty
+                            $ S.text ""
                     S.a ! S.className "support"
                         ! S.href "//iohk.io/projects/cardano/"
                         $ S.text (translate (I18nL.footer <<< I18nL.fooIohkSupportP) lang')
                     S.div ! S.className "logo__container"
                           $ S.a ! S.className "logo__iohk-name bg-iohk-logo"
                                 ! S.href "https://iohk.io/"
-                                $ mempty
+                                $ S.text ""
                 S.div ! S.className "content content__right"
                       $ langView state
             S.div ! S.className "explorer-footer__container explorer-footer__meta" $ do
                 S.span  ! S.className "version"
                         $ S.text ("v. " <> version)
                 S.a ! S.className "commit"
-                    ! S.href ("https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash)
+                    ! S.href ("https://github.com/input-output-hk/cardano-sl/commit/" <> commitHash)
                     $ S.text $ "( " <> (take 7 $ commitHash) <> " )"
 
 -- nav

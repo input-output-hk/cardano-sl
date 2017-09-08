@@ -25,8 +25,6 @@ import           Universum
 import           Control.Lens           (_Wrapped)
 import           Control.Monad.Except   (MonadError (throwError))
 import qualified Data.List.NonEmpty     as NE
-import qualified Data.Map               as M
-import           Ether.Internal         (HasLens (..))
 import           Formatting             (build, sformat, (%))
 import           Serokell.Util          (Color (Red), colorize)
 import           Serokell.Util.Verify   (formatAllErrors, verResToMonadError)
@@ -37,11 +35,12 @@ import           Pos.Block.BListener    (MonadBListener (..))
 import           Pos.Block.Core         (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Block.Pure         (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types   (HasSlogContext, LastBlkSlots, SlogUndo (..))
+import           Pos.Block.Slog.Types   (HasSlogGState, LastBlkSlots, SlogUndo (..))
 import           Pos.Block.Types        (Blund, Undo (..))
 import           Pos.Constants          (lastKnownBlockVersion)
 import           Pos.Context            (lrcActionOnEpochReason)
-import           Pos.Core               (BlockVersion (..), FlatSlotId, HasCoreConstants,
+import           Pos.Core               (BlockVersion (..), FlatSlotId,
+                                         GenesisWStakeholders, HasCoreConstants,
                                          blkSecurityParam, difficultyL, epochIndexL,
                                          flattenSlotId, headerHash, headerHashG,
                                          prevBlockL)
@@ -52,10 +51,10 @@ import           Pos.Exception          (assertionFailed, reportFatalError)
 import qualified Pos.GState             as GS
 import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
-import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlottingDataMap,
-                                         putEpochSlottingDataM)
+import           Pos.Slotting           (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass (..))
-import           Pos.Util               (inAssertMode, _neHead, _neLast)
+import           Pos.Util               (HasLens (..), HasLens', inAssertMode, _neHead,
+                                         _neLast)
 import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
                                          OldestFirst (..), toOldestFirst)
 
@@ -187,7 +186,8 @@ type MonadSlogApply ssc ctx m =
     , MonadBListener m
     , MonadMask m
     , MonadReader ctx m
-    , HasSlogContext ctx
+    , HasSlogGState ctx
+    , HasLens' ctx GenesisWStakeholders
     )
 
 -- {-# ANN slogApplyBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -326,9 +326,3 @@ slogCommon
     -> m ()
 slogCommon newLastSlots = do
     slogPutLastSlots newLastSlots
-    -- We read from the database and write in the memory.
-    -- TODO(ks): This is unsafe! We don't have control over sequentiality and
-    -- use explicit indexing. It would be better if we have sorted EpochSlotData and
-    -- pass it without the index.
-    slotData <- M.toList . getSlottingDataMap <$> GS.getSlottingData
-    forM_ slotData (uncurry putEpochSlottingDataM)

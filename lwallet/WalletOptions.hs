@@ -13,11 +13,11 @@ import           Universum
 
 import           Data.Version                 (showVersion)
 import           NeatInterpolation            (text)
-import           Options.Applicative          (CommandFields, Mod, Parser, auto, command,
+import           Options.Applicative          (CommandFields, Mod, Parser, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, subparser,
-                                               switch, value)
+                                               metavar, progDesc, subparser, switch,
+                                               value)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
@@ -28,6 +28,7 @@ import           Pos.Communication            (NodeId)
 data WalletOptions = WalletOptions
     { woDbPath      :: !FilePath
     , woRebuildDb   :: !Bool
+    , woNodeDbPath  :: !FilePath
     , woKeyFilePath :: !FilePath       -- ^ Path to file with secret keys
     , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
     , woJLFile      :: !(Maybe FilePath)
@@ -64,6 +65,11 @@ argsParser = do
         long "rebuild-db" <>
         help "If the DB already exist, discard its contents and \
              \create new one from scratch."
+    woNodeDbPath <- strOption $
+        long    "node-db-path" <>
+        metavar "FILEPATH" <>
+        value   "node-db" <>
+        help    "Path to the node database."
     woKeyFilePath <- strOption $
         long    "keys-path" <>
         metavar "FILEPATH" <>

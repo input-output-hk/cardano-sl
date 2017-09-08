@@ -32,22 +32,18 @@ module Pos.Constants
 
        -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
-       , mdNoCommitmentsEpochThreshold
 
-       -- * Update system constants
-       , appSystemTag
+       -- * Transaction resubmition constants
+       , pendingTxResubmitionPeriod
        ) where
 
-import           Universum                    hiding (lift)
+import           Universum
 
-import           Data.Time.Units              (Microsecond)
-import           Language.Haskell.TH.Syntax   (lift, runIO)
+import           Data.Time.Units              (Microsecond, Second)
 import           Serokell.Util                (ms, sec)
-import           System.Environment           (lookupEnv)
 import qualified Text.Parsec                  as P
 
 import           Pos.CompileConfig            (CompileConfig (..), compileConfig)
-import           Pos.Update.Core              (SystemTag, mkSystemTag)
 import           Pos.Util                     ()
 import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
 
@@ -126,25 +122,9 @@ dlgCacheParam = fromIntegral . ccDlgCacheParam $ compileConfig
 mdNoBlocksSlotThreshold :: Integral i => i
 mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ compileConfig
 
--- | Number of epochs used by malicious actions detection to check if
--- our commitments are not included in blockchain.
-mdNoCommitmentsEpochThreshold :: Integral i => i
-mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $ compileConfig
-
 ----------------------------------------------------------------------------
--- Update system
+-- Transactions resubmition
 ----------------------------------------------------------------------------
 
-appSystemTag :: SystemTag
-appSystemTag = $(do
-    mbTag <- runIO (lookupEnv "CSL_SYSTEM_TAG")
-    case mbTag of
-        Just tag -> lift =<< mkSystemTag (toText tag)
-        Nothing
-            | isDevelopment ->
-                  [|error "'appSystemTag' can't be used if \
-                          \env var \"CSL_SYSTEM_TAG\" wasn't set \
-                          \during compilation" |]
-            | otherwise ->
-                  fail "Failed to init appSystemTag: \
-                       \couldn't find env var \"CSL_SYSTEM_TAG\"")
+pendingTxResubmitionPeriod :: Second
+pendingTxResubmitionPeriod = fromIntegral . ccPendingTxResubmissionPeriod $ compileConfig

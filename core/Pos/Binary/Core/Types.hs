@@ -34,7 +34,7 @@ instance Bi T.EpochIndex where
 
 instance Bi (A.Attributes ()) where
   encode = A.encodeAttributes []
-  decode = A.decodeAttributes () $ \_ _ _ -> Nothing
+  decode = A.decodeAttributes () $ \_ _ _ -> pure Nothing
 
 instance Bi T.CoinPortion where
   encode = encode . T.getCoinPortion

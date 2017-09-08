@@ -56,6 +56,7 @@ import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs,
                                              convH, toOutSpecs, waitForConversations)
+import qualified Pos.Constants              as Constants
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryCommGuard, recoveryInProgress)
 import           Pos.Core                   (HasCoreConstants, HasHeaderHash (..),
@@ -66,9 +67,9 @@ import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
-import           Pos.Infra.Semaphore        (modifyBlkSemaphore)
-import           Pos.Reporting.Methods      (reportMisbehaviourSilent)
+import           Pos.Reporting.Methods      (reportMisbehaviour)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.StateLock              (Priority (..), modifyStateLock)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.JsonLog           (jlAdoptedBlock)
@@ -455,7 +456,7 @@ applyWithoutRollback
 applyWithoutRollback enqueue blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
-    modifyBlkSemaphore applyWithoutRollbackDo >>= \case
+    modifyStateLock HighPriority "applyWithoutRollback" applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -499,7 +500,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
-    res <- modifyBlkSemaphore $ \curTip -> do
+    res <- modifyStateLock HighPriority "applyWithRollback" $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
@@ -521,12 +522,15 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
         "Fork happened, data received from "%build%
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
-    -- TODO [CSL-1340]: set isCritical flag based on rollback depth.
     reportRollback =
-        recoveryCommGuard $ do
-            logDebug "Reporting rollback happened"
-            reportMisbehaviourSilent False $
+        recoveryCommGuard "applyWithRollback" $
+            -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
+            reportMisbehaviour isCritical $
                 sformat reportF nodeId toRollbackHashes toApplyHashes
+      where
+        rollbackDepth = length toRollback
+        isCritical = rollbackDepth >= Constants.criticalForkThreshold
+
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =
         OldestFirst $

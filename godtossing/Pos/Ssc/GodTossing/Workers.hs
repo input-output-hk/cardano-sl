@@ -382,7 +382,8 @@ generateAndSetNewSecret sk SlotId {..} = do
                 Just multiPS -> case mapM fromBinaryM multiPS of
                     Left err -> Nothing <$ logError (here ("Couldn't deserialize keys: " <> err))
                     Right keys -> do
-                        (comm, open) <- genCommitmentAndOpening threshold keys
+                        (comm, open) <- liftIO $ runSecureRandom $
+                            genCommitmentAndOpening threshold keys
                         let signedComm = mkSignedCommitment sk siEpoch comm
                         SS.putOurSecret signedComm open siEpoch
                         pure (Just signedComm)

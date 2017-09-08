@@ -358,8 +358,8 @@ bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
         k $ TopologyCore{topologyOptKademlia = Nothing, ..}
     TopologyBehindNAT{..} ->
         k $ TopologyBehindNAT{..}
-    TopologyLightWallet{..} ->
-        k $ TopologyLightWallet{..}
+    TopologyRubbish{..} ->
+        k $ TopologyRubbish{..}
   where
     k topology = action (nc { ncTopology = topology })
 

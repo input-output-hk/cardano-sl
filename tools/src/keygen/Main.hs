@@ -6,9 +6,11 @@ import           Universum
 
 import           Control.Lens          ((?~))
 import           Data.Aeson            (eitherDecode)
+import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BSL
 import qualified Data.List             as L
 import qualified Data.Text             as T
+import           Data.Yaml             (decodeEither)
 import           Formatting            (build, sformat, (%))
 import           System.Directory      (createDirectoryIfMissing)
 import           System.FilePath       (takeDirectory, (</>))
@@ -20,12 +22,15 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
 import           Pos.Binary            (asBinary)
 import           Pos.Core              (addressHash)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
-                                        noPassEncrypt, redeemPkB64F, toVssPublicKey)
+                                        noPassEncrypt, redeemPkB64F, setGlobalRandomSeed,
+                                        toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
-import           Pos.Genesis           (GenesisAvvmBalances, aeCoin, avvmData,
-                                        convertAvvmDataToBalances,
-                                        genesisDevHdwSecretKeys, genesisDevSecretKeys)
-import           Pos.Testnet           (generateFakeAvvm, generateKeyfile)
+import           Pos.Genesis           (GenesisAvvmBalances, GenesisInitializer (..),
+                                        aeCoin, avvmData, convertAvvmDataToBalances,
+                                        genesisDevHdwSecretKeys, genesisDevSecretKeys,
+                                        gsInitializer)
+import           Pos.Testnet           (genFakeAvvmGenesis, genTestnetData,
+                                        generateFakeAvvm, generateKeyfile)
 
 import           Pos.Launcher          (applyConfigInfo)
 import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
@@ -35,8 +40,9 @@ import           Pos.Wallet.Web.Secret (wusRootKey)
 
 import           Avvm                  (applyBlacklisted)
 import           KeygenOptions         (AvvmBalanceOptions (..),
-                                        DumpAvvmSeedsOptions (..), KeygenCommand (..),
-                                        KeygenOptions (..), getKeygenOptions)
+                                        DumpAvvmSeedsOptions (..), GenKeysOptions (..),
+                                        KeygenCommand (..), KeygenOptions (..),
+                                        getKeygenOptions)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -130,6 +136,23 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
 
     logInfo $ "Seeds were generated"
 
+generateKeysByGenesis
+    :: (MonadIO m, WithLogger m, MonadThrow m)
+    => GenKeysOptions -> m ()
+generateKeysByGenesis GenKeysOptions{..} = do
+    yaml <- liftIO $ BS.readFile gkoGenesisJSON
+    case decodeEither yaml of
+        Left err ->
+            error $ "Failed to read genesis-spec from " <>
+                    toText gkoGenesisJSON <> ": " <> toText err
+        Right spec -> case gsInitializer spec of
+            MainnetInitializer{}   -> error "Can't generate keys for MainnetInitializer"
+            TestnetInitializer{..} -> do
+                liftIO (setGlobalRandomSeed tiSeed)
+                void $ genFakeAvvmGenesis (Just gkoOutDir) tiFakeAvvmBalance
+                void $ genTestnetData (Just (gkoOutDir, gkoKeyPattern)) tiTestBalance tiDistribution
+                logInfo (toText gkoOutDir <> " generated successfully")
+
 ----------------------------------------------------------------------------
 -- Main
 ----------------------------------------------------------------------------
@@ -142,8 +165,9 @@ main = do
     usingLoggerName "keygen" $ do
         logInfo "Processing command"
         case koCommand of
-            RearrangeMask msk  -> rearrange msk
-            GenerateKey path   -> genPrimaryKey path
-            ReadKey path       -> readKey path
-            DumpDevGenKeys pat -> dumpKeys pat
-            DumpAvvmSeeds opts -> dumpAvvmSeeds opts
+            RearrangeMask msk       -> rearrange msk
+            GenerateKey path        -> genPrimaryKey path
+            ReadKey path            -> readKey path
+            DumpDevGenKeys pat      -> dumpKeys pat
+            DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
+            GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg

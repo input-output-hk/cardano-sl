@@ -18,8 +18,8 @@ import           System.FilePath.Glob       (glob)
 import           System.Wlog                (Severity (Debug), WithLogger, consoleOutB,
                                              lcTermSeverity, logError, logInfo,
                                              setupLogging, usingLoggerName)
-import           Text.JSON.Canonical        (parseCanonicalJSON, prettyCanonicalJSON,
-                                             toJSON)
+import           Text.JSON.Canonical        (fromJSON, parseCanonicalJSON,
+                                             prettyCanonicalJSON, toJSON)
 
 import           Pos.Binary                 (asBinary)
 import           Pos.Core                   (addressHash)
@@ -30,7 +30,8 @@ import           Pos.Genesis                (AddrDistribution, GenesisSpec (..),
                                              genesisDevHdwSecretKeys,
                                              genesisDevSecretKeys, mkGenesisCoreData,
                                              noGenesisDelegation)
-import           Pos.Testnet                (generateFakeAvvm, generateKeyfile)
+import           Pos.Testnet                (genFakeAvvmGenesis, genTestnetData,
+                                             generateFakeAvvm, generateKeyfile)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys, usPrimKey, usVss,
                                              usWalletSet)
 import           Pos.Util.UserSecret        (takeUserSecret, writeUserSecretRelease)
@@ -41,8 +42,9 @@ import           Avvm                       (aeCoin, applyBlacklisted,
                                              avvmAddrDistribution, utxo)
 import           KeygenOptions              (AvvmBalanceOptions (..),
                                              DumpAvvmSeedsOptions (..),
-                                             GenesisGenOptions (..), KeygenCommand (..),
-                                             KeygenOptions (..), getKeygenOptions)
+                                             GenKeysOptions (..), GenesisGenOptions (..),
+                                             KeygenCommand (..), KeygenOptions (..),
+                                             getKeygenOptions)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -183,6 +185,20 @@ genGenesisFiles GenesisGenOptions{..} = do
         Left err ->
             logError ("Generated GenesisCoreData can't be read: " <> toText err)
 
+generateKeysByGenesis
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => GenKeysOptions -> m ()
+generateKeysByGenesis GenKeysOptions{..} = do
+    json <- liftIO $ BSL.readFile gkoGenesisJSON
+    case parseCanonicalJSON json of
+        Right jsValue -> do
+            GenesisSpec{..} <- undefined -- fromJSON @_ @GenesisSpec jsValue
+            whenJust gsFakeAvvmBalance $ void . genFakeAvvmGenesis (Just gkoOutDir)
+            whenJust gsTestBalance $ void . genTestnetData (Just (gkoOutDir, gkoKeyPattern))
+            logInfo (toText gkoOutDir <> " generated successfully")
+        Left err ->
+            logError ("Couldn't parse " <> toText gkoGenesisJSON <> " reason: " <> toText err)
+
 ----------------------------------------------------------------------------
 -- Main
 ----------------------------------------------------------------------------
@@ -194,9 +210,10 @@ main = do
     usingLoggerName "keygen" $ do
         logInfo "Processing command"
         case koCommand of
-            RearrangeMask msk   -> rearrange msk
-            GenerateKey path    -> genPrimaryKey path
-            ReadKey path        -> readKey path
-            DumpDevGenKeys pat  -> dumpKeys pat
-            DumpAvvmSeeds opts  -> dumpAvvmSeeds opts
-            GenerateGenesis ggo -> genGenesisFiles ggo
+            RearrangeMask msk          -> rearrange msk
+            GenerateKey path           -> genPrimaryKey path
+            ReadKey path               -> readKey path
+            DumpDevGenKeys pat         -> dumpKeys pat
+            DumpAvvmSeeds opts         -> dumpAvvmSeeds opts
+            GenerateGenesis ggo        -> genGenesisFiles ggo
+            GenerateKeysByGenesis gkbg -> generateKeysByGenesis gkbg

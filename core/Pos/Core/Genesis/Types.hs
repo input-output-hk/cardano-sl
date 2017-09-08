@@ -145,8 +145,7 @@ mkGenesisDelegation psks = do
     return $ UnsafeGenesisDelegation resMap
 
 data TestBalanceOptions = TestBalanceOptions
-    { tsoPattern      :: FilePath
-    , tsoPoors        :: Word
+    { tsoPoors        :: Word
     , tsoRichmen      :: Word
     , tsoRichmenShare :: Double
     , tsoTotalBalance :: Word64
@@ -284,8 +283,7 @@ instance Monad m => ToJSON m GenesisCoreData where
 
 instance Monad m => ToJSON m TestBalanceOptions where
     toJSON TestBalanceOptions{..} = pure $ JSObject
-        [ ("pattern", JSString tsoPattern)
-        , ("poors", wordToJSON tsoPoors)
+        [ ("poors", wordToJSON tsoPoors)
         , ("richmen", wordToJSON tsoRichmen)
         , ("richmenShare", doubleToJSON tsoRichmenShare)
         , ("totalBalance", word64ToJSON tsoTotalBalance)

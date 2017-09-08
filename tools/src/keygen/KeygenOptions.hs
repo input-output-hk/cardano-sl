@@ -9,6 +9,7 @@ module KeygenOptions
        , AvvmBalanceOptions (..)
        , TestBalanceOptions (..)
        , FakeAvvmOptions (..)
+       , GenKeysOptions (..)
        , getKeygenOptions
        ) where
 
@@ -40,6 +41,7 @@ data KeygenCommand
     | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
     | GenerateGenesis GenesisGenOptions
+    | GenerateKeysByGenesis GenKeysOptions
     deriving (Show)
 
 data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
@@ -65,6 +67,12 @@ data GenesisGenOptions = GenesisGenOptions
       -- is used)
     } deriving (Show)
 
+data GenKeysOptions = GenKeysOptions
+    { gkoGenesisJSON :: FilePath
+    , gkoOutDir      :: FilePath
+    , gkoKeyPattern  :: FilePath
+    } deriving (Show)
+
 data AvvmBalanceOptions = AvvmBalanceOptions
     { asoJsonPath      :: FilePath
     , asoHolderKeyfile :: Maybe FilePath
@@ -88,6 +96,9 @@ keygenCommandParser =
     , command "generate-genesis"
       (infoH (fmap GenerateGenesis genesisGenParser)
             (progDesc "Generate CSL genesis files."))
+    , command "generate-keys-by-genesis"
+      (infoH (GenerateKeysByGenesis <$> keysByGenesisParser)
+            (progDesc "Generate secret keys and avvm seed by genesis.json"))
     ]
   where
     infoH a b = info (helper <*> a) b
@@ -140,13 +151,6 @@ genesisGenParser = do
 
 testBalanceParser :: Parser TestBalanceOptions
 testBalanceParser = do
-    tsoPattern <- strOption $
-        long    "file-pattern" <>
-        short   'f' <>
-        metavar "PATTERN" <>
-        value   "testnet{}.key" <>
-        help    "Filename pattern for generated keyfiles \
-                \(`{}` is a place for number). E.g. key{}.kek"
     tsoPoors <- option auto $
         long    "testnet-keys" <>
         short   'n' <>
@@ -221,6 +225,26 @@ bootStakeholderParser =
         maybe (fail $ show val <> " is not a valid word16")
               (pure . fromInteger)
               val
+
+keysByGenesisParser  :: Parser GenKeysOptions
+keysByGenesisParser = do
+    gkoGenesisJSON <- strOption $
+        long    "genesis-json" <>
+        metavar "FILE" <>
+        value   "genesis.json" <>
+        help    "Genesis file (.json)."
+    gkoOutDir <- strOption $
+        long    "out-dir" <>
+        metavar "DIR" <>
+        value   "." <>
+        help    "Directory to dump keys and avvm seeds into."
+    gkoKeyPattern <- strOption $
+        long    "file-pattern" <>
+        metavar "PATTERN" <>
+        value   "key{}.sk" <>
+        help    "Filename pattern for generated keyfiles \
+                \(`{}` is a place for number). E.g. key{}.sk"
+    pure $ GenKeysOptions {..}
 
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo

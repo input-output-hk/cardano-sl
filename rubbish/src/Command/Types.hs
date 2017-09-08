@@ -6,17 +6,14 @@ module Command.Types
        , SendMode (..)
        , SendToAllGenesisParams (..)
        , ProposeUpdateParams (..)
-       , CmdCtx (..)
        ) where
 
 import           Universum
 
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Communication          (NodeId)
 import           Pos.Core.Types             (ScriptVersion)
-import           Pos.Crypto                 (PublicKey, SecretKey)
-import           Pos.Genesis                (BalanceDistribution)
+import           Pos.Crypto                 (PublicKey)
 import           Pos.Txp                    (TxOut)
 import           Pos.Types                  (AddrStakeDistribution, Address, BlockVersion,
                                              EpochIndex, SoftwareVersion)
@@ -29,13 +26,6 @@ data SendMode =
     | SendRoundRobin -- ^ Send transactions to neighbours in a round-robin fashion
     | SendRandom     -- ^ Send each transaction to a randomly picked neighbour
     deriving Show
-
--- TODO: move somewhere!
-data CmdCtx = CmdCtx
-    { skeys               :: [SecretKey]
-    , na                  :: [NodeId]
-    , genesisBalanceDistr :: BalanceDistribution
-    }
 
 -- | Parameters for 'SendToAllGenesis' command.
 data SendToAllGenesisParams = SendToAllGenesisParams

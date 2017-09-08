@@ -3,87 +3,51 @@ module Main
        ) where
 
 import           Universum
+import           Unsafe              (unsafeFromJust)
 
-import qualified Data.Set                   as S (fromList)
-import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (Production, runProduction)
-import           Network.Transport.Abstract (Transport, hoistTransport)
-import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
-import           System.IO                  (hFlush, stdout)
-import           System.Wlog                (logInfo)
+import           Formatting          (sformat, shown, (%))
+import           Mockable            (Production, currentTime, runProduction)
+import           System.Wlog         (logInfo)
 
-import qualified Pos.Client.CLI             as CLI
-import           Pos.Constants              (isDevelopment)
-import           Pos.Core.Context           (giveStaticConsts)
-import           Pos.Genesis                (devBalancesDistr, devGenesisContext,
-                                             genesisContextProduction,
-                                             genesisDevSecretKeys, gtcUtxo)
-import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             bracketTransport, loggerBracket)
-import           Pos.Rubbish                (LightWalletMode, WalletParams (..),
-                                             runWalletStaticPeers)
-import           Pos.Txp                    (unGenesisUtxo)
-import           Pos.Util.Util              (powerLift)
+import qualified Pos.Client.CLI      as CLI
+import           Pos.Core            (Timestamp (..))
+import           Pos.Core.Context    (HasCoreConstants, giveStaticConsts)
+import           Pos.Launcher        (NodeParams (..), bracketNodeResources,
+                                      runRealBasedMode)
+import           Pos.Ssc.SscAlgo     (SscAlgo (GodTossingAlgo))
+import           Pos.Util.UserSecret (usVss)
+import           Pos.WorkMode        (RealMode)
 
-import           Command                    (CmdCtx (..))
-import           Plugin                     (rubbishPlugin)
-import           RubbishOptions             (RubbishOptions (..), getRubbishOptions)
+import           Mode                (CmdCtx (..), RubbishContext (..), RubbishMode,
+                                      RubbishSscType, realModeToRubbish)
+import           Plugin              (rubbishPlugin)
+import           RubbishOptions      (RubbishOptions (..), getRubbishOptions)
+
+action :: HasCoreConstants => RubbishOptions -> Production ()
+action opts@RubbishOptions {..} = do
+    CLI.printFlags
+    systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
+    logInfo $ sformat ("System start time is " % shown) systemStart
+    t <- currentTime
+    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
+    nodeParams <- CLI.getNodeParams cArgs nArgs systemStart
+    let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+    bracketNodeResources @RubbishSscType nodeParams gtParams actionWithResources
+  where
+    cArgs@CLI.CommonNodeArgs {..} = roCommonNodeArgs
+    nArgs =
+        CLI.NodeArgs {sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing}
+    cmdCtx = CmdCtx {ccPeers = roPeers}
+    actionWithResources nr =
+        runRealBasedMode toRealMode realModeToRubbish nr (rubbishPlugin opts)
+    toRealMode :: RubbishMode a -> RealMode RubbishSscType a
+    toRealMode rubbishAction = do
+        realModeContext <- ask
+        let rubbishContext =
+                RubbishContext
+                {rcRealModeContext = realModeContext, rcCmdCtx = cmdCtx}
+        lift $ runReaderT rubbishAction rubbishContext
 
 main :: IO ()
-main = giveStaticConsts $ do
-    opts@RubbishOptions {..} <- getRubbishOptions
-    --filePeers <- maybe (return []) CLI.readPeersFile
-    --                   (CLI.dhtPeersFile woCommonArgs)
-    let allPeers = woPeers -- ++ filePeers
-    let logParams =
-            LoggingParams
-            { lpRunnerTag     = "smart-wallet"
-            , lpHandlerPrefix = CLI.logPrefix woCommonArgs
-            , lpConfigPath    = CLI.logConfig woCommonArgs
-            }
-        baseParams = BaseParams { bpLoggingParams = logParams }
-
-    print logParams
-
-    let sysStart = CLI.sysStart woCommonArgs
-    let devBalanceDistr =
-            devBalancesDistr
-                (CLI.flatDistr woCommonArgs)
-                (CLI.richPoorDistr woCommonArgs)
-                (CLI.expDistr woCommonArgs)
-    let wpGenesisContext
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
-    let params =
-            WalletParams
-            { wpDbPath      = Just woDbPath
-            , wpRebuildDb   = woRebuildDb
-            , wpKeyFilePath = woKeyFilePath
-            , wpSystemStart = sysStart
-            , wpGenesisKeys = woDebug
-            , wpBaseParams  = baseParams
-            , ..
-            }
-
-    loggerBracket logParams $ runProduction $
-      bracketTransport TCP.Unaddressable $ \transport -> do
-        logInfo $ if isDevelopment
-            then "Development Mode"
-            else "Production Mode"
-        logInfo $ sformat ("Length of genesis utxo: "%shown)
-            (length $ unGenesisUtxo $ wpGenesisContext ^. gtcUtxo)
-        let transport' :: Transport LightWalletMode
-            transport' = hoistTransport
-                (powerLift :: forall t . Production t -> LightWalletMode t)
-                transport
-
-            cmdCtx = CmdCtx
-                      { skeys = if isDevelopment then genesisDevSecretKeys else []
-                      , na = woPeers
-                      , genesisBalanceDistr = devBalanceDistr
-                      }
-
-        logInfo "Using MPC coin tossing"
-        liftIO $ hFlush stdout
-        let plugins = first one (rubbishPlugin cmdCtx opts)
-        runWalletStaticPeers woNodeDbPath transport' (S.fromList allPeers) params plugins
+main = giveStaticConsts $ runProduction . action =<< getRubbishOptions

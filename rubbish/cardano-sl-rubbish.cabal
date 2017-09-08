@@ -21,15 +21,13 @@ executable cardano-rubbish
                        Command.Tx
                        Command.Types
                        Command.Update
+                       Mode
                        Plugin
                        RubbishOptions
 
                        -- TODO: delete these
                        Pos.Rubbish
                        Pos.Rubbish.Hacks
-                       Pos.Rubbish.Runner
-                       Pos.Rubbish.Param
-                       Pos.Rubbish.Mode
 
   build-depends:
                        QuickCheck
@@ -39,12 +37,13 @@ executable cardano-rubbish
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db
-                     , cardano-sl-update
                      , cardano-sl-infra
+                     , cardano-sl-ssc
                      , cardano-sl-txp
-                     , cardano-sl
+                     , cardano-sl-update
                      , data-default
                      , dlist
                      , ether

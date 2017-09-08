@@ -26,14 +26,13 @@ import           Pos.Crypto          (Hash, SignTag (SignUSVote), emptyPassphras
                                       encToPublic, hash, hashHexF, safeSign, unsafeHash,
                                       withSafeSigner)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Rubbish         (LightWalletMode)
 import           Pos.Update          (BlockVersionData (..), BlockVersionModifier (..),
                                       SystemTag, UpId, UpdateData (..), UpdateVote (..),
                                       mkUpdateProposalWSign)
 import           Pos.Wallet          (getSecretKeys)
 
-import           Command.Types       (CmdCtx (..), ProposeUpdateParams (..),
-                                      ProposeUpdateSystem (..))
+import           Command.Types       (ProposeUpdateParams (..), ProposeUpdateSystem (..))
+import           Mode                (CmdCtx (..), RubbishMode, getCmdCtx)
 
 ----------------------------------------------------------------------------
 -- Vote
@@ -41,13 +40,13 @@ import           Command.Types       (CmdCtx (..), ProposeUpdateParams (..),
 
 vote ::
        HasCoreConstants
-    => SendActions LightWalletMode
+    => SendActions RubbishMode
     -> Int
     -> Bool
     -> UpId
-    -> CmdCtx
-    -> LightWalletMode ()
-vote sendActions idx decision upid CmdCtx{na} = do
+    -> RubbishMode ()
+vote sendActions idx decision upid = do
+    CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
     skey <- (!! idx) <$> getSecretKeys
     msignature <- withSafeSigner skey (pure emptyPassphrase) $ mapM $
@@ -61,10 +60,10 @@ vote sendActions idx decision upid CmdCtx{na} = do
                     , uvDecision   = decision
                     , uvSignature  = signature
                 }
-            if null na
+            if null ccPeers
                 then putText "Error: no addresses specified"
                 else do
-                    submitVote (immediateConcurrentConversations sendActions na) voteUpd
+                    submitVote (immediateConcurrentConversations sendActions ccPeers) voteUpd
                     putText "Submitted vote"
 
 ----------------------------------------------------------------------------
@@ -73,11 +72,11 @@ vote sendActions idx decision upid CmdCtx{na} = do
 
 propose ::
        HasCoreConstants
-    => SendActions LightWalletMode
+    => SendActions RubbishMode
     -> ProposeUpdateParams
-    -> CmdCtx
-    -> LightWalletMode ()
-propose sendActions ProposeUpdateParams{..} CmdCtx{na} = do
+    -> RubbishMode ()
+propose sendActions ProposeUpdateParams{..} = do
+    CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puIdx) <$> getSecretKeys
     let BlockVersionData {..} = genesisBlockVersionData
@@ -112,10 +111,10 @@ propose sendActions ProposeUpdateParams{..} CmdCtx{na} = do
                         udata
                         (mkAttributes ())
                         ss
-            if null na
+            if null ccPeers
                 then putText "Error: no addresses specified"
                 else do
-                    submitUpdateProposal (immediateConcurrentConversations sendActions na) ss updateProposal
+                    submitUpdateProposal (immediateConcurrentConversations sendActions ccPeers) ss updateProposal
                     let id = hash updateProposal
                     putText $
                       sformat ("Update proposal submitted, upId: "%hashHexF) id

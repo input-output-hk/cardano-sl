@@ -16,29 +16,33 @@ import           NeatInterpolation            (text)
 import           Options.Applicative          (CommandFields, Mod, Parser, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
-                                               metavar, progDesc, subparser, switch,
-                                               value)
+                                               metavar, progDesc, subparser)
+import           Pos.Communication            (NodeId)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.Client.CLI               as CLI
-import           Pos.Communication            (NodeId)
+
+----------------------------------------------------------------------------
+-- Types
+----------------------------------------------------------------------------
 
 data RubbishOptions = RubbishOptions
-    { woDbPath      :: !FilePath
-    , woRebuildDb   :: !Bool
-    , woNodeDbPath  :: !FilePath
-    , woKeyFilePath :: !FilePath       -- ^ Path to file with secret keys
-    , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
-    , woJLFile      :: !(Maybe FilePath)
-    , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
-    , woAction      :: !RubbishAction
-    , woPeers       :: ![NodeId]
+    { roAction         :: !RubbishAction
+    , roCommonNodeArgs :: !CLI.CommonNodeArgs  -- ^ Common CLI args for nodes
+    , roPeers          :: ![NodeId]
+    -- ^ Peers with which we want to communicate
+    --   TODO: we also have topology, so it can be redundant.
     }
 
-data RubbishAction = Repl
-                  | Cmd { cmd :: !Text }
+data RubbishAction
+    = Repl
+    | Cmd { cmd :: !Text }
+
+----------------------------------------------------------------------------
+-- Parse action
+----------------------------------------------------------------------------
 
 actionParser :: Parser RubbishAction
 actionParser = subparser $ replParser <> cmdParser
@@ -54,45 +58,21 @@ cmdParser = command "cmd" $ info opts desc
                                <> help "Commands to execute, comma-separated.")
         desc = progDesc "Execute a list of predefined commands."
 
-argsParser :: Parser RubbishOptions
-argsParser = do
-    woDbPath <- strOption $
-        long    "db-path" <>
-        metavar "FILEPATH" <>
-        value   "wallet-db" <>
-        help    "Path to the wallet database."
-    woRebuildDb <- switch $
-        long "rebuild-db" <>
-        help "If the DB already exist, discard its contents and \
-             \create new one from scratch."
-    woNodeDbPath <- strOption $
-        long    "node-db-path" <>
-        metavar "FILEPATH" <>
-        value   "node-db" <>
-        help    "Path to the node database."
-    woKeyFilePath <- strOption $
-        long    "keys-path" <>
-        metavar "FILEPATH" <>
-        value   "secret.key" <>
-        help    "Path to file with secret keys"
-    woDebug <- switch $
-        long "debug" <>
-        help "Run in debug mode (with genesis keys included)"
-    woJLFile <-
-        CLI.optionalJSONPath
-    woCommonArgs <-
-        CLI.commonArgsParser
-    woAction <-
-        actionParser
+----------------------------------------------------------------------------
+-- Parse everything
+----------------------------------------------------------------------------
 
-    woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
-
-    pure RubbishOptions{..}
+rubbishOptionsParser :: Parser RubbishOptions
+rubbishOptionsParser = do
+    roAction <- actionParser
+    roCommonNodeArgs <- CLI.commonNodeArgsParser
+    roPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
+    pure RubbishOptions {..}
 
 getRubbishOptions :: IO RubbishOptions
 getRubbishOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> argsParser) $
+    programInfo = info (helper <*> versionOption <*> rubbishOptionsParser) $
         fullDesc <> progDesc "Cardano SL CLI utilities."
                  <> header "CLI-based utilities (rubbish)."
                  <> footerDoc usageExample
@@ -112,5 +92,5 @@ Command example:
     --logs-prefix /tmp/logs/2017-05-22_181224                    \
     --log-config /tmp/logs/2017-05-22_181224/conf/node0.log.yaml \
     --system-start 1495462345                                    \
-    --peer-id UJqMkyR7xplAn9fQdMo=                               \
+    --peer 127.0.0.1:3001                                        \
     repl|]

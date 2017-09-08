@@ -10,7 +10,7 @@ module Command.Tx
 import           Universum
 
 import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Exception.Safe        (Exception (..), try)
+import           Control.Exception.Safe        (Exception (..), throwString, try)
 import           Control.Monad.Except          (runExceptT, throwError)
 import           Data.List                     ((!!))
 import qualified Data.Text                     as T
@@ -32,18 +32,19 @@ import           Pos.Client.Txp.Util           (createTx)
 import           Pos.Communication             (SendActions,
                                                 immediateConcurrentConversations,
                                                 submitTx, submitTxRaw)
-import           Pos.Constants                 (genesisSlotDuration)
+import           Pos.Constants                 (genesisSlotDuration, isDevelopment)
 import           Pos.Core                      (Timestamp (..), mkCoin)
 import           Pos.Core.Context              (HasCoreConstants)
 import           Pos.Crypto                    (emptyPassphrase, encToPublic, fakeSigner,
                                                 safeToPublic, toPublic, withSafeSigner)
-import           Pos.Genesis                   (balanceDistribution)
-import           Pos.Rubbish                   (LightWalletMode, makePubKeyAddressRubbish)
+import           Pos.Genesis                   (genesisDevSecretKeys)
 import           Pos.Txp                       (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Wallet                    (getSecretKeys)
 
-import           Command.Types                 (CmdCtx (..), SendMode (..),
+import           Command.Types                 (SendMode (..),
                                                 SendToAllGenesisParams (..))
+import           Mode                          (CmdCtx (..), RubbishMode, getCmdCtx)
+import           Pos.Rubbish                   (makePubKeyAddressRubbish)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -64,11 +65,14 @@ addTxSubmit mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) 
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) -> return (TxCount submitted (failed + 1) sending, ()))
 
-sendToAllGenesis :: HasCoreConstants => SendActions LightWalletMode -> SendToAllGenesisParams -> CmdCtx -> LightWalletMode ()
-sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) CmdCtx{..} = do
-    let nNeighbours = length na
+sendToAllGenesis :: HasCoreConstants => SendActions RubbishMode -> SendToAllGenesisParams -> RubbishMode ()
+sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
+    unless (isDevelopment) $
+        throwString "sendToAllGenesis works only in development mode"
+    CmdCtx {ccPeers} <- getCmdCtx
+    let nNeighbours = length ccPeers
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
-        keysToSend = zip skeys (balanceDistribution genesisBalanceDistr)
+        keysToSend = genesisDevSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
@@ -82,10 +86,8 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
-        -- Light wallet doesn't know current slot, so let's assume
-        -- it's 0-th epoch. It's enough for our current needs.
-        forM_ (zip keysToSend [0..]) $ \((key, _balance), n) -> do
-            outAddr <- makePubKeyAddressRubbish (toPublic key)
+        forM_ (zip keysToSend [0..]) $ \(secretKey, n) -> do
+            outAddr <- makePubKeyAddressRubbish (toPublic secretKey)
             let val1 = mkCoin 1
                 txOut1 = TxOut {
                     txOutAddress = outAddr,
@@ -93,15 +95,15 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                     }
                 txOuts = TxOutAux txOut1 :| []
             neighbours <- case sendMode of
-                SendNeighbours -> return na
-                SendRoundRobin -> return [na !! (n `mod` nNeighbours)]
+                SendNeighbours -> return ccPeers
+                SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
                 SendRandom -> do
                     i <- liftIO $ randomRIO (0, nNeighbours - 1)
-                    return [na !! i]
-            atomically $ writeTQueue txQueue (key, txOuts, neighbours)
+                    return [ccPeers !! i]
+            atomically $ writeTQueue txQueue (secretKey, txOuts, neighbours)
 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
-        let writeTPS :: LightWalletMode ()
+        let writeTPS :: RubbishMode ()
             writeTPS = do
                 delay (sec slotDuration)
                 curTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
@@ -116,7 +118,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 else writeTPS
             -- Repeatedly take transactions from the queue and send them.
             -- Do this n times.
-            sendTxs :: Int -> LightWalletMode ()
+            sendTxs :: Int -> RubbishMode ()
             sendTxs n
                 | n <= 0 = do
                       logInfo "All done sending transactions on this thread."
@@ -158,19 +160,19 @@ instance Exception LWalletException
 
 send ::
        HasCoreConstants
-    => SendActions LightWalletMode
+    => SendActions RubbishMode
     -> Int
     -> NonEmpty TxOut
-    -> CmdCtx
-    -> LightWalletMode ()
-send sendActions idx outputs CmdCtx{na} = do
+    -> RubbishMode ()
+send sendActions idx outputs = do
+    CmdCtx{ccPeers} <- getCmdCtx
     skeys <- getSecretKeys
     let skey = skeys !! idx
         curPk = encToPublic skey
     etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runExceptT $ do
         ss <- mss `whenNothing` throwError (toException $ LWalletException "Invalid passphrase")
         ExceptT $ try $ submitTx
-            (immediateConcurrentConversations sendActions na)
+            (immediateConcurrentConversations sendActions ccPeers)
             ss
             (map TxOutAux outputs)
             curPk

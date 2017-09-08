@@ -14,24 +14,25 @@ import qualified Data.Text            as T
 import           System.Exit          (ExitCode (ExitSuccess))
 import           System.Posix.Process (exitImmediately)
 #endif
-import           Formatting           (sformat, stext, (%))
+import           Formatting           (int, sformat, stext, (%))
 import           Mockable             (delay)
 import           Node.Conversation    (ConversationActions (..))
 import           Node.Message.Class   (Message (..))
 import           Serokell.Util        (sec)
 import           System.IO            (hFlush, stdout)
-import           System.Wlog          (logDebug)
-import           System.Wlog.CanLog   (WithLogger)
+import           System.Wlog          (WithLogger, logDebug, logInfo)
 
 import           Pos.Communication    (Conversation (..), OutSpecs (..), SendActions (..),
                                        Worker, WorkerSpec, delegationRelays,
                                        relayPropagateOut, txRelays, usRelays, worker)
 import           Pos.Core.Context     (HasCoreConstants)
-import           Pos.Rubbish          (LightWalletMode)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Txp              (unGenesisUtxo)
+import           Pos.Util.Util        (lensOf')
 import           Pos.WorkMode         (RealMode, RealModeContext)
 
-import           Command              (CmdCtx (..), Command (..), parseCommand, runCmd)
+import           Command              (Command (..), parseCommand, runCmd)
+import           Mode                 (RubbishMode)
 import           RubbishOptions       (RubbishAction (..), RubbishOptions (..))
 
 ----------------------------------------------------------------------------
@@ -40,43 +41,54 @@ import           RubbishOptions       (RubbishAction (..), RubbishOptions (..))
 
 rubbishPlugin ::
        HasCoreConstants
-    => CmdCtx
-    -> RubbishOptions
-    -> (WorkerSpec LightWalletMode, OutSpecs)
-rubbishPlugin cmdCtx RubbishOptions {..} =
-    case woAction of
-        Repl    -> worker' runCmdOuts $ runWalletRepl cmdCtx
-        Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmdCtx cmd
+    => RubbishOptions
+    -> (WorkerSpec RubbishMode, OutSpecs)
+rubbishPlugin RubbishOptions {..} =
+    case roAction of
+        Repl    -> worker' runCmdOuts $ runWalletRepl
+        Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmd
   where
-    worker' specs w = worker specs $ \sa -> w (addLogging sa)
+    worker' specs w =
+        worker specs $ \sa -> do
+            genesisUtxo <- view lensOf'
+            logInfo $
+                sformat
+                    ("Length of genesis utxo: " %int)
+                    (length $ unGenesisUtxo genesisUtxo)
+            w (addLogging sa)
 
-evalCmd :: HasCoreConstants => SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
-evalCmd _ Quit _      = pure ()
-evalCmd sa cmd cmdCtx = runCmd sa cmd cmdCtx >> evalCommands sa cmdCtx
+evalCmd ::
+       HasCoreConstants
+    => SendActions RubbishMode
+    -> Command
+    -> RubbishMode ()
+evalCmd _ Quit = pure ()
+evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: HasCoreConstants => SendActions LightWalletMode -> CmdCtx -> LightWalletMode ()
-evalCommands sa cmdCtx = do
+evalCommands ::
+       HasCoreConstants => SendActions RubbishMode -> RubbishMode ()
+evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
     line <- getLine
     let cmd = parseCommand line
     case cmd of
-        Left err   -> putStrLn err >> evalCommands sa cmdCtx
-        Right cmd_ -> evalCmd sa cmd_ cmdCtx
+        Left err   -> putStrLn err >> evalCommands sa
+        Right cmd_ -> evalCmd sa cmd_
 
-runWalletRepl :: HasCoreConstants => CmdCtx -> Worker LightWalletMode
-runWalletRepl cmdCtx sa = do
+runWalletRepl :: HasCoreConstants => Worker RubbishMode
+runWalletRepl sa = do
     putText "Welcome to Wallet CLI Node"
-    evalCmd sa Help cmdCtx
+    evalCmd sa Help
 
-runWalletCmd :: HasCoreConstants => CmdCtx -> Text -> Worker LightWalletMode
-runWalletCmd cmdCtx str sa = do
+runWalletCmd :: HasCoreConstants => Text -> Worker RubbishMode
+runWalletCmd str sa = do
     let strs = T.splitOn "," str
     for_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
-            Right cmd' -> runCmd sa cmd' cmdCtx
+            Right cmd' -> runCmd sa cmd'
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
@@ -122,13 +134,13 @@ addLogging SendActions{..} = SendActions{
             => ConversationActions snd rcv m -> ConversationActions snd rcv m
     auxActs (ConversationActions{..}) = ConversationActions {
         send = \body -> do
-                 logDebug $ sformat ("Light wallet sending " % stext) (formatMessage body)
+                 logDebug $ sformat ("Rubbish sending " % stext) (formatMessage body)
                  send body
       , recv = \limit -> do
                  mRcv <- recv limit
                  logDebug $
                    case mRcv of
-                     Nothing  -> sformat ("Light wallet received end of input")
-                     Just rcv -> sformat ("Light wallet received " % stext) (formatMessage rcv)
+                     Nothing  -> sformat ("Rubbish received end of input")
+                     Just rcv -> sformat ("Rubbish received " % stext) (formatMessage rcv)
                  return mRcv
       }

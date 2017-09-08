@@ -9,6 +9,7 @@ module Command.Run
 
 import           Universum
 
+import           Control.Exception.Safe (throwString)
 import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
 import           Data.List              ((!!))
 import           Formatting             (build, int, sformat, stext, (%))
@@ -17,6 +18,7 @@ import           NeatInterpolation      (text)
 import           Pos.Binary             (serialize')
 import           Pos.Communication      (MsgType (..), Origin (..), SendActions, dataFlow,
                                          immediateConcurrentConversations)
+import           Pos.Constants          (isDevelopment)
 import           Pos.Core               (addressHash, coinF)
 import           Pos.Core.Address       (makeAddress)
 import           Pos.Core.Context       (HasCoreConstants)
@@ -24,13 +26,15 @@ import           Pos.Core.Types         (AddrAttributes (..), AddrSpendingData (
 import           Pos.Crypto             (emptyPassphrase, encToPublic, fullPublicKeyHexF,
                                          hashHexF, noPassEncrypt, safeCreatePsk,
                                          withSafeSigner)
-import           Pos.Rubbish            (LightWalletMode, makePubKeyAddressRubbish)
+import           Pos.Genesis            (genesisDevSecretKeys)
+import           Pos.Rubbish            (makePubKeyAddressRubbish)
 import           Pos.Util.UserSecret    (readUserSecret, usKeys)
 import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
 
 import qualified Command.Tx             as Tx
-import           Command.Types          (CmdCtx (..), Command (..))
+import           Command.Types          (Command (..))
 import qualified Command.Update         as Update
+import           Mode                   (CmdCtx (..), RubbishMode, getCmdCtx)
 
 
 helpMsg :: Text
@@ -68,22 +72,24 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
-runCmd :: HasCoreConstants => SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
-runCmd _ (Balance addr) _ =
+runCmd ::
+       HasCoreConstants
+    => SendActions RubbishMode
+    -> Command
+    -> RubbishMode ()
+runCmd _ (Balance addr) =
     getBalance addr >>=
     putText . sformat ("Current balance: "%coinF)
-runCmd sendActions (Send idx outputs) ctx = Tx.send sendActions idx outputs ctx
-runCmd sendActions (SendToAllGenesis stagp) ctx =
-    Tx.sendToAllGenesis sendActions stagp ctx
-runCmd sendActions (Vote idx decision upId) ctx =
-    Update.vote sendActions idx decision upId ctx
-runCmd sendActions (ProposeUpdate params) ctx =
-    Update.propose sendActions params ctx
-runCmd _ Help _ = putText helpMsg
-runCmd _ ListAddresses _ = do
+runCmd sendActions (Send idx outputs) = Tx.send sendActions idx outputs
+runCmd sendActions (SendToAllGenesis stagp) =
+    Tx.sendToAllGenesis sendActions stagp
+runCmd sendActions (Vote idx decision upId) =
+    Update.vote sendActions idx decision upId
+runCmd sendActions (ProposeUpdate params) =
+    Update.propose sendActions params
+runCmd _ Help = putText helpMsg
+runCmd _ ListAddresses = do
    addrs <- map encToPublic <$> getSecretKeys
-    -- Light wallet doesn't know current slot, so let's assume
-    -- it's 0-th epoch. It's enough for our current needs.
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
        addr <- makePubKeyAddressRubbish pk
@@ -94,30 +100,39 @@ runCmd _ ListAddresses _ = do
                     i addr (toBase58Text pk) pk (addressHash pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
-runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na} = do
-   issuerSk <- (!! i) <$> getSecretKeys
-   withSafeSigner issuerSk (pure emptyPassphrase) $ \case
+runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
+    CmdCtx{ccPeers} <- getCmdCtx
+    issuerSk <- (!! i) <$> getSecretKeys
+    withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
-          let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
-          dataFlow "pskLight" (immediateConcurrentConversations sendActions na) (MsgTransaction OriginSender) psk
-   putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i delegatePk curEpoch) CmdCtx{na} = do
-   issuerSk <- (!! i) <$> getSecretKeys
-   withSafeSigner issuerSk (pure emptyPassphrase) $ \case
+            let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
+            dataFlow "pskLight" (immediateConcurrentConversations sendActions ccPeers) (MsgTransaction OriginSender) psk
+    putText "Sent lightweight cert"
+runCmd sendActions (DelegateHeavy i delegatePk curEpoch) = do
+    CmdCtx {ccPeers} <- getCmdCtx
+    issuerSk <- (!! i) <$> getSecretKeys
+    withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
-          let psk = safeCreatePsk ss delegatePk curEpoch
-          dataFlow "pskHeavy" (immediateConcurrentConversations sendActions na) (MsgTransaction OriginSender) psk
-   putText "Sent heavyweight cert"
-runCmd _ (AddKeyFromPool i) CmdCtx{..} = do
-   let key = skeys !! i
-   addSecretKey $ noPassEncrypt key
-runCmd _ (AddKeyFromFile f) _ = do
+            let psk = safeCreatePsk ss delegatePk curEpoch
+            dataFlow
+                "pskHeavy"
+                (immediateConcurrentConversations sendActions ccPeers)
+                (MsgTransaction OriginSender)
+                psk
+    putText "Sent heavyweight cert"
+runCmd _ (AddKeyFromPool i) = do
+    unless isDevelopment $
+        throwString "AddKeyFromPool should be used only in dev mode"
+    CmdCtx {..} <- getCmdCtx
+    let key = genesisDevSecretKeys !! i
+    addSecretKey $ noPassEncrypt key
+runCmd _ (AddKeyFromFile f) = do
     secret <- readUserSecret f
     mapM_ addSecretKey $ secret ^. usKeys
-runCmd _ (AddrDistr pk asd) _ = do
+runCmd _ (AddrDistr pk asd) = do
     putText $ pretty addr
   where
     addr = makeAddress (PubKeyASD pk) (AddrAttributes Nothing asd)
-runCmd _ Quit _ = pure ()
+runCmd _ Quit = pure ()

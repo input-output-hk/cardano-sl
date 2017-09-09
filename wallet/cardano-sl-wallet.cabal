@@ -110,6 +110,7 @@ library
                       , cardano-sl-update
                       , cardano-sl
                       , containers
+                      , cryptonite
                       , data-default
                       , directory
                       , dlist
@@ -121,6 +122,7 @@ library
                       , lens
                       , log-warper
                       , memory
+                      , monad-control
                       , mtl
                       , network-transport
                       , node-sketch

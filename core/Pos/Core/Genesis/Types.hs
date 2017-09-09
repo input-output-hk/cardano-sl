@@ -11,12 +11,14 @@ module Pos.Core.Genesis.Types
        , GenesisDelegation (..)
        , noGenesisDelegation
        , mkGenesisDelegation
+       , AvvmDistribution (..)
+       , TestnetDistribution (..)
+       , GenesisInitializer (..)
        , GenesisSpec (..)
        , TestBalanceOptions (..)
        , FakeAvvmOptions (..)
-       , GenesisCoreData (..)
        , bootDustThreshold
-       , mkGenesisCoreData
+       , mkGenesisSpec
        ) where
 
 import           Universum
@@ -24,21 +26,16 @@ import           Universum
 import           Control.Lens         (at)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict  as HM
-import qualified Data.Map.Lazy        as M
 import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, sformat, (%))
+import           Formatting           (bprint, (%))
 import           Serokell.Util        (allDistinct, mapJson)
-import qualified Serokell.Util.Base16 as B16
-import           Text.JSON.Canonical  (Int54, JSValue (..), ToJSON (..), ToObjectKey (..))
 
-import           Pos.Binary.Class     (serialize')
 import           Pos.Core.Address     (addressHash, isBootstrapEraDistrAddress)
 import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeGetCoin,
                                        unsafeIntegerToCoin)
-import           Pos.Core.Types       (Address, Coin, EpochIndex, ProxySKHeavy,
-                                       StakeholderId, mkCoin)
-import           Pos.Crypto           (ProxyCert, ProxySecretKey (..), PublicKey,
-                                       fullPublicKeyHexF, hashHexF, isSelfSignedPsk)
+import           Pos.Core.Types       (Address, Coin, ProxySKHeavy, StakeholderId,
+                                       Timestamp, mkCoin)
+import           Pos.Crypto           (ProxySecretKey (..), isSelfSignedPsk)
 
 -- | Balances distribution in genesis block.
 data BalanceDistribution
@@ -156,154 +153,46 @@ data FakeAvvmOptions = FakeAvvmOptions
     , faoOneBalance :: Word64
     } deriving (Show)
 
---- | Generated genesis data, generated from genesis.json to generate utxo from.
-data GenesisCoreData = UnsafeGenesisCoreData
-    { gcdAddrDistribution      :: ![AddrDistribution]
-      -- ^ Address distribution. Determines utxo without boot
-      -- stakeholders distribution (addresses and coins).
-    , gcdBootstrapStakeholders :: !GenesisWStakeholders
-      -- ^ Bootstrap era stakeholders, values are weights.
-    , gcdHeavyDelegation       :: !GenesisDelegation
-      -- ^ Genesis state of heavyweight delegation.
-    } deriving (Show, Eq, Generic)
+data TestnetDistribution
+    = TestnetBalanceStakeDistr
+    | TestnetRichmenStakeDistr
+    | TestnetCustomStakeDistr
+    { tcsdBootStakeholders :: !GenesisWStakeholders
+    --, tcsdVssCerts         :: !VssCertificatesMap
+    } deriving (Show)
 
-
--- | Hardcoded genesis data to generate utxo from.
-data GenesisSpec = GenesisSpec
-    { gsAvvmData        :: !GenesisCoreData
-    -- ^ Genesis data describes avvm.
-    -- Only this field must be presented in mainnet.
-
-    -- Fields below describe parameters to generate utxo for testnet.
-    , gsTestBalance     :: !(Maybe TestBalanceOptions)
-    , gsFakeAvvmBalance :: !(Maybe FakeAvvmOptions)
-      -- ^ Explicit bootstrap era stakeholders, list of addresses with
-      -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
-      -- overrides default settings for boot stakeholders (e.g. rich
-      -- in testnet stakes).
-    , gsSeed            :: !(Maybe Integer)
+data GenesisInitializer
+    = TestnetInitializer {
+      tiTestBalance     :: !TestBalanceOptions
+    , tiFakeAvvmBalance :: !FakeAvvmOptions
+    -- ^ Explicit bootstrap era stakeholders, list of addresses with
+    -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
+    -- overrides default settings for boot stakeholders (e.g. rich
+    -- in testnet stakes).
+    , tiDistribution    :: !TestnetDistribution
+    , tiSeed            :: !Integer
       -- ^ Seed to use (when no seed is provided, a secure random generator
       -- is used)
+    }
+    | MainnetInitializer {
+      miStartTime        :: !Timestamp
+    , miBootStakeholders :: !GenesisWStakeholders
+    --, msVssCerts         :: !VssCertificatesMap
+    } deriving (Show)
+
+-- | Predefined balances of avvm entries.
+newtype AvvmDistribution = AvvmDistribution
+    { getAvvmDistribution :: HashMap Address Coin
+    } deriving (Show)
+
+-- | Hardcoded genesis data to generate utxo from.
+data GenesisSpec = UnsafeGenesisSpec
+    { gsAvvmDistr       :: !AvvmDistribution
+    -- ^ Genesis data describes avvm utxo.
+    , gsHeavyDelegation :: !GenesisDelegation
+    -- ^ Genesis state of heavyweight delegation.
+    , gsInitializer     :: !GenesisInitializer
     } deriving (Show, Generic)
-
-----------------------------------------------------------------------------
--- ToJSON/FromJSON instances
-----------------------------------------------------------------------------
-
-wordToJSON :: Word -> JSValue
-wordToJSON = JSNum . fromIntegral
-
-word64ToJSON :: Word64 -> JSValue
-word64ToJSON = JSString . show
-
-integerToJSON :: Word64 -> JSValue
-integerToJSON = JSString . show
-
-coinToJSON :: Coin -> JSValue
-coinToJSON = word64ToJSON . unsafeGetCoin
-
-doubleToJSON :: Double -> JSValue
-doubleToJSON = JSString . show
-
-instance Monad m => ToJSON m Word16 where
-    toJSON = pure . JSString . show
-
-instance Monad m => ToJSON m Coin where
-    toJSON = pure . coinToJSON
-
-instance Monad m => ToJSON m Address where
-    toJSON = pure . JSString . show . B16.encode . serialize'
-
-instance Monad m => ToJSON m PublicKey where
-    toJSON = pure . JSString . show . sformat fullPublicKeyHexF
-
-instance Monad m => ToJSON m EpochIndex where
-    toJSON = pure . word64ToJSON . fromIntegral
-
-instance (Monad m, Typeable w) => ToJSON m (ProxyCert w) where
-    toJSON = pure . JSString . show . B16.encode . serialize'
-
-instance (Monad m, ToJSON m w, Typeable w) => ToJSON m (ProxySecretKey w) where
-    toJSON ProxySecretKey{..} = fmap JSObject $ sequence $
-        [ ("omega",)      <$> toJSON pskOmega
-        , ("issuerPk",)   <$> toJSON pskIssuerPk
-        , ("delegatePk",) <$> toJSON pskDelegatePk
-        , ("cert",)       <$> toJSON pskCert
-        ]
-
-instance Monad m => ToJSON m BalanceDistribution where
-    toJSON (FlatBalances n coin) = pure $
-        JSObject [("FlatBalances",
-            JSObject [ ("n", wordToJSON n)
-                     , ("coin", coinToJSON coin)
-                     ]
-                 )]
-    toJSON RichPoorBalances{..} = pure $
-        JSObject [("RichPoorBalances",
-            JSObject [ ("richmen", wordToJSON sdRichmen)
-                     , ("richBalance", coinToJSON sdRichBalance)
-                     , ("poor", wordToJSON sdPoor)
-                     , ("poorBalance", coinToJSON sdPoorBalance)
-                     ]
-                 )]
-    toJSON (ExponentialBalances n minCoin) = pure $
-        JSObject [("ExponentialBalances",
-            JSObject [ ("n", wordToJSON n)
-                     , ("minCoin", coinToJSON minCoin)
-                     ]
-                 )]
-    toJSON (CustomBalances coins) = do
-        coinsList <- toJSON coins
-        pure $
-            JSObject [("CustomBalances",
-                JSObject [("coins", coinsList)]
-                     )]
-
-instance Monad m => ToJSON m AddrDistribution where
-    toJSON (addresses, balDistr) = do
-        addressesField <- ("addresses",) <$> toJSON addresses
-        balDistrField <- ("balanceDistribution",) <$> toJSON balDistr
-        pure $ JSObject [addressesField, balDistrField]
-
-instance Monad m => ToObjectKey m StakeholderId where
-    toObjectKey = pure . show . sformat hashHexF
-
-instance Monad m => ToJSON m GenesisWStakeholders where
-    toJSON (GenesisWStakeholders stks) = toJSON stks
-
-instance Monad m => ToJSON m GenesisDelegation where
-    toJSON (UnsafeGenesisDelegation hm) = toJSON $ M.fromList $ HM.toList hm
-
-instance Monad m => ToJSON m GenesisCoreData where
-    toJSON UnsafeGenesisCoreData {..} = fmap JSObject $ sequence $
-        [ ("addrDistribution",) <$> toJSON gcdAddrDistribution
-        , ("bootStakeholders",) <$> toJSON gcdBootstrapStakeholders
-        , ("heavyDelegation",)  <$> toJSON gcdHeavyDelegation
-        ]
-
-instance Monad m => ToJSON m TestBalanceOptions where
-    toJSON TestBalanceOptions{..} = pure $ JSObject
-        [ ("poors", wordToJSON tsoPoors)
-        , ("richmen", wordToJSON tsoRichmen)
-        , ("richmenShare", doubleToJSON tsoRichmenShare)
-        , ("totalBalance", word64ToJSON tsoTotalBalance)
-        ]
-
-instance Monad m => ToJSON m FakeAvvmOptions where
-    toJSON FakeAvvmOptions{..} = pure $ JSObject $
-        [ ("count", wordToJSON faoCount)
-        , ("oneBalance", word64ToJSON faoOneBalance)
-        ]
-
-instance Monad m => ToJSON m GenesisSpec where
-    toJSON GenesisSpec {..} = do
-        avvmData <- ("avvmData",) <$> toJSON gsAvvmData
-        optionalTestnetFields <- fmap catMaybes $ sequence [
-            ("testBalance",) <<$>> traverse toJSON gsTestBalance
-          , ("fakeAvvmBalance",) <<$>> traverse toJSON gsFakeAvvmBalance
-          , ("seed",) . JSNum . fromIntegral <<$>> pure gsSeed
-          ]
-        pure $ JSObject $ avvmData : optionalTestnetFields
 
 -- | Calculates a minimum amount of coins user can set as an output in
 -- boot era.
@@ -314,37 +203,18 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
     -- even more than 10-15 coins.
     unsafeIntegerToCoin . sum $ map fromIntegral $ toList bootHolders
 
--- | Safe constructor for 'GenesisCoreData'. Throws error if something
+-- | Safe constructor for 'GenesisSpec'. Throws error if something
 -- goes wrong.
-mkGenesisCoreData
-    :: [AddrDistribution]
-    -> Map StakeholderId Word16
+mkGenesisSpec
+    :: AvvmDistribution
     -> GenesisDelegation
-    -> Either String GenesisCoreData
-mkGenesisCoreData distribution bootStakeholders delega = do
-    for_ distribution $ \(addrs, distr) -> do
-        -- Every set of addresses should match the stakeholders count
-        unless (fromIntegral (length addrs) == getDistributionSize distr) $
-            Left "mkGenesisCoreData: addressCount != stakeholdersCount \
-                 \for some set of addresses"
-        -- Addresses in each list are distinct (except for CustomBalances)
-        let isCustom = case distr of
-                CustomBalances{} -> True
-                _                -> False
-        unless (isCustom || allDistinct addrs) $
-            Left "mkGenesisCoreData: addresses in some list aren't distinct"
-        unless (all isBootstrapEraDistrAddress addrs) $
-            Left $ "mkGenesisCoreData: there is an address with stake " <>
-                   "distribution different from BootstrapEraDistr"
+    -> GenesisInitializer
+    -> Either String GenesisSpec
+mkGenesisSpec avvmDistr delega specType = do
+    let addrs = HM.keys $ getAvvmDistribution avvmDistr
+    unless (all isBootstrapEraDistrAddress addrs) $
+        Left $ "mkGenesisCoreData: there is an address with stake " <>
+                "distribution different from BootstrapEraDistr"
 
-    -- No address belongs to more than one distribution
-    let addrList = concatMap (ordNub . fst) distribution
-    unless (allDistinct addrList) $
-        Left "mkGenesisCoreData: some address belongs to more than one distr"
     -- All checks passed
-    pure
-        UnsafeGenesisCoreData
-        { gcdAddrDistribution = distribution
-        , gcdBootstrapStakeholders = GenesisWStakeholders bootStakeholders
-        , gcdHeavyDelegation = delega
-        }
+    pure $ UnsafeGenesisSpec avvmDistr delega specType

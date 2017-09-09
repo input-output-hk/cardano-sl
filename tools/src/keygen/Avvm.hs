@@ -18,7 +18,8 @@ import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Crypto           (RedeemPublicKey (..), redeemPkBuild)
-import           Pos.Genesis          (AddrDistribution, BalanceDistribution (..))
+import           Pos.Genesis          (AddrDistribution, AvvmDistribution (..),
+                                       BalanceDistribution (..))
 import           Pos.Types            (Address, Coin, makeRedeemAddress, unsafeAddCoin,
                                        unsafeIntegerToCoin)
 
@@ -74,13 +75,9 @@ instance FromJSON AvvmEntry where
 -- calling funciton.
 avvmAddrDistribution
     :: AvvmData
-    -> AddrDistribution
-avvmAddrDistribution (utxo -> avvmData) =
-    (HM.keys balances, CustomBalances $ HM.elems balances)
+    -> AvvmDistribution
+avvmAddrDistribution (utxo -> avvmData) = AvvmDistribution balances
   where
---    randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
---                            | c <- runGen (replicateM 10 arbitrary)]
-
     balances :: HashMap Address Coin
     balances = HM.fromListWith unsafeAddCoin $ do
         AvvmEntry{..} <- avvmData

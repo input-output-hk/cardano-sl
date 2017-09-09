@@ -62,6 +62,7 @@ library
                        Pos.Core.Version
 
                        Pos.Core.Genesis
+                       Pos.Core.Genesis.JSON
                        Pos.Core.Genesis.Parser
                        Pos.Core.Genesis.Types
 

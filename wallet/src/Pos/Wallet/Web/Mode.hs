@@ -7,6 +7,8 @@ module Pos.Wallet.Web.Mode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
        , MonadWalletWebMode
+       , MonadWebSockets
+       , MonadFullWalletWebMode
        ) where
 
 import           Universum
@@ -61,7 +63,7 @@ import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Class.Types            (HasSscContext (..), SscBlock)
 import           Pos.StateLock                  (StateLock)
 import           Pos.Txp.MemState               (MonadTxpMem)
-import           Pos.Util                       (Some (..))
+import           Pos.Util                       (HasLens', Some (..))
 import           Pos.Util.JsonLog               (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -175,10 +177,18 @@ type MonadWalletWebMode' ssc ctx m =
     , MonadTxHistory ssc m
     , MonadAddresses m
     , AddrData m ~ (AccountId, PassPhrase)
-    , HasLens ConnectionsVar ctx ConnectionsVar
     )
 
 type MonadWalletWebMode ctx m = MonadWalletWebMode' WalletSscType ctx m
+
+type MonadWebSockets ctx =
+    ( HasLens' ctx ConnectionsVar
+    )
+
+type MonadFullWalletWebMode ctx m =
+    ( MonadWalletWebMode ctx m
+    , MonadWebSockets ctx
+    )
 
 instance (HasCoreConstants, MonadSlotsData ctx WalletWebMode)
       => MonadSlots ctx WalletWebMode

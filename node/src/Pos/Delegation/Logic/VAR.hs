@@ -41,8 +41,8 @@ import           Pos.DB                       (DBError (DBMalformed), MonadDBRea
 import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.DB                    as DB
-import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..), MapCede,
-                                               MonadCedeRead (getPsk),
+import           Pos.Delegation.Cede          (CedeModifier (..), DlgEdgeAction (..),
+                                               MapCede, MonadCedeRead (getPsk),
                                                detectCycleOnAddition, dlgEdgeActionIssuer,
                                                dlgReachesIssuance, evalMapCede,
                                                getPskChain, getPskPk, modPsk,
@@ -268,8 +268,10 @@ calculateTransCorrections eActions = do
 
             eActionsHM :: CedeModifier
             eActionsHM =
-                HM.fromList $ map (\x -> (dlgEdgeActionIssuer x, x)) $
-                HS.toList eActions
+                CedeModifier
+                    (HM.fromList $ map (\x -> (dlgEdgeActionIssuer x, x)) $
+                                      HS.toList eActions)
+                    mempty
 
         in void $ evalMapCede eActionsHM $ loop iSId
 

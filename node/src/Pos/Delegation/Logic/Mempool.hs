@@ -52,7 +52,8 @@ import qualified Pos.DB                           as DB
 import           Pos.DB.Block                     (MonadBlockDB)
 import qualified Pos.DB.DB                        as DB
 import qualified Pos.DB.Misc                      as Misc
-import           Pos.Delegation.Cede              (detectCycleOnAddition, evalMapCede,
+import           Pos.Delegation.Cede              (CedeModifier (..),
+                                                   detectCycleOnAddition, evalMapCede,
                                                    pskToDlgEdgeAction)
 import           Pos.Delegation.Class             (DlgMemPool, MonadDelegation,
                                                    dwConfirmationCache, dwMessageCache,
@@ -206,10 +207,11 @@ processProxySKHeavyInternal psk = do
     producesCycle <-
         -- This is inefficient. Consider supporting this map
         -- in-memory or changing mempool key to stakeholderId.
-        let cedeModifier =
-                HM.fromList $
+        let _cmPskMods = HM.fromList $
                 map (bimap addressHash pskToDlgEdgeAction) $
                 HM.toList cyclePool
+            _cmHasPostedThisEpoch = mempty -- not used
+            cedeModifier = CedeModifier {..}
         in evalMapCede cedeModifier $ detectCycleOnAddition psk
 
     -- Here the memory state is the same.

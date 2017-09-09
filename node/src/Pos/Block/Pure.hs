@@ -4,12 +4,12 @@
 
 module Pos.Block.Pure
        (
-       -- * Header
-       , VerifyHeaderParams (..)
+         -- * Header
+         VerifyHeaderParams (..)
        , verifyHeader
        , verifyHeaders
 
-       -- * Block
+         -- * Block
        , VerifyBlockParams (..)
        , verifyBlocks
        ) where

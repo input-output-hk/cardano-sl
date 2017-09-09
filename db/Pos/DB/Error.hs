@@ -5,13 +5,15 @@ module Pos.DB.Error
        ) where
 
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, stext, (%))
+import           Formatting          (bprint, int, stext, (%))
 import           Universum
 
 data DBError =
-    -- | Structure of DB is malformed (e. g. data is inconsistent,
-    -- something is missing, etc.)
-    DBMalformed !Text
+      -- | Structure of DB is malformed (e. g. data is inconsistent,
+      -- something is missing, etc.)
+      DBMalformed !Text
+    | DBUnexpectedVersionTag !Word8 !Word8 -- ^ The first field is the expected version
+                                           -- tag. The second is the one received.
     deriving (Show)
 
 instance Exception DBError
@@ -19,3 +21,7 @@ instance Exception DBError
 
 instance Buildable DBError where
     build (DBMalformed msg) = bprint ("malformed DB ("%stext%")") msg
+    build (DBUnexpectedVersionTag w1 w2) =
+        bprint ("unexpected version tag (Expected version tag: "%int%". Got: "%int%")")
+               w1
+               w2

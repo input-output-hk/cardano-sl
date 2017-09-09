@@ -12,7 +12,9 @@ module Pos.Wallet.Web.Mode
 import           Universum
 
 import           Control.Lens                   (makeLensesWith)
+import           Control.Monad.Catch            (MonadMask)
 import qualified Control.Monad.Reader           as Mtl
+import           Control.Monad.Trans.Control    (MonadBaseControl)
 import           Ether.Internal                 (HasLens (..))
 import           Mockable                       (Production)
 import           System.Wlog                    (HasLoggerName (..))
@@ -25,8 +27,8 @@ import           Pos.Core                       (HasCoreConstants, HasPrimaryKey
                                                  IsHeader)
 import           Pos.Crypto                     (PassPhrase)
 import           Pos.DB                         (MonadGState (..))
-import           Pos.DB.Block                   (dbGetBlockDefault, dbGetBlockSscDefault,
-                                                 dbGetHeaderDefault,
+import           Pos.DB.Block                   (MonadBlockDB, dbGetBlockDefault,
+                                                 dbGetBlockSscDefault, dbGetHeaderDefault,
                                                  dbGetHeaderSscDefault, dbGetUndoDefault,
                                                  dbGetUndoSscDefault, dbPutBlundDefault)
 import           Pos.DB.Class                   (MonadBlockDBGeneric (..),
@@ -43,8 +45,10 @@ import           Pos.Client.Txp.Balances        (MonadBalances (..), getBalanceD
 import           Pos.Client.Txp.History         (MonadTxHistory (..),
                                                  getBlockHistoryDefault,
                                                  getLocalHistoryDefault, saveTxDefault)
+import           Pos.Genesis                    (GenesisUtxo)
 import           Pos.KnownPeers                 (MonadFormatPeers (..),
                                                  MonadKnownPeers (..))
+import           Pos.Recovery.Info              (MonadRecoveryInfo)
 import           Pos.Reporting                  (HasReportingContext (..))
 import           Pos.Shutdown                   (HasShutdownContext (..))
 import           Pos.Slotting.Class             (MonadSlots (..))
@@ -53,7 +57,10 @@ import           Pos.Slotting.Impl.Sum          (currentTimeSlottingSum,
                                                  getCurrentSlotInaccurateSum,
                                                  getCurrentSlotSum)
 import           Pos.Slotting.MemState          (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Class.Types            (HasSscContext (..), SscBlock)
+import           Pos.StateLock                  (StateLock)
+import           Pos.Txp.MemState               (MonadTxpMem)
 import           Pos.Util                       (Some (..))
 import           Pos.Util.JsonLog               (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
@@ -78,10 +85,8 @@ import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State.State     (WalletState)
 import           Pos.Wallet.Web.Tracking        (MonadBListener (..), onApplyTracking,
                                                  onRollbackTracking)
-import           Pos.WorkMode                   (RealModeContext (..), WorkMode)
-
-
-
+import           Pos.WorkMode                   (MinWorkMode, RealModeContext (..),
+                                                 TxpExtra_TMP)
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
@@ -144,17 +149,36 @@ instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeConte
 
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
-type MonadWalletWebMode ctx m =
-    ( WorkMode WalletSscType ctx m
+type MonadWalletWebMode' ssc ctx m =
+    ( MinWorkMode m
+    , MonadBaseControl IO m
+    , MonadMask m
+    , MonadSlots ctx m
+    , MonadGState m
+    , MonadBlockDB ssc m
+    , MonadTxpMem TxpExtra_TMP ctx m
+    , SscHelpersClass ssc
+    , MonadRecoveryInfo m
+    , MonadBListener m
+    , MonadReader ctx m
+    , MonadKnownPeers m
+    , MonadFormatPeers m
+    , HasLens StateLock ctx StateLock
+    , HasLens GenesisUtxo ctx GenesisUtxo
+    , HasReportingContext ctx
+    , HasShutdownContext ctx
+    , HasCoreConstants
     , AccountMode ctx m
     , MonadBlockchainInfo m
     , MonadBalances m
     , MonadUpdates m
-    , MonadTxHistory WalletSscType m
+    , MonadTxHistory ssc m
     , MonadAddresses m
     , AddrData m ~ (AccountId, PassPhrase)
     , HasLens ConnectionsVar ctx ConnectionsVar
     )
+
+type MonadWalletWebMode ctx m = MonadWalletWebMode' WalletSscType ctx m
 
 instance (HasCoreConstants, MonadSlotsData ctx WalletWebMode)
       => MonadSlots ctx WalletWebMode

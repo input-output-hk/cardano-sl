@@ -28,10 +28,11 @@ import           Pos.Crypto                     (PassPhrase, hash, withSafeSigne
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
+import           Pos.Util.Servant               (encodeCType)
 import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAccAddr)
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
                                                  CCoin, CId, CTx (..), CWAddressMeta (..),
-                                                 Wal, addrMetaToAccount, mkCCoin)
+                                                 Wal, addrMetaToAccount)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
@@ -71,7 +72,7 @@ getTxFee srcAccount dstAccount coin = do
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
         eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
-    pure $ mkCCoin fee
+    pure $ encodeCType fee
 
 data MoneySource
     = WalletMoneySource (CId Wal)

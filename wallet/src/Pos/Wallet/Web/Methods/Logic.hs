@@ -48,7 +48,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
                                              CAddress (..), CId, CWAddressMeta (..),
                                              CWallet (..), CWalletMeta (..), Wal,
-                                             addrMetaToAccount, encToCId, mkCCoin)
+                                             addrMetaToAccount, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
@@ -89,7 +89,7 @@ getWAddress cachedAccModifier cAddr = do
             return (checkDB || checkMempool)
     isUsed   <- getFlag UsedAddr camUsed
     isChange <- getFlag ChangeAddr camChange
-    return $ CAddress aId (mkCCoin balance) isUsed isChange
+    return $ CAddress aId (encodeCType balance) isUsed isChange
 
 getAccount :: MonadWalletWebMode m => CachedCAccModifier -> AccountId -> m CAccount
 getAccount accMod accId = do
@@ -97,7 +97,7 @@ getAccount accMod accId = do
     let modifier   = camAddresses accMod
     let allAddrIds = gatherAddresses modifier dbAddrs
     allAddrs <- mapM (getWAddress accMod) allAddrIds
-    balance  <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+    balance  <- encodeCType . unsafeIntegerToCoin . sumCoins <$>
                 mapM getWAddressBalance allAddrIds
     meta <- getAccountMeta accId >>= maybeThrow noWallet
     pure $ CAccount (encodeCType accId) meta allAddrs balance
@@ -116,7 +116,7 @@ getWalletIncludeUnready includeUnready cAddr = do
     meta       <- getWalletMetaIncludeUnready includeUnready cAddr >>= maybeThrow noWSet
     wallets    <- getAccountsIncludeUnready includeUnready (Just cAddr)
     let walletsNum = length wallets
-    balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+    balance    <- encodeCType . unsafeIntegerToCoin . sumCoins <$>
                      mapM (decodeCTypeOrFail . caAmount) wallets
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- getWalletPassLU cAddr >>= maybeThrow noWSet

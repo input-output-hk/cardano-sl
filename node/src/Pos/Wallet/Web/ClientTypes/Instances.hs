@@ -6,33 +6,27 @@ module Pos.Wallet.Web.ClientTypes.Instances () where
 
 import           Universum
 
-import qualified Data.ByteArray                       as ByteArray
-import qualified Data.ByteString                      as BS
-import           Data.Text                            (splitOn)
-import           Formatting                           (build, int, sformat, (%))
-import qualified Serokell.Util.Base16                 as Base16
-import           Servant.API                          (FromHttpApiData (..))
-import           Servant.Multipart                    (FromMultipart (..), lookupFile,
-                                                       lookupInput)
+import qualified Data.ByteArray                   as ByteArray
+import qualified Data.ByteString                  as BS
+import           Data.Text                        (splitOn)
+import           Formatting                       (build, int, sformat, (%))
+import qualified Serokell.Util.Base16             as Base16
+import           Servant.API                      (FromHttpApiData (..))
+import           Servant.Multipart                (FromMultipart (..), lookupFile,
+                                                   lookupInput)
 
-import           Pos.Core                             (Address, Coin, decodeTextAddress,
-                                                       mkCoin)
-import           Pos.Crypto                           (PassPhrase, passphraseLength)
-import           Pos.Txp.Core.Types                   (TxId)
-import           Pos.Util.Servant                     (FromCType (..), OriginType,
-                                                       ToCType (..))
-import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
-                                                       mkCCoin, mkCTxId,
-                                                       ptxCondToCPtxCond, txIdToCTxId)
-import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccountId (..),
-                                                       CCoin (..),
-                                                       CElectronCrashReport (..),
-                                                       CId (..), CPassPhrase (..),
-                                                       CPtxCondition, CTxId)
-import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
-
--- TODO [CSM-407] Maybe revert dependency between Functions and Instances modules?
--- This would allow to get tid of functions like 'ptxCondToCPtxCond' :/
+import           Pos.Core                         (Address, Coin, decodeTextAddress,
+                                                   mkCoin, unsafeGetCoin)
+import           Pos.Crypto                       (PassPhrase, hashHexF, passphraseLength)
+import           Pos.Txp.Core.Types               (TxId)
+import           Pos.Util.Servant                 (FromCType (..), OriginType,
+                                                   ToCType (..))
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccountId (..),
+                                                   CCoin (..), CElectronCrashReport (..),
+                                                   CHash (..), CId (..), CPassPhrase (..),
+                                                   CPtxCondition, CPtxCondition (..),
+                                                   CTxId, mkCTxId)
+import           Pos.Wallet.Web.Pending.Types     (PtxCondition (..))
 
 ----------------------------------------------------------------------------
 -- Convertions
@@ -64,7 +58,7 @@ instance FromCType CAccountId where
     decodeCType (CAccountId url) =
         case splitOn "@" url of
             [part1, part2] -> do
-                aiWId  <- addressToCId <$> decodeTextAddress part1
+                aiWId  <- encodeCType <$> decodeTextAddress part1
                 aiIndex <- maybe (Left "Invalid wallet index") Right $
                             readMaybe $ toString part2
                 return AccountId{..}
@@ -82,28 +76,37 @@ instance FromCType CCoin where
         fmap mkCoin . readMaybe . toString . getCCoin
 
 instance ToCType CCoin where
-    encodeCType = mkCCoin
+    encodeCType = CCoin . show . unsafeGetCoin
 
 
 type instance OriginType (CId w) = Address
 
-instance FromCType (CId w) where
-    decodeCType = cIdToAddress
-
 instance ToCType (CId w) where
-    encodeCType = addressToCId
+    -- TODO: this is not completely safe. If someone changes
+    -- implementation of Buildable Address. It should be probably more
+    -- safe to introduce `class PSSimplified` that would have the same
+    -- implementation has it is with Buildable Address but then person
+    -- will know it will probably change something for purescript.
+    encodeCType = CId . CHash . sformat build
+
+instance FromCType (CId w) where
+    decodeCType (CId (CHash h)) = decodeTextAddress h
 
 
 type instance OriginType CTxId = TxId
 
 instance ToCType CTxId where
-    encodeCType = txIdToCTxId
+    encodeCType = mkCTxId . sformat hashHexF
 
 
 type instance OriginType CPtxCondition = Maybe PtxCondition
 
 instance ToCType CPtxCondition where
-    encodeCType = ptxCondToCPtxCond
+    encodeCType = maybe CPtxNotTracked $ \case
+        PtxApplying{}       -> CPtxApplying
+        PtxInNewestBlocks{} -> CPtxInBlocks
+        PtxPersisted{}      -> CPtxInBlocks
+        PtxWontApply{}      -> CPtxWontApply
 
 ----------------------------------------------------------------------------
 -- Servant
@@ -116,7 +119,7 @@ instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress
 
 instance FromHttpApiData (CId w) where
-    parseUrlPiece = fmap addressToCId . decodeTextAddress
+    parseUrlPiece = fmap encodeCType . decodeTextAddress
 
 instance FromHttpApiData CAccountId where
     parseUrlPiece = fmap CAccountId . parseUrlPiece

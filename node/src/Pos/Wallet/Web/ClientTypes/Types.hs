@@ -38,6 +38,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CTx (..)
       , CTExMeta (..)
       , CUpdateInfo (..)
+      , mkCTxId
 
         -- * Profile
       , CProfile (..)
@@ -100,6 +101,9 @@ data Addr = Addr
 -- | Client transaction id
 newtype CTxId = CTxId CHash
     deriving (Show, Eq, Generic, Hashable)
+
+mkCTxId :: Text -> CTxId
+mkCTxId = CTxId . CHash
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)

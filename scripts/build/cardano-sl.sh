@@ -244,7 +244,7 @@ if [[ "$prodMode" != "" ]]; then
     dconfig="${dconfig}_full"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig -DGITREV=`git rev-parse HEAD`"
+ghc_opts="-DCONFIG=$dconfig"
 
 if [[ $no_fast == true ]];
   then fast=""
@@ -328,19 +328,25 @@ echo "'explorer' flag: $explorer"
 
 for prj in $to_build; do
 
-  echo -e "Building $prj\n"
-  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
-  echo -e "$sbuild\n"
-  eval $sbuild
-
-  if [[ $no_code == true ]]; then
-    ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
+  if [[ $prj == "cardano-sl-core" ]]; then
+    ghc_opts_2="$ghc_opts -DGITREV=`git rev-parse HEAD`"
   else
     ghc_opts_2="$ghc_opts"
   fi
 
+  echo -e "Building $prj\n"
+  sbuild="stack build --ghc-options=\"$ghc_opts_2\" $commonargs $norun --dependencies-only $args $prj"
+  echo -e "$sbuild\n"
+  eval $sbuild
+
+  if [[ $no_code == true ]]; then
+    ghc_opts_3="$ghc_opts2 -fwrite-interface -fno-code"
+  else
+    ghc_opts_3="$ghc_opts2"
+  fi
+
   stack build                               \
-      --ghc-options="$ghc_opts_2"           \
+      --ghc-options="$ghc_opts_3"           \
       $commonargs $norun                    \
       $fast                                 \
       $args                                 \

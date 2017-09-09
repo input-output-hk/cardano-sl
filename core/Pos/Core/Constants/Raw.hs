@@ -17,6 +17,7 @@ module Pos.Core.Constants.Raw
 
        -- * Constants
        , isDevelopment
+       , gitRev
        , protocolMagic
        , staticSysStartRaw
        , genesisKeysN
@@ -198,6 +199,15 @@ isDevelopment :: Bool
 isDevelopment = True
 #else
 isDevelopment = False
+#endif
+
+#define QUOTED(x) "/**/x/**/"
+
+gitRev :: Text
+#if !defined(GITREV)
+gitRev = "unknown"
+#else
+gitRev = QUOTED(GITREV)
 #endif
 
 -- | System start time embedded into binary.

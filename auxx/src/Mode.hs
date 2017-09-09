@@ -34,7 +34,7 @@ import           Pos.Client.Txp.Balances  (MonadBalances (..), getBalanceFromUtx
 import           Pos.Client.Txp.History   (MonadTxHistory (..), getBlockHistoryDefault,
                                            getLocalHistoryDefault, saveTxDefault)
 import           Pos.Communication        (NodeId)
-import           Pos.Context              (HasNodeContext (..), unGenesisUtxo)
+import           Pos.Context              (HasNodeContext (..))
 import           Pos.Core                 (HasCoreConstants, HasPrimaryKey (..), IsHeader)
 import           Pos.Crypto               (PublicKey)
 import           Pos.DB                   (MonadGState (..))
@@ -49,14 +49,14 @@ import           Pos.Slotting.Class       (MonadSlots (..))
 import           Pos.Slotting.MemState    (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class            (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing       (SscGodTossing)
-import           Pos.Txp                  (filterUtxoByAddrs)
+import           Pos.Txp.DB.Utxo          (getFilteredUtxo)
 import           Pos.Util                 (Some (..))
 import           Pos.Util.JsonLog         (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName      (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue   as OQ.Reader
 import           Pos.Util.TimeWarp        (CanJsonLog (..))
 import           Pos.Util.UserSecret      (HasUserSecret (..))
-import           Pos.Util.Util            (HasLens (..), lensOf', postfixLFields)
+import           Pos.Util.Util            (HasLens (..), postfixLFields)
 import           Pos.WorkMode             (RealMode, RealModeContext (..))
 
 import           Pos.Auxx.Hacks        (makePubKeyAddressAuxx)
@@ -186,10 +186,8 @@ instance HasCoreConstants => MonadBListener AuxxMode where
     onApplyBlocks = realModeToAuxx ... onApplyBlocks
     onRollbackBlocks = realModeToAuxx ... onRollbackBlocks
 
--- FIXME: I preserved the old behavior, but it most likely should be
--- changed!
 instance HasCoreConstants => MonadBalances AuxxMode where
-    getOwnUtxos addrs = filterUtxoByAddrs addrs . unGenesisUtxo <$> view lensOf'
+    getOwnUtxos = getFilteredUtxo
     getBalance = getBalanceFromUtxo
 
 instance HasCoreConstants => MonadTxHistory AuxxSscType AuxxMode where

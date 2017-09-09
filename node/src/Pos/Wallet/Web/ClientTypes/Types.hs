@@ -2,40 +2,56 @@
 
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes.Types
-      ( SyncProgress (..)
+      ( -- * Identifiers & primitives
+        CId (..)
+      , CHash (..)
+      , CPassPhrase (..)
+      , CTxId (..)
+      , CAccountId (..)
+      , CCoin (..)
+      , Wal (..)
+      , Addr (..)
+      , PassPhraseLU
+
+        -- * Wallets
+        -- ** Structure & metas
+      , CWalletAssurance (..)
+      , CWalletMeta (..)
+      , AccountId (..)
+      , CAccountMeta (..)
+      , CWAddressMeta (..)
+
+        -- ** Requests
+      , CWalletInit (..)
+      , CWalletRedeem (..)
+      , CPaperVendWalletRedeem (..)
+      , CAccountInit (..)
+
+        -- ** Responses
+      , CWallet (..)
+      , CAccount (..)
+      , CAddress (..)
+
+        -- * Transactions
+      , CPtxCondition (..)
+      , CTxMeta (..)
+      , CTx (..)
+      , CTExMeta (..)
+      , CUpdateInfo (..)
+
+        -- * Profile
+      , CProfile (..)
+      , CPwHash
+
+        -- * Reporting
+      , CInitialized (..)
+      , CElectronCrashReport (..)
+
+        -- * Misc
+      , SyncProgress (..)
       , spLocalCD
       , spNetworkCD
       , spPeers
-      , CId (..)
-      , CHash (..)
-      , CPassPhrase (..)
-      , CProfile (..)
-      , CPwHash
-      , CTx (..)
-      , CTxId (..)
-      , CTxMeta (..)
-      , CTExMeta (..)
-      , CPtxCondition (..)
-      , CInitialized (..)
-      , AccountId (..)
-      , CAccountId (..)
-      , CWAddressMeta (..)
-      , CAddress (..)
-      , CAccount (..)
-      , CWalletAssurance (..)
-      , CAccountMeta (..)
-      , CAccountInit (..)
-      , CWallet (..)
-      , CWalletMeta (..)
-      , CWalletInit (..)
-      , CUpdateInfo (..)
-      , CWalletRedeem (..)
-      , CPaperVendWalletRedeem (..)
-      , CCoin (..)
-      , PassPhraseLU
-      , CElectronCrashReport (..)
-      , Wal (..)
-      , Addr (..)
       ) where
 
 import           Universum
@@ -57,18 +73,9 @@ import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
--- TODO [CSM-407] Structurize this mess
-
-data SyncProgress = SyncProgress
-    { _spLocalCD   :: ChainDifficulty
-    , _spNetworkCD :: Maybe ChainDifficulty
-    , _spPeers     :: Word
-    } deriving (Show, Generic, Typeable)
-
-makeLenses ''SyncProgress
-
-instance Default SyncProgress where
-    def = SyncProgress 0 mzero 0
+----------------------------------------------------------------------------
+-- Identifiers & primitives
+----------------------------------------------------------------------------
 
 -- | Client hash
 newtype CHash = CHash Text
@@ -78,7 +85,7 @@ instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
--- @w@ is phantom type and stands for type of item this address belongs to.
+-- @w@ is phantom type and stands for type of item this id belongs to.
 newtype CId w = CId CHash
     deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
 
@@ -100,15 +107,24 @@ newtype CPassPhrase = CPassPhrase Text
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
+newtype CAccountId = CAccountId Text
+    deriving (Eq, Show, Generic, Buildable)
+
+newtype CCoin = CCoin
+    { getCCoin :: Text
+    } deriving (Show, Eq, Generic)
+
+-- | Passphrase last update time
+type PassPhraseLU = POSIXTime
+
 ----------------------------------------------------------------------------
--- Wallet
+-- Wallet structure & metas
 ----------------------------------------------------------------------------
 
--- | Wallet identifier
 data AccountId = AccountId
-    { -- | Address of wallet this wallet belongs to
+    { -- | Address of wallet this account belongs to
       aiWId   :: CId Wal
-    , -- | Derivation index of this wallet key
+    , -- | Derivation index of this account key
       aiIndex :: Word32
     } deriving (Eq, Show, Generic, Typeable)
 
@@ -118,11 +134,6 @@ instance Buildable AccountId where
     build AccountId{..} =
         bprint (F.build%"@"%F.build) aiWId aiIndex
 
-newtype CAccountId = CAccountId Text
-    deriving (Eq, Show, Generic, Buildable)
-
--- TODO: extract first three fields as @Coordinates@ and use only it where
--- required (maybe nowhere)
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet this account belongs to
@@ -142,55 +153,11 @@ instance Buildable CWAddressMeta where
 
 instance Hashable CWAddressMeta
 
-newtype CCoin = CCoin
-    { getCCoin :: Text
-    } deriving (Show, Eq, Generic)
-
--- | Passphrase last update time
-type PassPhraseLU = POSIXTime
-
 -- | A level of assurance for the wallet "meta type"
 data CWalletAssurance
     = CWAStrict
     | CWANormal
     deriving (Show, Eq, Generic)
-
--- | Single address in a account
-data CAddress = CAddress
-    { cadId       :: !(CId Addr)
-    , cadAmount   :: !CCoin
-    , cadIsUsed   :: !Bool
-    , cadIsChange :: !Bool -- ^ Is this a change address
-    } deriving (Show, Generic)
-
--- Includes data which are not provided by Cardano
-data CAccountMeta = CAccountMeta
-    { caName      :: !Text
-    } deriving (Show, Generic)
-
-instance Default CAccountMeta where
-    def = CAccountMeta "Personal Wallet"
-
--- | Client Account (CA)
--- (Flow type: accountType)
-data CAccount = CAccount
-    { caId        :: !CAccountId
-    , caMeta      :: !CAccountMeta
-    , caAddresses :: ![CAddress]
-    , caAmount    :: !CCoin
-    } deriving (Show, Generic, Typeable)
-
--- | Query data for account creation
-data CAccountInit = CAccountInit
-    { caInitMeta :: !CAccountMeta
-    , caInitWId  :: !(CId Wal)
-    } deriving (Show, Generic)
-
--- | Query data for redeem
-data CWalletRedeem = CWalletRedeem
-    { crWalletId :: !CAccountId
-    , crSeed     :: !Text -- TODO: newtype!
-    } deriving (Show, Generic)
 
 -- | Meta data of 'CWallet'
 data CWalletMeta = CWalletMeta
@@ -202,6 +169,47 @@ data CWalletMeta = CWalletMeta
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
 
+-- Includes data which are not provided by Cardano
+data CAccountMeta = CAccountMeta
+    { caName      :: !Text
+    } deriving (Show, Generic)
+
+instance Default CAccountMeta where
+    def = CAccountMeta "Personal Wallet"
+
+----------------------------------------------------------------------------
+-- Wallet structure - requests
+----------------------------------------------------------------------------
+
+-- | Query data for wallet creation
+data CWalletInit = CWalletInit
+    { cwInitMeta     :: !CWalletMeta
+    , cwBackupPhrase :: !BackupPhrase
+    } deriving (Eq, Show, Generic)
+
+-- | Query data for redeem
+data CWalletRedeem = CWalletRedeem
+    { crWalletId :: !CAccountId
+    , crSeed     :: !Text -- TODO: newtype!
+    } deriving (Show, Generic)
+
+-- | Query data for redeem
+data CPaperVendWalletRedeem = CPaperVendWalletRedeem
+    { pvWalletId     :: !CAccountId
+    , pvSeed         :: !Text -- TODO: newtype!
+    , pvBackupPhrase :: !BackupPhrase
+    } deriving (Show, Generic)
+
+-- | Query data for account creation
+data CAccountInit = CAccountInit
+    { caInitMeta :: !CAccountMeta
+    , caInitWId  :: !(CId Wal)
+    } deriving (Show, Generic)
+
+----------------------------------------------------------------------------
+-- Wallet struture - responses
+----------------------------------------------------------------------------
+
 -- | Client Wallet (CW)
 data CWallet = CWallet
     { cwId             :: !(CId Wal)
@@ -212,17 +220,21 @@ data CWallet = CWallet
     , cwPassphraseLU   :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
--- | Query data for wallet creation
-data CWalletInit = CWalletInit
-    { cwInitMeta     :: !CWalletMeta
-    , cwBackupPhrase :: !BackupPhrase
-    } deriving (Eq, Show, Generic)
+-- | Client Account (CA)
+-- (Flow type: accountType)
+data CAccount = CAccount
+    { caId        :: !CAccountId
+    , caMeta      :: !CAccountMeta
+    , caAddresses :: ![CAddress]
+    , caAmount    :: !CCoin
+    } deriving (Show, Generic, Typeable)
 
--- | Query data for redeem
-data CPaperVendWalletRedeem = CPaperVendWalletRedeem
-    { pvWalletId     :: !CAccountId
-    , pvSeed         :: !Text -- TODO: newtype!
-    , pvBackupPhrase :: !BackupPhrase
+-- | Single address in a account
+data CAddress = CAddress
+    { cadId       :: !(CId Addr)
+    , cadAmount   :: !CCoin
+    , cadIsUsed   :: !Bool
+    , cadIsChange :: !Bool -- ^ Is this a change address
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
@@ -332,3 +344,19 @@ data CElectronCrashReport = CElectronCrashReport
     , cecCompanyName :: Text
     , cecUploadDump  :: FileData
     } deriving (Show, Generic)
+
+----------------------------------------------------------------------------
+-- Misc
+----------------------------------------------------------------------------
+
+data SyncProgress = SyncProgress
+    { _spLocalCD   :: ChainDifficulty
+    , _spNetworkCD :: Maybe ChainDifficulty
+    , _spPeers     :: Word
+    } deriving (Show, Generic, Typeable)
+
+makeLenses ''SyncProgress
+
+instance Default SyncProgress where
+    def = SyncProgress 0 mzero 0
+

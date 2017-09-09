@@ -1,7 +1,6 @@
 -- | Pending tx utils which db depends on
--- TODO [CSM-407] merge with Utilshs
 
-module Pos.Wallet.Web.Pending.Updates
+module Pos.Wallet.Web.Pending.Util
     ( mkPtxSubmitTiming
     , incPtxSubmitTimingPure
     , ptxMarkAcknowledgedPure

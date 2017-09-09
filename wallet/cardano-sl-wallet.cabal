@@ -42,7 +42,7 @@ library
                       Pos.Wallet.Web.Methods.Txp
                       Pos.Wallet.Web.Pending
                       Pos.Wallet.Web.Pending.Submission
-                      Pos.Wallet.Web.Pending.Util
+                      Pos.Wallet.Web.Pending.Functions
                       Pos.Wallet.Web.Pending.Worker
                       Pos.Wallet.Web.Server
                       Pos.Wallet.Web.Server.Handlers

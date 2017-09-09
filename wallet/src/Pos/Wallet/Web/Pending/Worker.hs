@@ -29,11 +29,11 @@ import           Pos.Slotting                      (getNextEpochSlotDuration, on
 import           Pos.Txp                           (TxAux (..), topsortTxs)
 import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending.Functions  (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
                                                     ptxNextSubmitSlot, _PtxApplying)
-import           Pos.Wallet.Web.Pending.Util       (usingPtxCoords)
 import           Pos.Wallet.Web.State              (PtxMetaUpdate (PtxIncSubmitTiming),
                                                     casPtxCondition, getPendingTx,
                                                     getPendingTxs, ptxUpdateMeta)

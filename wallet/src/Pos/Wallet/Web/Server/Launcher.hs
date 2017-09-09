@@ -28,7 +28,8 @@ import           Pos.Launcher.Configuration       (HasConfigurations)
 import           Pos.Util.TimeWarp                (NetworkAddress)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
-import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
+import           Pos.Wallet.Web.Mode              (MonadFullWalletWebMode,
+                                                   MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Server.Handlers   (servantHandlersWithSwagger)
 import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnections,
@@ -51,7 +52,7 @@ walletServeImpl app (ip, port) =
     serveImpl app (BS8.unpack ip) port
 
 walletApplication
-    :: MonadWalletWebMode ctx m
+    :: MonadFullWalletWebMode ctx m
     => m (Server WalletSwaggerApi)
     -> m Application
 walletApplication serv = do
@@ -60,7 +61,7 @@ walletApplication serv = do
 
 walletServer
     :: forall ctx m.
-       ( MonadWalletWebMode ctx m )
+       ( MonadFullWalletWebMode ctx m )
     => SendActions m
     -> m (m :~> Handler)
     -> m (Server WalletSwaggerApi)

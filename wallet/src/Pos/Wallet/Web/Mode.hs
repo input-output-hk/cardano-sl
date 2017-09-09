@@ -7,6 +7,8 @@ module Pos.Wallet.Web.Mode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
        , MonadWalletWebMode
+       , MonadWebSockets
+       , MonadFullWalletWebMode
        , EmptyMempoolExt
        ) where
 
@@ -83,7 +85,7 @@ import qualified Pos.Util.Modifier                as MM
 import qualified Pos.Util.OutboundQueue           as OQ.Reader
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Util.UserSecret              (HasUserSecret (..))
-import           Pos.Util.Util                    (postfixLFields)
+import           Pos.Util.Util                    (HasLens', postfixLFields)
 import           Pos.WorkMode                     (EmptyMempoolExt, MinWorkMode,
                                                    RealModeContext (..))
 
@@ -192,10 +194,18 @@ type MonadWalletWebMode' ctx m =
     , MonadAddresses m
     , MonadRandom m
     , AddrData m ~ (AccountId, PassPhrase)
-    , HasLens ConnectionsVar ctx ConnectionsVar
     )
 
 type MonadWalletWebMode ctx m = MonadWalletWebMode' ctx m
+
+type MonadWebSockets ctx =
+    ( HasLens' ctx ConnectionsVar
+    )
+
+type MonadFullWalletWebMode ctx m =
+    ( MonadWalletWebMode ctx m
+    , MonadWebSockets ctx
+    )
 
 instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx WalletWebMode)
       => MonadSlots ctx WalletWebMode

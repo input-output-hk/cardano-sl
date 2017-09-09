@@ -73,6 +73,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- We determine it here and pass to all interested components.
     adoptedBV <- GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
+
     -- And then we run verification of each component.
     slogUndos <- withExceptT VerifyBlocksError $ slogVerifyBlocks blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
@@ -83,9 +84,11 @@ verifyBlocksPrefix blocks = runExceptT $ do
     pskUndo <- withExceptT VerifyBlocksError . ExceptT $ dlgVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
+
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
-        throwError $ VerifyBlocksError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
+        throwError $ VerifyBlocksError
+        "Internal error of verifyBlocksPrefix: lengths of undos don't match"
     pure ( OldestFirst $ neZipWith4 Undo
                (getOldestFirst txUndo)
                (getOldestFirst pskUndo)

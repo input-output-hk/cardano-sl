@@ -3,8 +3,7 @@
 -- | Pure functions related to blocks and headers.
 
 module Pos.Block.Pure
-       ( headerDifficultyIncrement
-
+       (
        -- * Header
        , VerifyHeaderParams (..)
        , verifyHeader
@@ -47,7 +46,7 @@ import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 -- Header
 ----------------------------------------------------------------------------
 
--- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
+-- Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
 headerDifficultyIncrement (Left _)  = 0
 headerDifficultyIncrement (Right _) = 1

@@ -88,6 +88,7 @@ library
                       , formatting
                       , lens
                       , log-warper
+                      , monad-control
                       , mtl
                       , network-transport
                       , node-sketch

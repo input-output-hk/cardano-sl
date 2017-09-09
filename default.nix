@@ -23,16 +23,25 @@ let
           "-f-dev-mode"
           "--ghc-option=-optl-lm"
         ];
-        testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
+        testTarget = " || (sleep 10 && kill $TESTS_RUNNING && false)";
         preCheck = ''
-          mkdir -p dist/test
-          touch dist/test/test.log
-          tail -F dist/test/test.log &
-          export TAILPID=$!
+          minutes=0
+          limit=30               # 30 minutes for tests
+          sleep 1d &
+          export TESTS_RUNNING=$!
+          while kill -0 $TESTS_RUNNING 2>/dev/null; do
+              echo -n -e " \b"
+              if [ $minutes == $limit ]; then
+                  kill $TESTS_RUNNING
+                  break
+              fi
+              minutes=$((minutes+1))
+              sleep 60
+          done &
         '';
         postCheck = ''
           sleep 10
-          kill $TAILPID
+          kill $TESTS_RUNNING
         '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
